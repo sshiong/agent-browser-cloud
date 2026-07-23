@@ -45,7 +45,11 @@ export type ResourceClass = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
  */
 export interface SessionView {
   sessionId: string;
+  displayName: string;
   tenantId: string;
+  profileId: string;
+  region: string;
+  resourceClass: ResourceClass;
   state: SessionState;
   nodeId?: string;
   runtimeBuildId?: string;

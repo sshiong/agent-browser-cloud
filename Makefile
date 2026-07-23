@@ -77,7 +77,7 @@ test-integration:
 
 # Run E2E tests
 test-e2e:
-	pnpm --dir apps/web-console test:e2e
+	./tests/e2e/run.sh
 
 # Run all checks (CI)
 ci: lint test contracts-check

@@ -105,7 +105,7 @@ unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_co
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
 
-request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1"}'
+request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","metadata":{"displayName":"Integration browser"}}'
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: smoke-idempotency-001' \
@@ -135,6 +135,8 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
   -H 'X-Tenant-Id: tenant-integration')"
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
+printf '%s' "$list_result" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin)["items"][0]; assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L1"'
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -148,6 +150,8 @@ operation_id="$(printf '%s' "$start_result" | python3 -c 'import json,sys; print
 session_after_start="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$session_after_start" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L1"'
 active_operation_id="$(printf '%s' "$session_after_start" | python3 -c 'import json,sys; print(json.load(sys.stdin)["currentOperation"]["operationId"])')"
 test "$operation_id" = "$active_operation_id"
 
@@ -162,6 +166,6 @@ test "$published" = "1"
 
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\ncross_tenant_access=%s\nactive_operation_visible=true\noperation_id=%s\nnode_command_published=%s\npublic_tables=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nactive_operation_visible=true\noperation_id=%s\nnode_command_published=%s\npublic_tables=%s\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$published" "$public_tables"

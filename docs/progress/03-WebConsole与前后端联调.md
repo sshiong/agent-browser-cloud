@@ -39,6 +39,13 @@
 - Session 详情显示状态、Node、Runtime、Epoch、Operation、时间线和能力接入状态。
 - Start 与 Terminate 等高风险状态不做乐观成功；Terminate 有明确确认步骤。
 - 活跃 Operation 期间每两秒刷新详情，直到后续事件闭环能够替换为 SSE。
+- Session `GET/List` 正式契约新增 `displayName`、`profileId`、`region` 和
+  `resourceClass`。
+- 新增受控 `SessionDescriptor` 查询投影：只从 metadata 白名单提取
+  `displayName`，不会把任意 metadata 返回前端；缺失、空白或非法值回退到 Session ID。
+- 环境列表现在显示名称、Session ID、Profile、租户、区域、资源等级、
+  Runtime 和 Node，并支持按新增字段搜索。
+- Session 详情页显示同一组权威配置和运行上下文，创建后可立即核对用户输入是否持久化。
 
 ### Fixture 管理
 
@@ -50,6 +57,9 @@
 ## 测试
 
 - API 单元测试：4 个，覆盖租户 Header、幂等创建、Start Operation 与结构化错误。
+- Java 应用服务测试新增 Session 查询投影契约覆盖。
+- 集成烟雾测试新增 `session_descriptor_visible=true`，验证新增字段从 PostgreSQL
+  持久化到 List/Get API 的完整链路。
 - TypeScript/Vite Build：通过。
 - ESLint 与 Prettier Check：通过。
 - npm Registry 高危依赖审计：无已知漏洞；已将存在 Critical 漏洞的 Vitest 2.1.x 升级为 3.2.7。
@@ -64,13 +74,14 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 5. 第二个 Session 的 Termination Operation；
 6. 浏览器 Console 无错误。
 
-测试脚本：`tests/e2e/web_console_session_flow.py`。
+测试入口：`make test-e2e`；启动器为 `tests/e2e/run.sh`，浏览器流程为
+`tests/e2e/web_console_session_flow.mjs`。该入口会自动托管 PostgreSQL、Redis、
+Browser Node、Control Plane 与 Vite，不依赖人工预启动服务。
 
 ## 尚未完成
 
 | 缺口 | 原因/下一步 |
 |---|---|
-| 环境显示名称没有从 API 返回 | `displayName` 已写入 metadata，但 `SessionView` 尚未暴露 metadata；需要扩展正式契约与 Repository Projection |
 | 创建向导只有当前后端支持的字段 | Runtime、Proxy、Persona、Extension、Agent 策略需要各自正式 API 后再扩展到完整九步 |
 | Operation 不会自动结束 | 依赖 Node Runtime Event 回传与 Coordinator 状态提交闭环 |
 | 实时事件仅用轮询 | 实现统一 SSE/WebSocket Manager，并校验 sequence/context_epoch/operation_epoch |

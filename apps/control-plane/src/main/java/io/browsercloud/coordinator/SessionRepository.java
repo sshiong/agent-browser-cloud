@@ -21,6 +21,9 @@ public interface SessionRepository {
    */
   SessionContext require(String sessionId);
 
+  /** 获取包含受控展示字段的 Session 查询投影。 */
+  SessionDescriptor describe(String sessionId);
+
   /** 在当前事务中锁定 Session 主行，用于串行化写命令。 */
   SessionContext requireForUpdate(String sessionId);
 
@@ -42,7 +45,7 @@ public interface SessionRepository {
    */
   void updateWithExpectedEpoch(SessionContext context, long expectedContextEpoch);
 
-  List<SessionContext> listByTenant(String tenantId, SessionState state, int limit, int offset);
+  List<SessionDescriptor> listByTenant(String tenantId, SessionState state, int limit, int offset);
 
   long countByTenant(String tenantId, SessionState state);
 }

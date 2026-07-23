@@ -105,22 +105,24 @@ public class SessionApplicationService {
 
   /** 获取 Session。 */
   public SessionView get(String sessionId, String tenantId) {
-    var context = requireTenant(sessionId, tenantId);
-    return toView(context);
+    var descriptor = sessionRepository.describe(sessionId);
+    requireTenant(descriptor.context(), tenantId);
+    return toView(descriptor);
   }
 
   /** 列出 Sessions。 */
   public SessionListResponse list(String tenantId, SessionState state, int limit, int offset) {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
-    var contexts = sessionRepository.listByTenant(tenantId, state, safeLimit, safeOffset);
-    var items = contexts.stream().map(this::toView).toList();
+    var descriptors = sessionRepository.listByTenant(tenantId, state, safeLimit, safeOffset);
+    var items = descriptors.stream().map(this::toView).toList();
     long count = sessionRepository.countByTenant(tenantId, state);
     return new SessionListResponse(
         items, Math.toIntExact(Math.min(count, Integer.MAX_VALUE)), safeLimit, safeOffset);
   }
 
-  private SessionView toView(SessionContext context) {
+  private SessionView toView(SessionDescriptor descriptor) {
+    var context = descriptor.context();
     var operation =
         operationRepository
             .findActive(context.sessionId())
@@ -145,7 +147,11 @@ public class SessionApplicationService {
             .orElse(null);
     return new SessionView(
         context.sessionId(),
+        descriptor.displayName(),
         context.tenantId(),
+        context.profileId(),
+        descriptor.region(),
+        context.resourceClass(),
         context.state(),
         context.nodeId(),
         context.runtimeBuildId(),
@@ -178,9 +184,13 @@ public class SessionApplicationService {
 
   private SessionContext requireTenant(String sessionId, String tenantId) {
     var context = sessionRepository.require(sessionId);
-    if (!context.tenantId().equals(tenantId)) {
-      throw new TenantAccessDeniedException(sessionId);
-    }
+    requireTenant(context, tenantId);
     return context;
+  }
+
+  private void requireTenant(SessionContext context, String tenantId) {
+    if (!context.tenantId().equals(tenantId)) {
+      throw new TenantAccessDeniedException(context.sessionId());
+    }
   }
 }

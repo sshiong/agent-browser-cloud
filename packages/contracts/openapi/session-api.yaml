@@ -274,7 +274,11 @@ components:
       additionalProperties: false
       required:
         - sessionId
+        - displayName
         - tenantId
+        - profileId
+        - region
+        - resourceClass
         - state
         - contextEpoch
         - browserGeneration
@@ -283,8 +287,18 @@ components:
       properties:
         sessionId:
           type: string
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
         tenantId:
           type: string
+        profileId:
+          type: string
+        region:
+          type: string
+        resourceClass:
+          $ref: "#/components/schemas/ResourceClass"
         state:
           $ref: "#/components/schemas/SessionState"
         nodeId:

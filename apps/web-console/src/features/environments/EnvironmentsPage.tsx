@@ -53,8 +53,12 @@ export function EnvironmentsPage() {
     if (!needle) return query.data?.items ?? [];
     return (query.data?.items ?? []).filter((session) =>
       [
+        session.displayName,
         session.sessionId,
         session.tenantId,
+        session.profileId,
+        session.region,
+        session.resourceClass,
         session.nodeId,
         session.runtimeBuildId,
         session.currentOperation?.operationId,
@@ -119,7 +123,7 @@ export function EnvironmentsPage() {
               />
               <input
                 type="search"
-                placeholder="搜索当前页 Session、Node 或 Operation"
+                placeholder="搜索名称、Session、Profile 或 Node"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="h-8 w-[300px] rounded-md border border-border-subtle bg-surface-2 pl-9 pr-3 text-[12px] text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
@@ -200,14 +204,14 @@ export function EnvironmentsPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1120px]">
+              <table className="w-full min-w-[1160px]">
                 <thead>
                   <tr className="border-b border-border-subtle bg-surface-2">
                     {[
-                      'Session',
-                      '租户',
-                      'Node',
-                      'Runtime',
+                      '环境',
+                      'Profile / 租户',
+                      '部署',
+                      'Runtime / Node',
                       'Context',
                       '当前 Operation',
                       '状态',
@@ -291,22 +295,37 @@ function SessionRow({ session }: { session: SessionView }) {
           onClick={() => navigate(`/environments/${session.sessionId}`)}
           className="text-left"
         >
-          <span className="block font-mono text-[12px] font-medium text-text-primary hover:text-accent">
-            {session.sessionId}
+          <span className="block max-w-[220px] truncate text-[12px] font-medium text-text-primary hover:text-accent">
+            {session.displayName}
           </span>
-          <span className="text-[10px] text-text-muted">
-            {formatDate(session.createdAt)}
+          <span className="block font-mono text-[10px] text-text-muted">
+            {session.sessionId}
           </span>
         </button>
       </td>
-      <td className="px-4 py-3 font-mono text-[11px] text-text-secondary">
-        {session.tenantId}
+      <td className="px-4 py-3">
+        <span className="block font-mono text-[11px] text-text-secondary">
+          {session.profileId}
+        </span>
+        <span className="block font-mono text-[10px] text-text-muted">
+          {session.tenantId}
+        </span>
       </td>
-      <td className="px-4 py-3 font-mono text-[11px] text-text-secondary">
-        {session.nodeId || '未分配'}
+      <td className="px-4 py-3">
+        <span className="block font-mono text-[11px] text-text-secondary">
+          {session.region}
+        </span>
+        <span className="block font-mono text-[10px] text-text-muted">
+          {session.resourceClass}
+        </span>
       </td>
-      <td className="px-4 py-3 font-mono text-[11px] text-text-secondary">
-        {session.runtimeBuildId || '未绑定'}
+      <td className="px-4 py-3">
+        <span className="block max-w-[180px] truncate font-mono text-[11px] text-text-secondary">
+          {session.runtimeBuildId || 'Runtime 未绑定'}
+        </span>
+        <span className="block max-w-[180px] truncate font-mono text-[10px] text-text-muted">
+          {session.nodeId || 'Node 未分配'}
+        </span>
       </td>
       <td className="px-4 py-3">
         <span className="font-mono text-[11px] text-text-primary">

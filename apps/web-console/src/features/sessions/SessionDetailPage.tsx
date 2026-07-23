@@ -53,7 +53,11 @@ export function SessionDetailPage() {
     <div>
       <TopContextBar
         title="Session 详情"
-        subtitle={session ? session.sessionId : '读取 Control Plane 权威状态'}
+        subtitle={
+          session
+            ? `${session.displayName} · ${session.sessionId}`
+            : '读取 Control Plane 权威状态'
+        }
       />
 
       <div className="p-6">
@@ -83,12 +87,18 @@ export function SessionDetailPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h1 className="font-mono text-[20px] font-semibold tracking-tight text-text-primary">
-                      {session.sessionId}
+                    <h1 className="text-[20px] font-semibold tracking-tight text-text-primary">
+                      {session.displayName}
                     </h1>
                     <ApiSessionStateChip state={session.state} />
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-text-muted">
+                    <span>
+                      Session{' '}
+                      <strong className="font-mono font-normal text-text-secondary">
+                        {session.sessionId}
+                      </strong>
+                    </span>
                     <span>
                       Tenant{' '}
                       <strong className="font-mono font-normal text-text-secondary">
@@ -96,15 +106,21 @@ export function SessionDetailPage() {
                       </strong>
                     </span>
                     <span>
-                      Node{' '}
+                      Profile{' '}
                       <strong className="font-mono font-normal text-text-secondary">
-                        {session.nodeId || '未分配'}
+                        {session.profileId}
                       </strong>
                     </span>
                     <span>
-                      Runtime{' '}
+                      Region{' '}
                       <strong className="font-mono font-normal text-text-secondary">
-                        {session.runtimeBuildId || '未绑定'}
+                        {session.region}
+                      </strong>
+                    </span>
+                    <span>
+                      Resource{' '}
+                      <strong className="font-mono font-normal text-text-secondary">
+                        {session.resourceClass}
                       </strong>
                     </span>
                   </div>
@@ -186,6 +202,14 @@ export function SessionDetailPage() {
                       label="Browser Generation"
                       value={String(session.browserGeneration)}
                     />
+                    <ContextMetric
+                      label="Node"
+                      value={session.nodeId || '未分配'}
+                    />
+                    <ContextMetric
+                      label="Runtime Build"
+                      value={session.runtimeBuildId || '未绑定'}
+                    />
                     <ContextMetric label="状态来源" value="PostgreSQL" />
                     <ContextMetric
                       label="创建时间"
@@ -195,7 +219,7 @@ export function SessionDetailPage() {
                       label="更新时间"
                       value={formatDate(session.updatedAt)}
                     />
-                    <ContextMetric label="实时通道" value="轮询 2s（操作中）" />
+                    <ContextMetric label="实时通道" value="轮询 2s" />
                   </div>
                 </section>
 

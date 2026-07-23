@@ -2,6 +2,7 @@ package io.browsercloud.infrastructure;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
 import io.browsercloud.coordinator.exceptions.StaleContextEpochException;
@@ -45,6 +46,13 @@ public class JpaSessionRepository implements SessionRepository {
     var contextEntity = contextJpa.findTopBySessionIdOrderByContextEpochDesc(sessionId);
 
     return toDomain(entity, contextEntity);
+  }
+
+  @Override
+  public SessionDescriptor describe(String sessionId) {
+    var entity =
+        sessionJpa.findById(sessionId).orElseThrow(() -> new SessionNotFoundException(sessionId));
+    return toDescriptor(entity, contextJpa.findTopBySessionIdOrderByContextEpochDesc(sessionId));
   }
 
   @Override
@@ -146,7 +154,7 @@ public class JpaSessionRepository implements SessionRepository {
   }
 
   @Override
-  public List<SessionContext> listByTenant(
+  public List<SessionDescriptor> listByTenant(
       String tenantId, SessionState state, int limit, int offset) {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
@@ -159,7 +167,7 @@ public class JpaSessionRepository implements SessionRepository {
     return page.getContent().stream()
         .map(
             entity ->
-                toDomain(
+                toDescriptor(
                     entity, contextJpa.findTopBySessionIdOrderByContextEpochDesc(entity.getId())))
         .toList();
   }
@@ -210,5 +218,29 @@ public class JpaSessionRepository implements SessionRepository {
         entity.getPolicyHash(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
+  }
+
+  private SessionDescriptor toDescriptor(
+      SessionEntity entity, Optional<SessionContextEntity> contextOpt) {
+    var context = toDomain(entity, contextOpt);
+    return new SessionDescriptor(
+        context, entity.getRegion(), readDisplayName(entity.getMetadata(), entity.getId()));
+  }
+
+  private String readDisplayName(String metadata, String fallback) {
+    if (metadata == null || metadata.isBlank()) {
+      return fallback;
+    }
+    try {
+      var root = objectMapper.readTree(metadata);
+      var value = root == null ? null : root.get("displayName");
+      if (value == null || !value.isTextual() || value.textValue().isBlank()) {
+        return fallback;
+      }
+      var displayName = value.textValue().strip();
+      return displayName.length() <= 128 ? displayName : displayName.substring(0, 128);
+    } catch (JsonProcessingException exception) {
+      return fallback;
+    }
   }
 }

@@ -2,15 +2,18 @@ import type {
   SessionView,
   CreateSessionRequest,
   CreateSessionResponse,
-  SessionStateView,
   ApiError,
+  OperationResponse,
+  SessionListResponse,
 } from '../types/session';
 
 /**
  * API 基础 URL。
  */
-const API_BASE = '/api/v1';
-const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID || 'tenant-local';
+const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE = (configuredBase || '/api/v1').replace(/\/$/, '');
+export const DEFAULT_TENANT_ID =
+  import.meta.env.VITE_TENANT_ID?.trim() || 'tenant-local';
 
 /**
  * API 错误类。
@@ -23,6 +26,10 @@ export class SessionApiError extends Error {
     super(body.message);
     this.name = 'SessionApiError';
   }
+}
+
+export function isSessionApiError(error: unknown): error is SessionApiError {
+  return error instanceof SessionApiError;
 }
 
 /**
@@ -58,9 +65,10 @@ async function request<T>(
  */
 export async function getSession(
   sessionId: string,
-  tenantId = DEFAULT_TENANT_ID
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
 ): Promise<SessionView> {
-  return request<SessionView>(`/sessions/${sessionId}`, undefined, tenantId);
+  return request<SessionView>(`/sessions/${sessionId}`, { signal }, tenantId);
 }
 
 /**
@@ -68,11 +76,13 @@ export async function getSession(
  */
 export async function createSession(
   data: CreateSessionRequest,
-  idempotencyKey: string
+  idempotencyKey: string,
+  signal?: AbortSignal
 ): Promise<CreateSessionResponse> {
   return request<CreateSessionResponse>('/sessions', {
     method: 'POST',
     body: JSON.stringify(data),
+    signal,
     headers: {
       'Idempotency-Key': idempotencyKey,
     },
@@ -84,12 +94,14 @@ export async function createSession(
  */
 export async function startSession(
   sessionId: string,
-  tenantId = DEFAULT_TENANT_ID
-): Promise<{ operationId: string; state: string }> {
-  return request(
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<OperationResponse> {
+  return request<OperationResponse>(
     `/sessions/${sessionId}:start`,
     {
       method: 'POST',
+      signal,
     },
     tenantId
   );
@@ -100,27 +112,15 @@ export async function startSession(
  */
 export async function terminateSession(
   sessionId: string,
-  tenantId = DEFAULT_TENANT_ID
-): Promise<{ operationId: string; state: string }> {
-  return request(
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<OperationResponse> {
+  return request<OperationResponse>(
     `/sessions/${sessionId}:terminate`,
     {
       method: 'POST',
+      signal,
     },
-    tenantId
-  );
-}
-
-/**
- * 获取 Session 状态。
- */
-export async function getSessionState(
-  sessionId: string,
-  tenantId = DEFAULT_TENANT_ID
-): Promise<SessionStateView> {
-  return request<SessionStateView>(
-    `/sessions/${sessionId}/state`,
-    undefined,
     tenantId
   );
 }
@@ -133,7 +133,8 @@ export async function listSessions(params?: {
   limit?: number;
   offset?: number;
   tenantId?: string;
-}): Promise<{ items: SessionView[]; total: number }> {
+  signal?: AbortSignal;
+}): Promise<SessionListResponse> {
   const searchParams = new URLSearchParams();
   if (params?.state) searchParams.set('state', params.state);
   if (params?.limit) searchParams.set('limit', String(params.limit));
@@ -142,7 +143,7 @@ export async function listSessions(params?: {
   const query = searchParams.toString();
   return request(
     `/sessions${query ? `?${query}` : ''}`,
-    undefined,
+    { signal: params?.signal },
     params?.tenantId || DEFAULT_TENANT_ID
   );
 }

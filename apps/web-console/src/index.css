@@ -1,0 +1,184 @@
+@import 'tailwindcss';
+
+/* ========================================
+   Agent Browser Cloud — Design Tokens
+   Neo-Industrial Observatory / 新工业观测站
+   ======================================== */
+
+@theme {
+  /* Canvas */
+  --color-canvas: #0b1017;
+  --color-sidebar: #0d141d;
+  --color-surface-1: #111a24;
+  --color-surface-2: #16212d;
+  --color-surface-3: #1b2936;
+
+  /* Border */
+  --color-border-subtle: rgba(148, 163, 184, 0.14);
+  --color-border-default: rgba(148, 163, 184, 0.24);
+  --color-border-strong: rgba(148, 163, 184, 0.36);
+
+  /* Text */
+  --color-text-primary: #edf5f7;
+  --color-text-secondary: #9fb0bd;
+  --color-text-muted: #697b89;
+
+  /* Accent */
+  --color-accent: #55d6be;
+  --color-accent-soft: rgba(85, 214, 190, 0.14);
+  --color-accent-secondary: #7aa7ff;
+  --color-warning: #f0b86e;
+  --color-danger: #f2767d;
+  --color-success: #65d68a;
+  --color-purple: #a98cff;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+
+/* ========================================
+   Base Styles
+   ======================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family:
+    'Inter',
+    'MiSans',
+    'HarmonyOS Sans SC',
+    'Noto Sans SC',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+.field-input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 7px;
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  padding: 0 12px;
+  font-size: 12px;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.field-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.field-input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+/* ========================================
+   Mono Font
+   ======================================== */
+
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ========================================
+   Grid Background
+   ======================================== */
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(110, 150, 160, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(110, 150, 160, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ========================================
+   Scrollbar
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* ========================================
+   Status Pulse Animation
+   ======================================== */
+
+@keyframes pulse-status {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-status {
+  animation: pulse-status 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ========================================
+   Focus Ring
+   ======================================== */
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

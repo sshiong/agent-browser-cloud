@@ -133,3 +133,15 @@ export interface ApiError {
   requestId?: string;
   timestamp?: string;
 }
+
+export interface SessionListResponse {
+  items: SessionView[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface OperationResponse {
+  operationId: string;
+  state: string;
+}

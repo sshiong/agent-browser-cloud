@@ -23,6 +23,7 @@ Cargo.lock
 node_modules/
 dist/
 .pnpm-store/
+*.tsbuildinfo
 
 # Environment
 .env
@@ -35,7 +36,7 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
+/logs/
 
 # Coverage
 coverage/

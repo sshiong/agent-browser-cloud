@@ -1,0 +1,10 @@
+[package]
+name = "node-journal"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+tracing.workspace = true

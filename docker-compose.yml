@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: browsercloud
+      POSTGRES_USER: browsercloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-browsercloud}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U browsercloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  control-plane:
+    build:
+      context: .
+      dockerfile: apps/control-plane/Dockerfile
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/browsercloud
+      DATABASE_USER: browsercloud
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-browsercloud}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BROWSER_NODE_GRPC_TARGET: browser-node:9090
+      SERVER_PORT: 8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      browser-node:
+        condition: service_started
+
+  browser-node:
+    build:
+      context: .
+      dockerfile: apps/browser-node/Dockerfile
+    environment:
+      NODE_AGENT_PORT: 9090
+      NODE_ID: node-compose-1
+      CHROMIUM_PATH: /usr/bin/chromium
+      RUNTIME_ROOT: /var/lib/browsercloud/runtime
+      RUST_LOG: info
+    expose:
+      - "9090"
+    volumes:
+      - browser_runtime:/var/lib/browsercloud/runtime
+
+  web-console:
+    build:
+      context: .
+      dockerfile: apps/web-console/Dockerfile
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      control-plane:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  browser_runtime:

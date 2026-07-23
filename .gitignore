@@ -1,0 +1,58 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+build/
+out/
+
+# Rust
+target/
+Cargo.lock
+!apps/browser-node/Cargo.lock
+
+# Node
+node_modules/
+dist/
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+*.lcov
+htmlcov/
+
+# Build
+*.tgz
+*.tar.gz
+
+# Docker
+docker-compose.override.yml
+
+# Secrets
+*.pem
+*.key
+*.cert
+
+# Gradle Wrapper is a reviewed build bootstrap artifact.
+!gradle/wrapper/gradle-wrapper.jar

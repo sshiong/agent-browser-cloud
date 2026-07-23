@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package browsercloud.runtime.v1;
+
+option java_package = "io.browsercloud.proto.runtime.v1";
+option java_multiple_files = true;
+
+// 可验证、不可变的 Runtime 构建清单。
+message RuntimeManifest {
+  string build_id = 1;
+  string engine = 2;
+  string engine_version = 3;
+  string platform = 4;
+  string artifact_digest = 5;
+  string sbom_uri = 6;
+  string signature = 7;
+  string security_tier = 8;
+  repeated string capabilities = 9;
+  int64 created_at_ms = 10;
+}

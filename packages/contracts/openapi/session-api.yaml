@@ -1,0 +1,433 @@
+openapi: 3.1.0
+info:
+  title: Agent Browser Cloud API
+  version: 1.0.0
+  description: Control Plane Session API v1.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /
+    description: Same-origin API endpoint
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/sessions:
+    post:
+      operationId: createSession
+      summary: Create a Session
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "201":
+          description: Session created, or the original idempotent result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    get:
+      operationId: listSessions
+      summary: List tenant Sessions
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: state
+          in: query
+          schema:
+            $ref: "#/components/schemas/SessionState"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Tenant-scoped Session list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/sessions/{sessionId}:
+    get:
+      operationId: getSession
+      summary: Get Session details
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Session detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionView"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}:start:
+    post:
+      operationId: startSession
+      summary: Start a Session Runtime
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "202":
+          description: Start operation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}:terminate:
+    post:
+      operationId: terminateSession
+      summary: Terminate a Session
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "202":
+          description: Termination operation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Required in secured environments. The current local skeleton uses X-Tenant-Id only as a development guard, not as authentication.
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^ses_[a-zA-Z0-9]{16,}$"
+    TenantId:
+      name: X-Tenant-Id
+      in: header
+      required: true
+      description: Development tenant guard. Production derives tenant identity from the authenticated principal.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+  schemas:
+    SessionState:
+      type: string
+      enum:
+        - CREATED
+        - STARTING
+        - RUNNING
+        - DEGRADED
+        - HIBERNATING
+        - HIBERNATED
+        - RECOVERING
+        - TERMINATING
+        - TERMINATED
+        - FAILED
+    ResourceClass:
+      type: string
+      enum: [L0, L1, L2, L3, L4, L5]
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [tenantId, profileId]
+      properties:
+        tenantId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        profileId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        region:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+        resourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        metadata:
+          type: object
+          maxProperties: 32
+          propertyNames:
+            minLength: 1
+            maxLength: 128
+          additionalProperties:
+            type: string
+            maxLength: 1024
+    CreateSessionResponse:
+      type: object
+      additionalProperties: false
+      required: [sessionId, context]
+      properties:
+        sessionId:
+          type: string
+        context:
+          $ref: "#/components/schemas/SessionContext"
+    SessionContext:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - tenantId
+        - profileId
+        - coordinatorTerm
+        - contextEpoch
+        - browserGeneration
+        - networkRevision
+        - resourceClass
+        - state
+        - policyHash
+        - createdAt
+        - updatedAt
+      properties:
+        sessionId:
+          type: string
+        tenantId:
+          type: string
+        profileId:
+          type: string
+        nodeId:
+          type: [string, "null"]
+        runtimeBuildId:
+          type: [string, "null"]
+        isolationProfileId:
+          type: [string, "null"]
+        proxyBindingId:
+          type: [string, "null"]
+        coordinatorTerm:
+          type: integer
+          format: int64
+        contextEpoch:
+          type: integer
+          format: int64
+        browserGeneration:
+          type: integer
+          format: int64
+        networkRevision:
+          type: integer
+          format: int64
+        resourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        state:
+          $ref: "#/components/schemas/SessionState"
+        policyHash:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    SessionView:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - tenantId
+        - state
+        - contextEpoch
+        - browserGeneration
+        - createdAt
+        - updatedAt
+      properties:
+        sessionId:
+          type: string
+        tenantId:
+          type: string
+        state:
+          $ref: "#/components/schemas/SessionState"
+        nodeId:
+          type: [string, "null"]
+        runtimeBuildId:
+          type: [string, "null"]
+        contextEpoch:
+          type: integer
+          format: int64
+        browserGeneration:
+          type: integer
+          format: int64
+        currentOperation:
+          oneOf:
+            - $ref: "#/components/schemas/OperationView"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    SessionListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionView"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    OperationResponse:
+      type: object
+      additionalProperties: false
+      required: [operationId, state]
+      properties:
+        operationId:
+          type: string
+        state:
+          type: string
+          enum: [ACTIVE, COMMITTED, ABORTED, TIMED_OUT]
+    OperationView:
+      type: object
+      additionalProperties: false
+      required:
+        - operationId
+        - ownerType
+        - actorId
+        - mode
+        - priority
+        - coordinatorTerm
+        - contextEpoch
+        - operationEpoch
+        - workflowId
+        - cancellable
+        - preemptible
+        - phase
+        - state
+        - allowedCapabilities
+        - deadline
+      properties:
+        operationId:
+          type: string
+        ownerType:
+          type: string
+          enum: [AGENT, HUMAN, SYSTEM]
+        actorId:
+          type: [string, "null"]
+        mode:
+          type: string
+        priority:
+          type: integer
+        coordinatorTerm:
+          type: integer
+          format: int64
+        contextEpoch:
+          type: integer
+          format: int64
+        operationEpoch:
+          type: integer
+          format: int64
+        workflowId:
+          type: [string, "null"]
+        cancellable:
+          type: boolean
+        preemptible:
+          type: boolean
+        phase:
+          type: string
+        state:
+          type: string
+        allowedCapabilities:
+          type: array
+          items:
+            type: string
+        deadline:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, details, requestId, timestamp]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Resource is outside the caller tenant scope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: State or idempotency conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

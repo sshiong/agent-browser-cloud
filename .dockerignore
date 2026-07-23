@@ -1,0 +1,10 @@
+.git
+.github
+.gradle
+**/build
+**/target
+**/node_modules
+**/dist
+**/.DS_Store
+docs
+tests

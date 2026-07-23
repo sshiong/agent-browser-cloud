@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: control-plane
+
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/browsercloud}
+    username: ${DATABASE_USER:browsercloud}
+    password: ${DATABASE_PASSWORD:browsercloud}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+browser-node:
+  grpc-target: ${BROWSER_NODE_GRPC_TARGET:localhost:9090}
+  dispatch-interval-ms: ${BROWSER_NODE_DISPATCH_INTERVAL_MS:250}
+  default-runtime-build-id: ${BROWSER_NODE_DEFAULT_RUNTIME_BUILD_ID:runtime_local_chromium}
+
+logging:
+  level:
+    io.browsercloud: ${LOG_LEVEL:INFO}

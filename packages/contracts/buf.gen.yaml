@@ -1,0 +1,15 @@
+version: v2
+clean: true
+plugins:
+  - remote: buf.build/protocolbuffers/java:v25.3
+    out: generated/java
+  - remote: buf.build/grpc/java:v1.62.2
+    out: generated/java
+  - remote: buf.build/community/neoeinstein-prost:v0.3.1
+    out: generated/rust
+  - remote: buf.build/community/neoeinstein-tonic:v0.4.0
+    out: generated/rust
+  - remote: buf.build/bufbuild/es:v1.10.0
+    out: generated/typescript
+    opt:
+      - target=ts

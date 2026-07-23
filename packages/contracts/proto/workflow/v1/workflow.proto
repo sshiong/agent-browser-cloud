@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package browsercloud.workflow.v1;
+
+option java_package = "io.browsercloud.proto.workflow.v1";
+option java_multiple_files = true;
+
+message WorkflowExecution {
+  string workflow_id = 1;
+  string session_id = 2;
+  string operation_id = 3;
+  string workflow_type = 4;
+  int32 attempt = 5;
+  int32 priority = 6;
+  WorkflowState state = 7;
+  string phase = 8;
+  string worker_id = 9;
+
+  int64 coordinator_term = 10;
+  int64 context_epoch = 11;
+  int64 operation_epoch = 12;
+  int64 cancellation_epoch = 13;
+
+  int64 dispatched_at_ms = 20;
+  int64 started_at_ms = 21;
+  int64 heartbeat_at_ms = 22;
+  int64 phase_deadline_ms = 23;
+  int64 operation_deadline_ms = 24;
+
+  string idempotency_key = 30;
+  string external_receipt = 31;
+  string failure_reason = 32;
+}
+
+enum WorkflowState {
+  WORKFLOW_STATE_UNSPECIFIED = 0;
+  WORKFLOW_STATE_PENDING = 1;
+  WORKFLOW_STATE_DISPATCHED = 2;
+  WORKFLOW_STATE_RUNNING = 3;
+  WORKFLOW_STATE_COMPLETING = 4;
+  WORKFLOW_STATE_COMPLETED = 5;
+  WORKFLOW_STATE_FAILED = 6;
+  WORKFLOW_STATE_CANCELLED = 7;
+  WORKFLOW_STATE_TIMED_OUT = 8;
+  WORKFLOW_STATE_ORPHANED = 9;
+  WORKFLOW_STATE_COMPENSATING = 10;
+  WORKFLOW_STATE_COMPENSATED = 11;
+  WORKFLOW_STATE_DEAD_LETTER = 12;
+}

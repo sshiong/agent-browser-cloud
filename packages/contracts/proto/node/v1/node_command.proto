@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package browsercloud.node.v1;
+
+option java_package = "io.browsercloud.proto.node.v1";
+option java_multiple_files = true;
+
+// Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
+// RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+service NodeControlService {
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc Dispatch(DispatchRequest) returns (DispatchResponse);
+}
+
+message PingRequest {
+  string caller_id = 1;
+}
+
+message PingResponse {
+  string node_id = 1;
+  string service_version = 2;
+  int64 unix_time_ms = 3;
+}
+
+message CommandAck {
+  string message_id = 1;
+  bool accepted = 2;
+  bool duplicate = 3;
+  string error_code = 4;
+  string error_message = 5;
+}
+
+message DispatchRequest {
+  CommandEnvelope command = 1;
+}
+
+message DispatchResponse {
+  CommandAck acknowledgement = 1;
+}
+
+// 命令信封
+message CommandEnvelope {
+  string message_id = 1;
+  string command_type = 2;
+  string tenant_id = 3;
+  string session_id = 4;
+
+  // 版本控制
+  int64 coordinator_term = 10;
+  int64 context_epoch = 11;
+  int64 operation_epoch = 12;
+
+  // 幂等
+  string idempotency_key = 20;
+  bytes payload = 21;
+}
+
+// 事件信封
+message EventEnvelope {
+  string event_id = 1;
+  string event_type = 2;
+  string tenant_id = 3;
+  string session_id = 4;
+
+  // 版本控制
+  int64 coordinator_term = 10;
+  int64 context_epoch = 11;
+  int64 operation_epoch = 12;
+  int64 sequence = 13;
+
+  bytes payload = 20;
+}
+
+// 启动 Runtime 命令
+message StartRuntimeCommand {
+  string session_id = 1;
+  string runtime_build_id = 2;
+  string profile_id = 3;
+  string display = 4;
+  int32 cdp_port = 5;
+}
+
+// Runtime 启动事件
+message RuntimeStartedEvent {
+  string session_id = 1;
+  uint32 pid = 2;
+  uint64 browser_generation = 3;
+  string cdp_endpoint = 4;
+  string node_id = 5;
+  string runtime_build_id = 6;
+}
+
+// 停止 Runtime 命令
+message StopRuntimeCommand {
+  string session_id = 1;
+  string reason = 2;
+}
+
+// Runtime 停止事件
+message RuntimeStoppedEvent {
+  string session_id = 1;
+  string reason = 2;
+  int32 exit_code = 3;
+}
+
+// Browser Crash 事件
+message BrowserCrashEvent {
+  string session_id = 1;
+  string crash_type = 2;
+  string reason = 3;
+  int64 detected_at_ms = 4;
+}
+
+// 释放所有输入命令
+message ReleaseAllInputCommand {
+  string session_id = 1;
+  string reason = 2;
+}

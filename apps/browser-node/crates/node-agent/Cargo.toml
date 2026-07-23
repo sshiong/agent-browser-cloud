@@ -1,0 +1,25 @@
+[package]
+name = "node-agent"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "node-agent"
+path = "src/main.rs"
+
+[dependencies]
+runtime-supervisor = { path = "../runtime-supervisor" }
+input-sandbox = { path = "../input-sandbox" }
+state-collector = { path = "../state-collector" }
+node-journal = { path = "../node-journal" }
+node-contracts = { path = "../node-contracts" }
+async-trait.workspace = true
+anyhow.workspace = true
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+uuid.workspace = true

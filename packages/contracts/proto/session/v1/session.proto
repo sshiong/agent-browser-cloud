@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package browsercloud.session.v1;
+
+option java_package = "io.browsercloud.proto.session.v1";
+option java_multiple_files = true;
+option go_package = "browsercloud/proto/session/v1";
+
+// Session 会话上下文
+message SessionContext {
+  string session_id = 1;
+  string tenant_id = 2;
+  string profile_id = 3;
+  string node_id = 4;
+  string runtime_build_id = 5;
+  string proxy_binding_id = 6;
+  string isolation_profile_id = 7;
+
+  // 版本控制
+  int64 coordinator_term = 10;
+  int64 context_epoch = 11;
+  int64 browser_generation = 12;
+  int64 network_revision = 13;
+
+  // 状态
+  string resource_class = 20;
+  SessionState state = 21;
+  string policy_hash = 22;
+
+  // 时间戳
+  int64 created_at_ms = 30;
+  int64 updated_at_ms = 31;
+}
+
+enum SessionState {
+  SESSION_STATE_UNSPECIFIED = 0;
+  SESSION_STATE_CREATED = 1;
+  SESSION_STATE_STARTING = 2;
+  SESSION_STATE_RUNNING = 3;
+  SESSION_STATE_DEGRADED = 4;
+  SESSION_STATE_HIBERNATING = 5;
+  SESSION_STATE_HIBERNATED = 6;
+  SESSION_STATE_RECOVERING = 7;
+  SESSION_STATE_TERMINATING = 8;
+  SESSION_STATE_TERMINATED = 9;
+  SESSION_STATE_FAILED = 10;
+}
+
+// 排他操作
+message ExclusiveOperation {
+  string operation_id = 1;
+  string session_id = 2;
+  OwnerType owner_type = 3;
+  OperationMode mode = 4;
+  int32 priority = 5;
+  string actor_id = 6;
+
+  // 版本控制
+  int64 coordinator_term = 10;
+  int64 context_epoch = 11;
+  int64 operation_epoch = 12;
+  string workflow_id = 13;
+
+  // 状态
+  OperationPhase phase = 20;
+  OperationState state = 21;
+  int64 deadline_epoch_ms = 22;
+  bool cancellable = 23;
+  bool preemptible = 24;
+
+  // 能力
+  repeated string allowed_capabilities = 30;
+}
+
+enum OwnerType {
+  OWNER_TYPE_UNSPECIFIED = 0;
+  OWNER_TYPE_AGENT = 1;
+  OWNER_TYPE_HUMAN = 2;
+  OWNER_TYPE_SYSTEM = 3;
+}
+
+enum OperationMode {
+  OPERATION_MODE_UNSPECIFIED = 0;
+  OPERATION_MODE_AGENT_INTERACTIVE = 1;
+  OPERATION_MODE_HUMAN_TAKEOVER = 2;
+  OPERATION_MODE_HUMAN_ASSIST = 3;
+  OPERATION_MODE_QUIESCE = 4;
+  OPERATION_MODE_SNAPSHOT = 5;
+  OPERATION_MODE_HIBERNATE = 6;
+  OPERATION_MODE_RECOVERY = 7;
+  OPERATION_MODE_PROXY_TRANSITION = 8;
+  OPERATION_MODE_EXTENSION_MAINTENANCE = 9;
+  OPERATION_MODE_TERMINATION = 10;
+}
+
+enum OperationPhase {
+  OPERATION_PHASE_UNSPECIFIED = 0;
+  OPERATION_PHASE_PREPARING = 1;
+  OPERATION_PHASE_EXECUTING = 2;
+  OPERATION_PHASE_FLUSHING = 3;
+  OPERATION_PHASE_UPLOADING = 4;
+  OPERATION_PHASE_VERIFYING = 5;
+  OPERATION_PHASE_COMPLETING = 6;
+}
+
+enum OperationState {
+  OPERATION_STATE_UNSPECIFIED = 0;
+  OPERATION_STATE_ACTIVE = 1;
+  OPERATION_STATE_COMMITTED = 2;
+  OPERATION_STATE_ABORTED = 3;
+  OPERATION_STATE_TIMED_OUT = 4;
+}
+
+// 状态指针
+message StateCursor {
+  string session_id = 1;
+  int64 current_state_version = 2;
+  string current_state_hash = 3;
+  StateQuality state_quality = 4;
+
+  // 版本控制
+  int64 browser_generation = 10;
+  int64 coordinator_term = 11;
+  int64 context_epoch = 12;
+  int64 target_revision = 13;
+  int64 network_revision = 14;
+
+  // 检查点
+  string last_checkpoint_id = 20;
+  int64 last_checkpoint_version = 21;
+  int64 pending_event_count = 22;
+
+  int64 updated_at_ms = 30;
+}
+
+enum StateQuality {
+  STATE_QUALITY_UNSPECIFIED = 0;
+  STATE_QUALITY_COMPLETE = 1;
+  STATE_QUALITY_DEPTH_LIMITED = 2;
+  STATE_QUALITY_RESYNCING = 3;
+  STATE_QUALITY_DEGRADED = 4;
+  STATE_QUALITY_INVALID = 5;
+  STATE_QUALITY_VISION_REQUIRED = 6;
+  STATE_QUALITY_HUMAN_REQUIRED = 7;
+}

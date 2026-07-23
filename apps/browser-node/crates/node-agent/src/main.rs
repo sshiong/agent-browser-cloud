@@ -518,6 +518,18 @@ impl NodeControlService {
                 };
                 match health {
                     runtime_supervisor::RuntimeHealth::Healthy => {
+                        if let Some(input) =
+                            service.input_brokers.lock().await.get(&session_id).cloned()
+                        {
+                            if let Err(error) = input.release_if_idle(Duration::from_secs(5)).await
+                            {
+                                tracing::warn!(
+                                    session_id,
+                                    error = %error,
+                                    "Input release watchdog failed"
+                                );
+                            }
+                        }
                         probe_count += 1;
                         if probe_count.is_multiple_of(2) {
                             match service

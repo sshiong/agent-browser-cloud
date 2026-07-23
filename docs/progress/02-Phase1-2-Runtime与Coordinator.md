@@ -15,6 +15,8 @@
 - Runtime 主动监控检测进程退出并生成持久 `BrowserCrashed` Event。
 - Input Sandbox 通过 CDP `Input.dispatchMouseEvent/Input.dispatchKeyEvent` 执行真实键鼠输入，
   单 Session 串行化、sequence 去重/拒绝陈旧输入，并在 Runtime 停止时释放全部按键与按钮。
+- Runtime Monitor 每秒检查 Input Ledger，5 秒无活动且仍有按下/拖拽状态时自动执行
+  All-keys-up / All-buttons-up；CDP 鼠标位掩码与常用非文本按键已显式映射。
 - Node 每两秒采集一次页面状态；仅在内容哈希变化时生成持久
   `BrowserStateUpdated`，并复用 SQLite Journal 的失败重投路径。
 - Network Helper、Storage Helper、Browser Supervisor 已有可编译接口和部分单元测试。
@@ -56,8 +58,8 @@
 ## Gate 缺口
 
 - 自动 Crash Recovery 与 Node 重启后的存量 Runtime 进程对账。
-- 断线/心跳输入看门狗尚未接入 Node Agent 生命周期；Key Up Loss 和 500 次
-  Runtime 循环验收尚未完成。
+- 跨网络输入心跳/断线信号尚未形成正式契约；本地 5 秒空闲释放已接入，但仍需完成
+  端到端 Key Up Loss 故障注入和 500 次 Runtime 循环验收。
 - Domain Outbox 消息总线 Publisher/Consumer、重放与 DLQ 演练。
 - noVNC、HumanTakeover 与接管后的 State Resync。
 - 多 Coordinator 并发抢占、Outbox Claim 与故障注入的完整验收。

@@ -7,6 +7,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
@@ -107,6 +108,7 @@ struct CdpTarget {
 pub struct CdpDesktopInput {
     websocket_url: String,
     ledger: Arc<Mutex<InputLedger>>,
+    last_activity: Arc<Mutex<Instant>>,
 }
 
 impl CdpDesktopInput {
@@ -135,6 +137,7 @@ impl CdpDesktopInput {
         Ok(Self {
             websocket_url,
             ledger: Arc::new(Mutex::new(InputLedger::default())),
+            last_activity: Arc::new(Mutex::new(Instant::now())),
         })
     }
 
@@ -248,6 +251,53 @@ impl CdpDesktopInput {
         anyhow::bail!("CDP websocket closed before input acknowledgement")
     }
 
+    async fn mark_activity(&self) {
+        *self.last_activity.lock().await = Instant::now();
+    }
+
+    async fn release_locked(&self, ledger: &mut InputLedger) -> anyhow::Result<()> {
+        for key in ledger.pressed_keys.clone() {
+            self.send(
+                "Input.dispatchKeyEvent",
+                serde_json::json!({
+                    "type": "keyUp",
+                    "key": Self::input_key_name(&key)?,
+                    "modifiers": 0
+                }),
+            )
+            .await?;
+        }
+        for button in ledger.pressed_buttons.clone() {
+            self.send(
+                "Input.dispatchMouseEvent",
+                serde_json::json!({
+                    "type": "mouseReleased",
+                    "x": ledger.pointer_x,
+                    "y": ledger.pointer_y,
+                    "button": Self::button_name(button)?,
+                    "buttons": 0,
+                    "clickCount": 0,
+                    "modifiers": 0
+                }),
+            )
+            .await?;
+        }
+        ledger.release_all();
+        self.mark_activity().await;
+        Ok(())
+    }
+
+    /// 输入通道长时间无活动但账本仍有按下状态时，主动释放所有输入。
+    pub async fn release_if_idle(&self, max_idle: Duration) -> anyhow::Result<bool> {
+        let mut ledger = self.ledger.lock().await;
+        if !ledger.has_any_input() || self.last_activity.lock().await.elapsed() <= max_idle {
+            return Ok(false);
+        }
+        tracing::warn!("Input watchdog triggered, releasing all inputs");
+        self.release_locked(&mut ledger).await?;
+        Ok(true)
+    }
+
     fn validate_sequence(ledger: &InputLedger, sequence: u64) -> anyhow::Result<bool> {
         anyhow::ensure!(sequence > 0, "input sequence must be positive");
         if sequence == ledger.last_sequence {
@@ -281,6 +331,7 @@ impl DesktopInput for CdpDesktopInput {
         ledger.pointer_x = x;
         ledger.pointer_y = y;
         ledger.last_sequence = sequence;
+        self.mark_activity().await;
         Ok(())
     }
 
@@ -306,6 +357,7 @@ impl DesktopInput for CdpDesktopInput {
         ledger.press_button(button);
         ledger.active_drag = true;
         ledger.last_sequence = sequence;
+        self.mark_activity().await;
         Ok(())
     }
 
@@ -333,6 +385,7 @@ impl DesktopInput for CdpDesktopInput {
             ledger.active_drag = false;
         }
         ledger.last_sequence = sequence;
+        self.mark_activity().await;
         Ok(())
     }
 
@@ -355,6 +408,7 @@ impl DesktopInput for CdpDesktopInput {
         .await?;
         ledger.press_key(key);
         ledger.last_sequence = sequence;
+        self.mark_activity().await;
         Ok(())
     }
 
@@ -375,39 +429,13 @@ impl DesktopInput for CdpDesktopInput {
         .await?;
         ledger.release_key(&key);
         ledger.last_sequence = sequence;
+        self.mark_activity().await;
         Ok(())
     }
 
     async fn release_all(&self) -> anyhow::Result<()> {
         let mut ledger = self.ledger.lock().await;
-        for key in ledger.pressed_keys.clone() {
-            self.send(
-                "Input.dispatchKeyEvent",
-                serde_json::json!({
-                    "type": "keyUp",
-                    "key": Self::input_key_name(&key)?,
-                    "modifiers": 0
-                }),
-            )
-            .await?;
-        }
-        for button in ledger.pressed_buttons.clone() {
-            self.send(
-                "Input.dispatchMouseEvent",
-                serde_json::json!({
-                    "type": "mouseReleased",
-                    "x": ledger.pointer_x,
-                    "y": ledger.pointer_y,
-                    "button": Self::button_name(button)?,
-                    "buttons": 0,
-                    "clickCount": 0,
-                    "modifiers": 0
-                }),
-            )
-            .await?;
-        }
-        ledger.release_all();
-        Ok(())
+        self.release_locked(&mut ledger).await
     }
 }
 
@@ -548,7 +576,8 @@ mod tests {
             .await
             .pressed_keys
             .contains(&InputKey::Shift));
-        input.release_all().await.unwrap();
+        assert!(input.release_if_idle(Duration::ZERO).await.unwrap());
+        assert!(!input.release_if_idle(Duration::ZERO).await.unwrap());
         assert!(!input.ledger_snapshot().await.has_any_input());
 
         let key_down = receiver.recv().await.unwrap();

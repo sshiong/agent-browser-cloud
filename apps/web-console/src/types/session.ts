@@ -149,3 +149,34 @@ export interface OperationResponse {
   operationId: string;
   state: string;
 }
+
+/**
+ * Browser Node 采集并由 Control Plane 持久化的当前浏览器状态。
+ */
+export interface BrowserStateView {
+  sessionId: string;
+  contextEpoch: number;
+  stateVersion: number;
+  targetRevision: number;
+  url: string;
+  title: string;
+  stateHash: string;
+  stateQuality: StateQuality;
+  targets: InteractiveTargetView[];
+}
+
+export interface InteractiveTargetView {
+  targetRef: string;
+  role: string;
+  name?: string;
+  bounds?: TargetBoundsView;
+  enabled: boolean;
+  visible: boolean;
+}
+
+export interface TargetBoundsView {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}

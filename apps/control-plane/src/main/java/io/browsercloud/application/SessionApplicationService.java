@@ -22,6 +22,7 @@ public class SessionApplicationService {
   private final SessionCoordinator coordinator;
   private final SessionRepository sessionRepository;
   private final OperationRepository operationRepository;
+  private final BrowserStateRepository browserStateRepository;
   private final IdempotencyService idempotencyService;
   private final String defaultRuntimeBuildId;
 
@@ -29,12 +30,14 @@ public class SessionApplicationService {
       SessionCoordinator coordinator,
       SessionRepository sessionRepository,
       OperationRepository operationRepository,
+      BrowserStateRepository browserStateRepository,
       IdempotencyService idempotencyService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
+    this.browserStateRepository = browserStateRepository;
     this.idempotencyService = idempotencyService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
@@ -119,6 +122,46 @@ public class SessionApplicationService {
     long count = sessionRepository.countByTenant(tenantId, state);
     return new SessionListResponse(
         items, Math.toIntExact(Math.min(count, Integer.MAX_VALUE)), safeLimit, safeOffset);
+  }
+
+  /** 获取最新 Browser Current State；尚未采集时返回空。 */
+  public java.util.Optional<BrowserStateView> getState(String sessionId, String tenantId) {
+    requireTenant(sessionId, tenantId);
+    return browserStateRepository
+        .find(sessionId)
+        .filter(snapshot -> snapshot.tenantId().equals(tenantId))
+        .map(
+            snapshot -> {
+              var state = snapshot.state();
+              var targets =
+                  state.targets().stream()
+                      .map(
+                          target ->
+                              new BrowserStateView.InteractiveTargetView(
+                                  target.targetRef(),
+                                  target.role(),
+                                  target.name(),
+                                  target.bounds() == null
+                                      ? null
+                                      : new BrowserStateView.BoundsView(
+                                          target.bounds().x(),
+                                          target.bounds().y(),
+                                          target.bounds().width(),
+                                          target.bounds().height()),
+                                  target.enabled(),
+                                  target.visible()))
+                      .toList();
+              return new BrowserStateView(
+                  state.sessionId(),
+                  snapshot.contextEpoch(),
+                  state.stateVersion(),
+                  state.targetRevision(),
+                  state.url(),
+                  state.title(),
+                  state.stateHash(),
+                  state.stateQuality(),
+                  targets);
+            });
   }
 
   private SessionView toView(SessionDescriptor descriptor) {

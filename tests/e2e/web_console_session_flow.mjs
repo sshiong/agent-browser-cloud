@@ -51,6 +51,14 @@ try {
   await expect(
     page.locator("main").getByText("运行中", { exact: true }).last(),
   ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByRole("heading", { name: "Browser State", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Browser Cloud Test Page", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Run integration", { exact: true })).toBeVisible();
+  await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible();
 
   await page.goto(`${baseUrl}/environments?create=1`);
   await page.waitForLoadState("networkidle");

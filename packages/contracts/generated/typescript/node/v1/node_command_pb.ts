@@ -835,3 +835,406 @@ export class ReleaseAllInputCommand extends Message<ReleaseAllInputCommand> {
   }
 }
 
+/**
+ * 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
+ *
+ * @generated from message browsercloud.node.v1.ExecuteInputCommand
+ */
+export class ExecuteInputCommand extends Message<ExecuteInputCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: uint64 sequence = 2;
+   */
+  sequence = protoInt64.zero;
+
+  /**
+   * @generated from oneof browsercloud.node.v1.ExecuteInputCommand.action
+   */
+  action: {
+    /**
+     * @generated from field: browsercloud.node.v1.MouseMoveInput mouse_move = 10;
+     */
+    value: MouseMoveInput;
+    case: "mouseMove";
+  } | {
+    /**
+     * @generated from field: browsercloud.node.v1.MouseButtonInput mouse_down = 11;
+     */
+    value: MouseButtonInput;
+    case: "mouseDown";
+  } | {
+    /**
+     * @generated from field: browsercloud.node.v1.MouseButtonInput mouse_up = 12;
+     */
+    value: MouseButtonInput;
+    case: "mouseUp";
+  } | {
+    /**
+     * @generated from field: browsercloud.node.v1.KeyInput key_down = 13;
+     */
+    value: KeyInput;
+    case: "keyDown";
+  } | {
+    /**
+     * @generated from field: browsercloud.node.v1.KeyInput key_up = 14;
+     */
+    value: KeyInput;
+    case: "keyUp";
+  } | { case: undefined; value?: undefined } = { case: undefined };
+
+  constructor(data?: PartialMessage<ExecuteInputCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ExecuteInputCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "sequence", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 10, name: "mouse_move", kind: "message", T: MouseMoveInput, oneof: "action" },
+    { no: 11, name: "mouse_down", kind: "message", T: MouseButtonInput, oneof: "action" },
+    { no: 12, name: "mouse_up", kind: "message", T: MouseButtonInput, oneof: "action" },
+    { no: 13, name: "key_down", kind: "message", T: KeyInput, oneof: "action" },
+    { no: 14, name: "key_up", kind: "message", T: KeyInput, oneof: "action" },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExecuteInputCommand {
+    return new ExecuteInputCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExecuteInputCommand {
+    return new ExecuteInputCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExecuteInputCommand {
+    return new ExecuteInputCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExecuteInputCommand | PlainMessage<ExecuteInputCommand> | undefined, b: ExecuteInputCommand | PlainMessage<ExecuteInputCommand> | undefined): boolean {
+    return proto3.util.equals(ExecuteInputCommand, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.MouseMoveInput
+ */
+export class MouseMoveInput extends Message<MouseMoveInput> {
+  /**
+   * @generated from field: int32 x = 1;
+   */
+  x = 0;
+
+  /**
+   * @generated from field: int32 y = 2;
+   */
+  y = 0;
+
+  constructor(data?: PartialMessage<MouseMoveInput>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.MouseMoveInput";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "x", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 2, name: "y", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MouseMoveInput {
+    return new MouseMoveInput().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MouseMoveInput {
+    return new MouseMoveInput().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MouseMoveInput {
+    return new MouseMoveInput().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: MouseMoveInput | PlainMessage<MouseMoveInput> | undefined, b: MouseMoveInput | PlainMessage<MouseMoveInput> | undefined): boolean {
+    return proto3.util.equals(MouseMoveInput, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.MouseButtonInput
+ */
+export class MouseButtonInput extends Message<MouseButtonInput> {
+  /**
+   * @generated from field: uint32 button = 1;
+   */
+  button = 0;
+
+  constructor(data?: PartialMessage<MouseButtonInput>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.MouseButtonInput";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "button", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MouseButtonInput {
+    return new MouseButtonInput().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MouseButtonInput {
+    return new MouseButtonInput().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MouseButtonInput {
+    return new MouseButtonInput().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: MouseButtonInput | PlainMessage<MouseButtonInput> | undefined, b: MouseButtonInput | PlainMessage<MouseButtonInput> | undefined): boolean {
+    return proto3.util.equals(MouseButtonInput, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.KeyInput
+ */
+export class KeyInput extends Message<KeyInput> {
+  /**
+   * @generated from field: string key = 1;
+   */
+  key = "";
+
+  constructor(data?: PartialMessage<KeyInput>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.KeyInput";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): KeyInput {
+    return new KeyInput().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): KeyInput {
+    return new KeyInput().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): KeyInput {
+    return new KeyInput().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: KeyInput | PlainMessage<KeyInput> | undefined, b: KeyInput | PlainMessage<KeyInput> | undefined): boolean {
+    return proto3.util.equals(KeyInput, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.BrowserStateEvent
+ */
+export class BrowserStateEvent extends Message<BrowserStateEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: uint64 state_version = 2;
+   */
+  stateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 3;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string url = 4;
+   */
+  url = "";
+
+  /**
+   * @generated from field: string title = 5;
+   */
+  title = "";
+
+  /**
+   * @generated from field: string state_quality = 6;
+   */
+  stateQuality = "";
+
+  /**
+   * @generated from field: string content_hash = 7;
+   */
+  contentHash = "";
+
+  /**
+   * @generated from field: repeated browsercloud.node.v1.InteractiveTargetState targets = 8;
+   */
+  targets: InteractiveTargetState[] = [];
+
+  constructor(data?: PartialMessage<BrowserStateEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BrowserStateEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 3, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "title", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "state_quality", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "targets", kind: "message", T: InteractiveTargetState, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateEvent {
+    return new BrowserStateEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BrowserStateEvent {
+    return new BrowserStateEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BrowserStateEvent {
+    return new BrowserStateEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BrowserStateEvent | PlainMessage<BrowserStateEvent> | undefined, b: BrowserStateEvent | PlainMessage<BrowserStateEvent> | undefined): boolean {
+    return proto3.util.equals(BrowserStateEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.InteractiveTargetState
+ */
+export class InteractiveTargetState extends Message<InteractiveTargetState> {
+  /**
+   * @generated from field: string target_ref = 1;
+   */
+  targetRef = "";
+
+  /**
+   * @generated from field: string role = 2;
+   */
+  role = "";
+
+  /**
+   * @generated from field: optional string name = 3;
+   */
+  name?: string;
+
+  /**
+   * @generated from field: optional browsercloud.node.v1.TargetBounds bounds = 4;
+   */
+  bounds?: TargetBounds;
+
+  /**
+   * @generated from field: bool enabled = 5;
+   */
+  enabled = false;
+
+  /**
+   * @generated from field: bool visible = 6;
+   */
+  visible = false;
+
+  constructor(data?: PartialMessage<InteractiveTargetState>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.InteractiveTargetState";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "target_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "role", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 4, name: "bounds", kind: "message", T: TargetBounds, opt: true },
+    { no: 5, name: "enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 6, name: "visible", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): InteractiveTargetState {
+    return new InteractiveTargetState().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): InteractiveTargetState {
+    return new InteractiveTargetState().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): InteractiveTargetState {
+    return new InteractiveTargetState().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: InteractiveTargetState | PlainMessage<InteractiveTargetState> | undefined, b: InteractiveTargetState | PlainMessage<InteractiveTargetState> | undefined): boolean {
+    return proto3.util.equals(InteractiveTargetState, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.TargetBounds
+ */
+export class TargetBounds extends Message<TargetBounds> {
+  /**
+   * @generated from field: double x = 1;
+   */
+  x = 0;
+
+  /**
+   * @generated from field: double y = 2;
+   */
+  y = 0;
+
+  /**
+   * @generated from field: double width = 3;
+   */
+  width = 0;
+
+  /**
+   * @generated from field: double height = 4;
+   */
+  height = 0;
+
+  constructor(data?: PartialMessage<TargetBounds>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.TargetBounds";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 2, name: "y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 3, name: "width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 4, name: "height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TargetBounds {
+    return new TargetBounds().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): TargetBounds {
+    return new TargetBounds().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): TargetBounds {
+    return new TargetBounds().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: TargetBounds | PlainMessage<TargetBounds> | undefined, b: TargetBounds | PlainMessage<TargetBounds> | undefined): boolean {
+    return proto3.util.equals(TargetBounds, a, b);
+  }
+}
+

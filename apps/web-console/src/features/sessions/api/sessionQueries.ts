@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createSession,
+  getBrowserState,
   getSession,
   listSessions,
   startSession,
@@ -14,6 +15,8 @@ export const sessionKeys = {
     [...sessionKeys.all, 'list', params] as const,
   detail: (sessionId: string) =>
     [...sessionKeys.all, 'detail', sessionId] as const,
+  browserState: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'browser-state'] as const,
 };
 
 export function useSessions(params: {
@@ -37,6 +40,15 @@ export function useSession(sessionId: string) {
     enabled: Boolean(sessionId),
     refetchInterval: (query) =>
       query.state.data?.currentOperation?.state === 'ACTIVE' ? 2_000 : false,
+  });
+}
+
+export function useBrowserState(sessionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: sessionKeys.browserState(sessionId),
+    queryFn: ({ signal }) => getBrowserState(sessionId, undefined, signal),
+    enabled: Boolean(sessionId) && enabled,
+    refetchInterval: enabled ? 2_000 : false,
   });
 }
 
@@ -74,6 +86,9 @@ function useSessionOperation(
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: sessionKeys.detail(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.browserState(sessionId),
         }),
         queryClient.invalidateQueries({ queryKey: sessionKeys.all }),
       ]);

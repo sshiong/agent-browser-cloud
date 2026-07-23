@@ -4,6 +4,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
+import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
@@ -16,6 +17,7 @@ public class NodeEventMapper {
   static final String RUNTIME_STARTED = "RuntimeStarted";
   static final String RUNTIME_STOPPED = "RuntimeStopped";
   static final String BROWSER_CRASHED = "BrowserCrashed";
+  static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
 
   public NodeEventReceived toCommand(EventEnvelope envelope) {
@@ -67,6 +69,36 @@ public class NodeEventMapper {
           var payload = BrowserCrashEvent.parseFrom(envelope.getPayload());
           yield new NodeEvent.RuntimeCrashed(
               payload.getSessionId(), payload.getCrashType(), payload.getReason());
+        }
+        case BROWSER_STATE_UPDATED -> {
+          var payload = BrowserStateEvent.parseFrom(envelope.getPayload());
+          var targets =
+              payload.getTargetsList().stream()
+                  .map(
+                      target ->
+                          new NodeEvent.InteractiveTarget(
+                              target.getTargetRef(),
+                              target.getRole(),
+                              target.hasName() ? target.getName() : null,
+                              target.hasBounds()
+                                  ? new NodeEvent.Bounds(
+                                      target.getBounds().getX(),
+                                      target.getBounds().getY(),
+                                      target.getBounds().getWidth(),
+                                      target.getBounds().getHeight())
+                                  : null,
+                              target.getEnabled(),
+                              target.getVisible()))
+                  .toList();
+          yield new NodeEvent.StateUpdated(
+              payload.getSessionId(),
+              payload.getStateVersion(),
+              payload.getTargetRevision(),
+              payload.getUrl(),
+              payload.getTitle(),
+              payload.getContentHash(),
+              payload.getStateQuality(),
+              targets);
         }
         default ->
             throw new IllegalArgumentException(

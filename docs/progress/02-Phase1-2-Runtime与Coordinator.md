@@ -13,7 +13,11 @@
 - Node 在 Start/Stop 成功后生成 `RuntimeStarted/RuntimeStopped` Protobuf 事件，
   事件发送失败时持久保留结果并由后台扫描器重投。
 - Runtime 主动监控检测进程退出并生成持久 `BrowserCrashed` Event。
-- Input Sandbox、State Collector、Network Helper、Storage Helper、Browser Supervisor 已有可编译接口和部分单元测试。
+- Input Sandbox 通过 CDP `Input.dispatchMouseEvent/Input.dispatchKeyEvent` 执行真实键鼠输入，
+  单 Session 串行化、sequence 去重/拒绝陈旧输入，并在 Runtime 停止时释放全部按键与按钮。
+- Node 每两秒采集一次页面状态；仅在内容哈希变化时生成持久
+  `BrowserStateUpdated`，并复用 SQLite Journal 的失败重投路径。
+- Network Helper、Storage Helper、Browser Supervisor 已有可编译接口和部分单元测试。
 
 ## Phase 2 已完成的 PoC
 
@@ -30,6 +34,8 @@
 - 事件处理在单一事务内完成 Session 行锁、Inbox 去重、Context/State 提交和
   Operation Commit。
 - API 错误不泄露堆栈，并带 Request ID、`no-store` 和基础安全响应头。
+- Browser State 事件经同一 Inbox/版本门禁写入 PostgreSQL JSONB 最新状态；
+  REST API 在校验 Session 租户归属后返回状态，尚无状态时返回 204。
 
 ## 集成测试已经证明
 
@@ -40,15 +46,18 @@
   进入 `RUNNING` 并记录 Node、Runtime Build、Context Epoch 和 Browser Generation；
 - Terminate Operation 由 `RuntimeStopped` 事件提交为 `COMMITTED`，Session
   进入 `TERMINATED`；
-- 两个 Node Command 均被 ACK 并写入 `published_at`，两个 Node Event 均写入 Inbox。
+- 两个 Node Command 均被 ACK 并写入 `published_at`；Start、Browser State、Stop
+  三个 Node Event 均写入 Inbox。
+- Browser State 的 URL、Title、Quality、Version、Target Role 与 Bounds 从 CDP
+  经 Node Event、PostgreSQL 到 REST API 完整可读；
 - SQLite Journal 关闭并重开后仍保留去重结果、最高 Term、Event Sequence 和待投事件；
 - 真实 Chromium 可启动、通过 CDP Probe、导航本地页面、采集按钮/输入框并干净停止。
 
 ## Gate 缺口
 
 - 自动 Crash Recovery 与 Node 重启后的存量 Runtime 进程对账。
-- State Collector 尚未通过正式 Node Command/Event 和 Control Plane State API 暴露。
-- 真实输入执行、断线 All-keys-up、Key Up Loss 和 500 次 Runtime 循环验收。
+- 断线/心跳输入看门狗尚未接入 Node Agent 生命周期；Key Up Loss 和 500 次
+  Runtime 循环验收尚未完成。
 - Domain Outbox 消息总线 Publisher/Consumer、重放与 DLQ 演练。
-- noVNC、Input Broker 和 HumanTakeover 状态重同步。
+- noVNC、HumanTakeover 与接管后的 State Resync。
 - 多 Coordinator 并发抢占、Outbox Claim 与故障注入的完整验收。

@@ -5,6 +5,7 @@ import type {
   ApiError,
   OperationResponse,
   SessionListResponse,
+  BrowserStateView,
 } from '../types/session';
 
 /**
@@ -60,6 +61,31 @@ async function request<T>(
   return response.json();
 }
 
+async function requestOptional<T>(
+  path: string,
+  options?: RequestInit,
+  tenantId?: string
+): Promise<T | null> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(tenantId ? { 'X-Tenant-Id': tenantId } : {}),
+      ...options?.headers,
+    },
+  });
+
+  if (response.status === 204) return null;
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({
+      code: 'UNKNOWN_ERROR',
+      message: `Request failed with status ${response.status}`,
+    }));
+    throw new SessionApiError(response.status, body);
+  }
+  return response.json();
+}
+
 /**
  * 获取 Session 详情。
  */
@@ -69,6 +95,21 @@ export async function getSession(
   signal?: AbortSignal
 ): Promise<SessionView> {
   return request<SessionView>(`/sessions/${sessionId}`, { signal }, tenantId);
+}
+
+/**
+ * 获取 Session 最近一次由 Browser Node 采集的浏览器状态。
+ */
+export async function getBrowserState(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<BrowserStateView | null> {
+  return requestOptional<BrowserStateView>(
+    `/sessions/${sessionId}/state`,
+    { signal },
+    tenantId
+  );
 }
 
 /**

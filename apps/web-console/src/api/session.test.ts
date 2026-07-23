@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createSession,
+  getBrowserState,
   listSessions,
   SessionApiError,
   startSession,
@@ -92,6 +93,25 @@ describe('session API', () => {
       '/api/v1/sessions/ses_1234567890abcdef:start',
       expect.objectContaining({
         method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('treats an uncollected browser state as an empty result', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      getBrowserState('ses_1234567890abcdef', 'tenant-test')
+    ).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef/state',
+      expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
         }),

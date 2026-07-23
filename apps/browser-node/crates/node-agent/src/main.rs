@@ -1,22 +1,24 @@
 //! Browser Node Agent 入口。
 
 use anyhow::Result;
+use input_sandbox::{CdpDesktopInput, DesktopInput, InputKey};
 use node_contracts::proto::node_control_service_server::{
     NodeControlService as NodeControlServiceRpc, NodeControlServiceServer,
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    BrowserCrashEvent, CommandAck, CommandEnvelope, DispatchRequest, DispatchResponse,
-    EventEnvelope, PingRequest, PingResponse, PublishRequest, RuntimeStartedEvent,
-    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
+    BrowserCrashEvent, BrowserStateEvent, CommandAck, CommandEnvelope, DispatchRequest,
+    DispatchResponse, EventEnvelope, ExecuteInputCommand, InteractiveTargetState, PingRequest,
+    PingResponse, PublishRequest, ReleaseAllInputCommand, RuntimeStartedEvent, RuntimeStoppedEvent,
+    StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
     PersistedAcknowledgement, PersistedCommandResult, SqliteNodeJournal, TermDecision,
 };
 use prost::Message;
 use runtime_supervisor::{ChromiumRuntimeSupervisor, RuntimeSpec, RuntimeSupervisor};
-use state_collector::CdpStateCollector;
-use std::collections::HashSet;
+use state_collector::{BrowserStateCollector, CdpStateCollector, CurrentState, StateQuality};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -31,6 +33,7 @@ struct NodeControlService {
     runtime_root: PathBuf,
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
     state_collector: Arc<CdpStateCollector>,
+    input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
     journal: Arc<SqliteNodeJournal>,
     inflight: Arc<Mutex<HashSet<String>>>,
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
@@ -74,6 +77,31 @@ impl NodeControlService {
 
     fn profile_dir(&self, session_id: &str) -> PathBuf {
         self.runtime_root.join(session_id).join("profile")
+    }
+
+    fn parse_input_key(value: &str) -> anyhow::Result<InputKey> {
+        match value {
+            "SHIFT" | "Shift" => Ok(InputKey::Shift),
+            "CONTROL" | "Control" => Ok(InputKey::Control),
+            "ALT" | "Alt" => Ok(InputKey::Alt),
+            "META" | "Meta" => Ok(InputKey::Meta),
+            "ENTER" | "Enter" => Ok(InputKey::Enter),
+            "TAB" | "Tab" => Ok(InputKey::Tab),
+            "ESCAPE" | "Escape" => Ok(InputKey::Escape),
+            "BACKSPACE" | "Backspace" => Ok(InputKey::Backspace),
+            "DELETE" | "Delete" => Ok(InputKey::Delete),
+            "ARROW_UP" | "ArrowUp" => Ok(InputKey::ArrowUp),
+            "ARROW_DOWN" | "ArrowDown" => Ok(InputKey::ArrowDown),
+            "ARROW_LEFT" | "ArrowLeft" => Ok(InputKey::ArrowLeft),
+            "ARROW_RIGHT" | "ArrowRight" => Ok(InputKey::ArrowRight),
+            _ => {
+                anyhow::ensure!(
+                    !value.is_empty() && value.chars().count() <= 32,
+                    "input key must contain 1 to 32 characters"
+                );
+                Ok(InputKey::Character(value.to_owned()))
+            }
+        }
     }
 
     fn result(acknowledgement: CommandAck, event: Option<EventEnvelope>) -> CommandResult {
@@ -186,6 +214,23 @@ impl NodeControlService {
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                                     return self.failed(command, error);
                                 }
+                                let input = match CdpDesktopInput::connect(&handle.cdp_endpoint)
+                                    .await
+                                {
+                                    Ok(input) => Arc::new(input),
+                                    Err(error) => {
+                                        self.state_collector
+                                            .unregister_runtime(&command.session_id)
+                                            .await;
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        return self.failed(command, error);
+                                    }
+                                };
+                                self.input_brokers
+                                    .lock()
+                                    .await
+                                    .insert(command.session_id.clone(), input);
                                 let sequence =
                                     match self.next_event_sequence(&command.session_id).await {
                                         Ok(sequence) => sequence,
@@ -217,6 +262,12 @@ impl NodeControlService {
             }
             "StopRuntime" => match StopRuntimeCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
+                    if let Some(input) = self.input_brokers.lock().await.remove(&command.session_id)
+                    {
+                        if let Err(error) = input.release_all().await {
+                            return self.failed(command, error);
+                        }
+                    }
                     self.state_collector
                         .unregister_runtime(&command.session_id)
                         .await;
@@ -240,6 +291,91 @@ impl NodeControlService {
                             Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
                         }
                         Err(error) => self.failed(command, error),
+                    }
+                }
+                Err(error) => self.failed(command, error.into()),
+            },
+            "ExecuteInput" => match ExecuteInputCommand::decode(command.payload.as_slice()) {
+                Ok(payload) => {
+                    if payload.session_id != command.session_id {
+                        return self.failed(
+                            command,
+                            anyhow::anyhow!("input payload session_id does not match envelope"),
+                        );
+                    }
+                    let input = self
+                        .input_brokers
+                        .lock()
+                        .await
+                        .get(&command.session_id)
+                        .cloned();
+                    let Some(input) = input else {
+                        return self.failed(
+                            command,
+                            anyhow::anyhow!("input broker is not available for session"),
+                        );
+                    };
+                    let result = match payload.action {
+                        Some(node_contracts::proto::execute_input_command::Action::MouseMove(
+                            action,
+                        )) => input.mouse_move(action.x, action.y, payload.sequence).await,
+                        Some(node_contracts::proto::execute_input_command::Action::MouseDown(
+                            action,
+                        )) => match u8::try_from(action.button) {
+                            Ok(button) => input.mouse_down(button, payload.sequence).await,
+                            Err(error) => Err(error.into()),
+                        },
+                        Some(node_contracts::proto::execute_input_command::Action::MouseUp(
+                            action,
+                        )) => match u8::try_from(action.button) {
+                            Ok(button) => input.mouse_up(button, payload.sequence).await,
+                            Err(error) => Err(error.into()),
+                        },
+                        Some(node_contracts::proto::execute_input_command::Action::KeyDown(
+                            action,
+                        )) => match Self::parse_input_key(&action.key) {
+                            Ok(key) => input.key_down(key, payload.sequence).await,
+                            Err(error) => Err(error),
+                        },
+                        Some(node_contracts::proto::execute_input_command::Action::KeyUp(
+                            action,
+                        )) => match Self::parse_input_key(&action.key) {
+                            Ok(key) => input.key_up(key, payload.sequence).await,
+                            Err(error) => Err(error),
+                        },
+                        None => Err(anyhow::anyhow!("input action is required")),
+                    };
+                    match result {
+                        Ok(()) => Self::result(Self::ack(&command.message_id, true, "", ""), None),
+                        Err(error) => self.failed(command, error),
+                    }
+                }
+                Err(error) => self.failed(command, error.into()),
+            },
+            "ReleaseAllInput" => match ReleaseAllInputCommand::decode(command.payload.as_slice()) {
+                Ok(payload) => {
+                    if payload.session_id != command.session_id {
+                        return self.failed(
+                            command,
+                            anyhow::anyhow!(
+                                "release input payload session_id does not match envelope"
+                            ),
+                        );
+                    }
+                    let input = self
+                        .input_brokers
+                        .lock()
+                        .await
+                        .get(&command.session_id)
+                        .cloned();
+                    match input {
+                        Some(input) => match input.release_all().await {
+                            Ok(()) => {
+                                Self::result(Self::ack(&command.message_id, true, "", ""), None)
+                            }
+                            Err(error) => self.failed(command, error),
+                        },
+                        None => Self::result(Self::ack(&command.message_id, true, "", ""), None),
                     }
                 }
                 Err(error) => self.failed(command, error.into()),
@@ -357,6 +493,8 @@ impl NodeControlService {
         let running_context_epoch = command.context_epoch.saturating_add(1);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
+            let mut probe_count = 0_u64;
+            let mut last_state_hash = String::new();
             loop {
                 interval.tick().await;
                 if !service
@@ -379,7 +517,44 @@ impl NodeControlService {
                     }
                 };
                 match health {
-                    runtime_supervisor::RuntimeHealth::Healthy => {}
+                    runtime_supervisor::RuntimeHealth::Healthy => {
+                        probe_count += 1;
+                        if probe_count.is_multiple_of(2) {
+                            match service
+                                .state_collector
+                                .collect_current_state(&session_id)
+                                .await
+                            {
+                                Ok(state) if state.content_hash != last_state_hash => {
+                                    last_state_hash = state.content_hash.clone();
+                                    if let Err(error) = service
+                                        .record_and_publish_state(
+                                            &tenant_id,
+                                            &session_id,
+                                            coordinator_term,
+                                            running_context_epoch,
+                                            state,
+                                        )
+                                        .await
+                                    {
+                                        tracing::warn!(
+                                            session_id,
+                                            error = %error,
+                                            "Failed to queue Browser state event"
+                                        );
+                                    }
+                                }
+                                Ok(_) => {}
+                                Err(error) => {
+                                    tracing::debug!(
+                                        session_id,
+                                        error = %error,
+                                        "Browser state probe deferred"
+                                    );
+                                }
+                            }
+                        }
+                    }
                     runtime_supervisor::RuntimeHealth::Degraded(reason) => {
                         tracing::warn!(session_id, reason = %reason, "Runtime health is degraded");
                     }
@@ -406,6 +581,83 @@ impl NodeControlService {
                 }
             }
         });
+    }
+
+    async fn record_and_publish_state(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        state: CurrentState,
+    ) -> anyhow::Result<()> {
+        let event_id = format!("evt_state_{}", uuid::Uuid::new_v4().simple());
+        let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
+        let sequence = self.next_event_sequence(session_id).await?;
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            event_type: "BrowserStateUpdated".to_owned(),
+            tenant_id: tenant_id.to_owned(),
+            session_id: session_id.to_owned(),
+            coordinator_term,
+            context_epoch,
+            operation_epoch: 0,
+            sequence,
+            payload: BrowserStateEvent {
+                session_id: state.session_id,
+                state_version: state.state_version,
+                target_revision: state.target_revision,
+                url: state.url,
+                title: state.title,
+                state_quality: match state.quality {
+                    StateQuality::Complete => "COMPLETE",
+                    StateQuality::DepthLimited => "DEPTH_LIMITED",
+                    StateQuality::Resyncing => "RESYNCING",
+                    StateQuality::Degraded => "DEGRADED",
+                    StateQuality::Invalid => "INVALID",
+                }
+                .to_owned(),
+                content_hash: state.content_hash,
+                targets: state
+                    .targets
+                    .into_iter()
+                    .map(|target| InteractiveTargetState {
+                        target_ref: target.target_ref,
+                        role: target.role,
+                        name: target.name,
+                        bounds: target.bounds.map(|bounds| TargetBounds {
+                            x: bounds.x,
+                            y: bounds.y,
+                            width: bounds.width,
+                            height: bounds.height,
+                        }),
+                        enabled: target.enabled,
+                        visible: target.visible,
+                    })
+                    .collect(),
+            }
+            .encode_to_vec(),
+        };
+        let persisted = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id,
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some(event_id),
+            event_payload: Some(event.encode_to_vec()),
+            event_delivered: false,
+        };
+        self.journal.record_command_result(&persisted).await?;
+        if let Err(error) = self.publish_and_mark(event).await {
+            tracing::debug!(
+                session_id,
+                error = %error,
+                "Browser state event queued for redelivery"
+            );
+        }
+        Ok(())
     }
 
     async fn record_and_publish_crash(
@@ -621,6 +873,7 @@ async fn main() -> Result<()> {
             chromium_binary,
         ))),
         state_collector: Arc::new(CdpStateCollector::new()),
+        input_brokers: Arc::new(Mutex::new(HashMap::new())),
         journal,
         inflight: Arc::new(Mutex::new(HashSet::new())),
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
@@ -754,6 +1007,7 @@ mod tests {
                 "/missing/chromium",
             ))),
             state_collector: Arc::new(CdpStateCollector::new()),
+            input_brokers: Arc::new(Mutex::new(HashMap::new())),
             journal: reopened.clone(),
             inflight: Arc::new(Mutex::new(HashSet::new())),
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),

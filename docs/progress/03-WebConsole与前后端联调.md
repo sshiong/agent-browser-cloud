@@ -9,7 +9,7 @@
 - 所有主要业务页面直接读取 `src/mocks/data.ts`，与“正式项目必须连接真实后端”的提示词冲突。
 - `/environments/:id` 仍渲染环境列表，没有真实详情页。
 - 新建、启动、终止和侧边栏快捷按钮没有端到端行为。
-- API Base URL 写死，并存在后端未实现的 `/sessions/{id}/state` 调用。
+- API Base URL 写死，且最初引用了当时尚未实现的 `/sessions/{id}/state`。
 - 缺少统一 Loading、Empty、Error、Offline、Request ID 与 Operation 生命周期反馈。
 - 用户新增依赖时移除了 ESLint、Prettier、Playwright、CSP 与 Referrer Policy。
 - 创建抽屉在真实浏览器中出现 React 无限更新；关闭抽屉与详情导航存在竞态。
@@ -31,7 +31,7 @@
 
 - 支持 `VITE_API_BASE_URL`、`VITE_DEV_PROXY_TARGET` 和 `VITE_TENANT_ID`。
 - API Client 支持 AbortSignal、结构化 Error 与 Request ID。
-- 删除不存在的 Session State API 调用。
+- Browser State 后端闭环完成后重新接入正式 `/sessions/{id}/state`，正确处理 204。
 - 增加 TanStack Query Key、列表/详情 Query 与创建/启动/终止 Mutation。
 - 总览由真实 Session 列表派生，不再显示固定成本、Node 或 Agent 数字。
 - 环境列表使用服务端状态筛选、服务端分页和当前页搜索。
@@ -47,6 +47,9 @@
 - 环境列表现在显示名称、Session ID、Profile、租户、区域、资源等级、
   Runtime 和 Node，并支持按新增字段搜索。
 - Session 详情页显示同一组权威配置和运行上下文，创建后可立即核对用户输入是否持久化。
+- Session 详情页展示真实 Browser State：Document、URL、Quality、State/Target
+  Revision、Context Epoch、Content Hash 以及前 12 个交互目标的 Role、Bounds、
+  Visible 和 Enabled。
 
 ### Fixture 管理
 
@@ -57,7 +60,8 @@
 
 ## 测试
 
-- API 单元测试：4 个，覆盖租户 Header、幂等创建、Start Operation 与结构化错误。
+- API 单元测试：5 个，覆盖租户 Header、幂等创建、Start Operation、结构化错误与
+  Browser State 204 空结果。
 - Java 应用服务测试新增 Session 查询投影契约覆盖。
 - 集成烟雾测试新增 `session_descriptor_visible=true`，验证新增字段从 PostgreSQL
   持久化到 List/Get API 的完整链路。

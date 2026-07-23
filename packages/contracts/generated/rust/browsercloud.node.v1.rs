@@ -184,5 +184,101 @@ pub struct ReleaseAllInputCommand {
     #[prost(string, tag="2")]
     pub reason: ::prost::alloc::string::String,
 }
+/// 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteInputCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub sequence: u64,
+    #[prost(oneof="execute_input_command::Action", tags="10, 11, 12, 13, 14")]
+    pub action: ::core::option::Option<execute_input_command::Action>,
+}
+/// Nested message and enum types in `ExecuteInputCommand`.
+pub mod execute_input_command {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Action {
+        #[prost(message, tag="10")]
+        MouseMove(super::MouseMoveInput),
+        #[prost(message, tag="11")]
+        MouseDown(super::MouseButtonInput),
+        #[prost(message, tag="12")]
+        MouseUp(super::MouseButtonInput),
+        #[prost(message, tag="13")]
+        KeyDown(super::KeyInput),
+        #[prost(message, tag="14")]
+        KeyUp(super::KeyInput),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MouseMoveInput {
+    #[prost(int32, tag="1")]
+    pub x: i32,
+    #[prost(int32, tag="2")]
+    pub y: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MouseButtonInput {
+    #[prost(uint32, tag="1")]
+    pub button: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct KeyInput {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserStateEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub state_version: u64,
+    #[prost(uint64, tag="3")]
+    pub target_revision: u64,
+    #[prost(string, tag="4")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub state_quality: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub content_hash: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="8")]
+    pub targets: ::prost::alloc::vec::Vec<InteractiveTargetState>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InteractiveTargetState {
+    #[prost(string, tag="1")]
+    pub target_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="4")]
+    pub bounds: ::core::option::Option<TargetBounds>,
+    #[prost(bool, tag="5")]
+    pub enabled: bool,
+    #[prost(bool, tag="6")]
+    pub visible: bool,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TargetBounds {
+    #[prost(double, tag="1")]
+    pub x: f64,
+    #[prost(double, tag="2")]
+    pub y: f64,
+    #[prost(double, tag="3")]
+    pub width: f64,
+    #[prost(double, tag="4")]
+    pub height: f64,
+}
 include!("browsercloud.node.v1.tonic.rs");
 // @@protoc_insertion_point(module)

@@ -4,6 +4,8 @@ import {
   Bot,
   CircleDot,
   Clock3,
+  Crosshair,
+  Eye,
   Hand,
   LoaderCircle,
   Monitor,
@@ -19,6 +21,7 @@ import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import {
   useSession,
+  useBrowserState,
   useStartSession,
   useTerminateSession,
 } from '@/features/sessions/api/sessionQueries';
@@ -26,10 +29,15 @@ import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionSt
 import { isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
 import type { OperationView } from '@/types/session';
+import type { BrowserStateView } from '@/types/session';
 
 export function SessionDetailPage() {
   const { id = '' } = useParams();
   const sessionQuery = useSession(id);
+  const browserStateQuery = useBrowserState(
+    id,
+    sessionQuery.data?.state === 'RUNNING'
+  );
   const startMutation = useStartSession(id);
   const terminateMutation = useTerminateSession(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
@@ -129,13 +137,24 @@ export function SessionDetailPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => sessionQuery.refetch()}
-                    disabled={sessionQuery.isFetching}
+                    onClick={() =>
+                      void Promise.all([
+                        sessionQuery.refetch(),
+                        browserStateQuery.refetch(),
+                      ])
+                    }
+                    disabled={
+                      sessionQuery.isFetching || browserStateQuery.isFetching
+                    }
                     className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-border-default px-3 text-[11px] text-text-secondary hover:bg-surface-2 disabled:opacity-50"
                   >
                     <RefreshCw
                       size={13}
-                      className={cn(sessionQuery.isFetching && 'animate-spin')}
+                      className={cn(
+                        (sessionQuery.isFetching ||
+                          browserStateQuery.isFetching) &&
+                          'animate-spin'
+                      )}
                     />
                     刷新
                   </button>
@@ -182,8 +201,16 @@ export function SessionDetailPage() {
               hasActiveOperation={Boolean(session.currentOperation)}
             />
 
-            <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)] gap-4">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
               <div className="space-y-4">
+                <BrowserStatePanel
+                  state={browserStateQuery.data}
+                  running={session.state === 'RUNNING'}
+                  loading={browserStateQuery.isLoading}
+                  error={browserStateQuery.error}
+                  onRetry={() => browserStateQuery.refetch()}
+                />
+
                 <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-[13px] font-semibold text-text-primary">
@@ -193,7 +220,7 @@ export function SessionDetailPage() {
                       Control Plane / SessionView
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[8px] border border-border-subtle bg-border-subtle">
+                  <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-border-subtle bg-border-subtle md:grid-cols-4">
                     <ContextMetric
                       label="Context Epoch"
                       value={String(session.contextEpoch)}
@@ -219,7 +246,10 @@ export function SessionDetailPage() {
                       label="更新时间"
                       value={formatDate(session.updatedAt)}
                     />
-                    <ContextMetric label="实时通道" value="轮询 2s" />
+                    <ContextMetric
+                      label="状态同步"
+                      value={session.state === 'RUNNING' ? '每 2 秒' : '已暂停'}
+                    />
                   </div>
                 </section>
 
@@ -235,6 +265,16 @@ export function SessionDetailPage() {
                       icon={Monitor}
                       title="远程桌面"
                       detail="等待 WebRTC / noVNC 会话契约"
+                    />
+                    <CapabilityRow
+                      icon={Crosshair}
+                      title="Browser State"
+                      detail={
+                        browserStateQuery.data
+                          ? `已接入 · v${browserStateQuery.data.stateVersion} · ${browserStateQuery.data.targets.length} targets`
+                          : '真实 CDP 状态采集与持久化已接入'
+                      }
+                      ready
                     />
                     <CapabilityRow
                       icon={Bot}
@@ -332,6 +372,187 @@ function OperationPanel({ operation }: { operation?: OperationView }) {
   );
 }
 
+function BrowserStatePanel({
+  state,
+  running,
+  loading,
+  error,
+  onRetry,
+}: {
+  state: BrowserStateView | null | undefined;
+  running: boolean;
+  loading: boolean;
+  error: unknown;
+  onRetry: () => unknown;
+}) {
+  if (error) {
+    return (
+      <section className="rounded-[10px] border border-border-subtle bg-surface-1">
+        <ErrorState
+          error={error}
+          title="无法读取 Browser State"
+          onRetry={onRetry}
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Crosshair size={14} className="text-accent" />
+            <h2 className="text-[13px] font-semibold text-text-primary">
+              Browser State
+            </h2>
+            {state && (
+              <span className="rounded-[4px] border border-accent/25 bg-accent-soft px-1.5 py-0.5 font-mono text-[9px] text-accent">
+                {state.stateQuality}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-text-muted">
+            Browser Node 通过内部 CDP 采集，Control Plane
+            提供租户隔离的权威快照。
+          </p>
+        </div>
+        {state && (
+          <div className="flex gap-4 text-right font-mono">
+            <StateCounter label="STATE" value={`v${state.stateVersion}`} />
+            <StateCounter
+              label="TARGETS"
+              value={String(state.targets.length)}
+            />
+            <StateCounter label="EPOCH" value={String(state.contextEpoch)} />
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <LoadingPanel label="正在读取 Browser State" />
+      ) : !state ? (
+        <div className="px-5 py-8 text-center">
+          <Eye size={18} className="mx-auto text-text-muted" />
+          <p className="mt-2 text-[11px] text-text-secondary">
+            {running ? '等待首次 CDP 状态采集' : 'Session 运行后开始采集'}
+          </p>
+          <p className="mt-1 text-[10px] text-text-muted">
+            页面未产生状态时不会展示模拟内容。
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-px bg-border-subtle md:grid-cols-[1fr_1.5fr]">
+            <div className="min-w-0 bg-surface-2 px-5 py-3">
+              <p className="text-[9px] uppercase tracking-[0.16em] text-text-muted">
+                Document
+              </p>
+              <p className="mt-1 truncate text-[12px] font-medium text-text-primary">
+                {state.title || 'Untitled document'}
+              </p>
+            </div>
+            <div className="min-w-0 bg-surface-2 px-5 py-3">
+              <p className="text-[9px] uppercase tracking-[0.16em] text-text-muted">
+                URL
+              </p>
+              <p
+                className="mt-1 truncate font-mono text-[10px] text-accent-secondary"
+                title={state.url}
+              >
+                {state.url}
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border-subtle bg-canvas/35 text-[9px] uppercase tracking-[0.12em] text-text-muted">
+                  <th className="px-5 py-2.5 font-medium">Target</th>
+                  <th className="px-3 py-2.5 font-medium">Role</th>
+                  <th className="px-3 py-2.5 font-medium">Bounds</th>
+                  <th className="px-3 py-2.5 font-medium">Flags</th>
+                  <th className="px-5 py-2.5 text-right font-medium">
+                    Revision
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.targets.slice(0, 12).map((target) => (
+                  <tr
+                    key={target.targetRef}
+                    className="border-b border-border-subtle last:border-b-0"
+                  >
+                    <td className="max-w-[280px] px-5 py-3">
+                      <p className="truncate text-[11px] text-text-primary">
+                        {target.name || 'Unnamed target'}
+                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[9px] text-text-muted">
+                        {target.targetRef}
+                      </p>
+                    </td>
+                    <td className="px-3 py-3 font-mono text-[10px] text-text-secondary">
+                      {target.role}
+                    </td>
+                    <td className="px-3 py-3 font-mono text-[9px] text-text-muted">
+                      {formatBounds(target.bounds)}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex gap-1">
+                        <TargetFlag active={target.visible} label="VIS" />
+                        <TargetFlag active={target.enabled} label="ENA" />
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono text-[10px] text-text-muted">
+                      {state.targetRevision}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle bg-canvas/25 px-5 py-2.5">
+            <span className="text-[9px] text-text-muted">
+              最多展示前 12 个目标 · 总计 {state.targets.length}
+            </span>
+            <span
+              className="max-w-[360px] truncate font-mono text-[9px] text-text-muted"
+              title={state.stateHash}
+            >
+              hash:{state.stateHash}
+            </span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function StateCounter({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[8px] tracking-[0.14em] text-text-muted">{label}</p>
+      <p className="mt-0.5 text-[11px] text-text-primary">{value}</p>
+    </div>
+  );
+}
+
+function TargetFlag({ active, label }: { active: boolean; label: string }) {
+  return (
+    <span
+      className={cn(
+        'rounded-[3px] border px-1.5 py-0.5 font-mono text-[8px]',
+        active
+          ? 'border-success/25 bg-success/10 text-success'
+          : 'border-border-subtle text-text-muted'
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 function MutationFeedback({
   startError,
   terminateError,
@@ -408,18 +629,25 @@ function CapabilityRow({
   icon: Icon,
   title,
   detail,
+  ready,
 }: {
   icon: typeof Monitor;
   title: string;
   detail: string;
+  ready?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3 py-3">
       <Icon size={14} className="text-text-muted" />
       <span className="w-28 text-[11px] text-text-primary">{title}</span>
       <span className="flex-1 text-[10px] text-text-muted">{detail}</span>
-      <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[9px] text-text-muted">
-        待接入
+      <span
+        className={cn(
+          'rounded-full px-2 py-0.5 text-[9px]',
+          ready ? 'bg-success/10 text-success' : 'bg-surface-3 text-text-muted'
+        )}
+      >
+        {ready ? '已接入' : '待接入'}
       </span>
     </div>
   );
@@ -516,4 +744,13 @@ function formatDate(value: string) {
     second: '2-digit',
     hour12: false,
   }).format(new Date(value));
+}
+
+function formatBounds(
+  bounds: { x: number; y: number; width: number; height: number } | undefined
+) {
+  if (!bounds) return '—';
+  return `${Math.round(bounds.x)},${Math.round(bounds.y)} · ${Math.round(
+    bounds.width
+  )}×${Math.round(bounds.height)}`;
 }

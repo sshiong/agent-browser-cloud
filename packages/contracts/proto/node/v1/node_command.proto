@@ -134,3 +134,56 @@ message ReleaseAllInputCommand {
   string session_id = 1;
   string reason = 2;
 }
+
+// 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
+message ExecuteInputCommand {
+  string session_id = 1;
+  uint64 sequence = 2;
+  oneof action {
+    MouseMoveInput mouse_move = 10;
+    MouseButtonInput mouse_down = 11;
+    MouseButtonInput mouse_up = 12;
+    KeyInput key_down = 13;
+    KeyInput key_up = 14;
+  }
+}
+
+message MouseMoveInput {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message MouseButtonInput {
+  uint32 button = 1;
+}
+
+message KeyInput {
+  string key = 1;
+}
+
+message BrowserStateEvent {
+  string session_id = 1;
+  uint64 state_version = 2;
+  uint64 target_revision = 3;
+  string url = 4;
+  string title = 5;
+  string state_quality = 6;
+  string content_hash = 7;
+  repeated InteractiveTargetState targets = 8;
+}
+
+message InteractiveTargetState {
+  string target_ref = 1;
+  string role = 2;
+  optional string name = 3;
+  optional TargetBounds bounds = 4;
+  bool enabled = 5;
+  bool visible = 6;
+}
+
+message TargetBounds {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+}

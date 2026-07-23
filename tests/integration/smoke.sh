@@ -166,6 +166,22 @@ printf '%s' "$session_after_start" | python3 -c \
 printf '%s' "$session_after_start" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node-integration"; assert item["contextEpoch"] == 1'
 
+browser_state=""
+state_status=""
+for _ in $(seq 1 40); do
+  state_status="$(curl -sS -o "$temp_dir/browser-state.json" -w '%{http_code}' \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  if [[ "$state_status" = "200" ]]; then
+    browser_state="$(<"$temp_dir/browser-state.json")"
+    break
+  fi
+  sleep 0.25
+done
+test "$state_status" = "200"
+printf '%s' "$browser_state" | python3 -c \
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 1; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
+
 published="0"
 for _ in $(seq 1 30); do
   published="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
@@ -197,7 +213,7 @@ committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d bro
 test "$committed_operations" = "2"
 inbox_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from inbox_events where consumer_id='session-coordinator-v1'")"
-test "$inbox_events" = "2"
+test "$inbox_events" = "3"
 published_commands="0"
 for _ in $(seq 1 20); do
   published_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
@@ -207,8 +223,11 @@ for _ in $(seq 1 20); do
 done
 test "$published_commands" = "2"
 
+browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration'")"
+test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"
+  "$operation_id" "$browser_states" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"

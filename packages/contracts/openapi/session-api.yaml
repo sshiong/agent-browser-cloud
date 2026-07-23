@@ -87,6 +87,27 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/state:
+    get:
+      operationId: getBrowserState
+      summary: Get the latest Browser Current State
+      tags: [Session, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Latest tenant-scoped Browser State.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserState"
+        "204":
+          description: The Runtime has not submitted a state yet.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}:start:
     post:
       operationId: startSession
@@ -178,6 +199,88 @@ components:
     ResourceClass:
       type: string
       enum: [L0, L1, L2, L3, L4, L5]
+    BrowserState:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - contextEpoch
+        - stateVersion
+        - targetRevision
+        - url
+        - title
+        - stateHash
+        - stateQuality
+        - targets
+      properties:
+        sessionId:
+          type: string
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        stateVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        targetRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        url:
+          type: string
+          maxLength: 8192
+        title:
+          type: string
+          maxLength: 1024
+        stateHash:
+          type: string
+          maxLength: 128
+        stateQuality:
+          type: string
+          enum: [COMPLETE, DEPTH_LIMITED, RESYNCING, DEGRADED, INVALID]
+        targets:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/InteractiveTarget"
+    InteractiveTarget:
+      type: object
+      additionalProperties: false
+      required: [targetRef, role, enabled, visible]
+      properties:
+        targetRef:
+          type: string
+          maxLength: 256
+        role:
+          type: string
+          maxLength: 128
+        name:
+          type: [string, "null"]
+          maxLength: 256
+        bounds:
+          oneOf:
+            - $ref: "#/components/schemas/TargetBounds"
+            - type: "null"
+        enabled:
+          type: boolean
+        visible:
+          type: boolean
+    TargetBounds:
+      type: object
+      additionalProperties: false
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        width:
+          type: number
+          minimum: 0
+        height:
+          type: number
+          minimum: 0
     CreateSessionRequest:
       type: object
       additionalProperties: false

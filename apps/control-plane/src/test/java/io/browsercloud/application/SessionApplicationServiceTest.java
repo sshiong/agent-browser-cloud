@@ -3,6 +3,7 @@ package io.browsercloud.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.coordinator.SessionDescriptor;
@@ -24,6 +25,7 @@ class SessionApplicationServiceTest {
   @Mock private SessionCoordinator coordinator;
   @Mock private SessionRepository sessionRepository;
   @Mock private OperationRepository operationRepository;
+  @Mock private BrowserStateRepository browserStateRepository;
   @Mock private IdempotencyService idempotencyService;
 
   private SessionApplicationService service;
@@ -35,6 +37,7 @@ class SessionApplicationServiceTest {
             coordinator,
             sessionRepository,
             operationRepository,
+            browserStateRepository,
             idempotencyService,
             "runtime-test");
   }

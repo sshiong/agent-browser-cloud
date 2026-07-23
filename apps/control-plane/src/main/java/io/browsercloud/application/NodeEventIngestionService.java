@@ -1,6 +1,8 @@
 package io.browsercloud.application;
 
+import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.CoordinatorResult;
+import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.persistence.InboxEventEntity;
@@ -17,11 +19,15 @@ public class NodeEventIngestionService {
 
   private final InboxEventJpaRepository inboxRepository;
   private final SessionCoordinator coordinator;
+  private final BrowserStateRepository browserStateRepository;
 
   public NodeEventIngestionService(
-      InboxEventJpaRepository inboxRepository, SessionCoordinator coordinator) {
+      InboxEventJpaRepository inboxRepository,
+      SessionCoordinator coordinator,
+      BrowserStateRepository browserStateRepository) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
+    this.browserStateRepository = browserStateRepository;
   }
 
   @Transactional
@@ -33,6 +39,9 @@ public class NodeEventIngestionService {
     var result = coordinator.handle(command);
     if (result.status() == CoordinatorResult.Status.REJECTED) {
       throw new NodeEventRejectedException(result.reason());
+    }
+    if (command.event() instanceof NodeEvent.StateUpdated state) {
+      browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
     }
 
     inboxRepository.save(new InboxEventEntity(command.eventId(), CONSUMER_ID, Instant.now()));

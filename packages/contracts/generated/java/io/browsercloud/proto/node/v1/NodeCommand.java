@@ -17,27 +17,27 @@ public final class NodeCommand {
   }
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_PingRequest_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_PingRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_PingResponse_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_PingResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_CommandAck_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_CommandAck_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_DispatchRequest_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_DispatchRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_DispatchResponse_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_DispatchResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
@@ -52,44 +52,79 @@ public final class NodeCommand {
       internal_static_browsercloud_node_v1_PublishResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_CommandEnvelope_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_CommandEnvelope_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_EventEnvelope_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_EventEnvelope_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_RuntimeStartedEvent_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_RuntimeStartedEvent_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_StopRuntimeCommand_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_StopRuntimeCommand_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_RuntimeStoppedEvent_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_RuntimeStoppedEvent_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_BrowserCrashEvent_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_BrowserCrashEvent_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_ReleaseAllInputCommand_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_ReleaseAllInputCommand_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_MouseMoveInput_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_MouseMoveInput_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_MouseButtonInput_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_MouseButtonInput_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_KeyInput_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_KeyInput_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_TargetBounds_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_TargetBounds_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -155,16 +190,46 @@ public final class NodeCommand {
       "rashType\022\026\n\006reason\030\003 \001(\tR\006reason\022$\n\016dete" +
       "cted_at_ms\030\004 \001(\003R\014detectedAtMs\"O\n\026Releas" +
       "eAllInputCommand\022\035\n\nsession_id\030\001 \001(\tR\tse" +
-      "ssionId\022\026\n\006reason\030\002 \001(\tR\006reason2\276\001\n\022Node" +
-      "ControlService\022M\n\004Ping\022!.browsercloud.no" +
-      "de.v1.PingRequest\032\".browsercloud.node.v1" +
-      ".PingResponse\022Y\n\010Dispatch\022%.browsercloud" +
-      ".node.v1.DispatchRequest\032&.browsercloud." +
-      "node.v1.DispatchResponse2j\n\020NodeEventSer" +
-      "vice\022V\n\007Publish\022$.browsercloud.node.v1.P" +
-      "ublishRequest\032%.browsercloud.node.v1.Pub" +
-      "lishResponseB!\n\035io.browsercloud.proto.no" +
-      "de.v1P\001b\006proto3"
+      "ssionId\022\026\n\006reason\030\002 \001(\tR\006reason\"\245\003\n\023Exec" +
+      "uteInputCommand\022\035\n\nsession_id\030\001 \001(\tR\tses" +
+      "sionId\022\032\n\010sequence\030\002 \001(\004R\010sequence\022E\n\nmo" +
+      "use_move\030\n \001(\0132$.browsercloud.node.v1.Mo" +
+      "useMoveInputH\000R\tmouseMove\022G\n\nmouse_down\030" +
+      "\013 \001(\0132&.browsercloud.node.v1.MouseButton" +
+      "InputH\000R\tmouseDown\022C\n\010mouse_up\030\014 \001(\0132&.b" +
+      "rowsercloud.node.v1.MouseButtonInputH\000R\007" +
+      "mouseUp\022;\n\010key_down\030\r \001(\0132\036.browsercloud" +
+      ".node.v1.KeyInputH\000R\007keyDown\0227\n\006key_up\030\016" +
+      " \001(\0132\036.browsercloud.node.v1.KeyInputH\000R\005" +
+      "keyUpB\010\n\006action\",\n\016MouseMoveInput\022\014\n\001x\030\001" +
+      " \001(\005R\001x\022\014\n\001y\030\002 \001(\005R\001y\"*\n\020MouseButtonInpu" +
+      "t\022\026\n\006button\030\001 \001(\rR\006button\"\034\n\010KeyInput\022\020\n" +
+      "\003key\030\001 \001(\tR\003key\"\270\002\n\021BrowserStateEvent\022\035\n" +
+      "\nsession_id\030\001 \001(\tR\tsessionId\022#\n\rstate_ve" +
+      "rsion\030\002 \001(\004R\014stateVersion\022\'\n\017target_revi" +
+      "sion\030\003 \001(\004R\016targetRevision\022\020\n\003url\030\004 \001(\tR" +
+      "\003url\022\024\n\005title\030\005 \001(\tR\005title\022#\n\rstate_qual" +
+      "ity\030\006 \001(\tR\014stateQuality\022!\n\014content_hash\030" +
+      "\007 \001(\tR\013contentHash\022F\n\007targets\030\010 \003(\0132,.br" +
+      "owsercloud.node.v1.InteractiveTargetStat" +
+      "eR\007targets\"\355\001\n\026InteractiveTargetState\022\035\n" +
+      "\ntarget_ref\030\001 \001(\tR\ttargetRef\022\022\n\004role\030\002 \001" +
+      "(\tR\004role\022\027\n\004name\030\003 \001(\tH\000R\004name\210\001\001\022?\n\006bou" +
+      "nds\030\004 \001(\0132\".browsercloud.node.v1.TargetB" +
+      "oundsH\001R\006bounds\210\001\001\022\030\n\007enabled\030\005 \001(\010R\007ena" +
+      "bled\022\030\n\007visible\030\006 \001(\010R\007visibleB\007\n\005_nameB" +
+      "\t\n\007_bounds\"X\n\014TargetBounds\022\014\n\001x\030\001 \001(\001R\001x" +
+      "\022\014\n\001y\030\002 \001(\001R\001y\022\024\n\005width\030\003 \001(\001R\005width\022\026\n\006" +
+      "height\030\004 \001(\001R\006height2\276\001\n\022NodeControlServ" +
+      "ice\022M\n\004Ping\022!.browsercloud.node.v1.PingR" +
+      "equest\032\".browsercloud.node.v1.PingRespon" +
+      "se\022Y\n\010Dispatch\022%.browsercloud.node.v1.Di" +
+      "spatchRequest\032&.browsercloud.node.v1.Dis" +
+      "patchResponse2j\n\020NodeEventService\022V\n\007Pub" +
+      "lish\022$.browsercloud.node.v1.PublishReque" +
+      "st\032%.browsercloud.node.v1.PublishRespons" +
+      "eB!\n\035io.browsercloud.proto.node.v1P\001b\006pr" +
+      "oto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -260,6 +325,48 @@ public final class NodeCommand {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_ReleaseAllInputCommand_descriptor,
         new java.lang.String[] { "SessionId", "Reason", });
+    internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor =
+      getDescriptor().getMessageTypes().get(15);
+    internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor,
+        new java.lang.String[] { "SessionId", "Sequence", "MouseMove", "MouseDown", "MouseUp", "KeyDown", "KeyUp", "Action", });
+    internal_static_browsercloud_node_v1_MouseMoveInput_descriptor =
+      getDescriptor().getMessageTypes().get(16);
+    internal_static_browsercloud_node_v1_MouseMoveInput_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_MouseMoveInput_descriptor,
+        new java.lang.String[] { "X", "Y", });
+    internal_static_browsercloud_node_v1_MouseButtonInput_descriptor =
+      getDescriptor().getMessageTypes().get(17);
+    internal_static_browsercloud_node_v1_MouseButtonInput_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_MouseButtonInput_descriptor,
+        new java.lang.String[] { "Button", });
+    internal_static_browsercloud_node_v1_KeyInput_descriptor =
+      getDescriptor().getMessageTypes().get(18);
+    internal_static_browsercloud_node_v1_KeyInput_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_KeyInput_descriptor,
+        new java.lang.String[] { "Key", });
+    internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor =
+      getDescriptor().getMessageTypes().get(19);
+    internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor,
+        new java.lang.String[] { "SessionId", "StateVersion", "TargetRevision", "Url", "Title", "StateQuality", "ContentHash", "Targets", });
+    internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor =
+      getDescriptor().getMessageTypes().get(20);
+    internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor,
+        new java.lang.String[] { "TargetRef", "Role", "Name", "Bounds", "Enabled", "Visible", });
+    internal_static_browsercloud_node_v1_TargetBounds_descriptor =
+      getDescriptor().getMessageTypes().get(21);
+    internal_static_browsercloud_node_v1_TargetBounds_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_TargetBounds_descriptor,
+        new java.lang.String[] { "X", "Y", "Width", "Height", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

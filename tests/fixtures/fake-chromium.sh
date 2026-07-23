@@ -16,14 +16,22 @@ fi
 
 exec python3 - "$cdp_port" <<'PY'
 import json
+import base64
+import hashlib
 import signal
+import struct
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 port = int(sys.argv[1])
 
 class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def do_GET(self):
+        if self.headers.get("Upgrade", "").lower() == "websocket":
+            self.handle_websocket()
+            return
         if self.path == "/json/version":
             payload = {
                 "Browser": "FakeChromium/1.0",
@@ -47,6 +55,75 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)
+
+    def handle_websocket(self):
+        key = self.headers.get("Sec-WebSocket-Key", "")
+        accept = base64.b64encode(
+            hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
+        ).decode()
+        self.send_response(101, "Switching Protocols")
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", accept)
+        self.end_headers()
+        request = self.read_websocket_text()
+        if request is None:
+            return
+        command = json.loads(request)
+        if command.get("method") == "Runtime.evaluate":
+            result = {
+                "url": "https://example.test/runtime",
+                "title": "Browser Cloud Test Page",
+                "targets": [{
+                    "role": "button",
+                    "name": "Run integration",
+                    "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
+                    "enabled": True,
+                    "visible": True,
+                }],
+            }
+            response = {"id": command["id"], "result": {"result": {"type": "object", "value": result}}}
+        else:
+            response = {"id": command.get("id", 1), "result": {}}
+        self.write_websocket_text(json.dumps(response))
+
+    def read_exact(self, length):
+        result = b""
+        while len(result) < length:
+            chunk = self.rfile.read(length - len(result))
+            if not chunk:
+                return None
+            result += chunk
+        return result
+
+    def read_websocket_text(self):
+        header = self.read_exact(2)
+        if header is None:
+            return None
+        length = header[1] & 0x7F
+        masked = bool(header[1] & 0x80)
+        if length == 126:
+            length = struct.unpack("!H", self.read_exact(2))[0]
+        elif length == 127:
+            length = struct.unpack("!Q", self.read_exact(8))[0]
+        mask = self.read_exact(4) if masked else None
+        payload = self.read_exact(length)
+        if payload is None:
+            return None
+        if mask:
+            payload = bytes(value ^ mask[index % 4] for index, value in enumerate(payload))
+        return payload.decode()
+
+    def write_websocket_text(self, text):
+        payload = text.encode()
+        if len(payload) < 126:
+            header = bytes([0x81, len(payload)])
+        elif len(payload) < 65536:
+            header = bytes([0x81, 126]) + struct.pack("!H", len(payload))
+        else:
+            header = bytes([0x81, 127]) + struct.pack("!Q", len(payload))
+        self.wfile.write(header + payload)
+        self.wfile.flush()
 
     def log_message(self, _format, *_args):
         return

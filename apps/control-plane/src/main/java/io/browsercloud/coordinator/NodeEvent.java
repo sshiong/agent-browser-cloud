@@ -1,5 +1,7 @@
 package io.browsercloud.coordinator;
 
+import java.util.List;
+
 /**
  * Node 事件。
  *
@@ -28,6 +30,28 @@ public sealed interface NodeEvent
   record RuntimeCrashed(String sessionId, String crashType, String reason) implements NodeEvent {}
 
   /** 状态更新事件。 */
-  record StateUpdated(String sessionId, long stateVersion, String stateHash, String stateQuality)
-      implements NodeEvent {}
+  record StateUpdated(
+      String sessionId,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      List<InteractiveTarget> targets)
+      implements NodeEvent {
+    public StateUpdated {
+      targets = List.copyOf(targets);
+    }
+  }
+
+  record InteractiveTarget(
+      String targetRef,
+      String role,
+      String name,
+      Bounds bounds,
+      boolean enabled,
+      boolean visible) {}
+
+  record Bounds(double x, double y, double width, double height) {}
 }

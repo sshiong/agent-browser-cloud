@@ -82,6 +82,17 @@ public class SessionController {
     return service.get(sessionId, tenantId);
   }
 
+  /** 获取 Browser Node 最近提交的 Current State。 */
+  @GetMapping("/{sessionId}/state")
+  public ResponseEntity<BrowserStateView> getState(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId) {
+    return service
+        .getState(sessionId, tenantId)
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
   /**
    * 列出 Sessions。
    *

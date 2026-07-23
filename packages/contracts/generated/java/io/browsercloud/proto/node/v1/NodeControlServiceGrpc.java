@@ -4,8 +4,8 @@ import static io.grpc.MethodDescriptor.generateFullMethodName;
 
 /**
  * <pre>
- * Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
- * RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+ * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+ * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
  * </pre>
  */
 @javax.annotation.Generated(
@@ -127,8 +127,8 @@ public final class NodeControlServiceGrpc {
 
   /**
    * <pre>
-   * Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
-   * RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+   * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+   * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
    * </pre>
    */
   public interface AsyncService {
@@ -151,8 +151,8 @@ public final class NodeControlServiceGrpc {
   /**
    * Base class for the server implementation of the service NodeControlService.
    * <pre>
-   * Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
-   * RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+   * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+   * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
    * </pre>
    */
   public static abstract class NodeControlServiceImplBase
@@ -166,8 +166,8 @@ public final class NodeControlServiceGrpc {
   /**
    * A stub to allow clients to do asynchronous rpc calls to service NodeControlService.
    * <pre>
-   * Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
-   * RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+   * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+   * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
    * </pre>
    */
   public static final class NodeControlServiceStub
@@ -203,8 +203,8 @@ public final class NodeControlServiceGrpc {
   /**
    * A stub to allow clients to do synchronous rpc calls to service NodeControlService.
    * <pre>
-   * Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
-   * RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+   * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+   * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
    * </pre>
    */
   public static final class NodeControlServiceBlockingStub
@@ -238,8 +238,8 @@ public final class NodeControlServiceGrpc {
   /**
    * A stub to allow clients to do ListenableFuture-style rpc calls to service NodeControlService.
    * <pre>
-   * Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
-   * RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+   * Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+   * Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
    * </pre>
    */
   public static final class NodeControlServiceFutureStub

@@ -60,6 +60,7 @@ postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 screenshot_path="${WEB_CONSOLE_SCREENSHOT:-/tmp/agent-browser-cloud-session-flow.png}"
 
@@ -72,9 +73,10 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 
-CHROMIUM_PATH=/usr/bin/true \
+CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
 NODE_AGENT_PORT="$node_port" \
 NODE_ID=node-e2e \
+CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 RUNTIME_ROOT="$temp_dir/runtime" \
   apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &
 node_pid=$!
@@ -85,6 +87,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
   >"$temp_dir/control-plane.log" 2>&1 &

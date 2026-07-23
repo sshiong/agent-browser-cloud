@@ -17,5 +17,5 @@ RUN groupadd --system browsercloud \
 WORKDIR /app
 COPY --from=build /workspace/apps/control-plane/build/libs/*.jar app.jar
 USER browsercloud
-EXPOSE 8080
+EXPOSE 8080 9091
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

@@ -4,16 +4,18 @@ use anyhow::Result;
 use node_contracts::proto::node_control_service_server::{
     NodeControlService as NodeControlServiceRpc, NodeControlServiceServer,
 };
+use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    CommandAck, CommandEnvelope, DispatchRequest, DispatchResponse, PingRequest, PingResponse,
-    StartRuntimeCommand, StopRuntimeCommand,
+    CommandAck, CommandEnvelope, DispatchRequest, DispatchResponse, EventEnvelope, PingRequest,
+    PingResponse, PublishRequest, RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand,
+    StopRuntimeCommand,
 };
 use prost::Message;
 use runtime_supervisor::{ChromiumRuntimeSupervisor, RuntimeSpec, RuntimeSupervisor};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
@@ -21,12 +23,20 @@ use tracing_subscriber::EnvFilter;
 #[derive(Clone)]
 struct NodeControlService {
     node_id: String,
+    control_plane_event_target: String,
     runtime_root: PathBuf,
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
-    completed: Arc<Mutex<HashMap<String, CommandAck>>>,
+    completed: Arc<Mutex<HashMap<String, CommandResult>>>,
     inflight: Arc<Mutex<HashSet<String>>>,
     coordinator_terms: Arc<Mutex<HashMap<String, i64>>>,
+    event_sequences: Arc<Mutex<HashMap<String, i64>>>,
     next_cdp_port: Arc<Mutex<u16>>,
+}
+
+#[derive(Clone)]
+struct CommandResult {
+    acknowledgement: CommandAck,
+    event: Option<EventEnvelope>,
 }
 
 impl NodeControlService {
@@ -44,6 +54,13 @@ impl NodeControlService {
         allocated
     }
 
+    async fn next_event_sequence(&self, session_id: &str) -> i64 {
+        let mut sequences = self.event_sequences.lock().await;
+        let sequence = sequences.entry(session_id.to_owned()).or_default();
+        *sequence += 1;
+        *sequence
+    }
+
     fn ack(message_id: &str, accepted: bool, error_code: &str, error_message: &str) -> CommandAck {
         CommandAck {
             message_id: message_id.to_owned(),
@@ -58,58 +75,168 @@ impl NodeControlService {
         self.runtime_root.join(session_id).join("profile")
     }
 
-    async fn execute(&self, command: &CommandEnvelope) -> CommandAck {
-        let result = match command.command_type.as_str() {
+    fn result(acknowledgement: CommandAck, event: Option<EventEnvelope>) -> CommandResult {
+        CommandResult {
+            acknowledgement,
+            event,
+        }
+    }
+
+    fn event(
+        command: &CommandEnvelope,
+        event_type: &str,
+        sequence: i64,
+        payload: impl Message,
+    ) -> EventEnvelope {
+        EventEnvelope {
+            event_id: format!("evt_{}", command.message_id),
+            event_type: event_type.to_owned(),
+            tenant_id: command.tenant_id.clone(),
+            session_id: command.session_id.clone(),
+            coordinator_term: command.coordinator_term,
+            context_epoch: command.context_epoch,
+            operation_epoch: command.operation_epoch,
+            sequence,
+            payload: payload.encode_to_vec(),
+        }
+    }
+
+    async fn publish_event(&self, event: EventEnvelope) -> anyhow::Result<()> {
+        let target = if self.control_plane_event_target.starts_with("http://")
+            || self.control_plane_event_target.starts_with("https://")
+        {
+            self.control_plane_event_target.clone()
+        } else {
+            format!("http://{}", self.control_plane_event_target)
+        };
+        let channel = tonic::transport::Endpoint::from_shared(target)?
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(2))
+            .connect()
+            .await?;
+        let mut client = NodeEventServiceClient::new(channel);
+        let acknowledgement = client
+            .publish(PublishRequest { event: Some(event) })
+            .await?
+            .into_inner();
+        anyhow::ensure!(
+            acknowledgement.accepted,
+            "Control Plane rejected Node Event: {}",
+            acknowledgement.error_code
+        );
+        Ok(())
+    }
+
+    async fn execute(&self, command: &CommandEnvelope) -> CommandResult {
+        match command.command_type.as_str() {
             "StartRuntime" => {
                 let payload = StartRuntimeCommand::decode(command.payload.as_slice());
                 match payload {
                     Ok(payload) => {
                         let cdp_port = self.allocate_cdp_port().await;
-                        self.runtime_supervisor
+                        let runtime_build_id = payload.runtime_build_id;
+                        match self
+                            .runtime_supervisor
                             .start(RuntimeSpec {
                                 session_id: command.session_id.clone(),
-                                runtime_build_id: payload.runtime_build_id,
+                                runtime_build_id: runtime_build_id.clone(),
                                 profile_dir: self.profile_dir(&command.session_id),
                                 display: payload.display,
                                 cdp_port,
                             })
                             .await
-                            .map(|_| ())
+                        {
+                            Ok(handle) => {
+                                let sequence = self.next_event_sequence(&command.session_id).await;
+                                let event = Self::event(
+                                    command,
+                                    "RuntimeStarted",
+                                    sequence,
+                                    RuntimeStartedEvent {
+                                        session_id: command.session_id.clone(),
+                                        pid: handle.pid,
+                                        browser_generation: handle.browser_generation,
+                                        cdp_endpoint: handle.cdp_endpoint,
+                                        node_id: self.node_id.clone(),
+                                        runtime_build_id,
+                                    },
+                                );
+                                Self::result(
+                                    Self::ack(&command.message_id, true, "", ""),
+                                    Some(event),
+                                )
+                            }
+                            Err(error) => self.failed(command, error),
+                        }
                     }
-                    Err(error) => Err(error.into()),
+                    Err(error) => self.failed(command, error.into()),
                 }
             }
             "StopRuntime" => match StopRuntimeCommand::decode(command.payload.as_slice()) {
-                Ok(_) => self.runtime_supervisor.stop(&command.session_id).await,
-                Err(error) => Err(error.into()),
+                Ok(payload) => match self.runtime_supervisor.stop(&command.session_id).await {
+                    Ok(()) => {
+                        let sequence = self.next_event_sequence(&command.session_id).await;
+                        let event = Self::event(
+                            command,
+                            "RuntimeStopped",
+                            sequence,
+                            RuntimeStoppedEvent {
+                                session_id: command.session_id.clone(),
+                                reason: payload.reason,
+                                exit_code: 0,
+                            },
+                        );
+                        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+                    }
+                    Err(error) => self.failed(command, error),
+                },
+                Err(error) => self.failed(command, error.into()),
             },
-            _ => {
-                return Self::ack(
+            _ => Self::result(
+                Self::ack(
                     &command.message_id,
                     false,
                     "UNSUPPORTED_COMMAND",
                     "command type is not supported by this node version",
-                );
-            }
-        };
+                ),
+                None,
+            ),
+        }
+    }
 
-        match result {
-            Ok(_) => Self::ack(&command.message_id, true, "", ""),
-            Err(error) => {
-                tracing::warn!(
-                    message_id = %command.message_id,
-                    session_id = %command.session_id,
-                    error = %error,
-                    "Node command failed"
-                );
-                Self::ack(
-                    &command.message_id,
+    fn failed(&self, command: &CommandEnvelope, error: anyhow::Error) -> CommandResult {
+        tracing::warn!(
+            message_id = %command.message_id,
+            session_id = %command.session_id,
+            error = %error,
+            "Node command failed"
+        );
+        Self::result(
+            Self::ack(
+                &command.message_id,
+                false,
+                "NODE_COMMAND_FAILED",
+                "node command failed",
+            ),
+            None,
+        )
+    }
+
+    async fn redeliver(&self, result: &CommandResult) -> CommandAck {
+        let mut acknowledgement = result.acknowledgement.clone();
+        acknowledgement.duplicate = true;
+        if let Some(event) = result.event.clone() {
+            if let Err(error) = self.publish_event(event).await {
+                tracing::warn!(error = %error, "Failed to redeliver Node Event");
+                return Self::ack(
+                    &acknowledgement.message_id,
                     false,
-                    "NODE_COMMAND_FAILED",
-                    "node command failed",
-                )
+                    "EVENT_DELIVERY_FAILED",
+                    "node event delivery failed",
+                );
             }
         }
+        acknowledgement
     }
 }
 
@@ -144,15 +271,14 @@ impl NodeControlServiceRpc for NodeControlService {
             ));
         }
 
-        if let Some(previous) = self
+        let previous = self
             .completed
             .lock()
             .await
             .get(&command.message_id)
-            .cloned()
-        {
-            let mut duplicate = previous;
-            duplicate.duplicate = true;
+            .cloned();
+        if let Some(previous) = previous {
+            let duplicate = self.redeliver(&previous).await;
             return Ok(Response::new(DispatchResponse {
                 acknowledgement: Some(duplicate),
             }));
@@ -185,16 +311,37 @@ impl NodeControlServiceRpc for NodeControlService {
             }
         }
 
-        let ack = self.execute(&command).await;
+        let result = self.execute(&command).await;
         self.inflight.lock().await.remove(&command.message_id);
-        if ack.accepted || ack.error_code == "UNSUPPORTED_COMMAND" {
+        if result.acknowledgement.accepted
+            || result.acknowledgement.error_code == "UNSUPPORTED_COMMAND"
+        {
             self.completed
                 .lock()
                 .await
-                .insert(command.message_id, ack.clone());
+                .insert(command.message_id.clone(), result.clone());
+        }
+
+        let mut acknowledgement = result.acknowledgement;
+        if acknowledgement.accepted {
+            if let Some(event) = result.event {
+                if let Err(error) = self.publish_event(event).await {
+                    tracing::warn!(
+                        message_id = %command.message_id,
+                        error = %error,
+                        "Failed to deliver Node Event"
+                    );
+                    acknowledgement = Self::ack(
+                        &command.message_id,
+                        false,
+                        "EVENT_DELIVERY_FAILED",
+                        "node event delivery failed",
+                    );
+                }
+            }
         }
         Ok(Response::new(DispatchResponse {
-            acknowledgement: Some(ack),
+            acknowledgement: Some(acknowledgement),
         }))
     }
 }
@@ -212,6 +359,8 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "9090".to_owned())
         .parse::<u16>()?;
     let node_id = std::env::var("NODE_ID").unwrap_or_else(|_| "node-local-1".to_owned());
+    let control_plane_event_target =
+        std::env::var("CONTROL_PLANE_EVENT_TARGET").unwrap_or_else(|_| "127.0.0.1:9091".to_owned());
     let runtime_root = std::env::var("RUNTIME_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| Path::new("/tmp/browsercloud-runtime").to_path_buf());
@@ -219,6 +368,7 @@ async fn main() -> Result<()> {
 
     let service = NodeControlService {
         node_id,
+        control_plane_event_target,
         runtime_root,
         runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
             chromium_binary,
@@ -226,6 +376,7 @@ async fn main() -> Result<()> {
         completed: Arc::new(Mutex::new(HashMap::new())),
         inflight: Arc::new(Mutex::new(HashSet::new())),
         coordinator_terms: Arc::new(Mutex::new(HashMap::new())),
+        event_sequences: Arc::new(Mutex::new(HashMap::new())),
         next_cdp_port: Arc::new(Mutex::new(10_000)),
     };
     let address = ([0, 0, 0, 0], node_port).into();

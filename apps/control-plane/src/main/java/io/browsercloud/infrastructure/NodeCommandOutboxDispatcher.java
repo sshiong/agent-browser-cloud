@@ -52,7 +52,7 @@ public class NodeCommandOutboxDispatcher {
         var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
         var response =
             NodeControlServiceGrpc.newBlockingStub(channel)
-                .withDeadlineAfter(2, TimeUnit.SECONDS)
+                .withDeadlineAfter(5, TimeUnit.SECONDS)
                 .dispatch(DispatchRequest.newBuilder().setCommand(toEnvelope(command)).build());
         var acknowledgement = response.getAcknowledgement();
         if (acknowledgement.getAccepted()) {

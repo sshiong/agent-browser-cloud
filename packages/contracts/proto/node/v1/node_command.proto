@@ -5,11 +5,17 @@ package browsercloud.node.v1;
 option java_package = "io.browsercloud.proto.node.v1";
 option java_multiple_files = true;
 
-// Browser Node 的最小控制面 RPC。长任务通过命令受理和异步事件完成，
-// RPC 返回只代表 Node 已校验并受理命令，不代表 Runtime 操作已完成。
+// Browser Node 的最小控制面 RPC。Session API 通过 Outbox 异步投递命令；
+// Runtime 状态以 NodeEventService 成功提交的版本化事件为准。
 service NodeControlService {
   rpc Ping(PingRequest) returns (PingResponse);
   rpc Dispatch(DispatchRequest) returns (DispatchResponse);
+}
+
+// Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
+// Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
+service NodeEventService {
+  rpc Publish(PublishRequest) returns (PublishResponse);
 }
 
 message PingRequest {
@@ -36,6 +42,18 @@ message DispatchRequest {
 
 message DispatchResponse {
   CommandAck acknowledgement = 1;
+}
+
+message PublishRequest {
+  EventEnvelope event = 1;
+}
+
+message PublishResponse {
+  string event_id = 1;
+  bool accepted = 2;
+  bool duplicate = 3;
+  string error_code = 4;
+  string error_message = 5;
 }
 
 // 命令信封

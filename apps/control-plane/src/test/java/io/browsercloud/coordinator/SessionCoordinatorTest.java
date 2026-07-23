@@ -74,7 +74,7 @@ class SessionCoordinatorTest {
   void shouldHandleRuntimeStartedEvent() {
     // Given
     var session = createSession("ses-1", SessionState.STARTING);
-    when(sessionRepository.require("ses-1")).thenReturn(session);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
 
     var event =
         new NodeEvent.RuntimeStarted(
@@ -83,7 +83,7 @@ class SessionCoordinatorTest {
     when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(operation));
 
     // When
-    var result = coordinator.handle(new NodeEventReceived("ses-1", event));
+    var result = coordinator.handle(nodeEvent(event, 0, 1));
 
     // Then
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
@@ -96,17 +96,73 @@ class SessionCoordinatorTest {
   void shouldHandleRuntimeCrashedEvent() {
     // Given
     var session = createSession("ses-1", SessionState.RUNNING);
-    when(sessionRepository.require("ses-1")).thenReturn(session);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
 
     var event = new NodeEvent.RuntimeCrashed("ses-1", "RENDERER_CRASH", "OOM");
 
     // When
-    var result = coordinator.handle(new NodeEventReceived("ses-1", event));
+    var result = coordinator.handle(nodeEvent(event, 0, 0));
 
     // Then
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
     verify(sessionRepository).updateWithExpectedEpoch(any(), eq(0L));
     verify(outboxPublisher).append(any(SessionStateChanged.class));
+  }
+
+  @Test
+  void shouldHandleRuntimeStoppedEvent() {
+    var session = createSession("ses-1", SessionState.TERMINATING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(Optional.of(createActiveOperation("ses-1")));
+
+    var result =
+        coordinator.handle(
+            nodeEvent(new NodeEvent.RuntimeStopped("ses-1", "user_request", 0), 0, 1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.TERMINATED), eq(0L));
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.COMMITTED);
+    verify(outboxPublisher)
+        .append(
+            argThat(
+                event ->
+                    event instanceof SessionStateChanged changed
+                        && changed.newState() == SessionState.TERMINATED));
+  }
+
+  @Test
+  void shouldRejectStaleContextEpochBeforeApplyingNodeEvent() {
+    var session = createSession("ses-1", SessionState.STARTING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    var event =
+        new NodeEvent.RuntimeStarted(
+            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222");
+
+    var result = coordinator.handle(nodeEvent(event, 1, 1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.REJECTED);
+    assertThat(result.reason()).isEqualTo("STALE_CONTEXT_EPOCH");
+    verify(sessionRepository, never()).updateWithExpectedEpoch(any(), anyLong());
+  }
+
+  @Test
+  void shouldRejectStaleOperationEpochBeforeApplyingNodeEvent() {
+    var session = createSession("ses-1", SessionState.STARTING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(Optional.of(createActiveOperation("ses-1")));
+    var event =
+        new NodeEvent.RuntimeStarted(
+            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222");
+
+    var result = coordinator.handle(nodeEvent(event, 0, 2));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.REJECTED);
+    assertThat(result.reason()).isEqualTo("STALE_OPERATION_EPOCH");
+    verify(sessionRepository, never()).updateWithExpectedEpoch(any(), anyLong());
   }
 
   @Test
@@ -163,5 +219,10 @@ class SessionCoordinatorTest {
         Instant.now().plusSeconds(300),
         Instant.now(),
         null);
+  }
+
+  private NodeEventReceived nodeEvent(NodeEvent event, long contextEpoch, long operationEpoch) {
+    return new NodeEventReceived(
+        "evt-test", "tenant-1", "ses-1", 0, contextEpoch, operationEpoch, 1, event);
   }
 }

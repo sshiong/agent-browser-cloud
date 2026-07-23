@@ -294,6 +294,22 @@ message DispatchResponse {
   CommandAck acknowledgement = 1;
 }
 
+service NodeEventService {
+  rpc Publish(PublishRequest) returns (PublishResponse);
+}
+
+message PublishRequest {
+  EventEnvelope event = 1;
+}
+
+message PublishResponse {
+  string event_id = 1;
+  bool accepted = 2;
+  bool duplicate = 3;
+  string error_code = 4;
+  string error_message = 5;
+}
+
 // 命令信封
 message CommandEnvelope {
   string message_id = 1;

@@ -38,7 +38,8 @@
 - 创建抽屉使用 React Hook Form + Zod，提交真实幂等请求。
 - Session 详情显示状态、Node、Runtime、Epoch、Operation、时间线和能力接入状态。
 - Start 与 Terminate 等高风险状态不做乐观成功；Terminate 有明确确认步骤。
-- 活跃 Operation 期间每两秒刷新详情，直到后续事件闭环能够替换为 SSE。
+- 活跃 Operation 期间每两秒刷新详情；Node Event 闭环后页面可自动观察到
+  `RUNNING/TERMINATED` 终态，后续仍需用 SSE 替换轮询。
 - Session `GET/List` 正式契约新增 `displayName`、`profileId`、`region` 和
   `resourceClass`。
 - 新增受控 `SessionDescriptor` 查询投影：只从 metadata 白名单提取
@@ -70,8 +71,8 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 1. 列表读取；
 2. 创建 Session；
 3. 打开详情；
-4. Start Operation；
-5. 第二个 Session 的 Termination Operation；
+4. Start Operation 经真实 Node Event 自动提交，页面显示“运行中”；
+5. 第二个 Session 的 Termination Operation 自动提交，页面显示“已终止”；
 6. 浏览器 Console 无错误。
 
 测试入口：`make test-e2e`；启动器为 `tests/e2e/run.sh`，浏览器流程为
@@ -83,7 +84,6 @@ Browser Node、Control Plane 与 Vite，不依赖人工预启动服务。
 | 缺口 | 原因/下一步 |
 |---|---|
 | 创建向导只有当前后端支持的字段 | Runtime、Proxy、Persona、Extension、Agent 策略需要各自正式 API 后再扩展到完整九步 |
-| Operation 不会自动结束 | 依赖 Node Runtime Event 回传与 Coordinator 状态提交闭环 |
 | 实时事件仅用轮询 | 实现统一 SSE/WebSocket Manager，并校验 sequence/context_epoch/operation_epoch |
 | OIDC/RBAC 未实现 | 生产前必须从 Principal 派生租户，不能信任 `VITE_TENANT_ID` |
 | API Client 尚非 OpenAPI 自动生成 | 建立生成包并用适配层替换当前手写 Client |

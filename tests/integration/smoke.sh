@@ -57,6 +57,7 @@ postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
 for _ in $(seq 1 40); do
   docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
@@ -67,9 +68,10 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 
-CHROMIUM_PATH=/usr/bin/true \
+CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
 NODE_AGENT_PORT="$node_port" \
 NODE_ID=node-integration \
+CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 RUNTIME_ROOT="$temp_dir/runtime" \
   apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &
 node_pid=$!
@@ -80,6 +82,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
   >"$temp_dir/control-plane.log" 2>&1 &
@@ -147,13 +150,21 @@ start_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:start" \
   -H 'X-Tenant-Id: tenant-integration')"
 operation_id="$(printf '%s' "$start_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["operationId"])')"
-session_after_start="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
-  -H 'X-Tenant-Id: tenant-integration')"
+session_after_start=""
+state=""
+for _ in $(seq 1 40); do
+  session_after_start="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  state="$(printf '%s' "$session_after_start" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$state" = "RUNNING"
 printf '%s' "$session_after_start" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L1"'
-active_operation_id="$(printf '%s' "$session_after_start" | python3 -c 'import json,sys; print(json.load(sys.stdin)["currentOperation"]["operationId"])')"
-test "$operation_id" = "$active_operation_id"
+printf '%s' "$session_after_start" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node-integration"; assert item["contextEpoch"] == 1'
 
 published="0"
 for _ in $(seq 1 30); do
@@ -164,8 +175,40 @@ for _ in $(seq 1 30); do
 done
 test "$published" = "1"
 
+terminate_result="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration')"
+terminate_operation_id="$(printf '%s' "$terminate_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+session_after_terminate=""
+for _ in $(seq 1 40); do
+  session_after_terminate="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  state="$(printf '%s' "$session_after_terminate" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$state" = "TERMINATED"
+printf '%s' "$session_after_terminate" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None'
+
+committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
+test "$committed_operations" = "2"
+inbox_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from inbox_events where consumer_id='session-coordinator-v1'")"
+test "$inbox_events" = "2"
+published_commands="0"
+for _ in $(seq 1 20); do
+  published_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
+  if [[ "$published_commands" = "2" ]]; then break; fi
+  sleep 0.25
+done
+test "$published_commands" = "2"
+
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nactive_operation_visible=true\noperation_id=%s\nnode_command_published=%s\npublic_tables=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$published" "$public_tables"
+  "$operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"

@@ -43,6 +43,9 @@ browser-node:
   dispatch-interval-ms: ${BROWSER_NODE_DISPATCH_INTERVAL_MS:250}
   default-runtime-build-id: ${BROWSER_NODE_DEFAULT_RUNTIME_BUILD_ID:runtime_local_chromium}
 
+control-plane:
+  node-event-port: ${CONTROL_PLANE_NODE_EVENT_PORT:9091}
+
 logging:
   level:
     io.browsercloud: ${LOG_LEVEL:INFO}

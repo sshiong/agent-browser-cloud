@@ -228,6 +228,104 @@ export class DispatchResponse extends Message<DispatchResponse> {
 }
 
 /**
+ * @generated from message browsercloud.node.v1.PublishRequest
+ */
+export class PublishRequest extends Message<PublishRequest> {
+  /**
+   * @generated from field: browsercloud.node.v1.EventEnvelope event = 1;
+   */
+  event?: EventEnvelope;
+
+  constructor(data?: PartialMessage<PublishRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PublishRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "event", kind: "message", T: EventEnvelope },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PublishRequest {
+    return new PublishRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PublishRequest {
+    return new PublishRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PublishRequest {
+    return new PublishRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PublishRequest | PlainMessage<PublishRequest> | undefined, b: PublishRequest | PlainMessage<PublishRequest> | undefined): boolean {
+    return proto3.util.equals(PublishRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.PublishResponse
+ */
+export class PublishResponse extends Message<PublishResponse> {
+  /**
+   * @generated from field: string event_id = 1;
+   */
+  eventId = "";
+
+  /**
+   * @generated from field: bool accepted = 2;
+   */
+  accepted = false;
+
+  /**
+   * @generated from field: bool duplicate = 3;
+   */
+  duplicate = false;
+
+  /**
+   * @generated from field: string error_code = 4;
+   */
+  errorCode = "";
+
+  /**
+   * @generated from field: string error_message = 5;
+   */
+  errorMessage = "";
+
+  constructor(data?: PartialMessage<PublishResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PublishResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "event_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "accepted", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "duplicate", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 4, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "error_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PublishResponse {
+    return new PublishResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PublishResponse {
+    return new PublishResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PublishResponse {
+    return new PublishResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PublishResponse | PlainMessage<PublishResponse> | undefined, b: PublishResponse | PlainMessage<PublishResponse> | undefined): boolean {
+    return proto3.util.equals(PublishResponse, a, b);
+  }
+}
+
+/**
  * 命令信封
  *
  * @generated from message browsercloud.node.v1.CommandEnvelope

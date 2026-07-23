@@ -1,8 +1,10 @@
 package io.browsercloud.coordinator;
 
 import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
+import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.session.SessionState;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,11 +162,38 @@ public final class SessionCoordinator {
   private CoordinatorResult handleNodeEvent(NodeEventReceived command) {
     log.info("Handling node event for session: {}", command.sessionId());
 
-    var session = sessionRepository.require(command.sessionId());
+    var session = sessionRepository.requireForUpdate(command.sessionId());
     var event = command.event();
+
+    if (!command.sessionId().equals(eventSessionId(event))) {
+      return CoordinatorResult.rejected("SESSION_ID_MISMATCH");
+    }
+    if (!command.tenantId().equals(session.tenantId())) {
+      return CoordinatorResult.rejected("TENANT_MISMATCH");
+    }
+    if (command.coordinatorTerm() != session.coordinatorTerm()) {
+      return CoordinatorResult.rejected("STALE_COORDINATOR_TERM");
+    }
+    if (command.contextEpoch() != session.contextEpoch()) {
+      return CoordinatorResult.rejected("STALE_CONTEXT_EPOCH");
+    }
+    if (command.sequence() <= 0) {
+      return CoordinatorResult.rejected("INVALID_EVENT_SEQUENCE");
+    }
 
     return switch (event) {
       case NodeEvent.RuntimeStarted started -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (session.state() != SessionState.STARTING) {
+          yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
+        }
+        if (operation.isEmpty()) {
+          yield CoordinatorResult.rejected("STALE_OPERATION_EPOCH");
+        }
+        if (started.browserGeneration() <= session.browserGeneration()) {
+          yield CoordinatorResult.rejected("STALE_BROWSER_GENERATION");
+        }
+
         // 更新 Session Context
         var newContext =
             session
@@ -174,12 +203,8 @@ public final class SessionCoordinator {
         sessionRepository.updateWithExpectedEpoch(newContext, session.contextEpoch());
 
         // 提交 Operation
-        operationRepository
-            .findActive(session.sessionId())
-            .ifPresent(
-                op ->
-                    operationRepository.transition(
-                        op.operationId(), OperationState.ACTIVE, OperationState.COMMITTED));
+        operationRepository.transition(
+            operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
 
         // 发布事件
         outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.RUNNING));
@@ -188,17 +213,23 @@ public final class SessionCoordinator {
       }
 
       case NodeEvent.RuntimeStopped stopped -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (session.state() != SessionState.TERMINATING) {
+          yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
+        }
+        if (operation.isEmpty()) {
+          yield CoordinatorResult.rejected("STALE_OPERATION_EPOCH");
+        }
+
         // 更新 Session 状态
         var newContext = session.withState(SessionState.TERMINATED);
         sessionRepository.updateWithExpectedEpoch(newContext, session.contextEpoch());
 
         // 提交 Operation
-        operationRepository
-            .findActive(session.sessionId())
-            .ifPresent(
-                op ->
-                    operationRepository.transition(
-                        op.operationId(), OperationState.ACTIVE, OperationState.COMMITTED));
+        operationRepository.transition(
+            operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
+        outboxPublisher.append(
+            new SessionStateChanged(session.sessionId(), SessionState.TERMINATED));
 
         yield CoordinatorResult.completed();
       }
@@ -218,6 +249,24 @@ public final class SessionCoordinator {
         // 状态更新，不需要修改 Session Context
         yield CoordinatorResult.completed();
       }
+    };
+  }
+
+  private Optional<ExclusiveOperation> matchingActiveOperation(
+      String sessionId, NodeEventReceived command) {
+    return operationRepository
+        .findActive(sessionId)
+        .filter(operation -> operation.coordinatorTerm() == command.coordinatorTerm())
+        .filter(operation -> operation.contextEpoch() == command.contextEpoch())
+        .filter(operation -> operation.operationEpoch() == command.operationEpoch());
+  }
+
+  private String eventSessionId(NodeEvent event) {
+    return switch (event) {
+      case NodeEvent.RuntimeStarted started -> started.sessionId();
+      case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
+      case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
+      case NodeEvent.StateUpdated updated -> updated.sessionId();
     };
   }
 

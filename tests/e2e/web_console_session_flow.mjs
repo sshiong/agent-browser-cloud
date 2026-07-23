@@ -49,8 +49,8 @@ try {
 
   await page.getByRole("button", { name: "启动 Session" }).click();
   await expect(
-    page.getByText("后端 Operation 正在执行，详情会每 2 秒同步一次。"),
-  ).toBeVisible({ timeout: 10_000 });
+    page.locator("main").getByText("运行中", { exact: true }).last(),
+  ).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`${baseUrl}/environments?create=1`);
   await page.waitForLoadState("networkidle");
@@ -82,8 +82,8 @@ try {
   ).toBeVisible();
   await page.getByRole("button", { name: "确认终止" }).click();
   await expect(
-    page.getByText("后端 Operation 正在执行，详情会每 2 秒同步一次。"),
-  ).toBeVisible({ timeout: 10_000 });
+    page.locator("main").getByText("已终止", { exact: true }).last(),
+  ).toBeVisible({ timeout: 15_000 });
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
 } finally {

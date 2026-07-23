@@ -41,6 +41,26 @@ pub struct DispatchResponse {
     #[prost(message, optional, tag="1")]
     pub acknowledgement: ::core::option::Option<CommandAck>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PublishRequest {
+    #[prost(message, optional, tag="1")]
+    pub event: ::core::option::Option<EventEnvelope>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PublishResponse {
+    #[prost(string, tag="1")]
+    pub event_id: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub accepted: bool,
+    #[prost(bool, tag="3")]
+    pub duplicate: bool,
+    #[prost(string, tag="4")]
+    pub error_code: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub error_message: ::prost::alloc::string::String,
+}
 /// 命令信封
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

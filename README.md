@@ -113,6 +113,7 @@ make contracts
 # 契约校验与真实进程烟雾测试
 make contracts-check
 make test-integration
+make test-e2e
 ```
 
 ## API 文档

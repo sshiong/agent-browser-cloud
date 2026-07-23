@@ -20,6 +20,7 @@ COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/lo
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \
+    NODE_JOURNAL_PATH=/var/lib/browsercloud/runtime/node-journal.sqlite3 \
     NODE_AGENT_PORT=9090
 EXPOSE 9090
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/node-agent"]

@@ -62,6 +62,7 @@ services:
       CONTROL_PLANE_EVENT_TARGET: control-plane:9091
       CHROMIUM_PATH: /usr/bin/chromium
       RUNTIME_ROOT: /var/lib/browsercloud/runtime
+      NODE_JOURNAL_PATH: /var/lib/browsercloud/runtime/node-journal.sqlite3
       RUST_LOG: info
     expose:
       - "9090"

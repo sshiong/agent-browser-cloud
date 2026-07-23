@@ -2,7 +2,7 @@
 
 以受控 Chromium Runtime 为核心的浏览器基础设施平台。
 
-> 当前状态：Phase 0 工程基础已可构建，但完整退出 Gate 尚未通过；Phase 1/2 仍是 PoC/骨架。它不是可直接用于生产或真实客户数据的完整 V16 平台；认证、持久化 Node Journal、noVNC、CDP State Collector 和完整审计仍在后续 Gate。
+> 当前状态：Phase 0 工程基础已可构建，但完整退出 Gate 尚未通过；Phase 1/2 仍是 PoC。真实 Chromium/CDP、State Collector、SQLite Node Journal 和持久事件重投已经落地；noVNC、真实输入、认证、mTLS、自动 Crash Recovery 与完整审计仍未通过 Gate。当前版本不能直接用于生产或真实客户数据。
 
 ## 快速开始
 
@@ -91,6 +91,7 @@ agent-browser-cloud/
 - [工程规范](docs/07-工程规范.md)
 - [进度追踪](docs/08-进度追踪.md)
 - [合规审计与整改记录](docs/09-合规审计与整改记录.md)
+- [架构与实施大纲](docs/outline/)
 
 ## 开发
 

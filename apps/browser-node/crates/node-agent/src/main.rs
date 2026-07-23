@@ -6,13 +6,17 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    CommandAck, CommandEnvelope, DispatchRequest, DispatchResponse, EventEnvelope, PingRequest,
-    PingResponse, PublishRequest, RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand,
-    StopRuntimeCommand,
+    BrowserCrashEvent, CommandAck, CommandEnvelope, DispatchRequest, DispatchResponse,
+    EventEnvelope, PingRequest, PingResponse, PublishRequest, RuntimeStartedEvent,
+    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
+};
+use node_journal::{
+    PersistedAcknowledgement, PersistedCommandResult, SqliteNodeJournal, TermDecision,
 };
 use prost::Message;
 use runtime_supervisor::{ChromiumRuntimeSupervisor, RuntimeSpec, RuntimeSupervisor};
-use std::collections::{HashMap, HashSet};
+use state_collector::CdpStateCollector;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -26,10 +30,10 @@ struct NodeControlService {
     control_plane_event_target: String,
     runtime_root: PathBuf,
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
-    completed: Arc<Mutex<HashMap<String, CommandResult>>>,
+    state_collector: Arc<CdpStateCollector>,
+    journal: Arc<SqliteNodeJournal>,
     inflight: Arc<Mutex<HashSet<String>>>,
-    coordinator_terms: Arc<Mutex<HashMap<String, i64>>>,
-    event_sequences: Arc<Mutex<HashMap<String, i64>>>,
+    monitored_sessions: Arc<Mutex<HashSet<String>>>,
     next_cdp_port: Arc<Mutex<u16>>,
 }
 
@@ -54,11 +58,8 @@ impl NodeControlService {
         allocated
     }
 
-    async fn next_event_sequence(&self, session_id: &str) -> i64 {
-        let mut sequences = self.event_sequences.lock().await;
-        let sequence = sequences.entry(session_id.to_owned()).or_default();
-        *sequence += 1;
-        *sequence
+    async fn next_event_sequence(&self, session_id: &str) -> anyhow::Result<i64> {
+        self.journal.next_event_sequence(session_id).await
     }
 
     fn ack(message_id: &str, accepted: bool, error_code: &str, error_message: &str) -> CommandAck {
@@ -127,6 +128,36 @@ impl NodeControlService {
         Ok(())
     }
 
+    async fn publish_and_mark(&self, event: EventEnvelope) -> anyhow::Result<()> {
+        let event_id = event.event_id.clone();
+        self.publish_event(event).await?;
+        self.journal.mark_event_delivered(&event_id).await
+    }
+
+    fn persisted(result: &CommandResult) -> PersistedCommandResult {
+        PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id: result.acknowledgement.message_id.clone(),
+                accepted: result.acknowledgement.accepted,
+                error_code: result.acknowledgement.error_code.clone(),
+                error_message: result.acknowledgement.error_message.clone(),
+            },
+            event_id: result.event.as_ref().map(|event| event.event_id.clone()),
+            event_payload: result.event.as_ref().map(|event| event.encode_to_vec()),
+            event_delivered: false,
+        }
+    }
+
+    fn acknowledgement(persisted: &PersistedCommandResult, duplicate: bool) -> CommandAck {
+        CommandAck {
+            message_id: persisted.acknowledgement.message_id.clone(),
+            accepted: persisted.acknowledgement.accepted,
+            duplicate,
+            error_code: persisted.acknowledgement.error_code.clone(),
+            error_message: persisted.acknowledgement.error_message.clone(),
+        }
+    }
+
     async fn execute(&self, command: &CommandEnvelope) -> CommandResult {
         match command.command_type.as_str() {
             "StartRuntime" => {
@@ -147,7 +178,19 @@ impl NodeControlService {
                             .await
                         {
                             Ok(handle) => {
-                                let sequence = self.next_event_sequence(&command.session_id).await;
+                                if let Err(error) = self
+                                    .state_collector
+                                    .register_runtime(&command.session_id, &handle.cdp_endpoint)
+                                    .await
+                                {
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    return self.failed(command, error);
+                                }
+                                let sequence =
+                                    match self.next_event_sequence(&command.session_id).await {
+                                        Ok(sequence) => sequence,
+                                        Err(error) => return self.failed(command, error),
+                                    };
                                 let event = Self::event(
                                     command,
                                     "RuntimeStarted",
@@ -173,23 +216,32 @@ impl NodeControlService {
                 }
             }
             "StopRuntime" => match StopRuntimeCommand::decode(command.payload.as_slice()) {
-                Ok(payload) => match self.runtime_supervisor.stop(&command.session_id).await {
-                    Ok(()) => {
-                        let sequence = self.next_event_sequence(&command.session_id).await;
-                        let event = Self::event(
-                            command,
-                            "RuntimeStopped",
-                            sequence,
-                            RuntimeStoppedEvent {
-                                session_id: command.session_id.clone(),
-                                reason: payload.reason,
-                                exit_code: 0,
-                            },
-                        );
-                        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+                Ok(payload) => {
+                    self.state_collector
+                        .unregister_runtime(&command.session_id)
+                        .await;
+                    match self.runtime_supervisor.stop(&command.session_id).await {
+                        Ok(()) => {
+                            let sequence = match self.next_event_sequence(&command.session_id).await
+                            {
+                                Ok(sequence) => sequence,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            let event = Self::event(
+                                command,
+                                "RuntimeStopped",
+                                sequence,
+                                RuntimeStoppedEvent {
+                                    session_id: command.session_id.clone(),
+                                    reason: payload.reason,
+                                    exit_code: 0,
+                                },
+                            );
+                            Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+                        }
+                        Err(error) => self.failed(command, error),
                     }
-                    Err(error) => self.failed(command, error),
-                },
+                }
                 Err(error) => self.failed(command, error.into()),
             },
             _ => Self::result(
@@ -222,21 +274,189 @@ impl NodeControlService {
         )
     }
 
-    async fn redeliver(&self, result: &CommandResult) -> CommandAck {
-        let mut acknowledgement = result.acknowledgement.clone();
-        acknowledgement.duplicate = true;
-        if let Some(event) = result.event.clone() {
-            if let Err(error) = self.publish_event(event).await {
-                tracing::warn!(error = %error, "Failed to redeliver Node Event");
+    async fn redeliver(&self, result: &PersistedCommandResult) -> CommandAck {
+        let acknowledgement = Self::acknowledgement(result, true);
+        if !result.event_delivered {
+            let event = result
+                .event_payload
+                .as_deref()
+                .map(EventEnvelope::decode)
+                .transpose();
+            let event = match event {
+                Ok(event) => event,
+                Err(error) => {
+                    tracing::error!(
+                        message_id = %acknowledgement.message_id,
+                        error = %error,
+                        "Persisted Node Event is corrupt"
+                    );
+                    return Self::ack(
+                        &acknowledgement.message_id,
+                        false,
+                        "JOURNAL_CORRUPT",
+                        "persisted node event is corrupt",
+                    );
+                }
+            };
+            if let Some(event) = event {
+                if let Err(error) = self.publish_and_mark(event).await {
+                    tracing::warn!(error = %error, "Failed to redeliver Node Event");
+                    return Self::ack(
+                        &acknowledgement.message_id,
+                        false,
+                        "EVENT_DELIVERY_FAILED",
+                        "node event delivery failed",
+                    );
+                }
+            } else if result.event_id.is_some() {
                 return Self::ack(
                     &acknowledgement.message_id,
                     false,
-                    "EVENT_DELIVERY_FAILED",
-                    "node event delivery failed",
+                    "JOURNAL_CORRUPT",
+                    "persisted node event payload is missing",
                 );
             }
         }
         acknowledgement
+    }
+
+    async fn redeliver_pending_events(&self) {
+        let pending = match self.journal.pending_events(100).await {
+            Ok(pending) => pending,
+            Err(error) => {
+                tracing::error!(error = %error, "Failed to scan pending Node Events");
+                return;
+            }
+        };
+        for result in pending {
+            let acknowledgement = self.redeliver(&result).await;
+            if !acknowledgement.accepted {
+                tracing::warn!(
+                    message_id = %acknowledgement.message_id,
+                    error_code = %acknowledgement.error_code,
+                    "Pending Node Event remains undelivered"
+                );
+            }
+        }
+    }
+
+    async fn begin_runtime_monitor(&self, command: &CommandEnvelope) {
+        if !self
+            .monitored_sessions
+            .lock()
+            .await
+            .insert(command.session_id.clone())
+        {
+            return;
+        }
+        let service = self.clone();
+        let session_id = command.session_id.clone();
+        let tenant_id = command.tenant_id.clone();
+        let coordinator_term = command.coordinator_term;
+        // RuntimeStarted 提交时 Control Plane 将 Context Epoch 提升 1。
+        let running_context_epoch = command.context_epoch.saturating_add(1);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(1));
+            loop {
+                interval.tick().await;
+                if !service
+                    .monitored_sessions
+                    .lock()
+                    .await
+                    .contains(&session_id)
+                {
+                    return;
+                }
+                let health = match service.runtime_supervisor.health(&session_id).await {
+                    Ok(health) => health,
+                    Err(error) => {
+                        tracing::warn!(
+                            session_id,
+                            error = %error,
+                            "Runtime health probe failed"
+                        );
+                        continue;
+                    }
+                };
+                match health {
+                    runtime_supervisor::RuntimeHealth::Healthy => {}
+                    runtime_supervisor::RuntimeHealth::Degraded(reason) => {
+                        tracing::warn!(session_id, reason = %reason, "Runtime health is degraded");
+                    }
+                    runtime_supervisor::RuntimeHealth::Crashed(reason) => {
+                        service.monitored_sessions.lock().await.remove(&session_id);
+                        if let Err(error) = service
+                            .record_and_publish_crash(
+                                &tenant_id,
+                                &session_id,
+                                coordinator_term,
+                                running_context_epoch,
+                                &reason,
+                            )
+                            .await
+                        {
+                            tracing::error!(
+                                session_id,
+                                error = %error,
+                                "Failed to persist Browser crash event"
+                            );
+                        }
+                        return;
+                    }
+                }
+            }
+        });
+    }
+
+    async fn record_and_publish_crash(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        reason: &str,
+    ) -> anyhow::Result<()> {
+        let event_id = format!("evt_crash_{}", uuid::Uuid::new_v4().simple());
+        let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
+        let sequence = self.next_event_sequence(session_id).await?;
+        let detected_at_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as i64;
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            event_type: "BrowserCrashed".to_owned(),
+            tenant_id: tenant_id.to_owned(),
+            session_id: session_id.to_owned(),
+            coordinator_term,
+            context_epoch,
+            operation_epoch: 0,
+            sequence,
+            payload: BrowserCrashEvent {
+                session_id: session_id.to_owned(),
+                crash_type: "BROWSER_PROCESS_EXIT".to_owned(),
+                reason: reason.chars().take(512).collect(),
+                detected_at_ms,
+            }
+            .encode_to_vec(),
+        };
+        let persisted = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id,
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some(event_id),
+            event_payload: Some(event.encode_to_vec()),
+            event_delivered: false,
+        };
+        self.journal.record_command_result(&persisted).await?;
+        if let Err(error) = self.publish_and_mark(event).await {
+            tracing::warn!(
+                session_id,
+                error = %error,
+                "Browser crash event queued for redelivery"
+            );
+        }
+        Ok(())
     }
 }
 
@@ -272,11 +492,13 @@ impl NodeControlServiceRpc for NodeControlService {
         }
 
         let previous = self
-            .completed
-            .lock()
+            .journal
+            .command_result(&command.message_id)
             .await
-            .get(&command.message_id)
-            .cloned();
+            .map_err(|error| {
+                tracing::error!(error = %error, "Failed to read Node Journal");
+                Status::internal("node journal unavailable")
+            })?;
         if let Some(previous) = previous {
             let duplicate = self.redeliver(&previous).await;
             return Ok(Response::new(DispatchResponse {
@@ -284,10 +506,15 @@ impl NodeControlServiceRpc for NodeControlService {
             }));
         }
 
-        {
-            let mut terms = self.coordinator_terms.lock().await;
-            let current = terms.entry(command.session_id.clone()).or_default();
-            if command.coordinator_term < *current {
+        match self
+            .journal
+            .validate_and_record_term(&command.session_id, command.coordinator_term)
+            .await
+            .map_err(|error| {
+                tracing::error!(error = %error, "Failed to update Coordinator Term");
+                Status::internal("node journal unavailable")
+            })? {
+            TermDecision::Stale { .. } => {
                 return Ok(Response::new(DispatchResponse {
                     acknowledgement: Some(Self::ack(
                         &command.message_id,
@@ -297,7 +524,7 @@ impl NodeControlServiceRpc for NodeControlService {
                     )),
                 }));
             }
-            *current = command.coordinator_term;
+            TermDecision::Accepted => {}
         }
 
         {
@@ -311,21 +538,34 @@ impl NodeControlServiceRpc for NodeControlService {
             }
         }
 
+        if command.command_type == "StopRuntime" {
+            self.monitored_sessions
+                .lock()
+                .await
+                .remove(&command.session_id);
+        }
         let result = self.execute(&command).await;
         self.inflight.lock().await.remove(&command.message_id);
         if result.acknowledgement.accepted
             || result.acknowledgement.error_code == "UNSUPPORTED_COMMAND"
         {
-            self.completed
-                .lock()
+            self.journal
+                .record_command_result(&Self::persisted(&result))
                 .await
-                .insert(command.message_id.clone(), result.clone());
+                .map_err(|error| {
+                    tracing::error!(
+                        message_id = %command.message_id,
+                        error = %error,
+                        "Failed to persist Node command result"
+                    );
+                    Status::internal("node journal unavailable")
+                })?;
         }
 
         let mut acknowledgement = result.acknowledgement;
         if acknowledgement.accepted {
             if let Some(event) = result.event {
-                if let Err(error) = self.publish_event(event).await {
+                if let Err(error) = self.publish_and_mark(event).await {
                     tracing::warn!(
                         message_id = %command.message_id,
                         error = %error,
@@ -338,6 +578,9 @@ impl NodeControlServiceRpc for NodeControlService {
                         "node event delivery failed",
                     );
                 }
+            }
+            if command.command_type == "StartRuntime" {
+                self.begin_runtime_monitor(&command).await;
             }
         }
         Ok(Response::new(DispatchResponse {
@@ -365,6 +608,10 @@ async fn main() -> Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|_| Path::new("/tmp/browsercloud-runtime").to_path_buf());
     tokio::fs::create_dir_all(&runtime_root).await?;
+    let journal_path = std::env::var("NODE_JOURNAL_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| runtime_root.join("node-journal.sqlite3"));
+    let journal = Arc::new(SqliteNodeJournal::open(journal_path).await?);
 
     let service = NodeControlService {
         node_id,
@@ -373,15 +620,23 @@ async fn main() -> Result<()> {
         runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
             chromium_binary,
         ))),
-        completed: Arc::new(Mutex::new(HashMap::new())),
+        state_collector: Arc::new(CdpStateCollector::new()),
+        journal,
         inflight: Arc::new(Mutex::new(HashSet::new())),
-        coordinator_terms: Arc::new(Mutex::new(HashMap::new())),
-        event_sequences: Arc::new(Mutex::new(HashMap::new())),
+        monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
         next_cdp_port: Arc::new(Mutex::new(10_000)),
     };
     let address = ([0, 0, 0, 0], node_port).into();
 
     tracing::info!(%address, "Browser Node Agent gRPC server started");
+    let redelivery_service = service.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        loop {
+            interval.tick().await;
+            redelivery_service.redeliver_pending_events().await;
+        }
+    });
     tonic::transport::Server::builder()
         .add_service(NodeControlServiceServer::new(service))
         .serve_with_shutdown(address, async {
@@ -391,4 +646,131 @@ async fn main() -> Result<()> {
         })
         .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use node_contracts::proto::node_event_service_server::{
+        NodeEventService, NodeEventServiceServer,
+    };
+    use node_contracts::proto::{PublishResponse, RuntimeStoppedEvent};
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use tokio::sync::mpsc;
+
+    struct CapturingEventService {
+        sender: mpsc::Sender<EventEnvelope>,
+    }
+
+    #[tonic::async_trait]
+    impl NodeEventService for CapturingEventService {
+        async fn publish(
+            &self,
+            request: Request<PublishRequest>,
+        ) -> Result<Response<PublishResponse>, Status> {
+            let event = request
+                .into_inner()
+                .event
+                .ok_or_else(|| Status::invalid_argument("event is required"))?;
+            self.sender
+                .send(event.clone())
+                .await
+                .map_err(|_| Status::unavailable("capture channel closed"))?;
+            Ok(Response::new(PublishResponse {
+                event_id: event.event_id,
+                accepted: true,
+                duplicate: false,
+                error_code: String::new(),
+                error_message: String::new(),
+            }))
+        }
+    }
+
+    fn temporary_path(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("browsercloud-node-agent-{name}-{nonce}"))
+    }
+
+    #[tokio::test]
+    async fn redelivers_persisted_event_after_journal_reopen() {
+        let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = reservation.local_addr().unwrap();
+        drop(reservation);
+        let (sender, mut receiver) = mpsc::channel(4);
+        let server = tokio::spawn(async move {
+            tonic::transport::Server::builder()
+                .add_service(NodeEventServiceServer::new(CapturingEventService {
+                    sender,
+                }))
+                .serve(address)
+                .await
+                .unwrap();
+        });
+
+        let root = temporary_path("redelivery");
+        let database = root.join("node-journal.sqlite3");
+        let original = SqliteNodeJournal::open(&database).await.unwrap();
+        let event = EventEnvelope {
+            event_id: "evt_restart_1".into(),
+            event_type: "RuntimeStopped".into(),
+            tenant_id: "tenant-test".into(),
+            session_id: "ses_restart".into(),
+            coordinator_term: 3,
+            context_epoch: 4,
+            operation_epoch: 5,
+            sequence: 6,
+            payload: RuntimeStoppedEvent {
+                session_id: "ses_restart".into(),
+                reason: "test".into(),
+                exit_code: 0,
+            }
+            .encode_to_vec(),
+        };
+        original
+            .record_command_result(&PersistedCommandResult {
+                acknowledgement: PersistedAcknowledgement {
+                    message_id: "msg_restart_1".into(),
+                    accepted: true,
+                    error_code: String::new(),
+                    error_message: String::new(),
+                },
+                event_id: Some(event.event_id.clone()),
+                event_payload: Some(event.encode_to_vec()),
+                event_delivered: false,
+            })
+            .await
+            .unwrap();
+        drop(original);
+
+        let reopened = Arc::new(SqliteNodeJournal::open(&database).await.unwrap());
+        let service = NodeControlService {
+            node_id: "node-test".into(),
+            control_plane_event_target: address.to_string(),
+            runtime_root: root.clone(),
+            runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
+                "/missing/chromium",
+            ))),
+            state_collector: Arc::new(CdpStateCollector::new()),
+            journal: reopened.clone(),
+            inflight: Arc::new(Mutex::new(HashSet::new())),
+            monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
+            next_cdp_port: Arc::new(Mutex::new(10_000)),
+        };
+
+        // Give the local gRPC listener one scheduler turn before redelivery.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        service.redeliver_pending_events().await;
+        let received = tokio::time::timeout(Duration::from_secs(2), receiver.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received.event_id, "evt_restart_1");
+        assert!(reopened.pending_events(10).await.unwrap().is_empty());
+
+        server.abort();
+        let _ = tokio::fs::remove_dir_all(root).await;
+    }
 }

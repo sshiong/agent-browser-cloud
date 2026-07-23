@@ -13,4 +13,4 @@
 
 ## 后果
 
-Coordinator 事务内只写状态与 Outbox，不等待 gRPC。Browser Node 拒绝旧 Coordinator Term，并返回重复命令的原结果。当前内存去重只能用于 PoC；进入 Phase 2 Gate 前必须落到 SQLite Node Journal。
+Coordinator 事务内只写状态与 Outbox，不等待 gRPC。Browser Node 拒绝旧 Coordinator Term，并返回重复命令的原结果。Browser Node 使用 SQLite WAL Journal 持久保存命令结果、最高 Term、Event Sequence 与待确认事件，并在重启后继续重投。

@@ -2,9 +2,12 @@ package io.browsercloud.application;
 
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.CoordinatorResult;
+import io.browsercloud.coordinator.NodeCommandGateway;
+import io.browsercloud.coordinator.NodeCommands;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.coordinator.SessionCoordinator;
+import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.persistence.InboxEventEntity;
 import io.browsercloud.persistence.InboxEventJpaRepository;
 import java.time.Instant;
@@ -22,18 +25,24 @@ public class NodeEventIngestionService {
   private final BrowserStateRepository browserStateRepository;
   private final ProfileApplicationService profileApplicationService;
   private final StaticProxyApplicationService proxyApplicationService;
+  private final SessionRepository sessionRepository;
+  private final NodeCommandGateway nodeCommandGateway;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
       SessionCoordinator coordinator,
       BrowserStateRepository browserStateRepository,
       ProfileApplicationService profileApplicationService,
-      StaticProxyApplicationService proxyApplicationService) {
+      StaticProxyApplicationService proxyApplicationService,
+      SessionRepository sessionRepository,
+      NodeCommandGateway nodeCommandGateway) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
     this.profileApplicationService = profileApplicationService;
     this.proxyApplicationService = proxyApplicationService;
+    this.sessionRepository = sessionRepository;
+    this.nodeCommandGateway = nodeCommandGateway;
   }
 
   @Transactional
@@ -46,9 +55,34 @@ public class NodeEventIngestionService {
     if (result.status() == CoordinatorResult.Status.REJECTED) {
       throw new NodeEventRejectedException(result.reason());
     }
-    var state = stateFrom(command.event());
-    if (state != null) {
-      browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
+    switch (command.event()) {
+      case NodeEvent.StateUpdated state ->
+          browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
+      case NodeEvent.StateDiff diff -> {
+        if (!browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff)) {
+          browserStateRepository.invalidate(
+              command.tenantId(),
+              command.contextEpoch(),
+              command.sessionId(),
+              diff.stateVersion(),
+              "BASE_VERSION_MISMATCH");
+          requestAutomaticFullResync(command, "BASE_VERSION_MISMATCH", "document");
+        }
+      }
+      case NodeEvent.DiffTruncated truncated -> {
+        browserStateRepository.invalidate(
+            command.tenantId(),
+            command.contextEpoch(),
+            command.sessionId(),
+            truncated.currentStateVersion(),
+            truncated.reason());
+        requestAutomaticFullResync(command, truncated.reason(), truncated.affectedRoot());
+      }
+      case NodeEvent.HumanTakeoverReady ready ->
+          browserStateRepository.save(command.tenantId(), command.contextEpoch(), ready.state());
+      case NodeEvent.HumanTakeoverEnded ended ->
+          browserStateRepository.save(command.tenantId(), command.contextEpoch(), ended.state());
+      default -> {}
     }
     if (command.event() instanceof NodeEvent.RuntimeStopped stopped
         && !stopped.checkpointId().isBlank()) {
@@ -66,13 +100,12 @@ public class NodeEventIngestionService {
 
   public record Receipt(boolean duplicate) {}
 
-  private NodeEvent.StateUpdated stateFrom(NodeEvent event) {
-    return switch (event) {
-      case NodeEvent.StateUpdated state -> state;
-      case NodeEvent.HumanTakeoverReady ready -> ready.state();
-      case NodeEvent.HumanTakeoverEnded ended -> ended.state();
-      default -> null;
-    };
+  private void requestAutomaticFullResync(
+      NodeEventReceived event, String reason, String affectedRoot) {
+    var session = sessionRepository.require(event.sessionId());
+    nodeCommandGateway.send(
+        NodeCommands.requestStateResync(
+            session, "FULL", affectedRoot, "AUTO_" + reason, "state-event:" + event.eventId()));
   }
 
   public static final class NodeEventRejectedException extends RuntimeException {

@@ -4,7 +4,9 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
+import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
+import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
@@ -20,6 +22,8 @@ public class NodeEventMapper {
   static final String RUNTIME_STOPPED = "RuntimeStopped";
   static final String BROWSER_CRASHED = "BrowserCrashed";
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
+  static final String BROWSER_STATE_DIFF = "BrowserStateDiff";
+  static final String DIFF_TRUNCATED = "DiffTruncated";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
@@ -117,6 +121,54 @@ public class NodeEventMapper {
           var payload = BrowserStateEvent.parseFrom(envelope.getPayload());
           yield state(payload);
         }
+        case BROWSER_STATE_DIFF -> {
+          var payload = BrowserStateDiffEvent.parseFrom(envelope.getPayload());
+          validateStateMetadata(
+              payload.getSessionId(),
+              payload.getStateVersion(),
+              payload.getTargetRevision(),
+              payload.getUrl(),
+              payload.getTitle(),
+              payload.getContentHash(),
+              payload.getStateQuality());
+          if (payload.getBaseStateVersion() <= 0
+              || payload.getStateVersion() <= payload.getBaseStateVersion()) {
+            throw new IllegalArgumentException("State Diff versions are invalid");
+          }
+          if (payload.getUpsertedTargetsCount() + payload.getRemovedTargetRefsCount() > 500) {
+            throw new IllegalArgumentException("State Diff target count exceeds 500");
+          }
+          payload.getRemovedTargetRefsList().forEach(value -> requireText(value, "target_ref"));
+          var upsertedTargets =
+              payload.getUpsertedTargetsList().stream().map(this::target).toList();
+          yield new NodeEvent.StateDiff(
+              payload.getSessionId(),
+              payload.getBaseStateVersion(),
+              payload.getStateVersion(),
+              payload.getTargetRevision(),
+              payload.getUrl(),
+              payload.getTitle(),
+              payload.getContentHash(),
+              payload.getStateQuality(),
+              upsertedTargets,
+              payload.getRemovedTargetRefsList());
+        }
+        case DIFF_TRUNCATED -> {
+          var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getReason(), "reason");
+          requireText(payload.getAffectedRoot(), "affected_root");
+          if (payload.getLastGoodStateVersion() <= 0
+              || payload.getCurrentStateVersion() <= payload.getLastGoodStateVersion()) {
+            throw new IllegalArgumentException("DiffTruncated versions are invalid");
+          }
+          yield new NodeEvent.DiffTruncated(
+              payload.getSessionId(),
+              payload.getReason(),
+              payload.getLastGoodStateVersion(),
+              payload.getCurrentStateVersion(),
+              payload.getAffectedRoot(),
+              payload.getEstimatedTargets());
+        }
         case HUMAN_TAKEOVER_READY -> {
           var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());
           if (!payload.hasState()) {
@@ -160,30 +212,26 @@ public class NodeEventMapper {
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.StateDiff diff -> diff.sessionId();
+      case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };
   }
 
   private NodeEvent.StateUpdated state(BrowserStateEvent payload) {
-    var targets =
-        payload.getTargetsList().stream()
-            .map(
-                target ->
-                    new NodeEvent.InteractiveTarget(
-                        target.getTargetRef(),
-                        target.getRole(),
-                        target.hasName() ? target.getName() : null,
-                        target.hasBounds()
-                            ? new NodeEvent.Bounds(
-                                target.getBounds().getX(),
-                                target.getBounds().getY(),
-                                target.getBounds().getWidth(),
-                                target.getBounds().getHeight())
-                            : null,
-                        target.getEnabled(),
-                        target.getVisible()))
-            .toList();
+    validateStateMetadata(
+        payload.getSessionId(),
+        payload.getStateVersion(),
+        payload.getTargetRevision(),
+        payload.getUrl(),
+        payload.getTitle(),
+        payload.getContentHash(),
+        payload.getStateQuality());
+    if (payload.getTargetsCount() > 500) {
+      throw new IllegalArgumentException("Browser State target count exceeds 500");
+    }
+    var targets = payload.getTargetsList().stream().map(this::target).toList();
     return new NodeEvent.StateUpdated(
         payload.getSessionId(),
         payload.getStateVersion(),
@@ -193,6 +241,47 @@ public class NodeEventMapper {
         payload.getContentHash(),
         payload.getStateQuality(),
         targets);
+  }
+
+  private void validateStateMetadata(
+      String sessionId,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality) {
+    requireText(sessionId, "session_id");
+    if (stateVersion <= 0 || targetRevision <= 0) {
+      throw new IllegalArgumentException("State versions must be positive");
+    }
+    if (url.isBlank() || url.length() > 8192 || title.length() > 1024) {
+      throw new IllegalArgumentException("State document metadata is invalid");
+    }
+    requireText(stateHash, "content_hash");
+    if (!java.util.Set.of("COMPLETE", "DEPTH_LIMITED", "RESYNCING", "DEGRADED", "INVALID")
+        .contains(stateQuality)) {
+      throw new IllegalArgumentException("unsupported state_quality");
+    }
+  }
+
+  private NodeEvent.InteractiveTarget target(
+      io.browsercloud.proto.node.v1.InteractiveTargetState target) {
+    requireText(target.getTargetRef(), "target_ref");
+    requireText(target.getRole(), "target_role");
+    return new NodeEvent.InteractiveTarget(
+        target.getTargetRef(),
+        target.getRole(),
+        target.hasName() ? target.getName() : null,
+        target.hasBounds()
+            ? new NodeEvent.Bounds(
+                target.getBounds().getX(),
+                target.getBounds().getY(),
+                target.getBounds().getWidth(),
+                target.getBounds().getHeight())
+            : null,
+        target.getEnabled(),
+        target.getVisible());
   }
 
   private void requireText(String value, String field) {

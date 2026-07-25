@@ -67,6 +67,8 @@
   未实现的 Cache 统计和加密版本不再使用模拟值。
 - Proxy 页面已删除 Fixture，接入租户隔离的 Provider/Allocation API，真实展示
   Static Provider、观察出口、验证状态、分配生命周期与禁止直连策略。
+- Session Browser State 面板新增真实 Full/Region Resync Mutation；请求期间展示
+  `RESYNCING`，等待 Node 提交新 Full State 后恢复权威质量。
 
 ### Fixture 管理
 
@@ -77,9 +79,9 @@
 
 ## 测试
 
-- API 单元测试：9 个，覆盖 Session、Profile 与 Proxy 租户 Header、Profile 创建、
+- API 单元测试：10 个，覆盖 Session、Profile 与 Proxy 租户 Header、Profile 创建、
   幂等创建、Start Operation、结构化错误、Browser State 204 与 HumanTakeover
-  Tenant/Actor Header。
+  Tenant/Actor Header，以及 State Resync Tenant/Idempotency Header。
 - Java 应用服务测试新增 Session 查询投影契约覆盖。
 - 集成烟雾测试新增 `session_descriptor_visible=true`，验证新增字段从 PostgreSQL
   持久化到 List/Get API 的完整链路。
@@ -97,10 +99,11 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 5. 获取 HumanTakeover，等待输入屏障完成并进入受控工作区；
 6. 释放 HumanTakeover，等待结束 State Resync 和 Operation 提交；
 7. 终止运行中的 Session 并在真实 Profile 页面观察 Checkpoint Epoch 1；
-8. 运行中打开 Proxy 页面，验证 Provider、Binding、出口 IP 与禁止直连；
-9. 通过真实 UI/API 创建 Profile；
-10. 第二个从未启动的 Session 以空停止终止，不伪造检查点；
-11. 浏览器 Console 无错误。
+8. 从 Browser State 面板发起真实 Full Resync；
+9. 运行中打开 Proxy 页面，验证 Provider、Binding、出口 IP 与禁止直连；
+10. 通过真实 UI/API 创建 Profile；
+11. 第二个从未启动的 Session 以空停止终止，不伪造检查点；
+12. 浏览器 Console 无错误。
 
 E2E 还覆盖实时 RFB 像素/输入回环，以及未发送 Shift KeyUp 就离开远程桌面时的
 服务端 x11 清键和 HumanTakeover 自动提交。

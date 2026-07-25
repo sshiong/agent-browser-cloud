@@ -4,6 +4,7 @@ import {
   getBrowserState,
   listSessions,
   requestHumanTakeover,
+  resyncBrowserState,
   SessionApiError,
   startSession,
 } from './session';
@@ -170,6 +171,38 @@ describe('session API', () => {
       expect.objectContaining<Partial<SessionApiError>>({
         status: 404,
         body: expect.objectContaining({ requestId: 'req-test' }),
+      })
+    );
+  });
+
+  it('requests tenant-scoped Full State Resync with an idempotency key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          requestId: 'cmd_state_1',
+          mode: 'FULL',
+          state: 'QUEUED',
+        }),
+        { status: 202, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resyncBrowserState(
+      'ses_1234567890abcdef',
+      { mode: 'FULL', reason: 'TEST' },
+      'idem-state-1',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef:resync-state',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'Idempotency-Key': 'idem-state-1',
+        }),
       })
     );
   });

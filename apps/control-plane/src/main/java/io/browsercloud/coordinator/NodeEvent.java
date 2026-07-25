@@ -12,6 +12,8 @@ public sealed interface NodeEvent
         NodeEvent.RuntimeStopped,
         NodeEvent.RuntimeCrashed,
         NodeEvent.StateUpdated,
+        NodeEvent.StateDiff,
+        NodeEvent.DiffTruncated,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
 
@@ -61,6 +63,33 @@ public sealed interface NodeEvent
       targets = List.copyOf(targets);
     }
   }
+
+  record StateDiff(
+      String sessionId,
+      long baseStateVersion,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      List<InteractiveTarget> upsertedTargets,
+      List<String> removedTargetRefs)
+      implements NodeEvent {
+    public StateDiff {
+      upsertedTargets = List.copyOf(upsertedTargets);
+      removedTargetRefs = List.copyOf(removedTargetRefs);
+    }
+  }
+
+  record DiffTruncated(
+      String sessionId,
+      String reason,
+      long lastGoodStateVersion,
+      long currentStateVersion,
+      String affectedRoot,
+      long estimatedTargets)
+      implements NodeEvent {}
 
   record InteractiveTarget(
       String targetRef,

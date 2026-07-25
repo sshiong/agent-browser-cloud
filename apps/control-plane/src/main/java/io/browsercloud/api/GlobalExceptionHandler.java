@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
+import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
@@ -99,6 +100,17 @@ public class GlobalExceptionHandler {
         "SESSION_INVALID_STATE",
         "Session state does not allow this operation",
         Map.of("state", exception.state().name()),
+        request);
+  }
+
+  @ExceptionHandler(InvalidStateResyncRequestException.class)
+  ResponseEntity<ApiError> invalidStateResync(
+      InvalidStateResyncRequestException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "STATE_RESYNC_REJECTED",
+        "State Resync request is not valid for the current Session",
+        Map.of(),
         request);
   }
 

@@ -40,6 +40,7 @@ exec python3 - "$cdp_port" "$user_data_dir" <<'PY'
 import json
 import base64
 import hashlib
+import os
 import signal
 import struct
 import sys
@@ -55,6 +56,8 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     starts = 0
 marker.write_text(json.dumps({"starts": starts + 1, "durable": True}))
+mutate_after = int(os.environ.get("FAKE_CHROMIUM_MUTATE_STATE_AFTER", "0"))
+evaluation_count = 0
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -88,6 +91,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def handle_websocket(self):
+        global evaluation_count
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
             hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
@@ -102,12 +106,19 @@ class Handler(BaseHTTPRequestHandler):
             return
         command = json.loads(request)
         if command.get("method") == "Runtime.evaluate":
+            evaluation_count += 1
+            target_name = (
+                "Continue integration"
+                if mutate_after > 0 and evaluation_count >= mutate_after
+                else "Run integration"
+            )
             result = {
                 "url": "https://example.test/runtime",
                 "title": "Browser Cloud Test Page",
                 "targets": [{
-                    "role": "button",
-                    "name": "Run integration",
+                  "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
+                  "role": "button",
+                    "name": target_name,
                     "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
                     "enabled": True,
                     "visible": True,

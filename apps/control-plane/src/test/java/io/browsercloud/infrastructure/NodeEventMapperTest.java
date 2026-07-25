@@ -239,6 +239,9 @@ class NodeEventMapperTest {
         BrowserStateEvent.newBuilder()
             .setSessionId("ses_test")
             .setStateVersion(9)
+            .setTargetRevision(3)
+            .setUrl("https://example.test")
+            .setContentHash("hash-9")
             .setStateQuality("COMPLETE")
             .build();
     var payload =

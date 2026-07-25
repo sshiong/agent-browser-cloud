@@ -5,15 +5,15 @@
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::collections::{hash_map::DefaultHasher, HashMap};
-use std::hash::{Hash, Hasher};
+use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
 /// 交互目标。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct InteractiveTarget {
     /// 目标引用
     pub target_ref: String,
@@ -30,7 +30,7 @@ pub struct InteractiveTarget {
 }
 
 /// 边界。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Bounds {
     pub x: f64,
     pub y: f64,
@@ -39,7 +39,7 @@ pub struct Bounds {
 }
 
 /// 状态质量。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StateQuality {
     Complete,
     DepthLimited,
@@ -49,7 +49,7 @@ pub enum StateQuality {
 }
 
 /// 当前状态。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CurrentState {
     /// Session ID
     pub session_id: String,
@@ -69,11 +69,107 @@ pub struct CurrentState {
     pub content_hash: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StateDiff {
+    pub session_id: String,
+    pub base_state_version: u64,
+    pub state_version: u64,
+    pub target_revision: u64,
+    pub url: String,
+    pub title: String,
+    pub quality: StateQuality,
+    pub content_hash: String,
+    pub upserted_targets: Vec<InteractiveTarget>,
+    pub removed_target_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiffTruncated {
+    pub session_id: String,
+    pub reason: String,
+    pub last_good_state_version: u64,
+    pub current_state_version: u64,
+    pub affected_root: String,
+    pub estimated_targets: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DiffOutcome {
+    Diff(StateDiff),
+    Truncated(DiffTruncated),
+}
+
+pub fn diff_states(
+    previous: &CurrentState,
+    current: &CurrentState,
+    max_bytes: usize,
+    max_changes: usize,
+) -> anyhow::Result<DiffOutcome> {
+    anyhow::ensure!(
+        previous.session_id == current.session_id,
+        "cannot diff states from different sessions"
+    );
+    let previous_by_ref = previous
+        .targets
+        .iter()
+        .map(|target| (target.target_ref.as_str(), target))
+        .collect::<HashMap<_, _>>();
+    let current_refs = current
+        .targets
+        .iter()
+        .map(|target| target.target_ref.as_str())
+        .collect::<HashSet<_>>();
+    let upserted_targets = current
+        .targets
+        .iter()
+        .filter(|target| previous_by_ref.get(target.target_ref.as_str()) != Some(target))
+        .cloned()
+        .collect::<Vec<_>>();
+    let removed_target_refs = previous
+        .targets
+        .iter()
+        .filter(|target| !current_refs.contains(target.target_ref.as_str()))
+        .map(|target| target.target_ref.clone())
+        .collect::<Vec<_>>();
+    let diff = StateDiff {
+        session_id: current.session_id.clone(),
+        base_state_version: previous.state_version,
+        state_version: current.state_version,
+        target_revision: current.target_revision,
+        url: current.url.clone(),
+        title: current.title.clone(),
+        quality: current.quality.clone(),
+        content_hash: current.content_hash.clone(),
+        upserted_targets,
+        removed_target_refs,
+    };
+    let changed_targets = diff.upserted_targets.len() + diff.removed_target_refs.len();
+    let encoded_bytes = serde_json::to_vec(&diff)?.len();
+    if changed_targets > max_changes || encoded_bytes > max_bytes {
+        return Ok(DiffOutcome::Truncated(DiffTruncated {
+            session_id: current.session_id.clone(),
+            reason: if changed_targets > max_changes {
+                "TARGET_LIMIT".to_owned()
+            } else {
+                "BYTE_LIMIT".to_owned()
+            },
+            last_good_state_version: previous.state_version,
+            current_state_version: current.state_version,
+            affected_root: "document".to_owned(),
+            estimated_targets: current.targets.len(),
+        }));
+    }
+    Ok(DiffOutcome::Diff(diff))
+}
+
 /// 浏览器状态采集器 trait。
 #[async_trait]
 pub trait BrowserStateCollector: Send + Sync {
     /// 采集当前状态。
     async fn collect_current_state(&self, session_id: &str) -> anyhow::Result<CurrentState>;
+
+    /// 强制重建全量交互状态并递增 Target Revision。
+    async fn resync_full(&self, session_id: &str) -> anyhow::Result<CurrentState>;
 
     /// 重新同步区域。
     async fn resync_region(&self, session_id: &str, root_ref: &str)
@@ -93,10 +189,13 @@ struct EvaluatedPageState {
     url: String,
     title: String,
     targets: Vec<EvaluatedTarget>,
+    #[serde(default)]
+    truncated: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct EvaluatedTarget {
+    path: String,
     role: String,
     name: Option<String>,
     bounds: Option<Bounds>,
@@ -110,7 +209,14 @@ struct EvaluatedTarget {
 #[derive(Clone, Default)]
 pub struct CdpStateCollector {
     endpoints: Arc<RwLock<HashMap<String, String>>>,
-    versions: Arc<Mutex<HashMap<String, u64>>>,
+    cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
+}
+
+#[derive(Debug, Default)]
+struct CollectorCursor {
+    state_version: u64,
+    target_revision: u64,
+    url: String,
 }
 
 impl CdpStateCollector {
@@ -180,7 +286,7 @@ impl CdpStateCollector {
               ].join(',');
               const roleFor = (element) => {
                 const explicit = element.getAttribute('role');
-                if (explicit) return explicit;
+                if (explicit) return explicit.slice(0, 64);
                 const tag = element.tagName.toLowerCase();
                 if (tag === 'a') return 'link';
                 if (tag === 'button') return 'button';
@@ -203,14 +309,32 @@ impl CdpStateCollector {
                 const text = element.innerText || element.getAttribute('placeholder') || '';
                 return text.trim().slice(0, 256) || null;
               };
-              const targets = Array.from(document.querySelectorAll(selector))
-                .slice(0, 500)
+              const pathFor = (element) => {
+                const parts = [];
+                let current = element;
+                while (current && current.nodeType === Node.ELEMENT_NODE && parts.length < 24) {
+                  const tag = current.tagName.toLowerCase();
+                  let index = 1;
+                  let sibling = current.previousElementSibling;
+                  while (sibling) {
+                    if (sibling.tagName === current.tagName) index += 1;
+                    sibling = sibling.previousElementSibling;
+                  }
+                  parts.unshift(`${tag}:nth-of-type(${index})`);
+                  current = current.parentElement;
+                }
+                return parts.join('>');
+              };
+              const candidates = Array.from(document.querySelectorAll(selector));
+              const targets = candidates
+                .slice(0, 40)
                 .map((element) => {
                   const rect = element.getBoundingClientRect();
                   const style = window.getComputedStyle(element);
                   const visible = rect.width > 0 && rect.height > 0
                     && style.visibility !== 'hidden' && style.display !== 'none';
                   return {
+                    path: pathFor(element),
                     role: roleFor(element),
                     name: nameFor(element),
                     bounds: visible ? {
@@ -220,7 +344,12 @@ impl CdpStateCollector {
                     visible
                   };
                 });
-              return { url: location.href, title: document.title, targets };
+              return {
+                url: location.href,
+                title: document.title.slice(0, 1024),
+                targets,
+                truncated: candidates.length > 40
+              };
             })()
         "#;
         let request = serde_json::json!({
@@ -306,26 +435,41 @@ impl CdpStateCollector {
         anyhow::bail!("CDP websocket closed before Page.navigate completed")
     }
 
-    async fn collect(&self, session_id: &str) -> anyhow::Result<CurrentState> {
+    async fn collect(
+        &self,
+        session_id: &str,
+        force_target_revision: bool,
+    ) -> anyhow::Result<CurrentState> {
         let websocket_url = self.target_websocket(session_id).await?;
         let page = self.evaluate_page(&websocket_url).await?;
-        let state_version = {
-            let mut versions = self.versions.lock().await;
-            let version = versions.entry(session_id.to_owned()).or_default();
-            *version += 1;
-            *version
+        let (state_version, target_revision) = {
+            let mut cursors = self.cursors.lock().await;
+            let cursor = cursors.entry(session_id.to_owned()).or_default();
+            cursor.state_version += 1;
+            if cursor.target_revision == 0 || cursor.url != page.url || force_target_revision {
+                cursor.target_revision += 1;
+            }
+            cursor.url = page.url.clone();
+            (cursor.state_version, cursor.target_revision)
         };
-        let mut hasher = DefaultHasher::new();
-        page.url.hash(&mut hasher);
-        page.title.hash(&mut hasher);
-        serde_json::to_string(&page.targets)?.hash(&mut hasher);
-        let content_hash = format!("{:016x}", hasher.finish());
+        let content_hash = hex_sha256(
+            format!(
+                "{}\n{}\n{}\n{}",
+                page.url,
+                page.title,
+                serde_json::to_string(&page.targets)?,
+                page.truncated
+            )
+            .as_bytes(),
+        );
         let targets = page
             .targets
             .into_iter()
-            .enumerate()
-            .map(|(index, target)| InteractiveTarget {
-                target_ref: format!("target:{state_version}:{index}"),
+            .map(|target| InteractiveTarget {
+                target_ref: format!(
+                    "target:{target_revision}:{}",
+                    &hex_sha256(target.path.as_bytes())[..16]
+                ),
                 role: target.role,
                 name: target.name,
                 bounds: target.bounds,
@@ -337,11 +481,15 @@ impl CdpStateCollector {
         Ok(CurrentState {
             session_id: session_id.to_owned(),
             state_version,
-            target_revision: state_version,
+            target_revision,
             url: page.url,
             title: page.title,
             targets,
-            quality: StateQuality::Complete,
+            quality: if page.truncated {
+                StateQuality::DepthLimited
+            } else {
+                StateQuality::Complete
+            },
             content_hash,
         })
     }
@@ -350,7 +498,11 @@ impl CdpStateCollector {
 #[async_trait]
 impl BrowserStateCollector for CdpStateCollector {
     async fn collect_current_state(&self, session_id: &str) -> anyhow::Result<CurrentState> {
-        self.collect(session_id).await
+        self.collect(session_id, false).await
+    }
+
+    async fn resync_full(&self, session_id: &str) -> anyhow::Result<CurrentState> {
+        self.collect(session_id, true).await
     }
 
     async fn resync_region(
@@ -358,9 +510,16 @@ impl BrowserStateCollector for CdpStateCollector {
         session_id: &str,
         _root_ref: &str,
     ) -> anyhow::Result<CurrentState> {
-        // 首版安全地执行全量采集；后续可在 DOMSnapshot 上增加区域裁剪。
-        self.collect(session_id).await
+        // 首版以全量重建作为安全 fallback；命令与结果显式保留 REGION 请求语义。
+        self.collect(session_id, true).await
     }
+}
+
+fn hex_sha256(value: &[u8]) -> String {
+    Sha256::digest(value)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[cfg(test)]
@@ -394,6 +553,7 @@ mod tests {
                                 "url": "https://example.test/form",
                                 "title": "Example form",
                                 "targets": [{
+                                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
                                     "role": "button",
                                     "name": "提交",
                                     "bounds": {"x": 12.0, "y": 24.0, "width": 96.0, "height": 32.0},
@@ -450,11 +610,55 @@ mod tests {
         assert!(matches!(state.quality, StateQuality::Complete));
         let repeated = collector.collect_current_state("ses_state").await.unwrap();
         assert_eq!(repeated.state_version, 2);
-        assert_ne!(repeated.targets[0].target_ref, state.targets[0].target_ref);
+        assert_eq!(repeated.targets[0].target_ref, state.targets[0].target_ref);
+        assert_eq!(repeated.target_revision, state.target_revision);
         assert_eq!(repeated.content_hash, state.content_hash);
 
         websocket_task.await.unwrap();
         http_task.await.unwrap();
+    }
+
+    #[test]
+    fn creates_bounded_diff_and_reports_truncation() {
+        let target = |target_ref: &str, name: &str| InteractiveTarget {
+            target_ref: target_ref.to_owned(),
+            role: "button".to_owned(),
+            name: Some(name.to_owned()),
+            bounds: None,
+            enabled: true,
+            visible: true,
+        };
+        let previous = CurrentState {
+            session_id: "ses_state".to_owned(),
+            state_version: 1,
+            target_revision: 1,
+            url: "https://example.test".to_owned(),
+            title: "Example".to_owned(),
+            targets: vec![target("target:1:a", "A"), target("target:1:b", "B")],
+            quality: StateQuality::Complete,
+            content_hash: "old".to_owned(),
+        };
+        let current = CurrentState {
+            state_version: 2,
+            targets: vec![target("target:1:a", "Changed"), target("target:1:c", "C")],
+            content_hash: "new".to_owned(),
+            ..previous.clone()
+        };
+
+        let DiffOutcome::Diff(diff) = diff_states(&previous, &current, 16_384, 10).unwrap() else {
+            panic!("expected bounded diff")
+        };
+        assert_eq!(diff.base_state_version, 1);
+        assert_eq!(diff.upserted_targets.len(), 2);
+        assert_eq!(diff.removed_target_refs, vec!["target:1:b"]);
+
+        let DiffOutcome::Truncated(truncated) =
+            diff_states(&previous, &current, 16_384, 1).unwrap()
+        else {
+            panic!("expected truncation")
+        };
+        assert_eq!(truncated.reason, "TARGET_LIMIT");
+        assert_eq!(truncated.last_good_state_version, 1);
     }
 
     #[tokio::test]

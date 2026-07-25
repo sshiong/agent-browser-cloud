@@ -6,10 +6,15 @@ import {
   listSessions,
   releaseHumanTakeover,
   requestHumanTakeover,
+  resyncBrowserState,
   startSession,
   terminateSession,
 } from '@/api/session';
-import type { CreateSessionRequest, SessionState } from '@/types/session';
+import type {
+  CreateSessionRequest,
+  SessionState,
+  StateResyncRequest,
+} from '@/types/session';
 
 export const sessionKeys = {
   all: ['sessions'] as const,
@@ -95,6 +100,22 @@ export function useRequestHumanTakeover(sessionId: string) {
 
 export function useReleaseHumanTakeover(sessionId: string) {
   return useSessionOperation(sessionId, () => releaseHumanTakeover(sessionId));
+}
+
+export function useResyncBrowserState(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: StateResyncRequest) =>
+      resyncBrowserState(
+        sessionId,
+        request,
+        `state-resync-${crypto.randomUUID()}`
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: sessionKeys.browserState(sessionId),
+      }),
+  });
 }
 
 function useSessionOperation(

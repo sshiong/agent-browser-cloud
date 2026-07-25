@@ -7,6 +7,8 @@ import type {
   SessionListResponse,
   BrowserStateView,
   RemoteDesktopConnection,
+  StateResyncRequest,
+  StateResyncResponse,
 } from '../types/session';
 
 /**
@@ -111,6 +113,25 @@ export async function getBrowserState(
   return requestOptional<BrowserStateView>(
     `/sessions/${sessionId}/state`,
     { signal },
+    tenantId
+  );
+}
+
+export async function resyncBrowserState(
+  sessionId: string,
+  data: StateResyncRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<StateResyncResponse> {
+  return request<StateResyncResponse>(
+    `/sessions/${sessionId}:resync-state`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
     tenantId
   );
 }

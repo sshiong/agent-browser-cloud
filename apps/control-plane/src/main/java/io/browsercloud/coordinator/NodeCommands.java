@@ -4,6 +4,7 @@ import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
+import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
 import io.browsercloud.proto.node.v1.StartRuntimeCommand;
 import io.browsercloud.proto.node.v1.StopRuntimeCommand;
 import java.util.UUID;
@@ -82,6 +83,28 @@ public final class NodeCommands {
             .build()
             .toByteArray();
     return command(session, operation, "EndHumanTakeover", payload);
+  }
+
+  public static NodeCommand requestStateResync(
+      SessionContext session, String mode, String rootRef, String reason, String idempotencyKey) {
+    var payload =
+        RequestStateResyncCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setMode(mode)
+            .setRootRef(rootRef)
+            .setReason(reason)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        newId("cmd_"),
+        "RequestStateResync",
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        idempotencyKey,
+        payload);
   }
 
   private static NodeCommand command(

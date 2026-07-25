@@ -129,6 +129,36 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}:resync-state:
+    post:
+      operationId: resyncBrowserState
+      summary: Request a Full or Region Browser State Resync
+      tags: [Session, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StateResyncRequest"
+      responses:
+        "202":
+          description: State Resync command was queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StateResyncResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}:terminate:
     post:
       operationId: terminateSession
@@ -563,6 +593,33 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/InteractiveTarget"
+    StateResyncRequest:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [FULL, REGION]
+        rootRef:
+          type: [string, "null"]
+          maxLength: 512
+        reason:
+          type: [string, "null"]
+          maxLength: 128
+    StateResyncResponse:
+      type: object
+      additionalProperties: false
+      required: [requestId, mode, state]
+      properties:
+        requestId:
+          type: string
+        mode:
+          type: string
+          enum: [FULL, REGION]
+        state:
+          type: string
+          enum: [QUEUED]
     InteractiveTarget:
       type: object
       additionalProperties: false

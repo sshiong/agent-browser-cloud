@@ -8,10 +8,11 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateEvent, CommandAck, CommandEnvelope,
-    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
-    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
-    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, RuntimeStartedEvent,
+    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
+    CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
+    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
+    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
+    PublishResponse, ReleaseAllInputCommand, RequestStateResyncCommand, RuntimeStartedEvent,
     RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
@@ -22,7 +23,10 @@ use remote_desktop_gateway::{DisconnectHandler, RemoteDesktopGateway, RemoteDesk
 use runtime_supervisor::{
     ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeSpec, RuntimeSupervisor,
 };
-use state_collector::{BrowserStateCollector, CdpStateCollector, CurrentState, StateQuality};
+use state_collector::{
+    diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
+    StateQuality,
+};
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -43,6 +47,10 @@ struct NodeControlService {
     network_helper: Option<Arc<StaticProxyNetworkHelper>>,
     allow_direct_network: bool,
     state_collector: Arc<CdpStateCollector>,
+    state_baselines: Arc<Mutex<HashMap<String, CurrentState>>>,
+    resync_required: Arc<Mutex<HashSet<String>>>,
+    diff_max_bytes: usize,
+    diff_max_changes: usize,
     input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
     journal: Arc<SqliteNodeJournal>,
     inflight: Arc<Mutex<HashSet<String>>>,
@@ -81,6 +89,7 @@ struct CommandResult {
     event: Option<EventEnvelope>,
     runtime_lease: Option<RuntimeLease>,
     stop_runtime_lease: bool,
+    state_baseline: Option<CurrentState>,
 }
 
 impl NodeControlService {
@@ -166,6 +175,21 @@ impl NodeControlService {
             event,
             runtime_lease: None,
             stop_runtime_lease: false,
+            state_baseline: None,
+        }
+    }
+
+    fn state_result(
+        acknowledgement: CommandAck,
+        event: EventEnvelope,
+        state_baseline: CurrentState,
+    ) -> CommandResult {
+        CommandResult {
+            acknowledgement,
+            event: Some(event),
+            runtime_lease: None,
+            stop_runtime_lease: false,
+            state_baseline: Some(state_baseline),
         }
     }
 
@@ -179,6 +203,7 @@ impl NodeControlService {
             event: Some(event),
             runtime_lease: Some(runtime_lease),
             stop_runtime_lease: false,
+            state_baseline: None,
         }
     }
 
@@ -188,6 +213,7 @@ impl NodeControlService {
             event: Some(event),
             runtime_lease: None,
             stop_runtime_lease: true,
+            state_baseline: None,
         }
     }
 
@@ -229,20 +255,54 @@ impl NodeControlService {
             targets: state
                 .targets
                 .into_iter()
-                .map(|target| InteractiveTargetState {
-                    target_ref: target.target_ref,
-                    role: target.role,
-                    name: target.name,
-                    bounds: target.bounds.map(|bounds| TargetBounds {
-                        x: bounds.x,
-                        y: bounds.y,
-                        width: bounds.width,
-                        height: bounds.height,
-                    }),
-                    enabled: target.enabled,
-                    visible: target.visible,
-                })
+                .map(Self::interactive_target_payload)
                 .collect(),
+            snapshot_kind: "PERIODIC".to_owned(),
+            requested_root_ref: String::new(),
+        }
+    }
+
+    fn interactive_target_payload(
+        target: state_collector::InteractiveTarget,
+    ) -> InteractiveTargetState {
+        InteractiveTargetState {
+            target_ref: target.target_ref,
+            role: target.role,
+            name: target.name,
+            bounds: target.bounds.map(|bounds| TargetBounds {
+                x: bounds.x,
+                y: bounds.y,
+                width: bounds.width,
+                height: bounds.height,
+            }),
+            enabled: target.enabled,
+            visible: target.visible,
+        }
+    }
+
+    fn state_diff_payload(diff: StateDiff) -> BrowserStateDiffEvent {
+        BrowserStateDiffEvent {
+            session_id: diff.session_id,
+            base_state_version: diff.base_state_version,
+            state_version: diff.state_version,
+            target_revision: diff.target_revision,
+            url: diff.url,
+            title: diff.title,
+            state_quality: match diff.quality {
+                StateQuality::Complete => "COMPLETE",
+                StateQuality::DepthLimited => "DEPTH_LIMITED",
+                StateQuality::Resyncing => "RESYNCING",
+                StateQuality::Degraded => "DEGRADED",
+                StateQuality::Invalid => "INVALID",
+            }
+            .to_owned(),
+            content_hash: diff.content_hash,
+            upserted_targets: diff
+                .upserted_targets
+                .into_iter()
+                .map(Self::interactive_target_payload)
+                .collect(),
+            removed_target_refs: diff.removed_target_refs,
         }
     }
 
@@ -340,7 +400,17 @@ impl NodeControlService {
             .collect_current_state(&command.session_id)
             .await
         {
-            Ok(state) => Self::browser_state_payload(state),
+            Ok(state) => {
+                self.state_baselines
+                    .lock()
+                    .await
+                    .insert(command.session_id.clone(), state.clone());
+                self.resync_required
+                    .lock()
+                    .await
+                    .remove(&command.session_id);
+                Self::browser_state_payload(state)
+            }
             Err(error) => return self.failed(command, error),
         };
         let sequence = match self.next_event_sequence(&command.session_id).await {
@@ -401,6 +471,11 @@ impl NodeControlService {
                 .await;
             match (cdp_release, x11_release, collected) {
                 (Ok(()), Ok(()), Ok(collected)) => {
+                    self.state_baselines
+                        .lock()
+                        .await
+                        .insert(claims.session_id.clone(), collected.clone());
+                    self.resync_required.lock().await.remove(&claims.session_id);
                     state = Some(Self::browser_state_payload(collected));
                     break;
                 }
@@ -726,6 +801,14 @@ impl NodeControlService {
                     self.state_collector
                         .unregister_runtime(&command.session_id)
                         .await;
+                    self.state_baselines
+                        .lock()
+                        .await
+                        .remove(&command.session_id);
+                    self.resync_required
+                        .lock()
+                        .await
+                        .remove(&command.session_id);
                     match self.runtime_supervisor.stop(&command.session_id).await {
                         Ok(()) => {
                             let sequence = match self.next_event_sequence(&command.session_id).await
@@ -909,6 +992,65 @@ impl NodeControlService {
                     Err(error) => self.failed(command, error.into()),
                 }
             }
+            "RequestStateResync" => {
+                match RequestStateResyncCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "state resync payload session_id does not match envelope"
+                                ),
+                            );
+                        }
+                        if !matches!(payload.mode.as_str(), "FULL" | "REGION") {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("state resync mode must be FULL or REGION"),
+                            );
+                        }
+                        if payload.mode == "REGION"
+                            && (payload.root_ref.is_empty()
+                                || payload.root_ref.chars().count() > 512)
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("REGION state resync requires a bounded root_ref"),
+                            );
+                        }
+                        let collected = if payload.mode == "REGION" {
+                            self.state_collector
+                                .resync_region(&command.session_id, &payload.root_ref)
+                                .await
+                        } else {
+                            self.state_collector.resync_full(&command.session_id).await
+                        };
+                        let state = match collected {
+                            Ok(state) => state,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let sequence = match self.next_event_sequence(&command.session_id).await {
+                            Ok(sequence) => sequence,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let mut state_payload = Self::browser_state_payload(state.clone());
+                        state_payload.snapshot_kind = if payload.mode == "REGION" {
+                            "REGION_RESYNC_FULL_FALLBACK".to_owned()
+                        } else {
+                            "FULL_RESYNC".to_owned()
+                        };
+                        state_payload.requested_root_ref = payload.root_ref;
+                        let event =
+                            Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                        Self::state_result(
+                            Self::ack(&command.message_id, true, "", ""),
+                            event,
+                            state,
+                        )
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "ReleaseAllInput" => match ReleaseAllInputCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
                     if payload.session_id != command.session_id {
@@ -1048,10 +1190,11 @@ impl NodeControlService {
         let coordinator_term = command.coordinator_term;
         // RuntimeStarted 提交时 Control Plane 将 Context Epoch 提升 1。
         let running_context_epoch = command.context_epoch.saturating_add(1);
+        self.state_baselines.lock().await.remove(&session_id);
+        self.resync_required.lock().await.remove(&session_id);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             let mut probe_count = 0_u64;
-            let mut last_state_hash = String::new();
             loop {
                 interval.tick().await;
                 if !service
@@ -1089,31 +1232,98 @@ impl NodeControlService {
                         }
                         probe_count += 1;
                         if probe_count.is_multiple_of(2) {
+                            if service.resync_required.lock().await.contains(&session_id) {
+                                continue;
+                            }
                             match service
                                 .state_collector
                                 .collect_current_state(&session_id)
                                 .await
                             {
-                                Ok(state) if state.content_hash != last_state_hash => {
-                                    last_state_hash = state.content_hash.clone();
-                                    if let Err(error) = service
-                                        .record_and_publish_state(
-                                            &tenant_id,
-                                            &session_id,
-                                            coordinator_term,
-                                            running_context_epoch,
-                                            state,
-                                        )
+                                Ok(state) => {
+                                    let previous = service
+                                        .state_baselines
+                                        .lock()
                                         .await
-                                    {
+                                        .get(&session_id)
+                                        .cloned();
+                                    let result = match previous {
+                                        None => {
+                                            service
+                                                .record_and_publish_state(
+                                                    &tenant_id,
+                                                    &session_id,
+                                                    coordinator_term,
+                                                    running_context_epoch,
+                                                    state.clone(),
+                                                )
+                                                .await
+                                        }
+                                        Some(previous)
+                                            if previous.content_hash == state.content_hash =>
+                                        {
+                                            continue;
+                                        }
+                                        Some(previous) => {
+                                            match diff_states(
+                                                &previous,
+                                                &state,
+                                                service.diff_max_bytes,
+                                                service.diff_max_changes,
+                                            ) {
+                                                Ok(DiffOutcome::Diff(diff)) => {
+                                                    service
+                                                        .record_and_publish_state_diff(
+                                                            &tenant_id,
+                                                            &session_id,
+                                                            coordinator_term,
+                                                            running_context_epoch,
+                                                            diff,
+                                                        )
+                                                        .await
+                                                }
+                                                Ok(DiffOutcome::Truncated(truncated)) => {
+                                                    let result = service
+                                                        .record_and_publish_diff_truncated(
+                                                            &tenant_id,
+                                                            &session_id,
+                                                            coordinator_term,
+                                                            running_context_epoch,
+                                                            truncated,
+                                                        )
+                                                        .await;
+                                                    if result.is_ok() {
+                                                        service
+                                                            .resync_required
+                                                            .lock()
+                                                            .await
+                                                            .insert(session_id.clone());
+                                                    }
+                                                    result
+                                                }
+                                                Err(error) => Err(error),
+                                            }
+                                        }
+                                    };
+                                    if let Err(error) = result {
                                         tracing::warn!(
                                             session_id,
                                             error = %error,
-                                            "Failed to queue Browser state event"
+                                            "Failed to queue Browser state change"
                                         );
+                                    } else if !service
+                                        .resync_required
+                                        .lock()
+                                        .await
+                                        .contains(&session_id)
+                                    {
+                                        service
+                                            .state_baselines
+                                            .lock()
+                                            .await
+                                            .insert(session_id.clone(), state);
                                     }
                                 }
-                                Ok(_) => {}
                                 Err(error) => {
                                     tracing::debug!(
                                         session_id,
@@ -1176,6 +1386,96 @@ impl NodeControlService {
             operation_epoch: 0,
             sequence,
             payload: Self::browser_state_payload(state).encode_to_vec(),
+        };
+        let persisted = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id,
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some(event_id),
+            event_payload: Some(event.encode_to_vec()),
+            event_delivered: false,
+        };
+        self.journal.record_command_result(&persisted).await?;
+        if let Err(error) = self.publish_and_mark(event).await {
+            tracing::debug!(
+                session_id,
+                error = %error,
+                "Browser state event queued for redelivery"
+            );
+        }
+        Ok(())
+    }
+
+    async fn record_and_publish_state_diff(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        diff: StateDiff,
+    ) -> anyhow::Result<()> {
+        self.record_and_publish_background_event(
+            tenant_id,
+            session_id,
+            coordinator_term,
+            context_epoch,
+            "BrowserStateDiff",
+            Self::state_diff_payload(diff),
+        )
+        .await
+    }
+
+    async fn record_and_publish_diff_truncated(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        truncated: state_collector::DiffTruncated,
+    ) -> anyhow::Result<()> {
+        self.record_and_publish_background_event(
+            tenant_id,
+            session_id,
+            coordinator_term,
+            context_epoch,
+            "DiffTruncated",
+            DiffTruncatedEvent {
+                session_id: truncated.session_id,
+                reason: truncated.reason,
+                last_good_state_version: truncated.last_good_state_version,
+                current_state_version: truncated.current_state_version,
+                affected_root: truncated.affected_root,
+                estimated_targets: truncated.estimated_targets as u64,
+            },
+        )
+        .await
+    }
+
+    async fn record_and_publish_background_event(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        event_type: &str,
+        payload: impl Message,
+    ) -> anyhow::Result<()> {
+        let event_id = format!("evt_state_{}", uuid::Uuid::new_v4().simple());
+        let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
+        let sequence = self.next_event_sequence(session_id).await?;
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            event_type: event_type.to_owned(),
+            tenant_id: tenant_id.to_owned(),
+            session_id: session_id.to_owned(),
+            coordinator_term,
+            context_epoch,
+            operation_epoch: 0,
+            sequence,
+            payload: payload.encode_to_vec(),
         };
         let persisted = PersistedCommandResult {
             acknowledgement: PersistedAcknowledgement {
@@ -1427,6 +1727,17 @@ impl NodeControlServiceRpc for NodeControlService {
             }
         }
 
+        if let Some(state) = result.state_baseline.as_ref() {
+            self.state_baselines
+                .lock()
+                .await
+                .insert(command.session_id.clone(), state.clone());
+            self.resync_required
+                .lock()
+                .await
+                .remove(&command.session_id);
+        }
+
         let mut acknowledgement = result.acknowledgement;
         if acknowledgement.accepted {
             if let Some(event) = result.event {
@@ -1482,6 +1793,16 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| runtime_root.join("profile-storage"));
     let profile_store = Arc::new(LocalProfileStore::open(profile_storage_root).await?);
     let input_brokers = Arc::new(Mutex::new(HashMap::new()));
+    let diff_max_bytes = std::env::var("STATE_DIFF_MAX_BYTES")
+        .unwrap_or_else(|_| "60000".to_owned())
+        .parse::<usize>()?;
+    let diff_max_changes = std::env::var("STATE_DIFF_MAX_CHANGES")
+        .unwrap_or_else(|_| "200".to_owned())
+        .parse::<usize>()?;
+    anyhow::ensure!(
+        (1024..=60_000).contains(&diff_max_bytes) && diff_max_changes > 0,
+        "State Diff limits are invalid"
+    );
     let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
     let desktop_config = match (std::env::var("XVFB_PATH"), std::env::var("X11VNC_PATH")) {
         (Ok(xvfb_binary), Ok(x11vnc_binary)) => Some(DesktopRuntimeConfig {
@@ -1594,6 +1915,10 @@ async fn main() -> Result<()> {
         network_helper,
         allow_direct_network,
         state_collector: Arc::new(CdpStateCollector::new()),
+        state_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resync_required: Arc::new(Mutex::new(HashSet::new())),
+        diff_max_bytes,
+        diff_max_changes,
         input_brokers,
         journal,
         inflight: Arc::new(Mutex::new(HashSet::new())),
@@ -1786,6 +2111,10 @@ mod tests {
             network_helper: None,
             allow_direct_network: true,
             state_collector: Arc::new(CdpStateCollector::new()),
+            state_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resync_required: Arc::new(Mutex::new(HashSet::new())),
+            diff_max_bytes: 60_000,
+            diff_max_changes: 200,
             input_brokers: Arc::new(Mutex::new(HashMap::new())),
             journal: reopened.clone(),
             inflight: Arc::new(Mutex::new(HashSet::new())),

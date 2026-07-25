@@ -343,6 +343,8 @@ public final class SessionCoordinator {
         // 状态更新，不需要修改 Session Context
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.StateDiff diff -> CoordinatorResult.completed();
+      case NodeEvent.DiffTruncated truncated -> CoordinatorResult.completed();
       case NodeEvent.HumanTakeoverReady ready -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
@@ -395,6 +397,8 @@ public final class SessionCoordinator {
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.StateDiff diff -> diff.sessionId();
+      case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

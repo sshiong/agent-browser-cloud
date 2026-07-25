@@ -166,6 +166,18 @@ export interface BrowserStateView {
   targets: InteractiveTargetView[];
 }
 
+export interface StateResyncRequest {
+  mode: 'FULL' | 'REGION';
+  rootRef?: string;
+  reason?: string;
+}
+
+export interface StateResyncResponse {
+  requestId: string;
+  mode: StateResyncRequest['mode'];
+  state: 'QUEUED';
+}
+
 export interface InteractiveTargetView {
   targetRef: string;
   role: string;

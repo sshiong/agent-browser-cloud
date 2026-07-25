@@ -1,6 +1,7 @@
 package io.browsercloud.api;
 
 import io.browsercloud.application.SessionApplicationService;
+import io.browsercloud.application.StateGatewayApplicationService;
 import io.browsercloud.domain.session.SessionState;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -23,9 +24,12 @@ import org.springframework.web.bind.annotation.*;
 public class SessionController {
 
   private final SessionApplicationService service;
+  private final StateGatewayApplicationService stateGateway;
 
-  public SessionController(SessionApplicationService service) {
+  public SessionController(
+      SessionApplicationService service, StateGatewayApplicationService stateGateway) {
     this.service = service;
+    this.stateGateway = stateGateway;
   }
 
   /**
@@ -118,6 +122,17 @@ public class SessionController {
         .getState(sessionId, tenantId)
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
+  /** 请求 Full 或 Region State Resync；结果由后续 BrowserStateUpdated 事件提交。 */
+  @PostMapping("/{sessionId}:resync-state")
+  public ResponseEntity<StateResyncResponse> resyncState(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody StateResyncRequest request) {
+    return ResponseEntity.accepted()
+        .body(stateGateway.requestResync(sessionId, tenantId, request, idempotencyKey));
   }
 
   /**

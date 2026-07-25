@@ -23,6 +23,7 @@ import {
   useSession,
   useBrowserState,
   useRequestHumanTakeover,
+  useResyncBrowserState,
   useStartSession,
   useTerminateSession,
 } from '@/features/sessions/api/sessionQueries';
@@ -46,6 +47,7 @@ export function SessionDetailPage() {
   const startMutation = useStartSession(id);
   const terminateMutation = useTerminateSession(id);
   const takeoverMutation = useRequestHumanTakeover(id);
+  const resyncMutation = useResyncBrowserState(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
 
   const session = sessionQuery.data;
@@ -242,6 +244,15 @@ export function SessionDetailPage() {
                   loading={browserStateQuery.isLoading}
                   error={browserStateQuery.error}
                   onRetry={() => browserStateQuery.refetch()}
+                  resyncing={resyncMutation.isPending}
+                  resyncError={resyncMutation.error}
+                  onResync={(mode, rootRef) =>
+                    resyncMutation.mutate({
+                      mode,
+                      rootRef: mode === 'REGION' ? rootRef : undefined,
+                      reason: 'WEB_CONSOLE',
+                    })
+                  }
                 />
 
                 <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">
@@ -412,13 +423,20 @@ function BrowserStatePanel({
   loading,
   error,
   onRetry,
+  resyncing,
+  resyncError,
+  onResync,
 }: {
   state: BrowserStateView | null | undefined;
   running: boolean;
   loading: boolean;
   error: unknown;
   onRetry: () => unknown;
+  resyncing: boolean;
+  resyncError: unknown;
+  onResync: (mode: 'FULL' | 'REGION', rootRef: string) => void;
 }) {
+  const [rootRef, setRootRef] = useState('#app');
   if (error) {
     return (
       <section className="rounded-[10px] border border-border-subtle bg-surface-1">
@@ -477,6 +495,52 @@ function BrowserStatePanel({
         </div>
       ) : (
         <>
+          <div className="flex flex-col gap-3 border-b border-border-subtle bg-canvas/25 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[10px] font-medium text-text-secondary">
+                State Resync
+              </p>
+              <p className="mt-0.5 text-[9px] text-text-muted">
+                Invalid / Resyncing 期间语义动作应保持冻结。
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                aria-label="Region Root Ref"
+                value={rootRef}
+                onChange={(event) => setRootRef(event.target.value)}
+                maxLength={512}
+                className="h-8 w-40 rounded-[6px] border border-border-default bg-surface-2 px-2 font-mono text-[10px] text-text-primary outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                disabled={resyncing || !rootRef.trim()}
+                onClick={() => onResync('REGION', rootRef.trim())}
+                className="h-8 rounded-[6px] border border-border-default px-2.5 text-[10px] text-text-secondary hover:border-accent/50 hover:text-text-primary disabled:opacity-40"
+              >
+                Region
+              </button>
+              <button
+                type="button"
+                disabled={resyncing}
+                onClick={() => onResync('FULL', '')}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[10px] font-semibold text-white hover:bg-accent/90 disabled:opacity-40"
+              >
+                <RefreshCw
+                  size={11}
+                  className={resyncing ? 'animate-spin' : undefined}
+                />
+                Full Resync
+              </button>
+            </div>
+            {Boolean(resyncError) && (
+              <p className="text-[10px] text-danger">
+                {isSessionApiError(resyncError)
+                  ? `${resyncError.body.code} · ${resyncError.body.requestId ?? 'no request id'}`
+                  : 'State Resync 请求失败'}
+              </p>
+            )}
+          </div>
           <div className="grid gap-px bg-border-subtle md:grid-cols-[1fr_1.5fr]">
             <div className="min-w-0 bg-surface-2 px-5 py-3">
               <p className="text-[9px] uppercase tracking-[0.16em] text-text-muted">

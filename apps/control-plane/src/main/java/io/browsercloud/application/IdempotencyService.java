@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.browsercloud.api.CreateSessionRequest;
+import io.browsercloud.api.StateResyncRequest;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
 import io.browsercloud.persistence.ApiIdempotencyJpaRepository;
 import java.security.MessageDigest;
@@ -38,22 +39,44 @@ public class IdempotencyService {
       String idempotencyKey,
       CreateSessionRequest request,
       String candidateSessionId) {
-    String requestHash = hashRequest(request);
+    return claim(
+        tenantId, CREATE_SESSION, idempotencyKey, hashRequest(request), candidateSessionId);
+  }
+
+  String claimStateResync(
+      String tenantId,
+      String sessionId,
+      String idempotencyKey,
+      StateResyncRequest request,
+      String candidateRequestId) {
+    return claim(
+        tenantId,
+        "STATE_RESYNC:" + sessionId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateRequestId);
+  }
+
+  private String claim(
+      String tenantId,
+      String operationType,
+      String idempotencyKey,
+      String requestHash,
+      String candidateResourceId) {
     int claimed =
         repository.claim(
             newId("idem_"),
             tenantId,
-            CREATE_SESSION,
+            operationType,
             idempotencyKey,
             requestHash,
-            candidateSessionId,
+            candidateResourceId,
             Instant.now());
     if (claimed == 1) {
-      return candidateSessionId;
+      return candidateResourceId;
     }
-
     return repository
-        .findByTenantIdAndOperationTypeAndIdempotencyKey(tenantId, CREATE_SESSION, idempotencyKey)
+        .findByTenantIdAndOperationTypeAndIdempotencyKey(tenantId, operationType, idempotencyKey)
         .map(
             record -> {
               if (!record.getRequestHash().equals(requestHash)) {
@@ -64,7 +87,7 @@ public class IdempotencyService {
         .orElseThrow(() -> new IllegalStateException("Idempotency claim disappeared"));
   }
 
-  private String hashRequest(CreateSessionRequest request) {
+  private String hashRequest(Object request) {
     try {
       byte[] json = canonicalMapper.writeValueAsBytes(request);
       byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);

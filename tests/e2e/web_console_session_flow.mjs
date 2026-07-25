@@ -68,6 +68,24 @@ try {
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Run integration", { exact: true })).toBeVisible();
   await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible();
+  const [stateResyncResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes(`${startSessionId}:resync-state`) &&
+        response.status() === 202,
+    ),
+    page.getByRole("button", { name: "Full Resync" }).click(),
+  ]);
+  const stateResyncResult = await stateResyncResponse.json();
+  if (
+    stateResyncResult.mode !== "FULL" ||
+    stateResyncResult.state !== "QUEUED"
+  ) {
+    throw new Error("Full State Resync was not queued by the Web Console");
+  }
+  await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
 
   await page.getByRole("link", { name: "代理与出口" }).click();
   await expect(

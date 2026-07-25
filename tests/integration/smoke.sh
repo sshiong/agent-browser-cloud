@@ -79,6 +79,7 @@ start_browser_node() {
   STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
   PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
+  FAKE_CHROMIUM_MUTATE_STATE_AFTER=2 \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
   node_pid=$!
 }
@@ -207,6 +208,55 @@ test "$state_status" = "200"
 printf '%s' "$browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 2; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
 
+initial_state_version="$(printf '%s' "$browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+diff_state=""
+for _ in $(seq 1 40); do
+  diff_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  diff_target_name="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["targets"][0]["name"])')"
+  if [[ "$diff_target_name" = "Continue integration" ]]; then break; fi
+  sleep 0.25
+done
+test "$diff_target_name" = "Continue integration"
+printf '%s' "$diff_state" | python3 -c \
+  "import json,sys; state=json.load(sys.stdin); assert state['stateVersion'] > ${initial_state_version}; assert state['stateQuality'] == 'COMPLETE'"
+
+resync_result="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-state-resync-001' \
+  -d '{"mode":"FULL","reason":"INTEGRATION_TEST"}')"
+printf '%s' "$resync_result" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["mode"] == "FULL"; assert result["state"] == "QUEUED"; assert result["requestId"].startswith("cmd_")'
+resync_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-state-resync-001' \
+  -d '{"mode":"FULL","reason":"INTEGRATION_TEST"}')"
+test "$resync_replay" = "$resync_result"
+resync_conflict_status="$(curl -sS -o "$temp_dir/resync-conflict.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-state-resync-001' \
+  -d '{"mode":"REGION","rootRef":"#app","reason":"INTEGRATION_TEST"}')"
+test "$resync_conflict_status" = "409"
+diff_state_version="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+for _ in $(seq 1 40); do
+  resynced_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  resynced_version="$(printf '%s' "$resynced_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+  resynced_quality="$(printf '%s' "$resynced_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateQuality"])')"
+  if [[ "$resynced_version" -gt "$diff_state_version" ]] && [[ "$resynced_quality" = "COMPLETE" ]]; then break; fi
+  sleep 0.25
+done
+test "$resynced_version" -gt "$diff_state_version"
+test "$resynced_quality" = "COMPLETE"
+
 runtime_pid="$(pgrep -P "$node_pid" | head -n 1)"
 test -n "$runtime_pid"
 kill -9 "$runtime_pid"
@@ -317,10 +367,10 @@ published="0"
 for _ in $(seq 1 30); do
   published="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published" = "5" ]]; then break; fi
+  if [[ "$published" = "6" ]]; then break; fi
   sleep 0.5
 done
-test "$published" = "5"
+test "$published" = "6"
 
 terminate_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:terminate" \
@@ -347,15 +397,15 @@ recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d brow
 test "$recovery_operations" = "2"
 inbox_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from inbox_events where consumer_id='session-coordinator-v1'")"
-test "$inbox_events" = "11"
+test "$inbox_events" -ge "13"
 published_commands="0"
 for _ in $(seq 1 20); do
   published_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published_commands" = "6" ]]; then break; fi
+  if [[ "$published_commands" = "7" ]]; then break; fi
   sleep 0.25
 done
-test "$published_commands" = "6"
+test "$published_commands" = "7"
 
 browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration'")"

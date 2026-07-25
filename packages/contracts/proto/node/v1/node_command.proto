@@ -206,6 +206,39 @@ message BrowserStateEvent {
   string state_quality = 6;
   string content_hash = 7;
   repeated InteractiveTargetState targets = 8;
+  // PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+  string snapshot_kind = 9;
+  string requested_root_ref = 10;
+}
+
+// Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
+message RequestStateResyncCommand {
+  string session_id = 1;
+  string mode = 2;
+  string root_ref = 3;
+  string reason = 4;
+}
+
+message BrowserStateDiffEvent {
+  string session_id = 1;
+  uint64 base_state_version = 2;
+  uint64 state_version = 3;
+  uint64 target_revision = 4;
+  string url = 5;
+  string title = 6;
+  string state_quality = 7;
+  string content_hash = 8;
+  repeated InteractiveTargetState upserted_targets = 9;
+  repeated string removed_target_refs = 10;
+}
+
+message DiffTruncatedEvent {
+  string session_id = 1;
+  string reason = 2;
+  uint64 last_good_state_version = 3;
+  uint64 current_state_version = 4;
+  string affected_root = 5;
+  uint64 estimated_targets = 6;
 }
 
 message InteractiveTargetState {

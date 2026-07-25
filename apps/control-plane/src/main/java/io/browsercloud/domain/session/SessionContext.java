@@ -82,6 +82,27 @@ public record SessionContext(
         Instant.now());
   }
 
+  /** 绑定新的网络出口；Proxy 身份属于核心运行上下文。 */
+  public SessionContext withProxyBinding(String newProxyBindingId) {
+    return new SessionContext(
+        sessionId,
+        tenantId,
+        profileId,
+        nodeId,
+        runtimeBuildId,
+        isolationProfileId,
+        newProxyBindingId,
+        coordinatorTerm,
+        contextEpoch + 1,
+        browserGeneration,
+        networkRevision + 1,
+        resourceClass,
+        state,
+        policyHash,
+        createdAt,
+        Instant.now());
+  }
+
   /**
    * 更新状态。
    *

@@ -47,6 +47,13 @@ remote-desktop:
   ticket-secret: ${REMOTE_DESKTOP_TICKET_SECRET:browsercloud-local-remote-desktop-ticket-secret-v1}
   ticket-ttl-seconds: ${REMOTE_DESKTOP_TICKET_TTL_SECONDS:45}
 
+proxy:
+  allow-direct: ${PROXY_ALLOW_DIRECT:false}
+  static:
+    provider-id: ${STATIC_PROXY_PROVIDER_ID:static-local}
+    endpoint: ${STATIC_PROXY_ENDPOINT:}
+    expected-exit-ip: ${STATIC_PROXY_EXPECTED_EXIT_IP:}
+
 app:
   environment: ${APP_ENVIRONMENT:local}
 

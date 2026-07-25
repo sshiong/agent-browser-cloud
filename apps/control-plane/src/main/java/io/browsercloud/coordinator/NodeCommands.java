@@ -27,6 +27,7 @@ public final class NodeCommands {
             .setProfileId(session.profileId())
             .setDisplay("")
             .setCdpPort(0)
+            .setProxyBindingId(session.proxyBindingId() == null ? "" : session.proxyBindingId())
             .build()
             .toByteArray();
     return new NodeCommand(

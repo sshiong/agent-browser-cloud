@@ -29,6 +29,7 @@ public class SessionApplicationService {
   private final IdempotencyService idempotencyService;
   private final RemoteDesktopTicketService remoteDesktopTicketService;
   private final ProfileApplicationService profileApplicationService;
+  private final StaticProxyApplicationService proxyApplicationService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -39,6 +40,7 @@ public class SessionApplicationService {
       IdempotencyService idempotencyService,
       RemoteDesktopTicketService remoteDesktopTicketService,
       ProfileApplicationService profileApplicationService,
+      StaticProxyApplicationService proxyApplicationService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -48,6 +50,7 @@ public class SessionApplicationService {
     this.idempotencyService = idempotencyService;
     this.remoteDesktopTicketService = remoteDesktopTicketService;
     this.profileApplicationService = profileApplicationService;
+    this.proxyApplicationService = proxyApplicationService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -99,7 +102,8 @@ public class SessionApplicationService {
   /** 启动 Session。 */
   @Transactional
   public OperationResponse start(String sessionId, String tenantId) {
-    requireTenant(sessionId, tenantId);
+    var session = requireTenant(sessionId, tenantId);
+    proxyApplicationService.ensureBinding(session);
     var result =
         coordinator.handle(
             new StartSession(sessionId, defaultRuntimeBuildId, UUID.randomUUID().toString()));
@@ -246,6 +250,7 @@ public class SessionApplicationService {
         context.state(),
         context.nodeId(),
         context.runtimeBuildId(),
+        context.proxyBindingId(),
         context.contextEpoch(),
         context.browserGeneration(),
         operation,

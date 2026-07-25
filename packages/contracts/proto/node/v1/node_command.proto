@@ -96,6 +96,7 @@ message StartRuntimeCommand {
   string profile_id = 3;
   string display = 4;
   int32 cdp_port = 5;
+  string proxy_binding_id = 6;
 }
 
 // Runtime 启动事件
@@ -106,6 +107,10 @@ message RuntimeStartedEvent {
   string cdp_endpoint = 4;
   string node_id = 5;
   string runtime_build_id = 6;
+  string proxy_binding_id = 7;
+  string exit_ip = 8;
+  string exit_country = 9;
+  string exit_asn = 10;
 }
 
 // 停止 Runtime 命令

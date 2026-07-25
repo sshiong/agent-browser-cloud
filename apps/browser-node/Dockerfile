@@ -22,6 +22,7 @@ ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \
     NODE_JOURNAL_PATH=/var/lib/browsercloud/runtime/node-journal.sqlite3 \
     PROFILE_STORAGE_ROOT=/var/lib/browsercloud/runtime/profile-storage \
+    ALLOW_DIRECT_NETWORK=false \
     NODE_AGENT_PORT=9090 \
     APP_ENVIRONMENT=local \
     REMOTE_DESKTOP_GATEWAY_PORT=6080 \

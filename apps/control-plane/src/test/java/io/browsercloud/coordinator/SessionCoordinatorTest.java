@@ -78,7 +78,7 @@ class SessionCoordinatorTest {
 
     var event =
         new NodeEvent.RuntimeStarted(
-            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222");
+            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222", "", "", "", "");
     var operation = createActiveOperation("ses-1");
     when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(operation));
 
@@ -155,7 +155,16 @@ class SessionCoordinatorTest {
         coordinator.handle(
             nodeEvent(
                 new NodeEvent.RuntimeStarted(
-                    "ses-1", "node-1", "runtime-1", 54321, 2, "http://localhost:9223"),
+                    "ses-1",
+                    "node-1",
+                    "runtime-1",
+                    54321,
+                    2,
+                    "http://localhost:9223",
+                    "",
+                    "",
+                    "",
+                    ""),
                 0,
                 1));
 
@@ -339,7 +348,7 @@ class SessionCoordinatorTest {
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
     var event =
         new NodeEvent.RuntimeStarted(
-            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222");
+            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222", "", "", "", "");
 
     var result = coordinator.handle(nodeEvent(event, 1, 1));
 
@@ -356,7 +365,7 @@ class SessionCoordinatorTest {
         .thenReturn(Optional.of(createActiveOperation("ses-1")));
     var event =
         new NodeEvent.RuntimeStarted(
-            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222");
+            "ses-1", "node-1", "runtime-1", 12345L, 1L, "http://localhost:9222", "", "", "", "");
 
     var result = coordinator.handle(nodeEvent(event, 0, 2));
 

@@ -56,13 +56,26 @@ public class NodeEventMapper {
       return switch (envelope.getEventType()) {
         case RUNTIME_STARTED -> {
           var payload = RuntimeStartedEvent.parseFrom(envelope.getPayload());
+          if (!payload.getProxyBindingId().isBlank()) {
+            requireText(payload.getExitIp(), "exit_ip");
+            requireText(payload.getExitCountry(), "exit_country");
+            requireText(payload.getExitAsn(), "exit_asn");
+          } else if (!payload.getExitIp().isBlank()
+              || !payload.getExitCountry().isBlank()
+              || !payload.getExitAsn().isBlank()) {
+            throw new IllegalArgumentException("direct Runtime cannot report proxy exit metadata");
+          }
           yield new NodeEvent.RuntimeStarted(
               payload.getSessionId(),
               payload.getNodeId(),
               payload.getRuntimeBuildId(),
               payload.getPid(),
               payload.getBrowserGeneration(),
-              payload.getCdpEndpoint());
+              payload.getCdpEndpoint(),
+              payload.getProxyBindingId(),
+              payload.getExitIp(),
+              payload.getExitCountry(),
+              payload.getExitAsn());
         }
         case RUNTIME_STOPPED -> {
           var payload = RuntimeStoppedEvent.parseFrom(envelope.getPayload());

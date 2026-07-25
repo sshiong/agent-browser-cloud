@@ -30,12 +30,14 @@ temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
 web_pid=""
+proxy_pid=""
 
 cleanup() {
   exit_code=$?
   if [[ -n "$web_pid" ]]; then kill "$web_pid" 2>/dev/null || true; fi
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
+  if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
@@ -64,8 +66,14 @@ control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); p
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 screenshot_path="${WEB_CONSOLE_SCREENSHOT:-/tmp/agent-browser-cloud-session-flow.png}"
 ticket_secret="browsercloud-e2e-remote-desktop-ticket-secret-v1"
+
+python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
+  "$proxy_port" "$temp_dir/proxy-events.jsonl" \
+  >"$temp_dir/proxy.log" 2>&1 &
+proxy_pid=$!
 
 for _ in $(seq 1 40); do
   docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
@@ -87,6 +95,10 @@ REMOTE_DESKTOP_ALLOWED_ORIGINS="http://127.0.0.1:${web_port}" \
 XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
 X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
 FAKE_VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
+STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
+STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
+FAKE_CHROMIUM_REQUIRE_PROXY=true \
 RUST_LOG="node_agent=debug,remote_desktop_gateway=debug" \
   apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &
 node_pid=$!
@@ -99,6 +111,8 @@ REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
+STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
+STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
   >"$temp_dir/control-plane.log" 2>&1 &

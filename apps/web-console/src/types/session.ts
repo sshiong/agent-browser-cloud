@@ -53,6 +53,7 @@ export interface SessionView {
   state: SessionState;
   nodeId?: string;
   runtimeBuildId?: string;
+  proxyBindingId?: string;
   contextEpoch: number;
   browserGeneration: number;
   currentOperation?: OperationView;

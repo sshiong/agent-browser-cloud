@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use input_sandbox::{CdpDesktopInput, DesktopInput, InputKey};
+use network_helper::{NetworkHelper, StaticProxyConfig, StaticProxyNetworkHelper};
 use node_contracts::proto::node_control_service_server::{
     NodeControlService as NodeControlServiceRpc, NodeControlServiceServer,
 };
@@ -39,6 +40,8 @@ struct NodeControlService {
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
     profile_store: Arc<LocalProfileStore>,
     profile_workspaces: Arc<Mutex<HashMap<String, ActiveProfileWorkspace>>>,
+    network_helper: Option<Arc<StaticProxyNetworkHelper>>,
+    allow_direct_network: bool,
     state_collector: Arc<CdpStateCollector>,
     input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
     journal: Arc<SqliteNodeJournal>,
@@ -105,6 +108,17 @@ impl NodeControlService {
     fn allocate_loopback_port() -> anyhow::Result<u16> {
         let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
         Ok(listener.local_addr()?.port())
+    }
+
+    async fn release_start_resources(&self, session_id: &str, workspace: &ProfileWorkspace) {
+        if let Some(network_helper) = self.network_helper.as_ref() {
+            if let Err(error) = network_helper.release(session_id).await {
+                tracing::warn!(session_id, error = %error, "Failed to release proxy binding");
+            }
+        }
+        if let Err(error) = self.profile_store.release_writer(workspace).await {
+            tracing::warn!(session_id, error = %error, "Failed to release profile writer");
+        }
     }
 
     async fn next_event_sequence(&self, session_id: &str) -> anyhow::Result<i64> {
@@ -472,13 +486,53 @@ impl NodeControlService {
                             Ok(workspace) => workspace,
                             Err(error) => return self.failed(command, error),
                         };
+                        let (observed_network, proxy_server) = if payload
+                            .proxy_binding_id
+                            .is_empty()
+                        {
+                            if !self.allow_direct_network {
+                                self.release_start_resources(&command.session_id, &workspace)
+                                    .await;
+                                return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "direct network is disabled and no proxy binding was supplied"
+                                        ),
+                                    );
+                            }
+                            (None, None)
+                        } else {
+                            let Some(network_helper) = self.network_helper.as_ref() else {
+                                self.release_start_resources(&command.session_id, &workspace)
+                                    .await;
+                                return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "proxy binding supplied but static provider is not configured"
+                                        ),
+                                    );
+                            };
+                            let spec = network_helper
+                                .binding_spec(&payload.proxy_binding_id, &command.session_id);
+                            match network_helper.bind_proxy(spec).await {
+                                Ok(observed) => {
+                                    (Some(observed), Some(network_helper.proxy_server()))
+                                }
+                                Err(error) => {
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
+                            }
+                        };
                         let cdp_port = self.allocate_cdp_port().await;
                         let runtime_build_id = payload.runtime_build_id;
                         let (display, vnc_port) = if self.desktop_enabled {
                             let vnc_port = match Self::allocate_loopback_port() {
                                 Ok(port) => port,
                                 Err(error) => {
-                                    let _ = self.profile_store.release_writer(&workspace).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
                                     return self.failed(command, error);
                                 }
                             };
@@ -493,6 +547,7 @@ impl NodeControlService {
                                 runtime_build_id: runtime_build_id.clone(),
                                 profile_dir: workspace.core_dir.clone(),
                                 cache_dir: workspace.ephemeral_dir.join("cache"),
+                                proxy_server,
                                 display,
                                 cdp_port,
                                 vnc_port,
@@ -511,8 +566,11 @@ impl NodeControlService {
                                                 .runtime_supervisor
                                                 .stop(&command.session_id)
                                                 .await;
-                                            let _ =
-                                                self.profile_store.release_writer(&workspace).await;
+                                            self.release_start_resources(
+                                                &command.session_id,
+                                                &workspace,
+                                            )
+                                            .await;
                                             return self.failed(command, error.into());
                                         }
                                     };
@@ -521,7 +579,11 @@ impl NodeControlService {
                                     {
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
-                                        let _ = self.profile_store.release_writer(&workspace).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
                                         return self.failed(command, error);
                                     }
                                 }
@@ -534,7 +596,8 @@ impl NodeControlService {
                                         gateway.unregister_session(&command.session_id);
                                     }
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
-                                    let _ = self.profile_store.release_writer(&workspace).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
                                     return self.failed(command, error);
                                 }
                                 let input = match CdpDesktopInput::connect(&handle.cdp_endpoint)
@@ -551,7 +614,11 @@ impl NodeControlService {
                                             .await;
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
-                                        let _ = self.profile_store.release_writer(&workspace).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
                                         return self.failed(command, error);
                                     }
                                 };
@@ -596,7 +663,11 @@ impl NodeControlService {
                                             .lock()
                                             .await
                                             .remove(&command.session_id);
-                                        let _ = self.profile_store.release_writer(&workspace).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
                                         return self.failed(command, error);
                                     }
                                 };
@@ -611,6 +682,18 @@ impl NodeControlService {
                                         cdp_endpoint: handle.cdp_endpoint,
                                         node_id: self.node_id.clone(),
                                         runtime_build_id,
+                                        proxy_binding_id: payload.proxy_binding_id,
+                                        exit_ip: observed_network
+                                            .as_ref()
+                                            .map(|network| network.exit_ip.clone())
+                                            .unwrap_or_default(),
+                                        exit_country: observed_network
+                                            .as_ref()
+                                            .map(|network| network.country.clone())
+                                            .unwrap_or_default(),
+                                        exit_asn: observed_network
+                                            .map(|network| network.asn)
+                                            .unwrap_or_default(),
                                     },
                                 );
                                 Self::runtime_started_result(
@@ -620,7 +703,8 @@ impl NodeControlService {
                                 )
                             }
                             Err(error) => {
-                                let _ = self.profile_store.release_writer(&workspace).await;
+                                self.release_start_resources(&command.session_id, &workspace)
+                                    .await;
                                 self.failed(command, error)
                             }
                         }
@@ -706,6 +790,13 @@ impl NodeControlService {
                                 }
                                 None => (String::new(), String::new(), 0, 0, 0, 0, "EMPTY"),
                             };
+                            if let Some(network_helper) = self.network_helper.as_ref() {
+                                if let Err(error) =
+                                    network_helper.release(&command.session_id).await
+                                {
+                                    return self.failed(command, error);
+                                }
+                            }
                             let event = Self::event(
                                 command,
                                 "RuntimeStopped",
@@ -1420,6 +1511,46 @@ async fn main() -> Result<()> {
         sender: desktop_disconnect_sender,
     });
     let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
+    let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let proxy_endpoint = std::env::var("STATIC_PROXY_ENDPOINT")
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    if environment.eq_ignore_ascii_case("production") {
+        anyhow::ensure!(
+            !allow_direct_network,
+            "ALLOW_DIRECT_NETWORK cannot be enabled in production"
+        );
+        anyhow::ensure!(
+            !proxy_endpoint.is_empty(),
+            "STATIC_PROXY_ENDPOINT is required in production"
+        );
+    }
+    let network_helper = if proxy_endpoint.is_empty() {
+        None
+    } else {
+        let expected_exit_ip = std::env::var("STATIC_PROXY_EXPECTED_EXIT_IP")
+            .map_err(|_| anyhow::anyhow!("STATIC_PROXY_EXPECTED_EXIT_IP is required"))?;
+        let exit_check_url = std::env::var("PROXY_EXIT_CHECK_URL")
+            .unwrap_or_else(|_| "http://browsercloud.invalid/exit".to_owned());
+        let failure_threshold = std::env::var("PROXY_FAILURE_THRESHOLD")
+            .unwrap_or_else(|_| "3".to_owned())
+            .parse()?;
+        let open_seconds = std::env::var("PROXY_CIRCUIT_OPEN_SECONDS")
+            .unwrap_or_else(|_| "30".to_owned())
+            .parse()?;
+        Some(Arc::new(StaticProxyNetworkHelper::new(
+            StaticProxyConfig {
+                endpoint: proxy_endpoint,
+                expected_exit_ip,
+                exit_check_url,
+                failure_threshold,
+                open_duration: Duration::from_secs(open_seconds),
+            },
+        )?))
+    };
     let local_ticket_secret = "browsercloud-local-remote-desktop-ticket-secret-v1";
     let ticket_secret = std::env::var("REMOTE_DESKTOP_TICKET_SECRET")
         .unwrap_or_else(|_| local_ticket_secret.to_owned());
@@ -1460,6 +1591,8 @@ async fn main() -> Result<()> {
         runtime_supervisor: runtime_supervisor.clone(),
         profile_store,
         profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
+        network_helper,
+        allow_direct_network,
         state_collector: Arc::new(CdpStateCollector::new()),
         input_brokers,
         journal,
@@ -1650,6 +1783,8 @@ mod tests {
                     .unwrap(),
             ),
             profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
+            network_helper: None,
+            allow_direct_network: true,
             state_collector: Arc::new(CdpStateCollector::new()),
             input_brokers: Arc::new(Mutex::new(HashMap::new())),
             journal: reopened.clone(),

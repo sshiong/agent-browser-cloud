@@ -22,7 +22,11 @@ public sealed interface NodeEvent
       String runtimeBuildId,
       long pid,
       long browserGeneration,
-      String cdpEndpoint)
+      String cdpEndpoint,
+      String proxyBindingId,
+      String exitIp,
+      String exitCountry,
+      String exitAsn)
       implements NodeEvent {}
 
   /** Runtime 停止事件。 */

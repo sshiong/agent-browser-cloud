@@ -29,11 +29,13 @@ redis_name="agentbrowser-redis-it-${run_id}"
 temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
+proxy_pid=""
 
 cleanup() {
   exit_code=$?
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
+  if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
@@ -59,6 +61,12 @@ node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); prin
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+
+python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
+  "$proxy_port" "$temp_dir/proxy-events.jsonl" \
+  >"$temp_dir/proxy.log" 2>&1 &
+proxy_pid=$!
 
 start_browser_node() {
   CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
@@ -67,6 +75,10 @@ start_browser_node() {
   CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
   REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
   RUNTIME_ROOT="$temp_dir/runtime" \
+  STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
+  STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+  PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
+  FAKE_CHROMIUM_REQUIRE_PROXY=true \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
   node_pid=$!
 }
@@ -89,6 +101,8 @@ REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
+STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
+STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
   >"$temp_dir/control-plane.log" 2>&1 &
@@ -170,7 +184,12 @@ test "$state" = "RUNNING"
 printf '%s' "$session_after_start" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L1"'
 printf '%s' "$session_after_start" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node-integration"; assert item["contextEpoch"] == 1'
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node-integration"; assert item["contextEpoch"] == 2; assert item["proxyBindingId"] is not None'
+proxy_overview="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$proxy_overview" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["provider"]["directFallbackAllowed"] is False; assert result["total"] == 1; item=result["allocations"][0]; assert item["state"] == "BOUND"; assert item["exitIp"] == "203.0.113.10"; assert item["country"] == "TEST"; assert item["asn"] == "AS64500"'
+grep -q 'http://browsercloud.invalid/exit' "$temp_dir/proxy-events.jsonl"
 
 browser_state=""
 state_status=""
@@ -186,7 +205,7 @@ for _ in $(seq 1 40); do
 done
 test "$state_status" = "200"
 printf '%s' "$browser_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 1; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 2; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
 
 runtime_pid="$(pgrep -P "$node_pid" | head -n 1)"
 test -n "$runtime_pid"
@@ -200,11 +219,11 @@ for _ in $(seq 1 120); do
     -H 'X-Tenant-Id: tenant-integration')"
   recovered_state="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
   recovered_epoch="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$recovered_state" = "RUNNING" ]] && [[ "$recovered_epoch" = "2" ]]; then break; fi
+  if [[ "$recovered_state" = "RUNNING" ]] && [[ "$recovered_epoch" = "3" ]]; then break; fi
   sleep 0.25
 done
 test "$recovered_state" = "RUNNING"
-test "$recovered_epoch" = "2"
+test "$recovered_epoch" = "3"
 printf '%s' "$recovered_session" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 2; assert item["currentOperation"] is None'
 
@@ -214,10 +233,10 @@ for _ in $(seq 1 40); do
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
   recovered_state_epoch="$(printf '%s' "$recovered_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$recovered_state_epoch" = "2" ]]; then break; fi
+  if [[ "$recovered_state_epoch" = "3" ]]; then break; fi
   sleep 0.25
 done
-test "$recovered_state_epoch" = "2"
+test "$recovered_state_epoch" = "3"
 printf '%s' "$recovered_browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["stateVersion"] >= 2; assert state["stateQuality"] == "COMPLETE"'
 
@@ -234,11 +253,11 @@ for _ in $(seq 1 160); do
     -H 'X-Tenant-Id: tenant-integration')"
   reconciled_state="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
   reconciled_epoch="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$reconciled_state" = "RUNNING" ]] && [[ "$reconciled_epoch" = "3" ]]; then break; fi
+  if [[ "$reconciled_state" = "RUNNING" ]] && [[ "$reconciled_epoch" = "4" ]]; then break; fi
   sleep 0.25
 done
 test "$reconciled_state" = "RUNNING"
-test "$reconciled_epoch" = "3"
+test "$reconciled_epoch" = "4"
 printf '%s' "$reconciled_session" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 3; assert item["currentOperation"] is None'
 
@@ -248,10 +267,10 @@ for _ in $(seq 1 40); do
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
   reconciled_state_epoch="$(printf '%s' "$reconciled_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$reconciled_state_epoch" = "3" ]]; then break; fi
+  if [[ "$reconciled_state_epoch" = "4" ]]; then break; fi
   sleep 0.25
 done
-test "$reconciled_state_epoch" = "3"
+test "$reconciled_state_epoch" = "4"
 
 takeover_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
@@ -292,7 +311,7 @@ takeover_state="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$takeover_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"'
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 4; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"'
 
 published="0"
 for _ in $(seq 1 30); do
@@ -350,6 +369,10 @@ profile_after_terminate="$(curl -fsS \
 checkpoint_one="$(printf '%s' "$profile_after_terminate" | python3 -c \
   'import json,sys; profile=json.load(sys.stdin); assert profile["latestCheckpointEpoch"] == 1; assert profile["profileWriteEpoch"] == 1; assert profile["coreSizeBytes"] > 0; assert profile["checkpointFileCount"] >= 1; assert profile["restoreStatus"] == "EMPTY"; print(profile["latestCheckpointId"])')"
 test -f "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/checkpoints/${checkpoint_one}/COMMITTED"
+proxy_after_terminate="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$proxy_after_terminate" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin)["allocations"][0]; assert item["state"] == "RELEASED"; assert item["releasedAt"] is not None'
 
 profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -403,6 +426,6 @@ profile_after_restore="$(curl -fsS \
 printf '%s' "$profile_after_restore" | python3 -c \
   'import json,sys; profile=json.load(sys.stdin); assert profile["latestCheckpointEpoch"] == 2; assert profile["profileWriteEpoch"] == 2; assert profile["restoreStatus"] == "TECHNICAL_READY"; assert profile["checkpointFileCount"] >= 1'
 
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status"

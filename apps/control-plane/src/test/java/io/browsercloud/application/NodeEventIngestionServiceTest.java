@@ -26,6 +26,7 @@ class NodeEventIngestionServiceTest {
   @Mock private SessionCoordinator coordinator;
   @Mock private BrowserStateRepository browserStateRepository;
   @Mock private ProfileApplicationService profileApplicationService;
+  @Mock private StaticProxyApplicationService proxyApplicationService;
 
   private NodeEventIngestionService service;
 
@@ -33,7 +34,11 @@ class NodeEventIngestionServiceTest {
   void setUp() {
     service =
         new NodeEventIngestionService(
-            inboxRepository, coordinator, browserStateRepository, profileApplicationService);
+            inboxRepository,
+            coordinator,
+            browserStateRepository,
+            profileApplicationService,
+            proxyApplicationService);
   }
 
   @Test

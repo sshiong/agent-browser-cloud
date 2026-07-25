@@ -274,6 +274,22 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/proxies:
+    get:
+      operationId: getProxyOverview
+      summary: Get the static Proxy Provider and tenant allocation ledger
+      tags: [Proxy]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Provider configuration and tenant-scoped allocations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   securitySchemes:
     bearerAuth:
@@ -402,6 +418,87 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Profile"
+        total:
+          type: integer
+          minimum: 0
+    ProxyProvider:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - type
+        - endpoint
+        - expectedExitIp
+        - directFallbackAllowed
+        - state
+      properties:
+        providerId:
+          type: string
+        type:
+          type: string
+          enum: [STATIC_HTTP]
+        endpoint:
+          type: string
+        expectedExitIp:
+          type: string
+        directFallbackAllowed:
+          type: boolean
+        state:
+          type: string
+          enum: [CONFIGURED, UNCONFIGURED]
+    ProxyAllocation:
+      type: object
+      additionalProperties: false
+      required:
+        - allocationId
+        - sessionId
+        - providerId
+        - protocol
+        - state
+        - allocatedAt
+        - updatedAt
+      properties:
+        allocationId:
+          type: string
+        sessionId:
+          type: string
+        providerId:
+          type: string
+        protocol:
+          type: string
+          enum: [HTTP]
+        state:
+          type: string
+          enum: [ALLOCATED, BOUND, RELEASED, FAILED]
+        exitIp:
+          type: [string, "null"]
+        country:
+          type: [string, "null"]
+        asn:
+          type: [string, "null"]
+        allocatedAt:
+          type: string
+          format: date-time
+        verifiedAt:
+          type: [string, "null"]
+          format: date-time
+        releasedAt:
+          type: [string, "null"]
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProxyOverview:
+      type: object
+      additionalProperties: false
+      required: [provider, allocations, total]
+      properties:
+        provider:
+          $ref: "#/components/schemas/ProxyProvider"
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProxyAllocation"
         total:
           type: integer
           minimum: 0
@@ -629,6 +726,8 @@ components:
         nodeId:
           type: [string, "null"]
         runtimeBuildId:
+          type: [string, "null"]
+        proxyBindingId:
           type: [string, "null"]
         contextEpoch:
           type: integer

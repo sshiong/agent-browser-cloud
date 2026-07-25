@@ -15,6 +15,7 @@ public record SessionView(
     SessionState state,
     String nodeId,
     String runtimeBuildId,
+    String proxyBindingId,
     long contextEpoch,
     long browserGeneration,
     OperationView currentOperation,

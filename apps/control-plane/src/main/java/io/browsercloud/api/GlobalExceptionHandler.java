@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
+import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
 import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
@@ -48,6 +49,17 @@ public class GlobalExceptionHandler {
       ProfileAlreadyExistsException exception, HttpServletRequest request) {
     return response(
         HttpStatus.CONFLICT, "PROFILE_ALREADY_EXISTS", "Profile already exists", Map.of(), request);
+  }
+
+  @ExceptionHandler(ProxyUnavailableException.class)
+  ResponseEntity<ApiError> proxyUnavailable(
+      ProxyUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "PROXY_UNAVAILABLE",
+        "A verified network exit is unavailable",
+        Map.of(),
+        request);
   }
 
   @ExceptionHandler(TenantAccessDeniedException.class)

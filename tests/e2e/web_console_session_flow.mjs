@@ -69,6 +69,31 @@ try {
   await expect(page.getByText("Run integration", { exact: true })).toBeVisible();
   await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible();
 
+  await page.getByRole("link", { name: "代理与出口" }).click();
+  await expect(
+    page.getByRole("heading", { name: "代理与出口" }),
+  ).toBeVisible();
+  await expect(page.getByText("static-local", { exact: true })).toBeVisible();
+  await expect(page.getByText("CONFIGURED", { exact: true })).toBeVisible();
+  await expect(page.getByText("DENIED", { exact: true })).toBeVisible();
+  await expect(
+    page.locator("table").getByText(startSessionId, { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.locator("table").getByText("BOUND", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator("table").getByText("203.0.113.10", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-proxies.png"),
+    fullPage: true,
+  });
+
+  await page.goto(`${baseUrl}/environments/${startSessionId}`);
+  await expect(page.getByRole("button", { name: "人工接管" })).toBeEnabled({
+    timeout: 15_000,
+  });
   await page.getByRole("button", { name: "人工接管" }).click();
   await page.waitForURL("**/remote-desktop?session=ses_*");
   await expect(page.getByText("CONTROL ACQUIRED", { exact: true })).toBeVisible({

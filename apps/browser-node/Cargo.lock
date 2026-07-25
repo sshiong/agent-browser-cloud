@@ -960,7 +960,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "reqwest",
  "serde",
+ "serde_json",
+ "tokio",
  "tracing",
 ]
 
@@ -971,6 +974,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "input-sandbox",
+ "network-helper",
  "node-contracts",
  "node-journal",
  "prost",

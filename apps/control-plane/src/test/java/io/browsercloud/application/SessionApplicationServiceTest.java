@@ -29,6 +29,7 @@ class SessionApplicationServiceTest {
   @Mock private IdempotencyService idempotencyService;
   @Mock private RemoteDesktopTicketService remoteDesktopTicketService;
   @Mock private ProfileApplicationService profileApplicationService;
+  @Mock private StaticProxyApplicationService proxyApplicationService;
 
   private SessionApplicationService service;
 
@@ -43,6 +44,7 @@ class SessionApplicationServiceTest {
             idempotencyService,
             remoteDesktopTicketService,
             profileApplicationService,
+            proxyApplicationService,
             "runtime-test");
   }
 

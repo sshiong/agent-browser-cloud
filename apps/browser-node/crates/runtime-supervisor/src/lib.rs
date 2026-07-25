@@ -21,6 +21,7 @@ pub struct RuntimeSpec {
     pub runtime_build_id: String,
     pub profile_dir: PathBuf,
     pub cache_dir: PathBuf,
+    pub proxy_server: Option<String>,
     pub display: String,
     pub cdp_port: u16,
     pub vnc_port: Option<u16>,
@@ -380,6 +381,12 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             .stderr(std::process::Stdio::null())
             .kill_on_drop(true);
 
+        if let Some(proxy_server) = spec.proxy_server.as_ref() {
+            command
+                .arg(format!("--proxy-server={proxy_server}"))
+                .arg("--proxy-bypass-list=<-loopback>");
+        }
+
         if spec.display.is_empty() {
             command.arg("--headless=new");
         } else {
@@ -571,6 +578,7 @@ mod tests {
                 runtime_build_id: "runtime-1".into(),
                 profile_dir: PathBuf::from("/tmp/should-not-be-created"),
                 cache_dir: PathBuf::from("/tmp/should-not-be-created-cache"),
+                proxy_server: None,
                 display: String::new(),
                 cdp_port: 9222,
                 vnc_port: None,
@@ -600,6 +608,7 @@ mod tests {
                 runtime_build_id: "runtime-real-test".into(),
                 profile_dir: profile_dir.clone(),
                 cache_dir: profile_dir.join("EphemeralCache"),
+                proxy_server: None,
                 display: String::new(),
                 cdp_port,
                 vnc_port: None,

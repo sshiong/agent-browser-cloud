@@ -25,6 +25,10 @@ private static final long serialVersionUID = 0L;
     cdpEndpoint_ = "";
     nodeId_ = "";
     runtimeBuildId_ = "";
+    proxyBindingId_ = "";
+    exitIp_ = "";
+    exitCountry_ = "";
+    exitAsn_ = "";
   }
 
   @java.lang.Override
@@ -60,7 +64,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -76,7 +80,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -121,7 +125,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       cdpEndpoint_ = s;
@@ -137,7 +141,7 @@ private static final long serialVersionUID = 0L;
       getCdpEndpointBytes() {
     java.lang.Object ref = cdpEndpoint_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       cdpEndpoint_ = b;
@@ -160,7 +164,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
@@ -176,7 +180,7 @@ private static final long serialVersionUID = 0L;
       getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       nodeId_ = b;
@@ -199,7 +203,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       runtimeBuildId_ = s;
@@ -215,10 +219,166 @@ private static final long serialVersionUID = 0L;
       getRuntimeBuildIdBytes() {
     java.lang.Object ref = runtimeBuildId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       runtimeBuildId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROXY_BINDING_ID_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object proxyBindingId_ = "";
+  /**
+   * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+   * @return The proxyBindingId.
+   */
+  @java.lang.Override
+  public java.lang.String getProxyBindingId() {
+    java.lang.Object ref = proxyBindingId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      proxyBindingId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+   * @return The bytes for proxyBindingId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProxyBindingIdBytes() {
+    java.lang.Object ref = proxyBindingId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      proxyBindingId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int EXIT_IP_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object exitIp_ = "";
+  /**
+   * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+   * @return The exitIp.
+   */
+  @java.lang.Override
+  public java.lang.String getExitIp() {
+    java.lang.Object ref = exitIp_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      exitIp_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+   * @return The bytes for exitIp.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getExitIpBytes() {
+    java.lang.Object ref = exitIp_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      exitIp_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int EXIT_COUNTRY_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object exitCountry_ = "";
+  /**
+   * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+   * @return The exitCountry.
+   */
+  @java.lang.Override
+  public java.lang.String getExitCountry() {
+    java.lang.Object ref = exitCountry_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      exitCountry_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+   * @return The bytes for exitCountry.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getExitCountryBytes() {
+    java.lang.Object ref = exitCountry_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      exitCountry_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int EXIT_ASN_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object exitAsn_ = "";
+  /**
+   * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+   * @return The exitAsn.
+   */
+  @java.lang.Override
+  public java.lang.String getExitAsn() {
+    java.lang.Object ref = exitAsn_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      exitAsn_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+   * @return The bytes for exitAsn.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getExitAsnBytes() {
+    java.lang.Object ref = exitAsn_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      exitAsn_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -257,6 +417,18 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(runtimeBuildId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 6, runtimeBuildId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 7, proxyBindingId_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(exitIp_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 8, exitIp_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(exitCountry_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, exitCountry_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(exitAsn_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, exitAsn_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -286,6 +458,18 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(runtimeBuildId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, runtimeBuildId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, proxyBindingId_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(exitIp_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, exitIp_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(exitCountry_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, exitCountry_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(exitAsn_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, exitAsn_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -313,6 +497,14 @@ private static final long serialVersionUID = 0L;
         .equals(other.getNodeId())) return false;
     if (!getRuntimeBuildId()
         .equals(other.getRuntimeBuildId())) return false;
+    if (!getProxyBindingId()
+        .equals(other.getProxyBindingId())) return false;
+    if (!getExitIp()
+        .equals(other.getExitIp())) return false;
+    if (!getExitCountry()
+        .equals(other.getExitCountry())) return false;
+    if (!getExitAsn()
+        .equals(other.getExitAsn())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -337,6 +529,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getNodeId().hashCode();
     hash = (37 * hash) + RUNTIME_BUILD_ID_FIELD_NUMBER;
     hash = (53 * hash) + getRuntimeBuildId().hashCode();
+    hash = (37 * hash) + PROXY_BINDING_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getProxyBindingId().hashCode();
+    hash = (37 * hash) + EXIT_IP_FIELD_NUMBER;
+    hash = (53 * hash) + getExitIp().hashCode();
+    hash = (37 * hash) + EXIT_COUNTRY_FIELD_NUMBER;
+    hash = (53 * hash) + getExitCountry().hashCode();
+    hash = (37 * hash) + EXIT_ASN_FIELD_NUMBER;
+    hash = (53 * hash) + getExitAsn().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -478,6 +678,10 @@ private static final long serialVersionUID = 0L;
       cdpEndpoint_ = "";
       nodeId_ = "";
       runtimeBuildId_ = "";
+      proxyBindingId_ = "";
+      exitIp_ = "";
+      exitCountry_ = "";
+      exitAsn_ = "";
       return this;
     }
 
@@ -528,6 +732,18 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.runtimeBuildId_ = runtimeBuildId_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.proxyBindingId_ = proxyBindingId_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.exitIp_ = exitIp_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.exitCountry_ = exitCountry_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.exitAsn_ = exitAsn_;
       }
     }
 
@@ -601,6 +817,26 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000020;
         onChanged();
       }
+      if (!other.getProxyBindingId().isEmpty()) {
+        proxyBindingId_ = other.proxyBindingId_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.getExitIp().isEmpty()) {
+        exitIp_ = other.exitIp_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (!other.getExitCountry().isEmpty()) {
+        exitCountry_ = other.exitCountry_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.getExitAsn().isEmpty()) {
+        exitAsn_ = other.exitAsn_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -657,6 +893,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              proxyBindingId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              exitIp_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
+              exitCountry_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              exitAsn_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -699,7 +955,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -835,7 +1091,7 @@ private static final long serialVersionUID = 0L;
         getCdpEndpointBytes() {
       java.lang.Object ref = cdpEndpoint_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         cdpEndpoint_ = b;
@@ -907,7 +1163,7 @@ private static final long serialVersionUID = 0L;
         getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         nodeId_ = b;
@@ -979,7 +1235,7 @@ private static final long serialVersionUID = 0L;
         getRuntimeBuildIdBytes() {
       java.lang.Object ref = runtimeBuildId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         runtimeBuildId_ = b;
@@ -1022,6 +1278,294 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       runtimeBuildId_ = value;
       bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object proxyBindingId_ = "";
+    /**
+     * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+     * @return The proxyBindingId.
+     */
+    public java.lang.String getProxyBindingId() {
+      java.lang.Object ref = proxyBindingId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        proxyBindingId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+     * @return The bytes for proxyBindingId.
+     */
+    public com.google.protobuf.ByteString
+        getProxyBindingIdBytes() {
+      java.lang.Object ref = proxyBindingId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        proxyBindingId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+     * @param value The proxyBindingId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyBindingId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      proxyBindingId_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyBindingId() {
+      proxyBindingId_ = getDefaultInstance().getProxyBindingId();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+     * @param value The bytes for proxyBindingId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyBindingIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      proxyBindingId_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object exitIp_ = "";
+    /**
+     * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+     * @return The exitIp.
+     */
+    public java.lang.String getExitIp() {
+      java.lang.Object ref = exitIp_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        exitIp_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+     * @return The bytes for exitIp.
+     */
+    public com.google.protobuf.ByteString
+        getExitIpBytes() {
+      java.lang.Object ref = exitIp_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        exitIp_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+     * @param value The exitIp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExitIp(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      exitIp_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExitIp() {
+      exitIp_ = getDefaultInstance().getExitIp();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+     * @param value The bytes for exitIp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExitIpBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      exitIp_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object exitCountry_ = "";
+    /**
+     * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+     * @return The exitCountry.
+     */
+    public java.lang.String getExitCountry() {
+      java.lang.Object ref = exitCountry_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        exitCountry_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+     * @return The bytes for exitCountry.
+     */
+    public com.google.protobuf.ByteString
+        getExitCountryBytes() {
+      java.lang.Object ref = exitCountry_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        exitCountry_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+     * @param value The exitCountry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExitCountry(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      exitCountry_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExitCountry() {
+      exitCountry_ = getDefaultInstance().getExitCountry();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+     * @param value The bytes for exitCountry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExitCountryBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      exitCountry_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object exitAsn_ = "";
+    /**
+     * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+     * @return The exitAsn.
+     */
+    public java.lang.String getExitAsn() {
+      java.lang.Object ref = exitAsn_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        exitAsn_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+     * @return The bytes for exitAsn.
+     */
+    public com.google.protobuf.ByteString
+        getExitAsnBytes() {
+      java.lang.Object ref = exitAsn_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        exitAsn_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+     * @param value The exitAsn to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExitAsn(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      exitAsn_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExitAsn() {
+      exitAsn_ = getDefaultInstance().getExitAsn();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+     * @param value The bytes for exitAsn to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExitAsnBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      exitAsn_ = value;
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -1088,4 +1632,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

@@ -536,6 +536,11 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   cdpPort = 0;
 
+  /**
+   * @generated from field: string proxy_binding_id = 6;
+   */
+  proxyBindingId = "";
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -549,6 +554,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "display", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "cdp_port", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 6, name: "proxy_binding_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -604,6 +610,26 @@ export class RuntimeStartedEvent extends Message<RuntimeStartedEvent> {
    */
   runtimeBuildId = "";
 
+  /**
+   * @generated from field: string proxy_binding_id = 7;
+   */
+  proxyBindingId = "";
+
+  /**
+   * @generated from field: string exit_ip = 8;
+   */
+  exitIp = "";
+
+  /**
+   * @generated from field: string exit_country = 9;
+   */
+  exitCountry = "";
+
+  /**
+   * @generated from field: string exit_asn = 10;
+   */
+  exitAsn = "";
+
   constructor(data?: PartialMessage<RuntimeStartedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -618,6 +644,10 @@ export class RuntimeStartedEvent extends Message<RuntimeStartedEvent> {
     { no: 4, name: "cdp_endpoint", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "runtime_build_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "proxy_binding_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "exit_country", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "exit_asn", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeStartedEvent {
@@ -703,6 +733,41 @@ export class RuntimeStoppedEvent extends Message<RuntimeStoppedEvent> {
    */
   exitCode = 0;
 
+  /**
+   * @generated from field: string profile_id = 4;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string checkpoint_id = 5;
+   */
+  checkpointId = "";
+
+  /**
+   * @generated from field: uint64 checkpoint_epoch = 6;
+   */
+  checkpointEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 profile_write_epoch = 7;
+   */
+  profileWriteEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 core_size_bytes = 8;
+   */
+  coreSizeBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 checkpoint_file_count = 9;
+   */
+  checkpointFileCount = protoInt64.zero;
+
+  /**
+   * @generated from field: string restore_status = 10;
+   */
+  restoreStatus = "";
+
   constructor(data?: PartialMessage<RuntimeStoppedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -714,6 +779,13 @@ export class RuntimeStoppedEvent extends Message<RuntimeStoppedEvent> {
     { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "exit_code", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "checkpoint_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "profile_write_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "core_size_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "checkpoint_file_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 10, name: "restore_status", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeStoppedEvent {
@@ -1273,6 +1345,18 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
    */
   targets: InteractiveTargetState[] = [];
 
+  /**
+   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   *
+   * @generated from field: string snapshot_kind = 9;
+   */
+  snapshotKind = "";
+
+  /**
+   * @generated from field: string requested_root_ref = 10;
+   */
+  requestedRootRef = "";
+
   constructor(data?: PartialMessage<BrowserStateEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1289,6 +1373,8 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
     { no: 6, name: "state_quality", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 7, name: "content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 8, name: "targets", kind: "message", T: InteractiveTargetState, repeated: true },
+    { no: 9, name: "snapshot_kind", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "requested_root_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateEvent {
@@ -1305,6 +1391,340 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
 
   static equals(a: BrowserStateEvent | PlainMessage<BrowserStateEvent> | undefined, b: BrowserStateEvent | PlainMessage<BrowserStateEvent> | undefined): boolean {
     return proto3.util.equals(BrowserStateEvent, a, b);
+  }
+}
+
+/**
+ * Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
+ *
+ * @generated from message browsercloud.node.v1.RequestStateResyncCommand
+ */
+export class RequestStateResyncCommand extends Message<RequestStateResyncCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string mode = 2;
+   */
+  mode = "";
+
+  /**
+   * @generated from field: string root_ref = 3;
+   */
+  rootRef = "";
+
+  /**
+   * @generated from field: string reason = 4;
+   */
+  reason = "";
+
+  constructor(data?: PartialMessage<RequestStateResyncCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.RequestStateResyncCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "root_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RequestStateResyncCommand {
+    return new RequestStateResyncCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RequestStateResyncCommand {
+    return new RequestStateResyncCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RequestStateResyncCommand {
+    return new RequestStateResyncCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RequestStateResyncCommand | PlainMessage<RequestStateResyncCommand> | undefined, b: RequestStateResyncCommand | PlainMessage<RequestStateResyncCommand> | undefined): boolean {
+    return proto3.util.equals(RequestStateResyncCommand, a, b);
+  }
+}
+
+/**
+ * 由 Control Plane Agent Executor 授权并通过 Exclusive Operation 投递的导航命令。
+ * Capability Token 只在 Control Plane 内消费，绝不下发到 Browser Node。
+ *
+ * @generated from message browsercloud.node.v1.AgentNavigateCommand
+ */
+export class AgentNavigateCommand extends Message<AgentNavigateCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string task_id = 2;
+   */
+  taskId = "";
+
+  /**
+   * @generated from field: string step_id = 3;
+   */
+  stepId = "";
+
+  /**
+   * @generated from field: string url = 4;
+   */
+  url = "";
+
+  /**
+   * @generated from field: uint64 base_state_version = 5;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  constructor(data?: PartialMessage<AgentNavigateCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AgentNavigateCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "task_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "step_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentNavigateCommand {
+    return new AgentNavigateCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AgentNavigateCommand {
+    return new AgentNavigateCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AgentNavigateCommand {
+    return new AgentNavigateCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AgentNavigateCommand | PlainMessage<AgentNavigateCommand> | undefined, b: AgentNavigateCommand | PlainMessage<AgentNavigateCommand> | undefined): boolean {
+    return proto3.util.equals(AgentNavigateCommand, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.AgentNavigationFailedEvent
+ */
+export class AgentNavigationFailedEvent extends Message<AgentNavigationFailedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string task_id = 2;
+   */
+  taskId = "";
+
+  /**
+   * @generated from field: string step_id = 3;
+   */
+  stepId = "";
+
+  /**
+   * @generated from field: string error_code = 4;
+   */
+  errorCode = "";
+
+  constructor(data?: PartialMessage<AgentNavigationFailedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AgentNavigationFailedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "task_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "step_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentNavigationFailedEvent {
+    return new AgentNavigationFailedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AgentNavigationFailedEvent {
+    return new AgentNavigationFailedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AgentNavigationFailedEvent {
+    return new AgentNavigationFailedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AgentNavigationFailedEvent | PlainMessage<AgentNavigationFailedEvent> | undefined, b: AgentNavigationFailedEvent | PlainMessage<AgentNavigationFailedEvent> | undefined): boolean {
+    return proto3.util.equals(AgentNavigationFailedEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.BrowserStateDiffEvent
+ */
+export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: uint64 base_state_version = 2;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 state_version = 3;
+   */
+  stateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 4;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string url = 5;
+   */
+  url = "";
+
+  /**
+   * @generated from field: string title = 6;
+   */
+  title = "";
+
+  /**
+   * @generated from field: string state_quality = 7;
+   */
+  stateQuality = "";
+
+  /**
+   * @generated from field: string content_hash = 8;
+   */
+  contentHash = "";
+
+  /**
+   * @generated from field: repeated browsercloud.node.v1.InteractiveTargetState upserted_targets = 9;
+   */
+  upsertedTargets: InteractiveTargetState[] = [];
+
+  /**
+   * @generated from field: repeated string removed_target_refs = 10;
+   */
+  removedTargetRefs: string[] = [];
+
+  constructor(data?: PartialMessage<BrowserStateDiffEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BrowserStateDiffEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 3, name: "state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "title", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "state_quality", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "upserted_targets", kind: "message", T: InteractiveTargetState, repeated: true },
+    { no: 10, name: "removed_target_refs", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateDiffEvent {
+    return new BrowserStateDiffEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BrowserStateDiffEvent {
+    return new BrowserStateDiffEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BrowserStateDiffEvent {
+    return new BrowserStateDiffEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BrowserStateDiffEvent | PlainMessage<BrowserStateDiffEvent> | undefined, b: BrowserStateDiffEvent | PlainMessage<BrowserStateDiffEvent> | undefined): boolean {
+    return proto3.util.equals(BrowserStateDiffEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.DiffTruncatedEvent
+ */
+export class DiffTruncatedEvent extends Message<DiffTruncatedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string reason = 2;
+   */
+  reason = "";
+
+  /**
+   * @generated from field: uint64 last_good_state_version = 3;
+   */
+  lastGoodStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 current_state_version = 4;
+   */
+  currentStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: string affected_root = 5;
+   */
+  affectedRoot = "";
+
+  /**
+   * @generated from field: uint64 estimated_targets = 6;
+   */
+  estimatedTargets = protoInt64.zero;
+
+  constructor(data?: PartialMessage<DiffTruncatedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.DiffTruncatedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "last_good_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "current_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "affected_root", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "estimated_targets", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DiffTruncatedEvent {
+    return new DiffTruncatedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DiffTruncatedEvent {
+    return new DiffTruncatedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DiffTruncatedEvent {
+    return new DiffTruncatedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DiffTruncatedEvent | PlainMessage<DiffTruncatedEvent> | undefined, b: DiffTruncatedEvent | PlainMessage<DiffTruncatedEvent> | undefined): boolean {
+    return proto3.util.equals(DiffTruncatedEvent, a, b);
   }
 }
 

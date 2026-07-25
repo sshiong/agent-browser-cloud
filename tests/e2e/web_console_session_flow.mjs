@@ -200,10 +200,11 @@ try {
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "Agent 任务" })).toBeVisible();
   await expect(
-    page.getByText("Read tools live · Navigate pending", { exact: false }),
+    page.getByText("Verified read tools · Node Navigate live", { exact: false }),
   ).toBeVisible();
   await page.getByLabel("运行中的 Session").selectOption(startSessionId);
   await page.getByLabel("用户目标").fill("总结当前页面内容");
+  await page.getByLabel("起始 URL").fill("https://example.test/agent-start");
   await page.getByLabel("授权域名").fill("example.test");
   await page.getByText("外部上下文安全测试", { exact: true }).click();
   await page
@@ -222,7 +223,7 @@ try {
   const agentTask = await agentTaskResponse.json();
   if (
     agentTask.state !== "PLANNED" ||
-    agentTask.plan?.steps?.[0]?.toolId !== "GET_CURRENT_STATE"
+    agentTask.plan?.steps?.[0]?.toolId !== "NAVIGATE"
   ) {
     throw new Error("Web Console did not create a validated Agent plan");
   }
@@ -231,7 +232,7 @@ try {
     page.getByText("PROMPT_INJECTION_DETECTED", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("GET_CURRENT_STATE", { exact: true }),
+    page.getByText("NAVIGATE", { exact: true }),
   ).toBeVisible();
   const [agentExecutionResponse] = await Promise.all([
     page.waitForResponse(
@@ -239,16 +240,18 @@ try {
         response.url().includes(`${agentTask.taskId}:execute`) &&
         response.status() === 200,
     ),
-    page.getByRole("button", { name: "执行并验证只读计划" }).click(),
+    page.getByRole("button", { name: "执行并验证安全计划" }).click(),
   ]);
   const executedAgentTask = await agentExecutionResponse.json();
   if (
-    executedAgentTask.state !== "COMPLETED" ||
-    executedAgentTask.executionResults?.length !== 3
+    executedAgentTask.state !== "RUNNING" ||
+    executedAgentTask.currentStep !== 0
   ) {
-    throw new Error("Read-only Agent tools did not complete with evidence");
+    throw new Error("Node navigation was not queued as an Agent operation");
   }
-  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByText("VERIFIED", { exact: true }).first()).toBeVisible();
   await page.screenshot({
     path: screenshotPath.replace(/\.png$/, "-automation.png"),

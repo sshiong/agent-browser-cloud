@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
+import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
@@ -24,6 +25,7 @@ public class NodeEventMapper {
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
   static final String BROWSER_STATE_DIFF = "BrowserStateDiff";
   static final String DIFF_TRUNCATED = "DiffTruncated";
+  static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
@@ -169,6 +171,17 @@ public class NodeEventMapper {
               payload.getAffectedRoot(),
               payload.getEstimatedTargets());
         }
+        case AGENT_NAVIGATION_FAILED -> {
+          var payload = AgentNavigationFailedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getTaskId(), "task_id");
+          requireText(payload.getStepId(), "step_id");
+          requireText(payload.getErrorCode(), "error_code");
+          yield new NodeEvent.AgentNavigationFailed(
+              payload.getSessionId(),
+              payload.getTaskId(),
+              payload.getStepId(),
+              payload.getErrorCode());
+        }
         case HUMAN_TAKEOVER_READY -> {
           var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());
           if (!payload.hasState()) {
@@ -214,6 +227,7 @@ public class NodeEventMapper {
       case NodeEvent.StateUpdated updated -> updated.sessionId();
       case NodeEvent.StateDiff diff -> diff.sessionId();
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
+      case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

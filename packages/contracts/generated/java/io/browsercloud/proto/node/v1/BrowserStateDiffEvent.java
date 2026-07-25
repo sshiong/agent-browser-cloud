@@ -5,46 +5,46 @@
 package io.browsercloud.proto.node.v1;
 
 /**
- * Protobuf type {@code browsercloud.node.v1.BrowserStateEvent}
+ * Protobuf type {@code browsercloud.node.v1.BrowserStateDiffEvent}
  */
-public final class BrowserStateEvent extends
+public final class BrowserStateDiffEvent extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:browsercloud.node.v1.BrowserStateEvent)
-    BrowserStateEventOrBuilder {
+    // @@protoc_insertion_point(message_implements:browsercloud.node.v1.BrowserStateDiffEvent)
+    BrowserStateDiffEventOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use BrowserStateEvent.newBuilder() to construct.
-  private BrowserStateEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use BrowserStateDiffEvent.newBuilder() to construct.
+  private BrowserStateDiffEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private BrowserStateEvent() {
+  private BrowserStateDiffEvent() {
     sessionId_ = "";
     url_ = "";
     title_ = "";
     stateQuality_ = "";
     contentHash_ = "";
-    targets_ = java.util.Collections.emptyList();
-    snapshotKind_ = "";
-    requestedRootRef_ = "";
+    upsertedTargets_ = java.util.Collections.emptyList();
+    removedTargetRefs_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new BrowserStateEvent();
+    return new BrowserStateDiffEvent();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateDiffEvent_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.BrowserStateEvent.class, io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
+            io.browsercloud.proto.node.v1.BrowserStateDiffEvent.class, io.browsercloud.proto.node.v1.BrowserStateDiffEvent.Builder.class);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
@@ -86,10 +86,21 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int STATE_VERSION_FIELD_NUMBER = 2;
+  public static final int BASE_STATE_VERSION_FIELD_NUMBER = 2;
+  private long baseStateVersion_ = 0L;
+  /**
+   * <code>uint64 base_state_version = 2 [json_name = "baseStateVersion"];</code>
+   * @return The baseStateVersion.
+   */
+  @java.lang.Override
+  public long getBaseStateVersion() {
+    return baseStateVersion_;
+  }
+
+  public static final int STATE_VERSION_FIELD_NUMBER = 3;
   private long stateVersion_ = 0L;
   /**
-   * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+   * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
    * @return The stateVersion.
    */
   @java.lang.Override
@@ -97,10 +108,10 @@ private static final long serialVersionUID = 0L;
     return stateVersion_;
   }
 
-  public static final int TARGET_REVISION_FIELD_NUMBER = 3;
+  public static final int TARGET_REVISION_FIELD_NUMBER = 4;
   private long targetRevision_ = 0L;
   /**
-   * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+   * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
    * @return The targetRevision.
    */
   @java.lang.Override
@@ -108,11 +119,11 @@ private static final long serialVersionUID = 0L;
     return targetRevision_;
   }
 
-  public static final int URL_FIELD_NUMBER = 4;
+  public static final int URL_FIELD_NUMBER = 5;
   @SuppressWarnings("serial")
   private volatile java.lang.Object url_ = "";
   /**
-   * <code>string url = 4 [json_name = "url"];</code>
+   * <code>string url = 5 [json_name = "url"];</code>
    * @return The url.
    */
   @java.lang.Override
@@ -129,7 +140,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string url = 4 [json_name = "url"];</code>
+   * <code>string url = 5 [json_name = "url"];</code>
    * @return The bytes for url.
    */
   @java.lang.Override
@@ -147,11 +158,11 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TITLE_FIELD_NUMBER = 5;
+  public static final int TITLE_FIELD_NUMBER = 6;
   @SuppressWarnings("serial")
   private volatile java.lang.Object title_ = "";
   /**
-   * <code>string title = 5 [json_name = "title"];</code>
+   * <code>string title = 6 [json_name = "title"];</code>
    * @return The title.
    */
   @java.lang.Override
@@ -168,7 +179,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string title = 5 [json_name = "title"];</code>
+   * <code>string title = 6 [json_name = "title"];</code>
    * @return The bytes for title.
    */
   @java.lang.Override
@@ -186,11 +197,11 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int STATE_QUALITY_FIELD_NUMBER = 6;
+  public static final int STATE_QUALITY_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
   private volatile java.lang.Object stateQuality_ = "";
   /**
-   * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+   * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
    * @return The stateQuality.
    */
   @java.lang.Override
@@ -207,7 +218,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+   * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
    * @return The bytes for stateQuality.
    */
   @java.lang.Override
@@ -225,11 +236,11 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int CONTENT_HASH_FIELD_NUMBER = 7;
+  public static final int CONTENT_HASH_FIELD_NUMBER = 8;
   @SuppressWarnings("serial")
   private volatile java.lang.Object contentHash_ = "";
   /**
-   * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+   * <code>string content_hash = 8 [json_name = "contentHash"];</code>
    * @return The contentHash.
    */
   @java.lang.Override
@@ -246,7 +257,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+   * <code>string content_hash = 8 [json_name = "contentHash"];</code>
    * @return The bytes for contentHash.
    */
   @java.lang.Override
@@ -264,131 +275,82 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TARGETS_FIELD_NUMBER = 8;
+  public static final int UPSERTED_TARGETS_FIELD_NUMBER = 9;
   @SuppressWarnings("serial")
-  private java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> targets_;
+  private java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> upsertedTargets_;
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
   @java.lang.Override
-  public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getTargetsList() {
-    return targets_;
+  public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getUpsertedTargetsList() {
+    return upsertedTargets_;
   }
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
   @java.lang.Override
   public java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
-      getTargetsOrBuilderList() {
-    return targets_;
+      getUpsertedTargetsOrBuilderList() {
+    return upsertedTargets_;
   }
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
   @java.lang.Override
-  public int getTargetsCount() {
-    return targets_.size();
+  public int getUpsertedTargetsCount() {
+    return upsertedTargets_.size();
   }
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.InteractiveTargetState getTargets(int index) {
-    return targets_.get(index);
+  public io.browsercloud.proto.node.v1.InteractiveTargetState getUpsertedTargets(int index) {
+    return upsertedTargets_.get(index);
   }
   /**
-   * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+   * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(
+  public io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getUpsertedTargetsOrBuilder(
       int index) {
-    return targets_.get(index);
+    return upsertedTargets_.get(index);
   }
 
-  public static final int SNAPSHOT_KIND_FIELD_NUMBER = 9;
+  public static final int REMOVED_TARGET_REFS_FIELD_NUMBER = 10;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object snapshotKind_ = "";
+  private com.google.protobuf.LazyStringArrayList removedTargetRefs_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
   /**
-   * <pre>
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-   * </pre>
-   *
-   * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-   * @return The snapshotKind.
+   * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   * @return A list containing the removedTargetRefs.
    */
-  @java.lang.Override
-  public java.lang.String getSnapshotKind() {
-    java.lang.Object ref = snapshotKind_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      snapshotKind_ = s;
-      return s;
-    }
+  public com.google.protobuf.ProtocolStringList
+      getRemovedTargetRefsList() {
+    return removedTargetRefs_;
   }
   /**
-   * <pre>
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-   * </pre>
-   *
-   * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-   * @return The bytes for snapshotKind.
+   * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   * @return The count of removedTargetRefs.
    */
-  @java.lang.Override
+  public int getRemovedTargetRefsCount() {
+    return removedTargetRefs_.size();
+  }
+  /**
+   * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   * @param index The index of the element to return.
+   * @return The removedTargetRefs at the given index.
+   */
+  public java.lang.String getRemovedTargetRefs(int index) {
+    return removedTargetRefs_.get(index);
+  }
+  /**
+   * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the removedTargetRefs at the given index.
+   */
   public com.google.protobuf.ByteString
-      getSnapshotKindBytes() {
-    java.lang.Object ref = snapshotKind_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      snapshotKind_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
-  public static final int REQUESTED_ROOT_REF_FIELD_NUMBER = 10;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object requestedRootRef_ = "";
-  /**
-   * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-   * @return The requestedRootRef.
-   */
-  @java.lang.Override
-  public java.lang.String getRequestedRootRef() {
-    java.lang.Object ref = requestedRootRef_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      requestedRootRef_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-   * @return The bytes for requestedRootRef.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRequestedRootRefBytes() {
-    java.lang.Object ref = requestedRootRef_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      requestedRootRef_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
+      getRemovedTargetRefsBytes(int index) {
+    return removedTargetRefs_.getByteString(index);
   }
 
   private byte memoizedIsInitialized = -1;
@@ -408,32 +370,32 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
+    if (baseStateVersion_ != 0L) {
+      output.writeUInt64(2, baseStateVersion_);
+    }
     if (stateVersion_ != 0L) {
-      output.writeUInt64(2, stateVersion_);
+      output.writeUInt64(3, stateVersion_);
     }
     if (targetRevision_ != 0L) {
-      output.writeUInt64(3, targetRevision_);
+      output.writeUInt64(4, targetRevision_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(url_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, url_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, url_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(title_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, title_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, title_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(stateQuality_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, stateQuality_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 7, stateQuality_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(contentHash_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 7, contentHash_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 8, contentHash_);
     }
-    for (int i = 0; i < targets_.size(); i++) {
-      output.writeMessage(8, targets_.get(i));
+    for (int i = 0; i < upsertedTargets_.size(); i++) {
+      output.writeMessage(9, upsertedTargets_.get(i));
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(snapshotKind_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, snapshotKind_);
-    }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, requestedRootRef_);
+    for (int i = 0; i < removedTargetRefs_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, removedTargetRefs_.getRaw(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -447,35 +409,41 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, sessionId_);
     }
+    if (baseStateVersion_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(2, baseStateVersion_);
+    }
     if (stateVersion_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(2, stateVersion_);
+        .computeUInt64Size(3, stateVersion_);
     }
     if (targetRevision_ != 0L) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt64Size(3, targetRevision_);
+        .computeUInt64Size(4, targetRevision_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(url_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, url_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, url_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(title_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, title_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, title_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(stateQuality_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, stateQuality_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, stateQuality_);
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(contentHash_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, contentHash_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, contentHash_);
     }
-    for (int i = 0; i < targets_.size(); i++) {
+    for (int i = 0; i < upsertedTargets_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(8, targets_.get(i));
+        .computeMessageSize(9, upsertedTargets_.get(i));
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(snapshotKind_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, snapshotKind_);
-    }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, requestedRootRef_);
+    {
+      int dataSize = 0;
+      for (int i = 0; i < removedTargetRefs_.size(); i++) {
+        dataSize += computeStringSizeNoTag(removedTargetRefs_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getRemovedTargetRefsList().size();
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -487,13 +455,15 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof io.browsercloud.proto.node.v1.BrowserStateEvent)) {
+    if (!(obj instanceof io.browsercloud.proto.node.v1.BrowserStateDiffEvent)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.BrowserStateEvent other = (io.browsercloud.proto.node.v1.BrowserStateEvent) obj;
+    io.browsercloud.proto.node.v1.BrowserStateDiffEvent other = (io.browsercloud.proto.node.v1.BrowserStateDiffEvent) obj;
 
     if (!getSessionId()
         .equals(other.getSessionId())) return false;
+    if (getBaseStateVersion()
+        != other.getBaseStateVersion()) return false;
     if (getStateVersion()
         != other.getStateVersion()) return false;
     if (getTargetRevision()
@@ -506,12 +476,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getStateQuality())) return false;
     if (!getContentHash()
         .equals(other.getContentHash())) return false;
-    if (!getTargetsList()
-        .equals(other.getTargetsList())) return false;
-    if (!getSnapshotKind()
-        .equals(other.getSnapshotKind())) return false;
-    if (!getRequestedRootRef()
-        .equals(other.getRequestedRootRef())) return false;
+    if (!getUpsertedTargetsList()
+        .equals(other.getUpsertedTargetsList())) return false;
+    if (!getRemovedTargetRefsList()
+        .equals(other.getRemovedTargetRefsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -525,6 +493,9 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
+    hash = (37 * hash) + BASE_STATE_VERSION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getBaseStateVersion());
     hash = (37 * hash) + STATE_VERSION_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         getStateVersion());
@@ -539,57 +510,57 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getStateQuality().hashCode();
     hash = (37 * hash) + CONTENT_HASH_FIELD_NUMBER;
     hash = (53 * hash) + getContentHash().hashCode();
-    if (getTargetsCount() > 0) {
-      hash = (37 * hash) + TARGETS_FIELD_NUMBER;
-      hash = (53 * hash) + getTargetsList().hashCode();
+    if (getUpsertedTargetsCount() > 0) {
+      hash = (37 * hash) + UPSERTED_TARGETS_FIELD_NUMBER;
+      hash = (53 * hash) + getUpsertedTargetsList().hashCode();
     }
-    hash = (37 * hash) + SNAPSHOT_KIND_FIELD_NUMBER;
-    hash = (53 * hash) + getSnapshotKind().hashCode();
-    hash = (37 * hash) + REQUESTED_ROOT_REF_FIELD_NUMBER;
-    hash = (53 * hash) + getRequestedRootRef().hashCode();
+    if (getRemovedTargetRefsCount() > 0) {
+      hash = (37 * hash) + REMOVED_TARGET_REFS_FIELD_NUMBER;
+      hash = (53 * hash) + getRemovedTargetRefsList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(byte[] data)
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -597,26 +568,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseDelimitedFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent parseFrom(
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -629,7 +600,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.BrowserStateEvent prototype) {
+  public static Builder newBuilder(io.browsercloud.proto.node.v1.BrowserStateDiffEvent prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -645,26 +616,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code browsercloud.node.v1.BrowserStateEvent}
+   * Protobuf type {@code browsercloud.node.v1.BrowserStateDiffEvent}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.BrowserStateEvent)
-      io.browsercloud.proto.node.v1.BrowserStateEventOrBuilder {
+      // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.BrowserStateDiffEvent)
+      io.browsercloud.proto.node.v1.BrowserStateDiffEventOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateDiffEvent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.BrowserStateEvent.class, io.browsercloud.proto.node.v1.BrowserStateEvent.Builder.class);
+              io.browsercloud.proto.node.v1.BrowserStateDiffEvent.class, io.browsercloud.proto.node.v1.BrowserStateDiffEvent.Builder.class);
     }
 
-    // Construct using io.browsercloud.proto.node.v1.BrowserStateEvent.newBuilder()
+    // Construct using io.browsercloud.proto.node.v1.BrowserStateDiffEvent.newBuilder()
     private Builder() {
 
     }
@@ -679,38 +650,39 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       sessionId_ = "";
+      baseStateVersion_ = 0L;
       stateVersion_ = 0L;
       targetRevision_ = 0L;
       url_ = "";
       title_ = "";
       stateQuality_ = "";
       contentHash_ = "";
-      if (targetsBuilder_ == null) {
-        targets_ = java.util.Collections.emptyList();
+      if (upsertedTargetsBuilder_ == null) {
+        upsertedTargets_ = java.util.Collections.emptyList();
       } else {
-        targets_ = null;
-        targetsBuilder_.clear();
+        upsertedTargets_ = null;
+        upsertedTargetsBuilder_.clear();
       }
-      bitField0_ = (bitField0_ & ~0x00000080);
-      snapshotKind_ = "";
-      requestedRootRef_ = "";
+      bitField0_ = (bitField0_ & ~0x00000100);
+      removedTargetRefs_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor;
+      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.BrowserStateEvent getDefaultInstanceForType() {
-      return io.browsercloud.proto.node.v1.BrowserStateEvent.getDefaultInstance();
+    public io.browsercloud.proto.node.v1.BrowserStateDiffEvent getDefaultInstanceForType() {
+      return io.browsercloud.proto.node.v1.BrowserStateDiffEvent.getDefaultInstance();
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.BrowserStateEvent build() {
-      io.browsercloud.proto.node.v1.BrowserStateEvent result = buildPartial();
+    public io.browsercloud.proto.node.v1.BrowserStateDiffEvent build() {
+      io.browsercloud.proto.node.v1.BrowserStateDiffEvent result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -718,54 +690,55 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.BrowserStateEvent buildPartial() {
-      io.browsercloud.proto.node.v1.BrowserStateEvent result = new io.browsercloud.proto.node.v1.BrowserStateEvent(this);
+    public io.browsercloud.proto.node.v1.BrowserStateDiffEvent buildPartial() {
+      io.browsercloud.proto.node.v1.BrowserStateDiffEvent result = new io.browsercloud.proto.node.v1.BrowserStateDiffEvent(this);
       buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartialRepeatedFields(io.browsercloud.proto.node.v1.BrowserStateEvent result) {
-      if (targetsBuilder_ == null) {
-        if (((bitField0_ & 0x00000080) != 0)) {
-          targets_ = java.util.Collections.unmodifiableList(targets_);
-          bitField0_ = (bitField0_ & ~0x00000080);
+    private void buildPartialRepeatedFields(io.browsercloud.proto.node.v1.BrowserStateDiffEvent result) {
+      if (upsertedTargetsBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0)) {
+          upsertedTargets_ = java.util.Collections.unmodifiableList(upsertedTargets_);
+          bitField0_ = (bitField0_ & ~0x00000100);
         }
-        result.targets_ = targets_;
+        result.upsertedTargets_ = upsertedTargets_;
       } else {
-        result.targets_ = targetsBuilder_.build();
+        result.upsertedTargets_ = upsertedTargetsBuilder_.build();
       }
     }
 
-    private void buildPartial0(io.browsercloud.proto.node.v1.BrowserStateEvent result) {
+    private void buildPartial0(io.browsercloud.proto.node.v1.BrowserStateDiffEvent result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.sessionId_ = sessionId_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.stateVersion_ = stateVersion_;
+        result.baseStateVersion_ = baseStateVersion_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.targetRevision_ = targetRevision_;
+        result.stateVersion_ = stateVersion_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.url_ = url_;
+        result.targetRevision_ = targetRevision_;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.title_ = title_;
+        result.url_ = url_;
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
-        result.stateQuality_ = stateQuality_;
+        result.title_ = title_;
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.stateQuality_ = stateQuality_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
         result.contentHash_ = contentHash_;
       }
-      if (((from_bitField0_ & 0x00000100) != 0)) {
-        result.snapshotKind_ = snapshotKind_;
-      }
       if (((from_bitField0_ & 0x00000200) != 0)) {
-        result.requestedRootRef_ = requestedRootRef_;
+        removedTargetRefs_.makeImmutable();
+        result.removedTargetRefs_ = removedTargetRefs_;
       }
     }
 
@@ -803,20 +776,23 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof io.browsercloud.proto.node.v1.BrowserStateEvent) {
-        return mergeFrom((io.browsercloud.proto.node.v1.BrowserStateEvent)other);
+      if (other instanceof io.browsercloud.proto.node.v1.BrowserStateDiffEvent) {
+        return mergeFrom((io.browsercloud.proto.node.v1.BrowserStateDiffEvent)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(io.browsercloud.proto.node.v1.BrowserStateEvent other) {
-      if (other == io.browsercloud.proto.node.v1.BrowserStateEvent.getDefaultInstance()) return this;
+    public Builder mergeFrom(io.browsercloud.proto.node.v1.BrowserStateDiffEvent other) {
+      if (other == io.browsercloud.proto.node.v1.BrowserStateDiffEvent.getDefaultInstance()) return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
         onChanged();
+      }
+      if (other.getBaseStateVersion() != 0L) {
+        setBaseStateVersion(other.getBaseStateVersion());
       }
       if (other.getStateVersion() != 0L) {
         setStateVersion(other.getStateVersion());
@@ -826,58 +802,58 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getUrl().isEmpty()) {
         url_ = other.url_;
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000010;
         onChanged();
       }
       if (!other.getTitle().isEmpty()) {
         title_ = other.title_;
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000020;
         onChanged();
       }
       if (!other.getStateQuality().isEmpty()) {
         stateQuality_ = other.stateQuality_;
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000040;
         onChanged();
       }
       if (!other.getContentHash().isEmpty()) {
         contentHash_ = other.contentHash_;
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000080;
         onChanged();
       }
-      if (targetsBuilder_ == null) {
-        if (!other.targets_.isEmpty()) {
-          if (targets_.isEmpty()) {
-            targets_ = other.targets_;
-            bitField0_ = (bitField0_ & ~0x00000080);
+      if (upsertedTargetsBuilder_ == null) {
+        if (!other.upsertedTargets_.isEmpty()) {
+          if (upsertedTargets_.isEmpty()) {
+            upsertedTargets_ = other.upsertedTargets_;
+            bitField0_ = (bitField0_ & ~0x00000100);
           } else {
-            ensureTargetsIsMutable();
-            targets_.addAll(other.targets_);
+            ensureUpsertedTargetsIsMutable();
+            upsertedTargets_.addAll(other.upsertedTargets_);
           }
           onChanged();
         }
       } else {
-        if (!other.targets_.isEmpty()) {
-          if (targetsBuilder_.isEmpty()) {
-            targetsBuilder_.dispose();
-            targetsBuilder_ = null;
-            targets_ = other.targets_;
-            bitField0_ = (bitField0_ & ~0x00000080);
-            targetsBuilder_ =
+        if (!other.upsertedTargets_.isEmpty()) {
+          if (upsertedTargetsBuilder_.isEmpty()) {
+            upsertedTargetsBuilder_.dispose();
+            upsertedTargetsBuilder_ = null;
+            upsertedTargets_ = other.upsertedTargets_;
+            bitField0_ = (bitField0_ & ~0x00000100);
+            upsertedTargetsBuilder_ =
               com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                 getTargetsFieldBuilder() : null;
+                 getUpsertedTargetsFieldBuilder() : null;
           } else {
-            targetsBuilder_.addAllMessages(other.targets_);
+            upsertedTargetsBuilder_.addAllMessages(other.upsertedTargets_);
           }
         }
       }
-      if (!other.getSnapshotKind().isEmpty()) {
-        snapshotKind_ = other.snapshotKind_;
-        bitField0_ |= 0x00000100;
-        onChanged();
-      }
-      if (!other.getRequestedRootRef().isEmpty()) {
-        requestedRootRef_ = other.requestedRootRef_;
-        bitField0_ |= 0x00000200;
+      if (!other.removedTargetRefs_.isEmpty()) {
+        if (removedTargetRefs_.isEmpty()) {
+          removedTargetRefs_ = other.removedTargetRefs_;
+          bitField0_ |= 0x00000200;
+        } else {
+          ensureRemovedTargetRefsIsMutable();
+          removedTargetRefs_.addAll(other.removedTargetRefs_);
+        }
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -912,56 +888,57 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 10
             case 16: {
-              stateVersion_ = input.readUInt64();
+              baseStateVersion_ = input.readUInt64();
               bitField0_ |= 0x00000002;
               break;
             } // case 16
             case 24: {
-              targetRevision_ = input.readUInt64();
+              stateVersion_ = input.readUInt64();
               bitField0_ |= 0x00000004;
               break;
             } // case 24
-            case 34: {
-              url_ = input.readStringRequireUtf8();
+            case 32: {
+              targetRevision_ = input.readUInt64();
               bitField0_ |= 0x00000008;
               break;
-            } // case 34
+            } // case 32
             case 42: {
-              title_ = input.readStringRequireUtf8();
+              url_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000010;
               break;
             } // case 42
             case 50: {
-              stateQuality_ = input.readStringRequireUtf8();
+              title_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000020;
               break;
             } // case 50
             case 58: {
-              contentHash_ = input.readStringRequireUtf8();
+              stateQuality_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000040;
               break;
             } // case 58
             case 66: {
+              contentHash_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
               io.browsercloud.proto.node.v1.InteractiveTargetState m =
                   input.readMessage(
                       io.browsercloud.proto.node.v1.InteractiveTargetState.parser(),
                       extensionRegistry);
-              if (targetsBuilder_ == null) {
-                ensureTargetsIsMutable();
-                targets_.add(m);
+              if (upsertedTargetsBuilder_ == null) {
+                ensureUpsertedTargetsIsMutable();
+                upsertedTargets_.add(m);
               } else {
-                targetsBuilder_.addMessage(m);
+                upsertedTargetsBuilder_.addMessage(m);
               }
-              break;
-            } // case 66
-            case 74: {
-              snapshotKind_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000100;
               break;
             } // case 74
             case 82: {
-              requestedRootRef_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000200;
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureRemovedTargetRefsIsMutable();
+              removedTargetRefs_.add(s);
               break;
             } // case 82
             default: {
@@ -1053,9 +1030,41 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private long baseStateVersion_ ;
+    /**
+     * <code>uint64 base_state_version = 2 [json_name = "baseStateVersion"];</code>
+     * @return The baseStateVersion.
+     */
+    @java.lang.Override
+    public long getBaseStateVersion() {
+      return baseStateVersion_;
+    }
+    /**
+     * <code>uint64 base_state_version = 2 [json_name = "baseStateVersion"];</code>
+     * @param value The baseStateVersion to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBaseStateVersion(long value) {
+
+      baseStateVersion_ = value;
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 base_state_version = 2 [json_name = "baseStateVersion"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBaseStateVersion() {
+      bitField0_ = (bitField0_ & ~0x00000002);
+      baseStateVersion_ = 0L;
+      onChanged();
+      return this;
+    }
+
     private long stateVersion_ ;
     /**
-     * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+     * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
      * @return The stateVersion.
      */
     @java.lang.Override
@@ -1063,23 +1072,23 @@ private static final long serialVersionUID = 0L;
       return stateVersion_;
     }
     /**
-     * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+     * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
      * @param value The stateVersion to set.
      * @return This builder for chaining.
      */
     public Builder setStateVersion(long value) {
 
       stateVersion_ = value;
-      bitField0_ |= 0x00000002;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
     /**
-     * <code>uint64 state_version = 2 [json_name = "stateVersion"];</code>
+     * <code>uint64 state_version = 3 [json_name = "stateVersion"];</code>
      * @return This builder for chaining.
      */
     public Builder clearStateVersion() {
-      bitField0_ = (bitField0_ & ~0x00000002);
+      bitField0_ = (bitField0_ & ~0x00000004);
       stateVersion_ = 0L;
       onChanged();
       return this;
@@ -1087,7 +1096,7 @@ private static final long serialVersionUID = 0L;
 
     private long targetRevision_ ;
     /**
-     * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+     * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
      * @return The targetRevision.
      */
     @java.lang.Override
@@ -1095,23 +1104,23 @@ private static final long serialVersionUID = 0L;
       return targetRevision_;
     }
     /**
-     * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+     * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
      * @param value The targetRevision to set.
      * @return This builder for chaining.
      */
     public Builder setTargetRevision(long value) {
 
       targetRevision_ = value;
-      bitField0_ |= 0x00000004;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
     /**
-     * <code>uint64 target_revision = 3 [json_name = "targetRevision"];</code>
+     * <code>uint64 target_revision = 4 [json_name = "targetRevision"];</code>
      * @return This builder for chaining.
      */
     public Builder clearTargetRevision() {
-      bitField0_ = (bitField0_ & ~0x00000004);
+      bitField0_ = (bitField0_ & ~0x00000008);
       targetRevision_ = 0L;
       onChanged();
       return this;
@@ -1119,7 +1128,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object url_ = "";
     /**
-     * <code>string url = 4 [json_name = "url"];</code>
+     * <code>string url = 5 [json_name = "url"];</code>
      * @return The url.
      */
     public java.lang.String getUrl() {
@@ -1135,7 +1144,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string url = 4 [json_name = "url"];</code>
+     * <code>string url = 5 [json_name = "url"];</code>
      * @return The bytes for url.
      */
     public com.google.protobuf.ByteString
@@ -1152,7 +1161,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string url = 4 [json_name = "url"];</code>
+     * <code>string url = 5 [json_name = "url"];</code>
      * @param value The url to set.
      * @return This builder for chaining.
      */
@@ -1160,22 +1169,22 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       url_ = value;
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
     /**
-     * <code>string url = 4 [json_name = "url"];</code>
+     * <code>string url = 5 [json_name = "url"];</code>
      * @return This builder for chaining.
      */
     public Builder clearUrl() {
       url_ = getDefaultInstance().getUrl();
-      bitField0_ = (bitField0_ & ~0x00000008);
+      bitField0_ = (bitField0_ & ~0x00000010);
       onChanged();
       return this;
     }
     /**
-     * <code>string url = 4 [json_name = "url"];</code>
+     * <code>string url = 5 [json_name = "url"];</code>
      * @param value The bytes for url to set.
      * @return This builder for chaining.
      */
@@ -1184,14 +1193,14 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       url_ = value;
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
 
     private java.lang.Object title_ = "";
     /**
-     * <code>string title = 5 [json_name = "title"];</code>
+     * <code>string title = 6 [json_name = "title"];</code>
      * @return The title.
      */
     public java.lang.String getTitle() {
@@ -1207,7 +1216,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string title = 5 [json_name = "title"];</code>
+     * <code>string title = 6 [json_name = "title"];</code>
      * @return The bytes for title.
      */
     public com.google.protobuf.ByteString
@@ -1224,7 +1233,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string title = 5 [json_name = "title"];</code>
+     * <code>string title = 6 [json_name = "title"];</code>
      * @param value The title to set.
      * @return This builder for chaining.
      */
@@ -1232,22 +1241,22 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       title_ = value;
-      bitField0_ |= 0x00000010;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
     /**
-     * <code>string title = 5 [json_name = "title"];</code>
+     * <code>string title = 6 [json_name = "title"];</code>
      * @return This builder for chaining.
      */
     public Builder clearTitle() {
       title_ = getDefaultInstance().getTitle();
-      bitField0_ = (bitField0_ & ~0x00000010);
+      bitField0_ = (bitField0_ & ~0x00000020);
       onChanged();
       return this;
     }
     /**
-     * <code>string title = 5 [json_name = "title"];</code>
+     * <code>string title = 6 [json_name = "title"];</code>
      * @param value The bytes for title to set.
      * @return This builder for chaining.
      */
@@ -1256,14 +1265,14 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       title_ = value;
-      bitField0_ |= 0x00000010;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
 
     private java.lang.Object stateQuality_ = "";
     /**
-     * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
      * @return The stateQuality.
      */
     public java.lang.String getStateQuality() {
@@ -1279,7 +1288,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
      * @return The bytes for stateQuality.
      */
     public com.google.protobuf.ByteString
@@ -1296,7 +1305,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
      * @param value The stateQuality to set.
      * @return This builder for chaining.
      */
@@ -1304,22 +1313,22 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       stateQuality_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
     /**
-     * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
      * @return This builder for chaining.
      */
     public Builder clearStateQuality() {
       stateQuality_ = getDefaultInstance().getStateQuality();
-      bitField0_ = (bitField0_ & ~0x00000020);
+      bitField0_ = (bitField0_ & ~0x00000040);
       onChanged();
       return this;
     }
     /**
-     * <code>string state_quality = 6 [json_name = "stateQuality"];</code>
+     * <code>string state_quality = 7 [json_name = "stateQuality"];</code>
      * @param value The bytes for stateQuality to set.
      * @return This builder for chaining.
      */
@@ -1328,14 +1337,14 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       stateQuality_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
 
     private java.lang.Object contentHash_ = "";
     /**
-     * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     * <code>string content_hash = 8 [json_name = "contentHash"];</code>
      * @return The contentHash.
      */
     public java.lang.String getContentHash() {
@@ -1351,7 +1360,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     * <code>string content_hash = 8 [json_name = "contentHash"];</code>
      * @return The bytes for contentHash.
      */
     public com.google.protobuf.ByteString
@@ -1368,7 +1377,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     * <code>string content_hash = 8 [json_name = "contentHash"];</code>
      * @param value The contentHash to set.
      * @return This builder for chaining.
      */
@@ -1376,22 +1385,22 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       contentHash_ = value;
-      bitField0_ |= 0x00000040;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
     /**
-     * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     * <code>string content_hash = 8 [json_name = "contentHash"];</code>
      * @return This builder for chaining.
      */
     public Builder clearContentHash() {
       contentHash_ = getDefaultInstance().getContentHash();
-      bitField0_ = (bitField0_ & ~0x00000040);
+      bitField0_ = (bitField0_ & ~0x00000080);
       onChanged();
       return this;
     }
     /**
-     * <code>string content_hash = 7 [json_name = "contentHash"];</code>
+     * <code>string content_hash = 8 [json_name = "contentHash"];</code>
      * @param value The bytes for contentHash to set.
      * @return This builder for chaining.
      */
@@ -1400,410 +1409,357 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       contentHash_ = value;
-      bitField0_ |= 0x00000040;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
 
-    private java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> targets_ =
+    private java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> upsertedTargets_ =
       java.util.Collections.emptyList();
-    private void ensureTargetsIsMutable() {
-      if (!((bitField0_ & 0x00000080) != 0)) {
-        targets_ = new java.util.ArrayList<io.browsercloud.proto.node.v1.InteractiveTargetState>(targets_);
-        bitField0_ |= 0x00000080;
+    private void ensureUpsertedTargetsIsMutable() {
+      if (!((bitField0_ & 0x00000100) != 0)) {
+        upsertedTargets_ = new java.util.ArrayList<io.browsercloud.proto.node.v1.InteractiveTargetState>(upsertedTargets_);
+        bitField0_ |= 0x00000100;
        }
     }
 
     private com.google.protobuf.RepeatedFieldBuilderV3<
-        io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder> targetsBuilder_;
+        io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder> upsertedTargetsBuilder_;
 
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getTargetsList() {
-      if (targetsBuilder_ == null) {
-        return java.util.Collections.unmodifiableList(targets_);
+    public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> getUpsertedTargetsList() {
+      if (upsertedTargetsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(upsertedTargets_);
       } else {
-        return targetsBuilder_.getMessageList();
+        return upsertedTargetsBuilder_.getMessageList();
       }
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public int getTargetsCount() {
-      if (targetsBuilder_ == null) {
-        return targets_.size();
+    public int getUpsertedTargetsCount() {
+      if (upsertedTargetsBuilder_ == null) {
+        return upsertedTargets_.size();
       } else {
-        return targetsBuilder_.getCount();
+        return upsertedTargetsBuilder_.getCount();
       }
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public io.browsercloud.proto.node.v1.InteractiveTargetState getTargets(int index) {
-      if (targetsBuilder_ == null) {
-        return targets_.get(index);
+    public io.browsercloud.proto.node.v1.InteractiveTargetState getUpsertedTargets(int index) {
+      if (upsertedTargetsBuilder_ == null) {
+        return upsertedTargets_.get(index);
       } else {
-        return targetsBuilder_.getMessage(index);
+        return upsertedTargetsBuilder_.getMessage(index);
       }
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder setTargets(
+    public Builder setUpsertedTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState value) {
-      if (targetsBuilder_ == null) {
+      if (upsertedTargetsBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureTargetsIsMutable();
-        targets_.set(index, value);
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.set(index, value);
         onChanged();
       } else {
-        targetsBuilder_.setMessage(index, value);
+        upsertedTargetsBuilder_.setMessage(index, value);
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder setTargets(
+    public Builder setUpsertedTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder builderForValue) {
-      if (targetsBuilder_ == null) {
-        ensureTargetsIsMutable();
-        targets_.set(index, builderForValue.build());
+      if (upsertedTargetsBuilder_ == null) {
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.set(index, builderForValue.build());
         onChanged();
       } else {
-        targetsBuilder_.setMessage(index, builderForValue.build());
+        upsertedTargetsBuilder_.setMessage(index, builderForValue.build());
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder addTargets(io.browsercloud.proto.node.v1.InteractiveTargetState value) {
-      if (targetsBuilder_ == null) {
+    public Builder addUpsertedTargets(io.browsercloud.proto.node.v1.InteractiveTargetState value) {
+      if (upsertedTargetsBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureTargetsIsMutable();
-        targets_.add(value);
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.add(value);
         onChanged();
       } else {
-        targetsBuilder_.addMessage(value);
+        upsertedTargetsBuilder_.addMessage(value);
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder addTargets(
+    public Builder addUpsertedTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState value) {
-      if (targetsBuilder_ == null) {
+      if (upsertedTargetsBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureTargetsIsMutable();
-        targets_.add(index, value);
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.add(index, value);
         onChanged();
       } else {
-        targetsBuilder_.addMessage(index, value);
+        upsertedTargetsBuilder_.addMessage(index, value);
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder addTargets(
+    public Builder addUpsertedTargets(
         io.browsercloud.proto.node.v1.InteractiveTargetState.Builder builderForValue) {
-      if (targetsBuilder_ == null) {
-        ensureTargetsIsMutable();
-        targets_.add(builderForValue.build());
+      if (upsertedTargetsBuilder_ == null) {
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.add(builderForValue.build());
         onChanged();
       } else {
-        targetsBuilder_.addMessage(builderForValue.build());
+        upsertedTargetsBuilder_.addMessage(builderForValue.build());
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder addTargets(
+    public Builder addUpsertedTargets(
         int index, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder builderForValue) {
-      if (targetsBuilder_ == null) {
-        ensureTargetsIsMutable();
-        targets_.add(index, builderForValue.build());
+      if (upsertedTargetsBuilder_ == null) {
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.add(index, builderForValue.build());
         onChanged();
       } else {
-        targetsBuilder_.addMessage(index, builderForValue.build());
+        upsertedTargetsBuilder_.addMessage(index, builderForValue.build());
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder addAllTargets(
+    public Builder addAllUpsertedTargets(
         java.lang.Iterable<? extends io.browsercloud.proto.node.v1.InteractiveTargetState> values) {
-      if (targetsBuilder_ == null) {
-        ensureTargetsIsMutable();
+      if (upsertedTargetsBuilder_ == null) {
+        ensureUpsertedTargetsIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, targets_);
+            values, upsertedTargets_);
         onChanged();
       } else {
-        targetsBuilder_.addAllMessages(values);
+        upsertedTargetsBuilder_.addAllMessages(values);
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder clearTargets() {
-      if (targetsBuilder_ == null) {
-        targets_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000080);
+    public Builder clearUpsertedTargets() {
+      if (upsertedTargetsBuilder_ == null) {
+        upsertedTargets_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000100);
         onChanged();
       } else {
-        targetsBuilder_.clear();
+        upsertedTargetsBuilder_.clear();
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public Builder removeTargets(int index) {
-      if (targetsBuilder_ == null) {
-        ensureTargetsIsMutable();
-        targets_.remove(index);
+    public Builder removeUpsertedTargets(int index) {
+      if (upsertedTargetsBuilder_ == null) {
+        ensureUpsertedTargetsIsMutable();
+        upsertedTargets_.remove(index);
         onChanged();
       } else {
-        targetsBuilder_.remove(index);
+        upsertedTargetsBuilder_.remove(index);
       }
       return this;
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder getTargetsBuilder(
+    public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder getUpsertedTargetsBuilder(
         int index) {
-      return getTargetsFieldBuilder().getBuilder(index);
+      return getUpsertedTargetsFieldBuilder().getBuilder(index);
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(
+    public io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getUpsertedTargetsOrBuilder(
         int index) {
-      if (targetsBuilder_ == null) {
-        return targets_.get(index);  } else {
-        return targetsBuilder_.getMessageOrBuilder(index);
+      if (upsertedTargetsBuilder_ == null) {
+        return upsertedTargets_.get(index);  } else {
+        return upsertedTargetsBuilder_.getMessageOrBuilder(index);
       }
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
     public java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
-         getTargetsOrBuilderList() {
-      if (targetsBuilder_ != null) {
-        return targetsBuilder_.getMessageOrBuilderList();
+         getUpsertedTargetsOrBuilderList() {
+      if (upsertedTargetsBuilder_ != null) {
+        return upsertedTargetsBuilder_.getMessageOrBuilderList();
       } else {
-        return java.util.Collections.unmodifiableList(targets_);
+        return java.util.Collections.unmodifiableList(upsertedTargets_);
       }
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder addTargetsBuilder() {
-      return getTargetsFieldBuilder().addBuilder(
+    public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder addUpsertedTargetsBuilder() {
+      return getUpsertedTargetsFieldBuilder().addBuilder(
           io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance());
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
-    public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder addTargetsBuilder(
+    public io.browsercloud.proto.node.v1.InteractiveTargetState.Builder addUpsertedTargetsBuilder(
         int index) {
-      return getTargetsFieldBuilder().addBuilder(
+      return getUpsertedTargetsFieldBuilder().addBuilder(
           index, io.browsercloud.proto.node.v1.InteractiveTargetState.getDefaultInstance());
     }
     /**
-     * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
+     * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
      */
     public java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState.Builder>
-         getTargetsBuilderList() {
-      return getTargetsFieldBuilder().getBuilderList();
+         getUpsertedTargetsBuilderList() {
+      return getUpsertedTargetsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilderV3<
         io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
-        getTargetsFieldBuilder() {
-      if (targetsBuilder_ == null) {
-        targetsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+        getUpsertedTargetsFieldBuilder() {
+      if (upsertedTargetsBuilder_ == null) {
+        upsertedTargetsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
             io.browsercloud.proto.node.v1.InteractiveTargetState, io.browsercloud.proto.node.v1.InteractiveTargetState.Builder, io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>(
-                targets_,
-                ((bitField0_ & 0x00000080) != 0),
+                upsertedTargets_,
+                ((bitField0_ & 0x00000100) != 0),
                 getParentForChildren(),
                 isClean());
-        targets_ = null;
+        upsertedTargets_ = null;
       }
-      return targetsBuilder_;
+      return upsertedTargetsBuilder_;
     }
 
-    private java.lang.Object snapshotKind_ = "";
-    /**
-     * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-     * </pre>
-     *
-     * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-     * @return The snapshotKind.
-     */
-    public java.lang.String getSnapshotKind() {
-      java.lang.Object ref = snapshotKind_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        snapshotKind_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
+    private com.google.protobuf.LazyStringArrayList removedTargetRefs_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureRemovedTargetRefsIsMutable() {
+      if (!removedTargetRefs_.isModifiable()) {
+        removedTargetRefs_ = new com.google.protobuf.LazyStringArrayList(removedTargetRefs_);
       }
+      bitField0_ |= 0x00000200;
     }
     /**
-     * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-     * </pre>
-     *
-     * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-     * @return The bytes for snapshotKind.
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @return A list containing the removedTargetRefs.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getRemovedTargetRefsList() {
+      removedTargetRefs_.makeImmutable();
+      return removedTargetRefs_;
+    }
+    /**
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @return The count of removedTargetRefs.
+     */
+    public int getRemovedTargetRefsCount() {
+      return removedTargetRefs_.size();
+    }
+    /**
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @param index The index of the element to return.
+     * @return The removedTargetRefs at the given index.
+     */
+    public java.lang.String getRemovedTargetRefs(int index) {
+      return removedTargetRefs_.get(index);
+    }
+    /**
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the removedTargetRefs at the given index.
      */
     public com.google.protobuf.ByteString
-        getSnapshotKindBytes() {
-      java.lang.Object ref = snapshotKind_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        snapshotKind_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+        getRemovedTargetRefsBytes(int index) {
+      return removedTargetRefs_.getByteString(index);
     }
     /**
-     * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-     * </pre>
-     *
-     * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-     * @param value The snapshotKind to set.
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @param index The index to set the value at.
+     * @param value The removedTargetRefs to set.
      * @return This builder for chaining.
      */
-    public Builder setSnapshotKind(
-        java.lang.String value) {
+    public Builder setRemovedTargetRefs(
+        int index, java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      snapshotKind_ = value;
-      bitField0_ |= 0x00000100;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-     * </pre>
-     *
-     * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearSnapshotKind() {
-      snapshotKind_ = getDefaultInstance().getSnapshotKind();
-      bitField0_ = (bitField0_ & ~0x00000100);
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
-     * </pre>
-     *
-     * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
-     * @param value The bytes for snapshotKind to set.
-     * @return This builder for chaining.
-     */
-    public Builder setSnapshotKindBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      snapshotKind_ = value;
-      bitField0_ |= 0x00000100;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object requestedRootRef_ = "";
-    /**
-     * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-     * @return The requestedRootRef.
-     */
-    public java.lang.String getRequestedRootRef() {
-      java.lang.Object ref = requestedRootRef_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        requestedRootRef_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-     * @return The bytes for requestedRootRef.
-     */
-    public com.google.protobuf.ByteString
-        getRequestedRootRefBytes() {
-      java.lang.Object ref = requestedRootRef_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        requestedRootRef_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-     * @param value The requestedRootRef to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRequestedRootRef(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      requestedRootRef_ = value;
+      ensureRemovedTargetRefsIsMutable();
+      removedTargetRefs_.set(index, value);
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
     /**
-     * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @param value The removedTargetRefs to add.
      * @return This builder for chaining.
      */
-    public Builder clearRequestedRootRef() {
-      requestedRootRef_ = getDefaultInstance().getRequestedRootRef();
-      bitField0_ = (bitField0_ & ~0x00000200);
+    public Builder addRemovedTargetRefs(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureRemovedTargetRefsIsMutable();
+      removedTargetRefs_.add(value);
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
     /**
-     * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
-     * @param value The bytes for requestedRootRef to set.
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @param values The removedTargetRefs to add.
      * @return This builder for chaining.
      */
-    public Builder setRequestedRootRefBytes(
+    public Builder addAllRemovedTargetRefs(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureRemovedTargetRefsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, removedTargetRefs_);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRemovedTargetRefs() {
+      removedTargetRefs_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000200);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string removed_target_refs = 10 [json_name = "removedTargetRefs"];</code>
+     * @param value The bytes of the removedTargetRefs to add.
+     * @return This builder for chaining.
+     */
+    public Builder addRemovedTargetRefsBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      requestedRootRef_ = value;
+      ensureRemovedTargetRefsIsMutable();
+      removedTargetRefs_.add(value);
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
@@ -1821,23 +1777,23 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.BrowserStateEvent)
+    // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.BrowserStateDiffEvent)
   }
 
-  // @@protoc_insertion_point(class_scope:browsercloud.node.v1.BrowserStateEvent)
-  private static final io.browsercloud.proto.node.v1.BrowserStateEvent DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:browsercloud.node.v1.BrowserStateDiffEvent)
+  private static final io.browsercloud.proto.node.v1.BrowserStateDiffEvent DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.BrowserStateEvent();
+    DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.BrowserStateDiffEvent();
   }
 
-  public static io.browsercloud.proto.node.v1.BrowserStateEvent getDefaultInstance() {
+  public static io.browsercloud.proto.node.v1.BrowserStateDiffEvent getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<BrowserStateEvent>
-      PARSER = new com.google.protobuf.AbstractParser<BrowserStateEvent>() {
+  private static final com.google.protobuf.Parser<BrowserStateDiffEvent>
+      PARSER = new com.google.protobuf.AbstractParser<BrowserStateDiffEvent>() {
     @java.lang.Override
-    public BrowserStateEvent parsePartialFrom(
+    public BrowserStateDiffEvent parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1856,17 +1812,17 @@ private static final long serialVersionUID = 0L;
     }
   };
 
-  public static com.google.protobuf.Parser<BrowserStateEvent> parser() {
+  public static com.google.protobuf.Parser<BrowserStateDiffEvent> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<BrowserStateEvent> getParserForType() {
+  public com.google.protobuf.Parser<BrowserStateDiffEvent> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.BrowserStateEvent getDefaultInstanceForType() {
+  public io.browsercloud.proto.node.v1.BrowserStateDiffEvent getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

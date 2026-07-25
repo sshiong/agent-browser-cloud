@@ -2,6 +2,7 @@ package io.browsercloud.coordinator;
 
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
@@ -104,6 +105,51 @@ public final class NodeCommands {
         session.contextEpoch(),
         0,
         idempotencyKey,
+        payload);
+  }
+
+  public static NodeCommand agentNavigate(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      String stepId,
+      String url,
+      long baseStateVersion) {
+    var payload =
+        AgentNavigateCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setTaskId(taskId)
+            .setStepId(stepId)
+            .setUrl(url)
+            .setBaseStateVersion(baseStateVersion)
+            .build()
+            .toByteArray();
+    return command(session, operation, "AgentNavigate", payload);
+  }
+
+  public static NodeCommand requestAgentStateResync(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      String reason,
+      String idempotencyKey) {
+    var payload =
+        RequestStateResyncCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setMode("FULL")
+            .setRootRef("document")
+            .setReason(reason)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        newId("cmd_"),
+        "RequestStateResync",
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operation.operationEpoch(),
+        idempotencyKey + ":" + taskId,
         payload);
   }
 

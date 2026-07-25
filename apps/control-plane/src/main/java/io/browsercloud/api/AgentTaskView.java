@@ -20,6 +20,7 @@ public record AgentTaskView(
     String blockedReason,
     int currentStep,
     int totalSteps,
+    int replanCount,
     List<String> allowedDomains,
     PlanView plan,
     String operationId,

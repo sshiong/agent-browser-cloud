@@ -61,4 +61,16 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The cdpPort.
    */
   int getCdpPort();
+
+  /**
+   * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+   * @return The proxyBindingId.
+   */
+  java.lang.String getProxyBindingId();
+  /**
+   * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
+   * @return The bytes for proxyBindingId.
+   */
+  com.google.protobuf.ByteString
+      getProxyBindingIdBytes();
 }

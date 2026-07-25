@@ -219,6 +219,23 @@ message RequestStateResyncCommand {
   string reason = 4;
 }
 
+// 由 Control Plane Agent Executor 授权并通过 Exclusive Operation 投递的导航命令。
+// Capability Token 只在 Control Plane 内消费，绝不下发到 Browser Node。
+message AgentNavigateCommand {
+  string session_id = 1;
+  string task_id = 2;
+  string step_id = 3;
+  string url = 4;
+  uint64 base_state_version = 5;
+}
+
+message AgentNavigationFailedEvent {
+  string session_id = 1;
+  string task_id = 2;
+  string step_id = 3;
+  string error_code = 4;
+}
+
 message BrowserStateDiffEvent {
   string session_id = 1;
   uint64 base_state_version = 2;

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
@@ -166,6 +167,37 @@ class NodeEventMapperTest {
               assertThat(state.targets()).hasSize(1);
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);
+            });
+  }
+
+  @Test
+  void shouldMapAgentNavigationFailureWithoutLeakingNodeErrorDetails() {
+    var payload =
+        AgentNavigationFailedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setTaskId("agt_1234567890abcdef")
+            .setStepId("step_1234567890abcd")
+            .setErrorCode("NAVIGATION_FAILED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_agent_navigation_failed")
+            .setEventType(NodeEventMapper.AGENT_NAVIGATION_FAILED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setOperationEpoch(5)
+            .setSequence(3)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.AgentNavigationFailed.class,
+            failed -> {
+              assertThat(failed.taskId()).isEqualTo("agt_1234567890abcdef");
+              assertThat(failed.stepId()).isEqualTo("step_1234567890abcd");
+              assertThat(failed.errorCode()).isEqualTo("NAVIGATION_FAILED");
             });
   }
 

@@ -8,12 +8,13 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
-    CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
-    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
-    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
-    PublishResponse, ReleaseAllInputCommand, RequestStateResyncCommand, RuntimeStartedEvent,
-    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
+    BrowserStateDiffEvent, BrowserStateEvent, CommandAck, CommandEnvelope, DiffTruncatedEvent,
+    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
+    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
+    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand,
+    RequestStateResyncCommand, RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand,
+    StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
     PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
@@ -234,6 +235,30 @@ impl NodeControlService {
             sequence,
             payload: payload.encode_to_vec(),
         }
+    }
+
+    async fn agent_navigation_failed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &AgentNavigateCommand,
+        error_code: &str,
+    ) -> CommandResult {
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "AgentNavigationFailed",
+            sequence,
+            AgentNavigationFailedEvent {
+                session_id: command.session_id.clone(),
+                task_id: payload.task_id.clone(),
+                step_id: payload.step_id.clone(),
+                error_code: error_code.to_owned(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
     }
 
     fn browser_state_payload(state: CurrentState) -> BrowserStateEvent {
@@ -1051,6 +1076,86 @@ impl NodeControlService {
                     Err(error) => self.failed(command, error.into()),
                 }
             }
+            "AgentNavigate" => match AgentNavigateCommand::decode(command.payload.as_slice()) {
+                Ok(payload) => {
+                    if payload.session_id != command.session_id {
+                        return self.failed(
+                            command,
+                            anyhow::anyhow!(
+                                "agent navigation payload session_id does not match envelope"
+                            ),
+                        );
+                    }
+                    if !payload.task_id.starts_with("agt_")
+                        || payload.task_id.chars().count() > 128
+                        || !payload.step_id.starts_with("step_")
+                        || payload.step_id.chars().count() > 128
+                        || payload.url.chars().count() > 8192
+                    {
+                        return self.failed(
+                            command,
+                            anyhow::anyhow!("agent navigation payload is invalid"),
+                        );
+                    }
+                    let target = match reqwest::Url::parse(&payload.url) {
+                        Ok(target)
+                            if matches!(target.scheme(), "http" | "https")
+                                && target.host_str().is_some()
+                                && target.username().is_empty()
+                                && target.password().is_none() =>
+                        {
+                            target
+                        }
+                        _ => {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("agent navigation URL is invalid"),
+                            )
+                        }
+                    };
+                    if self
+                        .state_collector
+                        .navigate(&command.session_id, target.as_str())
+                        .await
+                        .is_err()
+                    {
+                        return self
+                            .agent_navigation_failed(command, &payload, "NAVIGATION_FAILED")
+                            .await;
+                    }
+                    let state = match self.state_collector.resync_full(&command.session_id).await {
+                        Ok(state) => state,
+                        Err(_) => {
+                            return self
+                                .agent_navigation_failed(
+                                    command,
+                                    &payload,
+                                    "NAVIGATION_STATE_UNAVAILABLE",
+                                )
+                                .await
+                        }
+                    };
+                    if state.state_version <= payload.base_state_version {
+                        return self
+                            .agent_navigation_failed(
+                                command,
+                                &payload,
+                                "NAVIGATION_STATE_NOT_ADVANCED",
+                            )
+                            .await;
+                    }
+                    let sequence = match self.next_event_sequence(&command.session_id).await {
+                        Ok(sequence) => sequence,
+                        Err(error) => return self.failed(command, error),
+                    };
+                    let mut state_payload = Self::browser_state_payload(state.clone());
+                    state_payload.snapshot_kind = "AGENT_NAVIGATION".to_owned();
+                    let event =
+                        Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                    Self::state_result(Self::ack(&command.message_id, true, "", ""), event, state)
+                }
+                Err(error) => self.failed(command, error.into()),
+            },
             "ReleaseAllInput" => match ReleaseAllInputCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
                     if payload.session_id != command.session_id {

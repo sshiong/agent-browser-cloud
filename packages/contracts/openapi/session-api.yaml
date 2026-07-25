@@ -569,6 +569,7 @@ components:
         - blockedReason
         - currentStep
         - totalSteps
+        - replanCount
         - allowedDomains
         - plan
         - operationId
@@ -600,6 +601,9 @@ components:
           type: integer
           minimum: 0
         totalSteps:
+          type: integer
+          minimum: 0
+        replanCount:
           type: integer
           minimum: 0
         allowedDomains:

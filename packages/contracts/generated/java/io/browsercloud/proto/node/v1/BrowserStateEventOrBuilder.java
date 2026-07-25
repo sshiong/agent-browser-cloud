@@ -103,4 +103,36 @@ public interface BrowserStateEventOrBuilder extends
    */
   io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder getTargetsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * </pre>
+   *
+   * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+   * @return The snapshotKind.
+   */
+  java.lang.String getSnapshotKind();
+  /**
+   * <pre>
+   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * </pre>
+   *
+   * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
+   * @return The bytes for snapshotKind.
+   */
+  com.google.protobuf.ByteString
+      getSnapshotKindBytes();
+
+  /**
+   * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+   * @return The requestedRootRef.
+   */
+  java.lang.String getRequestedRootRef();
+  /**
+   * <code>string requested_root_ref = 10 [json_name = "requestedRootRef"];</code>
+   * @return The bytes for requestedRootRef.
+   */
+  com.google.protobuf.ByteString
+      getRequestedRootRefBytes();
 }

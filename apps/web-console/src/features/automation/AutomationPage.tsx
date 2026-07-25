@@ -141,7 +141,7 @@ export function AutomationPage() {
           />
           <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warning">
             <CircleDot size={10} />
-            Read tools live · Navigate pending
+            Verified read tools · Node Navigate live
           </span>
         </div>
       </div>
@@ -474,9 +474,6 @@ function TaskInspector({
 }) {
   const blocked = task.state === 'BLOCKED' || task.state === 'FAILED';
   const completed = task.state === 'COMPLETED';
-  const hasUnsupportedNavigate = task.plan.steps.some(
-    (step) => step.toolId === 'NAVIGATE'
-  );
   const expiry = useMemo(
     () =>
       new Date(task.plan.expiresAt).toLocaleString('zh-CN', {
@@ -514,6 +511,7 @@ function TaskInspector({
           <Meta label="Session" value={task.sessionId} mono />
           <Meta label="动作上限" value={String(task.plan.maxActions)} />
           <Meta label="Replan 预算" value={String(task.plan.replanBudget)} />
+          <Meta label="Replan 已用" value={String(task.replanCount)} />
           <Meta label="过期时间" value={expiry} />
           <Meta label="授权域名" value={task.allowedDomains.join(', ')} mono />
         </dl>
@@ -524,7 +522,7 @@ function TaskInspector({
           <button
             type="button"
             onClick={onExecute}
-            disabled={isExecuting || hasUnsupportedNavigate}
+            disabled={isExecuting}
             className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-[6px] border border-accent/35 bg-accent-soft text-[11px] font-semibold text-accent transition-colors hover:border-accent/60 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-surface-2 disabled:text-text-muted"
           >
             {isExecuting ? (
@@ -532,9 +530,7 @@ function TaskInspector({
             ) : (
               <ShieldCheck size={13} />
             )}
-            {hasUnsupportedNavigate
-              ? '等待 Navigate Executor'
-              : '执行并验证只读计划'}
+            执行并验证安全计划
           </button>
           {executionError instanceof Error && (
             <p className="mt-2 text-[10px] text-danger">

@@ -7,7 +7,7 @@
 
 本次只实现“接收目标 → 安全分类 → 生成受限计划 → 校验 → 持久化 → UI 审查”，
 不把计划生成描述为浏览器动作已经执行。本里程碑验收时 Automation 页面固定显示
-`Plan only · Executor pending`；后续只读执行状态见进度文档 10。
+`Plan only · Executor pending`；后续只读执行与 Navigate 状态见进度文档 10、11。
 
 ## 已完成
 
@@ -100,7 +100,7 @@ make test-e2e
 | Execution Strategy Selector | 已为当前步骤生成策略，但没有 Canvas/A11y/Vision/Fallback 评分与切换 |
 | Action Validation | 三个只读 Tool 已采集结果证据；写操作的 DOM/A11y/Network/Business 验证仍待开发 |
 | Replan Budget | 已进入 Plan 并限制 0—3，尚无 Executor 消耗、持久递减和熔断 |
-| Capability Token | 三个只读 Tool 已实现 PostgreSQL 单次使用账本；Navigate/Target Input 尚未接入 |
+| Capability Token | 三个只读 Tool 与 Navigate 已实现 PostgreSQL 单次使用账本；Target Input 尚未接入 |
 | Prompt Detection | 规则检测 MVP；Base64/Hex/Unicode 混淆、隐藏 DOM、视觉/DOM 不一致和模型分类待补 |
 | Prompt Audit | Task 内保存最小安全证据；统一 `audit_events`、查询 API、Retention/Legal Hold 待 Phase 5 |
 
@@ -109,7 +109,7 @@ make test-e2e
 | Phase 4 退出项 | 状态/下一步 |
 |---|---|
 | 单 Executor | 只读同步 Executor 已完成；写操作所需异步 Durable Step 状态机与崩溃恢复仍待开发 |
-| Tool Service 执行 | 三个只读 Tool 已完成；Node Navigate 与 Target Input Tool 仍待开发 |
+| Tool Service 执行 | 三个只读 Tool 与 Node Navigate 已完成；Target Input Tool 仍待开发 |
 | `click_target` / `type_text` / `scroll` / `wait_for` | 契约枚举存在，尚无可调用实现 |
 | `request_human_takeover` Tool | 现有人工 API 可用，但尚未经过 Agent Tool Gate |
 | 自建表单流程 | 未完成；必须实现读前写、Target Ref、Type/Click、提交和结果验证后才可关闭 Gate |

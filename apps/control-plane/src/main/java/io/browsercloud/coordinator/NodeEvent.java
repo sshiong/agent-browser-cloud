@@ -14,6 +14,7 @@ public sealed interface NodeEvent
         NodeEvent.StateUpdated,
         NodeEvent.StateDiff,
         NodeEvent.DiffTruncated,
+        NodeEvent.AgentNavigationFailed,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
 
@@ -89,6 +90,9 @@ public sealed interface NodeEvent
       long currentStateVersion,
       String affectedRoot,
       long estimatedTargets)
+      implements NodeEvent {}
+
+  record AgentNavigationFailed(String sessionId, String taskId, String stepId, String errorCode)
       implements NodeEvent {}
 
   record InteractiveTarget(

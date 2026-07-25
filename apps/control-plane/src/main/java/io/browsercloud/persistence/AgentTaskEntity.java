@@ -40,6 +40,12 @@ public class AgentTaskEntity {
   @Column(name = "current_step", nullable = false)
   private int currentStep;
 
+  @Column(name = "replan_count", nullable = false)
+  private int replanCount;
+
+  @Column(name = "pending_state_version")
+  private Long pendingStateVersion;
+
   @Column(name = "allowed_domains", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String allowedDomains;
@@ -98,6 +104,7 @@ public class AgentTaskEntity {
     this.intentDecision = intentDecision;
     this.blockedReason = blockedReason;
     this.currentStep = 0;
+    this.replanCount = 0;
     this.allowedDomains = allowedDomains;
     this.plan = plan;
     this.securityEvents = securityEvents;
@@ -142,6 +149,14 @@ public class AgentTaskEntity {
     return currentStep;
   }
 
+  public int getReplanCount() {
+    return replanCount;
+  }
+
+  public Long getPendingStateVersion() {
+    return pendingStateVersion;
+  }
+
   public String getAllowedDomains() {
     return allowedDomains;
   }
@@ -182,10 +197,21 @@ public class AgentTaskEntity {
     this.lastError = null;
   }
 
+  public void markNavigationPending(long baseStateVersion, Instant now) {
+    this.pendingStateVersion = baseStateVersion;
+    this.updatedAt = now;
+  }
+
+  public void recordReplan(Instant now) {
+    this.replanCount += 1;
+    this.updatedAt = now;
+  }
+
   public void completeExecution(int completedSteps, String results, Instant now) {
     this.state = "COMPLETED";
     this.currentStep = completedSteps;
     this.executionResults = results;
+    this.pendingStateVersion = null;
     this.executionCompletedAt = now;
     this.updatedAt = now;
   }
@@ -194,6 +220,7 @@ public class AgentTaskEntity {
     this.state = "FAILED";
     this.currentStep = completedSteps;
     this.executionResults = results;
+    this.pendingStateVersion = null;
     this.lastError = error;
     this.executionCompletedAt = now;
     this.updatedAt = now;

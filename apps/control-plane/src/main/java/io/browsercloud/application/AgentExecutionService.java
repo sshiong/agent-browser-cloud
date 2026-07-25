@@ -27,6 +27,7 @@ public class AgentExecutionService {
   private final OperationRepository operationRepository;
   private final IdempotencyService idempotencyService;
   private final AgentReadToolService toolService;
+  private final AgentNavigationToolService navigationToolService;
   private final AgentApplicationService taskService;
   private final ObjectMapper objectMapper;
 
@@ -36,6 +37,7 @@ public class AgentExecutionService {
       OperationRepository operationRepository,
       IdempotencyService idempotencyService,
       AgentReadToolService toolService,
+      AgentNavigationToolService navigationToolService,
       AgentApplicationService taskService,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
@@ -43,6 +45,7 @@ public class AgentExecutionService {
     this.operationRepository = operationRepository;
     this.idempotencyService = idempotencyService;
     this.toolService = toolService;
+    this.navigationToolService = navigationToolService;
     this.taskService = taskService;
     this.objectMapper = objectMapper;
   }
@@ -65,8 +68,8 @@ public class AgentExecutionService {
     if (!plan.expiresAt().isAfter(now)) {
       throw new AgentExecutionRejectedException("AGENT_PLAN_EXPIRED");
     }
-    if (plan.steps().stream().anyMatch(step -> step.toolId() == ToolId.NAVIGATE)) {
-      throw new AgentExecutionRejectedException("NAVIGATE_EXECUTOR_NOT_IMPLEMENTED");
+    if (plan.steps().stream().skip(1).anyMatch(step -> step.toolId() == ToolId.NAVIGATE)) {
+      throw new AgentExecutionRejectedException("NAVIGATE_MUST_BE_FIRST_STEP");
     }
     if (plan.steps().size() > plan.maxActions()) {
       throw new AgentExecutionRejectedException("PLAN_ACTION_BUDGET_EXCEEDED");
@@ -103,6 +106,20 @@ public class AgentExecutionService {
 
     var results = new ArrayList<ToolExecutionResult>();
     try {
+      if (!plan.steps().isEmpty() && plan.steps().getFirst().toolId() == ToolId.NAVIGATE) {
+        var baseStateVersion =
+            navigationToolService.authorizeAndQueue(
+                tenantId,
+                session,
+                operation,
+                taskId,
+                plan.intentId(),
+                plan.steps().getFirst(),
+                Instant.now());
+        task.markNavigationPending(baseStateVersion, Instant.now());
+        taskRepository.save(task);
+        return taskService.get(taskId, tenantId);
+      }
       for (var step : plan.steps()) {
         results.add(
             toolService.execute(tenantId, session, taskId, plan.intentId(), step, Instant.now()));
@@ -139,6 +156,7 @@ public class AgentExecutionService {
 
   private static String safeFailureCode(RuntimeException exception) {
     if (exception instanceof AgentReadToolService.ToolExecutionException
+        || exception instanceof AgentNavigationToolService.NavigationToolException
         || exception instanceof AgentCapabilityTokenService.InvalidCapabilityTokenException) {
       return exception.getMessage();
     }

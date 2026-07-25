@@ -31,6 +31,7 @@ class NodeEventIngestionServiceTest {
   @Mock private StaticProxyApplicationService proxyApplicationService;
   @Mock private SessionRepository sessionRepository;
   @Mock private NodeCommandGateway nodeCommandGateway;
+  @Mock private AgentNavigationCompletionService agentNavigationCompletionService;
 
   private NodeEventIngestionService service;
 
@@ -44,7 +45,8 @@ class NodeEventIngestionServiceTest {
             profileApplicationService,
             proxyApplicationService,
             sessionRepository,
-            nodeCommandGateway);
+            nodeCommandGateway,
+            agentNavigationCompletionService);
   }
 
   @Test

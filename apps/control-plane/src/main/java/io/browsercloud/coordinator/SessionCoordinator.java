@@ -7,6 +7,7 @@ import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.operation.OperationState;
+import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -340,11 +341,29 @@ public final class SessionCoordinator {
       }
 
       case NodeEvent.StateUpdated updated -> {
-        // 状态更新，不需要修改 Session Context
+        if (command.operationEpoch() != 0) {
+          var operation = matchingActiveOperation(session.sessionId(), command);
+          if (operation.isEmpty()
+              || operation.orElseThrow().ownerType() != OwnerType.AGENT
+              || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE) {
+            yield CoordinatorResult.rejected("STALE_AGENT_OPERATION");
+          }
+        }
+        // 状态更新不修改 Session Context；Agent 状态回调已绑定当前 Operation。
         yield CoordinatorResult.completed();
       }
       case NodeEvent.StateDiff diff -> CoordinatorResult.completed();
       case NodeEvent.DiffTruncated truncated -> CoordinatorResult.completed();
+      case NodeEvent.AgentNavigationFailed failed -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().ownerType() != OwnerType.AGENT
+            || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE
+            || !operation.orElseThrow().actorId().equals(failed.taskId())) {
+          yield CoordinatorResult.rejected("STALE_AGENT_OPERATION");
+        }
+        yield CoordinatorResult.completed();
+      }
       case NodeEvent.HumanTakeoverReady ready -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
@@ -399,6 +418,7 @@ public final class SessionCoordinator {
       case NodeEvent.StateUpdated updated -> updated.sessionId();
       case NodeEvent.StateDiff diff -> diff.sessionId();
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
+      case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

@@ -67,4 +67,52 @@ public interface RuntimeStartedEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRuntimeBuildIdBytes();
+
+  /**
+   * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+   * @return The proxyBindingId.
+   */
+  java.lang.String getProxyBindingId();
+  /**
+   * <code>string proxy_binding_id = 7 [json_name = "proxyBindingId"];</code>
+   * @return The bytes for proxyBindingId.
+   */
+  com.google.protobuf.ByteString
+      getProxyBindingIdBytes();
+
+  /**
+   * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+   * @return The exitIp.
+   */
+  java.lang.String getExitIp();
+  /**
+   * <code>string exit_ip = 8 [json_name = "exitIp"];</code>
+   * @return The bytes for exitIp.
+   */
+  com.google.protobuf.ByteString
+      getExitIpBytes();
+
+  /**
+   * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+   * @return The exitCountry.
+   */
+  java.lang.String getExitCountry();
+  /**
+   * <code>string exit_country = 9 [json_name = "exitCountry"];</code>
+   * @return The bytes for exitCountry.
+   */
+  com.google.protobuf.ByteString
+      getExitCountryBytes();
+
+  /**
+   * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+   * @return The exitAsn.
+   */
+  java.lang.String getExitAsn();
+  /**
+   * <code>string exit_asn = 10 [json_name = "exitAsn"];</code>
+   * @return The bytes for exitAsn.
+   */
+  com.google.protobuf.ByteString
+      getExitAsnBytes();
 }

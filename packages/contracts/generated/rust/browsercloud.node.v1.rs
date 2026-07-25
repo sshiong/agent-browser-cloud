@@ -124,6 +124,8 @@ pub struct StartRuntimeCommand {
     pub display: ::prost::alloc::string::String,
     #[prost(int32, tag="5")]
     pub cdp_port: i32,
+    #[prost(string, tag="6")]
+    pub proxy_binding_id: ::prost::alloc::string::String,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -141,6 +143,14 @@ pub struct RuntimeStartedEvent {
     pub node_id: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
     pub runtime_build_id: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub proxy_binding_id: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub exit_ip: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub exit_country: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub exit_asn: ::prost::alloc::string::String,
 }
 /// 停止 Runtime 命令
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -161,6 +171,20 @@ pub struct RuntimeStoppedEvent {
     pub reason: ::prost::alloc::string::String,
     #[prost(int32, tag="3")]
     pub exit_code: i32,
+    #[prost(string, tag="4")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub checkpoint_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="6")]
+    pub checkpoint_epoch: u64,
+    #[prost(uint64, tag="7")]
+    pub profile_write_epoch: u64,
+    #[prost(uint64, tag="8")]
+    pub core_size_bytes: u64,
+    #[prost(uint64, tag="9")]
+    pub checkpoint_file_count: u64,
+    #[prost(string, tag="10")]
+    pub restore_status: ::prost::alloc::string::String,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -290,6 +314,92 @@ pub struct BrowserStateEvent {
     pub content_hash: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="8")]
     pub targets: ::prost::alloc::vec::Vec<InteractiveTargetState>,
+    /// PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+    #[prost(string, tag="9")]
+    pub snapshot_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub requested_root_ref: ::prost::alloc::string::String,
+}
+/// Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RequestStateResyncCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub mode: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub root_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub reason: ::prost::alloc::string::String,
+}
+/// 由 Control Plane Agent Executor 授权并通过 Exclusive Operation 投递的导航命令。
+/// Capability Token 只在 Control Plane 内消费，绝不下发到 Browser Node。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentNavigateCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub task_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub step_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub base_state_version: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentNavigationFailedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub task_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub step_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub error_code: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserStateDiffEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub base_state_version: u64,
+    #[prost(uint64, tag="3")]
+    pub state_version: u64,
+    #[prost(uint64, tag="4")]
+    pub target_revision: u64,
+    #[prost(string, tag="5")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub state_quality: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub content_hash: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="9")]
+    pub upserted_targets: ::prost::alloc::vec::Vec<InteractiveTargetState>,
+    #[prost(string, repeated, tag="10")]
+    pub removed_target_refs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DiffTruncatedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub last_good_state_version: u64,
+    #[prost(uint64, tag="4")]
+    pub current_state_version: u64,
+    #[prost(string, tag="5")]
+    pub affected_root: ::prost::alloc::string::String,
+    #[prost(uint64, tag="6")]
+    pub estimated_targets: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

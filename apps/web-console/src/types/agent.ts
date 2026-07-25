@@ -48,6 +48,7 @@ export interface AgentTaskView {
   blockedReason?: string;
   currentStep: number;
   totalSteps: number;
+  replanCount: number;
   allowedDomains: string[];
   plan: {
     intentId: string;

@@ -5,47 +5,42 @@
 package io.browsercloud.proto.node.v1;
 
 /**
- * <pre>
- * 启动 Runtime 命令
- * </pre>
- *
- * Protobuf type {@code browsercloud.node.v1.StartRuntimeCommand}
+ * Protobuf type {@code browsercloud.node.v1.AgentNavigationFailedEvent}
  */
-public final class StartRuntimeCommand extends
+public final class AgentNavigationFailedEvent extends
     com.google.protobuf.GeneratedMessageV3 implements
-    // @@protoc_insertion_point(message_implements:browsercloud.node.v1.StartRuntimeCommand)
-    StartRuntimeCommandOrBuilder {
+    // @@protoc_insertion_point(message_implements:browsercloud.node.v1.AgentNavigationFailedEvent)
+    AgentNavigationFailedEventOrBuilder {
 private static final long serialVersionUID = 0L;
-  // Use StartRuntimeCommand.newBuilder() to construct.
-  private StartRuntimeCommand(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+  // Use AgentNavigationFailedEvent.newBuilder() to construct.
+  private AgentNavigationFailedEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
     super(builder);
   }
-  private StartRuntimeCommand() {
+  private AgentNavigationFailedEvent() {
     sessionId_ = "";
-    runtimeBuildId_ = "";
-    profileId_ = "";
-    display_ = "";
-    proxyBindingId_ = "";
+    taskId_ = "";
+    stepId_ = "";
+    errorCode_ = "";
   }
 
   @java.lang.Override
   @SuppressWarnings({"unused"})
   protected java.lang.Object newInstance(
       UnusedPrivateParameter unused) {
-    return new StartRuntimeCommand();
+    return new AgentNavigationFailedEvent();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
+    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable
+    return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            io.browsercloud.proto.node.v1.StartRuntimeCommand.class, io.browsercloud.proto.node.v1.StartRuntimeCommand.Builder.class);
+            io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.class, io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.Builder.class);
   }
 
   public static final int SESSION_ID_FIELD_NUMBER = 1;
@@ -87,167 +82,117 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int RUNTIME_BUILD_ID_FIELD_NUMBER = 2;
+  public static final int TASK_ID_FIELD_NUMBER = 2;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object runtimeBuildId_ = "";
+  private volatile java.lang.Object taskId_ = "";
   /**
-   * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
-   * @return The runtimeBuildId.
+   * <code>string task_id = 2 [json_name = "taskId"];</code>
+   * @return The taskId.
    */
   @java.lang.Override
-  public java.lang.String getRuntimeBuildId() {
-    java.lang.Object ref = runtimeBuildId_;
+  public java.lang.String getTaskId() {
+    java.lang.Object ref = taskId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      runtimeBuildId_ = s;
+      taskId_ = s;
       return s;
     }
   }
   /**
-   * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
-   * @return The bytes for runtimeBuildId.
+   * <code>string task_id = 2 [json_name = "taskId"];</code>
+   * @return The bytes for taskId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getRuntimeBuildIdBytes() {
-    java.lang.Object ref = runtimeBuildId_;
+      getTaskIdBytes() {
+    java.lang.Object ref = taskId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      runtimeBuildId_ = b;
+      taskId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int PROFILE_ID_FIELD_NUMBER = 3;
+  public static final int STEP_ID_FIELD_NUMBER = 3;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object profileId_ = "";
+  private volatile java.lang.Object stepId_ = "";
   /**
-   * <code>string profile_id = 3 [json_name = "profileId"];</code>
-   * @return The profileId.
+   * <code>string step_id = 3 [json_name = "stepId"];</code>
+   * @return The stepId.
    */
   @java.lang.Override
-  public java.lang.String getProfileId() {
-    java.lang.Object ref = profileId_;
+  public java.lang.String getStepId() {
+    java.lang.Object ref = stepId_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      profileId_ = s;
+      stepId_ = s;
       return s;
     }
   }
   /**
-   * <code>string profile_id = 3 [json_name = "profileId"];</code>
-   * @return The bytes for profileId.
+   * <code>string step_id = 3 [json_name = "stepId"];</code>
+   * @return The bytes for stepId.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getProfileIdBytes() {
-    java.lang.Object ref = profileId_;
+      getStepIdBytes() {
+    java.lang.Object ref = stepId_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      profileId_ = b;
+      stepId_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
   }
 
-  public static final int DISPLAY_FIELD_NUMBER = 4;
+  public static final int ERROR_CODE_FIELD_NUMBER = 4;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object display_ = "";
+  private volatile java.lang.Object errorCode_ = "";
   /**
-   * <code>string display = 4 [json_name = "display"];</code>
-   * @return The display.
+   * <code>string error_code = 4 [json_name = "errorCode"];</code>
+   * @return The errorCode.
    */
   @java.lang.Override
-  public java.lang.String getDisplay() {
-    java.lang.Object ref = display_;
+  public java.lang.String getErrorCode() {
+    java.lang.Object ref = errorCode_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      display_ = s;
+      errorCode_ = s;
       return s;
     }
   }
   /**
-   * <code>string display = 4 [json_name = "display"];</code>
-   * @return The bytes for display.
+   * <code>string error_code = 4 [json_name = "errorCode"];</code>
+   * @return The bytes for errorCode.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getDisplayBytes() {
-    java.lang.Object ref = display_;
+      getErrorCodeBytes() {
+    java.lang.Object ref = errorCode_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      display_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
-  public static final int CDP_PORT_FIELD_NUMBER = 5;
-  private int cdpPort_ = 0;
-  /**
-   * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
-   * @return The cdpPort.
-   */
-  @java.lang.Override
-  public int getCdpPort() {
-    return cdpPort_;
-  }
-
-  public static final int PROXY_BINDING_ID_FIELD_NUMBER = 6;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object proxyBindingId_ = "";
-  /**
-   * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-   * @return The proxyBindingId.
-   */
-  @java.lang.Override
-  public java.lang.String getProxyBindingId() {
-    java.lang.Object ref = proxyBindingId_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs =
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      proxyBindingId_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-   * @return The bytes for proxyBindingId.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getProxyBindingIdBytes() {
-    java.lang.Object ref = proxyBindingId_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      proxyBindingId_ = b;
+      errorCode_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -271,20 +216,14 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 1, sessionId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(runtimeBuildId_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runtimeBuildId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(taskId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 2, taskId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(profileId_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, profileId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(stepId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, stepId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(display_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, display_);
-    }
-    if (cdpPort_ != 0) {
-      output.writeInt32(5, cdpPort_);
-    }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, proxyBindingId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(errorCode_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, errorCode_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -298,21 +237,14 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(sessionId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, sessionId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(runtimeBuildId_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runtimeBuildId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(taskId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, taskId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(profileId_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, profileId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(stepId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, stepId_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(display_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, display_);
-    }
-    if (cdpPort_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(5, cdpPort_);
-    }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, proxyBindingId_);
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(errorCode_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, errorCode_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -324,23 +256,19 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof io.browsercloud.proto.node.v1.StartRuntimeCommand)) {
+    if (!(obj instanceof io.browsercloud.proto.node.v1.AgentNavigationFailedEvent)) {
       return super.equals(obj);
     }
-    io.browsercloud.proto.node.v1.StartRuntimeCommand other = (io.browsercloud.proto.node.v1.StartRuntimeCommand) obj;
+    io.browsercloud.proto.node.v1.AgentNavigationFailedEvent other = (io.browsercloud.proto.node.v1.AgentNavigationFailedEvent) obj;
 
     if (!getSessionId()
         .equals(other.getSessionId())) return false;
-    if (!getRuntimeBuildId()
-        .equals(other.getRuntimeBuildId())) return false;
-    if (!getProfileId()
-        .equals(other.getProfileId())) return false;
-    if (!getDisplay()
-        .equals(other.getDisplay())) return false;
-    if (getCdpPort()
-        != other.getCdpPort()) return false;
-    if (!getProxyBindingId()
-        .equals(other.getProxyBindingId())) return false;
+    if (!getTaskId()
+        .equals(other.getTaskId())) return false;
+    if (!getStepId()
+        .equals(other.getStepId())) return false;
+    if (!getErrorCode()
+        .equals(other.getErrorCode())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -354,59 +282,55 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + SESSION_ID_FIELD_NUMBER;
     hash = (53 * hash) + getSessionId().hashCode();
-    hash = (37 * hash) + RUNTIME_BUILD_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getRuntimeBuildId().hashCode();
-    hash = (37 * hash) + PROFILE_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getProfileId().hashCode();
-    hash = (37 * hash) + DISPLAY_FIELD_NUMBER;
-    hash = (53 * hash) + getDisplay().hashCode();
-    hash = (37 * hash) + CDP_PORT_FIELD_NUMBER;
-    hash = (53 * hash) + getCdpPort();
-    hash = (37 * hash) + PROXY_BINDING_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getProxyBindingId().hashCode();
+    hash = (37 * hash) + TASK_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getTaskId().hashCode();
+    hash = (37 * hash) + STEP_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getStepId().hashCode();
+    hash = (37 * hash) + ERROR_CODE_FIELD_NUMBER;
+    hash = (53 * hash) + getErrorCode().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(byte[] data)
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -414,26 +338,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseDelimitedFrom(java.io.InputStream input)
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseDelimitedFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessageV3
         .parseWithIOException(PARSER, input);
   }
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand parseFrom(
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -446,7 +370,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(io.browsercloud.proto.node.v1.StartRuntimeCommand prototype) {
+  public static Builder newBuilder(io.browsercloud.proto.node.v1.AgentNavigationFailedEvent prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -462,30 +386,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * <pre>
-   * 启动 Runtime 命令
-   * </pre>
-   *
-   * Protobuf type {@code browsercloud.node.v1.StartRuntimeCommand}
+   * Protobuf type {@code browsercloud.node.v1.AgentNavigationFailedEvent}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.StartRuntimeCommand)
-      io.browsercloud.proto.node.v1.StartRuntimeCommandOrBuilder {
+      // @@protoc_insertion_point(builder_implements:browsercloud.node.v1.AgentNavigationFailedEvent)
+      io.browsercloud.proto.node.v1.AgentNavigationFailedEventOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
+      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable
+      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              io.browsercloud.proto.node.v1.StartRuntimeCommand.class, io.browsercloud.proto.node.v1.StartRuntimeCommand.Builder.class);
+              io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.class, io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.Builder.class);
     }
 
-    // Construct using io.browsercloud.proto.node.v1.StartRuntimeCommand.newBuilder()
+    // Construct using io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.newBuilder()
     private Builder() {
 
     }
@@ -500,28 +420,26 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       sessionId_ = "";
-      runtimeBuildId_ = "";
-      profileId_ = "";
-      display_ = "";
-      cdpPort_ = 0;
-      proxyBindingId_ = "";
+      taskId_ = "";
+      stepId_ = "";
+      errorCode_ = "";
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor;
+      return io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.StartRuntimeCommand getDefaultInstanceForType() {
-      return io.browsercloud.proto.node.v1.StartRuntimeCommand.getDefaultInstance();
+    public io.browsercloud.proto.node.v1.AgentNavigationFailedEvent getDefaultInstanceForType() {
+      return io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.getDefaultInstance();
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.StartRuntimeCommand build() {
-      io.browsercloud.proto.node.v1.StartRuntimeCommand result = buildPartial();
+    public io.browsercloud.proto.node.v1.AgentNavigationFailedEvent build() {
+      io.browsercloud.proto.node.v1.AgentNavigationFailedEvent result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -529,32 +447,26 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public io.browsercloud.proto.node.v1.StartRuntimeCommand buildPartial() {
-      io.browsercloud.proto.node.v1.StartRuntimeCommand result = new io.browsercloud.proto.node.v1.StartRuntimeCommand(this);
+    public io.browsercloud.proto.node.v1.AgentNavigationFailedEvent buildPartial() {
+      io.browsercloud.proto.node.v1.AgentNavigationFailedEvent result = new io.browsercloud.proto.node.v1.AgentNavigationFailedEvent(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(io.browsercloud.proto.node.v1.StartRuntimeCommand result) {
+    private void buildPartial0(io.browsercloud.proto.node.v1.AgentNavigationFailedEvent result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.sessionId_ = sessionId_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.runtimeBuildId_ = runtimeBuildId_;
+        result.taskId_ = taskId_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.profileId_ = profileId_;
+        result.stepId_ = stepId_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.display_ = display_;
-      }
-      if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.cdpPort_ = cdpPort_;
-      }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
-        result.proxyBindingId_ = proxyBindingId_;
+        result.errorCode_ = errorCode_;
       }
     }
 
@@ -592,42 +504,34 @@ private static final long serialVersionUID = 0L;
     }
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof io.browsercloud.proto.node.v1.StartRuntimeCommand) {
-        return mergeFrom((io.browsercloud.proto.node.v1.StartRuntimeCommand)other);
+      if (other instanceof io.browsercloud.proto.node.v1.AgentNavigationFailedEvent) {
+        return mergeFrom((io.browsercloud.proto.node.v1.AgentNavigationFailedEvent)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(io.browsercloud.proto.node.v1.StartRuntimeCommand other) {
-      if (other == io.browsercloud.proto.node.v1.StartRuntimeCommand.getDefaultInstance()) return this;
+    public Builder mergeFrom(io.browsercloud.proto.node.v1.AgentNavigationFailedEvent other) {
+      if (other == io.browsercloud.proto.node.v1.AgentNavigationFailedEvent.getDefaultInstance()) return this;
       if (!other.getSessionId().isEmpty()) {
         sessionId_ = other.sessionId_;
         bitField0_ |= 0x00000001;
         onChanged();
       }
-      if (!other.getRuntimeBuildId().isEmpty()) {
-        runtimeBuildId_ = other.runtimeBuildId_;
+      if (!other.getTaskId().isEmpty()) {
+        taskId_ = other.taskId_;
         bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (!other.getProfileId().isEmpty()) {
-        profileId_ = other.profileId_;
+      if (!other.getStepId().isEmpty()) {
+        stepId_ = other.stepId_;
         bitField0_ |= 0x00000004;
         onChanged();
       }
-      if (!other.getDisplay().isEmpty()) {
-        display_ = other.display_;
+      if (!other.getErrorCode().isEmpty()) {
+        errorCode_ = other.errorCode_;
         bitField0_ |= 0x00000008;
-        onChanged();
-      }
-      if (other.getCdpPort() != 0) {
-        setCdpPort(other.getCdpPort());
-      }
-      if (!other.getProxyBindingId().isEmpty()) {
-        proxyBindingId_ = other.proxyBindingId_;
-        bitField0_ |= 0x00000020;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -662,30 +566,20 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 10
             case 18: {
-              runtimeBuildId_ = input.readStringRequireUtf8();
+              taskId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000002;
               break;
             } // case 18
             case 26: {
-              profileId_ = input.readStringRequireUtf8();
+              stepId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000004;
               break;
             } // case 26
             case 34: {
-              display_ = input.readStringRequireUtf8();
+              errorCode_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000008;
               break;
             } // case 34
-            case 40: {
-              cdpPort_ = input.readInt32();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 40
-            case 50: {
-              proxyBindingId_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -775,322 +669,218 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object runtimeBuildId_ = "";
+    private java.lang.Object taskId_ = "";
     /**
-     * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
-     * @return The runtimeBuildId.
+     * <code>string task_id = 2 [json_name = "taskId"];</code>
+     * @return The taskId.
      */
-    public java.lang.String getRuntimeBuildId() {
-      java.lang.Object ref = runtimeBuildId_;
+    public java.lang.String getTaskId() {
+      java.lang.Object ref = taskId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        runtimeBuildId_ = s;
+        taskId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
-     * @return The bytes for runtimeBuildId.
+     * <code>string task_id = 2 [json_name = "taskId"];</code>
+     * @return The bytes for taskId.
      */
     public com.google.protobuf.ByteString
-        getRuntimeBuildIdBytes() {
-      java.lang.Object ref = runtimeBuildId_;
+        getTaskIdBytes() {
+      java.lang.Object ref = taskId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        runtimeBuildId_ = b;
+        taskId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
-     * @param value The runtimeBuildId to set.
+     * <code>string task_id = 2 [json_name = "taskId"];</code>
+     * @param value The taskId to set.
      * @return This builder for chaining.
      */
-    public Builder setRuntimeBuildId(
+    public Builder setTaskId(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      runtimeBuildId_ = value;
+      taskId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
     /**
-     * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
+     * <code>string task_id = 2 [json_name = "taskId"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearRuntimeBuildId() {
-      runtimeBuildId_ = getDefaultInstance().getRuntimeBuildId();
+    public Builder clearTaskId() {
+      taskId_ = getDefaultInstance().getTaskId();
       bitField0_ = (bitField0_ & ~0x00000002);
       onChanged();
       return this;
     }
     /**
-     * <code>string runtime_build_id = 2 [json_name = "runtimeBuildId"];</code>
-     * @param value The bytes for runtimeBuildId to set.
+     * <code>string task_id = 2 [json_name = "taskId"];</code>
+     * @param value The bytes for taskId to set.
      * @return This builder for chaining.
      */
-    public Builder setRuntimeBuildIdBytes(
+    public Builder setTaskIdBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      runtimeBuildId_ = value;
+      taskId_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
 
-    private java.lang.Object profileId_ = "";
+    private java.lang.Object stepId_ = "";
     /**
-     * <code>string profile_id = 3 [json_name = "profileId"];</code>
-     * @return The profileId.
+     * <code>string step_id = 3 [json_name = "stepId"];</code>
+     * @return The stepId.
      */
-    public java.lang.String getProfileId() {
-      java.lang.Object ref = profileId_;
+    public java.lang.String getStepId() {
+      java.lang.Object ref = stepId_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        profileId_ = s;
+        stepId_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string profile_id = 3 [json_name = "profileId"];</code>
-     * @return The bytes for profileId.
+     * <code>string step_id = 3 [json_name = "stepId"];</code>
+     * @return The bytes for stepId.
      */
     public com.google.protobuf.ByteString
-        getProfileIdBytes() {
-      java.lang.Object ref = profileId_;
+        getStepIdBytes() {
+      java.lang.Object ref = stepId_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        profileId_ = b;
+        stepId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string profile_id = 3 [json_name = "profileId"];</code>
-     * @param value The profileId to set.
+     * <code>string step_id = 3 [json_name = "stepId"];</code>
+     * @param value The stepId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileId(
+    public Builder setStepId(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      profileId_ = value;
+      stepId_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
     /**
-     * <code>string profile_id = 3 [json_name = "profileId"];</code>
+     * <code>string step_id = 3 [json_name = "stepId"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearProfileId() {
-      profileId_ = getDefaultInstance().getProfileId();
+    public Builder clearStepId() {
+      stepId_ = getDefaultInstance().getStepId();
       bitField0_ = (bitField0_ & ~0x00000004);
       onChanged();
       return this;
     }
     /**
-     * <code>string profile_id = 3 [json_name = "profileId"];</code>
-     * @param value The bytes for profileId to set.
+     * <code>string step_id = 3 [json_name = "stepId"];</code>
+     * @param value The bytes for stepId to set.
      * @return This builder for chaining.
      */
-    public Builder setProfileIdBytes(
+    public Builder setStepIdBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      profileId_ = value;
+      stepId_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
 
-    private java.lang.Object display_ = "";
+    private java.lang.Object errorCode_ = "";
     /**
-     * <code>string display = 4 [json_name = "display"];</code>
-     * @return The display.
+     * <code>string error_code = 4 [json_name = "errorCode"];</code>
+     * @return The errorCode.
      */
-    public java.lang.String getDisplay() {
-      java.lang.Object ref = display_;
+    public java.lang.String getErrorCode() {
+      java.lang.Object ref = errorCode_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        display_ = s;
+        errorCode_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string display = 4 [json_name = "display"];</code>
-     * @return The bytes for display.
+     * <code>string error_code = 4 [json_name = "errorCode"];</code>
+     * @return The bytes for errorCode.
      */
     public com.google.protobuf.ByteString
-        getDisplayBytes() {
-      java.lang.Object ref = display_;
+        getErrorCodeBytes() {
+      java.lang.Object ref = errorCode_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        display_ = b;
+        errorCode_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string display = 4 [json_name = "display"];</code>
-     * @param value The display to set.
+     * <code>string error_code = 4 [json_name = "errorCode"];</code>
+     * @param value The errorCode to set.
      * @return This builder for chaining.
      */
-    public Builder setDisplay(
+    public Builder setErrorCode(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      display_ = value;
+      errorCode_ = value;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
     /**
-     * <code>string display = 4 [json_name = "display"];</code>
+     * <code>string error_code = 4 [json_name = "errorCode"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearDisplay() {
-      display_ = getDefaultInstance().getDisplay();
+    public Builder clearErrorCode() {
+      errorCode_ = getDefaultInstance().getErrorCode();
       bitField0_ = (bitField0_ & ~0x00000008);
       onChanged();
       return this;
     }
     /**
-     * <code>string display = 4 [json_name = "display"];</code>
-     * @param value The bytes for display to set.
+     * <code>string error_code = 4 [json_name = "errorCode"];</code>
+     * @param value The bytes for errorCode to set.
      * @return This builder for chaining.
      */
-    public Builder setDisplayBytes(
+    public Builder setErrorCodeBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      display_ = value;
+      errorCode_ = value;
       bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-
-    private int cdpPort_ ;
-    /**
-     * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
-     * @return The cdpPort.
-     */
-    @java.lang.Override
-    public int getCdpPort() {
-      return cdpPort_;
-    }
-    /**
-     * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
-     * @param value The cdpPort to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCdpPort(int value) {
-
-      cdpPort_ = value;
-      bitField0_ |= 0x00000010;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>int32 cdp_port = 5 [json_name = "cdpPort"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearCdpPort() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      cdpPort_ = 0;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object proxyBindingId_ = "";
-    /**
-     * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-     * @return The proxyBindingId.
-     */
-    public java.lang.String getProxyBindingId() {
-      java.lang.Object ref = proxyBindingId_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        proxyBindingId_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-     * @return The bytes for proxyBindingId.
-     */
-    public com.google.protobuf.ByteString
-        getProxyBindingIdBytes() {
-      java.lang.Object ref = proxyBindingId_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        proxyBindingId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-     * @param value The proxyBindingId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setProxyBindingId(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      proxyBindingId_ = value;
-      bitField0_ |= 0x00000020;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearProxyBindingId() {
-      proxyBindingId_ = getDefaultInstance().getProxyBindingId();
-      bitField0_ = (bitField0_ & ~0x00000020);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string proxy_binding_id = 6 [json_name = "proxyBindingId"];</code>
-     * @param value The bytes for proxyBindingId to set.
-     * @return This builder for chaining.
-     */
-    public Builder setProxyBindingIdBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      proxyBindingId_ = value;
-      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
@@ -1107,23 +897,23 @@ private static final long serialVersionUID = 0L;
     }
 
 
-    // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.StartRuntimeCommand)
+    // @@protoc_insertion_point(builder_scope:browsercloud.node.v1.AgentNavigationFailedEvent)
   }
 
-  // @@protoc_insertion_point(class_scope:browsercloud.node.v1.StartRuntimeCommand)
-  private static final io.browsercloud.proto.node.v1.StartRuntimeCommand DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:browsercloud.node.v1.AgentNavigationFailedEvent)
+  private static final io.browsercloud.proto.node.v1.AgentNavigationFailedEvent DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.StartRuntimeCommand();
+    DEFAULT_INSTANCE = new io.browsercloud.proto.node.v1.AgentNavigationFailedEvent();
   }
 
-  public static io.browsercloud.proto.node.v1.StartRuntimeCommand getDefaultInstance() {
+  public static io.browsercloud.proto.node.v1.AgentNavigationFailedEvent getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<StartRuntimeCommand>
-      PARSER = new com.google.protobuf.AbstractParser<StartRuntimeCommand>() {
+  private static final com.google.protobuf.Parser<AgentNavigationFailedEvent>
+      PARSER = new com.google.protobuf.AbstractParser<AgentNavigationFailedEvent>() {
     @java.lang.Override
-    public StartRuntimeCommand parsePartialFrom(
+    public AgentNavigationFailedEvent parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1142,17 +932,17 @@ private static final long serialVersionUID = 0L;
     }
   };
 
-  public static com.google.protobuf.Parser<StartRuntimeCommand> parser() {
+  public static com.google.protobuf.Parser<AgentNavigationFailedEvent> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<StartRuntimeCommand> getParserForType() {
+  public com.google.protobuf.Parser<AgentNavigationFailedEvent> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public io.browsercloud.proto.node.v1.StartRuntimeCommand getDefaultInstanceForType() {
+  public io.browsercloud.proto.node.v1.AgentNavigationFailedEvent getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

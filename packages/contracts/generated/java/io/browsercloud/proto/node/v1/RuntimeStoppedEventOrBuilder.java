@@ -37,4 +37,64 @@ public interface RuntimeStoppedEventOrBuilder extends
    * @return The exitCode.
    */
   int getExitCode();
+
+  /**
+   * <code>string profile_id = 4 [json_name = "profileId"];</code>
+   * @return The profileId.
+   */
+  java.lang.String getProfileId();
+  /**
+   * <code>string profile_id = 4 [json_name = "profileId"];</code>
+   * @return The bytes for profileId.
+   */
+  com.google.protobuf.ByteString
+      getProfileIdBytes();
+
+  /**
+   * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+   * @return The checkpointId.
+   */
+  java.lang.String getCheckpointId();
+  /**
+   * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+   * @return The bytes for checkpointId.
+   */
+  com.google.protobuf.ByteString
+      getCheckpointIdBytes();
+
+  /**
+   * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+   * @return The checkpointEpoch.
+   */
+  long getCheckpointEpoch();
+
+  /**
+   * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+   * @return The profileWriteEpoch.
+   */
+  long getProfileWriteEpoch();
+
+  /**
+   * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+   * @return The coreSizeBytes.
+   */
+  long getCoreSizeBytes();
+
+  /**
+   * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+   * @return The checkpointFileCount.
+   */
+  long getCheckpointFileCount();
+
+  /**
+   * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+   * @return The restoreStatus.
+   */
+  java.lang.String getRestoreStatus();
+  /**
+   * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+   * @return The bytes for restoreStatus.
+   */
+  com.google.protobuf.ByteString
+      getRestoreStatusBytes();
 }

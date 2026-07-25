@@ -979,6 +979,7 @@ dependencies = [
  "node-journal",
  "prost",
  "remote-desktop-gateway",
+ "reqwest",
  "runtime-supervisor",
  "serde",
  "serde_json",

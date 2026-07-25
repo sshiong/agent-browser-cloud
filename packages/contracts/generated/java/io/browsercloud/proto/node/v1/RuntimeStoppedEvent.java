@@ -23,6 +23,9 @@ private static final long serialVersionUID = 0L;
   private RuntimeStoppedEvent() {
     sessionId_ = "";
     reason_ = "";
+    profileId_ = "";
+    checkpointId_ = "";
+    restoreStatus_ = "";
   }
 
   @java.lang.Override
@@ -58,7 +61,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -74,7 +77,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -97,7 +100,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       reason_ = s;
@@ -113,7 +116,7 @@ private static final long serialVersionUID = 0L;
       getReasonBytes() {
     java.lang.Object ref = reason_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       reason_ = b;
@@ -132,6 +135,167 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public int getExitCode() {
     return exitCode_;
+  }
+
+  public static final int PROFILE_ID_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object profileId_ = "";
+  /**
+   * <code>string profile_id = 4 [json_name = "profileId"];</code>
+   * @return The profileId.
+   */
+  @java.lang.Override
+  public java.lang.String getProfileId() {
+    java.lang.Object ref = profileId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      profileId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string profile_id = 4 [json_name = "profileId"];</code>
+   * @return The bytes for profileId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProfileIdBytes() {
+    java.lang.Object ref = profileId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      profileId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CHECKPOINT_ID_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object checkpointId_ = "";
+  /**
+   * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+   * @return The checkpointId.
+   */
+  @java.lang.Override
+  public java.lang.String getCheckpointId() {
+    java.lang.Object ref = checkpointId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      checkpointId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+   * @return The bytes for checkpointId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCheckpointIdBytes() {
+    java.lang.Object ref = checkpointId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      checkpointId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CHECKPOINT_EPOCH_FIELD_NUMBER = 6;
+  private long checkpointEpoch_ = 0L;
+  /**
+   * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+   * @return The checkpointEpoch.
+   */
+  @java.lang.Override
+  public long getCheckpointEpoch() {
+    return checkpointEpoch_;
+  }
+
+  public static final int PROFILE_WRITE_EPOCH_FIELD_NUMBER = 7;
+  private long profileWriteEpoch_ = 0L;
+  /**
+   * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+   * @return The profileWriteEpoch.
+   */
+  @java.lang.Override
+  public long getProfileWriteEpoch() {
+    return profileWriteEpoch_;
+  }
+
+  public static final int CORE_SIZE_BYTES_FIELD_NUMBER = 8;
+  private long coreSizeBytes_ = 0L;
+  /**
+   * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+   * @return The coreSizeBytes.
+   */
+  @java.lang.Override
+  public long getCoreSizeBytes() {
+    return coreSizeBytes_;
+  }
+
+  public static final int CHECKPOINT_FILE_COUNT_FIELD_NUMBER = 9;
+  private long checkpointFileCount_ = 0L;
+  /**
+   * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+   * @return The checkpointFileCount.
+   */
+  @java.lang.Override
+  public long getCheckpointFileCount() {
+    return checkpointFileCount_;
+  }
+
+  public static final int RESTORE_STATUS_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object restoreStatus_ = "";
+  /**
+   * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+   * @return The restoreStatus.
+   */
+  @java.lang.Override
+  public java.lang.String getRestoreStatus() {
+    java.lang.Object ref = restoreStatus_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      restoreStatus_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+   * @return The bytes for restoreStatus.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRestoreStatusBytes() {
+    java.lang.Object ref = restoreStatus_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      restoreStatus_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -157,6 +321,27 @@ private static final long serialVersionUID = 0L;
     if (exitCode_ != 0) {
       output.writeInt32(3, exitCode_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(profileId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, profileId_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(checkpointId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, checkpointId_);
+    }
+    if (checkpointEpoch_ != 0L) {
+      output.writeUInt64(6, checkpointEpoch_);
+    }
+    if (profileWriteEpoch_ != 0L) {
+      output.writeUInt64(7, profileWriteEpoch_);
+    }
+    if (coreSizeBytes_ != 0L) {
+      output.writeUInt64(8, coreSizeBytes_);
+    }
+    if (checkpointFileCount_ != 0L) {
+      output.writeUInt64(9, checkpointFileCount_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(restoreStatus_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, restoreStatus_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -175,6 +360,31 @@ private static final long serialVersionUID = 0L;
     if (exitCode_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(3, exitCode_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(profileId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, profileId_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(checkpointId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, checkpointId_);
+    }
+    if (checkpointEpoch_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(6, checkpointEpoch_);
+    }
+    if (profileWriteEpoch_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(7, profileWriteEpoch_);
+    }
+    if (coreSizeBytes_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(8, coreSizeBytes_);
+    }
+    if (checkpointFileCount_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(9, checkpointFileCount_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(restoreStatus_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, restoreStatus_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -197,6 +407,20 @@ private static final long serialVersionUID = 0L;
         .equals(other.getReason())) return false;
     if (getExitCode()
         != other.getExitCode()) return false;
+    if (!getProfileId()
+        .equals(other.getProfileId())) return false;
+    if (!getCheckpointId()
+        .equals(other.getCheckpointId())) return false;
+    if (getCheckpointEpoch()
+        != other.getCheckpointEpoch()) return false;
+    if (getProfileWriteEpoch()
+        != other.getProfileWriteEpoch()) return false;
+    if (getCoreSizeBytes()
+        != other.getCoreSizeBytes()) return false;
+    if (getCheckpointFileCount()
+        != other.getCheckpointFileCount()) return false;
+    if (!getRestoreStatus()
+        .equals(other.getRestoreStatus())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -214,6 +438,24 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getReason().hashCode();
     hash = (37 * hash) + EXIT_CODE_FIELD_NUMBER;
     hash = (53 * hash) + getExitCode();
+    hash = (37 * hash) + PROFILE_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getProfileId().hashCode();
+    hash = (37 * hash) + CHECKPOINT_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getCheckpointId().hashCode();
+    hash = (37 * hash) + CHECKPOINT_EPOCH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getCheckpointEpoch());
+    hash = (37 * hash) + PROFILE_WRITE_EPOCH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getProfileWriteEpoch());
+    hash = (37 * hash) + CORE_SIZE_BYTES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getCoreSizeBytes());
+    hash = (37 * hash) + CHECKPOINT_FILE_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getCheckpointFileCount());
+    hash = (37 * hash) + RESTORE_STATUS_FIELD_NUMBER;
+    hash = (53 * hash) + getRestoreStatus().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -352,6 +594,13 @@ private static final long serialVersionUID = 0L;
       sessionId_ = "";
       reason_ = "";
       exitCode_ = 0;
+      profileId_ = "";
+      checkpointId_ = "";
+      checkpointEpoch_ = 0L;
+      profileWriteEpoch_ = 0L;
+      coreSizeBytes_ = 0L;
+      checkpointFileCount_ = 0L;
+      restoreStatus_ = "";
       return this;
     }
 
@@ -393,6 +642,27 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.exitCode_ = exitCode_;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.profileId_ = profileId_;
+      }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.checkpointId_ = checkpointId_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.checkpointEpoch_ = checkpointEpoch_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.profileWriteEpoch_ = profileWriteEpoch_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.coreSizeBytes_ = coreSizeBytes_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.checkpointFileCount_ = checkpointFileCount_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.restoreStatus_ = restoreStatus_;
       }
     }
 
@@ -453,6 +723,33 @@ private static final long serialVersionUID = 0L;
       if (other.getExitCode() != 0) {
         setExitCode(other.getExitCode());
       }
+      if (!other.getProfileId().isEmpty()) {
+        profileId_ = other.profileId_;
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      if (!other.getCheckpointId().isEmpty()) {
+        checkpointId_ = other.checkpointId_;
+        bitField0_ |= 0x00000010;
+        onChanged();
+      }
+      if (other.getCheckpointEpoch() != 0L) {
+        setCheckpointEpoch(other.getCheckpointEpoch());
+      }
+      if (other.getProfileWriteEpoch() != 0L) {
+        setProfileWriteEpoch(other.getProfileWriteEpoch());
+      }
+      if (other.getCoreSizeBytes() != 0L) {
+        setCoreSizeBytes(other.getCoreSizeBytes());
+      }
+      if (other.getCheckpointFileCount() != 0L) {
+        setCheckpointFileCount(other.getCheckpointFileCount());
+      }
+      if (!other.getRestoreStatus().isEmpty()) {
+        restoreStatus_ = other.restoreStatus_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -494,6 +791,41 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 24
+            case 34: {
+              profileId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
+            case 42: {
+              checkpointId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
+            case 48: {
+              checkpointEpoch_ = input.readUInt64();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
+            case 56: {
+              profileWriteEpoch_ = input.readUInt64();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
+            case 64: {
+              coreSizeBytes_ = input.readUInt64();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 72: {
+              checkpointFileCount_ = input.readUInt64();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 82: {
+              restoreStatus_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -536,7 +868,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -608,7 +940,7 @@ private static final long serialVersionUID = 0L;
         getReasonBytes() {
       java.lang.Object ref = reason_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         reason_ = b;
@@ -686,6 +1018,350 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private java.lang.Object profileId_ = "";
+    /**
+     * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     * @return The profileId.
+     */
+    public java.lang.String getProfileId() {
+      java.lang.Object ref = profileId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        profileId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     * @return The bytes for profileId.
+     */
+    public com.google.protobuf.ByteString
+        getProfileIdBytes() {
+      java.lang.Object ref = profileId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        profileId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     * @param value The profileId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProfileId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      profileId_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProfileId() {
+      profileId_ = getDefaultInstance().getProfileId();
+      bitField0_ = (bitField0_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string profile_id = 4 [json_name = "profileId"];</code>
+     * @param value The bytes for profileId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProfileIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      profileId_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object checkpointId_ = "";
+    /**
+     * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     * @return The checkpointId.
+     */
+    public java.lang.String getCheckpointId() {
+      java.lang.Object ref = checkpointId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        checkpointId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     * @return The bytes for checkpointId.
+     */
+    public com.google.protobuf.ByteString
+        getCheckpointIdBytes() {
+      java.lang.Object ref = checkpointId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        checkpointId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     * @param value The checkpointId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCheckpointId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkpointId_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCheckpointId() {
+      checkpointId_ = getDefaultInstance().getCheckpointId();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string checkpoint_id = 5 [json_name = "checkpointId"];</code>
+     * @param value The bytes for checkpointId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCheckpointIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      checkpointId_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private long checkpointEpoch_ ;
+    /**
+     * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+     * @return The checkpointEpoch.
+     */
+    @java.lang.Override
+    public long getCheckpointEpoch() {
+      return checkpointEpoch_;
+    }
+    /**
+     * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+     * @param value The checkpointEpoch to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCheckpointEpoch(long value) {
+
+      checkpointEpoch_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 checkpoint_epoch = 6 [json_name = "checkpointEpoch"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCheckpointEpoch() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      checkpointEpoch_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long profileWriteEpoch_ ;
+    /**
+     * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+     * @return The profileWriteEpoch.
+     */
+    @java.lang.Override
+    public long getProfileWriteEpoch() {
+      return profileWriteEpoch_;
+    }
+    /**
+     * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+     * @param value The profileWriteEpoch to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProfileWriteEpoch(long value) {
+
+      profileWriteEpoch_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 profile_write_epoch = 7 [json_name = "profileWriteEpoch"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProfileWriteEpoch() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      profileWriteEpoch_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long coreSizeBytes_ ;
+    /**
+     * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+     * @return The coreSizeBytes.
+     */
+    @java.lang.Override
+    public long getCoreSizeBytes() {
+      return coreSizeBytes_;
+    }
+    /**
+     * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+     * @param value The coreSizeBytes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoreSizeBytes(long value) {
+
+      coreSizeBytes_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 core_size_bytes = 8 [json_name = "coreSizeBytes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCoreSizeBytes() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      coreSizeBytes_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long checkpointFileCount_ ;
+    /**
+     * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+     * @return The checkpointFileCount.
+     */
+    @java.lang.Override
+    public long getCheckpointFileCount() {
+      return checkpointFileCount_;
+    }
+    /**
+     * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+     * @param value The checkpointFileCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCheckpointFileCount(long value) {
+
+      checkpointFileCount_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 checkpoint_file_count = 9 [json_name = "checkpointFileCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCheckpointFileCount() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      checkpointFileCount_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object restoreStatus_ = "";
+    /**
+     * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     * @return The restoreStatus.
+     */
+    public java.lang.String getRestoreStatus() {
+      java.lang.Object ref = restoreStatus_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        restoreStatus_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     * @return The bytes for restoreStatus.
+     */
+    public com.google.protobuf.ByteString
+        getRestoreStatusBytes() {
+      java.lang.Object ref = restoreStatus_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        restoreStatus_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     * @param value The restoreStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRestoreStatus(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      restoreStatus_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRestoreStatus() {
+      restoreStatus_ = getDefaultInstance().getRestoreStatus();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string restore_status = 10 [json_name = "restoreStatus"];</code>
+     * @param value The bytes for restoreStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRestoreStatusBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      restoreStatus_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -749,4 +1425,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

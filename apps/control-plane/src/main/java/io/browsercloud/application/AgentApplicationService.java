@@ -388,6 +388,7 @@ public class AgentApplicationService {
         entity.getBlockedReason(),
         entity.getCurrentStep(),
         plan.steps().size(),
+        entity.getReplanCount(),
         domains,
         new AgentTaskView.PlanView(
             plan.intentId(), stepViews, plan.maxActions(), plan.replanBudget(), plan.expiresAt()),

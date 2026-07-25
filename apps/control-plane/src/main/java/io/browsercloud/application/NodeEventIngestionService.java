@@ -27,6 +27,7 @@ public class NodeEventIngestionService {
   private final StaticProxyApplicationService proxyApplicationService;
   private final SessionRepository sessionRepository;
   private final NodeCommandGateway nodeCommandGateway;
+  private final AgentNavigationCompletionService agentNavigationCompletionService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -35,7 +36,8 @@ public class NodeEventIngestionService {
       ProfileApplicationService profileApplicationService,
       StaticProxyApplicationService proxyApplicationService,
       SessionRepository sessionRepository,
-      NodeCommandGateway nodeCommandGateway) {
+      NodeCommandGateway nodeCommandGateway,
+      AgentNavigationCompletionService agentNavigationCompletionService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -43,6 +45,7 @@ public class NodeEventIngestionService {
     this.proxyApplicationService = proxyApplicationService;
     this.sessionRepository = sessionRepository;
     this.nodeCommandGateway = nodeCommandGateway;
+    this.agentNavigationCompletionService = agentNavigationCompletionService;
   }
 
   @Transactional
@@ -56,8 +59,10 @@ public class NodeEventIngestionService {
       throw new NodeEventRejectedException(result.reason());
     }
     switch (command.event()) {
-      case NodeEvent.StateUpdated state ->
-          browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
+      case NodeEvent.StateUpdated state -> {
+        browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
+        agentNavigationCompletionService.stateUpdated(command, state);
+      }
       case NodeEvent.StateDiff diff -> {
         if (!browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff)) {
           browserStateRepository.invalidate(
@@ -78,6 +83,8 @@ public class NodeEventIngestionService {
             truncated.reason());
         requestAutomaticFullResync(command, truncated.reason(), truncated.affectedRoot());
       }
+      case NodeEvent.AgentNavigationFailed failed ->
+          agentNavigationCompletionService.navigationFailed(command, failed);
       case NodeEvent.HumanTakeoverReady ready ->
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ready.state());
       case NodeEvent.HumanTakeoverEnded ended ->

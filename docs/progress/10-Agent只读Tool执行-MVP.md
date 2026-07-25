@@ -1,6 +1,6 @@
 # Agent 只读 Tool 执行 MVP
 
-> 状态：Phase 4 第二个里程碑已完成；只读执行闭环可用，浏览器写操作仍保持关闭。
+> 状态：Phase 4 第二个里程碑已完成；本文保留当时验收口径。Navigate 后续状态见进度文档 11。
 > 日期：2026-07-26
 
 ## 已完成
@@ -45,8 +45,8 @@
 
 ### Web Console
 
-- `PLANNED` 且不含 Navigate 的任务显示“执行并验证只读计划”。
-- 含 Navigate 的任务显示“等待 Navigate Executor”，按钮保持 Disabled。
+- 本里程碑验收时，`PLANNED` 且不含 Navigate 的任务显示“执行并验证只读计划”。
+- 本里程碑验收时，含 Navigate 的任务仍保持 Disabled；该限制已在第三个里程碑解除。
 - 完成后展示 Task `COMPLETED`、每步 `VERIFIED`、结构化脱敏 Output 和 Result Hash。
 - 顶部状态明确显示 `Read tools live · Navigate pending`。
 
@@ -76,7 +76,7 @@ make test-e2e
 
 | 缺口 | 下一步 |
 |---|---|
-| Navigate | 增加正式 Node Command/Event，校验最终 URL、Context Epoch、State Version 与域名 |
+| Navigate | 已在进度文档 11 完成正式 Node Command/Event、最终 URL、Epoch、State Version 与域名校验 |
 | Click/Type/Scroll/Wait | 绑定 Target Ref、Target Revision、Input Sequence、坐标新鲜度和执行后 State |
 | 异步 Durable Executor | 当前只读执行在单个数据库事务中同步完成；写操作前需持久 Step Lease、Heartbeat、Timeout 和 Recovery |
 | Replan | Budget 已进入 Plan，但尚无失败分类、预算递减、重新规划和熔断 |
@@ -85,7 +85,8 @@ make test-e2e
 
 ## 下一步
 
-第三个里程碑接入 Node `navigate`，使导航计划经过：
+第三个里程碑已接入 Node `navigate`，完整证据见
+`11-Agent-Node-Navigate与有限Replan-MVP.md`：
 
 ```text
 Capability Verify

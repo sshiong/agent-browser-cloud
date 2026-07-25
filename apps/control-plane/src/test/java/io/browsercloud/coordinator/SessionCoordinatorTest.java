@@ -172,6 +172,106 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void shouldAcquireHumanTakeoverAndCreateInputBarrierCommand() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(4L);
+
+    var result = coordinator.handle(new RequestHumanTakeover("ses-1", "user-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    verify(operationRepository)
+        .insert(
+            argThat(
+                operation ->
+                    operation.mode() == OperationMode.HUMAN_TAKEOVER
+                        && operation.actorId().equals("user-1")
+                        && operation.operationEpoch() == 4));
+    verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("BeginHumanTakeover")
+                        && command.operationEpoch() == 4));
+  }
+
+  @Test
+  void shouldMoveHumanTakeoverToExecutingAfterInputBarrierAndStateResync() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(
+            Optional.of(
+                createActiveOperation(
+                    "ses-1", OperationMode.HUMAN_TAKEOVER, OperationPhase.PREPARING, "user-1")));
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-1",
+            3,
+            3,
+            "https://example.test",
+            "Example",
+            "hash",
+            "COMPLETE",
+            java.util.List.of());
+
+    var result =
+        coordinator.handle(
+            nodeEvent(new NodeEvent.HumanTakeoverReady("ses-1", "user-1", state), 0, 1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(operationRepository)
+        .transitionPhase("op-1", OperationPhase.PREPARING, OperationPhase.EXECUTING);
+  }
+
+  @Test
+  void shouldReleaseHumanTakeoverThroughNodeBarrier() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(
+            Optional.of(
+                createActiveOperation(
+                    "ses-1", OperationMode.HUMAN_TAKEOVER, OperationPhase.EXECUTING, "user-1")));
+
+    var result = coordinator.handle(new ReleaseHumanTakeover("ses-1", "user-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    verify(operationRepository)
+        .transitionPhase("op-1", OperationPhase.EXECUTING, OperationPhase.COMPLETING);
+    verify(nodeCommandGateway)
+        .send(argThat(command -> command.commandType().equals("EndHumanTakeover")));
+  }
+
+  @Test
+  void shouldCommitHumanTakeoverOnlyAfterNodeReleasedInputAndResyncedState() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(
+            Optional.of(
+                createActiveOperation(
+                    "ses-1", OperationMode.HUMAN_TAKEOVER, OperationPhase.COMPLETING, "user-1")));
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-1",
+            4,
+            4,
+            "https://example.test",
+            "Example",
+            "hash-4",
+            "COMPLETE",
+            java.util.List.of());
+
+    var result =
+        coordinator.handle(
+            nodeEvent(new NodeEvent.HumanTakeoverEnded("ses-1", "user-1", state), 0, 1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.COMMITTED);
+  }
+
+  @Test
   void shouldHandleRuntimeStoppedEvent() {
     var session = createSession("ses-1", SessionState.TERMINATING);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
@@ -266,11 +366,16 @@ class SessionCoordinatorTest {
   }
 
   private ExclusiveOperation createActiveOperation(String sessionId, OperationMode mode) {
+    return createActiveOperation(sessionId, mode, OperationPhase.PREPARING, "control-plane");
+  }
+
+  private ExclusiveOperation createActiveOperation(
+      String sessionId, OperationMode mode, OperationPhase phase, String actorId) {
     return new ExclusiveOperation(
         "op-1",
         sessionId,
         OwnerType.SYSTEM,
-        "control-plane",
+        actorId,
         mode,
         0,
         0,
@@ -279,7 +384,7 @@ class SessionCoordinatorTest {
         null,
         true,
         true,
-        OperationPhase.PREPARING,
+        phase,
         OperationState.ACTIVE,
         Set.of(),
         Instant.now().plusSeconds(300),

@@ -7,8 +7,9 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    BrowserCrashEvent, BrowserStateEvent, CommandAck, CommandEnvelope, DispatchRequest,
-    DispatchResponse, EventEnvelope, ExecuteInputCommand, InteractiveTargetState, PingRequest,
+    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateEvent, CommandAck, CommandEnvelope,
+    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
+    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
     PingResponse, PublishRequest, ReleaseAllInputCommand, RuntimeStartedEvent, RuntimeStoppedEvent,
     StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
@@ -156,6 +157,42 @@ impl NodeControlService {
         }
     }
 
+    fn browser_state_payload(state: CurrentState) -> BrowserStateEvent {
+        BrowserStateEvent {
+            session_id: state.session_id,
+            state_version: state.state_version,
+            target_revision: state.target_revision,
+            url: state.url,
+            title: state.title,
+            state_quality: match state.quality {
+                StateQuality::Complete => "COMPLETE",
+                StateQuality::DepthLimited => "DEPTH_LIMITED",
+                StateQuality::Resyncing => "RESYNCING",
+                StateQuality::Degraded => "DEGRADED",
+                StateQuality::Invalid => "INVALID",
+            }
+            .to_owned(),
+            content_hash: state.content_hash,
+            targets: state
+                .targets
+                .into_iter()
+                .map(|target| InteractiveTargetState {
+                    target_ref: target.target_ref,
+                    role: target.role,
+                    name: target.name,
+                    bounds: target.bounds.map(|bounds| TargetBounds {
+                        x: bounds.x,
+                        y: bounds.y,
+                        width: bounds.width,
+                        height: bounds.height,
+                    }),
+                    enabled: target.enabled,
+                    visible: target.visible,
+                })
+                .collect(),
+        }
+    }
+
     async fn publish_event(&self, event: EventEnvelope) -> anyhow::Result<()> {
         let target = if self.control_plane_event_target.starts_with("http://")
             || self.control_plane_event_target.starts_with("https://")
@@ -210,6 +247,78 @@ impl NodeControlService {
             error_code: persisted.acknowledgement.error_code.clone(),
             error_message: persisted.acknowledgement.error_message.clone(),
         }
+    }
+
+    async fn execute_takeover_barrier(
+        &self,
+        command: &CommandEnvelope,
+        payload_session_id: &str,
+        user_id: &str,
+        begin: bool,
+    ) -> CommandResult {
+        if payload_session_id != command.session_id {
+            return self.failed(
+                command,
+                anyhow::anyhow!("takeover payload session_id does not match envelope"),
+            );
+        }
+        if user_id.is_empty() || user_id.chars().count() > 128 {
+            return self.failed(
+                command,
+                anyhow::anyhow!("takeover user_id must contain 1 to 128 characters"),
+            );
+        }
+        let input = self
+            .input_brokers
+            .lock()
+            .await
+            .get(&command.session_id)
+            .cloned();
+        let Some(input) = input else {
+            return self.failed(
+                command,
+                anyhow::anyhow!("input broker is not available for session"),
+            );
+        };
+        if let Err(error) = input.release_all().await {
+            return self.failed(command, error);
+        }
+        let state = match self
+            .state_collector
+            .collect_current_state(&command.session_id)
+            .await
+        {
+            Ok(state) => Self::browser_state_payload(state),
+            Err(error) => return self.failed(command, error),
+        };
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = if begin {
+            Self::event(
+                command,
+                "HumanTakeoverReady",
+                sequence,
+                HumanTakeoverReadyEvent {
+                    session_id: command.session_id.clone(),
+                    user_id: user_id.to_owned(),
+                    state: Some(state),
+                },
+            )
+        } else {
+            Self::event(
+                command,
+                "HumanTakeoverEnded",
+                sequence,
+                HumanTakeoverEndedEvent {
+                    session_id: command.session_id.clone(),
+                    user_id: user_id.to_owned(),
+                    state: Some(state),
+                },
+            )
+        };
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
     }
 
     async fn execute(&self, command: &CommandEnvelope) -> CommandResult {
@@ -392,6 +501,34 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "BeginHumanTakeover" => {
+                match BeginHumanTakeoverCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        self.execute_takeover_barrier(
+                            command,
+                            &payload.session_id,
+                            &payload.user_id,
+                            true,
+                        )
+                        .await
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
+            "EndHumanTakeover" => {
+                match EndHumanTakeoverCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        self.execute_takeover_barrier(
+                            command,
+                            &payload.session_id,
+                            &payload.user_id,
+                            false,
+                        )
+                        .await
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "ReleaseAllInput" => match ReleaseAllInputCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
                     if payload.session_id != command.session_id {
@@ -655,40 +792,7 @@ impl NodeControlService {
             context_epoch,
             operation_epoch: 0,
             sequence,
-            payload: BrowserStateEvent {
-                session_id: state.session_id,
-                state_version: state.state_version,
-                target_revision: state.target_revision,
-                url: state.url,
-                title: state.title,
-                state_quality: match state.quality {
-                    StateQuality::Complete => "COMPLETE",
-                    StateQuality::DepthLimited => "DEPTH_LIMITED",
-                    StateQuality::Resyncing => "RESYNCING",
-                    StateQuality::Degraded => "DEGRADED",
-                    StateQuality::Invalid => "INVALID",
-                }
-                .to_owned(),
-                content_hash: state.content_hash,
-                targets: state
-                    .targets
-                    .into_iter()
-                    .map(|target| InteractiveTargetState {
-                        target_ref: target.target_ref,
-                        role: target.role,
-                        name: target.name,
-                        bounds: target.bounds.map(|bounds| TargetBounds {
-                            x: bounds.x,
-                            y: bounds.y,
-                            width: bounds.width,
-                            height: bounds.height,
-                        }),
-                        enabled: target.enabled,
-                        visible: target.visible,
-                    })
-                    .collect(),
-            }
-            .encode_to_vec(),
+            payload: Self::browser_state_payload(state).encode_to_vec(),
         };
         let persisted = PersistedCommandResult {
             acknowledgement: PersistedAcknowledgement {

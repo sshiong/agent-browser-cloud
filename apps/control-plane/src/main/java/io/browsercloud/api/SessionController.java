@@ -69,6 +69,24 @@ public class SessionController {
     return ResponseEntity.accepted().body(service.terminate(sessionId, tenantId));
   }
 
+  /** 获取排他人工接管权，并在 Browser Node 建立输入释放屏障。 */
+  @PostMapping("/{sessionId}:takeover")
+  public ResponseEntity<OperationResponse> requestTakeover(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return ResponseEntity.accepted().body(service.requestTakeover(sessionId, tenantId, actorId));
+  }
+
+  /** 释放人工接管权；完成 All-keys-up 和 State Resync 后 Operation 才会提交。 */
+  @PostMapping("/{sessionId}:release-takeover")
+  public ResponseEntity<OperationResponse> releaseTakeover(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return ResponseEntity.accepted().body(service.releaseTakeover(sessionId, tenantId, actorId));
+  }
+
   /**
    * 获取 Session 详情。
    *

@@ -16,17 +16,18 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import {
   useSession,
   useBrowserState,
+  useRequestHumanTakeover,
   useStartSession,
   useTerminateSession,
 } from '@/features/sessions/api/sessionQueries';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
-import { isSessionApiError } from '@/api/session';
+import { DEFAULT_ACTOR_ID, isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
 import type {
   BrowserStateView,
@@ -36,6 +37,7 @@ import type {
 
 export function SessionDetailPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const sessionQuery = useSession(id);
   const browserStateQuery = useBrowserState(
     id,
@@ -43,6 +45,7 @@ export function SessionDetailPage() {
   );
   const startMutation = useStartSession(id);
   const terminateMutation = useTerminateSession(id);
+  const takeoverMutation = useRequestHumanTakeover(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
 
   const session = sessionQuery.data;
@@ -54,10 +57,27 @@ export function SessionDetailPage() {
     session &&
     !['TERMINATED', 'TERMINATING'].includes(session.state) &&
     !session.currentOperation;
+  const takeoverActive = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
+  const takeoverOwned =
+    takeoverActive && session.currentOperation?.actorId === DEFAULT_ACTOR_ID;
+  const takeoverHeldByOther = takeoverActive && !takeoverOwned;
+  const canTakeover =
+    session &&
+    ['RUNNING', 'DEGRADED'].includes(session.state) &&
+    (!session.currentOperation || takeoverOwned);
 
   const terminate = async () => {
     await terminateMutation.mutateAsync();
     setTerminateOpen(false);
+  };
+
+  const openTakeover = async () => {
+    try {
+      if (!takeoverOwned) await takeoverMutation.mutateAsync();
+      navigate(`/remote-desktop?session=${encodeURIComponent(id)}`);
+    } catch {
+      // React Query exposes the structured error in MutationFeedback.
+    }
   };
 
   return (
@@ -163,12 +183,20 @@ export function SessionDetailPage() {
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title="HumanTakeover 后端接口尚未实现"
-                    className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-[7px] border border-border-default px-3 text-[11px] text-text-muted opacity-50"
+                    onClick={() => void openTakeover()}
+                    disabled={!canTakeover || takeoverMutation.isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-accent/35 px-3 text-[11px] text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted disabled:opacity-45"
                   >
-                    <Hand size={13} />
-                    人工接管
+                    {takeoverMutation.isPending ? (
+                      <LoaderCircle size={13} className="animate-spin" />
+                    ) : (
+                      <Hand size={13} />
+                    )}
+                    {takeoverHeldByOther
+                      ? '他人接管中'
+                      : takeoverOwned
+                        ? '打开接管'
+                        : '人工接管'}
                   </button>
                   {canStart && (
                     <button
@@ -201,6 +229,7 @@ export function SessionDetailPage() {
             <MutationFeedback
               startError={startMutation.error}
               terminateError={terminateMutation.error}
+              takeoverError={takeoverMutation.error}
               hasActiveOperation={Boolean(session.currentOperation)}
               sessionState={session.state}
             />
@@ -288,7 +317,8 @@ export function SessionDetailPage() {
                     <CapabilityRow
                       icon={Hand}
                       title="HumanTakeover"
-                      detail="等待排他 Operation 接管接口"
+                      detail="排他 Operation、输入屏障与结束 State Resync 已接入"
+                      ready
                     />
                     <CapabilityRow
                       icon={ShieldAlert}
@@ -560,15 +590,17 @@ function TargetFlag({ active, label }: { active: boolean; label: string }) {
 function MutationFeedback({
   startError,
   terminateError,
+  takeoverError,
   hasActiveOperation,
   sessionState,
 }: {
   startError: unknown;
   terminateError: unknown;
+  takeoverError: unknown;
   hasActiveOperation: boolean;
   sessionState: SessionState;
 }) {
-  const error = startError || terminateError;
+  const error = startError || terminateError || takeoverError;
   if (error) {
     const requestId = isSessionApiError(error)
       ? error.body.requestId

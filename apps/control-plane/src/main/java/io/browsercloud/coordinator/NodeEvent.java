@@ -11,7 +11,9 @@ public sealed interface NodeEvent
     permits NodeEvent.RuntimeStarted,
         NodeEvent.RuntimeStopped,
         NodeEvent.RuntimeCrashed,
-        NodeEvent.StateUpdated {
+        NodeEvent.StateUpdated,
+        NodeEvent.HumanTakeoverReady,
+        NodeEvent.HumanTakeoverEnded {
 
   /** Runtime 启动事件。 */
   record RuntimeStarted(
@@ -54,4 +56,10 @@ public sealed interface NodeEvent
       boolean visible) {}
 
   record Bounds(double x, double y, double width, double height) {}
+
+  record HumanTakeoverReady(String sessionId, String userId, StateUpdated state)
+      implements NodeEvent {}
+
+  record HumanTakeoverEnded(String sessionId, String userId, StateUpdated state)
+      implements NodeEvent {}
 }

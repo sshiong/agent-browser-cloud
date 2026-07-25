@@ -135,6 +135,28 @@ message ReleaseAllInputCommand {
   string reason = 2;
 }
 
+message BeginHumanTakeoverCommand {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message EndHumanTakeoverCommand {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message HumanTakeoverReadyEvent {
+  string session_id = 1;
+  string user_id = 2;
+  BrowserStateEvent state = 3;
+}
+
+message HumanTakeoverEndedEvent {
+  string session_id = 1;
+  string user_id = 2;
+  BrowserStateEvent state = 3;
+}
+
 // 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
 message ExecuteInputCommand {
   string session_id = 1;

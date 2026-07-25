@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
+import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.TargetBounds;
@@ -128,5 +129,69 @@ class NodeEventMapperTest {
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);
             });
+  }
+
+  @Test
+  void shouldMapHumanTakeoverReadyWithResyncedState() {
+    var state =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(8)
+            .setTargetRevision(7)
+            .setUrl("https://example.test/takeover")
+            .setTitle("Takeover ready")
+            .setContentHash("hash-8")
+            .setStateQuality("COMPLETE")
+            .build();
+    var payload =
+        HumanTakeoverReadyEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setUserId("user-test")
+            .setState(state)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_takeover_ready")
+            .setEventType(NodeEventMapper.HUMAN_TAKEOVER_READY)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setOperationEpoch(5)
+            .setSequence(3)
+            .setPayload(payload.toByteString())
+            .build();
+
+    var command = mapper.toCommand(envelope);
+
+    assertThat(command.event())
+        .isInstanceOfSatisfying(
+            NodeEvent.HumanTakeoverReady.class,
+            ready -> {
+              assertThat(ready.userId()).isEqualTo("user-test");
+              assertThat(ready.state().stateVersion()).isEqualTo(8);
+              assertThat(ready.state().stateQuality()).isEqualTo("COMPLETE");
+            });
+  }
+
+  @Test
+  void shouldRejectHumanTakeoverWithoutStateResync() {
+    var payload =
+        HumanTakeoverReadyEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setUserId("user-test")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_takeover_ready")
+            .setEventType(NodeEventMapper.HUMAN_TAKEOVER_READY)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(3)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("state is required");
   }
 }

@@ -150,6 +150,50 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}:takeover:
+    post:
+      operationId: requestHumanTakeover
+      summary: Acquire exclusive HumanTakeover control
+      tags: [Session, HumanTakeover]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "202":
+          description: HumanTakeover input barrier accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}:release-takeover:
+    post:
+      operationId: releaseHumanTakeover
+      summary: Release HumanTakeover after input cleanup and state resync
+      tags: [Session, HumanTakeover]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "202":
+          description: HumanTakeover release barrier accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -178,6 +222,15 @@ components:
       name: Idempotency-Key
       in: header
       required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    ActorId:
+      name: X-Actor-Id
+      in: header
+      required: true
+      description: Development actor identity. Production derives actor identity from the authenticated principal.
       schema:
         type: string
         minLength: 1

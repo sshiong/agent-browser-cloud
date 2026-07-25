@@ -40,7 +40,8 @@ public class NodeEventIngestionService {
     if (result.status() == CoordinatorResult.Status.REJECTED) {
       throw new NodeEventRejectedException(result.reason());
     }
-    if (command.event() instanceof NodeEvent.StateUpdated state) {
+    var state = stateFrom(command.event());
+    if (state != null) {
       browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
     }
 
@@ -49,6 +50,15 @@ public class NodeEventIngestionService {
   }
 
   public record Receipt(boolean duplicate) {}
+
+  private NodeEvent.StateUpdated stateFrom(NodeEvent event) {
+    return switch (event) {
+      case NodeEvent.StateUpdated state -> state;
+      case NodeEvent.HumanTakeoverReady ready -> ready.state();
+      case NodeEvent.HumanTakeoverEnded ended -> ended.state();
+      default -> null;
+    };
+  }
 
   public static final class NodeEventRejectedException extends RuntimeException {
     private final String reason;

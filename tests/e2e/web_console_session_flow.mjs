@@ -60,6 +60,19 @@ try {
   await expect(page.getByText("Run integration", { exact: true })).toBeVisible();
   await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "人工接管" }).click();
+  await page.waitForURL("**/remote-desktop?session=ses_*");
+  await expect(page.getByText("CONTROL ACQUIRED", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(
+    page.getByText("接管输入屏障已建立", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "结束接管" }).click();
+  await expect(page.getByText("NO CONTROL", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+
   await page.goto(`${baseUrl}/environments?create=1`);
   await page.waitForLoadState("networkidle");
   await expect(

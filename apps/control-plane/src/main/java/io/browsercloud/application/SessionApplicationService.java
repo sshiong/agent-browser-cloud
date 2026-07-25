@@ -106,6 +106,24 @@ public class SessionApplicationService {
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
 
+  /** 请求 HumanTakeover；Node 输入屏障完成后 Operation 进入 EXECUTING。 */
+  @Transactional
+  public OperationResponse requestTakeover(String sessionId, String tenantId, String userId) {
+    requireTenant(sessionId, tenantId);
+    var result = coordinator.handle(new RequestHumanTakeover(sessionId, userId));
+    return new OperationResponse(
+        result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
+  }
+
+  /** 结束 HumanTakeover；Node 释放全部输入并重采集状态后提交 Operation。 */
+  @Transactional
+  public OperationResponse releaseTakeover(String sessionId, String tenantId, String userId) {
+    requireTenant(sessionId, tenantId);
+    var result = coordinator.handle(new ReleaseHumanTakeover(sessionId, userId));
+    return new OperationResponse(
+        result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
+  }
+
   /** 获取 Session。 */
   public SessionView get(String sessionId, String tenantId) {
     var descriptor = sessionRepository.describe(sessionId);

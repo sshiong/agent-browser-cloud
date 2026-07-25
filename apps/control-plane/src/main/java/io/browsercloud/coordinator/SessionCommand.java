@@ -10,6 +10,7 @@ public sealed interface SessionCommand
         TerminateSession,
         SubmitAgentAction,
         RequestHumanTakeover,
+        ReleaseHumanTakeover,
         NodeEventReceived,
         WorkflowCompleted,
         OperationTimedOut {

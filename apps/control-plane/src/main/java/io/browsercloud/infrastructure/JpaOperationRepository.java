@@ -91,6 +91,21 @@ public class JpaOperationRepository implements OperationRepository {
     operationJpa.save(entity);
   }
 
+  @Override
+  @Transactional
+  public void transitionPhase(String operationId, OperationPhase expected, OperationPhase target) {
+    var entity =
+        operationJpa
+            .findById(operationId)
+            .orElseThrow(
+                () -> new StaleOperationException(operationId, expected.name(), "NOT_FOUND"));
+    if (!entity.getPhase().equals(expected.name())) {
+      throw new StaleOperationException(operationId, expected.name(), entity.getPhase());
+    }
+    entity.setPhase(target.name());
+    operationJpa.save(entity);
+  }
+
   private ExclusiveOperation toDomain(ExclusiveOperationEntity entity) {
     return new ExclusiveOperation(
         entity.getOperationId(),

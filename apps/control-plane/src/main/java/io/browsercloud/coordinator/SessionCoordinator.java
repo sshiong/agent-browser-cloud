@@ -1,8 +1,11 @@
 package io.browsercloud.coordinator;
 
+import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
+import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationMode;
+import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
@@ -57,6 +60,8 @@ public final class SessionCoordinator {
     return switch (command) {
       case StartSession start -> handleStart(start);
       case TerminateSession terminate -> handleTerminate(terminate);
+      case RequestHumanTakeover takeover -> handleHumanTakeover(takeover);
+      case ReleaseHumanTakeover release -> handleReleaseHumanTakeover(release);
       case NodeEventReceived event -> handleNodeEvent(event);
       case OperationTimedOut timeout -> handleTimeout(timeout);
       default -> CoordinatorResult.rejected("UNSUPPORTED_COMMAND");
@@ -147,6 +152,53 @@ public final class SessionCoordinator {
     nodeCommandGateway.send(NodeCommands.stopRuntime(session, operation, command.reason()));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.TERMINATING));
 
+    return CoordinatorResult.accepted(operation.operationId());
+  }
+
+  private CoordinatorResult handleHumanTakeover(RequestHumanTakeover command) {
+    var session = sessionRepository.requireForUpdate(command.sessionId());
+    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+      throw new InvalidSessionStateException(session.sessionId(), session.state(), "takeover");
+    }
+    var active = operationRepository.findActive(session.sessionId());
+    if (active.isPresent()) {
+      var operation = active.orElseThrow();
+      if (operation.mode() == OperationMode.HUMAN_TAKEOVER
+          && command.userId().equals(operation.actorId())) {
+        return CoordinatorResult.accepted(operation.operationId());
+      }
+      if (!operation.preemptible() || operation.priority() >= 90) {
+        throw new ActiveOperationExistsException(session.sessionId(), operation.operationId());
+      }
+      operationRepository.transition(
+          operation.operationId(), OperationState.ACTIVE, OperationState.ABORTED);
+    }
+
+    var takeover =
+        OperationFactory.humanTakeover(
+            session, command.userId(), operationRepository.nextOperationEpoch(session.sessionId()));
+    operationRepository.insert(takeover);
+    nodeCommandGateway.send(NodeCommands.beginHumanTakeover(session, takeover));
+    return CoordinatorResult.accepted(takeover.operationId());
+  }
+
+  private CoordinatorResult handleReleaseHumanTakeover(ReleaseHumanTakeover command) {
+    var session = sessionRepository.requireForUpdate(command.sessionId());
+    var operation =
+        operationRepository
+            .findActive(session.sessionId())
+            .filter(active -> active.mode() == OperationMode.HUMAN_TAKEOVER)
+            .filter(active -> command.userId().equals(active.actorId()))
+            .orElseThrow(
+                () ->
+                    new StaleOperationException(
+                        session.sessionId(), "ACTIVE_HUMAN_TAKEOVER", "NOT_FOUND"));
+    if (operation.phase() == OperationPhase.COMPLETING) {
+      return CoordinatorResult.accepted(operation.operationId());
+    }
+    operationRepository.transitionPhase(
+        operation.operationId(), operation.phase(), OperationPhase.COMPLETING);
+    nodeCommandGateway.send(NodeCommands.endHumanTakeover(session, operation));
     return CoordinatorResult.accepted(operation.operationId());
   }
 
@@ -291,6 +343,33 @@ public final class SessionCoordinator {
         // 状态更新，不需要修改 Session Context
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.HumanTakeoverReady ready -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().mode() != OperationMode.HUMAN_TAKEOVER
+            || !operation.orElseThrow().actorId().equals(ready.userId())) {
+          yield CoordinatorResult.rejected("STALE_HUMAN_TAKEOVER");
+        }
+        if (operation.orElseThrow().phase() == OperationPhase.PREPARING) {
+          operationRepository.transitionPhase(
+              operation.orElseThrow().operationId(),
+              OperationPhase.PREPARING,
+              OperationPhase.EXECUTING);
+        }
+        yield CoordinatorResult.completed();
+      }
+      case NodeEvent.HumanTakeoverEnded ended -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().mode() != OperationMode.HUMAN_TAKEOVER
+            || !operation.orElseThrow().actorId().equals(ended.userId())
+            || operation.orElseThrow().phase() != OperationPhase.COMPLETING) {
+          yield CoordinatorResult.rejected("STALE_HUMAN_TAKEOVER");
+        }
+        operationRepository.transition(
+            operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
+        yield CoordinatorResult.completed();
+      }
     };
   }
 
@@ -309,6 +388,8 @@ public final class SessionCoordinator {
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
+      case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };
   }
 

@@ -15,6 +15,8 @@ const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
 const API_BASE = (configuredBase || '/api/v1').replace(/\/$/, '');
 export const DEFAULT_TENANT_ID =
   import.meta.env.VITE_TENANT_ID?.trim() || 'tenant-local';
+export const DEFAULT_ACTOR_ID =
+  import.meta.env.VITE_ACTOR_ID?.trim() || 'user-local';
 
 /**
  * API 错误类。
@@ -161,6 +163,40 @@ export async function terminateSession(
     {
       method: 'POST',
       signal,
+    },
+    tenantId
+  );
+}
+
+export async function requestHumanTakeover(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = DEFAULT_ACTOR_ID,
+  signal?: AbortSignal
+): Promise<OperationResponse> {
+  return request<OperationResponse>(
+    `/sessions/${sessionId}:takeover`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'X-Actor-Id': actorId },
+    },
+    tenantId
+  );
+}
+
+export async function releaseHumanTakeover(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = DEFAULT_ACTOR_ID,
+  signal?: AbortSignal
+): Promise<OperationResponse> {
+  return request<OperationResponse>(
+    `/sessions/${sessionId}:release-takeover`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'X-Actor-Id': actorId },
     },
     tenantId
   );

@@ -6,6 +6,8 @@ import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
+import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
+import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,8 @@ public class NodeEventMapper {
   static final String RUNTIME_STOPPED = "RuntimeStopped";
   static final String BROWSER_CRASHED = "BrowserCrashed";
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
+  static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
+  static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
 
   public NodeEventReceived toCommand(EventEnvelope envelope) {
@@ -72,33 +76,31 @@ public class NodeEventMapper {
         }
         case BROWSER_STATE_UPDATED -> {
           var payload = BrowserStateEvent.parseFrom(envelope.getPayload());
-          var targets =
-              payload.getTargetsList().stream()
-                  .map(
-                      target ->
-                          new NodeEvent.InteractiveTarget(
-                              target.getTargetRef(),
-                              target.getRole(),
-                              target.hasName() ? target.getName() : null,
-                              target.hasBounds()
-                                  ? new NodeEvent.Bounds(
-                                      target.getBounds().getX(),
-                                      target.getBounds().getY(),
-                                      target.getBounds().getWidth(),
-                                      target.getBounds().getHeight())
-                                  : null,
-                              target.getEnabled(),
-                              target.getVisible()))
-                  .toList();
-          yield new NodeEvent.StateUpdated(
-              payload.getSessionId(),
-              payload.getStateVersion(),
-              payload.getTargetRevision(),
-              payload.getUrl(),
-              payload.getTitle(),
-              payload.getContentHash(),
-              payload.getStateQuality(),
-              targets);
+          yield state(payload);
+        }
+        case HUMAN_TAKEOVER_READY -> {
+          var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());
+          if (!payload.hasState()) {
+            throw new IllegalArgumentException("HumanTakeoverReady state is required");
+          }
+          var state = state(payload.getState());
+          if (!payload.getSessionId().equals(state.sessionId())) {
+            throw new IllegalArgumentException("takeover state session_id does not match payload");
+          }
+          yield new NodeEvent.HumanTakeoverReady(
+              payload.getSessionId(), payload.getUserId(), state);
+        }
+        case HUMAN_TAKEOVER_ENDED -> {
+          var payload = HumanTakeoverEndedEvent.parseFrom(envelope.getPayload());
+          if (!payload.hasState()) {
+            throw new IllegalArgumentException("HumanTakeoverEnded state is required");
+          }
+          var state = state(payload.getState());
+          if (!payload.getSessionId().equals(state.sessionId())) {
+            throw new IllegalArgumentException("takeover state session_id does not match payload");
+          }
+          yield new NodeEvent.HumanTakeoverEnded(
+              payload.getSessionId(), payload.getUserId(), state);
         }
         default ->
             throw new IllegalArgumentException(
@@ -115,7 +117,39 @@ public class NodeEventMapper {
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
+      case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };
+  }
+
+  private NodeEvent.StateUpdated state(BrowserStateEvent payload) {
+    var targets =
+        payload.getTargetsList().stream()
+            .map(
+                target ->
+                    new NodeEvent.InteractiveTarget(
+                        target.getTargetRef(),
+                        target.getRole(),
+                        target.hasName() ? target.getName() : null,
+                        target.hasBounds()
+                            ? new NodeEvent.Bounds(
+                                target.getBounds().getX(),
+                                target.getBounds().getY(),
+                                target.getBounds().getWidth(),
+                                target.getBounds().getHeight())
+                            : null,
+                        target.getEnabled(),
+                        target.getVisible()))
+            .toList();
+    return new NodeEvent.StateUpdated(
+        payload.getSessionId(),
+        payload.getStateVersion(),
+        payload.getTargetRevision(),
+        payload.getUrl(),
+        payload.getTitle(),
+        payload.getContentHash(),
+        payload.getStateQuality(),
+        targets);
   }
 
   private void requireText(String value, String field) {

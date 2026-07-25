@@ -46,6 +46,11 @@
 - API 错误不泄露堆栈，并带 Request ID、`no-store` 和基础安全响应头。
 - Browser State 事件经同一 Inbox/版本门禁写入 PostgreSQL JSONB 最新状态；
   REST API 在校验 Session 租户归属后返回状态，尚无状态时返回 204。
+- HumanTakeover 使用独立排他 Operation；同一 Actor 的重复获取幂等返回原 Operation，
+  其他 Actor 无法窃取或释放控制权。
+- Node 在接管开始和结束时释放全部按键/鼠标状态并立即重采集 Browser State；
+  Control Plane 仅在 Ready Event 后进入 `EXECUTING`，仅在 Ended Event 和结束
+  State Resync 提交后释放 Operation。
 
 ## 集成测试已经证明
 
@@ -65,6 +70,9 @@
 - 实际强杀 Chromium 后 Session 自动恢复到 Context Epoch 2 / Browser Generation 2；
   随后重启 Browser Node，Runtime Lease 对账使 Session 再恢复到 Epoch 3 /
   Generation 3，两个 Recovery Operation 均为 `COMMITTED`；
+- HumanTakeover Operation 完整经历
+  `PREPARING → EXECUTING → COMPLETING → COMMITTED`，开始和结束 State 均经过
+  Node Event Inbox 写入 PostgreSQL；
 - 真实 Chromium 可启动、通过 CDP Probe、导航本地页面、采集按钮/输入框并干净停止。
 
 ## Gate 缺口
@@ -72,5 +80,6 @@
 - 跨网络输入心跳/断线信号尚未形成正式契约；本地 5 秒空闲释放已接入，但仍需完成
   端到端 Key Up Loss 故障注入和 500 次 Runtime 循环验收。
 - Domain Outbox 消息总线 Publisher/Consumer、重放与 DLQ 演练。
-- noVNC、HumanTakeover 与接管后的 State Resync。
+- noVNC Display Adapter、跨网络输入心跳与真实断线释放；HumanTakeover 控制面和
+  接管前后 State Resync 已完成。
 - 多 Coordinator 并发抢占、Outbox Claim 与故障注入的完整验收。

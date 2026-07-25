@@ -251,14 +251,55 @@ for _ in $(seq 1 40); do
 done
 test "$reconciled_state_epoch" = "3"
 
+takeover_result="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: user-integration')"
+takeover_operation_id="$(printf '%s' "$takeover_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+takeover_phase=""
+for _ in $(seq 1 60); do
+  takeover_session="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  takeover_phase="$(printf '%s' "$takeover_session" | python3 -c 'import json,sys; op=json.load(sys.stdin)["currentOperation"]; print(op["phase"] if op else "")')"
+  if [[ "$takeover_phase" = "EXECUTING" ]]; then break; fi
+  sleep 0.25
+done
+test "$takeover_phase" = "EXECUTING"
+printf '%s' "$takeover_session" | python3 -c \
+  'import json,sys; op=json.load(sys.stdin)["currentOperation"]; assert op["mode"] == "HUMAN_TAKEOVER"; assert op["ownerType"] == "HUMAN"; assert op["actorId"] == "user-integration"'
+
+release_result="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:release-takeover" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: user-integration')"
+release_operation_id="$(printf '%s' "$release_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+test "$release_operation_id" = "$takeover_operation_id"
+takeover_active="true"
+for _ in $(seq 1 60); do
+  takeover_session="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  takeover_active="$(printf '%s' "$takeover_session" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["currentOperation"] is not None).lower())')"
+  if [[ "$takeover_active" = "false" ]]; then break; fi
+  sleep 0.25
+done
+test "$takeover_active" = "false"
+
+takeover_state="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$takeover_state" | python3 -c \
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"'
+
 published="0"
 for _ in $(seq 1 30); do
   published="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published" = "3" ]]; then break; fi
+  if [[ "$published" = "5" ]]; then break; fi
   sleep 0.5
 done
-test "$published" = "3"
+test "$published" = "5"
 
 terminate_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:terminate" \
@@ -279,27 +320,27 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "4"
+test "$committed_operations" = "5"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"
 inbox_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from inbox_events where consumer_id='session-coordinator-v1'")"
-test "$inbox_events" = "9"
+test "$inbox_events" = "11"
 published_commands="0"
 for _ in $(seq 1 20); do
   published_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published_commands" = "4" ]]; then break; fi
+  if [[ "$published_commands" = "6" ]]; then break; fi
   sleep 0.25
 done
-test "$published_commands" = "4"
+test "$published_commands" = "6"
 
 browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration'")"
 test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"

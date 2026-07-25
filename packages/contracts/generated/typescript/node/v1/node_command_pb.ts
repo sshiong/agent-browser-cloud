@@ -836,6 +836,190 @@ export class ReleaseAllInputCommand extends Message<ReleaseAllInputCommand> {
 }
 
 /**
+ * @generated from message browsercloud.node.v1.BeginHumanTakeoverCommand
+ */
+export class BeginHumanTakeoverCommand extends Message<BeginHumanTakeoverCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId = "";
+
+  constructor(data?: PartialMessage<BeginHumanTakeoverCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BeginHumanTakeoverCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BeginHumanTakeoverCommand {
+    return new BeginHumanTakeoverCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BeginHumanTakeoverCommand {
+    return new BeginHumanTakeoverCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BeginHumanTakeoverCommand {
+    return new BeginHumanTakeoverCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BeginHumanTakeoverCommand | PlainMessage<BeginHumanTakeoverCommand> | undefined, b: BeginHumanTakeoverCommand | PlainMessage<BeginHumanTakeoverCommand> | undefined): boolean {
+    return proto3.util.equals(BeginHumanTakeoverCommand, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.EndHumanTakeoverCommand
+ */
+export class EndHumanTakeoverCommand extends Message<EndHumanTakeoverCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId = "";
+
+  constructor(data?: PartialMessage<EndHumanTakeoverCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.EndHumanTakeoverCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): EndHumanTakeoverCommand {
+    return new EndHumanTakeoverCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): EndHumanTakeoverCommand {
+    return new EndHumanTakeoverCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): EndHumanTakeoverCommand {
+    return new EndHumanTakeoverCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: EndHumanTakeoverCommand | PlainMessage<EndHumanTakeoverCommand> | undefined, b: EndHumanTakeoverCommand | PlainMessage<EndHumanTakeoverCommand> | undefined): boolean {
+    return proto3.util.equals(EndHumanTakeoverCommand, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.HumanTakeoverReadyEvent
+ */
+export class HumanTakeoverReadyEvent extends Message<HumanTakeoverReadyEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: browsercloud.node.v1.BrowserStateEvent state = 3;
+   */
+  state?: BrowserStateEvent;
+
+  constructor(data?: PartialMessage<HumanTakeoverReadyEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.HumanTakeoverReadyEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "state", kind: "message", T: BrowserStateEvent },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HumanTakeoverReadyEvent {
+    return new HumanTakeoverReadyEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HumanTakeoverReadyEvent {
+    return new HumanTakeoverReadyEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HumanTakeoverReadyEvent {
+    return new HumanTakeoverReadyEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: HumanTakeoverReadyEvent | PlainMessage<HumanTakeoverReadyEvent> | undefined, b: HumanTakeoverReadyEvent | PlainMessage<HumanTakeoverReadyEvent> | undefined): boolean {
+    return proto3.util.equals(HumanTakeoverReadyEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.HumanTakeoverEndedEvent
+ */
+export class HumanTakeoverEndedEvent extends Message<HumanTakeoverEndedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: browsercloud.node.v1.BrowserStateEvent state = 3;
+   */
+  state?: BrowserStateEvent;
+
+  constructor(data?: PartialMessage<HumanTakeoverEndedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.HumanTakeoverEndedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "state", kind: "message", T: BrowserStateEvent },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HumanTakeoverEndedEvent {
+    return new HumanTakeoverEndedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HumanTakeoverEndedEvent {
+    return new HumanTakeoverEndedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HumanTakeoverEndedEvent {
+    return new HumanTakeoverEndedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: HumanTakeoverEndedEvent | PlainMessage<HumanTakeoverEndedEvent> | undefined, b: HumanTakeoverEndedEvent | PlainMessage<HumanTakeoverEndedEvent> | undefined): boolean {
+    return proto3.util.equals(HumanTakeoverEndedEvent, a, b);
+  }
+}
+
+/**
  * 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
  *
  * @generated from message browsercloud.node.v1.ExecuteInputCommand

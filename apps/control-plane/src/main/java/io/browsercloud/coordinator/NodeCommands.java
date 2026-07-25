@@ -2,6 +2,8 @@ package io.browsercloud.coordinator;
 
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
+import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.StartRuntimeCommand;
 import io.browsercloud.proto.node.v1.StopRuntimeCommand;
 import java.util.UUID;
@@ -51,6 +53,41 @@ public final class NodeCommands {
     return new NodeCommand(
         newId("cmd_"),
         "StopRuntime",
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operation.operationEpoch(),
+        operation.operationId(),
+        payload);
+  }
+
+  public static NodeCommand beginHumanTakeover(
+      SessionContext session, ExclusiveOperation operation) {
+    var payload =
+        BeginHumanTakeoverCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setUserId(operation.actorId())
+            .build()
+            .toByteArray();
+    return command(session, operation, "BeginHumanTakeover", payload);
+  }
+
+  public static NodeCommand endHumanTakeover(SessionContext session, ExclusiveOperation operation) {
+    var payload =
+        EndHumanTakeoverCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setUserId(operation.actorId())
+            .build()
+            .toByteArray();
+    return command(session, operation, "EndHumanTakeover", payload);
+  }
+
+  private static NodeCommand command(
+      SessionContext session, ExclusiveOperation operation, String commandType, byte[] payload) {
+    return new NodeCommand(
+        newId("cmd_"),
+        commandType,
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),

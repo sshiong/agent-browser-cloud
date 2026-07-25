@@ -3,6 +3,7 @@ import {
   createSession,
   getBrowserState,
   listSessions,
+  requestHumanTakeover,
   SessionApiError,
   startSession,
 } from './session';
@@ -114,6 +115,36 @@ describe('session API', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('binds HumanTakeover to tenant and actor headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ operationId: 'op_takeover', state: 'ACTIVE' }),
+        {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await requestHumanTakeover(
+      'ses_1234567890abcdef',
+      'tenant-test',
+      'user-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef:takeover',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'user-test',
         }),
       })
     );

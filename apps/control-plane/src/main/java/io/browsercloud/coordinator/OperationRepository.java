@@ -2,6 +2,7 @@ package io.browsercloud.coordinator;
 
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationMode;
+import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.operation.OperationState;
 import java.time.Instant;
 import java.util.Optional;
@@ -51,4 +52,7 @@ public interface OperationRepository {
    * @throws StaleOperationException 如果当前状态不匹配
    */
   void transition(String operationId, OperationState expectedState, OperationState targetState);
+
+  void transitionPhase(
+      String operationId, OperationPhase expectedPhase, OperationPhase targetPhase);
 }

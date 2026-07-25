@@ -4,6 +4,8 @@ import {
   getBrowserState,
   getSession,
   listSessions,
+  releaseHumanTakeover,
+  requestHumanTakeover,
   startSession,
   terminateSession,
 } from '@/api/session';
@@ -85,6 +87,14 @@ export function useStartSession(sessionId: string) {
 
 export function useTerminateSession(sessionId: string) {
   return useSessionOperation(sessionId, () => terminateSession(sessionId));
+}
+
+export function useRequestHumanTakeover(sessionId: string) {
+  return useSessionOperation(sessionId, () => requestHumanTakeover(sessionId));
+}
+
+export function useReleaseHumanTakeover(sessionId: string) {
+  return useSessionOperation(sessionId, () => releaseHumanTakeover(sessionId));
 }
 
 function useSessionOperation(

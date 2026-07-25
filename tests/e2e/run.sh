@@ -41,6 +41,7 @@ cleanup() {
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/web-console.log" 2>/dev/null || true
+    tail -n 120 "$temp_dir/vnc-events.jsonl" 2>/dev/null || true
   fi
   rm -rf "$temp_dir"
 }
@@ -62,7 +63,9 @@ node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); prin
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 screenshot_path="${WEB_CONSOLE_SCREENSHOT:-/tmp/agent-browser-cloud-session-flow.png}"
+ticket_secret="browsercloud-e2e-remote-desktop-ticket-secret-v1"
 
 for _ in $(seq 1 40); do
   docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
@@ -78,6 +81,13 @@ NODE_AGENT_PORT="$node_port" \
 NODE_ID=node-e2e \
 CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 RUNTIME_ROOT="$temp_dir/runtime" \
+REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
+REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
+REMOTE_DESKTOP_ALLOWED_ORIGINS="http://127.0.0.1:${web_port}" \
+XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
+X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
+FAKE_VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
+RUST_LOG="node_agent=debug,remote_desktop_gateway=debug" \
   apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &
 node_pid=$!
 
@@ -88,6 +98,7 @@ REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
+REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
 SERVER_PORT="$control_port" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
   >"$temp_dir/control-plane.log" 2>&1 &
@@ -103,6 +114,7 @@ done
 printf '%s' "$health" | grep -q '"status":"UP"'
 
 VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
+VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_port}" \
   pnpm --dir apps/web-console exec vite \
   --host 127.0.0.1 --port "$web_port" --strictPort >"$temp_dir/web-console.log" 2>&1 &
 web_pid=$!
@@ -116,6 +128,7 @@ curl -fsS "http://127.0.0.1:${web_port}/environments" >/dev/null
 
 WEB_CONSOLE_BASE_URL="http://127.0.0.1:${web_port}" \
 WEB_CONSOLE_SCREENSHOT="$screenshot_path" \
+VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
   pnpm --dir apps/web-console exec node ../../tests/e2e/web_console_session_flow.mjs
 
 printf 'real_web_console_e2e=true\nhealth=%s\n' "$health"

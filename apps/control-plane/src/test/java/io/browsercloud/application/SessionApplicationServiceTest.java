@@ -27,6 +27,7 @@ class SessionApplicationServiceTest {
   @Mock private OperationRepository operationRepository;
   @Mock private BrowserStateRepository browserStateRepository;
   @Mock private IdempotencyService idempotencyService;
+  @Mock private RemoteDesktopTicketService remoteDesktopTicketService;
 
   private SessionApplicationService service;
 
@@ -39,6 +40,7 @@ class SessionApplicationServiceTest {
             operationRepository,
             browserStateRepository,
             idempotencyService,
+            remoteDesktopTicketService,
             "runtime-test");
   }
 

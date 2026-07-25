@@ -39,6 +39,8 @@ services:
       REDIS_PORT: 6379
       BROWSER_NODE_GRPC_TARGET: browser-node:9090
       CONTROL_PLANE_NODE_EVENT_PORT: 9091
+      APP_ENVIRONMENT: local
+      REMOTE_DESKTOP_TICKET_SECRET: ${REMOTE_DESKTOP_TICKET_SECRET:-browsercloud-local-remote-desktop-ticket-secret-v1}
       SERVER_PORT: 8080
     ports:
       - "127.0.0.1:8080:8080"
@@ -64,8 +66,13 @@ services:
       RUNTIME_ROOT: /var/lib/browsercloud/runtime
       NODE_JOURNAL_PATH: /var/lib/browsercloud/runtime/node-journal.sqlite3
       RUST_LOG: info
+      APP_ENVIRONMENT: local
+      REMOTE_DESKTOP_GATEWAY_PORT: 6080
+      REMOTE_DESKTOP_TICKET_SECRET: ${REMOTE_DESKTOP_TICKET_SECRET:-browsercloud-local-remote-desktop-ticket-secret-v1}
+      REMOTE_DESKTOP_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
     expose:
       - "9090"
+      - "6080"
     volumes:
       - browser_runtime:/var/lib/browsercloud/runtime
 

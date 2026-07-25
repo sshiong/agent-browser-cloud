@@ -218,49 +218,50 @@ public final class NodeCommand {
       "\220\001\n\027HumanTakeoverReadyEvent\022\035\n\nsession_i" +
       "d\030\001 \001(\tR\tsessionId\022\027\n\007user_id\030\002 \001(\tR\006use" +
       "rId\022=\n\005state\030\003 \001(\0132\'.browsercloud.node.v" +
-      "1.BrowserStateEventR\005state\"\220\001\n\027HumanTake" +
+      "1.BrowserStateEventR\005state\"\250\001\n\027HumanTake" +
       "overEndedEvent\022\035\n\nsession_id\030\001 \001(\tR\tsess" +
       "ionId\022\027\n\007user_id\030\002 \001(\tR\006userId\022=\n\005state\030" +
       "\003 \001(\0132\'.browsercloud.node.v1.BrowserStat" +
-      "eEventR\005state\"\245\003\n\023ExecuteInputCommand\022\035\n" +
-      "\nsession_id\030\001 \001(\tR\tsessionId\022\032\n\010sequence" +
-      "\030\002 \001(\004R\010sequence\022E\n\nmouse_move\030\n \001(\0132$.b" +
-      "rowsercloud.node.v1.MouseMoveInputH\000R\tmo" +
-      "useMove\022G\n\nmouse_down\030\013 \001(\0132&.browserclo" +
-      "ud.node.v1.MouseButtonInputH\000R\tmouseDown" +
-      "\022C\n\010mouse_up\030\014 \001(\0132&.browsercloud.node.v" +
-      "1.MouseButtonInputH\000R\007mouseUp\022;\n\010key_dow" +
-      "n\030\r \001(\0132\036.browsercloud.node.v1.KeyInputH" +
-      "\000R\007keyDown\0227\n\006key_up\030\016 \001(\0132\036.browserclou" +
-      "d.node.v1.KeyInputH\000R\005keyUpB\010\n\006action\",\n" +
-      "\016MouseMoveInput\022\014\n\001x\030\001 \001(\005R\001x\022\014\n\001y\030\002 \001(\005" +
-      "R\001y\"*\n\020MouseButtonInput\022\026\n\006button\030\001 \001(\rR" +
-      "\006button\"\034\n\010KeyInput\022\020\n\003key\030\001 \001(\tR\003key\"\270\002" +
-      "\n\021BrowserStateEvent\022\035\n\nsession_id\030\001 \001(\tR" +
-      "\tsessionId\022#\n\rstate_version\030\002 \001(\004R\014state" +
-      "Version\022\'\n\017target_revision\030\003 \001(\004R\016target" +
-      "Revision\022\020\n\003url\030\004 \001(\tR\003url\022\024\n\005title\030\005 \001(" +
-      "\tR\005title\022#\n\rstate_quality\030\006 \001(\tR\014stateQu" +
-      "ality\022!\n\014content_hash\030\007 \001(\tR\013contentHash" +
-      "\022F\n\007targets\030\010 \003(\0132,.browsercloud.node.v1" +
-      ".InteractiveTargetStateR\007targets\"\355\001\n\026Int" +
-      "eractiveTargetState\022\035\n\ntarget_ref\030\001 \001(\tR" +
-      "\ttargetRef\022\022\n\004role\030\002 \001(\tR\004role\022\027\n\004name\030\003" +
-      " \001(\tH\000R\004name\210\001\001\022?\n\006bounds\030\004 \001(\0132\".browse" +
-      "rcloud.node.v1.TargetBoundsH\001R\006bounds\210\001\001" +
-      "\022\030\n\007enabled\030\005 \001(\010R\007enabled\022\030\n\007visible\030\006 " +
-      "\001(\010R\007visibleB\007\n\005_nameB\t\n\007_bounds\"X\n\014Targ" +
-      "etBounds\022\014\n\001x\030\001 \001(\001R\001x\022\014\n\001y\030\002 \001(\001R\001y\022\024\n\005" +
-      "width\030\003 \001(\001R\005width\022\026\n\006height\030\004 \001(\001R\006heig" +
-      "ht2\276\001\n\022NodeControlService\022M\n\004Ping\022!.brow" +
-      "sercloud.node.v1.PingRequest\032\".browsercl" +
-      "oud.node.v1.PingResponse\022Y\n\010Dispatch\022%.b" +
-      "rowsercloud.node.v1.DispatchRequest\032&.br" +
-      "owsercloud.node.v1.DispatchResponse2j\n\020N" +
-      "odeEventService\022V\n\007Publish\022$.browserclou" +
-      "d.node.v1.PublishRequest\032%.browsercloud." +
-      "node.v1.PublishResponseB!\n\035io.browserclo" +
-      "ud.proto.node.v1P\001b\006proto3"
+      "eEventR\005state\022\026\n\006reason\030\004 \001(\tR\006reason\"\245\003" +
+      "\n\023ExecuteInputCommand\022\035\n\nsession_id\030\001 \001(" +
+      "\tR\tsessionId\022\032\n\010sequence\030\002 \001(\004R\010sequence" +
+      "\022E\n\nmouse_move\030\n \001(\0132$.browsercloud.node" +
+      ".v1.MouseMoveInputH\000R\tmouseMove\022G\n\nmouse" +
+      "_down\030\013 \001(\0132&.browsercloud.node.v1.Mouse" +
+      "ButtonInputH\000R\tmouseDown\022C\n\010mouse_up\030\014 \001" +
+      "(\0132&.browsercloud.node.v1.MouseButtonInp" +
+      "utH\000R\007mouseUp\022;\n\010key_down\030\r \001(\0132\036.browse" +
+      "rcloud.node.v1.KeyInputH\000R\007keyDown\0227\n\006ke" +
+      "y_up\030\016 \001(\0132\036.browsercloud.node.v1.KeyInp" +
+      "utH\000R\005keyUpB\010\n\006action\",\n\016MouseMoveInput\022" +
+      "\014\n\001x\030\001 \001(\005R\001x\022\014\n\001y\030\002 \001(\005R\001y\"*\n\020MouseButt" +
+      "onInput\022\026\n\006button\030\001 \001(\rR\006button\"\034\n\010KeyIn" +
+      "put\022\020\n\003key\030\001 \001(\tR\003key\"\270\002\n\021BrowserStateEv" +
+      "ent\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022#\n\rst" +
+      "ate_version\030\002 \001(\004R\014stateVersion\022\'\n\017targe" +
+      "t_revision\030\003 \001(\004R\016targetRevision\022\020\n\003url\030" +
+      "\004 \001(\tR\003url\022\024\n\005title\030\005 \001(\tR\005title\022#\n\rstat" +
+      "e_quality\030\006 \001(\tR\014stateQuality\022!\n\014content" +
+      "_hash\030\007 \001(\tR\013contentHash\022F\n\007targets\030\010 \003(" +
+      "\0132,.browsercloud.node.v1.InteractiveTarg" +
+      "etStateR\007targets\"\355\001\n\026InteractiveTargetSt" +
+      "ate\022\035\n\ntarget_ref\030\001 \001(\tR\ttargetRef\022\022\n\004ro" +
+      "le\030\002 \001(\tR\004role\022\027\n\004name\030\003 \001(\tH\000R\004name\210\001\001\022" +
+      "?\n\006bounds\030\004 \001(\0132\".browsercloud.node.v1.T" +
+      "argetBoundsH\001R\006bounds\210\001\001\022\030\n\007enabled\030\005 \001(" +
+      "\010R\007enabled\022\030\n\007visible\030\006 \001(\010R\007visibleB\007\n\005" +
+      "_nameB\t\n\007_bounds\"X\n\014TargetBounds\022\014\n\001x\030\001 " +
+      "\001(\001R\001x\022\014\n\001y\030\002 \001(\001R\001y\022\024\n\005width\030\003 \001(\001R\005wid" +
+      "th\022\026\n\006height\030\004 \001(\001R\006height2\276\001\n\022NodeContr" +
+      "olService\022M\n\004Ping\022!.browsercloud.node.v1" +
+      ".PingRequest\032\".browsercloud.node.v1.Ping" +
+      "Response\022Y\n\010Dispatch\022%.browsercloud.node" +
+      ".v1.DispatchRequest\032&.browsercloud.node." +
+      "v1.DispatchResponse2j\n\020NodeEventService\022" +
+      "V\n\007Publish\022$.browsercloud.node.v1.Publis" +
+      "hRequest\032%.browsercloud.node.v1.PublishR" +
+      "esponseB!\n\035io.browsercloud.proto.node.v1" +
+      "P\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -379,7 +380,7 @@ public final class NodeCommand {
     internal_static_browsercloud_node_v1_HumanTakeoverEndedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_HumanTakeoverEndedEvent_descriptor,
-        new java.lang.String[] { "SessionId", "UserId", "State", });
+        new java.lang.String[] { "SessionId", "UserId", "State", "Reason", });
     internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor =
       getDescriptor().getMessageTypes().get(19);
     internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable = new

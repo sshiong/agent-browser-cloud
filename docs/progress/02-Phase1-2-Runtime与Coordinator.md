@@ -25,6 +25,10 @@
   单 Session 串行化、sequence 去重/拒绝陈旧输入，并在 Runtime 停止时释放全部按键与按钮。
 - Runtime Monitor 每秒检查 Input Ledger，5 秒无活动且仍有按下/拖拽状态时自动执行
   All-keys-up / All-buttons-up；CDP 鼠标位掩码与常用非文本按键已显式映射。
+- Xvfb/x11vnc 图形 Runtime、短期一次性连接票据、同源 WebSocket→回环 VNC Gateway
+  和正式 noVNC Client 已完成，真实 E2E 验证像素、鼠标与键盘回环。
+- Gateway 使用 Ping/Pong 检测半开连接，并提供两秒重连宽限；宽限结束后 Node 会执行
+  CDP/x11 双输入释放、State Resync 和持久 `HumanTakeoverEnded` 事件。
 - Node 每两秒采集一次页面状态；仅在内容哈希变化时生成持久
   `BrowserStateUpdated`，并复用 SQLite Journal 的失败重投路径。
 - Network Helper、Storage Helper、Browser Supervisor 已有可编译接口和部分单元测试。
@@ -77,9 +81,6 @@
 
 ## Gate 缺口
 
-- 跨网络输入心跳/断线信号尚未形成正式契约；本地 5 秒空闲释放已接入，但仍需完成
-  端到端 Key Up Loss 故障注入和 500 次 Runtime 循环验收。
+- 资源硬限制、Renderer/Browser Crash 更细分类和 500 次 Runtime 循环验收。
 - Domain Outbox 消息总线 Publisher/Consumer、重放与 DLQ 演练。
-- noVNC Display Adapter、跨网络输入心跳与真实断线释放；HumanTakeover 控制面和
-  接管前后 State Resync 已完成。
 - 多 Coordinator 并发抢占、Outbox Claim 与故障注入的完整验收。

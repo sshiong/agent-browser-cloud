@@ -6,6 +6,7 @@ import type {
   OperationResponse,
   SessionListResponse,
   BrowserStateView,
+  RemoteDesktopConnection,
 } from '../types/session';
 
 /**
@@ -193,6 +194,23 @@ export async function releaseHumanTakeover(
 ): Promise<OperationResponse> {
   return request<OperationResponse>(
     `/sessions/${sessionId}:release-takeover`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'X-Actor-Id': actorId },
+    },
+    tenantId
+  );
+}
+
+export async function createRemoteDesktopConnection(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = DEFAULT_ACTOR_ID,
+  signal?: AbortSignal
+): Promise<RemoteDesktopConnection> {
+  return request<RemoteDesktopConnection>(
+    `/sessions/${sessionId}:desktop-connection`,
     {
       method: 'POST',
       signal,

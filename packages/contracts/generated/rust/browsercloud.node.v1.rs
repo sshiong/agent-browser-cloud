@@ -219,6 +219,9 @@ pub struct HumanTakeoverEndedEvent {
     pub user_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub state: ::core::option::Option<BrowserStateEvent>,
+    /// USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
+    #[prost(string, tag="4")]
+    pub reason: ::prost::alloc::string::String,
 }
 /// 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
 #[allow(clippy::derive_partial_eq_without_eq)]

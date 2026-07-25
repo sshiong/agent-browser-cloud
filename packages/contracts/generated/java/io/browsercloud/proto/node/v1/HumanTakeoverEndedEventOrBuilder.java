@@ -46,4 +46,24 @@ public interface HumanTakeoverEndedEventOrBuilder extends
    * <code>.browsercloud.node.v1.BrowserStateEvent state = 3 [json_name = "state"];</code>
    */
   io.browsercloud.proto.node.v1.BrowserStateEventOrBuilder getStateOrBuilder();
+
+  /**
+   * <pre>
+   * USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
+   * </pre>
+   *
+   * <code>string reason = 4 [json_name = "reason"];</code>
+   * @return The reason.
+   */
+  java.lang.String getReason();
+  /**
+   * <pre>
+   * USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
+   * </pre>
+   *
+   * <code>string reason = 4 [json_name = "reason"];</code>
+   * @return The bytes for reason.
+   */
+  com.google.protobuf.ByteString
+      getReasonBytes();
 }

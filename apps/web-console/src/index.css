@@ -1,5 +1,15 @@
 @import 'tailwindcss';
 
+.novnc-viewport > div,
+.novnc-viewport canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.novnc-viewport canvas {
+  outline: none;
+}
+
 /* ========================================
    Agent Browser Cloud — Design Tokens
    Neo-Industrial Observatory / 新工业观测站

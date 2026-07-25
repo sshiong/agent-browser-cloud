@@ -58,12 +58,14 @@ redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
 start_browser_node() {
   CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
   NODE_AGENT_PORT="$node_port" \
   NODE_ID=node-integration \
   CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
+  REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
   RUNTIME_ROOT="$temp_dir/runtime" \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
   node_pid=$!

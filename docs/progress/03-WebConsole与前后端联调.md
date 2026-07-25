@@ -57,7 +57,10 @@
   进入远程桌面工作区，并展示权威 Actor、Operation Phase、State Version 与输入安全状态。
 - 结束接管调用真实 Release API，等待 Node All-keys-up 和 State Resync 完成后才显示
   `NO CONTROL`；前端同时阻止其他 Actor 打开或释放不属于自己的接管 Operation。
-- 远程桌面显示数据面仍明确标注 noVNC Adapter 待接入，不用截图或 Fixture 冒充实时画面。
+- 远程桌面已使用正式 noVNC RFB Client、短期一次性 Ticket 和同源 WebSocket，
+  实时显示 Browser Node 的真实像素并转发键鼠输入。
+- RFB 协商、在线、断线和失败状态均显式呈现；意外断线会触发前端安全释放，同时由
+  Browser Node 独立执行权威输入释放与 Operation 回收。
 
 ### Fixture 管理
 
@@ -89,6 +92,9 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 7. 第二个 Session 的 Termination Operation 自动提交，页面显示“已终止”；
 8. 浏览器 Console 无错误。
 
+E2E 还覆盖实时 RFB 像素/输入回环，以及未发送 Shift KeyUp 就离开远程桌面时的
+服务端 x11 清键和 HumanTakeover 自动提交。
+
 测试入口：`make test-e2e`；启动器为 `tests/e2e/run.sh`，浏览器流程为
 `tests/e2e/web_console_session_flow.mjs`。该入口会自动托管 PostgreSQL、Redis、
 Browser Node、Control Plane 与 Vite，不依赖人工预启动服务。
@@ -103,5 +109,4 @@ Browser Node、Control Plane 与 Vite，不依赖人工预启动服务。
 | API Client 尚非 OpenAPI 自动生成 | 建立生成包并用适配层替换当前手写 Client |
 | 全局搜索、通知、主题和用户菜单未实现 | 目前明确 Disabled，等待对应契约与设计步骤 |
 | 其余模块仍是 Fixture | 按 Runtime → Profile → Proxy → Node → Logs/Security 的顺序接入 |
-| HumanTakeover 尚无真实画面 | 接入 Node noVNC/WebSocket 数据面，并用真实像素与输入回环验收 |
 | 完整 E2E 尚未进入 GitHub Actions | 需要稳定的浏览器缓存、服务编排与独立 CI Job |

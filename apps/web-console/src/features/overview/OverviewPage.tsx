@@ -8,7 +8,7 @@ import {
   Plus,
   Server,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingRows } from '@/components/feedback/AsyncStates';
 import { MetricCard } from '@/components/ui/MetricCard';

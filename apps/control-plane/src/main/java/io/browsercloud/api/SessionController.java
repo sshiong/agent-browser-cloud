@@ -87,6 +87,15 @@ public class SessionController {
     return ResponseEntity.accepted().body(service.releaseTakeover(sessionId, tenantId, actorId));
   }
 
+  /** 为当前 HumanTakeover Actor 签发短期、单次使用的 noVNC 数据面票据。 */
+  @PostMapping("/{sessionId}:desktop-connection")
+  public RemoteDesktopConnectionResponse createDesktopConnection(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return service.createDesktopConnection(sessionId, tenantId, actorId);
+  }
+
   /**
    * 获取 Session 详情。
    *

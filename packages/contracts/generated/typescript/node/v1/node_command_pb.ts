@@ -989,6 +989,13 @@ export class HumanTakeoverEndedEvent extends Message<HumanTakeoverEndedEvent> {
    */
   state?: BrowserStateEvent;
 
+  /**
+   * USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
+   *
+   * @generated from field: string reason = 4;
+   */
+  reason = "";
+
   constructor(data?: PartialMessage<HumanTakeoverEndedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1000,6 +1007,7 @@ export class HumanTakeoverEndedEvent extends Message<HumanTakeoverEndedEvent> {
     { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "state", kind: "message", T: BrowserStateEvent },
+    { no: 4, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HumanTakeoverEndedEvent {

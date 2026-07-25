@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
+import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
@@ -193,5 +194,41 @@ class NodeEventMapperTest {
     assertThatThrownBy(() -> mapper.toCommand(envelope))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("state is required");
+  }
+
+  @Test
+  void shouldMapGatewayDisconnectReasonWithResyncedState() {
+    var state =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(9)
+            .setStateQuality("COMPLETE")
+            .build();
+    var payload =
+        HumanTakeoverEndedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setUserId("user-test")
+            .setReason("GATEWAY_DISCONNECT")
+            .setState(state)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_takeover_disconnected")
+            .setEventType(NodeEventMapper.HUMAN_TAKEOVER_ENDED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setOperationEpoch(5)
+            .setSequence(4)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.HumanTakeoverEnded.class,
+            ended -> {
+              assertThat(ended.reason()).isEqualTo("GATEWAY_DISCONNECT");
+              assertThat(ended.state().stateVersion()).isEqualTo(9);
+            });
   }
 }

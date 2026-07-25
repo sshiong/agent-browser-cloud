@@ -180,3 +180,11 @@ export interface TargetBoundsView {
   width: number;
   height: number;
 }
+
+export interface RemoteDesktopConnection {
+  webSocketPath: string;
+  expiresAt: string;
+  protocol: 'rfb';
+  operationEpoch: number;
+  viewOnly: boolean;
+}

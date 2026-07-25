@@ -265,9 +265,43 @@ class SessionCoordinatorTest {
 
     var result =
         coordinator.handle(
-            nodeEvent(new NodeEvent.HumanTakeoverEnded("ses-1", "user-1", state), 0, 1));
+            nodeEvent(
+                new NodeEvent.HumanTakeoverEnded("ses-1", "user-1", "USER_RELEASE", state), 0, 1));
 
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.COMMITTED);
+  }
+
+  @Test
+  void shouldCommitHumanTakeoverAfterGatewayDisconnectBarrierAndResync() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(
+            Optional.of(
+                createActiveOperation(
+                    "ses-1", OperationMode.HUMAN_TAKEOVER, OperationPhase.EXECUTING, "user-1")));
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-1",
+            4,
+            4,
+            "https://example.test",
+            "Example",
+            "hash-4",
+            "COMPLETE",
+            java.util.List.of());
+
+    var result =
+        coordinator.handle(
+            nodeEvent(
+                new NodeEvent.HumanTakeoverEnded("ses-1", "user-1", "GATEWAY_DISCONNECT", state),
+                0,
+                1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(operationRepository)
+        .transitionPhase("op-1", OperationPhase.EXECUTING, OperationPhase.COMPLETING);
     verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.COMMITTED);
   }
 

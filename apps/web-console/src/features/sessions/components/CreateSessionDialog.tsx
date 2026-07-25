@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, ArrowRight, Check, LoaderCircle, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { z } from 'zod';
 import { DEFAULT_TENANT_ID } from '@/api/session';
 import { isSessionApiError } from '@/api/session';

@@ -9,7 +9,8 @@ import {
   Unplug,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useCallback, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { DEFAULT_ACTOR_ID } from '@/api/session';
@@ -19,6 +20,7 @@ import {
   useSession,
 } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
+import { NoVncViewport, type DesktopConnectionState } from './NoVncViewport';
 
 export function RemoteDesktopPage() {
   const [searchParams] = useSearchParams();
@@ -29,6 +31,8 @@ export function RemoteDesktopPage() {
     sessionQuery.data?.state === 'RUNNING'
   );
   const releaseMutation = useReleaseHumanTakeover(sessionId);
+  const [desktopState, setDesktopState] =
+    useState<DesktopConnectionState>('DISCONNECTED');
   const session = sessionQuery.data;
   const takeover = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
@@ -47,6 +51,11 @@ export function RemoteDesktopPage() {
       // The structured mutation error is rendered below.
     }
   };
+  const releaseAfterDisconnect = useCallback(() => {
+    if (!releaseMutation.isPending) {
+      void releaseMutation.mutateAsync().catch(() => undefined);
+    }
+  }, [releaseMutation]);
 
   return (
     <div>
@@ -130,16 +139,25 @@ export function RemoteDesktopPage() {
                     DISPLAY / PRIMARY
                   </div>
                   <span className="font-mono text-[9px] text-text-muted">
-                    1440 × 900 · mapping pending
+                    1440 × 900 · {desktopState}
                   </span>
                 </div>
                 <div className="aspect-[16/10] min-h-[420px]">
-                  <DisplayProvisioning
-                    ready={ready}
-                    heldByOther={takeoverHeldByOther}
-                    title={stateQuery.data?.title}
-                    url={stateQuery.data?.url}
-                  />
+                  {ready && session.currentOperation ? (
+                    <NoVncViewport
+                      sessionId={sessionId}
+                      operationEpoch={session.currentOperation.operationEpoch}
+                      onConnectionState={setDesktopState}
+                      onUnexpectedDisconnect={releaseAfterDisconnect}
+                    />
+                  ) : (
+                    <DisplayProvisioning
+                      ready={ready}
+                      heldByOther={takeoverHeldByOther}
+                      title={stateQuery.data?.title}
+                      url={stateQuery.data?.url}
+                    />
+                  )}
                 </div>
               </div>
             </section>
@@ -228,7 +246,7 @@ function DisplayProvisioning({
         </p>
         <p className="mt-2 text-[10px] leading-5 text-text-muted">
           {ready
-            ? 'Control Plane 已确认 Input Ledger 清空和 State Resync。noVNC Display Adapter 正在接入此受控画布。'
+            ? 'Control Plane 已确认 Input Ledger 清空和 State Resync，正在签发短期 noVNC 数据面票据。'
             : heldByOther
               ? '当前 Actor 无权读取或释放他人的控制边界。请返回 Session 详情等待接管结束。'
               : 'Browser Node 正在释放 Agent 遗留按键并采集接管前状态。'}

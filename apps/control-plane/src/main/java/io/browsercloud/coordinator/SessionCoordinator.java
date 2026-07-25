@@ -362,12 +362,19 @@ public final class SessionCoordinator {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
             || operation.orElseThrow().mode() != OperationMode.HUMAN_TAKEOVER
-            || !operation.orElseThrow().actorId().equals(ended.userId())
-            || operation.orElseThrow().phase() != OperationPhase.COMPLETING) {
+            || !operation.orElseThrow().actorId().equals(ended.userId())) {
+          yield CoordinatorResult.rejected("STALE_HUMAN_TAKEOVER");
+        }
+        var active = operation.orElseThrow();
+        if (active.phase() == OperationPhase.EXECUTING
+            && ended.reason().equals("GATEWAY_DISCONNECT")) {
+          operationRepository.transitionPhase(
+              active.operationId(), OperationPhase.EXECUTING, OperationPhase.COMPLETING);
+        } else if (active.phase() != OperationPhase.COMPLETING) {
           yield CoordinatorResult.rejected("STALE_HUMAN_TAKEOVER");
         }
         operationRepository.transition(
-            operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
+            active.operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
         yield CoordinatorResult.completed();
       }
     };

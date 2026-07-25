@@ -2,7 +2,10 @@ package io.browsercloud.application;
 
 import io.browsercloud.api.*;
 import io.browsercloud.coordinator.*;
+import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
+import io.browsercloud.domain.operation.OperationMode;
+import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
@@ -24,6 +27,7 @@ public class SessionApplicationService {
   private final OperationRepository operationRepository;
   private final BrowserStateRepository browserStateRepository;
   private final IdempotencyService idempotencyService;
+  private final RemoteDesktopTicketService remoteDesktopTicketService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -32,6 +36,7 @@ public class SessionApplicationService {
       OperationRepository operationRepository,
       BrowserStateRepository browserStateRepository,
       IdempotencyService idempotencyService,
+      RemoteDesktopTicketService remoteDesktopTicketService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -39,6 +44,7 @@ public class SessionApplicationService {
     this.operationRepository = operationRepository;
     this.browserStateRepository = browserStateRepository;
     this.idempotencyService = idempotencyService;
+    this.remoteDesktopTicketService = remoteDesktopTicketService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -122,6 +128,26 @@ public class SessionApplicationService {
     var result = coordinator.handle(new ReleaseHumanTakeover(sessionId, userId));
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
+  }
+
+  /** 仅向正在执行接管、且 Actor 完全匹配的客户端签发一次性远程桌面票据。 */
+  @Transactional(readOnly = true)
+  public RemoteDesktopConnectionResponse createDesktopConnection(
+      String sessionId, String tenantId, String userId) {
+    var session = requireTenant(sessionId, tenantId);
+    var operation =
+        operationRepository
+            .findActive(sessionId)
+            .filter(active -> active.mode() == OperationMode.HUMAN_TAKEOVER)
+            .filter(active -> active.phase() == OperationPhase.EXECUTING)
+            .orElseThrow(
+                () ->
+                    new StaleOperationException(
+                        sessionId, "EXECUTING_HUMAN_TAKEOVER", "NOT_FOUND"));
+    if (!userId.equals(operation.actorId())) {
+      throw new TenantAccessDeniedException(sessionId);
+    }
+    return remoteDesktopTicketService.issue(tenantId, sessionId, userId, operation);
   }
 
   /** 获取 Session。 */

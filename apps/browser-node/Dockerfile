@@ -10,7 +10,7 @@ RUN cargo build \
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates chromium tini \
+    && apt-get install --no-install-recommends -y ca-certificates chromium tini xvfb x11vnc \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system browsercloud \
     && useradd --system --gid browsercloud --home-dir /var/lib/browsercloud browsercloud \
@@ -21,6 +21,10 @@ USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \
     NODE_JOURNAL_PATH=/var/lib/browsercloud/runtime/node-journal.sqlite3 \
-    NODE_AGENT_PORT=9090
-EXPOSE 9090
+    NODE_AGENT_PORT=9090 \
+    APP_ENVIRONMENT=local \
+    REMOTE_DESKTOP_GATEWAY_PORT=6080 \
+    XVFB_PATH=/usr/bin/Xvfb \
+    X11VNC_PATH=/usr/bin/x11vnc
+EXPOSE 9090 6080
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/node-agent"]

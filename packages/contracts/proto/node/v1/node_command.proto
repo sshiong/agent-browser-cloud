@@ -155,6 +155,8 @@ message HumanTakeoverEndedEvent {
   string session_id = 1;
   string user_id = 2;
   BrowserStateEvent state = 3;
+  // USER_RELEASE 表示显式结束；GATEWAY_DISCONNECT 表示远程桌面数据面断线。
+  string reason = 4;
 }
 
 // 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。

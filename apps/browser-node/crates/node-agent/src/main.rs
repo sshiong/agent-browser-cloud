@@ -10,20 +10,24 @@ use node_contracts::proto::{
     BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateEvent, CommandAck, CommandEnvelope,
     DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
     HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
-    PingResponse, PublishRequest, ReleaseAllInputCommand, RuntimeStartedEvent, RuntimeStoppedEvent,
-    StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, RuntimeStartedEvent,
+    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
     PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
 };
 use prost::Message;
-use runtime_supervisor::{ChromiumRuntimeSupervisor, RuntimeSpec, RuntimeSupervisor};
+use remote_desktop_gateway::{DisconnectHandler, RemoteDesktopGateway, RemoteDesktopTicketClaims};
+use runtime_supervisor::{
+    ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeSpec, RuntimeSupervisor,
+};
 use state_collector::{BrowserStateCollector, CdpStateCollector, CurrentState, StateQuality};
 use std::collections::{HashMap, HashSet};
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 
@@ -39,6 +43,25 @@ struct NodeControlService {
     inflight: Arc<Mutex<HashSet<String>>>,
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
     next_cdp_port: Arc<Mutex<u16>>,
+    next_display: Arc<Mutex<u16>>,
+    remote_desktop_gateway: Option<RemoteDesktopGateway>,
+    desktop_enabled: bool,
+}
+
+struct DesktopDisconnectPublisher {
+    sender: mpsc::Sender<RemoteDesktopTicketClaims>,
+}
+
+#[tonic::async_trait]
+impl DisconnectHandler for DesktopDisconnectPublisher {
+    async fn disconnected(&self, claims: &RemoteDesktopTicketClaims) {
+        if self.sender.send(claims.clone()).await.is_err() {
+            tracing::warn!(
+                session_id = claims.session_id,
+                "Remote desktop disconnect processor is unavailable"
+            );
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -62,6 +85,18 @@ impl NodeControlService {
         let allocated = *port;
         *port = if *port >= 19_999 { 10_000 } else { *port + 1 };
         allocated
+    }
+
+    async fn allocate_display(&self) -> String {
+        let mut display = self.next_display.lock().await;
+        let allocated = *display;
+        *display = if *display >= 999 { 100 } else { *display + 1 };
+        format!(":{allocated}")
+    }
+
+    fn allocate_loopback_port() -> anyhow::Result<u16> {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+        Ok(listener.local_addr()?.port())
     }
 
     async fn next_event_sequence(&self, session_id: &str) -> anyhow::Result<i64> {
@@ -193,7 +228,7 @@ impl NodeControlService {
         }
     }
 
-    async fn publish_event(&self, event: EventEnvelope) -> anyhow::Result<()> {
+    async fn publish_event_receipt(&self, event: EventEnvelope) -> anyhow::Result<PublishResponse> {
         let target = if self.control_plane_event_target.starts_with("http://")
             || self.control_plane_event_target.starts_with("https://")
         {
@@ -207,21 +242,20 @@ impl NodeControlService {
             .connect()
             .await?;
         let mut client = NodeEventServiceClient::new(channel);
-        let acknowledgement = client
+        Ok(client
             .publish(PublishRequest { event: Some(event) })
             .await?
-            .into_inner();
-        anyhow::ensure!(
-            acknowledgement.accepted,
-            "Control Plane rejected Node Event: {}",
-            acknowledgement.error_code
-        );
-        Ok(())
+            .into_inner())
     }
 
     async fn publish_and_mark(&self, event: EventEnvelope) -> anyhow::Result<()> {
         let event_id = event.event_id.clone();
-        self.publish_event(event).await?;
+        let acknowledgement = self.publish_event_receipt(event).await?;
+        anyhow::ensure!(
+            acknowledgement.accepted || acknowledgement.error_code == "STALE_HUMAN_TAKEOVER",
+            "Control Plane rejected Node Event: {}",
+            acknowledgement.error_code
+        );
         self.journal.mark_event_delivered(&event_id).await
     }
 
@@ -315,10 +349,97 @@ impl NodeControlService {
                     session_id: command.session_id.clone(),
                     user_id: user_id.to_owned(),
                     state: Some(state),
+                    reason: "USER_RELEASE".to_owned(),
                 },
             )
         };
         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    async fn handle_desktop_disconnect(
+        &self,
+        claims: RemoteDesktopTicketClaims,
+    ) -> anyhow::Result<()> {
+        let mut last_error = None;
+        let mut state = None;
+        for attempt in 1..=5 {
+            let input = self
+                .input_brokers
+                .lock()
+                .await
+                .get(&claims.session_id)
+                .cloned();
+            let cdp_release = match input {
+                Some(input) => input.release_all().await,
+                None => Ok(()),
+            };
+            let x11_release = self
+                .runtime_supervisor
+                .release_desktop_input(&claims.session_id)
+                .await;
+            let collected = self
+                .state_collector
+                .collect_current_state(&claims.session_id)
+                .await;
+            match (cdp_release, x11_release, collected) {
+                (Ok(()), Ok(()), Ok(collected)) => {
+                    state = Some(Self::browser_state_payload(collected));
+                    break;
+                }
+                (cdp, x11, collected) => {
+                    last_error = Some(anyhow::anyhow!(
+                        "desktop disconnect barrier attempt {attempt} failed: cdp={:?}, x11={:?}, state={:?}",
+                        cdp.err(),
+                        x11.err(),
+                        collected.err()
+                    ));
+                    tokio::time::sleep(Duration::from_millis(100 * attempt)).await;
+                }
+            }
+        }
+        let state = state.ok_or_else(|| {
+            last_error.unwrap_or_else(|| anyhow::anyhow!("desktop disconnect barrier failed"))
+        })?;
+        let sequence = self.next_event_sequence(&claims.session_id).await?;
+        let event_id = format!("evt_desktop_disconnect_{}", uuid::Uuid::new_v4().simple());
+        let message_id = format!("desktop_disconnect_{}", uuid::Uuid::new_v4().simple());
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            event_type: "HumanTakeoverEnded".to_owned(),
+            tenant_id: claims.tenant_id.clone(),
+            session_id: claims.session_id.clone(),
+            coordinator_term: claims.coordinator_term,
+            context_epoch: claims.context_epoch,
+            operation_epoch: claims.operation_epoch as i64,
+            sequence,
+            payload: HumanTakeoverEndedEvent {
+                session_id: claims.session_id.clone(),
+                user_id: claims.actor_id.clone(),
+                state: Some(state),
+                reason: "GATEWAY_DISCONNECT".to_owned(),
+            }
+            .encode_to_vec(),
+        };
+        let persisted = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id,
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some(event_id),
+            event_payload: Some(event.encode_to_vec()),
+            event_delivered: false,
+        };
+        self.journal.record_command_result(&persisted).await?;
+        if let Err(error) = self.publish_and_mark(event).await {
+            tracing::warn!(
+                session_id = claims.session_id,
+                error = %error,
+                "Desktop disconnect event queued for redelivery"
+            );
+        }
+        Ok(())
     }
 
     async fn execute(&self, command: &CommandEnvelope) -> CommandResult {
@@ -329,23 +450,58 @@ impl NodeControlService {
                     Ok(payload) => {
                         let cdp_port = self.allocate_cdp_port().await;
                         let runtime_build_id = payload.runtime_build_id;
+                        let (display, vnc_port) = if self.desktop_enabled {
+                            let vnc_port = match Self::allocate_loopback_port() {
+                                Ok(port) => port,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            (self.allocate_display().await, Some(vnc_port))
+                        } else {
+                            (payload.display, None)
+                        };
                         match self
                             .runtime_supervisor
                             .start(RuntimeSpec {
                                 session_id: command.session_id.clone(),
                                 runtime_build_id: runtime_build_id.clone(),
                                 profile_dir: self.profile_dir(&command.session_id),
-                                display: payload.display,
+                                display,
                                 cdp_port,
+                                vnc_port,
                             })
                             .await
                         {
                             Ok(handle) => {
+                                if let (Some(gateway), Some(endpoint)) = (
+                                    self.remote_desktop_gateway.as_ref(),
+                                    handle.vnc_endpoint.as_ref(),
+                                ) {
+                                    let endpoint = match endpoint.parse::<SocketAddr>() {
+                                        Ok(endpoint) => endpoint,
+                                        Err(error) => {
+                                            let _ = self
+                                                .runtime_supervisor
+                                                .stop(&command.session_id)
+                                                .await;
+                                            return self.failed(command, error.into());
+                                        }
+                                    };
+                                    if let Err(error) =
+                                        gateway.register_session(&command.session_id, endpoint)
+                                    {
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        return self.failed(command, error);
+                                    }
+                                }
                                 if let Err(error) = self
                                     .state_collector
                                     .register_runtime(&command.session_id, &handle.cdp_endpoint)
                                     .await
                                 {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                                     return self.failed(command, error);
                                 }
@@ -354,6 +510,10 @@ impl NodeControlService {
                                 {
                                     Ok(input) => Arc::new(input),
                                     Err(error) => {
+                                        if let Some(gateway) = self.remote_desktop_gateway.as_ref()
+                                        {
+                                            gateway.unregister_session(&command.session_id);
+                                        }
                                         self.state_collector
                                             .unregister_runtime(&command.session_id)
                                             .await;
@@ -408,6 +568,9 @@ impl NodeControlService {
             }
             "StopRuntime" => match StopRuntimeCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
+                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                        gateway.unregister_session(&command.session_id);
+                    }
                     if let Some(input) = self.input_brokers.lock().await.remove(&command.session_id)
                     {
                         if let Err(error) = input.release_all().await {
@@ -749,6 +912,9 @@ impl NodeControlService {
                     }
                     runtime_supervisor::RuntimeHealth::Crashed(reason) => {
                         service.monitored_sessions.lock().await.remove(&session_id);
+                        if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
+                            gateway.unregister_session(&session_id);
+                        }
                         if let Err(error) = service
                             .record_and_publish_crash(
                                 &tenant_id,
@@ -1026,6 +1192,9 @@ impl NodeControlServiceRpc for NodeControlService {
             };
             if let Err(error) = persistence {
                 if result.runtime_lease.is_some() {
+                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                        gateway.unregister_session(&command.session_id);
+                    }
                     self.input_brokers.lock().await.remove(&command.session_id);
                     self.state_collector
                         .unregister_runtime(&command.session_id)
@@ -1091,21 +1260,100 @@ async fn main() -> Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|_| runtime_root.join("node-journal.sqlite3"));
     let journal = Arc::new(SqliteNodeJournal::open(journal_path).await?);
-
+    let input_brokers = Arc::new(Mutex::new(HashMap::new()));
+    let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
+    let desktop_config = match (std::env::var("XVFB_PATH"), std::env::var("X11VNC_PATH")) {
+        (Ok(xvfb_binary), Ok(x11vnc_binary)) => Some(DesktopRuntimeConfig {
+            xvfb_binary: PathBuf::from(xvfb_binary),
+            x11vnc_binary: PathBuf::from(x11vnc_binary),
+            width: std::env::var("REMOTE_DESKTOP_WIDTH")
+                .unwrap_or_else(|_| "1440".to_owned())
+                .parse()?,
+            height: std::env::var("REMOTE_DESKTOP_HEIGHT")
+                .unwrap_or_else(|_| "900".to_owned())
+                .parse()?,
+            depth: std::env::var("REMOTE_DESKTOP_DEPTH")
+                .unwrap_or_else(|_| "24".to_owned())
+                .parse()?,
+        }),
+        (Err(_), Err(_)) => None,
+        _ => anyhow::bail!("XVFB_PATH and X11VNC_PATH must be configured together"),
+    };
+    let desktop_enabled = desktop_config.is_some();
+    if let Some(config) = desktop_config {
+        runtime_supervisor = runtime_supervisor.with_desktop(config)?;
+    }
+    let runtime_supervisor = Arc::new(runtime_supervisor);
+    let (desktop_disconnect_sender, mut desktop_disconnect_receiver) =
+        mpsc::channel::<RemoteDesktopTicketClaims>(128);
+    let disconnect_handler = Arc::new(DesktopDisconnectPublisher {
+        sender: desktop_disconnect_sender,
+    });
+    let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
+    let local_ticket_secret = "browsercloud-local-remote-desktop-ticket-secret-v1";
+    let ticket_secret = std::env::var("REMOTE_DESKTOP_TICKET_SECRET")
+        .unwrap_or_else(|_| local_ticket_secret.to_owned());
+    let allowed_origins = std::env::var("REMOTE_DESKTOP_ALLOWED_ORIGINS")
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|origin| !origin.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    if environment.eq_ignore_ascii_case("production") {
+        anyhow::ensure!(
+            ticket_secret != local_ticket_secret,
+            "REMOTE_DESKTOP_TICKET_SECRET must be overridden in production"
+        );
+        anyhow::ensure!(
+            !allowed_origins.is_empty(),
+            "REMOTE_DESKTOP_ALLOWED_ORIGINS is required in production"
+        );
+    }
+    let remote_desktop_gateway =
+        RemoteDesktopGateway::new(ticket_secret, allowed_origins, disconnect_handler)?;
+    let remote_desktop_port = std::env::var("REMOTE_DESKTOP_GATEWAY_PORT")
+        .unwrap_or_else(|_| "6080".to_owned())
+        .parse::<u16>()?;
+    let remote_desktop_listener =
+        tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], remote_desktop_port)))
+            .await?;
+    let gateway_server = remote_desktop_gateway.clone();
+    tokio::spawn(async move {
+        if let Err(error) = gateway_server.serve(remote_desktop_listener).await {
+            tracing::error!(error = %error, "Remote desktop gateway stopped");
+        }
+    });
     let service = NodeControlService {
         node_id,
         control_plane_event_target,
         runtime_root,
-        runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
-            chromium_binary,
-        ))),
+        runtime_supervisor: runtime_supervisor.clone(),
         state_collector: Arc::new(CdpStateCollector::new()),
-        input_brokers: Arc::new(Mutex::new(HashMap::new())),
+        input_brokers,
         journal,
         inflight: Arc::new(Mutex::new(HashSet::new())),
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
         next_cdp_port: Arc::new(Mutex::new(10_000)),
+        next_display: Arc::new(Mutex::new(100)),
+        remote_desktop_gateway: Some(remote_desktop_gateway),
+        desktop_enabled,
     };
+    let desktop_disconnect_service = service.clone();
+    tokio::spawn(async move {
+        while let Some(claims) = desktop_disconnect_receiver.recv().await {
+            if let Err(error) = desktop_disconnect_service
+                .handle_desktop_disconnect(claims.clone())
+                .await
+            {
+                tracing::error!(
+                    session_id = claims.session_id,
+                    error = %error,
+                    "Remote desktop disconnect barrier failed"
+                );
+            }
+        }
+    });
     let address = ([0, 0, 0, 0], node_port).into();
 
     tracing::info!(%address, "Browser Node Agent gRPC server started");
@@ -1121,13 +1369,37 @@ async fn main() -> Result<()> {
     });
     tonic::transport::Server::builder()
         .add_service(NodeControlServiceServer::new(service))
-        .serve_with_shutdown(address, async {
-            if let Err(error) = tokio::signal::ctrl_c().await {
-                tracing::error!(%error, "Failed to install shutdown signal handler");
-            }
-        })
+        .serve_with_shutdown(address, shutdown_signal())
         .await?;
+    runtime_supervisor.stop_all().await;
     Ok(())
+}
+
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        let terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate());
+        match terminate {
+            Ok(mut terminate) => {
+                tokio::select! {
+                    result = tokio::signal::ctrl_c() => {
+                        if let Err(error) = result {
+                            tracing::error!(%error, "Failed to install Ctrl-C handler");
+                        }
+                    }
+                    _ = terminate.recv() => {}
+                }
+            }
+            Err(error) => {
+                tracing::error!(%error, "Failed to install SIGTERM handler");
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    if let Err(error) = tokio::signal::ctrl_c().await {
+        tracing::error!(%error, "Failed to install shutdown signal handler");
+    }
 }
 
 #[cfg(test)]
@@ -1241,6 +1513,9 @@ mod tests {
             inflight: Arc::new(Mutex::new(HashSet::new())),
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
             next_cdp_port: Arc::new(Mutex::new(10_000)),
+            next_display: Arc::new(Mutex::new(100)),
+            remote_desktop_gateway: None,
+            desktop_enabled: false,
         };
 
         // Give the local gRPC listener one scheduler turn before redelivery.

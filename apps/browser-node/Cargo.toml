@@ -8,7 +8,8 @@ members = [
   "crates/storage-helper",
   "crates/state-collector",
   "crates/node-journal",
-  "crates/node-contracts"
+  "crates/node-contracts",
+  "crates/remote-desktop-gateway"
 ]
 resolver = "2"
 
@@ -36,3 +37,6 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 futures-util = "0.3"
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 sysinfo = "0.33"
+base64 = "0.22"
+hmac = "0.12"
+sha2 = "0.10"

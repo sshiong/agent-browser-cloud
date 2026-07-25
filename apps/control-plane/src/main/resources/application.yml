@@ -43,6 +43,13 @@ browser-node:
   dispatch-interval-ms: ${BROWSER_NODE_DISPATCH_INTERVAL_MS:250}
   default-runtime-build-id: ${BROWSER_NODE_DEFAULT_RUNTIME_BUILD_ID:runtime_local_chromium}
 
+remote-desktop:
+  ticket-secret: ${REMOTE_DESKTOP_TICKET_SECRET:browsercloud-local-remote-desktop-ticket-secret-v1}
+  ticket-ttl-seconds: ${REMOTE_DESKTOP_TICKET_TTL_SECONDS:45}
+
+app:
+  environment: ${APP_ENVIRONMENT:local}
+
 control-plane:
   node-event-port: ${CONTROL_PLANE_NODE_EVENT_PORT:9091}
 

@@ -60,6 +60,6 @@ public sealed interface NodeEvent
   record HumanTakeoverReady(String sessionId, String userId, StateUpdated state)
       implements NodeEvent {}
 
-  record HumanTakeoverEnded(String sessionId, String userId, StateUpdated state)
+  record HumanTakeoverEnded(String sessionId, String userId, String reason, StateUpdated state)
       implements NodeEvent {}
 }

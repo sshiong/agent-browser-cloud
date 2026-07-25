@@ -194,6 +194,28 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}:desktop-connection:
+    post:
+      operationId: createRemoteDesktopConnection
+      summary: Issue a short-lived, single-use noVNC connection ticket
+      tags: [Session, HumanTakeover, RemoteDesktop]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Connection ticket issued for the active HumanTakeover actor.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteDesktopConnection"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -559,6 +581,32 @@ components:
         deadline:
           type: string
           format: date-time
+    RemoteDesktopConnection:
+      type: object
+      additionalProperties: false
+      required:
+        - webSocketPath
+        - expiresAt
+        - protocol
+        - operationEpoch
+        - viewOnly
+      properties:
+        webSocketPath:
+          type: string
+          pattern: "^/desktop/v1/sessions/ses_[a-zA-Z0-9]{16,}\\?ticket="
+          description: Same-origin WebSocket path. The embedded ticket is single-use and expires quickly.
+        expiresAt:
+          type: string
+          format: date-time
+        protocol:
+          type: string
+          enum: [rfb]
+        operationEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        viewOnly:
+          type: boolean
     Error:
       type: object
       additionalProperties: false

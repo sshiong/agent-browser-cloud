@@ -99,8 +99,12 @@ public class NodeEventMapper {
           if (!payload.getSessionId().equals(state.sessionId())) {
             throw new IllegalArgumentException("takeover state session_id does not match payload");
           }
+          var reason = payload.getReason().isBlank() ? "USER_RELEASE" : payload.getReason();
+          if (!reason.equals("USER_RELEASE") && !reason.equals("GATEWAY_DISCONNECT")) {
+            throw new IllegalArgumentException("unsupported HumanTakeoverEnded reason");
+          }
           yield new NodeEvent.HumanTakeoverEnded(
-              payload.getSessionId(), payload.getUserId(), state);
+              payload.getSessionId(), payload.getUserId(), reason, state);
         }
         default ->
             throw new IllegalArgumentException(

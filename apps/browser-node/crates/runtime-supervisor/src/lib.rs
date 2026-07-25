@@ -26,6 +26,7 @@ pub struct RuntimeSpec {
 pub struct RuntimeHandle {
     pub session_id: String,
     pub pid: u32,
+    pub process_started_at: u64,
     pub browser_generation: u64,
     pub cdp_endpoint: String,
 }
@@ -124,6 +125,41 @@ impl ChromiumRuntimeSupervisor {
             .await
             .is_ok()
     }
+
+    /// Node 重启后从本地 Journal 恢复 generation 下界，避免复用旧世代。
+    pub async fn ensure_generation_at_least(&self, session_id: &str, generation: u64) {
+        let mut generations = self.generations.lock().await;
+        let current = generations.entry(session_id.to_owned()).or_default();
+        *current = (*current).max(generation);
+    }
+
+    /// 清理 Node 异常退出后遗留的、且进程启动时间与 Lease 完全匹配的 Runtime。
+    pub async fn terminate_orphan(
+        &self,
+        pid: u32,
+        expected_started_at: u64,
+    ) -> anyhow::Result<bool> {
+        anyhow::ensure!(
+            expected_started_at > 0,
+            "runtime lease has no process start identity"
+        );
+        tokio::task::spawn_blocking(move || {
+            let process_id = sysinfo::Pid::from_u32(pid);
+            let mut system = sysinfo::System::new();
+            system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[process_id]), true);
+            let Some(process) = system.process(process_id) else {
+                return Ok(false);
+            };
+            anyhow::ensure!(
+                process.start_time() == expected_started_at,
+                "runtime pid was reused by another process"
+            );
+            process
+                .kill_with(sysinfo::Signal::Kill)
+                .ok_or_else(|| anyhow::anyhow!("kill signal is unsupported"))
+        })
+        .await?
+    }
 }
 
 #[async_trait]
@@ -174,6 +210,15 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
         let handle = RuntimeHandle {
             session_id: spec.session_id.clone(),
             pid,
+            process_started_at: {
+                let process_id = sysinfo::Pid::from_u32(pid);
+                let mut system = sysinfo::System::new();
+                system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[process_id]), true);
+                system
+                    .process(process_id)
+                    .map(sysinfo::Process::start_time)
+                    .unwrap_or_default()
+            },
             browser_generation,
             cdp_endpoint: format!("http://127.0.0.1:{}", spec.cdp_port),
         };
@@ -333,6 +378,7 @@ mod tests {
             .await
             .unwrap();
         assert!(handle.pid > 0);
+        assert!(handle.process_started_at > 0);
         assert!(handle.cdp_endpoint.ends_with(&cdp_port.to_string()));
         assert_eq!(
             supervisor.health("ses_real_runtime").await.unwrap(),

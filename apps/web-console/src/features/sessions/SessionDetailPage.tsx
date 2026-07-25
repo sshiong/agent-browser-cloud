@@ -28,8 +28,11 @@ import {
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
 import { isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
-import type { OperationView } from '@/types/session';
-import type { BrowserStateView } from '@/types/session';
+import type {
+  BrowserStateView,
+  OperationView,
+  SessionState,
+} from '@/types/session';
 
 export function SessionDetailPage() {
   const { id = '' } = useParams();
@@ -199,6 +202,7 @@ export function SessionDetailPage() {
               startError={startMutation.error}
               terminateError={terminateMutation.error}
               hasActiveOperation={Boolean(session.currentOperation)}
+              sessionState={session.state}
             />
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
@@ -557,10 +561,12 @@ function MutationFeedback({
   startError,
   terminateError,
   hasActiveOperation,
+  sessionState,
 }: {
   startError: unknown;
   terminateError: unknown;
   hasActiveOperation: boolean;
+  sessionState: SessionState;
 }) {
   const error = startError || terminateError;
   if (error) {
@@ -576,6 +582,51 @@ function MutationFeedback({
           {error instanceof Error ? error.message : '操作失败，请刷新后重试。'}
         </p>
         {requestId && <p className="mt-1 font-mono">Request ID: {requestId}</p>}
+      </div>
+    );
+  }
+  if (sessionState === 'RECOVERING') {
+    return (
+      <div
+        className="mb-4 grid grid-cols-[auto_1fr_auto] items-center gap-3 border-y border-accent-secondary/25 bg-accent-secondary/8 px-4 py-3 text-[11px]"
+        role="status"
+      >
+        <LoaderCircle
+          size={14}
+          className="animate-spin text-accent-secondary"
+        />
+        <div>
+          <p className="font-medium text-text-primary">
+            Browser Supervisor 正在自动恢复 Runtime
+          </p>
+          <p className="mt-0.5 text-[10px] text-text-muted">
+            当前写入已冻结；替代 Runtime 就绪后将递增 Context Epoch
+            并重新采集状态。
+          </p>
+        </div>
+        <span className="font-mono text-[9px] tracking-[0.12em] text-accent-secondary">
+          RECOVERY
+        </span>
+      </div>
+    );
+  }
+  if (sessionState === 'FAILED') {
+    return (
+      <div
+        className="mb-4 grid grid-cols-[auto_1fr_auto] items-center gap-3 border-y border-danger/25 bg-danger/8 px-4 py-3 text-[11px]"
+        role="alert"
+      >
+        <ShieldAlert size={14} className="text-danger" />
+        <div>
+          <p className="font-medium text-text-primary">自动恢复预算已耗尽</p>
+          <p className="mt-0.5 text-[10px] text-text-muted">
+            Session 已进入安全熔断，请检查 Runtime、Profile 与 Node
+            后再人工处理。
+          </p>
+        </div>
+        <span className="font-mono text-[9px] tracking-[0.12em] text-danger">
+          CIRCUIT OPEN
+        </span>
       </div>
     );
   }

@@ -61,6 +61,29 @@ public final class OperationFactory {
         null);
   }
 
+  /** 创建 Browser Crash Recovery Operation。 */
+  public static ExclusiveOperation recovery(SessionContext session, long operationEpoch) {
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.SYSTEM,
+        "browser-supervisor",
+        OperationMode.RECOVERY,
+        95,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.PREPARING,
+        OperationState.ACTIVE,
+        Set.of("runtime.restart", "state.resync"),
+        Instant.now().plusSeconds(120),
+        Instant.now(),
+        null);
+  }
+
   /** 创建 HumanTakeover Operation。 */
   public static ExclusiveOperation humanTakeover(
       SessionContext session, String userId, long operationEpoch) {

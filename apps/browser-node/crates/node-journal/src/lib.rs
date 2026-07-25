@@ -30,6 +30,18 @@ pub enum TermDecision {
     Stale { current_term: i64 },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeLease {
+    pub session_id: String,
+    pub tenant_id: String,
+    pub runtime_build_id: String,
+    pub coordinator_term: i64,
+    pub context_epoch: i64,
+    pub browser_generation: u64,
+    pub pid: u32,
+    pub process_started_at: u64,
+}
+
 /// 每次操作打开一个短生命周期连接，避免跨 Tokio 线程共享 rusqlite Connection。
 #[derive(Debug, Clone)]
 pub struct SqliteNodeJournal {
@@ -67,6 +79,18 @@ impl SqliteNodeJournal {
                     CREATE TABLE IF NOT EXISTS event_sequences (
                         session_id TEXT PRIMARY KEY,
                         sequence INTEGER NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS runtime_leases (
+                        session_id TEXT PRIMARY KEY,
+                        tenant_id TEXT NOT NULL,
+                        runtime_build_id TEXT NOT NULL,
+                        coordinator_term INTEGER NOT NULL,
+                        context_epoch INTEGER NOT NULL,
+                        browser_generation INTEGER NOT NULL,
+                        pid INTEGER NOT NULL,
+                        process_started_at INTEGER NOT NULL,
+                        active INTEGER NOT NULL,
+                        updated_at_ms INTEGER NOT NULL
                     );
                     CREATE INDEX IF NOT EXISTS idx_command_results_pending_event
                         ON command_results(event_delivered, created_at_ms)
@@ -114,7 +138,7 @@ impl SqliteNodeJournal {
                     message_id, accepted, error_code, error_message,
                     event_id, event_payload, event_delivered, created_at_ms
                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-                          CAST(strftime('%s', 'now') AS INTEGER) * 1000)
+                          CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
                 ON CONFLICT(message_id) DO NOTHING
                 "#,
                 params![
@@ -127,6 +151,52 @@ impl SqliteNodeJournal {
                     result.event_delivered,
                 ],
             )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// 原子记录 Crash Event 并关闭 Runtime Lease，避免 Node 重启产生重复恢复。
+    pub async fn record_crash_and_stop_runtime(
+        &self,
+        session_id: &str,
+        result: &PersistedCommandResult,
+    ) -> anyhow::Result<()> {
+        let session_id = session_id.to_owned();
+        let result = result.clone();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            transaction.execute(
+                r#"
+                INSERT INTO command_results (
+                    message_id, accepted, error_code, error_message,
+                    event_id, event_payload, event_delivered, created_at_ms
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                          CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+                ON CONFLICT(message_id) DO NOTHING
+                "#,
+                params![
+                    result.acknowledgement.message_id,
+                    result.acknowledgement.accepted,
+                    result.acknowledgement.error_code,
+                    result.acknowledgement.error_message,
+                    result.event_id,
+                    result.event_payload,
+                    result.event_delivered,
+                ],
+            )?;
+            transaction.execute(
+                r#"
+                UPDATE runtime_leases
+                   SET active = 0,
+                       updated_at_ms =
+                           CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
+                 WHERE session_id = ?1
+                "#,
+                params![session_id],
+            )?;
+            transaction.commit()?;
             Ok(())
         })
         .await
@@ -230,6 +300,127 @@ impl SqliteNodeJournal {
         .await
     }
 
+    pub async fn record_runtime_started(&self, lease: &RuntimeLease) -> anyhow::Result<()> {
+        let lease = lease.clone();
+        self.with_connection(move |connection| {
+            connection.execute(
+                r#"
+                INSERT INTO runtime_leases (
+                    session_id, tenant_id, runtime_build_id, coordinator_term,
+                    context_epoch, browser_generation, pid, process_started_at,
+                    active, updated_at_ms
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1,
+                          CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+                ON CONFLICT(session_id) DO UPDATE SET
+                    tenant_id = excluded.tenant_id,
+                    runtime_build_id = excluded.runtime_build_id,
+                    coordinator_term = excluded.coordinator_term,
+                    context_epoch = excluded.context_epoch,
+                    browser_generation = excluded.browser_generation,
+                    pid = excluded.pid,
+                    process_started_at = excluded.process_started_at,
+                    active = 1,
+                    updated_at_ms = excluded.updated_at_ms
+                "#,
+                params![
+                    lease.session_id,
+                    lease.tenant_id,
+                    lease.runtime_build_id,
+                    lease.coordinator_term,
+                    lease.context_epoch,
+                    lease.browser_generation,
+                    lease.pid,
+                    lease.process_started_at,
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn record_command_result_and_start_runtime(
+        &self,
+        result: &PersistedCommandResult,
+        lease: &RuntimeLease,
+    ) -> anyhow::Result<()> {
+        let result = result.clone();
+        let lease = lease.clone();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            insert_command_result(&transaction, &result)?;
+            upsert_runtime_lease(&transaction, &lease)?;
+            transaction.commit()?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn record_command_result_and_stop_runtime(
+        &self,
+        result: &PersistedCommandResult,
+        session_id: &str,
+    ) -> anyhow::Result<()> {
+        let result = result.clone();
+        let session_id = session_id.to_owned();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            insert_command_result(&transaction, &result)?;
+            mark_runtime_stopped_in(&transaction, &session_id)?;
+            transaction.commit()?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn mark_runtime_stopped(&self, session_id: &str) -> anyhow::Result<()> {
+        let session_id = session_id.to_owned();
+        self.with_connection(move |connection| {
+            connection.execute(
+                r#"
+                UPDATE runtime_leases
+                   SET active = 0,
+                       updated_at_ms =
+                           CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
+                 WHERE session_id = ?1
+                "#,
+                params![session_id],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn active_runtime_leases(&self) -> anyhow::Result<Vec<RuntimeLease>> {
+        self.with_connection(move |connection| {
+            let mut statement = connection.prepare(
+                r#"
+                SELECT session_id, tenant_id, runtime_build_id, coordinator_term,
+                       context_epoch, browser_generation, pid, process_started_at
+                  FROM runtime_leases
+                 WHERE active = 1
+                 ORDER BY updated_at_ms, session_id
+                "#,
+            )?;
+            let rows = statement.query_map([], |row| {
+                Ok(RuntimeLease {
+                    session_id: row.get(0)?,
+                    tenant_id: row.get(1)?,
+                    runtime_build_id: row.get(2)?,
+                    coordinator_term: row.get(3)?,
+                    context_epoch: row.get(4)?,
+                    browser_generation: row.get(5)?,
+                    pid: row.get(6)?,
+                    process_started_at: row.get(7)?,
+                })
+            })?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .context("read active runtime leases")
+        })
+        .await
+    }
+
     async fn with_connection<T, F>(&self, operation: F) -> anyhow::Result<T>
     where
         T: Send + 'static,
@@ -259,6 +450,86 @@ fn map_command_result(row: &rusqlite::Row<'_>) -> rusqlite::Result<PersistedComm
         event_payload: row.get(5)?,
         event_delivered: row.get(6)?,
     })
+}
+
+fn insert_command_result(
+    connection: &rusqlite::Connection,
+    result: &PersistedCommandResult,
+) -> anyhow::Result<()> {
+    connection.execute(
+        r#"
+        INSERT INTO command_results (
+            message_id, accepted, error_code, error_message,
+            event_id, event_payload, event_delivered, created_at_ms
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                  CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+        ON CONFLICT(message_id) DO NOTHING
+        "#,
+        params![
+            result.acknowledgement.message_id,
+            result.acknowledgement.accepted,
+            result.acknowledgement.error_code,
+            result.acknowledgement.error_message,
+            result.event_id,
+            result.event_payload,
+            result.event_delivered,
+        ],
+    )?;
+    Ok(())
+}
+
+fn upsert_runtime_lease(
+    connection: &rusqlite::Connection,
+    lease: &RuntimeLease,
+) -> anyhow::Result<()> {
+    connection.execute(
+        r#"
+        INSERT INTO runtime_leases (
+            session_id, tenant_id, runtime_build_id, coordinator_term,
+            context_epoch, browser_generation, pid, process_started_at,
+            active, updated_at_ms
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1,
+                  CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+        ON CONFLICT(session_id) DO UPDATE SET
+            tenant_id = excluded.tenant_id,
+            runtime_build_id = excluded.runtime_build_id,
+            coordinator_term = excluded.coordinator_term,
+            context_epoch = excluded.context_epoch,
+            browser_generation = excluded.browser_generation,
+            pid = excluded.pid,
+            process_started_at = excluded.process_started_at,
+            active = 1,
+            updated_at_ms = excluded.updated_at_ms
+        "#,
+        params![
+            lease.session_id,
+            lease.tenant_id,
+            lease.runtime_build_id,
+            lease.coordinator_term,
+            lease.context_epoch,
+            lease.browser_generation,
+            lease.pid,
+            lease.process_started_at,
+        ],
+    )?;
+    Ok(())
+}
+
+fn mark_runtime_stopped_in(
+    connection: &rusqlite::Connection,
+    session_id: &str,
+) -> anyhow::Result<()> {
+    connection.execute(
+        r#"
+        UPDATE runtime_leases
+           SET active = 0,
+               updated_at_ms =
+                   CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
+         WHERE session_id = ?1
+        "#,
+        params![session_id],
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -331,6 +602,82 @@ mod tests {
 
         let reopened = SqliteNodeJournal::open(&path).await.unwrap();
         assert_eq!(reopened.next_event_sequence("ses_1").await.unwrap(), 3);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn persists_active_runtime_lease_for_restart_reconciliation() {
+        let path = temporary_database("runtime-lease");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        let lease = RuntimeLease {
+            session_id: "ses_lease".into(),
+            tenant_id: "tenant-1".into(),
+            runtime_build_id: "runtime-1".into(),
+            coordinator_term: 4,
+            context_epoch: 8,
+            browser_generation: 3,
+            pid: 1234,
+            process_started_at: 5678,
+        };
+        journal.record_runtime_started(&lease).await.unwrap();
+        drop(journal);
+
+        let reopened = SqliteNodeJournal::open(&path).await.unwrap();
+        assert_eq!(reopened.active_runtime_leases().await.unwrap(), vec![lease]);
+        reopened.mark_runtime_stopped("ses_lease").await.unwrap();
+        assert!(reopened.active_runtime_leases().await.unwrap().is_empty());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn atomically_commits_command_result_and_runtime_lease_transition() {
+        let path = temporary_database("runtime-lease-atomic");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        let lease = RuntimeLease {
+            session_id: "ses_atomic".into(),
+            tenant_id: "tenant-1".into(),
+            runtime_build_id: "runtime-1".into(),
+            coordinator_term: 1,
+            context_epoch: 2,
+            browser_generation: 2,
+            pid: 4321,
+            process_started_at: 8765,
+        };
+        let started = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id: "msg_start".into(),
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some("evt_start".into()),
+            event_payload: Some(vec![1]),
+            event_delivered: false,
+        };
+        journal
+            .record_command_result_and_start_runtime(&started, &lease)
+            .await
+            .unwrap();
+        assert!(journal.command_result("msg_start").await.unwrap().is_some());
+        assert_eq!(journal.active_runtime_leases().await.unwrap(), vec![lease]);
+
+        let stopped = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id: "msg_stop".into(),
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some("evt_stop".into()),
+            event_payload: Some(vec![2]),
+            event_delivered: false,
+        };
+        journal
+            .record_command_result_and_stop_runtime(&stopped, "ses_atomic")
+            .await
+            .unwrap();
+        assert!(journal.command_result("msg_stop").await.unwrap().is_some());
+        assert!(journal.active_runtime_leases().await.unwrap().is_empty());
         let _ = std::fs::remove_file(path);
     }
 }

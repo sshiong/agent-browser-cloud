@@ -97,6 +97,7 @@ class SessionCoordinatorTest {
     // Given
     var session = createSession("ses-1", SessionState.RUNNING);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
 
     var event = new NodeEvent.RuntimeCrashed("ses-1", "RENDERER_CRASH", "OOM");
 
@@ -105,8 +106,69 @@ class SessionCoordinatorTest {
 
     // Then
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
-    verify(sessionRepository).updateWithExpectedEpoch(any(), eq(0L));
-    verify(outboxPublisher).append(any(SessionStateChanged.class));
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.RECOVERING), eq(0L));
+    verify(operationRepository)
+        .insert(argThat(operation -> operation.mode() == OperationMode.RECOVERY));
+    verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("StartRuntime") && command.operationEpoch() == 2));
+    verify(outboxPublisher)
+        .append(
+            argThat(
+                domainEvent ->
+                    domainEvent instanceof SessionStateChanged changed
+                        && changed.newState() == SessionState.RECOVERING));
+  }
+
+  @Test
+  void shouldOpenRecoveryCircuitAfterThreeAttemptsInOneHour() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.countSince(eq("ses-1"), eq(OperationMode.RECOVERY), any()))
+        .thenReturn(3L);
+
+    var result =
+        coordinator.handle(
+            nodeEvent(
+                new NodeEvent.RuntimeCrashed("ses-1", "BROWSER_CRASH", "repeated exit"), 0, 0));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.FAILED), eq(0L));
+    verify(nodeCommandGateway, never()).send(any());
+    verify(operationRepository, never()).insert(any());
+  }
+
+  @Test
+  void shouldCommitRecoveryWhenReplacementRuntimeStarts() {
+    var session = createSession("ses-1", SessionState.RECOVERING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(Optional.of(createActiveOperation("ses-1", OperationMode.RECOVERY)));
+
+    var result =
+        coordinator.handle(
+            nodeEvent(
+                new NodeEvent.RuntimeStarted(
+                    "ses-1", "node-1", "runtime-1", 54321, 2, "http://localhost:9223"),
+                0,
+                1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(
+                context ->
+                    context.state() == SessionState.RUNNING
+                        && context.contextEpoch() == 1
+                        && context.browserGeneration() == 2),
+            eq(0L));
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.COMMITTED);
   }
 
   @Test
@@ -185,7 +247,7 @@ class SessionCoordinatorTest {
         "tenant-1",
         "profile-1",
         null,
-        null,
+        state == SessionState.CREATED ? null : "runtime-1",
         null,
         null,
         0,
@@ -200,12 +262,16 @@ class SessionCoordinatorTest {
   }
 
   private ExclusiveOperation createActiveOperation(String sessionId) {
+    return createActiveOperation(sessionId, OperationMode.AGENT_INTERACTIVE);
+  }
+
+  private ExclusiveOperation createActiveOperation(String sessionId, OperationMode mode) {
     return new ExclusiveOperation(
         "op-1",
         sessionId,
         OwnerType.SYSTEM,
         "control-plane",
-        OperationMode.AGENT_INTERACTIVE,
+        mode,
         0,
         0,
         0,

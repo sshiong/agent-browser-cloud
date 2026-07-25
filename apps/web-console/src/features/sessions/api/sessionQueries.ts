@@ -38,8 +38,20 @@ export function useSession(sessionId: string) {
     queryKey: sessionKeys.detail(sessionId),
     queryFn: ({ signal }) => getSession(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: (query) =>
-      query.state.data?.currentOperation?.state === 'ACTIVE' ? 2_000 : false,
+    refetchInterval: (query) => {
+      const session = query.state.data;
+      if (!session) return false;
+      return session.currentOperation?.state === 'ACTIVE' ||
+        [
+          'STARTING',
+          'RUNNING',
+          'DEGRADED',
+          'RECOVERING',
+          'TERMINATING',
+        ].includes(session.state)
+        ? 2_000
+        : false;
+    },
   });
 }
 

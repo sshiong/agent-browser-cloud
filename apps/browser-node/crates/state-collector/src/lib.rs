@@ -95,7 +95,7 @@ struct EvaluatedPageState {
     targets: Vec<EvaluatedTarget>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct EvaluatedTarget {
     role: String,
     name: Option<String>,
@@ -315,6 +315,11 @@ impl CdpStateCollector {
             *version += 1;
             *version
         };
+        let mut hasher = DefaultHasher::new();
+        page.url.hash(&mut hasher);
+        page.title.hash(&mut hasher);
+        serde_json::to_string(&page.targets)?.hash(&mut hasher);
+        let content_hash = format!("{:016x}", hasher.finish());
         let targets = page
             .targets
             .into_iter()
@@ -328,11 +333,6 @@ impl CdpStateCollector {
                 visible: target.visible,
             })
             .collect::<Vec<_>>();
-        let mut hasher = DefaultHasher::new();
-        page.url.hash(&mut hasher);
-        page.title.hash(&mut hasher);
-        serde_json::to_string(&targets)?.hash(&mut hasher);
-        let content_hash = format!("{:016x}", hasher.finish());
 
         Ok(CurrentState {
             session_id: session_id.to_owned(),
@@ -376,59 +376,63 @@ mod tests {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_address = websocket_listener.local_addr().unwrap();
         let websocket_task = tokio::spawn(async move {
-            let (stream, _) = websocket_listener.accept().await.unwrap();
-            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
-            let request = socket.next().await.unwrap().unwrap();
-            let Message::Text(request) = request else {
-                panic!("expected CDP text request");
-            };
-            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
-            assert_eq!(request["method"], "Runtime.evaluate");
-            let response = serde_json::json!({
-                "id": 1,
-                "result": {
+            for _ in 0..2 {
+                let (stream, _) = websocket_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let request = socket.next().await.unwrap().unwrap();
+                let Message::Text(request) = request else {
+                    panic!("expected CDP text request");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], "Runtime.evaluate");
+                let response = serde_json::json!({
+                    "id": 1,
                     "result": {
-                        "type": "object",
-                        "value": {
-                            "url": "https://example.test/form",
-                            "title": "Example form",
-                            "targets": [{
-                                "role": "button",
-                                "name": "提交",
-                                "bounds": {"x": 12.0, "y": 24.0, "width": 96.0, "height": 32.0},
-                                "enabled": true,
-                                "visible": true
-                            }]
+                        "result": {
+                            "type": "object",
+                            "value": {
+                                "url": "https://example.test/form",
+                                "title": "Example form",
+                                "targets": [{
+                                    "role": "button",
+                                    "name": "提交",
+                                    "bounds": {"x": 12.0, "y": 24.0, "width": 96.0, "height": 32.0},
+                                    "enabled": true,
+                                    "visible": true
+                                }]
+                            }
                         }
                     }
-                }
-            });
-            socket
-                .send(Message::Text(response.to_string()))
-                .await
-                .unwrap();
+                });
+                socket
+                    .send(Message::Text(response.to_string()))
+                    .await
+                    .unwrap();
+            }
         });
 
         let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let http_address = http_listener.local_addr().unwrap();
         let http_task = tokio::spawn(async move {
-            let (mut stream, _) = http_listener.accept().await.unwrap();
-            let mut request = vec![0_u8; 4096];
-            let count = stream.read(&mut request).await.unwrap();
-            let request = String::from_utf8_lossy(&request[..count]);
-            assert!(request.starts_with("GET /json/list "));
             let body = serde_json::json!([{
                 "id": "page-1",
                 "type": "page",
                 "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
             }])
             .to_string();
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(),
-                body
-            );
-            stream.write_all(response.as_bytes()).await.unwrap();
+            for _ in 0..2 {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                let request = String::from_utf8_lossy(&request[..count]);
+                assert!(request.starts_with("GET /json/list "));
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
         });
 
         let collector = CdpStateCollector::new();
@@ -444,6 +448,10 @@ mod tests {
         assert_eq!(state.targets[0].role, "button");
         assert_eq!(state.targets[0].name.as_deref(), Some("提交"));
         assert!(matches!(state.quality, StateQuality::Complete));
+        let repeated = collector.collect_current_state("ses_state").await.unwrap();
+        assert_eq!(repeated.state_version, 2);
+        assert_ne!(repeated.targets[0].target_ref, state.targets[0].target_ref);
+        assert_eq!(repeated.content_hash, state.content_hash);
 
         websocket_task.await.unwrap();
         http_task.await.unwrap();

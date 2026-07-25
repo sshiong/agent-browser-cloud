@@ -1,7 +1,9 @@
 package io.browsercloud.coordinator;
 
 import io.browsercloud.domain.operation.ExclusiveOperation;
+import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationState;
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -28,6 +30,8 @@ public interface OperationRepository {
   Optional<ExclusiveOperation> findActive(String sessionId);
 
   long nextOperationEpoch(String sessionId);
+
+  long countSince(String sessionId, OperationMode mode, Instant since);
 
   /**
    * 插入新的 Operation。

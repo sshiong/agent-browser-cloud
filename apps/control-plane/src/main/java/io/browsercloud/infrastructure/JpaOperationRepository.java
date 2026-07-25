@@ -40,6 +40,11 @@ public class JpaOperationRepository implements OperationRepository {
   }
 
   @Override
+  public long countSince(String sessionId, OperationMode mode, Instant since) {
+    return operationJpa.countBySessionIdAndModeAndCreatedAtAfter(sessionId, mode.name(), since);
+  }
+
+  @Override
   @Transactional
   public void insert(ExclusiveOperation operation) {
     var entity = new ExclusiveOperationEntity();

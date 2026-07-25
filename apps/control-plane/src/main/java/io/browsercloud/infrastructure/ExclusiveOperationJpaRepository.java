@@ -1,6 +1,7 @@
 package io.browsercloud.infrastructure;
 
 import io.browsercloud.persistence.ExclusiveOperationEntity;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,4 +21,6 @@ public interface ExclusiveOperationJpaRepository
        where operation.sessionId = :sessionId
       """)
   long nextOperationEpoch(String sessionId);
+
+  long countBySessionIdAndModeAndCreatedAtAfter(String sessionId, String mode, Instant createdAt);
 }

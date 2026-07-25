@@ -2,8 +2,11 @@ package io.browsercloud.coordinator;
 
 import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
 import io.browsercloud.domain.operation.ExclusiveOperation;
+import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.session.SessionState;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +29,7 @@ import org.slf4j.LoggerFactory;
 public final class SessionCoordinator {
 
   private static final Logger log = LoggerFactory.getLogger(SessionCoordinator.class);
+  private static final long MAX_RECOVERY_ATTEMPTS_PER_HOUR = 3;
 
   private final SessionRepository sessionRepository;
   private final OperationRepository operationRepository;
@@ -184,11 +188,16 @@ public final class SessionCoordinator {
     return switch (event) {
       case NodeEvent.RuntimeStarted started -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
-        if (session.state() != SessionState.STARTING) {
+        if (session.state() != SessionState.STARTING
+            && session.state() != SessionState.RECOVERING) {
           yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
         }
         if (operation.isEmpty()) {
           yield CoordinatorResult.rejected("STALE_OPERATION_EPOCH");
+        }
+        if (session.state() == SessionState.RECOVERING
+            && operation.orElseThrow().mode() != OperationMode.RECOVERY) {
+          yield CoordinatorResult.rejected("INVALID_RECOVERY_OPERATION");
         }
         if (started.browserGeneration() <= session.browserGeneration()) {
           yield CoordinatorResult.rejected("STALE_BROWSER_GENERATION");
@@ -235,12 +244,45 @@ public final class SessionCoordinator {
       }
 
       case NodeEvent.RuntimeCrashed crashed -> {
-        // 更新 Session 状态为 DEGRADED
-        var newContext = session.withState(SessionState.DEGRADED);
-        sessionRepository.updateWithExpectedEpoch(newContext, session.contextEpoch());
+        if (session.state() == SessionState.TERMINATING
+            || session.state() == SessionState.TERMINATED) {
+          yield CoordinatorResult.rejected("RECOVERY_SUPPRESSED_DURING_TERMINATION");
+        }
+        if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+          yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
+        }
 
-        // 发布事件
-        outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.DEGRADED));
+        operationRepository
+            .findActive(session.sessionId())
+            .ifPresent(
+                active ->
+                    operationRepository.transition(
+                        active.operationId(), OperationState.ACTIVE, OperationState.ABORTED));
+
+        var recentAttempts =
+            operationRepository.countSince(
+                session.sessionId(),
+                OperationMode.RECOVERY,
+                Instant.now().minus(1, ChronoUnit.HOURS));
+        if (recentAttempts >= MAX_RECOVERY_ATTEMPTS_PER_HOUR
+            || session.runtimeBuildId() == null
+            || session.runtimeBuildId().isBlank()) {
+          sessionRepository.updateWithExpectedEpoch(
+              session.withState(SessionState.FAILED), session.contextEpoch());
+          outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.FAILED));
+          yield CoordinatorResult.completed();
+        }
+
+        var recovery =
+            OperationFactory.recovery(
+                session, operationRepository.nextOperationEpoch(session.sessionId()));
+        operationRepository.insert(recovery);
+        sessionRepository.updateWithExpectedEpoch(
+            session.withState(SessionState.RECOVERING), session.contextEpoch());
+        nodeCommandGateway.send(
+            NodeCommands.startRuntime(session, recovery, session.runtimeBuildId()));
+        outboxPublisher.append(
+            new SessionStateChanged(session.sessionId(), SessionState.RECOVERING));
 
         yield CoordinatorResult.completed();
       }

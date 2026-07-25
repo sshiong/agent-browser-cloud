@@ -59,6 +59,16 @@ node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); prin
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
+start_browser_node() {
+  CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
+  NODE_AGENT_PORT="$node_port" \
+  NODE_ID=node-integration \
+  CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
+  RUNTIME_ROOT="$temp_dir/runtime" \
+    apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
+  node_pid=$!
+}
+
 for _ in $(seq 1 40); do
   docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
   sleep 0.5
@@ -68,13 +78,7 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 
-CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
-NODE_AGENT_PORT="$node_port" \
-NODE_ID=node-integration \
-CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
-RUNTIME_ROOT="$temp_dir/runtime" \
-  apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &
-node_pid=$!
+start_browser_node
 
 DATABASE_URL="jdbc:postgresql://localhost:${postgres_port}/browsercloud" \
 DATABASE_USER=browsercloud \
@@ -182,14 +186,79 @@ test "$state_status" = "200"
 printf '%s' "$browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 1; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
 
+runtime_pid="$(pgrep -P "$node_pid" | head -n 1)"
+test -n "$runtime_pid"
+kill -9 "$runtime_pid"
+
+recovered_session=""
+recovered_state=""
+for _ in $(seq 1 120); do
+  recovered_session="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  recovered_state="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  recovered_epoch="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+  if [[ "$recovered_state" = "RUNNING" ]] && [[ "$recovered_epoch" = "2" ]]; then break; fi
+  sleep 0.25
+done
+test "$recovered_state" = "RUNNING"
+test "$recovered_epoch" = "2"
+printf '%s' "$recovered_session" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 2; assert item["currentOperation"] is None'
+
+recovered_browser_state=""
+for _ in $(seq 1 40); do
+  recovered_browser_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  recovered_state_epoch="$(printf '%s' "$recovered_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+  if [[ "$recovered_state_epoch" = "2" ]]; then break; fi
+  sleep 0.25
+done
+test "$recovered_state_epoch" = "2"
+printf '%s' "$recovered_browser_state" | python3 -c \
+  'import json,sys; state=json.load(sys.stdin); assert state["stateVersion"] >= 2; assert state["stateQuality"] == "COMPLETE"'
+
+kill -INT "$node_pid"
+wait "$node_pid" 2>/dev/null || true
+node_pid=""
+start_browser_node
+
+reconciled_session=""
+reconciled_state=""
+for _ in $(seq 1 160); do
+  reconciled_session="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  reconciled_state="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  reconciled_epoch="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+  if [[ "$reconciled_state" = "RUNNING" ]] && [[ "$reconciled_epoch" = "3" ]]; then break; fi
+  sleep 0.25
+done
+test "$reconciled_state" = "RUNNING"
+test "$reconciled_epoch" = "3"
+printf '%s' "$reconciled_session" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 3; assert item["currentOperation"] is None'
+
+reconciled_browser_state=""
+for _ in $(seq 1 40); do
+  reconciled_browser_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  reconciled_state_epoch="$(printf '%s' "$reconciled_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+  if [[ "$reconciled_state_epoch" = "3" ]]; then break; fi
+  sleep 0.25
+done
+test "$reconciled_state_epoch" = "3"
+
 published="0"
 for _ in $(seq 1 30); do
   published="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published" = "1" ]]; then break; fi
+  if [[ "$published" = "3" ]]; then break; fi
   sleep 0.5
 done
-test "$published" = "1"
+test "$published" = "3"
 
 terminate_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:terminate" \
@@ -210,24 +279,27 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "2"
+test "$committed_operations" = "4"
+recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
+test "$recovery_operations" = "2"
 inbox_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from inbox_events where consumer_id='session-coordinator-v1'")"
-test "$inbox_events" = "3"
+test "$inbox_events" = "9"
 published_commands="0"
 for _ in $(seq 1 20); do
   published_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published_commands" = "2" ]]; then break; fi
+  if [[ "$published_commands" = "4" ]]; then break; fi
   sleep 0.25
 done
-test "$published_commands" = "2"
+test "$published_commands" = "4"
 
 browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration'")"
 test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"

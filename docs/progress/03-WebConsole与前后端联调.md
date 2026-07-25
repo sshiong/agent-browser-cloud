@@ -50,6 +50,9 @@
 - Session 详情页展示真实 Browser State：Document、URL、Quality、State/Target
   Revision、Context Epoch、Content Hash 以及前 12 个交互目标的 Role、Bounds、
   Visible 和 Enabled。
+- Session 详情在 `RUNNING` 期间也持续同步权威 Session 状态，因此能发现突发 Crash；
+  `RECOVERING` 明确显示写入冻结、替代 Runtime 与状态重采集过程，Recovery 熔断后的
+  `FAILED` 显示 Circuit Open 与人工排查指引。
 
 ### Fixture 管理
 

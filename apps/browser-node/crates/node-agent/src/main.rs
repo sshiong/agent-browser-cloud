@@ -13,7 +13,7 @@ use node_contracts::proto::{
     StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
-    PersistedAcknowledgement, PersistedCommandResult, SqliteNodeJournal, TermDecision,
+    PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
 };
 use prost::Message;
 use runtime_supervisor::{ChromiumRuntimeSupervisor, RuntimeSpec, RuntimeSupervisor};
@@ -44,6 +44,8 @@ struct NodeControlService {
 struct CommandResult {
     acknowledgement: CommandAck,
     event: Option<EventEnvelope>,
+    runtime_lease: Option<RuntimeLease>,
+    stop_runtime_lease: bool,
 }
 
 impl NodeControlService {
@@ -108,6 +110,30 @@ impl NodeControlService {
         CommandResult {
             acknowledgement,
             event,
+            runtime_lease: None,
+            stop_runtime_lease: false,
+        }
+    }
+
+    fn runtime_started_result(
+        acknowledgement: CommandAck,
+        event: EventEnvelope,
+        runtime_lease: RuntimeLease,
+    ) -> CommandResult {
+        CommandResult {
+            acknowledgement,
+            event: Some(event),
+            runtime_lease: Some(runtime_lease),
+            stop_runtime_lease: false,
+        }
+    }
+
+    fn runtime_stopped_result(acknowledgement: CommandAck, event: EventEnvelope) -> CommandResult {
+        CommandResult {
+            acknowledgement,
+            event: Some(event),
+            runtime_lease: None,
+            stop_runtime_lease: true,
         }
     }
 
@@ -231,6 +257,16 @@ impl NodeControlService {
                                     .lock()
                                     .await
                                     .insert(command.session_id.clone(), input);
+                                let runtime_lease = RuntimeLease {
+                                    session_id: command.session_id.clone(),
+                                    tenant_id: command.tenant_id.clone(),
+                                    runtime_build_id: runtime_build_id.clone(),
+                                    coordinator_term: command.coordinator_term,
+                                    context_epoch: command.context_epoch.saturating_add(1),
+                                    browser_generation: handle.browser_generation,
+                                    pid: handle.pid,
+                                    process_started_at: handle.process_started_at,
+                                };
                                 let sequence =
                                     match self.next_event_sequence(&command.session_id).await {
                                         Ok(sequence) => sequence,
@@ -249,9 +285,10 @@ impl NodeControlService {
                                         runtime_build_id,
                                     },
                                 );
-                                Self::result(
+                                Self::runtime_started_result(
                                     Self::ack(&command.message_id, true, "", ""),
-                                    Some(event),
+                                    event,
+                                    runtime_lease,
                                 )
                             }
                             Err(error) => self.failed(command, error),
@@ -288,7 +325,10 @@ impl NodeControlService {
                                     exit_code: 0,
                                 },
                             );
-                            Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+                            Self::runtime_stopped_result(
+                                Self::ack(&command.message_id, true, "", ""),
+                                event,
+                            )
                         }
                         Err(error) => self.failed(command, error),
                     }
@@ -712,7 +752,9 @@ impl NodeControlService {
             event_payload: Some(event.encode_to_vec()),
             event_delivered: false,
         };
-        self.journal.record_command_result(&persisted).await?;
+        self.journal
+            .record_crash_and_stop_runtime(session_id, &persisted)
+            .await?;
         if let Err(error) = self.publish_and_mark(event).await {
             tracing::warn!(
                 session_id,
@@ -721,6 +763,59 @@ impl NodeControlService {
             );
         }
         Ok(())
+    }
+
+    async fn reconcile_runtime_leases(&self) {
+        let leases = match self.journal.active_runtime_leases().await {
+            Ok(leases) => leases,
+            Err(error) => {
+                tracing::error!(error = %error, "Failed to read Runtime leases for reconciliation");
+                return;
+            }
+        };
+        for lease in leases {
+            self.runtime_supervisor
+                .ensure_generation_at_least(&lease.session_id, lease.browser_generation)
+                .await;
+            match self
+                .runtime_supervisor
+                .terminate_orphan(lease.pid, lease.process_started_at)
+                .await
+            {
+                Ok(true) => tracing::warn!(
+                    session_id = %lease.session_id,
+                    pid = lease.pid,
+                    "Terminated orphan Runtime during Node reconciliation"
+                ),
+                Ok(false) => {}
+                Err(error) => tracing::warn!(
+                    session_id = %lease.session_id,
+                    pid = lease.pid,
+                    error = %error,
+                    "Skipped orphan Runtime termination"
+                ),
+            }
+            let reason = format!(
+                "Node restarted while Runtime lease for pid {} was active",
+                lease.pid
+            );
+            if let Err(error) = self
+                .record_and_publish_crash(
+                    &lease.tenant_id,
+                    &lease.session_id,
+                    lease.coordinator_term,
+                    lease.context_epoch,
+                    &reason,
+                )
+                .await
+            {
+                tracing::error!(
+                    session_id = %lease.session_id,
+                    error = %error,
+                    "Runtime lease reconciliation failed"
+                );
+            }
+        }
     }
 }
 
@@ -813,17 +908,33 @@ impl NodeControlServiceRpc for NodeControlService {
         if result.acknowledgement.accepted
             || result.acknowledgement.error_code == "UNSUPPORTED_COMMAND"
         {
-            self.journal
-                .record_command_result(&Self::persisted(&result))
-                .await
-                .map_err(|error| {
-                    tracing::error!(
-                        message_id = %command.message_id,
-                        error = %error,
-                        "Failed to persist Node command result"
-                    );
-                    Status::internal("node journal unavailable")
-                })?;
+            let persisted = Self::persisted(&result);
+            let persistence = if let Some(lease) = result.runtime_lease.as_ref() {
+                self.journal
+                    .record_command_result_and_start_runtime(&persisted, lease)
+                    .await
+            } else if result.stop_runtime_lease {
+                self.journal
+                    .record_command_result_and_stop_runtime(&persisted, &command.session_id)
+                    .await
+            } else {
+                self.journal.record_command_result(&persisted).await
+            };
+            if let Err(error) = persistence {
+                if result.runtime_lease.is_some() {
+                    self.input_brokers.lock().await.remove(&command.session_id);
+                    self.state_collector
+                        .unregister_runtime(&command.session_id)
+                        .await;
+                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                }
+                tracing::error!(
+                    message_id = %command.message_id,
+                    error = %error,
+                    "Failed to persist Node command result"
+                );
+                return Err(Status::internal("node journal unavailable"));
+            }
         }
 
         let mut acknowledgement = result.acknowledgement;
@@ -897,6 +1008,8 @@ async fn main() -> Result<()> {
     let redelivery_service = service.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
+        redelivery_service.redeliver_pending_events().await;
+        redelivery_service.reconcile_runtime_leases().await;
         loop {
             interval.tick().await;
             redelivery_service.redeliver_pending_events().await;

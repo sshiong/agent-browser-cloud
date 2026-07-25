@@ -979,6 +979,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state-collector",
+ "storage-helper",
  "tokio",
  "tonic",
  "tracing",
@@ -1778,7 +1779,11 @@ dependencies = [
  "anyhow",
  "async-trait",
  "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

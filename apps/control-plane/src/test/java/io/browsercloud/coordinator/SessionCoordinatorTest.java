@@ -314,7 +314,11 @@ class SessionCoordinatorTest {
 
     var result =
         coordinator.handle(
-            nodeEvent(new NodeEvent.RuntimeStopped("ses-1", "user_request", 0), 0, 1));
+            nodeEvent(
+                new NodeEvent.RuntimeStopped(
+                    "ses-1", "user_request", 0, "profile-test", "chk-test", 1, 1, 0, 0, "EMPTY"),
+                0,
+                1));
 
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
     verify(sessionRepository)

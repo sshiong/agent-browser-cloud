@@ -27,6 +27,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::sync::{mpsc, Mutex};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
@@ -35,8 +36,9 @@ use tracing_subscriber::EnvFilter;
 struct NodeControlService {
     node_id: String,
     control_plane_event_target: String,
-    runtime_root: PathBuf,
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
+    profile_store: Arc<LocalProfileStore>,
+    profile_workspaces: Arc<Mutex<HashMap<String, ActiveProfileWorkspace>>>,
     state_collector: Arc<CdpStateCollector>,
     input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
     journal: Arc<SqliteNodeJournal>,
@@ -46,6 +48,12 @@ struct NodeControlService {
     next_display: Arc<Mutex<u16>>,
     remote_desktop_gateway: Option<RemoteDesktopGateway>,
     desktop_enabled: bool,
+}
+
+#[derive(Clone)]
+struct ActiveProfileWorkspace {
+    workspace: ProfileWorkspace,
+    runtime_build_id: String,
 }
 
 struct DesktopDisconnectPublisher {
@@ -111,10 +119,6 @@ impl NodeControlService {
             error_code: error_code.to_owned(),
             error_message: error_message.to_owned(),
         }
-    }
-
-    fn profile_dir(&self, session_id: &str) -> PathBuf {
-        self.runtime_root.join(session_id).join("profile")
     }
 
     fn parse_input_key(value: &str) -> anyhow::Result<InputKey> {
@@ -448,12 +452,35 @@ impl NodeControlService {
                 let payload = StartRuntimeCommand::decode(command.payload.as_slice());
                 match payload {
                     Ok(payload) => {
+                        if payload.session_id != command.session_id {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "runtime payload session_id does not match envelope"
+                                ),
+                            );
+                        }
+                        let workspace = match self
+                            .profile_store
+                            .acquire_workspace(
+                                &command.tenant_id,
+                                &payload.profile_id,
+                                &command.session_id,
+                            )
+                            .await
+                        {
+                            Ok(workspace) => workspace,
+                            Err(error) => return self.failed(command, error),
+                        };
                         let cdp_port = self.allocate_cdp_port().await;
                         let runtime_build_id = payload.runtime_build_id;
                         let (display, vnc_port) = if self.desktop_enabled {
                             let vnc_port = match Self::allocate_loopback_port() {
                                 Ok(port) => port,
-                                Err(error) => return self.failed(command, error),
+                                Err(error) => {
+                                    let _ = self.profile_store.release_writer(&workspace).await;
+                                    return self.failed(command, error);
+                                }
                             };
                             (self.allocate_display().await, Some(vnc_port))
                         } else {
@@ -464,7 +491,8 @@ impl NodeControlService {
                             .start(RuntimeSpec {
                                 session_id: command.session_id.clone(),
                                 runtime_build_id: runtime_build_id.clone(),
-                                profile_dir: self.profile_dir(&command.session_id),
+                                profile_dir: workspace.core_dir.clone(),
+                                cache_dir: workspace.ephemeral_dir.join("cache"),
                                 display,
                                 cdp_port,
                                 vnc_port,
@@ -483,6 +511,8 @@ impl NodeControlService {
                                                 .runtime_supervisor
                                                 .stop(&command.session_id)
                                                 .await;
+                                            let _ =
+                                                self.profile_store.release_writer(&workspace).await;
                                             return self.failed(command, error.into());
                                         }
                                     };
@@ -491,6 +521,7 @@ impl NodeControlService {
                                     {
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
+                                        let _ = self.profile_store.release_writer(&workspace).await;
                                         return self.failed(command, error);
                                     }
                                 }
@@ -503,6 +534,7 @@ impl NodeControlService {
                                         gateway.unregister_session(&command.session_id);
                                     }
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    let _ = self.profile_store.release_writer(&workspace).await;
                                     return self.failed(command, error);
                                 }
                                 let input = match CdpDesktopInput::connect(&handle.cdp_endpoint)
@@ -519,6 +551,7 @@ impl NodeControlService {
                                             .await;
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
+                                        let _ = self.profile_store.release_writer(&workspace).await;
                                         return self.failed(command, error);
                                     }
                                 };
@@ -526,6 +559,13 @@ impl NodeControlService {
                                     .lock()
                                     .await
                                     .insert(command.session_id.clone(), input);
+                                self.profile_workspaces.lock().await.insert(
+                                    command.session_id.clone(),
+                                    ActiveProfileWorkspace {
+                                        workspace: workspace.clone(),
+                                        runtime_build_id: runtime_build_id.clone(),
+                                    },
+                                );
                                 let runtime_lease = RuntimeLease {
                                     session_id: command.session_id.clone(),
                                     tenant_id: command.tenant_id.clone(),
@@ -536,11 +576,30 @@ impl NodeControlService {
                                     pid: handle.pid,
                                     process_started_at: handle.process_started_at,
                                 };
-                                let sequence =
-                                    match self.next_event_sequence(&command.session_id).await {
-                                        Ok(sequence) => sequence,
-                                        Err(error) => return self.failed(command, error),
-                                    };
+                                let sequence = match self
+                                    .next_event_sequence(&command.session_id)
+                                    .await
+                                {
+                                    Ok(sequence) => sequence,
+                                    Err(error) => {
+                                        if let Some(gateway) = self.remote_desktop_gateway.as_ref()
+                                        {
+                                            gateway.unregister_session(&command.session_id);
+                                        }
+                                        self.input_brokers.lock().await.remove(&command.session_id);
+                                        self.state_collector
+                                            .unregister_runtime(&command.session_id)
+                                            .await;
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        self.profile_workspaces
+                                            .lock()
+                                            .await
+                                            .remove(&command.session_id);
+                                        let _ = self.profile_store.release_writer(&workspace).await;
+                                        return self.failed(command, error);
+                                    }
+                                };
                                 let event = Self::event(
                                     command,
                                     "RuntimeStarted",
@@ -560,7 +619,10 @@ impl NodeControlService {
                                     runtime_lease,
                                 )
                             }
-                            Err(error) => self.failed(command, error),
+                            Err(error) => {
+                                let _ = self.profile_store.release_writer(&workspace).await;
+                                self.failed(command, error)
+                            }
                         }
                     }
                     Err(error) => self.failed(command, error.into()),
@@ -587,6 +649,63 @@ impl NodeControlService {
                                 Ok(sequence) => sequence,
                                 Err(error) => return self.failed(command, error),
                             };
+                            let active_profile = self
+                                .profile_workspaces
+                                .lock()
+                                .await
+                                .get(&command.session_id)
+                                .cloned();
+                            let (
+                                profile_id,
+                                checkpoint_id,
+                                checkpoint_epoch,
+                                profile_write_epoch,
+                                core_size_bytes,
+                                checkpoint_file_count,
+                                restore_status,
+                            ) = match active_profile {
+                                Some(active_profile) => {
+                                    let checkpoint = match self
+                                        .profile_store
+                                        .checkpoint(
+                                            &active_profile.workspace,
+                                            &active_profile.runtime_build_id,
+                                        )
+                                        .await
+                                    {
+                                        Ok(checkpoint) => checkpoint,
+                                        Err(error) => return self.failed(command, error),
+                                    };
+                                    if let Err(error) = self
+                                        .profile_store
+                                        .release_writer(&active_profile.workspace)
+                                        .await
+                                    {
+                                        return self.failed(command, error);
+                                    }
+                                    self.profile_workspaces
+                                        .lock()
+                                        .await
+                                        .remove(&command.session_id);
+                                    let restore_status = match active_profile
+                                        .workspace
+                                        .restore_status
+                                    {
+                                        ProfileRestoreStatus::Empty => "EMPTY",
+                                        ProfileRestoreStatus::TechnicalReady => "TECHNICAL_READY",
+                                    };
+                                    (
+                                        active_profile.workspace.profile_id,
+                                        checkpoint.checkpoint_id,
+                                        checkpoint.checkpoint_epoch,
+                                        checkpoint.profile_write_epoch,
+                                        checkpoint.core_size_bytes,
+                                        checkpoint.files.len() as u64,
+                                        restore_status,
+                                    )
+                                }
+                                None => (String::new(), String::new(), 0, 0, 0, 0, "EMPTY"),
+                            };
                             let event = Self::event(
                                 command,
                                 "RuntimeStopped",
@@ -595,6 +714,13 @@ impl NodeControlService {
                                     session_id: command.session_id.clone(),
                                     reason: payload.reason,
                                     exit_code: 0,
+                                    profile_id,
+                                    checkpoint_id,
+                                    checkpoint_epoch,
+                                    profile_write_epoch,
+                                    core_size_bytes,
+                                    checkpoint_file_count,
+                                    restore_status: restore_status.to_owned(),
                                 },
                             );
                             Self::runtime_stopped_result(
@@ -1260,6 +1386,10 @@ async fn main() -> Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|_| runtime_root.join("node-journal.sqlite3"));
     let journal = Arc::new(SqliteNodeJournal::open(journal_path).await?);
+    let profile_storage_root = std::env::var("PROFILE_STORAGE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| runtime_root.join("profile-storage"));
+    let profile_store = Arc::new(LocalProfileStore::open(profile_storage_root).await?);
     let input_brokers = Arc::new(Mutex::new(HashMap::new()));
     let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
     let desktop_config = match (std::env::var("XVFB_PATH"), std::env::var("X11VNC_PATH")) {
@@ -1327,8 +1457,9 @@ async fn main() -> Result<()> {
     let service = NodeControlService {
         node_id,
         control_plane_event_target,
-        runtime_root,
         runtime_supervisor: runtime_supervisor.clone(),
+        profile_store,
+        profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
         state_collector: Arc::new(CdpStateCollector::new()),
         input_brokers,
         journal,
@@ -1480,6 +1611,13 @@ mod tests {
                 session_id: "ses_restart".into(),
                 reason: "test".into(),
                 exit_code: 0,
+                profile_id: "profile-test".into(),
+                checkpoint_id: "chk-test".into(),
+                checkpoint_epoch: 1,
+                profile_write_epoch: 1,
+                core_size_bytes: 0,
+                checkpoint_file_count: 0,
+                restore_status: "EMPTY".into(),
             }
             .encode_to_vec(),
         };
@@ -1503,10 +1641,15 @@ mod tests {
         let service = NodeControlService {
             node_id: "node-test".into(),
             control_plane_event_target: address.to_string(),
-            runtime_root: root.clone(),
             runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
                 "/missing/chromium",
             ))),
+            profile_store: Arc::new(
+                LocalProfileStore::open(root.join("profiles"))
+                    .await
+                    .unwrap(),
+            ),
+            profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
             state_collector: Arc::new(CdpStateCollector::new()),
             input_brokers: Arc::new(Mutex::new(HashMap::new())),
             journal: reopened.clone(),

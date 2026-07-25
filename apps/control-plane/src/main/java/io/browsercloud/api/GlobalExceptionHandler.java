@@ -1,5 +1,7 @@
 package io.browsercloud.api;
 
+import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
+import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
 import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
@@ -32,6 +34,20 @@ public class GlobalExceptionHandler {
       SessionNotFoundException exception, HttpServletRequest request) {
     return response(
         HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(ProfileNotFoundException.class)
+  ResponseEntity<ApiError> profileNotFound(
+      ProfileNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND", "Profile not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(ProfileAlreadyExistsException.class)
+  ResponseEntity<ApiError> profileConflict(
+      ProfileAlreadyExistsException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT, "PROFILE_ALREADY_EXISTS", "Profile already exists", Map.of(), request);
   }
 
   @ExceptionHandler(TenantAccessDeniedException.class)

@@ -153,6 +153,43 @@ try {
     throw new Error("gateway disconnect did not execute the x11 all-keys-up barrier");
   }
 
+  await page.getByRole("button", { name: "终止", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "终止 Session？" })).toBeVisible();
+  await page.getByRole("button", { name: "确认终止" }).click();
+  await expect(
+    page.locator("main").getByText("已终止", { exact: true }).last(),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("link", { name: "Profile 存储" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Profile 存储" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("table").getByText("profile-e2e-start", { exact: true }).first(),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.locator("table").getByText("epoch 1", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator("table").getByText("空白初始化", { exact: true }),
+  ).toBeVisible();
+
+  const uiProfileId = `profile-e2e-ui-${runSuffix}`;
+  await page.getByRole("button", { name: "新建 Profile" }).click();
+  await expect(
+    page.getByRole("heading", { name: "创建持久化 Profile" }),
+  ).toBeVisible();
+  await page.getByLabel("Profile ID").fill(uiProfileId);
+  await page.getByLabel("显示名称").fill("E2E UI Profile");
+  await page.getByRole("button", { name: "创建 Profile" }).click();
+  await expect(
+    page.locator("table").getByText("E2E UI Profile", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-profiles.png"),
+    fullPage: true,
+  });
+
   await page.goto(`${baseUrl}/environments?create=1`);
   await page.waitForLoadState("networkidle");
   await expect(

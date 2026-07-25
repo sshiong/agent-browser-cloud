@@ -25,12 +25,15 @@ class NodeEventIngestionServiceTest {
   @Mock private InboxEventJpaRepository inboxRepository;
   @Mock private SessionCoordinator coordinator;
   @Mock private BrowserStateRepository browserStateRepository;
+  @Mock private ProfileApplicationService profileApplicationService;
 
   private NodeEventIngestionService service;
 
   @BeforeEach
   void setUp() {
-    service = new NodeEventIngestionService(inboxRepository, coordinator, browserStateRepository);
+    service =
+        new NodeEventIngestionService(
+            inboxRepository, coordinator, browserStateRepository, profileApplicationService);
   }
 
   @Test
@@ -52,6 +55,8 @@ class NodeEventIngestionServiceTest {
     var receipt = service.receive(command);
 
     assertThat(receipt.duplicate()).isFalse();
+    verify(profileApplicationService)
+        .recordCheckpoint("tenant-test", (NodeEvent.RuntimeStopped) command.event());
     verify(inboxRepository).save(any());
   }
 
@@ -96,6 +101,7 @@ class NodeEventIngestionServiceTest {
         0,
         1,
         1,
-        new NodeEvent.RuntimeStopped("ses-test", "test", 0));
+        new NodeEvent.RuntimeStopped(
+            "ses-test", "test", 0, "profile-test", "chk-test", 1, 1, 0, 0, "EMPTY"));
   }
 }

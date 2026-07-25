@@ -216,6 +216,64 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/profiles:
+    get:
+      operationId: listProfiles
+      summary: List tenant Profiles and their latest committed checkpoints
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped Profile list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: createProfile
+      summary: Create a persistent browser Profile
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfileRequest"
+      responses:
+        "201":
+          description: Profile created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/profiles/{profileId}:
+    get:
+      operationId: getProfile
+      summary: Get Profile checkpoint metadata
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped Profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -231,6 +289,13 @@ components:
       schema:
         type: string
         pattern: "^ses_[a-zA-Z0-9]{16,}$"
+    ProfileId:
+      name: profileId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-zA-Z0-9_-]{1,128}$"
     TenantId:
       name: X-Tenant-Id
       in: header
@@ -258,6 +323,88 @@ components:
         minLength: 1
         maxLength: 128
   schemas:
+    CreateProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [profileId, name]
+      properties:
+        profileId:
+          type: string
+          pattern: "^[a-zA-Z0-9_-]{1,128}$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 1024
+    Profile:
+      type: object
+      additionalProperties: false
+      required:
+        - profileId
+        - tenantId
+        - name
+        - profileWriteEpoch
+        - coreSizeBytes
+        - checkpointFileCount
+        - restoreStatus
+        - state
+        - createdAt
+        - updatedAt
+      properties:
+        profileId:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        latestCheckpointId:
+          type: [string, "null"]
+        latestCheckpointEpoch:
+          type: [integer, "null"]
+          format: int64
+        profileWriteEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        coreSizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        checkpointFileCount:
+          type: integer
+          format: int64
+          minimum: 0
+        restoreStatus:
+          type: string
+          enum: [EMPTY, TECHNICAL_READY]
+        state:
+          type: string
+          enum: [ACTIVE]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastCheckpointAt:
+          type: [string, "null"]
+          format: date-time
+    ProfileListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Profile"
+        total:
+          type: integer
+          minimum: 0
     SessionState:
       type: string
       enum:

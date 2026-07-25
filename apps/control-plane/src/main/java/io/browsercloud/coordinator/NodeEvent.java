@@ -26,7 +26,18 @@ public sealed interface NodeEvent
       implements NodeEvent {}
 
   /** Runtime 停止事件。 */
-  record RuntimeStopped(String sessionId, String reason, int exitCode) implements NodeEvent {}
+  record RuntimeStopped(
+      String sessionId,
+      String reason,
+      int exitCode,
+      String profileId,
+      String checkpointId,
+      long checkpointEpoch,
+      long profileWriteEpoch,
+      long coreSizeBytes,
+      long checkpointFileCount,
+      String restoreStatus)
+      implements NodeEvent {}
 
   /** Runtime 崩溃事件。 */
   record RuntimeCrashed(String sessionId, String crashType, String reason) implements NodeEvent {}

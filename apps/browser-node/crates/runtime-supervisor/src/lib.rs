@@ -20,6 +20,7 @@ pub struct RuntimeSpec {
     pub session_id: String,
     pub runtime_build_id: String,
     pub profile_dir: PathBuf,
+    pub cache_dir: PathBuf,
     pub display: String,
     pub cdp_port: u16,
     pub vnc_port: Option<u16>,
@@ -359,11 +360,13 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
         }
 
         tokio::fs::create_dir_all(&spec.profile_dir).await?;
+        tokio::fs::create_dir_all(&spec.cache_dir).await?;
         let mut desktop = self.start_desktop(&spec).await?;
 
         let mut command = tokio::process::Command::new(&self.chromium_binary);
         command
             .arg(format!("--user-data-dir={}", spec.profile_dir.display()))
+            .arg(format!("--disk-cache-dir={}", spec.cache_dir.display()))
             .arg(format!("--remote-debugging-port={}", spec.cdp_port))
             .arg("--remote-debugging-address=127.0.0.1")
             .arg("--no-first-run")
@@ -567,6 +570,7 @@ mod tests {
                 session_id: "../escape".into(),
                 runtime_build_id: "runtime-1".into(),
                 profile_dir: PathBuf::from("/tmp/should-not-be-created"),
+                cache_dir: PathBuf::from("/tmp/should-not-be-created-cache"),
                 display: String::new(),
                 cdp_port: 9222,
                 vnc_port: None,
@@ -595,6 +599,7 @@ mod tests {
                 session_id: "ses_real_runtime".into(),
                 runtime_build_id: "runtime-real-test".into(),
                 profile_dir: profile_dir.clone(),
+                cache_dir: profile_dir.join("EphemeralCache"),
                 display: String::new(),
                 cdp_port,
                 vnc_port: None,

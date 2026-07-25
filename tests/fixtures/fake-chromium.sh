@@ -1,10 +1,14 @@
 #!/usr/bin/env sh
 
 cdp_port=""
+user_data_dir=""
 for argument in "$@"; do
   case "$argument" in
     --remote-debugging-port=*)
       cdp_port="${argument#*=}"
+      ;;
+    --user-data-dir=*)
+      user_data_dir="${argument#*=}"
       ;;
   esac
 done
@@ -13,17 +17,30 @@ if [ -z "$cdp_port" ]; then
   echo "fake Chromium requires --remote-debugging-port" >&2
   exit 2
 fi
+if [ -z "$user_data_dir" ]; then
+  echo "fake Chromium requires --user-data-dir" >&2
+  exit 2
+fi
 
-exec python3 - "$cdp_port" <<'PY'
+exec python3 - "$cdp_port" "$user_data_dir" <<'PY'
 import json
 import base64
 import hashlib
 import signal
 import struct
 import sys
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 port = int(sys.argv[1])
+profile_root = Path(sys.argv[2])
+marker = profile_root / "Default" / "BrowserCloudProfileState.json"
+marker.parent.mkdir(parents=True, exist_ok=True)
+try:
+    starts = json.loads(marker.read_text()).get("starts", 0)
+except (FileNotFoundError, json.JSONDecodeError):
+    starts = 0
+marker.write_text(json.dumps({"starts": starts + 1, "durable": True}))
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"

@@ -28,6 +28,7 @@ public class SessionApplicationService {
   private final BrowserStateRepository browserStateRepository;
   private final IdempotencyService idempotencyService;
   private final RemoteDesktopTicketService remoteDesktopTicketService;
+  private final ProfileApplicationService profileApplicationService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -37,6 +38,7 @@ public class SessionApplicationService {
       BrowserStateRepository browserStateRepository,
       IdempotencyService idempotencyService,
       RemoteDesktopTicketService remoteDesktopTicketService,
+      ProfileApplicationService profileApplicationService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -45,6 +47,7 @@ public class SessionApplicationService {
     this.browserStateRepository = browserStateRepository;
     this.idempotencyService = idempotencyService;
     this.remoteDesktopTicketService = remoteDesktopTicketService;
+    this.profileApplicationService = profileApplicationService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -62,6 +65,7 @@ public class SessionApplicationService {
     }
 
     Instant now = Instant.now();
+    profileApplicationService.ensureExists(request.tenantId(), request.profileId());
 
     var context =
         new SessionContext(

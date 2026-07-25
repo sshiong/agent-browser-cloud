@@ -17,8 +17,8 @@ import java.util.Map;
  * @param metadata 扩展元数据
  */
 public record CreateSessionRequest(
-    @NotBlank @Size(max = 128) String tenantId,
-    @NotBlank @Size(max = 128) String profileId,
+    @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String tenantId,
+    @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId,
     @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
     ResourceClass resourceClass,
     @Size(max = 32)

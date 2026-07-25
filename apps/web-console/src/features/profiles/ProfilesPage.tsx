@@ -1,104 +1,326 @@
+import { useMemo, useState } from 'react';
+import {
+  CheckCircle2,
+  Database,
+  FileArchive,
+  Plus,
+  Search,
+} from 'lucide-react';
 import { TopContextBar } from '@/components/layout/TopContextBar';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+} from '@/components/feedback/AsyncStates';
+import { CreateProfileDialog } from '@/features/profiles/CreateProfileDialog';
+import { useProfiles } from '@/features/profiles/profileQueries';
 import { cn } from '@/shared/lib/utils';
-import { profiles } from '@/mocks/data';
-import { FixtureBoundary } from '@/components/feedback/FixtureNotice';
-
-const restoreColors: Record<string, string> = {
-  ready: 'text-success bg-success/15',
-  restoring: 'text-accent-secondary bg-accent-secondary/15',
-  failed: 'text-danger bg-danger/15',
-  unknown: 'text-text-muted bg-surface-3',
-};
+import type { ProfileView } from '@/types/profile';
 
 export function ProfilesPage() {
+  const query = useProfiles();
+  const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const profiles = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return query.data?.items ?? [];
+    return (query.data?.items ?? []).filter((profile) =>
+      [
+        profile.profileId,
+        profile.name,
+        profile.description,
+        profile.latestCheckpointId,
+      ]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(needle))
+    );
+  }, [query.data?.items, search]);
+
+  const totalBytes =
+    query.data?.items.reduce(
+      (total, profile) => total + profile.coreSizeBytes,
+      0
+    ) ?? 0;
+  const checkpointed =
+    query.data?.items.filter((profile) => profile.latestCheckpointId).length ??
+    0;
+
   return (
     <div>
       <TopContextBar
         title="Profile 存储"
-        subtitle="管理浏览器 Profile、检查点与恢复状态"
+        subtitle="Control Plane 元数据与 Browser Node 检查点的真实状态"
       />
-      <FixtureBoundary>
-        <div className="p-6">
-          <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border-subtle bg-surface-2">
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    Profile
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    Core 大小
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    Cache 大小
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    最近检查点
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    加密版本
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    恢复状态
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {profiles.map((profile) => (
-                  <tr
-                    key={profile.id}
-                    className="border-b border-border-subtle transition-colors hover:bg-surface-2"
-                  >
-                    <td className="px-4 py-3">
-                      <div>
-                        <span className="text-[13px] font-medium text-text-primary">
-                          {profile.name}
-                        </span>
-                        <p className="font-mono text-[11px] text-text-muted">
-                          {profile.id}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[12px] text-text-secondary">
-                        {profile.coreSize}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[12px] text-text-secondary">
-                        {profile.cacheSize}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[12px] text-text-muted">
-                        {profile.lastCheckpoint}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-[12px] text-text-secondary">
-                        v{profile.encryptionKeyVersion}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                          restoreColors[profile.restoreStatus]
-                        )}
-                      >
-                        {profile.restoreStatus === 'ready' && '就绪'}
-                        {profile.restoreStatus === 'restoring' && '恢复中'}
-                        {profile.restoreStatus === 'failed' && '失败'}
-                        {profile.restoreStatus === 'unknown' && '未知'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+      <main className="p-4 sm:p-6">
+        <section
+          className="mb-4 grid grid-cols-1 border border-border-subtle bg-border-subtle sm:grid-cols-3"
+          aria-label="Profile 指标"
+        >
+          <Metric
+            icon={<Database size={15} />}
+            label="Profile"
+            value={String(query.data?.total ?? 0)}
+          />
+          <Metric
+            icon={<FileArchive size={15} />}
+            label="已形成检查点"
+            value={String(checkpointed)}
+          />
+          <Metric
+            icon={<CheckCircle2 size={15} />}
+            label="Core 占用"
+            value={formatBytes(totalBytes)}
+          />
+        </section>
+
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="relative block w-full sm:max-w-[340px]">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            />
+            <span className="sr-only">搜索 Profile</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="field-input pl-9"
+              placeholder="搜索 ID、名称或检查点"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex h-9 items-center justify-center gap-2 bg-accent px-4 text-[12px] font-semibold text-canvas transition-colors hover:bg-accent/90"
+          >
+            <Plus size={14} />
+            新建 Profile
+          </button>
         </div>
-      </FixtureBoundary>
+
+        <section className="overflow-hidden border border-border-subtle bg-surface-1">
+          {query.isLoading ? (
+            <LoadingRows rows={5} />
+          ) : query.isError ? (
+            <ErrorState
+              error={query.error}
+              onRetry={() => query.refetch()}
+              title="无法加载 Profile"
+            />
+          ) : profiles.length === 0 ? (
+            <EmptyState
+              title={search ? '没有匹配的 Profile' : '尚未创建 Profile'}
+              description={
+                search
+                  ? '调整搜索条件，或清空关键词查看全部 Profile。'
+                  : '创建第一个持久化 Profile；它会在 Session 安全停止后提交 Core 检查点。'
+              }
+              action={
+                !search && (
+                  <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    className="h-8 bg-accent px-3 text-[12px] font-semibold text-canvas"
+                  >
+                    创建 Profile
+                  </button>
+                )
+              }
+            />
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-border-subtle bg-surface-2">
+                      {[
+                        'Profile',
+                        'Core / 文件',
+                        '最新检查点',
+                        '写入世代',
+                        '恢复来源',
+                        '更新时间',
+                      ].map((label) => (
+                        <th
+                          key={label}
+                          className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted"
+                        >
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profiles.map((profile) => (
+                      <ProfileRow key={profile.profileId} profile={profile} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="divide-y divide-border-subtle md:hidden">
+                {profiles.map((profile) => (
+                  <ProfileCard key={profile.profileId} profile={profile} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      </main>
+
+      <CreateProfileDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-h-20 items-center gap-3 bg-surface-1 px-4 py-3">
+      <span className="flex h-8 w-8 items-center justify-center bg-accent-soft text-accent">
+        {icon}
+      </span>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+          {label}
+        </p>
+        <p className="mt-0.5 font-mono text-[16px] font-semibold text-text-primary">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProfileRow({ profile }: { profile: ProfileView }) {
+  return (
+    <tr className="border-b border-border-subtle last:border-b-0 hover:bg-surface-2/60">
+      <td className="px-4 py-3.5">
+        <p className="text-[13px] font-medium text-text-primary">
+          {profile.name}
+        </p>
+        <p className="mt-0.5 font-mono text-[10px] text-text-muted">
+          {profile.profileId}
+        </p>
+      </td>
+      <td className="px-4 py-3.5">
+        <p className="font-mono text-[12px] text-text-secondary">
+          {formatBytes(profile.coreSizeBytes)}
+        </p>
+        <p className="text-[10px] text-text-muted">
+          {profile.checkpointFileCount.toLocaleString()} files
+        </p>
+      </td>
+      <td className="px-4 py-3.5">
+        {profile.latestCheckpointId ? (
+          <>
+            <p className="max-w-[190px] truncate font-mono text-[11px] text-text-secondary">
+              {profile.latestCheckpointId}
+            </p>
+            <p className="text-[10px] text-text-muted">
+              epoch {profile.latestCheckpointEpoch}
+            </p>
+          </>
+        ) : (
+          <span className="text-[11px] text-text-muted">尚未提交</span>
+        )}
+      </td>
+      <td className="px-4 py-3.5 font-mono text-[12px] text-text-secondary">
+        {profile.profileWriteEpoch}
+      </td>
+      <td className="px-4 py-3.5">
+        <RestoreChip status={profile.restoreStatus} />
+      </td>
+      <td className="px-4 py-3.5 text-[11px] text-text-muted">
+        {formatDate(profile.updatedAt)}
+      </td>
+    </tr>
+  );
+}
+
+function ProfileCard({ profile }: { profile: ProfileView }) {
+  return (
+    <article className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-[13px] font-medium text-text-primary">
+            {profile.name}
+          </h2>
+          <p className="truncate font-mono text-[10px] text-text-muted">
+            {profile.profileId}
+          </p>
+        </div>
+        <RestoreChip status={profile.restoreStatus} />
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+        <Datum label="Core" value={formatBytes(profile.coreSizeBytes)} />
+        <Datum label="文件" value={String(profile.checkpointFileCount)} />
+        <Datum
+          label="检查点"
+          value={
+            profile.latestCheckpointEpoch
+              ? `epoch ${profile.latestCheckpointEpoch}`
+              : '尚未提交'
+          }
+        />
+        <Datum label="写入世代" value={String(profile.profileWriteEpoch)} />
+      </dl>
+    </article>
+  );
+}
+
+function Datum({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] uppercase tracking-wider text-text-muted">
+        {label}
+      </dt>
+      <dd className="mt-0.5 font-mono text-[11px] text-text-secondary">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function RestoreChip({ status }: { status: ProfileView['restoreStatus'] }) {
+  const ready = status === 'TECHNICAL_READY';
+  return (
+    <span
+      className={cn(
+        'inline-flex whitespace-nowrap border px-2 py-0.5 text-[10px] font-medium',
+        ready
+          ? 'border-success/25 bg-success/10 text-success'
+          : 'border-border-default bg-surface-2 text-text-muted'
+      )}
+    >
+      {ready ? '检查点恢复' : '空白初始化'}
+    </span>
+  );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KiB', 'MiB', 'GiB', 'TiB'];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 10 ? 1 : 2)} ${units[unit]}`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }

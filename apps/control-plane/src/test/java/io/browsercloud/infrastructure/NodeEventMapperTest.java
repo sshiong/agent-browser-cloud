@@ -11,6 +11,7 @@ import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
+import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.TargetBounds;
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +50,42 @@ class NodeEventMapperTest {
     assertThat(command.contextEpoch()).isEqualTo(3);
     assertThat(command.operationEpoch()).isEqualTo(4);
     assertThat(command.event()).isInstanceOf(NodeEvent.RuntimeStarted.class);
+  }
+
+  @Test
+  void shouldMapCommittedProfileCheckpointFromRuntimeStopped() {
+    var payload =
+        RuntimeStoppedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setReason("user_request")
+            .setProfileId("profile-test")
+            .setCheckpointId("chk_1_test")
+            .setCheckpointEpoch(1)
+            .setProfileWriteEpoch(2)
+            .setCoreSizeBytes(42)
+            .setCheckpointFileCount(3)
+            .setRestoreStatus("TECHNICAL_READY")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_stopped")
+            .setEventType(NodeEventMapper.RUNTIME_STOPPED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.RuntimeStopped.class,
+            stopped -> {
+              assertThat(stopped.profileId()).isEqualTo("profile-test");
+              assertThat(stopped.checkpointEpoch()).isEqualTo(1);
+              assertThat(stopped.profileWriteEpoch()).isEqualTo(2);
+              assertThat(stopped.coreSizeBytes()).isEqualTo(42);
+              assertThat(stopped.restoreStatus()).isEqualTo("TECHNICAL_READY");
+            });
   }
 
   @Test

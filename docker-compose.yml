@@ -65,6 +65,7 @@ services:
       CHROMIUM_PATH: /usr/bin/chromium
       RUNTIME_ROOT: /var/lib/browsercloud/runtime
       NODE_JOURNAL_PATH: /var/lib/browsercloud/runtime/node-journal.sqlite3
+      PROFILE_STORAGE_ROOT: /var/lib/browsercloud/runtime/profile-storage
       RUST_LOG: info
       APP_ENVIRONMENT: local
       REMOTE_DESKTOP_GATEWAY_PORT: 6080

@@ -61,18 +61,22 @@
   实时显示 Browser Node 的真实像素并转发键鼠输入。
 - RFB 协商、在线、断线和失败状态均显式呈现；意外断线会触发前端安全释放，同时由
   Browser Node 独立执行权威输入释放与 Operation 回收。
+- Profile 页面已删除开发 Fixture，接入租户隔离的 Create/List/Get API，真实展示
+  Core 大小、文件数、Checkpoint/Write Epoch、恢复来源和更新时间。
+- Profile 页面支持真实创建、搜索、Loading/Empty/Error、桌面表格与移动端卡片；
+  未实现的 Cache 统计和加密版本不再使用模拟值。
 
 ### Fixture 管理
 
-- Groups、Node、Proxy、Runtime、Profile、Extension、Automation、Logs、Security 保留现有开发 Fixture。
+- Groups、Node、Proxy、Runtime、Extension、Automation、Logs、Security 保留现有开发 Fixture。
 - 开发环境显示醒目 Fixture 提示。
 - 生产构建默认关闭 Fixture 内容，改为“后端接口尚未接入”状态。
 - 可通过 `VITE_ENABLE_FIXTURES=true` 在受控环境显式开启。
 
 ## 测试
 
-- API 单元测试：6 个，覆盖租户 Header、幂等创建、Start Operation、结构化错误、
-  Browser State 204 空结果与 HumanTakeover Tenant/Actor Header。
+- API 单元测试：8 个，覆盖 Session 与 Profile 租户 Header、Profile 创建、幂等创建、
+  Start Operation、结构化错误、Browser State 204 与 HumanTakeover Tenant/Actor Header。
 - Java 应用服务测试新增 Session 查询投影契约覆盖。
 - 集成烟雾测试新增 `session_descriptor_visible=true`，验证新增字段从 PostgreSQL
   持久化到 List/Get API 的完整链路。
@@ -89,8 +93,10 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 4. Start Operation 经真实 Node Event 自动提交，页面显示“运行中”；
 5. 获取 HumanTakeover，等待输入屏障完成并进入受控工作区；
 6. 释放 HumanTakeover，等待结束 State Resync 和 Operation 提交；
-7. 第二个 Session 的 Termination Operation 自动提交，页面显示“已终止”；
-8. 浏览器 Console 无错误。
+7. 终止运行中的 Session 并在真实 Profile 页面观察 Checkpoint Epoch 1；
+8. 通过真实 UI/API 创建 Profile；
+9. 第二个从未启动的 Session 以空停止终止，不伪造检查点；
+10. 浏览器 Console 无错误。
 
 E2E 还覆盖实时 RFB 像素/输入回环，以及未发送 Shift KeyUp 就离开远程桌面时的
 服务端 x11 清键和 HumanTakeover 自动提交。
@@ -108,5 +114,5 @@ Browser Node、Control Plane 与 Vite，不依赖人工预启动服务。
 | OIDC/RBAC 未实现 | 生产前必须从 Principal 派生租户，不能信任 `VITE_TENANT_ID` |
 | API Client 尚非 OpenAPI 自动生成 | 建立生成包并用适配层替换当前手写 Client |
 | 全局搜索、通知、主题和用户菜单未实现 | 目前明确 Disabled，等待对应契约与设计步骤 |
-| 其余模块仍是 Fixture | 按 Runtime → Profile → Proxy → Node → Logs/Security 的顺序接入 |
+| 其余模块仍是 Fixture | Profile 已关闭；继续按 Runtime → Proxy → Node → Logs/Security 的顺序接入 |
 | 完整 E2E 尚未进入 GitHub Actions | 需要稳定的浏览器缓存、服务编排与独立 CI Job |

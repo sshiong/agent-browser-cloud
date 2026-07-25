@@ -343,6 +343,66 @@ browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercl
 test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\n' \
+
+profile_after_terminate="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
+  -H 'X-Tenant-Id: tenant-integration')"
+checkpoint_one="$(printf '%s' "$profile_after_terminate" | python3 -c \
+  'import json,sys; profile=json.load(sys.stdin); assert profile["latestCheckpointEpoch"] == 1; assert profile["profileWriteEpoch"] == 1; assert profile["coreSizeBytes"] > 0; assert profile["checkpointFileCount"] >= 1; assert profile["restoreStatus"] == "EMPTY"; print(profile["latestCheckpointId"])')"
+test -f "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/checkpoints/${checkpoint_one}/COMMITTED"
+
+profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$profile_list" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; assert result["items"][0]["profileId"] == "profile-integration"'
+profile_forbidden_status="$(curl -sS -o "$temp_dir/profile-forbidden.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
+  -H 'X-Tenant-Id: different-tenant')"
+test "$profile_forbidden_status" = "403"
+
+second_request='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","metadata":{"displayName":"Restored browser"}}'
+second_created="$(curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: smoke-profile-restore-002' \
+  -d "$second_request")"
+second_session="$(printf '%s' "$second_created" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${second_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/second-start.json"
+second_state=""
+for _ in $(seq 1 60); do
+  second_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${second_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$second_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$second_state" = "RUNNING"
+python3 - "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/workspaces/${second_session}/core/Default/BrowserCloudProfileState.json" <<'PY'
+import json
+import pathlib
+import sys
+state = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert state == {"starts": 4, "durable": True}, state
+PY
+
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${second_session}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/second-terminate.json"
+for _ in $(seq 1 60); do
+  second_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${second_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$second_state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$second_state" = "TERMINATED"
+profile_after_restore="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$profile_after_restore" | python3 -c \
+  'import json,sys; profile=json.load(sys.stdin); assert profile["latestCheckpointEpoch"] == 2; assert profile["profileWriteEpoch"] == 2; assert profile["restoreStatus"] == "TECHNICAL_READY"; assert profile["checkpointFileCount"] >= 1'
+
+printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\n' \
   "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status"

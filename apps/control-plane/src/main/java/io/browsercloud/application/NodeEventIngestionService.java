@@ -20,14 +20,17 @@ public class NodeEventIngestionService {
   private final InboxEventJpaRepository inboxRepository;
   private final SessionCoordinator coordinator;
   private final BrowserStateRepository browserStateRepository;
+  private final ProfileApplicationService profileApplicationService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
       SessionCoordinator coordinator,
-      BrowserStateRepository browserStateRepository) {
+      BrowserStateRepository browserStateRepository,
+      ProfileApplicationService profileApplicationService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
+    this.profileApplicationService = profileApplicationService;
   }
 
   @Transactional
@@ -43,6 +46,10 @@ public class NodeEventIngestionService {
     var state = stateFrom(command.event());
     if (state != null) {
       browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
+    }
+    if (command.event() instanceof NodeEvent.RuntimeStopped stopped
+        && !stopped.checkpointId().isBlank()) {
+      profileApplicationService.recordCheckpoint(command.tenantId(), stopped);
     }
 
     inboxRepository.save(new InboxEventEntity(command.eventId(), CONSUMER_ID, Instant.now()));

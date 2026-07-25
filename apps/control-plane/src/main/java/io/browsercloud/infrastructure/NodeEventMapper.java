@@ -66,8 +66,34 @@ public class NodeEventMapper {
         }
         case RUNTIME_STOPPED -> {
           var payload = RuntimeStoppedEvent.parseFrom(envelope.getPayload());
+          boolean hasCheckpoint = !payload.getCheckpointId().isBlank();
+          if (hasCheckpoint) {
+            requireText(payload.getProfileId(), "profile_id");
+            if (payload.getCheckpointEpoch() <= 0 || payload.getProfileWriteEpoch() <= 0) {
+              throw new IllegalArgumentException("profile checkpoint epochs must be positive");
+            }
+          } else if (!payload.getProfileId().isBlank()
+              || payload.getCheckpointEpoch() != 0
+              || payload.getProfileWriteEpoch() != 0
+              || payload.getCoreSizeBytes() != 0
+              || payload.getCheckpointFileCount() != 0) {
+            throw new IllegalArgumentException("empty profile checkpoint has metadata");
+          }
+          if (!payload.getRestoreStatus().equals("EMPTY")
+              && !payload.getRestoreStatus().equals("TECHNICAL_READY")) {
+            throw new IllegalArgumentException("unsupported profile restore_status");
+          }
           yield new NodeEvent.RuntimeStopped(
-              payload.getSessionId(), payload.getReason(), payload.getExitCode());
+              payload.getSessionId(),
+              payload.getReason(),
+              payload.getExitCode(),
+              payload.getProfileId(),
+              payload.getCheckpointId(),
+              payload.getCheckpointEpoch(),
+              payload.getProfileWriteEpoch(),
+              payload.getCoreSizeBytes(),
+              payload.getCheckpointFileCount(),
+              payload.getRestoreStatus());
         }
         case BROWSER_CRASHED -> {
           var payload = BrowserCrashEvent.parseFrom(envelope.getPayload());

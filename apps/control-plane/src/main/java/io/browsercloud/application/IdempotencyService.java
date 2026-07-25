@@ -72,6 +72,16 @@ public class IdempotencyService {
         candidateTaskId);
   }
 
+  String claimAgentExecution(
+      String tenantId, String taskId, String idempotencyKey, String candidateOperationId) {
+    return claim(
+        tenantId,
+        "EXECUTE_AGENT_TASK:" + taskId,
+        idempotencyKey,
+        hashRequest(taskId),
+        candidateOperationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

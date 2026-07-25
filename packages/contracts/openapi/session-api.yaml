@@ -402,6 +402,34 @@ paths:
                 $ref: "#/components/schemas/AgentTask"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/agent-tasks/{taskId}:execute:
+    post:
+      operationId: executeAgentTask
+      summary: Execute and verify a supported Agent plan
+      description: The current executor supports read-only plans. Plans containing Navigate are rejected until the Node executor is connected.
+      tags: [Agent, AgentTool]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^agt_[a-zA-Z0-9]{16,}$"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Completed, failed, or previously completed Agent task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -543,6 +571,9 @@ components:
         - totalSteps
         - allowedDomains
         - plan
+        - operationId
+        - executionResults
+        - lastError
         - securityEvents
         - createdAt
         - updatedAt
@@ -557,7 +588,7 @@ components:
           description: Data-minimized goal; secrets, email and phone patterns are redacted.
         state:
           type: string
-          enum: [PLANNED, BLOCKED]
+          enum: [PLANNED, BLOCKED, RUNNING, COMPLETED, FAILED]
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         intentDecision:
@@ -577,6 +608,14 @@ components:
             type: string
         plan:
           $ref: "#/components/schemas/AgentPlan"
+        operationId:
+          type: [string, "null"]
+        executionResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentToolExecutionResult"
+        lastError:
+          type: [string, "null"]
         securityEvents:
           type: array
           items:
@@ -686,6 +725,37 @@ components:
         - R3_ACCOUNT_CHANGE
         - R4_FINANCIAL
         - R5_SECURITY
+    AgentToolExecutionResult:
+      type: object
+      additionalProperties: false
+      required:
+        - stepId
+        - toolId
+        - status
+        - resultHash
+        - output
+        - verification
+        - completedAt
+      properties:
+        stepId:
+          type: string
+        toolId:
+          type: string
+          enum: [GET_CURRENT_STATE, GET_URL, GET_PAGE_SUMMARY]
+        status:
+          type: string
+          enum: [VERIFIED]
+        resultHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        output:
+          type: object
+          additionalProperties: true
+        verification:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
     PromptSecurityEvent:
       type: object
       additionalProperties: false

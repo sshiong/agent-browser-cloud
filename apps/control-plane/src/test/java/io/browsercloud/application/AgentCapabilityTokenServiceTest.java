@@ -90,4 +90,16 @@ class AgentCapabilityTokenServiceTest {
                     Instant.parse("2026-07-26T00:59:00Z")))
         .isInstanceOf(AgentCapabilityTokenService.InvalidCapabilityTokenException.class);
   }
+
+  @Test
+  void rejectsKnownDevelopmentSecretInProduction() {
+    assertThatThrownBy(
+            () ->
+                new AgentCapabilityTokenService(
+                    new ObjectMapper().findAndRegisterModules(),
+                    "browsercloud-local-agent-capability-token-secret-v1",
+                    "production"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("must be configured");
+  }
 }

@@ -71,7 +71,9 @@
   `RESYNCING`，等待 Node 提交新 Full State 后恢复权威质量。
 - Automation 页面已删除 Fixture，接入真实 Agent Task Create/List API，展示
   Intent Decision、Plan/Blocked、Risk、Step Provenance、Capability Handle、
-  Verification 与 Prompt Security Event；同时明确提示 Executor 尚未实现。
+  Verification 与 Prompt Security Event；未支持的执行通道会明确显示 Pending。
+- Automation 已继续接入只读 Execute API，可真实执行 State/URL/Page Summary，
+  展示 Completed/Verified、脱敏 Output 和 Result Hash；Navigate 仍明确 Pending。
 
 ### Fixture 管理
 

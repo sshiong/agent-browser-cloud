@@ -107,4 +107,28 @@ public final class OperationFactory {
         Instant.now(),
         null);
   }
+
+  /** 创建受限 Agent Task Operation。 */
+  public static ExclusiveOperation agentTask(
+      SessionContext session, String taskId, long operationEpoch, Set<String> capabilities) {
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.AGENT,
+        taskId,
+        OperationMode.AGENT_INTERACTIVE,
+        40,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        true,
+        true,
+        OperationPhase.PREPARING,
+        OperationState.ACTIVE,
+        Set.copyOf(capabilities),
+        Instant.now().plusSeconds(120),
+        Instant.now(),
+        null);
+  }
 }

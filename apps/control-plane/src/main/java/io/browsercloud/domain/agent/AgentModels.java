@@ -45,7 +45,10 @@ public final class AgentModels {
 
   public enum TaskState {
     PLANNED,
-    BLOCKED
+    BLOCKED,
+    RUNNING,
+    COMPLETED,
+    FAILED
   }
 
   public enum ToolId {
@@ -107,6 +110,15 @@ public final class AgentModels {
 
   public record AgentPlan(
       String intentId, List<PlanStep> steps, int maxActions, int replanBudget, Instant expiresAt) {}
+
+  public record ToolExecutionResult(
+      String stepId,
+      ToolId toolId,
+      String status,
+      String resultHash,
+      java.util.Map<String, Object> output,
+      String verification,
+      Instant completedAt) {}
 
   public record IntentEvaluation(
       String sanitizedGoal,

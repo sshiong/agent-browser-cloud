@@ -42,7 +42,7 @@ export interface AgentTaskView {
   taskId: string;
   sessionId: string;
   goal: string;
-  state: 'PLANNED' | 'BLOCKED';
+  state: 'PLANNED' | 'BLOCKED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
   riskClass: AgentRiskClass;
   intentDecision: 'ALLOWED' | 'CONFIRM_REQUIRED' | 'FORBIDDEN';
   blockedReason?: string;
@@ -56,9 +56,22 @@ export interface AgentTaskView {
     replanBudget: number;
     expiresAt: string;
   };
+  operationId?: string;
+  executionResults: AgentToolExecutionResult[];
+  lastError?: string;
   securityEvents: AgentSecurityEvent[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AgentToolExecutionResult {
+  stepId: string;
+  toolId: AgentToolId;
+  status: string;
+  resultHash: string;
+  output: Record<string, unknown>;
+  verification: string;
+  completedAt: string;
 }
 
 export interface AgentPlanStep {

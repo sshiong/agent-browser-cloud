@@ -52,6 +52,22 @@ public class AgentTaskEntity {
   @JdbcTypeCode(SqlTypes.JSON)
   private String securityEvents;
 
+  @Column(name = "operation_id")
+  private String operationId;
+
+  @Column(name = "execution_results", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String executionResults;
+
+  @Column(name = "last_error")
+  private String lastError;
+
+  @Column(name = "execution_started_at")
+  private Instant executionStartedAt;
+
+  @Column(name = "execution_completed_at")
+  private Instant executionCompletedAt;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -85,6 +101,7 @@ public class AgentTaskEntity {
     this.allowedDomains = allowedDomains;
     this.plan = plan;
     this.securityEvents = securityEvents;
+    this.executionResults = "[]";
     this.createdAt = now;
     this.updatedAt = now;
   }
@@ -143,5 +160,42 @@ public class AgentTaskEntity {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  public String getOperationId() {
+    return operationId;
+  }
+
+  public String getExecutionResults() {
+    return executionResults;
+  }
+
+  public String getLastError() {
+    return lastError;
+  }
+
+  public void startExecution(String operationId, Instant now) {
+    this.operationId = operationId;
+    this.state = "RUNNING";
+    this.executionStartedAt = now;
+    this.updatedAt = now;
+    this.lastError = null;
+  }
+
+  public void completeExecution(int completedSteps, String results, Instant now) {
+    this.state = "COMPLETED";
+    this.currentStep = completedSteps;
+    this.executionResults = results;
+    this.executionCompletedAt = now;
+    this.updatedAt = now;
+  }
+
+  public void failExecution(int completedSteps, String results, String error, Instant now) {
+    this.state = "FAILED";
+    this.currentStep = completedSteps;
+    this.executionResults = results;
+    this.lastError = error;
+    this.executionCompletedAt = now;
+    this.updatedAt = now;
   }
 }

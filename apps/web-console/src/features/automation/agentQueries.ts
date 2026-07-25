@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createAgentTask, listAgentTasks } from '@/api/agent';
+import { createAgentTask, executeAgentTask, listAgentTasks } from '@/api/agent';
 import type { CreateAgentTaskRequest } from '@/types/agent';
 
 const agentTaskKeys = {
@@ -26,6 +26,16 @@ export function useCreateAgentTask() {
       request: CreateAgentTaskRequest;
     }) =>
       createAgentTask(sessionId, request, `agent-task-${crypto.randomUUID()}`),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: agentTaskKeys.all }),
+  });
+}
+
+export function useExecuteAgentTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) =>
+      executeAgentTask(taskId, `agent-execute-${crypto.randomUUID()}`),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: agentTaskKeys.all }),
   });

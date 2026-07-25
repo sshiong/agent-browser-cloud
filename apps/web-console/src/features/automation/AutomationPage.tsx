@@ -25,6 +25,7 @@ import { useSessions } from '@/features/sessions/api/sessionQueries';
 import {
   useAgentTasks,
   useCreateAgentTask,
+  useExecuteAgentTask,
 } from '@/features/automation/agentQueries';
 import { cn } from '@/shared/lib/utils';
 import type {
@@ -60,6 +61,7 @@ export function AutomationPage() {
   const tasksQuery = useAgentTasks();
   const sessionsQuery = useSessions({ state: 'RUNNING', limit: 100 });
   const createTask = useCreateAgentTask();
+  const executeTask = useExecuteAgentTask();
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [goal, setGoal] = useState('');
@@ -80,6 +82,9 @@ export function AutomationPage() {
   }, [sessionId, sessionsQuery.data]);
 
   const plannedCount = tasks.filter((task) => task.state === 'PLANNED').length;
+  const completedCount = tasks.filter(
+    (task) => task.state === 'COMPLETED'
+  ).length;
   const blockedCount = tasks.filter((task) => task.state === 'BLOCKED').length;
   const securityEventCount = tasks.reduce(
     (total, task) => total + task.securityEvents.length,
@@ -127,6 +132,7 @@ export function AutomationPage() {
       <div className="border-b border-border-subtle px-6 py-3">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px]">
           <Signal label="可执行计划" value={plannedCount} tone="text-success" />
+          <Signal label="已验证" value={completedCount} tone="text-accent" />
           <Signal label="已拦截" value={blockedCount} tone="text-danger" />
           <Signal
             label="安全事件"
@@ -135,7 +141,7 @@ export function AutomationPage() {
           />
           <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warning">
             <CircleDot size={10} />
-            Plan only · Executor pending
+            Read tools live · Navigate pending
           </span>
         </div>
       </div>
@@ -186,7 +192,19 @@ export function AutomationPage() {
                   />
                 ))}
               </div>
-              {selectedTask && <TaskInspector task={selectedTask} />}
+              {selectedTask && (
+                <TaskInspector
+                  task={selectedTask}
+                  onExecute={() => executeTask.mutate(selectedTask.taskId)}
+                  isExecuting={
+                    executeTask.isPending &&
+                    executeTask.variables === selectedTask.taskId
+                  }
+                  executionError={
+                    executeTask.isError ? executeTask.error : undefined
+                  }
+                />
+              )}
             </div>
           )}
         </section>
@@ -387,7 +405,8 @@ function TaskRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const blocked = task.state === 'BLOCKED';
+  const blocked = task.state === 'BLOCKED' || task.state === 'FAILED';
+  const completed = task.state === 'COMPLETED';
   return (
     <button
       type="button"
@@ -404,7 +423,14 @@ function TaskRow({
             blocked ? 'bg-danger/12 text-danger' : 'bg-success/12 text-success'
           )}
         >
-          {blocked ? <Ban size={12} /> : <CheckCircle2 size={12} />}
+          {blocked ? (
+            <Ban size={12} />
+          ) : (
+            <CheckCircle2
+              size={12}
+              className={completed ? 'opacity-100' : 'opacity-70'}
+            />
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -435,8 +461,22 @@ function TaskRow({
   );
 }
 
-function TaskInspector({ task }: { task: AgentTaskView }) {
-  const blocked = task.state === 'BLOCKED';
+function TaskInspector({
+  task,
+  onExecute,
+  isExecuting,
+  executionError,
+}: {
+  task: AgentTaskView;
+  onExecute: () => void;
+  isExecuting: boolean;
+  executionError?: unknown;
+}) {
+  const blocked = task.state === 'BLOCKED' || task.state === 'FAILED';
+  const completed = task.state === 'COMPLETED';
+  const hasUnsupportedNavigate = task.plan.steps.some(
+    (step) => step.toolId === 'NAVIGATE'
+  );
   const expiry = useMemo(
     () =>
       new Date(task.plan.expiresAt).toLocaleString('zh-CN', {
@@ -454,11 +494,13 @@ function TaskInspector({ task }: { task: AgentTaskView }) {
               'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
               blocked
                 ? 'bg-danger/12 text-danger'
-                : 'bg-success/12 text-success'
+                : completed
+                  ? 'bg-success/12 text-success'
+                  : 'bg-accent/12 text-accent'
             )}
           >
             {blocked ? <Ban size={10} /> : <ShieldCheck size={10} />}
-            {blocked ? 'BLOCKED' : 'PLANNED'}
+            {task.state}
           </span>
           <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-muted">
             {task.intentDecision}
@@ -476,6 +518,31 @@ function TaskInspector({ task }: { task: AgentTaskView }) {
           <Meta label="授权域名" value={task.allowedDomains.join(', ')} mono />
         </dl>
       </div>
+
+      {task.state === 'PLANNED' && (
+        <div className="border-b border-border-subtle px-5 py-3">
+          <button
+            type="button"
+            onClick={onExecute}
+            disabled={isExecuting || hasUnsupportedNavigate}
+            className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-[6px] border border-accent/35 bg-accent-soft text-[11px] font-semibold text-accent transition-colors hover:border-accent/60 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-surface-2 disabled:text-text-muted"
+          >
+            {isExecuting ? (
+              <LoaderCircle className="animate-spin" size={13} />
+            ) : (
+              <ShieldCheck size={13} />
+            )}
+            {hasUnsupportedNavigate
+              ? '等待 Navigate Executor'
+              : '执行并验证只读计划'}
+          </button>
+          {executionError instanceof Error && (
+            <p className="mt-2 text-[10px] text-danger">
+              {executionError.message}
+            </p>
+          )}
+        </div>
+      )}
 
       {blocked ? (
         <div className="border-b border-border-subtle bg-danger/5 px-5 py-4">
@@ -526,6 +593,37 @@ function TaskInspector({ task }: { task: AgentTaskView }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {task.executionResults.length > 0 && (
+        <div className="border-b border-border-subtle px-5 py-4">
+          <div className="mb-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+            Verified Tool Results
+          </div>
+          <div className="space-y-2">
+            {task.executionResults.map((result) => (
+              <div
+                key={result.stepId}
+                className="border border-success/20 bg-success/5 px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-[9px] font-semibold text-success">
+                    {result.toolId}
+                  </span>
+                  <span className="font-mono text-[8px] text-success">
+                    {result.status}
+                  </span>
+                </div>
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[8px] leading-4 text-text-secondary">
+                  {JSON.stringify(result.output, null, 2)}
+                </pre>
+                <p className="mt-1 truncate font-mono text-[8px] text-text-muted">
+                  SHA256 {result.resultHash}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

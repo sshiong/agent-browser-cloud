@@ -91,6 +91,7 @@ public class AgentApplicationService {
     var blockReason =
         validatePlanPreconditions(
             session.state(), request.startUrl(), allowedDomains, evaluation, maxActions, sessionId);
+    var authorizedDomain = resolveAuthorizedDomain(request.startUrl(), sessionId);
     var plan =
         blockReason.isBlank()
             ? buildPlan(
@@ -99,6 +100,7 @@ public class AgentApplicationService {
                 candidateTaskId,
                 intentId,
                 request.startUrl(),
+                authorizedDomain,
                 maxActions,
                 replanBudget,
                 expiresAt)
@@ -196,6 +198,12 @@ public class AgentApplicationService {
       if (!quality.equals("COMPLETE") && !quality.equals("DEPTH_LIMITED")) {
         return "STATE_QUALITY_NOT_EXECUTABLE";
       }
+      if (targetDomain == null) {
+        var currentDomain = domainOf(snapshot.orElseThrow().state().url());
+        if (currentDomain == null || !allowedDomains.contains(currentDomain)) {
+          return "CURRENT_DOMAIN_NOT_ALLOWED";
+        }
+      }
     } else if (targetDomain == null) {
       return "STATE_UNAVAILABLE";
     }
@@ -208,6 +216,7 @@ public class AgentApplicationService {
       String operationId,
       String intentId,
       String startUrl,
+      String authorizedDomain,
       int maxActions,
       int replanBudget,
       Instant expiresAt) {
@@ -239,7 +248,7 @@ public class AgentApplicationService {
             RiskClass.R0_READ_ONLY,
             null,
             "Read stable browser state before any semantic action",
-            targetDomain,
+            authorizedDomain,
             targetDomain == null
                 ? "COMPLETE_OR_DEPTH_LIMITED"
                 : "COMPLETE_OR_DEPTH_LIMITED_AFTER_NAVIGATION",
@@ -255,7 +264,7 @@ public class AgentApplicationService {
             RiskClass.R0_READ_ONLY,
             null,
             "Verify the browser remains inside the authorized domain",
-            targetDomain,
+            authorizedDomain,
             "COMPLETE_OR_DEPTH_LIMITED",
             "URL_HOST_EQUALS_ALLOWED_DOMAIN",
             expiresAt));
@@ -269,7 +278,7 @@ public class AgentApplicationService {
             RiskClass.R0_READ_ONLY,
             null,
             "Return a bounded data-only page summary",
-            targetDomain,
+            authorizedDomain,
             "COMPLETE_OR_DEPTH_LIMITED",
             "SUMMARY_SCHEMA_VALID",
             expiresAt));
@@ -320,6 +329,8 @@ public class AgentApplicationService {
   private AgentTaskView toView(AgentTaskEntity entity) {
     var plan = read(entity.getPlan(), AgentPlan.class);
     var events = read(entity.getSecurityEvents(), new TypeReference<List<SecurityEvent>>() {});
+    var executionResults =
+        read(entity.getExecutionResults(), new TypeReference<List<ToolExecutionResult>>() {});
     var domains = read(entity.getAllowedDomains(), new TypeReference<List<String>>() {});
     var stepViews =
         plan.steps().stream()
@@ -354,6 +365,19 @@ public class AgentApplicationService {
                         event.contentHash(),
                         event.createdAt()))
             .toList();
+    var executionViews =
+        executionResults.stream()
+            .map(
+                result ->
+                    new AgentTaskView.ToolExecutionResultView(
+                        result.stepId(),
+                        result.toolId(),
+                        result.status(),
+                        result.resultHash(),
+                        result.output(),
+                        result.verification(),
+                        result.completedAt()))
+            .toList();
     return new AgentTaskView(
         entity.getTaskId(),
         entity.getSessionId(),
@@ -367,6 +391,9 @@ public class AgentApplicationService {
         domains,
         new AgentTaskView.PlanView(
             plan.intentId(), stepViews, plan.maxActions(), plan.replanBudget(), plan.expiresAt()),
+        entity.getOperationId(),
+        executionViews,
+        entity.getLastError(),
         eventViews,
         entity.getCreatedAt(),
         entity.getUpdatedAt());
@@ -404,6 +431,17 @@ public class AgentApplicationService {
     } catch (IllegalArgumentException exception) {
       return null;
     }
+  }
+
+  private String resolveAuthorizedDomain(String startUrl, String sessionId) {
+    var requestedDomain = domainOf(startUrl);
+    if (requestedDomain != null) {
+      return requestedDomain;
+    }
+    return stateRepository
+        .find(sessionId)
+        .map(snapshot -> domainOf(snapshot.state().url()))
+        .orElse("");
   }
 
   private String write(Object value) {

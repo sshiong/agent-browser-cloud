@@ -200,12 +200,11 @@ try {
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "Agent 任务" })).toBeVisible();
   await expect(
-    page.getByText("Plan only · Executor pending", { exact: false }),
+    page.getByText("Read tools live · Navigate pending", { exact: false }),
   ).toBeVisible();
   await page.getByLabel("运行中的 Session").selectOption(startSessionId);
-  await page.getByLabel("用户目标").fill("打开授权页面并总结当前内容");
-  await page.getByLabel("起始 URL").fill("https://example.com/start");
-  await page.getByLabel("授权域名").fill("example.com");
+  await page.getByLabel("用户目标").fill("总结当前页面内容");
+  await page.getByLabel("授权域名").fill("example.test");
   await page.getByText("外部上下文安全测试", { exact: true }).click();
   await page
     .getByLabel("不可信正文")
@@ -223,7 +222,7 @@ try {
   const agentTask = await agentTaskResponse.json();
   if (
     agentTask.state !== "PLANNED" ||
-    agentTask.plan?.steps?.[0]?.toolId !== "NAVIGATE"
+    agentTask.plan?.steps?.[0]?.toolId !== "GET_CURRENT_STATE"
   ) {
     throw new Error("Web Console did not create a validated Agent plan");
   }
@@ -231,7 +230,26 @@ try {
   await expect(
     page.getByText("PROMPT_INJECTION_DETECTED", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("NAVIGATE", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("GET_CURRENT_STATE", { exact: true }),
+  ).toBeVisible();
+  const [agentExecutionResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes(`${agentTask.taskId}:execute`) &&
+        response.status() === 200,
+    ),
+    page.getByRole("button", { name: "执行并验证只读计划" }).click(),
+  ]);
+  const executedAgentTask = await agentExecutionResponse.json();
+  if (
+    executedAgentTask.state !== "COMPLETED" ||
+    executedAgentTask.executionResults?.length !== 3
+  ) {
+    throw new Error("Read-only Agent tools did not complete with evidence");
+  }
+  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("VERIFIED", { exact: true }).first()).toBeVisible();
   await page.screenshot({
     path: screenshotPath.replace(/\.png$/, "-automation.png"),
     fullPage: true,

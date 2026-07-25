@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAgentTask, listAgentTasks } from './agent';
+import { createAgentTask, executeAgentTask, listAgentTasks } from './agent';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -52,6 +52,32 @@ describe('agent API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
           'Idempotency-Key': 'idem-agent-1',
+        }),
+      })
+    );
+  });
+
+  it('executes a task with a separate idempotency key', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ state: 'COMPLETED' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await executeAgentTask(
+      'agt_1234567890abcdef',
+      'idem-execute-1',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/agent-tasks/agt_1234567890abcdef:execute',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'Idempotency-Key': 'idem-execute-1',
         }),
       })
     );

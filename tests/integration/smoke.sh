@@ -251,6 +251,39 @@ agent_tasks="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$agent_tasks" | python3 -c \
   'import json,sys; tasks=json.load(sys.stdin); assert tasks["total"] == 2; assert len(tasks["items"]) == 2'
+read_agent_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-task-read-003' \
+  -d '{"goal":"Summarize the current page","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+read_agent_task_id="$(printf '%s' "$read_agent_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; assert len(task["plan"]["steps"]) == 3; assert task["plan"]["steps"][0]["toolId"] == "GET_CURRENT_STATE"; print(task["taskId"])')"
+executed_agent_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${read_agent_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-execute-001')"
+printf '%s' "$executed_agent_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "COMPLETED"; assert task["currentStep"] == 3; assert task["operationId"].startswith("op_"); assert len(task["executionResults"]) == 3; assert all(item["status"] == "VERIFIED" for item in task["executionResults"]); url=next(item for item in task["executionResults"] if item["toolId"] == "GET_URL"); assert url["output"]["url"] == "https://example.test/runtime"'
+executed_agent_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${read_agent_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-execute-001')"
+python3 - "$executed_agent_task" "$executed_agent_replay" <<'PY'
+import json
+import sys
+first = json.loads(sys.argv[1])
+replay = json.loads(sys.argv[2])
+assert replay["taskId"] == first["taskId"]
+assert replay["operationId"] == first["operationId"]
+assert replay["state"] == "COMPLETED"
+assert [item["resultHash"] for item in replay["executionResults"]] == [
+    item["resultHash"] for item in first["executionResults"]
+]
+PY
+tool_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from tool_capability_uses where task_id='${read_agent_task_id}'")"
+test "$tool_capability_uses" = "3"
 
 resync_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
@@ -421,7 +454,7 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "5"
+test "$committed_operations" = "6"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"

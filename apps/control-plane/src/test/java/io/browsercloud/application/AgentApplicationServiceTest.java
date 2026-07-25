@@ -109,6 +109,19 @@ class AgentApplicationServiceTest {
         .contains("DOMAIN_NOT_ALLOWED");
   }
 
+  @Test
+  void blocksReadPlanWhenCurrentPageIsOutsideAllowlist() {
+    var view =
+        service.create(
+            "ses_1234567890abcdef",
+            "tenant-test",
+            request(null, List.of("other.example")),
+            "idem-3");
+
+    assertThat(view.state()).isEqualTo(TaskState.BLOCKED);
+    assertThat(view.blockedReason()).isEqualTo("CURRENT_DOMAIN_NOT_ALLOWED");
+  }
+
   private static CreateAgentTaskRequest request(String url, List<String> domains) {
     return new CreateAgentTaskRequest("打开授权页面并总结内容", url, domains, null, null, List.of());
   }

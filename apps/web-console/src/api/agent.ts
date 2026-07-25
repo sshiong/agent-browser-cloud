@@ -60,3 +60,20 @@ export function createAgentTask(
     tenantId
   );
 }
+
+export function executeAgentTask(
+  taskId: string,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/agent-tasks/${encodeURIComponent(taskId)}:execute`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}

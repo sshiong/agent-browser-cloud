@@ -1,13 +1,13 @@
 # Agent 安全计划 MVP
 
-> 状态：Phase 4 已启动；Intent/Plan 安全闭环已完成，Executor 与 Tool 执行闭环未完成。
+> 状态：Phase 4 已启动；Intent/Plan 安全闭环已完成；只读 Executor 已在下一里程碑完成。
 > 日期：2026-07-26
 
 ## 本里程碑范围
 
 本次只实现“接收目标 → 安全分类 → 生成受限计划 → 校验 → 持久化 → UI 审查”，
-不把计划生成描述为浏览器动作已经执行。Automation 页面固定显示
-`Plan only · Executor pending`。
+不把计划生成描述为浏览器动作已经执行。本里程碑验收时 Automation 页面固定显示
+`Plan only · Executor pending`；后续只读执行状态见进度文档 10。
 
 ## 已完成
 
@@ -98,9 +98,9 @@ make test-e2e
 |---|---|
 | 单 Planner | 只有确定性的导航/状态读取 Planner；没有模型推理、表单字段规划或 Reviewer |
 | Execution Strategy Selector | 已为当前步骤生成策略，但没有 Canvas/A11y/Vision/Fallback 评分与切换 |
-| Action Validation | Plan 声明验证条件，尚未由 Executor 在执行后采集证据并提交结果 |
+| Action Validation | 三个只读 Tool 已采集结果证据；写操作的 DOM/A11y/Network/Business 验证仍待开发 |
 | Replan Budget | 已进入 Plan 并限制 0—3，尚无 Executor 消耗、持久递减和熔断 |
-| Capability Token | 签发/验签与字段绑定已完成；Tool Service 尚未执行，也未实现跨请求防重放计数账本 |
+| Capability Token | 三个只读 Tool 已实现 PostgreSQL 单次使用账本；Navigate/Target Input 尚未接入 |
 | Prompt Detection | 规则检测 MVP；Base64/Hex/Unicode 混淆、隐藏 DOM、视觉/DOM 不一致和模型分类待补 |
 | Prompt Audit | Task 内保存最小安全证据；统一 `audit_events`、查询 API、Retention/Legal Hold 待 Phase 5 |
 
@@ -108,8 +108,8 @@ make test-e2e
 
 | Phase 4 退出项 | 状态/下一步 |
 |---|---|
-| 单 Executor | 未实现；下一里程碑新增排他 Agent Operation、Step 状态机与崩溃恢复 |
-| Tool Service 执行 | 未实现；需逐项接入 Node，强制验 Token、State/Epoch、调用次数和结果 Schema |
+| 单 Executor | 只读同步 Executor 已完成；写操作所需异步 Durable Step 状态机与崩溃恢复仍待开发 |
+| Tool Service 执行 | 三个只读 Tool 已完成；Node Navigate 与 Target Input Tool 仍待开发 |
 | `click_target` / `type_text` / `scroll` / `wait_for` | 契约枚举存在，尚无可调用实现 |
 | `request_human_takeover` Tool | 现有人工 API 可用，但尚未经过 Agent Tool Gate |
 | 自建表单流程 | 未完成；必须实现读前写、Target Ref、Type/Click、提交和结果验证后才可关闭 Gate |
@@ -120,10 +120,9 @@ make test-e2e
 
 ## 下一步实施顺序
 
-1. 增加 `AGENT_INTERACTIVE` 排他 Operation 和持久 Step 状态机。
-2. 先实现只读 Tool Service：`get_current_state`、`get_url`、`get_page_summary`，
-   接入 Token 防重放账本和实际结果验证。
-3. 实现 Node `navigate` 命令，验证 URL、Context Epoch、State Version 与最终域名。
-4. 实现 `click_target`、`type_text`、`scroll`、`wait_for`，接入 Target Revision 与
+1. 已完成：`AGENT_INTERACTIVE` 排他 Operation 与同步只读 Executor。
+2. 已完成：`get_current_state`、`get_url`、`get_page_summary`、Token 防重放和结果验证。
+3. 下一步：实现 Node `navigate` 命令，验证 URL、Context Epoch、State Version 与最终域名。
+4. 后续：实现 `click_target`、`type_text`、`scroll`、`wait_for`，接入 Target Revision 与
    Unified Input Sequence。
 5. 完成自建表单 E2E、有限 Replan 和平台 Human Confirmation，再关闭 Phase 4 Gate。

@@ -24,9 +24,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentController {
 
   private final AgentApplicationService service;
+  private final io.browsercloud.application.AgentExecutionService executionService;
 
-  public AgentController(AgentApplicationService service) {
+  public AgentController(
+      AgentApplicationService service,
+      io.browsercloud.application.AgentExecutionService executionService) {
     this.service = service;
+    this.executionService = executionService;
   }
 
   @PostMapping("/sessions/{sessionId}/agent-tasks")
@@ -52,5 +56,13 @@ public class AgentController {
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return service.list(tenantId, limit, offset);
+  }
+
+  @PostMapping("/agent-tasks/{taskId}:execute")
+  public AgentTaskView execute(
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
+    return executionService.execute(taskId, tenantId, idempotencyKey);
   }
 }

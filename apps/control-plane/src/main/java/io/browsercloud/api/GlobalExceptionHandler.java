@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
+import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
@@ -62,6 +63,17 @@ public class GlobalExceptionHandler {
         "AGENT_TASK_INVALID",
         "Agent task validation failed",
         Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(AgentExecutionRejectedException.class)
+  ResponseEntity<ApiError> agentExecutionRejected(
+      AgentExecutionRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_EXECUTION_REJECTED",
+        "Agent task cannot be executed in its current state",
+        Map.of("reason", exception.getMessage()),
         request);
   }
 

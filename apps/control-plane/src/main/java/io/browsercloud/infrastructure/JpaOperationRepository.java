@@ -63,7 +63,11 @@ public class JpaOperationRepository implements OperationRepository {
     entity.setPhase(operation.phase().name());
     entity.setState(operation.state().name());
     entity.setDeadline(operation.deadline());
-    entity.setAllowedCapabilities("[]");
+    entity.setAllowedCapabilities(
+        operation.allowedCapabilities().stream()
+            .sorted()
+            .map(capability -> "\"" + capability + "\"")
+            .collect(java.util.stream.Collectors.joining(",", "[", "]")));
     entity.setCreatedAt(operation.createdAt());
     entity.setCompletedAt(operation.completedAt());
     operationJpa.save(entity);

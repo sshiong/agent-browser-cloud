@@ -22,6 +22,9 @@ public record AgentTaskView(
     int totalSteps,
     List<String> allowedDomains,
     PlanView plan,
+    String operationId,
+    List<ToolExecutionResultView> executionResults,
+    String lastError,
     List<SecurityEventView> securityEvents,
     Instant createdAt,
     Instant updatedAt) {
@@ -57,4 +60,13 @@ public record AgentTaskView(
       InstructionSourceType sourceType,
       String contentHash,
       Instant createdAt) {}
+
+  public record ToolExecutionResultView(
+      String stepId,
+      ToolId toolId,
+      String status,
+      String resultHash,
+      java.util.Map<String, Object> output,
+      String verification,
+      Instant completedAt) {}
 }

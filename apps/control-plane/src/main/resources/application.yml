@@ -47,6 +47,9 @@ remote-desktop:
   ticket-secret: ${REMOTE_DESKTOP_TICKET_SECRET:browsercloud-local-remote-desktop-ticket-secret-v1}
   ticket-ttl-seconds: ${REMOTE_DESKTOP_TICKET_TTL_SECONDS:45}
 
+agent:
+  capability-token-secret: ${AGENT_CAPABILITY_TOKEN_SECRET:browsercloud-local-agent-capability-token-secret-v1}
+
 proxy:
   allow-direct: ${PROXY_ALLOW_DIRECT:false}
   static:

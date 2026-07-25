@@ -69,17 +69,20 @@
   Static Provider、观察出口、验证状态、分配生命周期与禁止直连策略。
 - Session Browser State 面板新增真实 Full/Region Resync Mutation；请求期间展示
   `RESYNCING`，等待 Node 提交新 Full State 后恢复权威质量。
+- Automation 页面已删除 Fixture，接入真实 Agent Task Create/List API，展示
+  Intent Decision、Plan/Blocked、Risk、Step Provenance、Capability Handle、
+  Verification 与 Prompt Security Event；同时明确提示 Executor 尚未实现。
 
 ### Fixture 管理
 
-- Groups、Node、Runtime、Extension、Automation、Logs、Security 保留现有开发 Fixture。
+- Groups、Node、Runtime、Extension、Logs、Security 保留现有开发 Fixture。
 - 开发环境显示醒目 Fixture 提示。
 - 生产构建默认关闭 Fixture 内容，改为“后端接口尚未接入”状态。
 - 可通过 `VITE_ENABLE_FIXTURES=true` 在受控环境显式开启。
 
 ## 测试
 
-- API 单元测试：10 个，覆盖 Session、Profile 与 Proxy 租户 Header、Profile 创建、
+- API 单元测试：12 个，覆盖 Session、Profile、Proxy 与 Agent 租户 Header、Profile 创建、
   幂等创建、Start Operation、结构化错误、Browser State 204 与 HumanTakeover
   Tenant/Actor Header，以及 State Resync Tenant/Idempotency Header。
 - Java 应用服务测试新增 Session 查询投影契约覆盖。
@@ -105,6 +108,9 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 11. 第二个从未启动的 Session 以空停止终止，不伪造检查点；
 12. 浏览器 Console 无错误。
 
+新增 Agent E2E：从运行中 Session 创建受限导航/状态计划，并验证
+`PROMPT_INJECTION_DETECTED`、`NAVIGATE` 与 Executor Pending 的真实界面状态。
+
 E2E 还覆盖实时 RFB 像素/输入回环，以及未发送 Shift KeyUp 就离开远程桌面时的
 服务端 x11 清键和 HumanTakeover 自动提交。
 
@@ -121,5 +127,5 @@ Browser Node、Control Plane 与 Vite，不依赖人工预启动服务。
 | OIDC/RBAC 未实现 | 生产前必须从 Principal 派生租户，不能信任 `VITE_TENANT_ID` |
 | API Client 尚非 OpenAPI 自动生成 | 建立生成包并用适配层替换当前手写 Client |
 | 全局搜索、通知、主题和用户菜单未实现 | 目前明确 Disabled，等待对应契约与设计步骤 |
-| 其余模块仍是 Fixture | Profile、Proxy 已关闭；继续按 Runtime → Node → Logs/Security 的顺序接入 |
+| 其余模块仍是 Fixture | Profile、Proxy、Agent 计划审查已关闭；继续按 Runtime → Node → Logs/Security 的顺序接入 |
 | 完整 E2E 尚未进入 GitHub Actions | 需要稳定的浏览器缓存、服务编排与独立 CI Job |

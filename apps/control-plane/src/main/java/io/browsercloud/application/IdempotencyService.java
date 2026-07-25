@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.browsercloud.api.CreateAgentTaskRequest;
 import io.browsercloud.api.CreateSessionRequest;
 import io.browsercloud.api.StateResyncRequest;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
@@ -55,6 +56,20 @@ public class IdempotencyService {
         idempotencyKey,
         hashRequest(request),
         candidateRequestId);
+  }
+
+  String claimAgentTask(
+      String tenantId,
+      String sessionId,
+      String idempotencyKey,
+      CreateAgentTaskRequest request,
+      String candidateTaskId) {
+    return claim(
+        tenantId,
+        "CREATE_AGENT_TASK:" + sessionId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateTaskId);
   }
 
   private String claim(

@@ -6,11 +6,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 /** 支持 REST offset/limit 语义的 Spring Data Pageable。 */
-record OffsetPageRequest(long offset, int pageSize, Sort sort) implements Pageable, Serializable {
+public record OffsetPageRequest(long offset, int pageSize, Sort sort)
+    implements Pageable, Serializable {
 
   @Serial private static final long serialVersionUID = 1L;
 
-  OffsetPageRequest {
+  public OffsetPageRequest {
     if (offset < 0) {
       throw new IllegalArgumentException("offset must be non-negative");
     }

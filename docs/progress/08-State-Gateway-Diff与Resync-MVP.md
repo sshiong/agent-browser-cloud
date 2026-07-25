@@ -86,7 +86,7 @@ make test-e2e
 | Chunked Snapshot | Full Snapshot 仍是单 Event，尚无 Chunk、Checksum、Commit Frame、Backpressure、Compression 和 Cancellation |
 | Resync Budget/Circuit | 尚无每 Session/Tenant/Region 的 Full/Region 次数、字节、CPU Token Bucket 与循环断路器 |
 | Diff Buffer | 当前只保留 Node 内单份基线和 PostgreSQL Current State，尚无可观测的有界 Diff Buffer、Consumer Cursor 和重放 API |
-| 状态动作 Gate | UI 已提示 Invalid/Resyncing，Control Plane 能标记质量；真正的 Agent Action Gate 要在 Phase 4 Agent/Tool API 中强制执行 |
+| 状态动作 Gate | Phase 4 Plan Validator 已拒绝 Invalid/Resyncing 等不可执行质量；真正的 Executor/Tool Service Action Gate 与执行后验证仍待实现 |
 | State Checkpoint | 尚无与 Profile、Browser Generation、Runtime Build 绑定的 State Checkpoint Epoch、Commit Marker 和恢复参考摘要 |
 | 敏感数据治理 | Target 名称已有 Password 文本抑制，但完整 State 分类、字段级脱敏、保留期和访问审计尚未闭环 |
 

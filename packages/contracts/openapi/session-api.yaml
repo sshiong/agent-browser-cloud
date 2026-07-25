@@ -320,6 +320,88 @@ paths:
                 $ref: "#/components/schemas/ProxyOverview"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/sessions/{sessionId}/agent-tasks:
+    post:
+      operationId: createAgentTask
+      summary: Validate and persist a bounded Agent plan
+      description: External context is treated as data-only. This Phase 4 endpoint plans but does not execute.
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentTaskRequest"
+      responses:
+        "201":
+          description: A planned or explicitly blocked Agent task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-tasks:
+    get:
+      operationId: listAgentTasks
+      summary: List tenant Agent tasks and plan-security decisions
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Tenant-scoped Agent task list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/agent-tasks/{taskId}:
+    get:
+      operationId: getAgentTask
+      summary: Get an Agent task and its redacted security evidence
+      tags: [Agent, AgentSafety]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^agt_[a-zA-Z0-9]{16,}$"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped Agent task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -369,6 +451,272 @@ components:
         minLength: 1
         maxLength: 128
   schemas:
+    CreateAgentTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [goal, allowedDomains]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        startUrl:
+          type: string
+          maxLength: 2048
+        allowedDomains:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 253
+            pattern: "^[A-Za-z0-9.-]+$"
+        maxActions:
+          type: integer
+          minimum: 1
+          maximum: 20
+        replanBudget:
+          type: integer
+          minimum: 0
+          maximum: 3
+        contextSources:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentInstructionSource"
+    AgentInstructionSource:
+      type: object
+      additionalProperties: false
+      required: [sourceId, sourceType, classification, content]
+      properties:
+        sourceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        sourceType:
+          type: string
+          enum:
+            - APPLICATION_DATA
+            - EMAIL
+            - DOCUMENT
+            - WEB_CONTENT
+            - THIRD_PARTY_WIDGET
+        classification:
+          type: string
+          minLength: 1
+          maxLength: 64
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          writeOnly: true
+    AgentTaskListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentTask"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+        offset:
+          type: integer
+    AgentTask:
+      type: object
+      additionalProperties: false
+      required:
+        - taskId
+        - sessionId
+        - goal
+        - state
+        - riskClass
+        - intentDecision
+        - blockedReason
+        - currentStep
+        - totalSteps
+        - allowedDomains
+        - plan
+        - securityEvents
+        - createdAt
+        - updatedAt
+      properties:
+        taskId:
+          type: string
+          pattern: "^agt_[a-zA-Z0-9]{16,}$"
+        sessionId:
+          type: string
+        goal:
+          type: string
+          description: Data-minimized goal; secrets, email and phone patterns are redacted.
+        state:
+          type: string
+          enum: [PLANNED, BLOCKED]
+        riskClass:
+          $ref: "#/components/schemas/AgentRiskClass"
+        intentDecision:
+          type: string
+          enum: [ALLOWED, CONFIRM_REQUIRED, FORBIDDEN]
+        blockedReason:
+          type: [string, "null"]
+        currentStep:
+          type: integer
+          minimum: 0
+        totalSteps:
+          type: integer
+          minimum: 0
+        allowedDomains:
+          type: array
+          items:
+            type: string
+        plan:
+          $ref: "#/components/schemas/AgentPlan"
+        securityEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptSecurityEvent"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AgentPlan:
+      type: object
+      additionalProperties: false
+      required: [intentId, steps, maxActions, replanBudget, expiresAt]
+      properties:
+        intentId:
+          type: string
+        steps:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentPlanStep"
+        maxActions:
+          type: integer
+          minimum: 1
+          maximum: 20
+        replanBudget:
+          type: integer
+          minimum: 0
+          maximum: 3
+        expiresAt:
+          type: string
+          format: date-time
+    AgentPlanStep:
+      type: object
+      additionalProperties: false
+      required:
+        - stepId
+        - toolId
+        - riskClass
+        - targetUrl
+        - rationale
+        - supportingSources
+        - trustFloor
+        - taintLabels
+        - requiredConfirmation
+        - strategy
+        - requiredStateQuality
+        - verification
+        - capabilityTokenId
+      properties:
+        stepId:
+          type: string
+        toolId:
+          type: string
+          enum:
+            - NAVIGATE
+            - GET_CURRENT_STATE
+            - CLICK_TARGET
+            - TYPE_TEXT
+            - SCROLL
+            - WAIT_FOR
+            - GET_URL
+            - GET_PAGE_SUMMARY
+            - REQUEST_HUMAN_TAKEOVER
+        riskClass:
+          $ref: "#/components/schemas/AgentRiskClass"
+        targetUrl:
+          type: [string, "null"]
+        rationale:
+          type: string
+        supportingSources:
+          type: array
+          items:
+            type: string
+        trustFloor:
+          type: string
+          enum: [TRUSTED, RESTRICTED, UNTRUSTED]
+        taintLabels:
+          type: array
+          items:
+            type: string
+        requiredConfirmation:
+          type: boolean
+        strategy:
+          type: string
+          enum:
+            - SEMANTIC_DOM
+            - ACCESSIBILITY
+            - DESKTOP_INPUT
+            - VISION_DESKTOP
+            - HUMAN_ASSIST
+            - HUMAN_TAKEOVER
+        requiredStateQuality:
+          type: string
+        verification:
+          type: string
+        capabilityTokenId:
+          type: string
+          description: Non-secret handle. The signed bearer token is never returned to the console.
+    AgentRiskClass:
+      type: string
+      enum:
+        - R0_READ_ONLY
+        - R1_LOW_RISK_CHANGE
+        - R2_DATA_CHANGE
+        - R3_ACCOUNT_CHANGE
+        - R4_FINANCIAL
+        - R5_SECURITY
+    PromptSecurityEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - eventType
+        - severity
+        - decision
+        - ruleCode
+        - sourceType
+        - contentHash
+        - createdAt
+      properties:
+        eventId:
+          type: string
+        eventType:
+          type: string
+        severity:
+          type: string
+        decision:
+          type: string
+        ruleCode:
+          type: string
+        sourceType:
+          type: string
+        contentHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        createdAt:
+          type: string
+          format: date-time
     CreateProfileRequest:
       type: object
       additionalProperties: false

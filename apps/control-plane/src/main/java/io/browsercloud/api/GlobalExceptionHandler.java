@@ -1,5 +1,7 @@
 package io.browsercloud.api;
 
+import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
+import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
@@ -43,6 +45,24 @@ public class GlobalExceptionHandler {
       ProfileNotFoundException exception, HttpServletRequest request) {
     return response(
         HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND", "Profile not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(AgentTaskNotFoundException.class)
+  ResponseEntity<ApiError> agentTaskNotFound(
+      AgentTaskNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND, "AGENT_TASK_NOT_FOUND", "Agent task not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(InvalidAgentTaskException.class)
+  ResponseEntity<ApiError> invalidAgentTask(
+      InvalidAgentTaskException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.BAD_REQUEST,
+        "AGENT_TASK_INVALID",
+        "Agent task validation failed",
+        Map.of(),
+        request);
   }
 
   @ExceptionHandler(ProfileAlreadyExistsException.class)

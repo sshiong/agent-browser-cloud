@@ -1,6 +1,9 @@
 package io.browsercloud.api;
 
+import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.InstructionSourceType;
+import io.browsercloud.domain.agent.AgentModels.ToolId;
+import io.browsercloud.domain.agent.AgentModels.WaitCondition;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,11 +21,22 @@ public record CreateAgentTaskRequest(
             allowedDomains,
     @Min(1) @Max(20) Integer maxActions,
     @Min(0) @Max(3) Integer replanBudget,
-    @Valid @Size(max = 20) List<InstructionSourceRequest> contextSources) {
+    @Valid @Size(max = 20) List<InstructionSourceRequest> contextSources,
+    @Valid @Size(max = 10) List<ActionRequest> actions) {
 
   public record InstructionSourceRequest(
       @NotBlank @Size(max = 128) String sourceId,
       @NotNull InstructionSourceType sourceType,
       @NotBlank @Size(max = 64) String classification,
       @NotBlank @Size(max = 10_000) String content) {}
+
+  public record ActionRequest(
+      @NotNull ToolId toolId,
+      @Size(max = 128) String targetRef,
+      @Min(1) Long targetRevision,
+      @Size(max = 2_000) String value,
+      ActionDataClass dataClass,
+      @Min(-2_000) @Max(2_000) Integer scrollDeltaY,
+      WaitCondition waitCondition,
+      @Min(100) @Max(10_000) Integer timeoutMs) {}
 }

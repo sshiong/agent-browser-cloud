@@ -324,7 +324,7 @@ paths:
     post:
       operationId: createAgentTask
       summary: Validate and persist a bounded Agent plan
-      description: External context is treated as data-only. This Phase 4 endpoint plans but does not execute.
+      description: External context is data-only. Structured actions bind to the current Target Revision and sensitive target policy.
       tags: [Agent, AgentSafety]
       parameters:
         - $ref: "#/components/parameters/SessionId"
@@ -406,7 +406,7 @@ paths:
     post:
       operationId: executeAgentTask
       summary: Execute and verify a supported Agent plan
-      description: The current executor supports read-only plans. Plans containing Navigate are rejected until the Node executor is connected.
+      description: Executes read, Navigate, Click, Type, Scroll, Wait, and human-handoff steps with durable checkpoints.
       tags: [Agent, AgentTool]
       parameters:
         - name: taskId
@@ -428,6 +428,78 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-tasks/{taskId}:approve:
+    post:
+      operationId: approveAgentTask
+      summary: Approve a pending high-risk Agent plan
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/AgentTaskId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Approved task, now eligible for execution.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-tasks/{taskId}:reject:
+    post:
+      operationId: rejectAgentTask
+      summary: Reject a pending high-risk Agent plan
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/AgentTaskId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Rejected task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-tasks/{taskId}:accept-handoff:
+    post:
+      operationId: acceptAgentHandoff
+      summary: Accept an Agent human-handoff request
+      tags: [Agent, HumanTakeover]
+      parameters:
+        - $ref: "#/components/parameters/AgentTaskId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Handoff accepted and HumanTakeover operation created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-tasks/{taskId}:reject-handoff:
+    post:
+      operationId: rejectAgentHandoff
+      summary: Reject an Agent human-handoff request
+      tags: [Agent, HumanTakeover]
+      parameters:
+        - $ref: "#/components/parameters/AgentTaskId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Handoff rejected and Agent task failed closed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
         "409":
           $ref: "#/components/responses/Conflict"
 components:
@@ -478,6 +550,13 @@ components:
         type: string
         minLength: 1
         maxLength: 128
+    AgentTaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^agt_[a-zA-Z0-9]{16,}$"
   schemas:
     CreateAgentTaskRequest:
       type: object
@@ -514,6 +593,49 @@ components:
           maxItems: 20
           items:
             $ref: "#/components/schemas/AgentInstructionSource"
+        actions:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/AgentActionRequest"
+    AgentActionRequest:
+      type: object
+      additionalProperties: false
+      required: [toolId]
+      properties:
+        toolId:
+          type: string
+          enum:
+            - CLICK_TARGET
+            - TYPE_TEXT
+            - SCROLL
+            - WAIT_FOR
+            - REQUEST_HUMAN_TAKEOVER
+        targetRef:
+          type: string
+          maxLength: 128
+        targetRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        value:
+          type: string
+          maxLength: 2000
+          writeOnly: true
+        dataClass:
+          type: string
+          enum: [PUBLIC, PII]
+        scrollDeltaY:
+          type: integer
+          minimum: -2000
+          maximum: 2000
+        waitCondition:
+          type: string
+          enum: [STATE_CHANGED, STATE_STABLE, TARGET_PRESENT]
+        timeoutMs:
+          type: integer
+          minimum: 100
+          maximum: 10000
     AgentInstructionSource:
       type: object
       additionalProperties: false
@@ -570,6 +692,9 @@ components:
         - currentStep
         - totalSteps
         - replanCount
+        - stepExecution
+        - confirmation
+        - humanHandoff
         - allowedDomains
         - plan
         - operationId
@@ -589,7 +714,14 @@ components:
           description: Data-minimized goal; secrets, email and phone patterns are redacted.
         state:
           type: string
-          enum: [PLANNED, BLOCKED, RUNNING, COMPLETED, FAILED]
+          enum:
+            - PLANNED
+            - AWAITING_CONFIRMATION
+            - BLOCKED
+            - RUNNING
+            - WAITING_FOR_HUMAN
+            - COMPLETED
+            - FAILED
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         intentDecision:
@@ -606,6 +738,12 @@ components:
         replanCount:
           type: integer
           minimum: 0
+        stepExecution:
+          $ref: "#/components/schemas/AgentStepExecution"
+        confirmation:
+          $ref: "#/components/schemas/AgentConfirmation"
+        humanHandoff:
+          $ref: "#/components/schemas/AgentHumanHandoff"
         allowedDomains:
           type: array
           items:
@@ -630,6 +768,68 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AgentStepExecution:
+      type: object
+      additionalProperties: false
+      required:
+        - pendingStepId
+        - pendingToolId
+        - baseStateVersion
+        - baseContentHash
+        - deadline
+        - leaseUntil
+        - replanReason
+      properties:
+        pendingStepId:
+          type: [string, "null"]
+        pendingToolId:
+          type: [string, "null"]
+        baseStateVersion:
+          type: [integer, "null"]
+          format: int64
+        baseContentHash:
+          type: [string, "null"]
+        deadline:
+          type: [string, "null"]
+          format: date-time
+        leaseUntil:
+          type: [string, "null"]
+          format: date-time
+        replanReason:
+          type: [string, "null"]
+    AgentConfirmation:
+      type: object
+      additionalProperties: false
+      required: [confirmationId, status, expiresAt, decidedAt, actorId, evidenceHash]
+      properties:
+        confirmationId:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        decidedAt:
+          type: [string, "null"]
+          format: date-time
+        actorId:
+          type: [string, "null"]
+        evidenceHash:
+          type: [string, "null"]
+    AgentHumanHandoff:
+      type: object
+      additionalProperties: false
+      required: [requestId, status, expiresAt, actorId]
+      properties:
+        requestId:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        actorId:
+          type: [string, "null"]
     AgentPlan:
       type: object
       additionalProperties: false
@@ -661,6 +861,7 @@ components:
         - toolId
         - riskClass
         - targetUrl
+        - input
         - rationale
         - supportingSources
         - trustFloor
@@ -689,6 +890,10 @@ components:
           $ref: "#/components/schemas/AgentRiskClass"
         targetUrl:
           type: [string, "null"]
+        input:
+          oneOf:
+            - $ref: "#/components/schemas/AgentStepInput"
+            - type: "null"
         rationale:
           type: string
         supportingSources:
@@ -720,6 +925,37 @@ components:
         capabilityTokenId:
           type: string
           description: Non-secret handle. The signed bearer token is never returned to the console.
+    AgentStepInput:
+      type: object
+      additionalProperties: false
+      required:
+        - targetRef
+        - targetRevision
+        - payloadHash
+        - payloadLength
+        - dataClass
+        - scrollDeltaY
+        - waitCondition
+        - timeoutMs
+      properties:
+        targetRef:
+          type: [string, "null"]
+        targetRevision:
+          type: [integer, "null"]
+          format: int64
+        payloadHash:
+          type: [string, "null"]
+          description: Hash of sealed input; plaintext and ciphertext are never returned.
+        payloadLength:
+          type: [integer, "null"]
+        dataClass:
+          type: [string, "null"]
+        scrollDeltaY:
+          type: [integer, "null"]
+        waitCondition:
+          type: [string, "null"]
+        timeoutMs:
+          type: [integer, "null"]
     AgentRiskClass:
       type: string
       enum:
@@ -745,10 +981,19 @@ components:
           type: string
         toolId:
           type: string
-          enum: [GET_CURRENT_STATE, GET_URL, GET_PAGE_SUMMARY]
+          enum:
+            - NAVIGATE
+            - GET_CURRENT_STATE
+            - CLICK_TARGET
+            - TYPE_TEXT
+            - SCROLL
+            - WAIT_FOR
+            - GET_URL
+            - GET_PAGE_SUMMARY
+            - REQUEST_HUMAN_TAKEOVER
         status:
           type: string
-          enum: [VERIFIED]
+          enum: [VERIFIED, WAITING_FOR_HUMAN, ACCEPTED]
         resultHash:
           type: string
           pattern: "^[a-f0-9]{64}$"

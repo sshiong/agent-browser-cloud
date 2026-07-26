@@ -2,7 +2,9 @@ package io.browsercloud.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
+import io.browsercloud.application.AgentActionPayloadService;
 import io.browsercloud.coordinator.NodeCommand;
+import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.CommandEnvelope;
 import io.browsercloud.proto.node.v1.DispatchRequest;
 import io.browsercloud.proto.node.v1.NodeControlServiceGrpc;
@@ -30,14 +32,17 @@ public class NodeCommandOutboxDispatcher {
 
   private final OutboxEventJpaRepository outboxRepository;
   private final ObjectMapper objectMapper;
+  private final AgentActionPayloadService actionPayloadService;
   private final ManagedChannel channel;
 
   public NodeCommandOutboxDispatcher(
       OutboxEventJpaRepository outboxRepository,
       ObjectMapper objectMapper,
+      AgentActionPayloadService actionPayloadService,
       @Value("${browser-node.grpc-target:localhost:9090}") String grpcTarget) {
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
+    this.actionPayloadService = actionPayloadService;
     this.channel = ManagedChannelBuilder.forTarget(grpcTarget).usePlaintext().build();
   }
 
@@ -104,8 +109,32 @@ public class NodeCommandOutboxDispatcher {
         .setContextEpoch(command.contextEpoch())
         .setOperationEpoch(command.operationEpoch())
         .setIdempotencyKey(command.idempotencyKey())
-        .setPayload(ByteString.copyFrom(command.payload()))
+        .setPayload(ByteString.copyFrom(outboundPayload(command)))
         .build();
+  }
+
+  private byte[] outboundPayload(NodeCommand command) {
+    if (!command.commandType().equals("AgentAction")) {
+      return command.payload();
+    }
+    try {
+      var payload = AgentActionCommand.parseFrom(command.payload());
+      if (!payload.getToolId().equals("TYPE_TEXT")) {
+        return command.payload();
+      }
+      if (payload.getSealedText().isBlank() || !payload.getText().isBlank()) {
+        throw new IllegalArgumentException("Agent TypeText payload envelope is invalid");
+      }
+      var plaintext =
+          actionPayloadService.unseal(
+              command.tenantId(),
+              payload.getTaskId(),
+              payload.getStepId(),
+              payload.getSealedText());
+      return payload.toBuilder().clearSealedText().setText(plaintext).build().toByteArray();
+    } catch (com.google.protobuf.InvalidProtocolBufferException exception) {
+      throw new IllegalArgumentException("Agent action payload is invalid protobuf", exception);
+    }
   }
 
   @PreDestroy

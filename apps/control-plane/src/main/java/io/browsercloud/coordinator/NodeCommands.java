@@ -1,7 +1,9 @@
 package io.browsercloud.coordinator;
 
+import io.browsercloud.domain.agent.AgentModels.PlanStep;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
@@ -151,6 +153,37 @@ public final class NodeCommands {
         operation.operationEpoch(),
         idempotencyKey + ":" + taskId,
         payload);
+  }
+
+  public static NodeCommand agentAction(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      PlanStep step,
+      long baseStateVersion,
+      String baseContentHash) {
+    var input = step.input();
+    var payload =
+        AgentActionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setTaskId(taskId)
+            .setStepId(step.stepId())
+            .setToolId(step.toolId().name())
+            .setTargetRef(input == null || input.targetRef() == null ? "" : input.targetRef())
+            .setTargetRevision(
+                input == null || input.targetRevision() == null ? 0 : input.targetRevision())
+            .setSealedText(
+                input == null || input.sealedPayload() == null ? "" : input.sealedPayload())
+            .setScrollDeltaY(
+                input == null || input.scrollDeltaY() == null ? 0 : input.scrollDeltaY())
+            .setWaitCondition(
+                input == null || input.waitCondition() == null ? "" : input.waitCondition().name())
+            .setTimeoutMs(input == null || input.timeoutMs() == null ? 0 : input.timeoutMs())
+            .setBaseStateVersion(baseStateVersion)
+            .setBaseContentHash(baseContentHash)
+            .build()
+            .toByteArray();
+    return command(session, operation, "AgentAction", payload);
   }
 
   private static NodeCommand command(

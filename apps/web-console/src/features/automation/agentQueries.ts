@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createAgentTask, executeAgentTask, listAgentTasks } from '@/api/agent';
+import {
+  acceptAgentHandoff,
+  approveAgentTask,
+  createAgentTask,
+  executeAgentTask,
+  listAgentTasks,
+  rejectAgentHandoff,
+  rejectAgentTask,
+} from '@/api/agent';
 import type { CreateAgentTaskRequest } from '@/types/agent';
 
 const agentTaskKeys = {
@@ -11,8 +19,40 @@ export function useAgentTasks() {
   return useQuery({
     queryKey: agentTaskKeys.list(),
     queryFn: ({ signal }) => listAgentTasks(undefined, signal),
-    refetchInterval: 5_000,
+    refetchInterval: (query) =>
+      query.state.data?.items.some((task) =>
+        ['RUNNING', 'AWAITING_CONFIRMATION', 'WAITING_FOR_HUMAN'].includes(
+          task.state
+        )
+      )
+        ? 2_000
+        : 5_000,
   });
+}
+
+function useAgentDecision(decision: (taskId: string) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: decision,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: agentTaskKeys.all }),
+  });
+}
+
+export function useApproveAgentTask() {
+  return useAgentDecision(approveAgentTask);
+}
+
+export function useRejectAgentTask() {
+  return useAgentDecision(rejectAgentTask);
+}
+
+export function useAcceptAgentHandoff() {
+  return useAgentDecision(acceptAgentHandoff);
+}
+
+export function useRejectAgentHandoff() {
+  return useAgentDecision(rejectAgentHandoff);
 }
 
 export function useCreateAgentTask() {

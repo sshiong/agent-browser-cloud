@@ -8,13 +8,13 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
-    BrowserStateDiffEvent, BrowserStateEvent, CommandAck, CommandEnvelope, DiffTruncatedEvent,
-    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
-    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
-    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand,
-    RequestStateResyncCommand, RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand,
-    StopRuntimeCommand, TargetBounds,
+    AgentActionCommand, AgentActionFailedEvent, AgentNavigateCommand, AgentNavigationFailedEvent,
+    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
+    CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
+    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
+    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
+    PublishResponse, ReleaseAllInputCommand, RequestStateResyncCommand, RuntimeStartedEvent,
+    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
     PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
@@ -261,6 +261,31 @@ impl NodeControlService {
         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
     }
 
+    async fn agent_action_failed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &AgentActionCommand,
+        error_code: &str,
+    ) -> CommandResult {
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "AgentActionFailed",
+            sequence,
+            AgentActionFailedEvent {
+                session_id: command.session_id.clone(),
+                task_id: payload.task_id.clone(),
+                step_id: payload.step_id.clone(),
+                tool_id: payload.tool_id.clone(),
+                error_code: error_code.to_owned(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
     fn browser_state_payload(state: CurrentState) -> BrowserStateEvent {
         BrowserStateEvent {
             session_id: state.session_id,
@@ -302,6 +327,7 @@ impl NodeControlService {
             }),
             enabled: target.enabled,
             visible: target.visible,
+            sensitive: target.sensitive,
         }
     }
 
@@ -558,6 +584,148 @@ impl NodeControlService {
             );
         }
         Ok(())
+    }
+
+    async fn execute_agent_action(
+        &self,
+        payload: &AgentActionCommand,
+    ) -> anyhow::Result<CurrentState> {
+        match payload.tool_id.as_str() {
+            "CLICK_TARGET" | "TYPE_TEXT" => {
+                let target = self
+                    .state_collector
+                    .resolve_target(
+                        &payload.session_id,
+                        &payload.target_ref,
+                        payload.target_revision,
+                    )
+                    .await?;
+                if payload.tool_id == "TYPE_TEXT" {
+                    anyhow::ensure!(!target.sensitive, "sensitive target is forbidden");
+                    anyhow::ensure!(
+                        matches!(target.role.as_str(), "textbox" | "combobox"),
+                        "type target role is not supported"
+                    );
+                    anyhow::ensure!(
+                        payload.sealed_text.is_empty() && !payload.text.is_empty(),
+                        "type text must be materialized only for Node dispatch"
+                    );
+                } else {
+                    anyhow::ensure!(
+                        payload.text.is_empty() && payload.sealed_text.is_empty(),
+                        "click target cannot carry text"
+                    );
+                }
+                let center_x = target.bounds.x + target.bounds.width / 2.0;
+                let center_y = target.bounds.y + target.bounds.height / 2.0;
+                anyhow::ensure!(
+                    center_x.is_finite()
+                        && center_y.is_finite()
+                        && center_x >= 0.0
+                        && center_y >= 0.0
+                        && center_x <= i32::MAX as f64
+                        && center_y <= i32::MAX as f64,
+                    "target center is outside the input coordinate range"
+                );
+                let input = self
+                    .input_brokers
+                    .lock()
+                    .await
+                    .get(&payload.session_id)
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!("input broker is unavailable"))?;
+                let base = input.ledger_snapshot().await.last_sequence;
+                let sequence = |offset: u64| {
+                    base.checked_add(offset)
+                        .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))
+                };
+                input
+                    .mouse_move(
+                        center_x.round() as i32,
+                        center_y.round() as i32,
+                        sequence(1)?,
+                    )
+                    .await?;
+                input.mouse_down(0, sequence(2)?).await?;
+                input.mouse_up(0, sequence(3)?).await?;
+                if payload.tool_id == "TYPE_TEXT" {
+                    input.key_down(InputKey::Control, sequence(4)?).await?;
+                    input
+                        .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
+                        .await?;
+                    input
+                        .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
+                        .await?;
+                    input.key_up(InputKey::Control, sequence(7)?).await?;
+                    input.insert_text(&payload.text, sequence(8)?).await?;
+                }
+            }
+            "SCROLL" => {
+                anyhow::ensure!(
+                    payload.target_ref.is_empty()
+                        && payload.target_revision == 0
+                        && payload.text.is_empty()
+                        && payload.sealed_text.is_empty(),
+                    "scroll action contains unsupported fields"
+                );
+                self.state_collector
+                    .scroll(&payload.session_id, payload.scroll_delta_y)
+                    .await?;
+            }
+            "WAIT_FOR" => {
+                anyhow::ensure!(
+                    (100..=10_000).contains(&payload.timeout_ms),
+                    "wait timeout is invalid"
+                );
+                let deadline =
+                    tokio::time::Instant::now() + Duration::from_millis(payload.timeout_ms.into());
+                let mut previous_hash: Option<String> = None;
+                loop {
+                    let state = self
+                        .state_collector
+                        .collect_current_state(&payload.session_id)
+                        .await?;
+                    let satisfied = match payload.wait_condition.as_str() {
+                        "STATE_CHANGED" => state.content_hash != payload.base_content_hash,
+                        "STATE_STABLE" => {
+                            let stable = previous_hash
+                                .as_ref()
+                                .is_some_and(|previous| previous == &state.content_hash);
+                            previous_hash = Some(state.content_hash.clone());
+                            stable
+                        }
+                        "TARGET_PRESENT" => self
+                            .state_collector
+                            .resolve_target(
+                                &payload.session_id,
+                                &payload.target_ref,
+                                state.target_revision,
+                            )
+                            .await
+                            .is_ok(),
+                        _ => anyhow::bail!("wait condition is unsupported"),
+                    };
+                    if satisfied {
+                        break;
+                    }
+                    anyhow::ensure!(
+                        tokio::time::Instant::now() < deadline,
+                        "wait condition timed out"
+                    );
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
+            _ => anyhow::bail!("agent action tool is unsupported"),
+        }
+        let state = self
+            .state_collector
+            .collect_current_state(&payload.session_id)
+            .await?;
+        anyhow::ensure!(
+            state.state_version > payload.base_state_version,
+            "post-action state version did not advance"
+        );
+        Ok(state)
     }
 
     async fn execute(&self, command: &CommandEnvelope) -> CommandResult {
@@ -1150,6 +1318,55 @@ impl NodeControlService {
                     };
                     let mut state_payload = Self::browser_state_payload(state.clone());
                     state_payload.snapshot_kind = "AGENT_NAVIGATION".to_owned();
+                    let event =
+                        Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                    Self::state_result(Self::ack(&command.message_id, true, "", ""), event, state)
+                }
+                Err(error) => self.failed(command, error.into()),
+            },
+            "AgentAction" => match AgentActionCommand::decode(command.payload.as_slice()) {
+                Ok(payload) => {
+                    if payload.session_id != command.session_id
+                        || !payload.task_id.starts_with("agt_")
+                        || payload.task_id.chars().count() > 128
+                        || !payload.step_id.starts_with("step_")
+                        || payload.step_id.chars().count() > 128
+                        || !matches!(
+                            payload.tool_id.as_str(),
+                            "CLICK_TARGET" | "TYPE_TEXT" | "SCROLL" | "WAIT_FOR"
+                        )
+                    {
+                        return self
+                            .failed(command, anyhow::anyhow!("agent action payload is invalid"));
+                    }
+                    let state = match self.execute_agent_action(&payload).await {
+                        Ok(state) => state,
+                        Err(error) => {
+                            tracing::warn!(
+                                task_id = payload.task_id,
+                                step_id = payload.step_id,
+                                tool_id = payload.tool_id,
+                                error = %error,
+                                "Agent action failed"
+                            );
+                            let code = if payload.tool_id == "WAIT_FOR" {
+                                "WAIT_CONDITION_FAILED"
+                            } else if error.to_string().contains("target")
+                                || error.to_string().contains("sensitive")
+                            {
+                                "ACTION_PRECONDITION_FAILED"
+                            } else {
+                                "ACTION_EXECUTION_FAILED"
+                            };
+                            return self.agent_action_failed(command, &payload, code).await;
+                        }
+                    };
+                    let sequence = match self.next_event_sequence(&command.session_id).await {
+                        Ok(sequence) => sequence,
+                        Err(error) => return self.failed(command, error),
+                    };
+                    let mut state_payload = Self::browser_state_payload(state.clone());
+                    state_payload.snapshot_kind = format!("AGENT_{}", payload.tool_id);
                     let event =
                         Self::event(command, "BrowserStateUpdated", sequence, state_payload);
                     Self::state_result(Self::ack(&command.message_id, true, "", ""), event, state)

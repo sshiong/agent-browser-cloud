@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
+import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
@@ -26,6 +27,7 @@ public class NodeEventMapper {
   static final String BROWSER_STATE_DIFF = "BrowserStateDiff";
   static final String DIFF_TRUNCATED = "DiffTruncated";
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
+  static final String AGENT_ACTION_FAILED = "AgentActionFailed";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
@@ -182,6 +184,23 @@ public class NodeEventMapper {
               payload.getStepId(),
               payload.getErrorCode());
         }
+        case AGENT_ACTION_FAILED -> {
+          var payload = AgentActionFailedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getTaskId(), "task_id");
+          requireText(payload.getStepId(), "step_id");
+          requireText(payload.getToolId(), "tool_id");
+          requireText(payload.getErrorCode(), "error_code");
+          if (!java.util.Set.of("CLICK_TARGET", "TYPE_TEXT", "SCROLL", "WAIT_FOR")
+              .contains(payload.getToolId())) {
+            throw new IllegalArgumentException("unsupported Agent Action tool_id");
+          }
+          yield new NodeEvent.AgentActionFailed(
+              payload.getSessionId(),
+              payload.getTaskId(),
+              payload.getStepId(),
+              payload.getToolId(),
+              payload.getErrorCode());
+        }
         case HUMAN_TAKEOVER_READY -> {
           var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());
           if (!payload.hasState()) {
@@ -228,6 +247,7 @@ public class NodeEventMapper {
       case NodeEvent.StateDiff diff -> diff.sessionId();
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
+      case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };
@@ -295,7 +315,8 @@ public class NodeEventMapper {
                 target.getBounds().getHeight())
             : null,
         target.getEnabled(),
-        target.getVisible());
+        target.getVisible(),
+        target.getSensitive());
   }
 
   private void requireText(String value, String field) {

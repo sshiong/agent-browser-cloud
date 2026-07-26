@@ -116,12 +116,29 @@ class Handler(BaseHTTPRequestHandler):
                 "url": "https://example.test/runtime",
                 "title": "Browser Cloud Test Page",
                 "targets": [{
-                  "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
-                  "role": "button",
+                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
+                    "role": "button",
                     "name": target_name,
                     "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
                     "enabled": True,
                     "visible": True,
+                    "sensitive": False,
+                }, {
+                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
+                    "role": "textbox",
+                    "name": "Public note",
+                    "bounds": {"x": 20.0, "y": 84.0, "width": 240.0, "height": 36.0},
+                    "enabled": True,
+                    "visible": True,
+                    "sensitive": False,
+                }, {
+                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(2)",
+                    "role": "textbox",
+                    "name": None,
+                    "bounds": {"x": 20.0, "y": 138.0, "width": 240.0, "height": 36.0},
+                    "enabled": True,
+                    "visible": True,
+                    "sensitive": True,
                 }],
             }
             response = {"id": command["id"], "result": {"result": {"type": "object", "value": result}}}

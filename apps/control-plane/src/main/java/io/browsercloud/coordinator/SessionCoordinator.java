@@ -364,6 +364,16 @@ public final class SessionCoordinator {
         }
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.AgentActionFailed failed -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().ownerType() != OwnerType.AGENT
+            || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE
+            || !operation.orElseThrow().actorId().equals(failed.taskId())) {
+          yield CoordinatorResult.rejected("STALE_AGENT_OPERATION");
+        }
+        yield CoordinatorResult.completed();
+      }
       case NodeEvent.HumanTakeoverReady ready -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
@@ -419,6 +429,7 @@ public final class SessionCoordinator {
       case NodeEvent.StateDiff diff -> diff.sessionId();
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
+      case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

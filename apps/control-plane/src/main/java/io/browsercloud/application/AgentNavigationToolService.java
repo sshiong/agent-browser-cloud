@@ -34,7 +34,7 @@ public class AgentNavigationToolService {
     this.nodeCommandGateway = nodeCommandGateway;
   }
 
-  public long authorizeAndQueue(
+  public PendingNavigation authorizeAndQueue(
       String tenantId,
       SessionContext session,
       ExclusiveOperation operation,
@@ -64,18 +64,23 @@ public class AgentNavigationToolService {
         != 1) {
       throw new NavigationToolException("CAPABILITY_TOKEN_REPLAYED");
     }
-    var baseStateVersion =
+    var state =
         stateRepository
             .find(session.sessionId())
             .filter(snapshot -> snapshot.tenantId().equals(tenantId))
             .filter(snapshot -> snapshot.contextEpoch() == session.contextEpoch())
-            .map(snapshot -> snapshot.state().stateVersion())
-            .orElse(0L);
+            .map(BrowserStateRepository.Snapshot::state)
+            .orElse(null);
+    var baseStateVersion = state == null ? 0L : state.stateVersion();
+    var baseContentHash = state == null ? "" : state.stateHash();
     nodeCommandGateway.send(
         NodeCommands.agentNavigate(
             session, operation, taskId, step.stepId(), step.targetUrl(), baseStateVersion));
-    return baseStateVersion;
+    return new PendingNavigation(baseStateVersion, baseContentHash, now.plusSeconds(15));
   }
+
+  public record PendingNavigation(
+      long baseStateVersion, String baseContentHash, Instant deadline) {}
 
   static String domainOf(String value) {
     try {

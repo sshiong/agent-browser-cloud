@@ -185,6 +185,7 @@ export interface InteractiveTargetView {
   bounds?: TargetBoundsView;
   enabled: boolean;
   visible: boolean;
+  sensitive: boolean;
 }
 
 export interface TargetBoundsView {

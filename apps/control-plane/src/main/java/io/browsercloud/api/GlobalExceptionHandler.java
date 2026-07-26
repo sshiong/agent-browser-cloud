@@ -3,6 +3,7 @@ package io.browsercloud.api;
 import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
+import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
@@ -73,6 +74,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "AGENT_EXECUTION_REJECTED",
         "Agent task cannot be executed in its current state",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(HumanGovernanceException.class)
+  ResponseEntity<ApiError> humanGovernance(
+      HumanGovernanceException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "HUMAN_GOVERNANCE_REJECTED",
+        "Human confirmation or takeover handoff cannot be completed",
         Map.of("reason", exception.getMessage()),
         request);
   }

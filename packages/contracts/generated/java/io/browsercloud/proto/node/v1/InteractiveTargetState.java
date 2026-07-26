@@ -216,6 +216,21 @@ private static final long serialVersionUID = 0L;
     return visible_;
   }
 
+  public static final int SENSITIVE_FIELD_NUMBER = 7;
+  private boolean sensitive_ = false;
+  /**
+   * <pre>
+   * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+   * </pre>
+   *
+   * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+   * @return The sensitive.
+   */
+  @java.lang.Override
+  public boolean getSensitive() {
+    return sensitive_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -248,6 +263,9 @@ private static final long serialVersionUID = 0L;
     if (visible_ != false) {
       output.writeBool(6, visible_);
     }
+    if (sensitive_ != false) {
+      output.writeBool(7, sensitive_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -277,6 +295,10 @@ private static final long serialVersionUID = 0L;
     if (visible_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(6, visible_);
+    }
+    if (sensitive_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(7, sensitive_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -311,6 +333,8 @@ private static final long serialVersionUID = 0L;
         != other.getEnabled()) return false;
     if (getVisible()
         != other.getVisible()) return false;
+    if (getSensitive()
+        != other.getSensitive()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -340,6 +364,9 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + VISIBLE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getVisible());
+    hash = (37 * hash) + SENSITIVE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getSensitive());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -487,6 +514,7 @@ private static final long serialVersionUID = 0L;
       }
       enabled_ = false;
       visible_ = false;
+      sensitive_ = false;
       return this;
     }
 
@@ -542,6 +570,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.visible_ = visible_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.sensitive_ = sensitive_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -614,6 +645,9 @@ private static final long serialVersionUID = 0L;
       if (other.getVisible() != false) {
         setVisible(other.getVisible());
       }
+      if (other.getSensitive() != false) {
+        setSensitive(other.getSensitive());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -672,6 +706,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 48
+            case 56: {
+              sensitive_ = input.readBool();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1093,6 +1132,50 @@ private static final long serialVersionUID = 0L;
     public Builder clearVisible() {
       bitField0_ = (bitField0_ & ~0x00000020);
       visible_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean sensitive_ ;
+    /**
+     * <pre>
+     * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+     * </pre>
+     *
+     * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+     * @return The sensitive.
+     */
+    @java.lang.Override
+    public boolean getSensitive() {
+      return sensitive_;
+    }
+    /**
+     * <pre>
+     * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+     * </pre>
+     *
+     * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+     * @param value The sensitive to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSensitive(boolean value) {
+
+      sensitive_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+     * </pre>
+     *
+     * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSensitive() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      sensitive_ = false;
       onChanged();
       return this;
     }

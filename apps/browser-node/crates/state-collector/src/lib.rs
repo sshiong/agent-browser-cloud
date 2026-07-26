@@ -27,6 +27,8 @@ pub struct InteractiveTarget {
     pub enabled: bool,
     /// 是否可见
     pub visible: bool,
+    /// 是否为 Password/OTP 等敏感输入目标
+    pub sensitive: bool,
 }
 
 /// 边界。
@@ -201,6 +203,8 @@ struct EvaluatedTarget {
     bounds: Option<Bounds>,
     enabled: bool,
     visible: bool,
+    #[serde(default)]
+    sensitive: bool,
 }
 
 /// 基于真实 Chrome DevTools Protocol 的基础 State Collector。
@@ -210,6 +214,7 @@ struct EvaluatedTarget {
 pub struct CdpStateCollector {
     endpoints: Arc<RwLock<HashMap<String, String>>>,
     cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
+    target_registries: Arc<Mutex<HashMap<String, TargetRegistry>>>,
 }
 
 #[derive(Debug, Default)]
@@ -217,6 +222,22 @@ struct CollectorCursor {
     state_version: u64,
     target_revision: u64,
     url: String,
+    target_fingerprint: String,
+}
+
+#[derive(Debug, Default)]
+struct TargetRegistry {
+    target_revision: u64,
+    targets: HashMap<String, ResolvedTarget>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedTarget {
+    pub role: String,
+    pub bounds: Bounds,
+    pub enabled: bool,
+    pub visible: bool,
+    pub sensitive: bool,
 }
 
 impl CdpStateCollector {
@@ -243,6 +264,7 @@ impl CdpStateCollector {
 
     pub async fn unregister_runtime(&self, session_id: &str) {
         self.endpoints.write().await.remove(session_id);
+        self.target_registries.lock().await.remove(session_id);
     }
 
     async fn target_websocket(&self, session_id: &str) -> anyhow::Result<String> {
@@ -309,6 +331,14 @@ impl CdpStateCollector {
                 const text = element.innerText || element.getAttribute('placeholder') || '';
                 return text.trim().slice(0, 256) || null;
               };
+              const sensitiveFor = (element) => {
+                const type = (element.getAttribute('type') || '').toLowerCase();
+                const autocomplete = (element.getAttribute('autocomplete') || '').toLowerCase();
+                const name = (element.getAttribute('name') || '').toLowerCase();
+                return type === 'password'
+                  || autocomplete.includes('one-time-code')
+                  || /(^|[_-])(password|passwd|pwd|otp|one.?time.?code)($|[_-])/.test(name);
+              };
               const pathFor = (element) => {
                 const parts = [];
                 let current = element;
@@ -341,7 +371,8 @@ impl CdpStateCollector {
                       x: rect.x, y: rect.y, width: rect.width, height: rect.height
                     } : null,
                     enabled: !element.disabled && element.getAttribute('aria-disabled') !== 'true',
-                    visible
+                    visible,
+                    sensitive: sensitiveFor(element)
                   };
                 });
               return {
@@ -435,6 +466,75 @@ impl CdpStateCollector {
         anyhow::bail!("CDP websocket closed before Page.navigate completed")
     }
 
+    pub async fn resolve_target(
+        &self,
+        session_id: &str,
+        target_ref: &str,
+        target_revision: u64,
+    ) -> anyhow::Result<ResolvedTarget> {
+        let registries = self.target_registries.lock().await;
+        let registry = registries
+            .get(session_id)
+            .ok_or_else(|| anyhow::anyhow!("target registry is unavailable"))?;
+        anyhow::ensure!(
+            registry.target_revision == target_revision,
+            "target revision is stale"
+        );
+        let target = registry
+            .targets
+            .get(target_ref)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("target reference is stale or unknown"))?;
+        anyhow::ensure!(target.visible, "target is not visible");
+        anyhow::ensure!(target.enabled, "target is not enabled");
+        anyhow::ensure!(
+            target.bounds.width > 0.0 && target.bounds.height > 0.0,
+            "target bounds are not actionable"
+        );
+        Ok(target)
+    }
+
+    pub async fn scroll(&self, session_id: &str, delta_y: i32) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            (100..=2000).contains(&delta_y.abs()),
+            "scroll delta must be between 100 and 2000 pixels"
+        );
+        let websocket_url = self.target_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP scroll connection timed out"))??;
+        let expression =
+            format!("window.scrollBy({{top:{delta_y},left:0,behavior:'instant'}}); true");
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 3,
+                    "method": "Runtime.evaluate",
+                    "params": {"expression": expression, "returnByValue": true}
+                })
+                .to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP scroll command timed out"))?
+        {
+            let Message::Text(text) = message? else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(3) {
+                continue;
+            }
+            anyhow::ensure!(response.get("error").is_none(), "CDP scroll command failed");
+            return Ok(());
+        }
+        anyhow::bail!("CDP websocket closed before scroll acknowledgement")
+    }
+
     async fn collect(
         &self,
         session_id: &str,
@@ -442,41 +542,69 @@ impl CdpStateCollector {
     ) -> anyhow::Result<CurrentState> {
         let websocket_url = self.target_websocket(session_id).await?;
         let page = self.evaluate_page(&websocket_url).await?;
+        let serialized_targets = serde_json::to_string(&page.targets)?;
+        let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
         let (state_version, target_revision) = {
             let mut cursors = self.cursors.lock().await;
             let cursor = cursors.entry(session_id.to_owned()).or_default();
             cursor.state_version += 1;
-            if cursor.target_revision == 0 || cursor.url != page.url || force_target_revision {
+            if cursor.target_revision == 0
+                || cursor.url != page.url
+                || cursor.target_fingerprint != target_fingerprint
+                || force_target_revision
+            {
                 cursor.target_revision += 1;
             }
             cursor.url = page.url.clone();
+            cursor.target_fingerprint = target_fingerprint;
             (cursor.state_version, cursor.target_revision)
         };
         let content_hash = hex_sha256(
             format!(
                 "{}\n{}\n{}\n{}",
-                page.url,
-                page.title,
-                serde_json::to_string(&page.targets)?,
-                page.truncated
+                page.url, page.title, serialized_targets, page.truncated
             )
             .as_bytes(),
         );
+        let mut registry_targets = HashMap::new();
         let targets = page
             .targets
             .into_iter()
-            .map(|target| InteractiveTarget {
-                target_ref: format!(
+            .map(|target| {
+                let target_ref = format!(
                     "target:{target_revision}:{}",
                     &hex_sha256(target.path.as_bytes())[..16]
-                ),
-                role: target.role,
-                name: target.name,
-                bounds: target.bounds,
-                enabled: target.enabled,
-                visible: target.visible,
+                );
+                if let Some(bounds) = target.bounds.clone() {
+                    registry_targets.insert(
+                        target_ref.clone(),
+                        ResolvedTarget {
+                            role: target.role.clone(),
+                            bounds,
+                            enabled: target.enabled,
+                            visible: target.visible,
+                            sensitive: target.sensitive,
+                        },
+                    );
+                }
+                InteractiveTarget {
+                    target_ref,
+                    role: target.role,
+                    name: (!target.sensitive).then_some(target.name).flatten(),
+                    bounds: target.bounds,
+                    enabled: target.enabled,
+                    visible: target.visible,
+                    sensitive: target.sensitive,
+                }
             })
             .collect::<Vec<_>>();
+        self.target_registries.lock().await.insert(
+            session_id.to_owned(),
+            TargetRegistry {
+                target_revision,
+                targets: registry_targets,
+            },
+        );
 
         Ok(CurrentState {
             session_id: session_id.to_owned(),
@@ -559,6 +687,14 @@ mod tests {
                                     "bounds": {"x": 12.0, "y": 24.0, "width": 96.0, "height": 32.0},
                                     "enabled": true,
                                     "visible": true
+                                }, {
+                                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
+                                    "role": "textbox",
+                                    "name": "Password",
+                                    "bounds": {"x": 12.0, "y": 64.0, "width": 196.0, "height": 32.0},
+                                    "enabled": true,
+                                    "visible": true,
+                                    "sensitive": true
                                 }]
                             }
                         }
@@ -604,9 +740,29 @@ mod tests {
         assert_eq!(state.url, "https://example.test/form");
         assert_eq!(state.title, "Example form");
         assert_eq!(state.state_version, 1);
-        assert_eq!(state.targets.len(), 1);
+        assert_eq!(state.targets.len(), 2);
         assert_eq!(state.targets[0].role, "button");
         assert_eq!(state.targets[0].name.as_deref(), Some("提交"));
+        assert!(state.targets[1].sensitive);
+        assert_eq!(state.targets[1].name, None);
+        let resolved = collector
+            .resolve_target(
+                "ses_state",
+                &state.targets[1].target_ref,
+                state.target_revision,
+            )
+            .await
+            .unwrap();
+        assert!(resolved.sensitive);
+        assert_eq!(resolved.role, "textbox");
+        assert!(collector
+            .resolve_target(
+                "ses_state",
+                &state.targets[1].target_ref,
+                state.target_revision + 1,
+            )
+            .await
+            .is_err());
         assert!(matches!(state.quality, StateQuality::Complete));
         let repeated = collector.collect_current_state("ses_state").await.unwrap();
         assert_eq!(repeated.state_version, 2);
@@ -627,6 +783,7 @@ mod tests {
             bounds: None,
             enabled: true,
             visible: true,
+            sensitive: false,
         };
         let previous = CurrentState {
             session_id: "ses_state".to_owned(),

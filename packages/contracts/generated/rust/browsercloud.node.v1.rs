@@ -361,6 +361,52 @@ pub struct AgentNavigationFailedEvent {
     #[prost(string, tag="4")]
     pub error_code: ::prost::alloc::string::String,
 }
+/// 受限 Agent Target/Input 命令。sealed_text 在 Outbox 中保持加密，
+/// Dispatcher 只在发送前解封到 text；Node 从不接受任意 CDP/Shell 指令。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentActionCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub task_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub step_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub tool_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub target_ref: ::prost::alloc::string::String,
+    #[prost(uint64, tag="6")]
+    pub target_revision: u64,
+    #[prost(string, tag="7")]
+    pub sealed_text: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(int32, tag="9")]
+    pub scroll_delta_y: i32,
+    #[prost(string, tag="10")]
+    pub wait_condition: ::prost::alloc::string::String,
+    #[prost(uint32, tag="11")]
+    pub timeout_ms: u32,
+    #[prost(uint64, tag="12")]
+    pub base_state_version: u64,
+    #[prost(string, tag="13")]
+    pub base_content_hash: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentActionFailedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub task_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub step_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub tool_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub error_code: ::prost::alloc::string::String,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BrowserStateDiffEvent {
@@ -416,6 +462,9 @@ pub struct InteractiveTargetState {
     pub enabled: bool,
     #[prost(bool, tag="6")]
     pub visible: bool,
+    /// Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+    #[prost(bool, tag="7")]
+    pub sensitive: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

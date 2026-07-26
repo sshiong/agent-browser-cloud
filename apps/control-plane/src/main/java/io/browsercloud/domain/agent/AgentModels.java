@@ -45,8 +45,10 @@ public final class AgentModels {
 
   public enum TaskState {
     PLANNED,
+    AWAITING_CONFIRMATION,
     BLOCKED,
     RUNNING,
+    WAITING_FOR_HUMAN,
     COMPLETED,
     FAILED
   }
@@ -71,6 +73,31 @@ public final class AgentModels {
     HUMAN_ASSIST,
     HUMAN_TAKEOVER
   }
+
+  public enum ActionDataClass {
+    PUBLIC,
+    PII
+  }
+
+  public enum WaitCondition {
+    STATE_CHANGED,
+    STATE_STABLE,
+    TARGET_PRESENT
+  }
+
+  /**
+   * Tool 的结构化输入。sealedPayload 只保存平台加密密文，API View 必须剔除；Target 与 Revision 用于执行前再次绑定权威 Browser State。
+   */
+  public record StepInput(
+      String targetRef,
+      Long targetRevision,
+      String sealedPayload,
+      String payloadHash,
+      Integer payloadLength,
+      ActionDataClass dataClass,
+      Integer scrollDeltaY,
+      WaitCondition waitCondition,
+      Integer timeoutMs) {}
 
   public record InstructionSource(
       String sourceId,
@@ -97,6 +124,7 @@ public final class AgentModels {
       ToolId toolId,
       RiskClass riskClass,
       String targetUrl,
+      StepInput input,
       String rationale,
       List<String> supportingSources,
       TrustLevel trustFloor,

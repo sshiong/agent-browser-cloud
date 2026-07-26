@@ -23,7 +23,8 @@ public record BrowserStateView(
       String name,
       BoundsView bounds,
       boolean enabled,
-      boolean visible) {}
+      boolean visible,
+      boolean sensitive) {}
 
   public record BoundsView(double x, double y, double width, double height) {}
 }

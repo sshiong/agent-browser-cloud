@@ -24,6 +24,26 @@ export type InstructionSourceType =
   | 'WEB_CONTENT'
   | 'THIRD_PARTY_WIDGET';
 
+export type AgentActionDataClass = 'PUBLIC' | 'PII';
+export type AgentWaitCondition =
+  'STATE_CHANGED' | 'STATE_STABLE' | 'TARGET_PRESENT';
+
+export interface CreateAgentActionRequest {
+  toolId:
+    | 'CLICK_TARGET'
+    | 'TYPE_TEXT'
+    | 'SCROLL'
+    | 'WAIT_FOR'
+    | 'REQUEST_HUMAN_TAKEOVER';
+  targetRef?: string;
+  targetRevision?: number;
+  value?: string;
+  dataClass?: AgentActionDataClass;
+  scrollDeltaY?: number;
+  waitCondition?: AgentWaitCondition;
+  timeoutMs?: number;
+}
+
 export interface CreateAgentTaskRequest {
   goal: string;
   startUrl?: string;
@@ -36,19 +56,50 @@ export interface CreateAgentTaskRequest {
     classification: string;
     content: string;
   }>;
+  actions?: CreateAgentActionRequest[];
 }
 
 export interface AgentTaskView {
   taskId: string;
   sessionId: string;
   goal: string;
-  state: 'PLANNED' | 'BLOCKED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  state:
+    | 'PLANNED'
+    | 'AWAITING_CONFIRMATION'
+    | 'BLOCKED'
+    | 'RUNNING'
+    | 'WAITING_FOR_HUMAN'
+    | 'COMPLETED'
+    | 'FAILED';
   riskClass: AgentRiskClass;
   intentDecision: 'ALLOWED' | 'CONFIRM_REQUIRED' | 'FORBIDDEN';
   blockedReason?: string;
   currentStep: number;
   totalSteps: number;
   replanCount: number;
+  stepExecution: {
+    pendingStepId?: string;
+    pendingToolId?: AgentToolId;
+    baseStateVersion?: number;
+    baseContentHash?: string;
+    deadline?: string;
+    leaseUntil?: string;
+    replanReason?: string;
+  };
+  confirmation: {
+    confirmationId?: string;
+    status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+    expiresAt?: string;
+    decidedAt?: string;
+    actorId?: string;
+    evidenceHash?: string;
+  };
+  humanHandoff: {
+    requestId?: string;
+    status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+    expiresAt?: string;
+    actorId?: string;
+  };
   allowedDomains: string[];
   plan: {
     intentId: string;
@@ -80,6 +131,16 @@ export interface AgentPlanStep {
   toolId: AgentToolId;
   riskClass: AgentRiskClass;
   targetUrl?: string;
+  input?: {
+    targetRef?: string;
+    targetRevision?: number;
+    payloadHash?: string;
+    payloadLength?: number;
+    dataClass?: AgentActionDataClass;
+    scrollDeltaY?: number;
+    waitCondition?: AgentWaitCondition;
+    timeoutMs?: number;
+  };
   rationale: string;
   supportingSources: string[];
   trustFloor: 'TRUSTED' | 'RESTRICTED' | 'UNTRUSTED';

@@ -1,4 +1,8 @@
-import { DEFAULT_TENANT_ID, SessionApiError } from '@/api/session';
+import {
+  DEFAULT_ACTOR_ID,
+  DEFAULT_TENANT_ID,
+  SessionApiError,
+} from '@/api/session';
 import type {
   AgentTaskListResponse,
   AgentTaskView,
@@ -77,3 +81,30 @@ export function executeAgentTask(
     tenantId
   );
 }
+
+function humanDecision(
+  taskId: string,
+  action: 'approve' | 'reject' | 'accept-handoff' | 'reject-handoff',
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = DEFAULT_ACTOR_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/agent-tasks/${encodeURIComponent(taskId)}:${action}`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'X-Actor-Id': actorId },
+    },
+    tenantId
+  );
+}
+
+export const approveAgentTask = (taskId: string) =>
+  humanDecision(taskId, 'approve');
+export const rejectAgentTask = (taskId: string) =>
+  humanDecision(taskId, 'reject');
+export const acceptAgentHandoff = (taskId: string) =>
+  humanDecision(taskId, 'accept-handoff');
+export const rejectAgentHandoff = (taskId: string) =>
+  humanDecision(taskId, 'reject-handoff');

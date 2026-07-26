@@ -90,6 +90,7 @@ pub trait DesktopInput: Send + Sync {
     async fn mouse_up(&self, button: u8, sequence: u64) -> anyhow::Result<()>;
     async fn key_down(&self, key: InputKey, sequence: u64) -> anyhow::Result<()>;
     async fn key_up(&self, key: InputKey, sequence: u64) -> anyhow::Result<()>;
+    async fn insert_text(&self, text: &str, sequence: u64) -> anyhow::Result<()>;
     async fn release_all(&self) -> anyhow::Result<()>;
 }
 
@@ -433,6 +434,28 @@ impl DesktopInput for CdpDesktopInput {
         Ok(())
     }
 
+    async fn insert_text(&self, text: &str, sequence: u64) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !text.is_empty() && text.chars().count() <= 2000,
+            "insert text must contain 1 to 2000 characters"
+        );
+        anyhow::ensure!(
+            !text
+                .chars()
+                .any(|character| character.is_control() && !matches!(character, '\n' | '\t')),
+            "insert text contains unsupported control characters"
+        );
+        let mut ledger = self.ledger.lock().await;
+        if !Self::validate_sequence(&ledger, sequence)? {
+            return Ok(());
+        }
+        self.send("Input.insertText", serde_json::json!({"text": text}))
+            .await?;
+        ledger.last_sequence = sequence;
+        self.mark_activity().await;
+        Ok(())
+    }
+
     async fn release_all(&self) -> anyhow::Result<()> {
         let mut ledger = self.ledger.lock().await;
         self.release_locked(&mut ledger).await
@@ -518,7 +541,7 @@ mod tests {
         let websocket_address = websocket_listener.local_addr().unwrap();
         let (sender, mut receiver) = mpsc::channel(4);
         let websocket_task = tokio::spawn(async move {
-            for _ in 0..2 {
+            for _ in 0..3 {
                 let (stream, _) = websocket_listener.accept().await.unwrap();
                 let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
                 let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
@@ -579,12 +602,19 @@ mod tests {
         assert!(input.release_if_idle(Duration::ZERO).await.unwrap());
         assert!(!input.release_if_idle(Duration::ZERO).await.unwrap());
         assert!(!input.ledger_snapshot().await.has_any_input());
+        input
+            .insert_text("public note", 2)
+            .await
+            .expect("text should be delivered through Input.insertText");
 
         let key_down = receiver.recv().await.unwrap();
         let key_up = receiver.recv().await.unwrap();
+        let insert_text = receiver.recv().await.unwrap();
         assert_eq!(key_down["method"], "Input.dispatchKeyEvent");
         assert_eq!(key_down["params"]["type"], "keyDown");
         assert_eq!(key_up["params"]["type"], "keyUp");
+        assert_eq!(insert_text["method"], "Input.insertText");
+        assert_eq!(insert_text["params"]["text"], "public note");
         assert!(receiver.try_recv().is_err());
 
         websocket_task.await.unwrap();

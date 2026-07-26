@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
@@ -143,7 +144,8 @@ class NodeEventMapperTest {
                     .setBounds(
                         TargetBounds.newBuilder().setX(10).setY(20).setWidth(80).setHeight(32))
                     .setEnabled(true)
-                    .setVisible(true))
+                    .setVisible(true)
+                    .setSensitive(true))
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -167,6 +169,7 @@ class NodeEventMapperTest {
               assertThat(state.targets()).hasSize(1);
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);
+              assertThat(state.targets().getFirst().sensitive()).isTrue();
             });
   }
 
@@ -198,6 +201,37 @@ class NodeEventMapperTest {
               assertThat(failed.taskId()).isEqualTo("agt_1234567890abcdef");
               assertThat(failed.stepId()).isEqualTo("step_1234567890abcd");
               assertThat(failed.errorCode()).isEqualTo("NAVIGATION_FAILED");
+            });
+  }
+
+  @Test
+  void shouldMapAgentActionFailureAsStableCode() {
+    var payload =
+        AgentActionFailedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setTaskId("agt_1234567890abcdef")
+            .setStepId("step_1234567890abcd")
+            .setToolId("TYPE_TEXT")
+            .setErrorCode("ACTION_PRECONDITION_FAILED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_agent_action_failed")
+            .setEventType(NodeEventMapper.AGENT_ACTION_FAILED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setOperationEpoch(5)
+            .setSequence(3)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.AgentActionFailed.class,
+            failed -> {
+              assertThat(failed.toolId()).isEqualTo("TYPE_TEXT");
+              assertThat(failed.errorCode()).isEqualTo("ACTION_PRECONDITION_FAILED");
             });
   }
 

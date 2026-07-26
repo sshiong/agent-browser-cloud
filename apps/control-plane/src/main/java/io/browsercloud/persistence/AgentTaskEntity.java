@@ -46,6 +46,57 @@ public class AgentTaskEntity {
   @Column(name = "pending_state_version")
   private Long pendingStateVersion;
 
+  @Column(name = "pending_step_id")
+  private String pendingStepId;
+
+  @Column(name = "pending_tool_id")
+  private String pendingToolId;
+
+  @Column(name = "pending_content_hash")
+  private String pendingContentHash;
+
+  @Column(name = "step_deadline_at")
+  private Instant stepDeadlineAt;
+
+  @Column(name = "executor_lease_owner")
+  private String executorLeaseOwner;
+
+  @Column(name = "executor_lease_until")
+  private Instant executorLeaseUntil;
+
+  @Column(name = "replan_reason")
+  private String replanReason;
+
+  @Column(name = "confirmation_id")
+  private String confirmationId;
+
+  @Column(name = "confirmation_status")
+  private String confirmationStatus;
+
+  @Column(name = "confirmation_expires_at")
+  private Instant confirmationExpiresAt;
+
+  @Column(name = "confirmation_decided_at")
+  private Instant confirmationDecidedAt;
+
+  @Column(name = "confirmation_actor_id")
+  private String confirmationActorId;
+
+  @Column(name = "confirmation_evidence_hash")
+  private String confirmationEvidenceHash;
+
+  @Column(name = "handoff_request_id")
+  private String handoffRequestId;
+
+  @Column(name = "handoff_status")
+  private String handoffStatus;
+
+  @Column(name = "handoff_expires_at")
+  private Instant handoffExpiresAt;
+
+  @Column(name = "handoff_actor_id")
+  private String handoffActorId;
+
   @Column(name = "allowed_domains", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String allowedDomains;
@@ -157,6 +208,74 @@ public class AgentTaskEntity {
     return pendingStateVersion;
   }
 
+  public String getPendingStepId() {
+    return pendingStepId;
+  }
+
+  public String getPendingToolId() {
+    return pendingToolId;
+  }
+
+  public String getPendingContentHash() {
+    return pendingContentHash;
+  }
+
+  public Instant getStepDeadlineAt() {
+    return stepDeadlineAt;
+  }
+
+  public String getExecutorLeaseOwner() {
+    return executorLeaseOwner;
+  }
+
+  public Instant getExecutorLeaseUntil() {
+    return executorLeaseUntil;
+  }
+
+  public String getReplanReason() {
+    return replanReason;
+  }
+
+  public String getConfirmationId() {
+    return confirmationId;
+  }
+
+  public String getConfirmationStatus() {
+    return confirmationStatus;
+  }
+
+  public Instant getConfirmationExpiresAt() {
+    return confirmationExpiresAt;
+  }
+
+  public Instant getConfirmationDecidedAt() {
+    return confirmationDecidedAt;
+  }
+
+  public String getConfirmationActorId() {
+    return confirmationActorId;
+  }
+
+  public String getConfirmationEvidenceHash() {
+    return confirmationEvidenceHash;
+  }
+
+  public String getHandoffRequestId() {
+    return handoffRequestId;
+  }
+
+  public String getHandoffStatus() {
+    return handoffStatus;
+  }
+
+  public Instant getHandoffExpiresAt() {
+    return handoffExpiresAt;
+  }
+
+  public String getHandoffActorId() {
+    return handoffActorId;
+  }
+
   public String getAllowedDomains() {
     return allowedDomains;
   }
@@ -189,21 +308,53 @@ public class AgentTaskEntity {
     return lastError;
   }
 
-  public void startExecution(String operationId, Instant now) {
+  public void startExecution(
+      String operationId, String leaseOwner, Instant leaseUntil, Instant now) {
     this.operationId = operationId;
     this.state = "RUNNING";
+    this.executorLeaseOwner = leaseOwner;
+    this.executorLeaseUntil = leaseUntil;
     this.executionStartedAt = now;
     this.updatedAt = now;
     this.lastError = null;
   }
 
-  public void markNavigationPending(long baseStateVersion, Instant now) {
+  public void markAsyncPending(
+      int stepIndex,
+      String stepId,
+      String toolId,
+      long baseStateVersion,
+      String baseContentHash,
+      Instant deadline,
+      String results,
+      String leaseOwner,
+      Instant leaseUntil,
+      Instant now) {
+    this.currentStep = stepIndex;
+    this.pendingStepId = stepId;
+    this.pendingToolId = toolId;
     this.pendingStateVersion = baseStateVersion;
+    this.pendingContentHash = baseContentHash;
+    this.stepDeadlineAt = deadline;
+    this.executionResults = results;
+    this.executorLeaseOwner = leaseOwner;
+    this.executorLeaseUntil = leaseUntil;
     this.updatedAt = now;
   }
 
-  public void recordReplan(Instant now) {
+  public void checkpoint(
+      int completedSteps, String results, String leaseOwner, Instant leaseUntil, Instant now) {
+    this.currentStep = completedSteps;
+    this.executionResults = results;
+    clearPendingStep();
+    this.executorLeaseOwner = leaseOwner;
+    this.executorLeaseUntil = leaseUntil;
+    this.updatedAt = now;
+  }
+
+  public void recordReplan(String reason, Instant now) {
     this.replanCount += 1;
+    this.replanReason = reason;
     this.updatedAt = now;
   }
 
@@ -211,7 +362,8 @@ public class AgentTaskEntity {
     this.state = "COMPLETED";
     this.currentStep = completedSteps;
     this.executionResults = results;
-    this.pendingStateVersion = null;
+    clearPendingStep();
+    clearLease();
     this.executionCompletedAt = now;
     this.updatedAt = now;
   }
@@ -220,9 +372,93 @@ public class AgentTaskEntity {
     this.state = "FAILED";
     this.currentStep = completedSteps;
     this.executionResults = results;
-    this.pendingStateVersion = null;
+    clearPendingStep();
+    clearLease();
     this.lastError = error;
     this.executionCompletedAt = now;
     this.updatedAt = now;
+  }
+
+  public void renewLease(String leaseOwner, Instant leaseUntil, Instant now) {
+    this.executorLeaseOwner = leaseOwner;
+    this.executorLeaseUntil = leaseUntil;
+    this.updatedAt = now;
+  }
+
+  public void awaitConfirmation(String id, Instant expiresAt, Instant now) {
+    this.state = "AWAITING_CONFIRMATION";
+    this.confirmationId = id;
+    this.confirmationStatus = "PENDING";
+    this.confirmationExpiresAt = expiresAt;
+    this.updatedAt = now;
+  }
+
+  public void approveConfirmation(String actorId, String evidenceHash, Instant now) {
+    this.state = "PLANNED";
+    this.confirmationStatus = "APPROVED";
+    this.confirmationActorId = actorId;
+    this.confirmationEvidenceHash = evidenceHash;
+    this.confirmationDecidedAt = now;
+    this.updatedAt = now;
+  }
+
+  public void rejectConfirmation(String actorId, String evidenceHash, Instant now) {
+    this.state = "BLOCKED";
+    this.confirmationStatus = "REJECTED";
+    this.confirmationActorId = actorId;
+    this.confirmationEvidenceHash = evidenceHash;
+    this.confirmationDecidedAt = now;
+    this.lastError = "HUMAN_CONFIRMATION_REJECTED";
+    this.updatedAt = now;
+  }
+
+  public void expireConfirmation(Instant now) {
+    this.state = "BLOCKED";
+    this.confirmationStatus = "EXPIRED";
+    this.lastError = "HUMAN_CONFIRMATION_EXPIRED";
+    this.updatedAt = now;
+  }
+
+  public void awaitHumanHandoff(
+      int completedSteps, String results, String requestId, Instant expiresAt, Instant now) {
+    this.state = "WAITING_FOR_HUMAN";
+    this.currentStep = completedSteps;
+    this.executionResults = results;
+    this.handoffRequestId = requestId;
+    this.handoffStatus = "PENDING";
+    this.handoffExpiresAt = expiresAt;
+    clearPendingStep();
+    clearLease();
+    this.updatedAt = now;
+  }
+
+  public void acceptHumanHandoff(String actorId, String results, Instant now) {
+    this.handoffStatus = "ACCEPTED";
+    this.handoffActorId = actorId;
+    completeExecution(this.currentStep, results, now);
+  }
+
+  public void rejectHumanHandoff(String actorId, Instant now) {
+    this.handoffStatus = "REJECTED";
+    this.handoffActorId = actorId;
+    failExecution(this.currentStep, this.executionResults, "HUMAN_HANDOFF_REJECTED", now);
+  }
+
+  public void expireHumanHandoff(Instant now) {
+    this.handoffStatus = "EXPIRED";
+    failExecution(this.currentStep, this.executionResults, "HUMAN_HANDOFF_EXPIRED", now);
+  }
+
+  private void clearPendingStep() {
+    this.pendingStepId = null;
+    this.pendingToolId = null;
+    this.pendingStateVersion = null;
+    this.pendingContentHash = null;
+    this.stepDeadlineAt = null;
+  }
+
+  private void clearLease() {
+    this.executorLeaseOwner = null;
+    this.executorLeaseUntil = null;
   }
 }

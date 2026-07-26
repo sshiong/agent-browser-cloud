@@ -12,6 +12,10 @@ final class AgentDataMinimizer {
   private static final Pattern SECRET_ASSIGNMENT =
       Pattern.compile(
           "(?i)\\b(password|passwd|pwd|cookie|otp|one[-_ ]?time[-_ ]?code|authorization|bearer)\\b\\s*[:=]\\s*\\S+");
+  private static final Pattern CREDENTIAL_VALUE =
+      Pattern.compile(
+          "(?iu)(password|passwd|pwd|cookie|otp|one[-_ ]?time[-_ ]?code|authorization|bearer|"
+              + "密码|验证码|口令)\\s*[:=：]\\s*\\S+");
 
   private AgentDataMinimizer() {}
 
@@ -22,5 +26,9 @@ final class AgentDataMinimizer {
     var secrets = SECRET_ASSIGNMENT.matcher(value).replaceAll("$1=[REDACTED]");
     var emails = EMAIL.matcher(secrets).replaceAll("$1***@$2***$3");
     return PHONE.matcher(emails).replaceAll("[PHONE_REDACTED]");
+  }
+
+  static boolean containsCredentialLikeValue(String value) {
+    return value != null && CREDENTIAL_VALUE.matcher(value).find();
   }
 }

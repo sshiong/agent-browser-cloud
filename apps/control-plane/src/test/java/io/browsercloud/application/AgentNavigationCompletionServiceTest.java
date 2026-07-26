@@ -33,7 +33,7 @@ class AgentNavigationCompletionServiceTest {
     var sessionRepository = mock(SessionRepository.class);
     var operationRepository = mock(OperationRepository.class);
     var commandGateway = mock(NodeCommandGateway.class);
-    var readToolService = mock(AgentReadToolService.class);
+    var executionService = mock(AgentExecutionService.class);
     var objectMapper = new ObjectMapper().findAndRegisterModules();
     var service =
         new AgentNavigationCompletionService(
@@ -41,7 +41,7 @@ class AgentNavigationCompletionServiceTest {
             sessionRepository,
             operationRepository,
             commandGateway,
-            readToolService,
+            executionService,
             objectMapper);
 
     var step =
@@ -50,6 +50,7 @@ class AgentNavigationCompletionServiceTest {
             ToolId.NAVIGATE,
             RiskClass.R1_LOW_RISK_CHANGE,
             "https://example.test/start",
+            null,
             "navigate",
             List.of("user_goal"),
             TrustLevel.TRUSTED,
@@ -76,8 +77,19 @@ class AgentNavigationCompletionServiceTest {
             objectMapper.writeValueAsString(plan),
             "[]",
             Instant.now());
-    task.startExecution("op_agent_navigation", Instant.now());
-    task.markNavigationPending(3, Instant.now());
+    var now = Instant.now();
+    task.startExecution("op_agent_navigation", "executor-test", now.plusSeconds(30), now);
+    task.markAsyncPending(
+        0,
+        step.stepId(),
+        step.toolId().name(),
+        3,
+        "base-hash",
+        now.plusSeconds(15),
+        "[]",
+        "executor-test",
+        now.plusSeconds(30),
+        now);
 
     var operation =
         new ExclusiveOperation(
@@ -140,11 +152,12 @@ class AgentNavigationCompletionServiceTest {
 
     service.stateUpdated(event, (NodeEvent.StateUpdated) event.event());
 
-    assertThat(task.getState()).isEqualTo(TaskState.FAILED.name());
-    assertThat(task.getLastError())
-        .isEqualTo("NAVIGATION_REDIRECT_DOMAIN_MISMATCH_REPLAN_BUDGET_EXHAUSTED");
-    verify(operationRepository)
-        .transition("op_agent_navigation", OperationState.ACTIVE, OperationState.ABORTED);
-    verifyNoInteractions(readToolService);
+    verify(executionService)
+        .failPendingStep(
+            task.getTaskId(),
+            "tenant-test",
+            "op_agent_navigation",
+            step.stepId(),
+            "NAVIGATION_REDIRECT_DOMAIN_MISMATCH_REPLAN_BUDGET_EXHAUSTED");
   }
 }

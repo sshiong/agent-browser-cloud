@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.ExecutionStrategy;
 import io.browsercloud.domain.agent.AgentModels.InstructionSourceType;
 import io.browsercloud.domain.agent.AgentModels.IntentDecision;
@@ -7,6 +8,7 @@ import io.browsercloud.domain.agent.AgentModels.RiskClass;
 import io.browsercloud.domain.agent.AgentModels.TaskState;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
 import io.browsercloud.domain.agent.AgentModels.TrustLevel;
+import io.browsercloud.domain.agent.AgentModels.WaitCondition;
 import java.time.Instant;
 import java.util.List;
 
@@ -21,6 +23,9 @@ public record AgentTaskView(
     int currentStep,
     int totalSteps,
     int replanCount,
+    StepExecutionView stepExecution,
+    ConfirmationView confirmation,
+    HumanHandoffView humanHandoff,
     List<String> allowedDomains,
     PlanView plan,
     String operationId,
@@ -29,6 +34,26 @@ public record AgentTaskView(
     List<SecurityEventView> securityEvents,
     Instant createdAt,
     Instant updatedAt) {
+
+  public record StepExecutionView(
+      String pendingStepId,
+      ToolId pendingToolId,
+      Long baseStateVersion,
+      String baseContentHash,
+      Instant deadline,
+      Instant leaseUntil,
+      String replanReason) {}
+
+  public record ConfirmationView(
+      String confirmationId,
+      String status,
+      Instant expiresAt,
+      Instant decidedAt,
+      String actorId,
+      String evidenceHash) {}
+
+  public record HumanHandoffView(
+      String requestId, String status, Instant expiresAt, String actorId) {}
 
   public record PlanView(
       String intentId,
@@ -42,6 +67,7 @@ public record AgentTaskView(
       ToolId toolId,
       RiskClass riskClass,
       String targetUrl,
+      StepInputView input,
       String rationale,
       List<String> supportingSources,
       TrustLevel trustFloor,
@@ -51,6 +77,16 @@ public record AgentTaskView(
       String requiredStateQuality,
       String verification,
       String capabilityTokenId) {}
+
+  public record StepInputView(
+      String targetRef,
+      Long targetRevision,
+      String payloadHash,
+      Integer payloadLength,
+      ActionDataClass dataClass,
+      Integer scrollDeltaY,
+      WaitCondition waitCondition,
+      Integer timeoutMs) {}
 
   public record SecurityEventView(
       String eventId,

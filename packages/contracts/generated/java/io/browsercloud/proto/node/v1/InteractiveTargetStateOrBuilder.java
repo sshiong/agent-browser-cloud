@@ -75,4 +75,14 @@ public interface InteractiveTargetStateOrBuilder extends
    * @return The visible.
    */
   boolean getVisible();
+
+  /**
+   * <pre>
+   * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+   * </pre>
+   *
+   * <code>bool sensitive = 7 [json_name = "sensitive"];</code>
+   * @return The sensitive.
+   */
+  boolean getSensitive();
 }

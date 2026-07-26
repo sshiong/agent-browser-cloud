@@ -1,6 +1,7 @@
 package io.browsercloud.api;
 
 import io.browsercloud.application.AgentApplicationService;
+import io.browsercloud.application.AgentHumanGovernanceService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -25,12 +26,15 @@ public class AgentController {
 
   private final AgentApplicationService service;
   private final io.browsercloud.application.AgentExecutionService executionService;
+  private final AgentHumanGovernanceService governanceService;
 
   public AgentController(
       AgentApplicationService service,
-      io.browsercloud.application.AgentExecutionService executionService) {
+      io.browsercloud.application.AgentExecutionService executionService,
+      AgentHumanGovernanceService governanceService) {
     this.service = service;
     this.executionService = executionService;
+    this.governanceService = governanceService;
   }
 
   @PostMapping("/sessions/{sessionId}/agent-tasks")
@@ -64,5 +68,37 @@ public class AgentController {
       @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
     return executionService.execute(taskId, tenantId, idempotencyKey);
+  }
+
+  @PostMapping("/agent-tasks/{taskId}:approve")
+  public AgentTaskView approve(
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return governanceService.approveConfirmation(taskId, tenantId, actorId);
+  }
+
+  @PostMapping("/agent-tasks/{taskId}:reject")
+  public AgentTaskView reject(
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return governanceService.rejectConfirmation(taskId, tenantId, actorId);
+  }
+
+  @PostMapping("/agent-tasks/{taskId}:accept-handoff")
+  public AgentTaskView acceptHandoff(
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return governanceService.acceptHandoff(taskId, tenantId, actorId);
+  }
+
+  @PostMapping("/agent-tasks/{taskId}:reject-handoff")
+  public AgentTaskView rejectHandoff(
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId,
+      @RequestHeader("X-Actor-Id") @NotBlank @Size(max = 128) String actorId) {
+    return governanceService.rejectHandoff(taskId, tenantId, actorId);
   }
 }

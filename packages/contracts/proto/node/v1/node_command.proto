@@ -236,6 +236,32 @@ message AgentNavigationFailedEvent {
   string error_code = 4;
 }
 
+// 受限 Agent Target/Input 命令。sealed_text 在 Outbox 中保持加密，
+// Dispatcher 只在发送前解封到 text；Node 从不接受任意 CDP/Shell 指令。
+message AgentActionCommand {
+  string session_id = 1;
+  string task_id = 2;
+  string step_id = 3;
+  string tool_id = 4;
+  string target_ref = 5;
+  uint64 target_revision = 6;
+  string sealed_text = 7;
+  string text = 8;
+  int32 scroll_delta_y = 9;
+  string wait_condition = 10;
+  uint32 timeout_ms = 11;
+  uint64 base_state_version = 12;
+  string base_content_hash = 13;
+}
+
+message AgentActionFailedEvent {
+  string session_id = 1;
+  string task_id = 2;
+  string step_id = 3;
+  string tool_id = 4;
+  string error_code = 5;
+}
+
 message BrowserStateDiffEvent {
   string session_id = 1;
   uint64 base_state_version = 2;
@@ -265,6 +291,8 @@ message InteractiveTargetState {
   optional TargetBounds bounds = 4;
   bool enabled = 5;
   bool visible = 6;
+  // Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+  bool sensitive = 7;
 }
 
 message TargetBounds {

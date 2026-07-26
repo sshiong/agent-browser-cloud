@@ -1571,6 +1571,179 @@ export class AgentNavigationFailedEvent extends Message<AgentNavigationFailedEve
 }
 
 /**
+ * 受限 Agent Target/Input 命令。sealed_text 在 Outbox 中保持加密，
+ * Dispatcher 只在发送前解封到 text；Node 从不接受任意 CDP/Shell 指令。
+ *
+ * @generated from message browsercloud.node.v1.AgentActionCommand
+ */
+export class AgentActionCommand extends Message<AgentActionCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string task_id = 2;
+   */
+  taskId = "";
+
+  /**
+   * @generated from field: string step_id = 3;
+   */
+  stepId = "";
+
+  /**
+   * @generated from field: string tool_id = 4;
+   */
+  toolId = "";
+
+  /**
+   * @generated from field: string target_ref = 5;
+   */
+  targetRef = "";
+
+  /**
+   * @generated from field: uint64 target_revision = 6;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: string sealed_text = 7;
+   */
+  sealedText = "";
+
+  /**
+   * @generated from field: string text = 8;
+   */
+  text = "";
+
+  /**
+   * @generated from field: int32 scroll_delta_y = 9;
+   */
+  scrollDeltaY = 0;
+
+  /**
+   * @generated from field: string wait_condition = 10;
+   */
+  waitCondition = "";
+
+  /**
+   * @generated from field: uint32 timeout_ms = 11;
+   */
+  timeoutMs = 0;
+
+  /**
+   * @generated from field: uint64 base_state_version = 12;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: string base_content_hash = 13;
+   */
+  baseContentHash = "";
+
+  constructor(data?: PartialMessage<AgentActionCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AgentActionCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "task_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "step_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "tool_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "target_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "sealed_text", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "text", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "scroll_delta_y", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 10, name: "wait_condition", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 11, name: "timeout_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 12, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 13, name: "base_content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentActionCommand {
+    return new AgentActionCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AgentActionCommand {
+    return new AgentActionCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AgentActionCommand {
+    return new AgentActionCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AgentActionCommand | PlainMessage<AgentActionCommand> | undefined, b: AgentActionCommand | PlainMessage<AgentActionCommand> | undefined): boolean {
+    return proto3.util.equals(AgentActionCommand, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.AgentActionFailedEvent
+ */
+export class AgentActionFailedEvent extends Message<AgentActionFailedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string task_id = 2;
+   */
+  taskId = "";
+
+  /**
+   * @generated from field: string step_id = 3;
+   */
+  stepId = "";
+
+  /**
+   * @generated from field: string tool_id = 4;
+   */
+  toolId = "";
+
+  /**
+   * @generated from field: string error_code = 5;
+   */
+  errorCode = "";
+
+  constructor(data?: PartialMessage<AgentActionFailedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AgentActionFailedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "task_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "step_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "tool_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AgentActionFailedEvent {
+    return new AgentActionFailedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AgentActionFailedEvent {
+    return new AgentActionFailedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AgentActionFailedEvent {
+    return new AgentActionFailedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AgentActionFailedEvent | PlainMessage<AgentActionFailedEvent> | undefined, b: AgentActionFailedEvent | PlainMessage<AgentActionFailedEvent> | undefined): boolean {
+    return proto3.util.equals(AgentActionFailedEvent, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.BrowserStateDiffEvent
  */
 export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
@@ -1762,6 +1935,13 @@ export class InteractiveTargetState extends Message<InteractiveTargetState> {
    */
   visible = false;
 
+  /**
+   * Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
+   *
+   * @generated from field: bool sensitive = 7;
+   */
+  sensitive = false;
+
   constructor(data?: PartialMessage<InteractiveTargetState>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1776,6 +1956,7 @@ export class InteractiveTargetState extends Message<InteractiveTargetState> {
     { no: 4, name: "bounds", kind: "message", T: TargetBounds, opt: true },
     { no: 5, name: "enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 6, name: "visible", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 7, name: "sensitive", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): InteractiveTargetState {

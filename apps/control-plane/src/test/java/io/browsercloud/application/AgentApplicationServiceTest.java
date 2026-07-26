@@ -11,7 +11,9 @@ import io.browsercloud.api.CreateAgentTaskRequest;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.TaskState;
+import io.browsercloud.domain.agent.AgentModels.ToolId;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -47,6 +49,8 @@ class AgentApplicationServiceTest {
             new PromptSecurityService(),
             new AgentCapabilityTokenService(
                 mapper, "test-agent-capability-token-secret-with-more-than-32-bytes", "test"),
+            new AgentActionPayloadService(
+                "test-agent-action-payload-secret-with-more-than-32-bytes", "test"),
             mapper);
     when(sessionRepository.require(anyString())).thenReturn(runningSession());
     when(idempotencyService.claimAgentTask(
@@ -67,7 +71,15 @@ class AgentApplicationServiceTest {
                         "Example",
                         "hash",
                         "COMPLETE",
-                        List.of()))));
+                        List.of(
+                            new NodeEvent.InteractiveTarget(
+                                "target:2:0",
+                                "textbox",
+                                "Public note",
+                                new NodeEvent.Bounds(10, 20, 180, 32),
+                                true,
+                                true,
+                                false))))));
   }
 
   @Test
@@ -122,8 +134,58 @@ class AgentApplicationServiceTest {
     assertThat(view.blockedReason()).isEqualTo("CURRENT_DOMAIN_NOT_ALLOWED");
   }
 
+  @Test
+  void createsTargetRevisionBoundTypeStepWithoutExposingSealedPayload() {
+    var request =
+        new CreateAgentTaskRequest(
+            "在公开备注框输入用户提供的文本",
+            null,
+            List.of("example.com"),
+            8,
+            1,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.TYPE_TEXT,
+                    "target:2:0",
+                    2L,
+                    "Quarterly note",
+                    ActionDataClass.PUBLIC,
+                    null,
+                    null,
+                    null)));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-type-action");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var typeStep =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.TYPE_TEXT)
+            .findFirst()
+            .orElseThrow();
+    assertThat(typeStep.input().targetRevision()).isEqualTo(2);
+    assertThat(typeStep.input().payloadLength()).isEqualTo(14);
+    assertThat(typeStep.input().payloadHash()).hasSize(64);
+    assertThat(view.toString()).doesNotContain("Quarterly note", "v1.");
+  }
+
+  @Test
+  void createsExpiringHumanConfirmationForFinancialIntent() {
+    var request =
+        new CreateAgentTaskRequest(
+            "查看付款页面并总结当前状态", null, List.of("example.com"), 8, 1, List.of(), List.of());
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-confirmation");
+
+    assertThat(view.state()).isEqualTo(TaskState.AWAITING_CONFIRMATION);
+    assertThat(view.confirmation().status()).isEqualTo("PENDING");
+    assertThat(view.confirmation().confirmationId()).startsWith("cnf_");
+    assertThat(view.plan().steps()).isNotEmpty();
+  }
+
   private static CreateAgentTaskRequest request(String url, List<String> domains) {
-    return new CreateAgentTaskRequest("打开授权页面并总结内容", url, domains, null, null, List.of());
+    return new CreateAgentTaskRequest(
+        "打开授权页面并总结内容", url, domains, null, null, List.of(), List.of());
   }
 
   private static SessionContext runningSession() {

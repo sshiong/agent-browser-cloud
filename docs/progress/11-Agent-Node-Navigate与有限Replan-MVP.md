@@ -1,6 +1,6 @@
 # Agent Node Navigate 与有限 Replan MVP
 
-> 状态：Phase 4 第三个里程碑已完成；受限 Navigate 与导航后只读验证闭环可用。
+> 状态：Phase 4 第三个里程碑已完成；本文保留当时验收口径，后续缺口已在进度文档 12—13 关闭或重新归入 V16 增强项。
 > 日期：2026-07-26
 
 ## 已完成
@@ -89,6 +89,10 @@ make test-e2e
 - `/tmp/agent-browser-cloud-session-flow-automation.png`
 
 ## 仍未完成
+
+> 下表是本里程碑完成时的历史快照。Click/Type/Scroll/Wait、Agent Handoff、持久
+> Step/Replan 和 Human Confirmation 的最新状态见
+> `12-Agent结构化动作与持久执行闭环.md` 与 `13-Agent人工治理与控制台联调.md`。
 
 | 缺口 | 说明 |
 |---|---|

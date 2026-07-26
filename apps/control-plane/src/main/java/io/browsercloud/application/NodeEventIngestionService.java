@@ -85,6 +85,8 @@ public class NodeEventIngestionService {
       }
       case NodeEvent.AgentNavigationFailed failed ->
           agentNavigationCompletionService.navigationFailed(command, failed);
+      case NodeEvent.AgentActionFailed failed ->
+          agentNavigationCompletionService.actionFailed(command, failed);
       case NodeEvent.HumanTakeoverReady ready ->
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ready.state());
       case NodeEvent.HumanTakeoverEnded ended ->

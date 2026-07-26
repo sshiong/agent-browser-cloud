@@ -201,7 +201,8 @@ public class SessionApplicationService {
                                           target.bounds().width(),
                                           target.bounds().height()),
                                   target.enabled(),
-                                  target.visible()))
+                                  target.visible(),
+                                  target.sensitive()))
                       .toList();
               return new BrowserStateView(
                   state.sessionId(),

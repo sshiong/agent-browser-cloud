@@ -15,6 +15,7 @@ public sealed interface NodeEvent
         NodeEvent.StateDiff,
         NodeEvent.DiffTruncated,
         NodeEvent.AgentNavigationFailed,
+        NodeEvent.AgentActionFailed,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
 
@@ -95,13 +96,18 @@ public sealed interface NodeEvent
   record AgentNavigationFailed(String sessionId, String taskId, String stepId, String errorCode)
       implements NodeEvent {}
 
+  record AgentActionFailed(
+      String sessionId, String taskId, String stepId, String toolId, String errorCode)
+      implements NodeEvent {}
+
   record InteractiveTarget(
       String targetRef,
       String role,
       String name,
       Bounds bounds,
       boolean enabled,
-      boolean visible) {}
+      boolean visible,
+      boolean sensitive) {}
 
   record Bounds(double x, double y, double width, double height) {}
 

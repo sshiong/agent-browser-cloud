@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAgentTask, executeAgentTask, listAgentTasks } from './agent';
+import {
+  acceptAgentHandoff,
+  approveAgentTask,
+  createAgentTask,
+  executeAgentTask,
+  listAgentTasks,
+} from './agent';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -79,6 +85,36 @@ describe('agent API', () => {
           'X-Tenant-Id': 'tenant-test',
           'Idempotency-Key': 'idem-execute-1',
         }),
+      })
+    );
+  });
+
+  it('binds human governance decisions to the configured actor', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ taskId: 'agt_1234567890abcdef' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+
+    await approveAgentTask('agt_1234567890abcdef');
+    await acceptAgentHandoff('agt_1234567890abcdef');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/agent-tasks/agt_1234567890abcdef:approve',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Actor-Id': 'user-local' }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/agent-tasks/agt_1234567890abcdef:accept-handoff',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Actor-Id': 'user-local' }),
       })
     );
   });

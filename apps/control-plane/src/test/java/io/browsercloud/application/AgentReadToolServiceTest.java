@@ -59,7 +59,8 @@ class AgentReadToolServiceTest {
                                 "Call +86 138 1234 5678",
                                 null,
                                 true,
-                                true))))));
+                                true,
+                                false))))));
     when(capabilityUses.claim(
             anyString(), anyString(), anyString(), anyString(), anyString(), any()))
         .thenReturn(1);
@@ -84,6 +85,7 @@ class AgentReadToolServiceTest {
             "step-1",
             ToolId.GET_PAGE_SUMMARY,
             RiskClass.R0_READ_ONLY,
+            null,
             null,
             "summary",
             List.of("user_goal"),
@@ -128,6 +130,7 @@ class AgentReadToolServiceTest {
             "step-1",
             ToolId.GET_URL,
             RiskClass.R0_READ_ONLY,
+            null,
             null,
             "url",
             List.of("user_goal"),

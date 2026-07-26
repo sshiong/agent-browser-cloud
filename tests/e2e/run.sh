@@ -22,7 +22,7 @@ fi
 
 ./gradlew -p apps/control-plane bootJar
 cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
-  --bin network-helper --bin node-agent
+  --bin network-helper --bin storage-helper --bin node-agent
 
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-e2e-${run_id}"
@@ -31,6 +31,7 @@ temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
 network_helper_pid=""
+storage_helper_pid=""
 web_pid=""
 proxy_pid=""
 
@@ -40,12 +41,14 @@ cleanup() {
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
+  if [[ -n "$storage_helper_pid" ]]; then kill "$storage_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/web-console.log" 2>/dev/null || true
     tail -n 120 "$temp_dir/vnc-events.jsonl" 2>/dev/null || true
   fi
@@ -93,6 +96,18 @@ for _ in $(seq 1 40); do
 done
 test -S "$temp_dir/network-helper.sock"
 
+STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
+PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
+NODE_AGENT_UID="$(id -u)" \
+  apps/browser-node/target/debug/storage-helper >"$temp_dir/storage-helper.log" 2>&1 &
+storage_helper_pid=$!
+for _ in $(seq 1 40); do
+  if [[ -S "$temp_dir/storage-helper.sock" ]]; then break; fi
+  if ! kill -0 "$storage_helper_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.1
+done
+test -S "$temp_dir/storage-helper.sock"
+
 for _ in $(seq 1 40); do
   docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
   sleep 0.5
@@ -107,6 +122,8 @@ NODE_AGENT_PORT="$node_port" \
 NODE_ID=node-e2e \
 CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 RUNTIME_ROOT="$temp_dir/runtime" \
+PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
+STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
 REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
 REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
 REMOTE_DESKTOP_ALLOWED_ORIGINS="http://127.0.0.1:${web_port}" \

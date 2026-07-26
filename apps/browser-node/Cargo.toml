@@ -42,4 +42,4 @@ sysinfo = "0.33"
 base64 = "0.22"
 hmac = "0.12"
 sha2 = "0.10"
-nix = { version = "0.29", features = ["socket", "user"] }
+nix = { version = "0.29", features = ["fs", "socket", "user"] }

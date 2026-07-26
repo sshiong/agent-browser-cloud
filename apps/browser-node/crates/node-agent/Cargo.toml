@@ -14,7 +14,6 @@ state-collector = { path = "../state-collector" }
 node-journal = { path = "../node-journal" }
 node-contracts = { path = "../node-contracts" }
 remote-desktop-gateway = { path = "../remote-desktop-gateway" }
-storage-helper = { path = "../storage-helper" }
 helper-client = { path = "../helper-client" }
 async-trait.workspace = true
 anyhow.workspace = true
@@ -27,3 +26,4 @@ tracing-subscriber.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 uuid.workspace = true
+nix.workspace = true

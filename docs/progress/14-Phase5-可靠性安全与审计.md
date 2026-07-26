@@ -16,12 +16,13 @@
 | Key Rotation 治理 | 五类 Key Scope、双人审批、重叠窗口、泄露快速路径、验证证据 | Java 单测 + mTLS 轮换集成 + Web E2E |
 | 审计类型扩展 | Prompt Security、Human Authorization、Admin Access、Profile Restore | 集成审计链验证 |
 | Network Helper 隔离 | 独立进程、固定有界 Unix IPC、Peer UID、独立容器 UID/seccomp/Capability Drop | Rust 边界单测 + Helper Kill/Fail-closed/独立恢复集成测试 + Web E2E |
+| Storage Helper 隔离 | 独立进程、固定 IPC、路径重算、Write Epoch 幂等 Checkpoint、独立 Profile 卷 | Rust 完整性/路径/幂等测试 + Checkpoint Kill/恢复集成测试 + Web E2E |
 
 ## 尚未完成
 
-1. Network Helper 已从 Node Agent 拆为独立进程，并完成固定 IPC、Peer UID、
-   不同容器 UID、seccomp/Capability Drop 和进程崩溃隔离；Storage Helper 仍为进程内
-   调用，GPU Helper 尚未实现，且 AppArmor/SELinux/Landlock 与真实集群跨 UID 验收待补。
+1. Network 与 Storage Helper 已从 Node Agent 拆为独立进程，并完成固定 IPC、Peer UID、
+   不同容器 UID、seccomp/Capability Drop、独立 Profile 卷和进程崩溃隔离；GPU Helper
+   尚未实现，且 AppArmor/SELinux/Landlock 与真实集群跨 UID 验收待补。
 2. Break-glass 治理主链路已完成；独立 Secure Debug Worker、敏感 State 数据面与
    强制会话录像尚未实现。
 3. 故障矩阵尚缺 PostgreSQL 短时不可用、Object Storage 超时和 Coordinator 进程重启的
@@ -35,6 +36,6 @@
 ## Gate 判定
 
 Phase 5 的应用层可靠性/身份/审计主链路已通过，Network Helper 进程隔离切片已通过；
-生产 Exit Gate 仍因 Storage/GPU Helper、LSM/真实集群验收、Secure Debug 数据面、
+生产 Exit Gate 仍因 GPU Helper、LSM/真实集群验收、Secure Debug 数据面、
 外部 KMS/HSM/真实签名流水线和完整故障演练保持
 “未关闭”。

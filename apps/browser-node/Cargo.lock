@@ -1020,6 +1020,7 @@ dependencies = [
  "async-trait",
  "helper-client",
  "input-sandbox",
+ "nix",
  "node-contracts",
  "node-journal",
  "prost",
@@ -1029,7 +1030,6 @@ dependencies = [
  "serde",
  "serde_json",
  "state-collector",
- "storage-helper",
  "tokio",
  "tonic",
  "tracing",
@@ -1863,11 +1863,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "helper-contracts",
+ "nix",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 

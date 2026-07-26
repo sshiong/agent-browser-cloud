@@ -66,7 +66,8 @@ services:
       CHROMIUM_PATH: /usr/bin/chromium
       RUNTIME_ROOT: /var/lib/browsercloud/runtime
       NODE_JOURNAL_PATH: /var/lib/browsercloud/runtime/node-journal.sqlite3
-      PROFILE_STORAGE_ROOT: /var/lib/browsercloud/runtime/profile-storage
+      PROFILE_STORAGE_ROOT: /var/lib/browsercloud/profiles
+      STORAGE_HELPER_SOCKET: /var/run/browsercloud/helpers/storage.sock
       RUST_LOG: info
       APP_ENVIRONMENT: local
       REMOTE_DESKTOP_GATEWAY_PORT: 6080
@@ -78,6 +79,25 @@ services:
       - "6080"
     volumes:
       - browser_runtime:/var/lib/browsercloud/runtime
+      - profile_storage:/var/lib/browsercloud/profiles
+      - helper_ipc:/var/run/browsercloud/helpers
+    depends_on:
+      storage-helper:
+        condition: service_started
+
+  storage-helper:
+    build:
+      context: .
+      dockerfile: apps/browser-node/Dockerfile
+    entrypoint: ["/usr/bin/tini", "--", "/usr/local/bin/storage-helper"]
+    environment:
+      APP_ENVIRONMENT: local
+      PROFILE_STORAGE_ROOT: /var/lib/browsercloud/profiles
+      STORAGE_HELPER_SOCKET: /var/run/browsercloud/helpers/storage.sock
+      RUST_LOG: info
+    volumes:
+      - profile_storage:/var/lib/browsercloud/profiles
+      - helper_ipc:/var/run/browsercloud/helpers
 
   web-console:
     build:
@@ -93,3 +113,5 @@ volumes:
   postgres_data:
   redis_data:
   browser_runtime:
+  profile_storage:
+  helper_ipc:

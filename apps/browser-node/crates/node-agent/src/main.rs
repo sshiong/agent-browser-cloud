@@ -1,7 +1,9 @@
 //! Browser Node Agent 入口。
 
 use anyhow::{Context, Result};
-use helper_client::NetworkHelperClient;
+use helper_client::{
+    NetworkHelperClient, StorageHelperClient, StorageRestoreStatus, StorageWorkspace,
+};
 use input_sandbox::{CdpDesktopInput, DesktopInput, InputKey};
 use node_contracts::proto::node_control_service_server::{
     NodeControlService as NodeControlServiceRpc, NodeControlServiceServer,
@@ -33,7 +35,6 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::sync::{mpsc, Mutex};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
@@ -45,7 +46,7 @@ struct NodeControlService {
     control_plane_event_target: String,
     grpc_tls: Option<Arc<GrpcTlsMaterial>>,
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
-    profile_store: Arc<LocalProfileStore>,
+    storage_helper: Option<Arc<StorageHelperClient>>,
     profile_workspaces: Arc<Mutex<HashMap<String, ActiveProfileWorkspace>>>,
     network_helper: Option<Arc<NetworkHelperClient>>,
     allow_direct_network: bool,
@@ -122,7 +123,7 @@ impl GrpcTlsMaterial {
 
 #[derive(Clone)]
 struct ActiveProfileWorkspace {
-    workspace: ProfileWorkspace,
+    workspace: StorageWorkspace,
     runtime_build_id: String,
 }
 
@@ -178,14 +179,16 @@ impl NodeControlService {
         Ok(listener.local_addr()?.port())
     }
 
-    async fn release_start_resources(&self, session_id: &str, workspace: &ProfileWorkspace) {
+    async fn release_start_resources(&self, session_id: &str, workspace: &StorageWorkspace) {
         if let Some(network_helper) = self.network_helper.as_ref() {
             if let Err(error) = network_helper.release(session_id).await {
                 tracing::warn!(session_id, error = %error, "Failed to release proxy binding");
             }
         }
-        if let Err(error) = self.profile_store.release_writer(workspace).await {
-            tracing::warn!(session_id, error = %error, "Failed to release profile writer");
+        if let Some(storage_helper) = self.storage_helper.as_ref() {
+            if let Err(error) = storage_helper.release(workspace).await {
+                tracing::warn!(session_id, error = %error, "Failed to release profile writer");
+            }
         }
     }
 
@@ -807,8 +810,13 @@ impl NodeControlService {
                                 ),
                             );
                         }
-                        let workspace = match self
-                            .profile_store
+                        let Some(storage_helper) = self.storage_helper.as_ref() else {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("storage helper is not configured"),
+                            );
+                        };
+                        let workspace = match storage_helper
                             .acquire_workspace(
                                 &command.tenant_id,
                                 &payload.profile_id,
@@ -879,8 +887,8 @@ impl NodeControlService {
                             .start(RuntimeSpec {
                                 session_id: command.session_id.clone(),
                                 runtime_build_id: runtime_build_id.clone(),
-                                profile_dir: workspace.core_dir.clone(),
-                                cache_dir: workspace.ephemeral_dir.join("cache"),
+                                profile_dir: PathBuf::from(&workspace.core_dir),
+                                cache_dir: PathBuf::from(&workspace.ephemeral_dir).join("cache"),
                                 proxy_server,
                                 display,
                                 cdp_port,
@@ -1091,8 +1099,13 @@ impl NodeControlService {
                                 restore_status,
                             ) = match active_profile {
                                 Some(active_profile) => {
-                                    let checkpoint = match self
-                                        .profile_store
+                                    let Some(storage_helper) = self.storage_helper.as_ref() else {
+                                        return self.failed(
+                                            command,
+                                            anyhow::anyhow!("storage helper is not configured"),
+                                        );
+                                    };
+                                    let checkpoint = match storage_helper
                                         .checkpoint(
                                             &active_profile.workspace,
                                             &active_profile.runtime_build_id,
@@ -1102,10 +1115,8 @@ impl NodeControlService {
                                         Ok(checkpoint) => checkpoint,
                                         Err(error) => return self.failed(command, error),
                                     };
-                                    if let Err(error) = self
-                                        .profile_store
-                                        .release_writer(&active_profile.workspace)
-                                        .await
+                                    if let Err(error) =
+                                        storage_helper.release(&active_profile.workspace).await
                                     {
                                         return self.failed(command, error);
                                     }
@@ -1117,8 +1128,8 @@ impl NodeControlService {
                                         .workspace
                                         .restore_status
                                     {
-                                        ProfileRestoreStatus::Empty => "EMPTY",
-                                        ProfileRestoreStatus::TechnicalReady => "TECHNICAL_READY",
+                                        StorageRestoreStatus::Empty => "EMPTY",
+                                        StorageRestoreStatus::TechnicalReady => "TECHNICAL_READY",
                                     };
                                     (
                                         active_profile.workspace.profile_id,
@@ -1126,7 +1137,7 @@ impl NodeControlService {
                                         checkpoint.checkpoint_epoch,
                                         checkpoint.profile_write_epoch,
                                         checkpoint.core_size_bytes,
-                                        checkpoint.files.len() as u64,
+                                        checkpoint.checkpoint_file_count,
                                         restore_status,
                                     )
                                 }
@@ -2160,6 +2171,7 @@ async fn main() -> Result<()> {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+    nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o007));
 
     let chromium_binary = std::env::var("CHROMIUM_PATH").unwrap_or_else(|_| "chromium".to_owned());
     let node_port = std::env::var("NODE_AGENT_PORT")
@@ -2179,7 +2191,10 @@ async fn main() -> Result<()> {
     let profile_storage_root = std::env::var("PROFILE_STORAGE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| runtime_root.join("profile-storage"));
-    let profile_store = Arc::new(LocalProfileStore::open(profile_storage_root).await?);
+    let storage_helper_socket = std::env::var("STORAGE_HELPER_SOCKET")
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
     let input_brokers = Arc::new(Mutex::new(HashMap::new()));
     let diff_max_bytes = std::env::var("STATE_DIFF_MAX_BYTES")
         .unwrap_or_else(|_| "60000".to_owned())
@@ -2224,6 +2239,51 @@ async fn main() -> Result<()> {
     let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
+    if environment.eq_ignore_ascii_case("production") {
+        anyhow::ensure!(
+            !storage_helper_socket.is_empty(),
+            "STORAGE_HELPER_SOCKET is required in production"
+        );
+    }
+    let storage_helper = if storage_helper_socket.is_empty() {
+        None
+    } else {
+        let timeout = Duration::from_millis(
+            std::env::var("STORAGE_HELPER_TIMEOUT_MS")
+                .unwrap_or_else(|_| "30000".to_owned())
+                .parse()?,
+        );
+        let client = StorageHelperClient::new(
+            PathBuf::from(storage_helper_socket),
+            timeout,
+            profile_storage_root,
+        )?;
+        let startup_timeout = Duration::from_millis(
+            std::env::var("STORAGE_HELPER_STARTUP_TIMEOUT_MS")
+                .unwrap_or_else(|_| {
+                    if environment.eq_ignore_ascii_case("production") {
+                        "30000".to_owned()
+                    } else {
+                        "5000".to_owned()
+                    }
+                })
+                .parse()?,
+        );
+        let startup_deadline = tokio::time::Instant::now() + startup_timeout;
+        loop {
+            match client.ping().await {
+                Ok(()) => break,
+                Err(error) if tokio::time::Instant::now() < startup_deadline => {
+                    tracing::warn!(error = %error, "waiting for storage helper");
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+                Err(error) => {
+                    return Err(error).context("storage helper startup check failed");
+                }
+            }
+        }
+        Some(Arc::new(client))
+    };
     let network_helper_socket = std::env::var("NETWORK_HELPER_SOCKET")
         .unwrap_or_default()
         .trim()
@@ -2312,7 +2372,7 @@ async fn main() -> Result<()> {
         control_plane_event_target,
         grpc_tls: grpc_tls.clone(),
         runtime_supervisor: runtime_supervisor.clone(),
-        profile_store,
+        storage_helper,
         profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
         network_helper,
         allow_direct_network,
@@ -2509,11 +2569,7 @@ mod tests {
             runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
                 "/missing/chromium",
             ))),
-            profile_store: Arc::new(
-                LocalProfileStore::open(root.join("profiles"))
-                    .await
-                    .unwrap(),
-            ),
+            storage_helper: None,
             profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
             network_helper: None,
             allow_direct_network: true,

@@ -48,11 +48,19 @@ make migrate
 # 3. 启动 Control Plane（仅本地显式允许直连）
 PROXY_ALLOW_DIRECT=true ./gradlew -p apps/control-plane bootRun
 
-# 4. 启动 Browser Node（仅本地显式允许直连）
+# 4. 先启动 Storage Helper
+mkdir -p /tmp/browsercloud-helpers
+STORAGE_HELPER_SOCKET=/tmp/browsercloud-helpers/storage.sock \
+PROFILE_STORAGE_ROOT=/tmp/browsercloud-profile-storage \
+  cargo run --manifest-path apps/browser-node/Cargo.toml --bin storage-helper &
+
+# 5. 启动 Browser Node（仅本地显式允许直连）
 ALLOW_DIRECT_NETWORK=true \
+STORAGE_HELPER_SOCKET=/tmp/browsercloud-helpers/storage.sock \
+PROFILE_STORAGE_ROOT=/tmp/browsercloud-profile-storage \
   cargo run --manifest-path apps/browser-node/Cargo.toml --bin node-agent
 
-# 5. 启动 Web Console
+# 6. 启动 Web Console
 cd apps/web-console && pnpm dev
 ```
 

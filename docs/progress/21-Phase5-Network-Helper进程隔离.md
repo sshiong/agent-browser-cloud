@@ -42,8 +42,8 @@ Console E2E 均已通过。
 
 ## 尚未完成
 
-1. `storage-helper` 仍由 Node Agent 进程内调用；需按同一固定 IPC/独立 UID 模型拆分，
-   并验证快照中断、损坏、超时和 Helper Kill。
+1. `storage-helper` 已按同一固定 IPC/独立 UID 模型拆分并完成 Checkpoint Kill/恢复验收，
+   详见 `22-Phase5-Storage-Helper进程隔离.md`。
 2. GPU Helper 尚未实现；无 GPU 资源的当前 L1 路径应保持不下发 GPU 权限。
 3. Network Helper 尚缺 AppArmor/SELinux/Landlock Profile、独立 Audit Identity 落库、
    Rate Limit 和生产集群中的跨 UID 拒绝实测。

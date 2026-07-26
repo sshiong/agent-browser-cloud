@@ -4,8 +4,10 @@
 
 ## 已完成
 
-- Browser Node `storage-helper` 实现租户隔离目录：
+- 独立 `storage-helper` 进程实现租户隔离目录：
   `tenants/{tenant}/profiles/{profile}`。
+- Node Agent 只通过固定有界 Unix IPC 请求 Acquire/Checkpoint/Release，并校验返回的
+  Workspace 必须位于精确的 Tenant/Profile/Session 根目录。
 - Profile Core 与 Ephemeral 分盘；Chromium `--user-data-dir` 指向 Core，
   `--disk-cache-dir` 指向 Ephemeral。
 - 默认检查点排除 `Cache`、`Code Cache`、`GPUCache`、`ShaderCache` 和
@@ -17,8 +19,9 @@
   再提交 `COMMITTED` Marker 和 `LATEST` 指针。
 - Restore 只接受已提交检查点，并校验 Manifest 身份、Marker、文件数量、文件大小、
   路径安全和每个文件的 SHA-256。
-- Profile 根目录和检查点使用私有权限（Unix 目录 `0700`、文件 `0600`），文件与目录
-  在原子重命名后执行同步，降低宿主同机读取和掉电丢失提交记录的风险。
+- Profile 独立卷使用 Node/Storage 专用 Group 权限（Unix 目录 `0770`、文件 `0660`）；
+  Network Helper 不挂载该卷。文件与目录在原子重命名后执行同步，降低越权读取和掉电
+  丢失提交记录的风险。
 - 已知 Chromium 临时 Singleton 符号链接会被排除；未知符号链接会使检查点失败，
   防止归档越过 Profile 根目录读取宿主文件。
 - 损坏检查点不会被标记为恢复成功；测试覆盖篡改文件后恢复失败和 Writer Lock 回收。
@@ -48,6 +51,10 @@ Session A 启动（starts=1）
 
 - `profile_checkpoint_epoch=2`
 - `profile_restore_starts=4`
+- `storage_helper_process_isolated=true`
+- `storage_helper_checkpoint_failure_closed=true`
+- `storage_helper_restart_recovered=true`
+- `storage_checkpoint_idempotent=true`
 - 第二次恢复来源为 `TECHNICAL_READY`
 - Profile 跨租户访问为 `403`
 - Checkpoint 目录存在 `COMMITTED`

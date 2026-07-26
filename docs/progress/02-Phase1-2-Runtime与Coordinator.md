@@ -31,7 +31,8 @@
   CDP/x11 双输入释放、State Resync 和持久 `HumanTakeoverEnded` 事件。
 - Node 每两秒采集一次页面状态；仅在内容哈希变化时生成持久
   `BrowserStateUpdated`，并复用 SQLite Journal 的失败重投路径。
-- Network Helper、Storage Helper、Browser Supervisor 已有可编译接口和部分单元测试。
+- Network Helper 与 Storage Helper 已拆为独立进程，具备固定有界 IPC、Peer UID、
+  独立容器 UID/权限及 Kill/恢复集成测试；Browser Supervisor 仍为可编译基础接口。
 
 ## Phase 2 已完成的 PoC
 

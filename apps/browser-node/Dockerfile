@@ -7,6 +7,7 @@ RUN cargo build \
     --locked \
     --manifest-path apps/browser-node/Cargo.toml \
     --bin network-helper \
+    --bin storage-helper \
     --bin node-agent
 
 FROM debian:bookworm-slim
@@ -19,11 +20,12 @@ RUN apt-get update \
     && chown -R browsercloud:browsercloud /var/lib/browsercloud
 COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/local/bin/node-agent
 COPY --from=build /workspace/apps/browser-node/target/release/network-helper /usr/local/bin/network-helper
+COPY --from=build /workspace/apps/browser-node/target/release/storage-helper /usr/local/bin/storage-helper
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \
     NODE_JOURNAL_PATH=/var/lib/browsercloud/runtime/node-journal.sqlite3 \
-    PROFILE_STORAGE_ROOT=/var/lib/browsercloud/runtime/profile-storage \
+    PROFILE_STORAGE_ROOT=/var/lib/browsercloud/profiles \
     ALLOW_DIRECT_NETWORK=false \
     NODE_AGENT_PORT=9090 \
     APP_ENVIRONMENT=local \

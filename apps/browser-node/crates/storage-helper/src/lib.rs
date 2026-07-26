@@ -51,7 +51,7 @@ pub enum ProfileRestoreStatus {
     TechnicalReady,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProfileWorkspace {
     pub tenant_id: String,
     pub profile_id: String,
@@ -72,7 +72,7 @@ impl LocalProfileStore {
     pub async fn open(root: PathBuf) -> anyhow::Result<Self> {
         tokio::fs::create_dir_all(&root).await?;
         #[cfg(unix)]
-        tokio::fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).await?;
+        tokio::fs::set_permissions(&root, fs::Permissions::from_mode(0o770)).await?;
         Ok(Self { root })
     }
 
@@ -110,10 +110,48 @@ impl LocalProfileStore {
         .await?
     }
 
+    pub async fn resume_workspace(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+    ) -> anyhow::Result<ProfileWorkspace> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("session_id", session_id)?;
+        let root = self.root.clone();
+        let tenant_id = tenant_id.to_owned();
+        let profile_id = profile_id.to_owned();
+        let session_id = session_id.to_owned();
+        tokio::task::spawn_blocking(move || {
+            resume_workspace_blocking(&root, &tenant_id, &profile_id, &session_id)
+        })
+        .await?
+    }
+
     pub async fn release_writer(&self, workspace: &ProfileWorkspace) -> anyhow::Result<()> {
         let root = self.root.clone();
         let workspace = workspace.clone();
         tokio::task::spawn_blocking(move || release_writer_blocking(&root, &workspace)).await?
+    }
+
+    pub async fn release_writer_by_identity(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+    ) -> anyhow::Result<()> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("session_id", session_id)?;
+        let root = self.root.clone();
+        let tenant_id = tenant_id.to_owned();
+        let profile_id = profile_id.to_owned();
+        let session_id = session_id.to_owned();
+        tokio::task::spawn_blocking(move || {
+            release_writer_by_identity_blocking(&root, &tenant_id, &profile_id, &session_id)
+        })
+        .await?
     }
 }
 
@@ -205,7 +243,15 @@ fn checkpoint_blocking(
         "workspace core path escaped profile root"
     );
 
-    let previous_epoch = read_latest_manifest(&profile_root)?
+    let previous = read_latest_manifest(&profile_root)?;
+    if let Some(previous) = previous.as_ref() {
+        if previous.profile_write_epoch == workspace.profile_write_epoch
+            && previous.runtime_build_id == runtime_build_id
+        {
+            return validate_committed_checkpoint(&profile_root, &previous.checkpoint_id);
+        }
+    }
+    let previous_epoch = previous
         .map(|manifest| manifest.checkpoint_epoch)
         .unwrap_or_default();
     let checkpoint_epoch = previous_epoch.saturating_add(1);
@@ -263,6 +309,60 @@ fn release_writer_blocking(root: &Path, workspace: &ProfileWorkspace) -> anyhow:
     Ok(())
 }
 
+fn resume_workspace_blocking(
+    root: &Path,
+    tenant_id: &str,
+    profile_id: &str,
+    session_id: &str,
+) -> anyhow::Result<ProfileWorkspace> {
+    let profile_root = profile_root(root, tenant_id, profile_id);
+    require_writer(&profile_root, session_id)?;
+    let workspace_root = profile_root.join("workspaces").join(session_id);
+    anyhow::ensure!(
+        workspace_root.join("core").is_dir() && workspace_root.join("ephemeral").is_dir(),
+        "active profile writer has no reusable workspace"
+    );
+    let profile_write_epoch = read_u64(&profile_root.join("WRITE_EPOCH"))?;
+    anyhow::ensure!(profile_write_epoch > 0, "profile write epoch is missing");
+    let restored_checkpoint_id = read_optional_text(&profile_root.join(LATEST_FILE))?;
+    Ok(ProfileWorkspace {
+        tenant_id: tenant_id.to_owned(),
+        profile_id: profile_id.to_owned(),
+        session_id: session_id.to_owned(),
+        core_dir: workspace_root.join("core"),
+        ephemeral_dir: workspace_root.join("ephemeral"),
+        profile_write_epoch,
+        restore_status: if restored_checkpoint_id.is_some() {
+            ProfileRestoreStatus::TechnicalReady
+        } else {
+            ProfileRestoreStatus::Empty
+        },
+        restored_checkpoint_id,
+    })
+}
+
+fn release_writer_by_identity_blocking(
+    root: &Path,
+    tenant_id: &str,
+    profile_id: &str,
+    session_id: &str,
+) -> anyhow::Result<()> {
+    let profile_root = profile_root(root, tenant_id, profile_id);
+    let writer = profile_root.join(WRITER_LOCK_FILE);
+    match fs::read_to_string(&writer) {
+        Ok(owner) => {
+            anyhow::ensure!(
+                owner.trim() == session_id,
+                "profile writer ownership mismatch"
+            );
+            fs::remove_file(writer)?;
+            Ok(())
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
+
 fn acquire_writer(profile_root: &Path, session_id: &str) -> anyhow::Result<bool> {
     let lock_path = profile_root.join(WRITER_LOCK_FILE);
     match create_private_file(&lock_path) {
@@ -296,6 +396,25 @@ fn restore_checkpoint(
     profile_root: &Path,
     checkpoint_id: &str,
     destination: &Path,
+) -> anyhow::Result<ProfileCheckpointManifest> {
+    let manifest = validate_committed_checkpoint(profile_root, checkpoint_id)?;
+    let checkpoint = profile_root.join("checkpoints").join(checkpoint_id);
+    for file in &manifest.files {
+        let relative = safe_relative_path(&file.relative_path)?;
+        let source = checkpoint.join("core").join(&relative);
+        let target = destination.join(&relative);
+        if let Some(parent) = target.parent() {
+            secure_create_dir_all(parent)?;
+        }
+        fs::copy(source, &target)?;
+        secure_file_permissions(&target)?;
+    }
+    Ok(manifest)
+}
+
+fn validate_committed_checkpoint(
+    profile_root: &Path,
+    checkpoint_id: &str,
 ) -> anyhow::Result<ProfileCheckpointManifest> {
     validate_identifier("checkpoint_id", checkpoint_id)?;
     let checkpoint = profile_root.join("checkpoints").join(checkpoint_id);
@@ -352,12 +471,6 @@ fn restore_checkpoint(
             hash_file(&source)? == file.sha256,
             "checkpoint file hash mismatch"
         );
-        let target = destination.join(&relative);
-        if let Some(parent) = target.parent() {
-            secure_create_dir_all(parent)?;
-        }
-        fs::copy(source, target)?;
-        secure_file_permissions(&destination.join(relative))?;
     }
     Ok(manifest)
 }
@@ -470,13 +583,13 @@ fn atomic_write(path: &Path, content: &[u8]) -> anyhow::Result<()> {
 fn secure_create_dir_all(path: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(path)?;
     #[cfg(unix)]
-    fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o770))?;
     Ok(())
 }
 
 fn secure_file_permissions(path: &Path) -> anyhow::Result<()> {
     #[cfg(unix)]
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o660))?;
     Ok(())
 }
 
@@ -484,8 +597,11 @@ fn create_private_file(path: &Path) -> std::io::Result<fs::File> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
-    options.mode(0o600);
-    options.open(path)
+    options.mode(0o660);
+    let file = options.open(path)?;
+    #[cfg(unix)]
+    file.set_permissions(fs::Permissions::from_mode(0o660))?;
+    Ok(file)
 }
 
 fn sync_directory(path: &Path) -> anyhow::Result<()> {
@@ -681,6 +797,46 @@ mod tests {
             b"survives"
         );
         restarted_store.release_writer(&recovered).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn resumes_after_helper_restart_and_checkpoints_idempotently() {
+        let root = temp_root();
+        let first_store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = first_store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::write(workspace.core_dir.join("DurableState"), b"survives").unwrap();
+
+        let restarted_store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let resumed = restarted_store
+            .resume_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        assert_eq!(resumed.profile_write_epoch, workspace.profile_write_epoch);
+        let first_checkpoint = restarted_store
+            .checkpoint(&resumed, "runtime-test")
+            .await
+            .unwrap();
+        let retried_checkpoint = restarted_store
+            .checkpoint(&resumed, "runtime-test")
+            .await
+            .unwrap();
+        assert_eq!(
+            first_checkpoint.checkpoint_id,
+            retried_checkpoint.checkpoint_id
+        );
+        assert_eq!(first_checkpoint.checkpoint_epoch, 1);
+        restarted_store
+            .release_writer_by_identity("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        restarted_store
+            .release_writer_by_identity("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

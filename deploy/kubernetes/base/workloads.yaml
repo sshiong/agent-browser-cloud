@@ -130,12 +130,18 @@ spec:
               value: "false"
             - name: NETWORK_HELPER_SOCKET
               value: /var/run/browsercloud/helpers/network.sock
+            - name: STORAGE_HELPER_SOCKET
+              value: /var/run/browsercloud/helpers/storage.sock
+            - name: PROFILE_STORAGE_ROOT
+              value: /var/lib/browsercloud/profiles
           envFrom:
             - secretRef:
                 name: browser-node-runtime-secrets
           volumeMounts:
             - name: warm-tier
               mountPath: /var/lib/browsercloud
+            - name: profile-tier
+              mountPath: /var/lib/browsercloud/profiles
             - name: mtls
               mountPath: /var/run/browsercloud/mtls
               readOnly: true
@@ -191,6 +197,40 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+        - name: storage-helper
+          image: ghcr.io/sshiong/agent-browser-cloud-browser-node:0.1.0
+          command: ["/usr/bin/tini", "--", "/usr/local/bin/storage-helper"]
+          env:
+            - name: APP_ENVIRONMENT
+              value: production
+            - name: STORAGE_HELPER_SOCKET
+              value: /var/run/browsercloud/helpers/storage.sock
+            - name: PROFILE_STORAGE_ROOT
+              value: /var/lib/browsercloud/profiles
+            - name: NODE_AGENT_UID
+              value: "11001"
+          volumeMounts:
+            - name: profile-tier
+              mountPath: /var/lib/browsercloud/profiles
+            - name: helper-ipc
+              mountPath: /var/run/browsercloud/helpers
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 11003
+            runAsGroup: 11000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
       volumes:
         - name: mtls
           secret:
@@ -202,6 +242,14 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: warm-tier
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: browser-warm-tier
+        resources:
+          requests:
+            storage: 100Gi
+    - metadata:
+        name: profile-tier
       spec:
         accessModes: [ReadWriteOnce]
         storageClassName: browser-warm-tier

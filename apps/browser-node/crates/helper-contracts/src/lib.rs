@@ -51,6 +51,78 @@ pub struct ObservedNetwork {
     pub asn: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageRequest {
+    pub schema_version: u16,
+    pub request_id: String,
+    pub command: StorageCommand,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StorageCommand {
+    Ping,
+    Acquire {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+    },
+    Checkpoint {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        runtime_build_id: String,
+    },
+    Release {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageResponse {
+    pub schema_version: u16,
+    pub request_id: String,
+    pub ok: bool,
+    pub workspace: Option<StorageWorkspace>,
+    pub checkpoint: Option<StorageCheckpoint>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageWorkspace {
+    pub tenant_id: String,
+    pub profile_id: String,
+    pub session_id: String,
+    pub core_dir: String,
+    pub ephemeral_dir: String,
+    pub profile_write_epoch: u64,
+    pub restored_checkpoint_id: Option<String>,
+    pub restore_status: StorageRestoreStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StorageRestoreStatus {
+    Empty,
+    TechnicalReady,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageCheckpoint {
+    pub checkpoint_id: String,
+    pub checkpoint_epoch: u64,
+    pub profile_write_epoch: u64,
+    pub core_size_bytes: u64,
+    pub checkpoint_file_count: u64,
+}
+
 pub async fn write_frame<T, W>(writer: &mut W, value: &T) -> anyhow::Result<()>
 where
     T: Serialize,
@@ -108,6 +180,30 @@ mod tests {
         assert!(matches!(
             decoded.command,
             NetworkCommand::Release { session_id } if session_id == "ses_test"
+        ));
+    }
+
+    #[tokio::test]
+    async fn round_trips_a_storage_command_without_profile_content() {
+        let (mut writer, mut reader) = duplex(4096);
+        let request = StorageRequest {
+            schema_version: SCHEMA_VERSION,
+            request_id: "hipc_storage_test".to_owned(),
+            command: StorageCommand::Checkpoint {
+                tenant_id: "tenant-test".to_owned(),
+                profile_id: "profile-test".to_owned(),
+                session_id: "session-test".to_owned(),
+                runtime_build_id: "runtime-test".to_owned(),
+            },
+        };
+        let send = tokio::spawn(async move { write_frame(&mut writer, &request).await });
+        let decoded: StorageRequest = read_frame(&mut reader).await.unwrap();
+        send.await.unwrap().unwrap();
+        assert_eq!(decoded.schema_version, SCHEMA_VERSION);
+        assert!(matches!(
+            decoded.command,
+            StorageCommand::Checkpoint { runtime_build_id, .. }
+                if runtime_build_id == "runtime-test"
         ));
     }
 

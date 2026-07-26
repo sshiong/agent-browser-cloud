@@ -22,7 +22,7 @@ fi
 
 ./gradlew -p apps/control-plane bootJar
 cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
-  --bin network-helper --bin node-agent
+  --bin network-helper --bin storage-helper --bin node-agent
 
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-it-${run_id}"
@@ -31,6 +31,7 @@ temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
 network_helper_pid=""
+storage_helper_pid=""
 proxy_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
@@ -65,12 +66,14 @@ cleanup() {
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
+  if [[ -n "$storage_helper_pid" ]]; then kill "$storage_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
   fi
   rm -rf "$temp_dir"
 }
@@ -116,6 +119,21 @@ start_network_helper() {
   exit 1
 }
 
+start_storage_helper() {
+  STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
+  PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
+  NODE_AGENT_UID="$(id -u)" \
+    apps/browser-node/target/debug/storage-helper >>"$temp_dir/storage-helper.log" 2>&1 &
+  storage_helper_pid=$!
+  for _ in $(seq 1 40); do
+    if [[ -S "$temp_dir/storage-helper.sock" ]]; then return; fi
+    if ! kill -0 "$storage_helper_pid" 2>/dev/null; then exit 1; fi
+    sleep 0.1
+  done
+  echo "Storage Helper did not create its IPC socket." >&2
+  exit 1
+}
+
 start_browser_node() {
   CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
   NODE_AGENT_PORT="$node_port" \
@@ -128,6 +146,8 @@ start_browser_node() {
   CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
   REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
   RUNTIME_ROOT="$temp_dir/runtime" \
+  PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
+  STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
   FAKE_CHROMIUM_MUTATE_STATE_AFTER=2 \
@@ -144,6 +164,7 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 
+start_storage_helper
 start_network_helper
 start_browser_node
 
@@ -639,9 +660,27 @@ state = json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert state == {"starts": 4, "durable": True}, state
 PY
 
+kill -TERM "$storage_helper_pid"
+wait "$storage_helper_pid" 2>/dev/null || true
+storage_helper_pid=""
+kill -0 "$node_pid"
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${second_session}:terminate" \
   -H 'X-Tenant-Id: tenant-integration' >"$temp_dir/second-terminate.json"
+storage_rejection=""
+for _ in $(seq 1 40); do
+  storage_rejection="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select publish_attempts || ':' || coalesce(last_error,'') from outbox_events where event_type='node.command.requested' and aggregate_id='${second_session}' and published_at is null order by created_at desc limit 1")"
+  if [[ "$storage_rejection" = "1:NODE_COMMAND_FAILED" ]]; then break; fi
+  sleep 0.25
+done
+test "$storage_rejection" = "1:NODE_COMMAND_FAILED"
+kill -0 "$node_pid"
+if pgrep -P "$node_pid" >/dev/null; then
+  echo "Browser runtime remained active after Storage Helper checkpoint failure." >&2
+  exit 1
+fi
+start_storage_helper
 for _ in $(seq 1 60); do
   second_state="$(curl -fsS \
     "http://localhost:${control_port}/api/v1/sessions/${second_session}" \
@@ -893,6 +932,6 @@ key_rotation_audit_result="$(curl -fsS \
 printf '%s' "$key_rotation_audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 5; assert len(result["items"]) == 5; assert {item["action"] for item in result["items"]} == {"KEY_ROTATION_REQUESTED","KEY_ROTATION_APPROVAL_DENIED","KEY_ROTATION_APPROVED","KEY_ROTATION_COMPLETION_DENIED","KEY_ROTATION_COMPLETED"}'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

@@ -129,6 +129,11 @@ make contracts-check
 make test-integration
 make test-e2e
 
+# 真实 Chromium 500 次生命周期容量证书
+make test-browser-runtime-capacity \
+  REAL_CHROMIUM_PATH="/absolute/path/to/chromium" \
+  RUNTIME_CAPACITY_CYCLES=500
+
 # Operator 单测；集群 E2E 需本机 Docker、kubectl 和 Kind
 make test-kubernetes-operator
 KIND_BIN=/path/to/kind make test-kubernetes-e2e

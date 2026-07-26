@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "scope": "REAL_CHROMIUM_LIFECYCLE_SINGLE_NODE",
+  "buildId": "e59e24a35bbbf4da3e3f4c1520c470d858d7af0d",
+  "generatedAtEpochSeconds": 1785076191,
+  "environment": {
+    "os": "macos",
+    "architecture": "aarch64",
+    "logicalCpus": 10,
+    "chromiumVersion": "Google Chrome 150.0.7871.182"
+  },
+  "loadModel": {
+    "cycles": 500,
+    "mode": "SEQUENTIAL_HEADLESS",
+    "sessionReuse": true,
+    "profileReuse": false
+  },
+  "startLatency": {
+    "minimumMillis": 279,
+    "p50Millis": 518,
+    "p95Millis": 638,
+    "p99Millis": 708,
+    "maximumMillis": 1871
+  },
+  "stopLatency": {
+    "minimumMillis": 5,
+    "p50Millis": 12,
+    "p95Millis": 16,
+    "p99Millis": 20,
+    "maximumMillis": 33
+  },
+  "resources": {
+    "peakRuntimeTreeRssBytes": 957857792,
+    "peakRuntimeProcesses": 8,
+    "runnerRssBeforeBytes": 7323648,
+    "runnerRssAfterBytes": 13680640,
+    "runnerRssGrowthBytes": 6356992,
+    "runnerFdsBefore": 9,
+    "runnerFdsAfter": 9,
+    "runnerFdGrowth": 0,
+    "residualProcesses": 0
+  },
+  "gates": {
+    "allCyclesCompleted": true,
+    "noCycleFailures": true,
+    "noResidualProcesses": true,
+    "runnerFdGrowthWithinLimit": true,
+    "runnerRssGrowthWithinLimit": true,
+    "runtimeProcessCountWithinLimit": true,
+    "runtimeTreeRssWithinLimit": true,
+    "startP99WithinLimit": true,
+    "stopP99WithinLimit": true
+  },
+  "failures": [],
+  "passed": true,
+  "certificateHash": "aa06b74b7e13c166bc98995747e8b4368082d6a57d3402d20650308d7f684838"
+}

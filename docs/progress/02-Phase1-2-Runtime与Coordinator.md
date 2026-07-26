@@ -85,7 +85,8 @@
 
 ## Gate 缺口
 
-- 资源硬限制、Renderer/Browser Crash 更细分类和 500 次 Runtime 循环验收。
+- 真实 Chrome 500 次顺序 Runtime 循环验收已由进度 36 关闭；资源硬限制、
+  Renderer/Browser Crash 更细分类和桌面/并发容量仍待完成。
 - Domain Outbox 消息总线 Publisher/Consumer、重放与 DLQ 演练。
 - 多 Coordinator 同时长稳、进行中 Operation Kill 后恢复/安全中止、热点迁移、
   Outbox Claim 和容量压测仍待完整验收。

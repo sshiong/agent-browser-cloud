@@ -10,6 +10,8 @@
 - 新增 Build-bound Stage A Coordinator Capacity Certificate：固定 50,000 Actor、
   250,000 次路由、64 Shard、10,000 个满载 Mailbox，验证 Route/Emergency P99、
   最大 Shard 负载、Emergency 抢占和容量 Hysteresis；已进入 `make ci`。
+- 新增 Build-bound 真实 Chromium 生命周期证书：Chrome 150 顺序启动/健康采样/停止
+  500 次，验证 Profile 进程树、端口、Runner RSS/FD 与零残留；证书 Hash 已入库。
 - BrowserSession `v1alpha1` CRD。
 - Operator 实现幂等创建、`observedGeneration`、Finalizer 终止、失败重试和双副本
   Kubernetes Lease Leader Election。
@@ -32,8 +34,8 @@
    Kubernetes 执行 N/N-1 Rolling Upgrade。
 2. Coordinator 50k 单进程 Stage A 微基准证书已完成；它不包含 PostgreSQL、网络、
    GC 长稳、Mailbox Byte Budget、Passivation/恢复和多实例调度，尚不能作为生产并发承诺。
-3. Browser Capacity Certificate、Extension Weight/Probation、PSI/Cgroup 深度采样和
-   Node Pressure 驱逐尚未实现。
+3. 真实 Chrome 500 次顺序生命周期已完成；并发 Browser Capacity Certificate、
+   Extension Weight/Probation、PSI/Cgroup 深度采样和 Node Pressure 驱逐尚未实现。
 4. Hot Actor 安全点迁移有 Router/Epoch 核心，但缺双 Coordinator 实例的迁移压测。
 5. CNI/CSI 清单已定义，仍需目标云环境验证防直连泄漏与 Snapshot 一致性 Adapter。
 6. Operator Watch/Informer、指标/告警和多个 API Server 故障下的长时间稳定性尚未完成。

@@ -64,4 +64,5 @@ Outbox/Inbox、gRPC、Node、网络、磁盘和 Kubernetes 调度，因此不能
 3. Mailbox Byte Budget、Overload Reject、Passivation/恢复和 Stale Route Epoch 测量；
 4. 双/多 Coordinator、Hot Tenant 迁移和旧 Epoch Fencing 压测；
 5. 目标云 CNI/CSI/Kata 环境下的 Capacity Certificate；
-6. Browser Runtime 资源硬限制、PSI/Cgroup 和 500 次生命周期证书。
+6. 真实 Chrome 500 次顺序生命周期证书已由进度 36 完成；Browser Runtime
+   Linux 资源硬限制、PSI/Cgroup 和并发容量证书仍待完成。

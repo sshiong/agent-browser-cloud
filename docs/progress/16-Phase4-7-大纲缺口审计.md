@@ -59,7 +59,8 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 2. Browser Capacity Certificate：
    - Extension Weight、未知扩展 Probation、持续 P95 Profile 未实现；
    - PSI/Cgroup Burst 深度采样、Node Pressure 驱逐和安全余量验证未实现；
-   - 资源硬限制与 500 次 Runtime 循环仍未通过。
+   - Chrome 150 的 500 次顺序 Runtime 循环已通过并生成 Build-bound Hash 证书；
+   - Linux 资源硬限制、桌面/并发密度和目标云证书仍未通过。
 3. Hot Tenant/Shard：
    - Route Epoch 和安全点模型已存在；
    - 缺双 Coordinator 实例热点迁移、旧 Epoch 拒绝和跨 Shard 压测。

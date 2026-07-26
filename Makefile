@@ -1,7 +1,9 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-kubernetes-operator test-kubernetes-e2e test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-kubernetes-operator test-kubernetes-e2e test-e2e ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
+RUNTIME_CAPACITY_CYCLES ?= 500
+REAL_CHROMIUM_PATH ?=
 
 # Install workspace dependencies
 install:
@@ -95,6 +97,16 @@ test-object-storage:
 # Generate a build-bound Stage A Coordinator capacity certificate
 test-coordinator-capacity:
 	./gradlew -p apps/control-plane coordinatorCapacityCertificate -PcapacityBuildId=$(CAPACITY_BUILD_ID)
+
+# Generate a real-Chromium 500-cycle lifecycle and resource-leak certificate
+test-browser-runtime-capacity:
+	test -n "$(REAL_CHROMIUM_PATH)"
+	cargo run --release --locked --manifest-path apps/browser-node/Cargo.toml \
+		-p runtime-supervisor --bin runtime-capacity-certificate -- \
+		--chromium "$(REAL_CHROMIUM_PATH)" \
+		--cycles "$(RUNTIME_CAPACITY_CYCLES)" \
+		--build-id "$(CAPACITY_BUILD_ID)" \
+		--output apps/browser-node/target/capacity/runtime-capacity.json
 
 # Run BrowserSession operator unit tests
 test-kubernetes-operator:

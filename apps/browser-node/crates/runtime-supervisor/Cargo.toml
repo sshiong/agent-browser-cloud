@@ -12,4 +12,5 @@ tracing.workspace = true
 tokio.workspace = true
 reqwest.workspace = true
 sysinfo.workspace = true
+sha2.workspace = true
 libc = "0.2"

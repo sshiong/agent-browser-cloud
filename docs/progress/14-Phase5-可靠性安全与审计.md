@@ -9,7 +9,7 @@
 | Admin MFA | Admin JWT 必须包含 `amr=mfa` | `AdminMfaJwtValidatorTest` |
 | 内部 mTLS | CP→Node、Node→CP 双向证书 | 临时 CA 全链路 + Node 证书轮换 |
 | 审计 | 租户序列、Previous Hash、Event Hash、查询、脱敏、Retention/Legal Hold | 集成测试 `chainValid=true` |
-| Runtime 供应链 | Stable、Validation、sha256 签名格式、SBOM Gate | Java 测试/集成启动；CI SBOM/Trivy |
+| Runtime 供应链 | Stable、Validation、Artifact Digest、Signing Key ID、Ed25519 验签、SBOM Gate | Java 有效/篡改/未知 Key 测试；CI SBOM/Trivy |
 | 安全治理 | Threat Model、Incident/Key Rotation Runbook | `docs/security/` |
 | Break-glass 治理 | 工单、双人审批、5—60 分钟、自动撤销、事后 Review、独立拒绝审计事务 | Java 单测 + 集成 409/ACTIVE/404/REVOKED/REVIEWED + Web E2E |
 | Runtime Release 治理 | Platform Admin、双人晋级/禁用、发布状态、证据哈希、跨控制租户隔离 | Java 单测 + 集成禁用/404/审计 |
@@ -33,5 +33,5 @@
 ## Gate 判定
 
 Phase 5 的应用层可靠性/身份/审计主链路已通过，生产 Exit Gate 仍因 OS 级 Helper
-权限拆分、Secure Debug 数据面、外部 KMS/HSM 编排、真实制品验签和完整故障演练保持
+权限拆分、Secure Debug 数据面、外部 KMS/HSM/真实签名流水线和完整故障演练保持
 “未关闭”。

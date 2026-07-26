@@ -136,6 +136,7 @@ export function RuntimesPage() {
                               : 'UNSIGNED'}
                           </p>
                           <p className="mt-1 max-w-[170px] truncate font-mono text-[9px] text-text-muted">
+                            {build.signingKeyId ?? 'KEY ID MISSING'} ·{' '}
                             {build.sbomUrl ?? 'SBOM MISSING'}
                           </p>
                         </td>

@@ -35,6 +35,8 @@ export interface RuntimeBuildView {
   releaseChannel: 'UNRELEASED' | 'CANARY' | 'STABLE' | 'DISABLED';
   signatureVerified: boolean;
   signature: string | null;
+  artifactDigest: string | null;
+  signingKeyId: string | null;
   sbomUrl: string | null;
   validatedAt: string | null;
   releasedAt: string | null;

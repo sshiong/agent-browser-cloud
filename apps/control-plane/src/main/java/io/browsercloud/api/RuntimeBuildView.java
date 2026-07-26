@@ -12,6 +12,8 @@ public record RuntimeBuildView(
     String releaseChannel,
     boolean signatureVerified,
     String signature,
+    String artifactDigest,
+    String signingKeyId,
     String sbomUrl,
     Instant validatedAt,
     Instant releasedAt,

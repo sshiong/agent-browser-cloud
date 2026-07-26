@@ -10,9 +10,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class RuntimeBuildApplicationService {
 
   private final RuntimeBuildJpaRepository repository;
+  private final RuntimeBuildPolicy policy;
 
-  public RuntimeBuildApplicationService(RuntimeBuildJpaRepository repository) {
+  public RuntimeBuildApplicationService(
+      RuntimeBuildJpaRepository repository, RuntimeBuildPolicy policy) {
     this.repository = repository;
+    this.policy = policy;
   }
 
   @Transactional(readOnly = true)
@@ -29,8 +32,10 @@ public class RuntimeBuildApplicationService {
                         build.getSecurityTier(),
                         build.getRegressionStatus(),
                         build.getReleaseChannel(),
-                        build.getSignature() != null && !build.getSignature().isBlank(),
+                        policy.isSignatureVerified(build),
                         build.getSignature(),
+                        build.getArtifactDigest(),
+                        build.getSigningKeyId(),
                         build.getSbomUrl(),
                         build.getValidatedAt(),
                         build.getReleasedAt(),

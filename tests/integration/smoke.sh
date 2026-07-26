@@ -163,7 +163,7 @@ runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$runtime_builds" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["sbomUrl"]'
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["artifactDigest"] == "sha256:" + "0"*64; assert build["signingKeyId"] == "local-development"; assert build["sbomUrl"]'
 
 unauthenticated_status="$(curl -sS -o "$temp_dir/unauthenticated.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions")"

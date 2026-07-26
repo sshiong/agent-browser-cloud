@@ -28,6 +28,12 @@ public class RuntimeBuildEntity {
 
   private String signature;
 
+  @Column(name = "artifact_digest")
+  private String artifactDigest;
+
+  @Column(name = "signing_key_id")
+  private String signingKeyId;
+
   @Column(name = "sbom_url")
   private String sbomUrl;
 
@@ -74,6 +80,14 @@ public class RuntimeBuildEntity {
 
   public String getSignature() {
     return signature;
+  }
+
+  public String getArtifactDigest() {
+    return artifactDigest;
+  }
+
+  public String getSigningKeyId() {
+    return signingKeyId;
   }
 
   public String getSbomUrl() {

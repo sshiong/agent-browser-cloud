@@ -54,7 +54,7 @@ make test-e2e
 
 1. Runtime Build 的 Create/Validate、隔离 Worker、Capability Snapshot、回归矩阵和
    Performance/Security Gate 仍属于 Phase 7 Validation Farm。
-2. Production Policy 当前验证签名格式与受信 SBOM URI，但还没有使用 Offline
-   Root/Online Intermediate 对真实制品执行密码学签名验证。
+2. Production Policy 已执行受信 Key ID 与 Ed25519 密码学验证；Offline Root/Online
+   Intermediate 的真实签名流水线与 OCI 内容 Digest 复算仍未完成。
 3. Web Console 当前只展示 Release Channel；Platform Admin 的发布审批工作区尚未接入。
 4. `KEY_ROTATION` 已完成治理与审计闭环；外部 KMS/HSM 自动执行仍是生产化缺口。

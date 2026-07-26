@@ -70,6 +70,7 @@ app:
 security:
   tenant-claim: ${OIDC_TENANT_CLAIM:tenant_id}
   roles-claim: ${OIDC_ROLES_CLAIM:roles}
+  runtime-signing-public-keys: ${RUNTIME_SIGNING_PUBLIC_KEYS:}
 
 audit:
   retention-days: ${AUDIT_RETENTION_DAYS:365}

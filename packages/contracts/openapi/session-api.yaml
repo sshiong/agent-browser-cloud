@@ -2127,6 +2127,11 @@ components:
           type: boolean
         signature:
           type: [string, "null"]
+        artifactDigest:
+          type: [string, "null"]
+          pattern: "^sha256:[a-f0-9]{64}$"
+        signingKeyId:
+          type: [string, "null"]
         sbomUrl:
           type: [string, "null"]
         validatedAt:

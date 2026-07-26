@@ -3,7 +3,6 @@ package io.browsercloud.infrastructure;
 import io.browsercloud.proto.node.v1.NodeControlServiceGrpc;
 import io.browsercloud.proto.node.v1.PingRequest;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,8 +17,9 @@ public class BrowserNodeHealthIndicator implements HealthIndicator {
   private final ManagedChannel channel;
 
   BrowserNodeHealthIndicator(
+      GrpcTransportFactory transportFactory,
       @Value("${browser-node.grpc-target:localhost:9090}") String grpcTarget) {
-    this.channel = ManagedChannelBuilder.forTarget(grpcTarget).usePlaintext().build();
+    this.channel = transportFactory.nodeChannel(grpcTarget);
   }
 
   @Override

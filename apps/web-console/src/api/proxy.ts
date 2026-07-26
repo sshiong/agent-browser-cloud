@@ -1,4 +1,8 @@
-import { DEFAULT_TENANT_ID, SessionApiError } from '@/api/session';
+import {
+  DEFAULT_TENANT_ID,
+  identityHeaders,
+  SessionApiError,
+} from '@/api/session';
 import type { ProxyOverviewResponse } from '@/types/proxy';
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -12,7 +16,7 @@ export async function getProxyOverview(
     signal,
     headers: {
       'Content-Type': 'application/json',
-      'X-Tenant-Id': tenantId,
+      ...identityHeaders(tenantId),
     },
   });
   if (!response.ok) {

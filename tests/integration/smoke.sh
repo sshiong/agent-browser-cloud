@@ -31,6 +31,33 @@ control_pid=""
 node_pid=""
 proxy_pid=""
 
+openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
+  -subj '/CN=BrowserCloud Integration CA' \
+  -keyout "$temp_dir/ca.key" -out "$temp_dir/ca.crt" >/dev/null 2>&1
+openssl req -new -newkey rsa:2048 -nodes \
+  -subj '/CN=browser-node.internal' \
+  -addext 'subjectAltName=DNS:browser-node.internal' \
+  -keyout "$temp_dir/node.key" -out "$temp_dir/node.csr" >/dev/null 2>&1
+openssl x509 -req -days 2 -in "$temp_dir/node.csr" \
+  -CA "$temp_dir/ca.crt" -CAkey "$temp_dir/ca.key" -CAcreateserial \
+  -copy_extensions copy -out "$temp_dir/node.crt" >/dev/null 2>&1
+openssl req -new -newkey rsa:2048 -nodes \
+  -subj '/CN=browser-node.internal' \
+  -addext 'subjectAltName=DNS:browser-node.internal' \
+  -keyout "$temp_dir/node-rotated.key" -out "$temp_dir/node-rotated.csr" >/dev/null 2>&1
+openssl x509 -req -days 2 -in "$temp_dir/node-rotated.csr" \
+  -CA "$temp_dir/ca.crt" -CAkey "$temp_dir/ca.key" -CAcreateserial \
+  -copy_extensions copy -out "$temp_dir/node-rotated.crt" >/dev/null 2>&1
+openssl req -new -newkey rsa:2048 -nodes \
+  -subj '/CN=control-plane.internal' \
+  -addext 'subjectAltName=DNS:control-plane.internal' \
+  -keyout "$temp_dir/control-plane.key" -out "$temp_dir/control-plane.csr" >/dev/null 2>&1
+openssl x509 -req -days 2 -in "$temp_dir/control-plane.csr" \
+  -CA "$temp_dir/ca.crt" -CAkey "$temp_dir/ca.key" -CAcreateserial \
+  -copy_extensions copy -out "$temp_dir/control-plane.crt" >/dev/null 2>&1
+node_certificate_path="$temp_dir/node.crt"
+node_private_key_path="$temp_dir/node.key"
+
 cleanup() {
   exit_code=$?
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
@@ -73,6 +100,11 @@ start_browser_node() {
   NODE_AGENT_PORT="$node_port" \
   NODE_ID=node-integration \
   CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
+  GRPC_TLS_ENABLED=true \
+  GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+  GRPC_TLS_CERT="$node_certificate_path" \
+  GRPC_TLS_KEY="$node_private_key_path" \
+  CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
   REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
   RUNTIME_ROOT="$temp_dir/runtime" \
   STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
@@ -102,6 +134,11 @@ REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
+GRPC_TLS_ENABLED=true \
+GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
+GRPC_TLS_KEY="$temp_dir/control-plane.key" \
+BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
 STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
 STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
 SERVER_PORT="$control_port" \
@@ -122,9 +159,14 @@ curl -fsS -D "$temp_dir/health-headers.txt" -o /dev/null \
 grep -qi '^x-content-type-options: nosniff' "$temp_dir/health-headers.txt"
 grep -qi '^cache-control: no-store' "$temp_dir/health-headers.txt"
 
+unauthenticated_status="$(curl -sS -o "$temp_dir/unauthenticated.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions")"
+test "$unauthenticated_status" = "401"
+
 unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-invalid-001' \
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
@@ -132,11 +174,13 @@ test "$unknown_field_status" = "400"
 request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","metadata":{"displayName":"Integration browser"}}'
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-idempotency-001' \
   -d "$request_body" >"$temp_dir/created-one.json" &
 create_one_pid=$!
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-idempotency-001' \
   -d "$request_body" >"$temp_dir/created-two.json" &
 create_two_pid=$!
@@ -148,9 +192,16 @@ session_one="$(printf '%s' "$created_one" | python3 -c 'import json,sys; print(j
 session_two="$(printf '%s' "$created_two" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
 test "$session_one" = "$session_two"
 
+viewer_write_status="$(curl -sS -o "$temp_dir/viewer-write.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}:start" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$viewer_write_status" = "403"
+
 conflict_status="$(curl -sS -o "$temp_dir/conflict.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-idempotency-001' \
   -d '{"tenantId":"tenant-integration","profileId":"different-profile"}')"
 test "$conflict_status" = "409"
@@ -378,6 +429,8 @@ printf '%s' "$recovered_browser_state" | python3 -c \
 kill -INT "$node_pid"
 wait "$node_pid" 2>/dev/null || true
 node_pid=""
+node_certificate_path="$temp_dir/node-rotated.crt"
+node_private_key_path="$temp_dir/node-rotated.key"
 start_browser_node
 
 reconciled_session=""
@@ -521,6 +574,7 @@ test "$profile_forbidden_status" = "403"
 second_request='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","metadata":{"displayName":"Restored browser"}}'
 second_created="$(curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-profile-restore-002' \
   -d "$second_request")"
 second_session="$(printf '%s' "$second_created" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
@@ -561,6 +615,32 @@ profile_after_restore="$(curl -fsS \
 printf '%s' "$profile_after_restore" | python3 -c \
   'import json,sys; profile=json.load(sys.stdin); assert profile["latestCheckpointEpoch"] == 2; assert profile["profileWriteEpoch"] == 2; assert profile["restoreStatus"] == "TECHNICAL_READY"; assert profile["checkpointFileCount"] >= 1'
 
-printf 'health=%s\nsecurity_headers=true\nunknown_field_rejected=%s\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\n' \
-  "$health" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status"
+completed_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from durable_workflows where tenant_id='tenant-integration' and state='COMPLETED' and length(commit_marker)=64")"
+test "$completed_workflows" = "4"
+linked_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from exclusive_operations where workflow_id is not null")"
+test "$linked_workflows" = "4"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "insert into durable_workflows(workflow_id,tenant_id,session_id,operation_id,workflow_type,attempt,priority,state,phase,coordinator_term,context_epoch,operation_epoch,phase_deadline,operation_deadline,idempotency_key,compensation_action,created_at,updated_at) values ('wf_smoke_deadletter','tenant-integration','${second_session}','op_missing_fault','FAULT_INJECTION',1,1,'RUNNING','PREPARING',0,0,999,now()-interval '1 second',now()-interval '1 second','smoke-deadletter','NONE',now(),now())" \
+  >/dev/null
+workflow_dead_letters="0"
+for _ in $(seq 1 20); do
+  workflow_dead_letters="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select count(*) from workflow_dead_letters where workflow_id='wf_smoke_deadletter'")"
+  if [[ "$workflow_dead_letters" = "1" ]]; then break; fi
+  sleep 0.25
+done
+test "$workflow_dead_letters" = "1"
+
+audit_result="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/audit-events?limit=500" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+audit_total="$(printf '%s' "$audit_result" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; assert {"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE"}.issubset(types); assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
+test "$audit_total" -ge "20"
+
+printf 'health=%s\nsecurity_headers=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\naudit_chain_valid=true\naudit_events=%s\n' \
+  "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$audit_total"

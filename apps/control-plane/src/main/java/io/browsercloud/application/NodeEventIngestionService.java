@@ -11,6 +11,7 @@ import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.persistence.InboxEventEntity;
 import io.browsercloud.persistence.InboxEventJpaRepository;
 import java.time.Instant;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,8 @@ public class NodeEventIngestionService {
   private final SessionRepository sessionRepository;
   private final NodeCommandGateway nodeCommandGateway;
   private final AgentNavigationCompletionService agentNavigationCompletionService;
+  private final AuditApplicationService auditService;
+  private final DurableWorkflowApplicationService workflowService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -37,7 +40,9 @@ public class NodeEventIngestionService {
       StaticProxyApplicationService proxyApplicationService,
       SessionRepository sessionRepository,
       NodeCommandGateway nodeCommandGateway,
-      AgentNavigationCompletionService agentNavigationCompletionService) {
+      AgentNavigationCompletionService agentNavigationCompletionService,
+      AuditApplicationService auditService,
+      DurableWorkflowApplicationService workflowService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -46,6 +51,8 @@ public class NodeEventIngestionService {
     this.sessionRepository = sessionRepository;
     this.nodeCommandGateway = nodeCommandGateway;
     this.agentNavigationCompletionService = agentNavigationCompletionService;
+    this.auditService = auditService;
+    this.workflowService = workflowService;
   }
 
   @Transactional
@@ -102,12 +109,61 @@ public class NodeEventIngestionService {
     } else if (command.event() instanceof NodeEvent.RuntimeStopped) {
       proxyApplicationService.release(command.sessionId());
     }
+    if (command.event() instanceof NodeEvent.RuntimeStarted
+        || command.event() instanceof NodeEvent.RuntimeStopped) {
+      workflowService.completeCallback(
+          command.tenantId(),
+          command.sessionId(),
+          command.coordinatorTerm(),
+          command.contextEpoch(),
+          command.operationEpoch(),
+          command.eventId());
+    }
 
+    appendAudit(command);
     inboxRepository.save(new InboxEventEntity(command.eventId(), CONSUMER_ID, Instant.now()));
     return new Receipt(false);
   }
 
   public record Receipt(boolean duplicate) {}
+
+  private void appendAudit(NodeEventReceived command) {
+    var eventName = command.event().getClass().getSimpleName();
+    var contextCommit =
+        command.event() instanceof NodeEvent.RuntimeStarted
+            || command.event() instanceof NodeEvent.RuntimeStopped
+            || command.event() instanceof NodeEvent.RuntimeCrashed;
+    auditService.append(
+        new AuditApplicationService.AuditRecord(
+            command.tenantId(),
+            command.sessionId(),
+            contextCommit ? "SESSION_CONTEXT_COMMIT" : "NODE_EVENT_COMMIT",
+            "NODE",
+            nodeActorId(command),
+            "SESSION",
+            command.sessionId(),
+            eventName,
+            "COMMITTED",
+            Map.of(
+                "coordinatorTerm",
+                command.coordinatorTerm(),
+                "contextEpoch",
+                command.contextEpoch(),
+                "operationEpoch",
+                command.operationEpoch(),
+                "sequence",
+                command.sequence()),
+            command.eventId()));
+  }
+
+  private String nodeActorId(NodeEventReceived command) {
+    if (command.event() instanceof NodeEvent.RuntimeStarted started) {
+      return started.nodeId();
+    }
+    // EventEnvelope does not carry node_id for every event type; the authenticated stream is the
+    // actor until the protocol adds it to the signed envelope.
+    return "node-event-stream";
+  }
 
   private void requestAutomaticFullResync(
       NodeEventReceived event, String reason, String affectedRoot) {

@@ -377,7 +377,8 @@ class SessionCoordinatorTest {
   @Test
   void shouldHandleTimeout() {
     // Given
-    var operation = createActiveOperation("ses-1");
+    when(sessionRepository.requireForUpdate("ses-1"))
+        .thenReturn(createSession("ses-1", SessionState.RUNNING));
 
     // When
     var result = coordinator.handle(new OperationTimedOut("ses-1", "op-1"));

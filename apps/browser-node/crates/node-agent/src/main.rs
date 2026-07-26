@@ -35,6 +35,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::sync::{mpsc, Mutex};
+use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 
@@ -42,6 +43,7 @@ use tracing_subscriber::EnvFilter;
 struct NodeControlService {
     node_id: String,
     control_plane_event_target: String,
+    grpc_tls: Option<Arc<GrpcTlsMaterial>>,
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
     profile_store: Arc<LocalProfileStore>,
     profile_workspaces: Arc<Mutex<HashMap<String, ActiveProfileWorkspace>>>,
@@ -60,6 +62,62 @@ struct NodeControlService {
     next_display: Arc<Mutex<u16>>,
     remote_desktop_gateway: Option<RemoteDesktopGateway>,
     desktop_enabled: bool,
+}
+
+#[derive(Clone)]
+struct GrpcTlsMaterial {
+    ca_certificate: Vec<u8>,
+    certificate: Vec<u8>,
+    private_key: Vec<u8>,
+    control_plane_server_name: String,
+}
+
+impl GrpcTlsMaterial {
+    fn from_environment(environment: &str) -> Result<Option<Self>> {
+        let enabled = std::env::var("GRPC_TLS_ENABLED")
+            .map(|value| value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        anyhow::ensure!(
+            !environment.eq_ignore_ascii_case("production") || enabled,
+            "Internal gRPC mTLS is mandatory in production"
+        );
+        if !enabled {
+            return Ok(None);
+        }
+        let ca_path = std::env::var("GRPC_TLS_CA_CERT")
+            .map_err(|_| anyhow::anyhow!("GRPC_TLS_CA_CERT is required"))?;
+        let certificate_path = std::env::var("GRPC_TLS_CERT")
+            .map_err(|_| anyhow::anyhow!("GRPC_TLS_CERT is required"))?;
+        let private_key_path = std::env::var("GRPC_TLS_KEY")
+            .map_err(|_| anyhow::anyhow!("GRPC_TLS_KEY is required"))?;
+        let material = Self {
+            ca_certificate: std::fs::read(ca_path)?,
+            certificate: std::fs::read(certificate_path)?,
+            private_key: std::fs::read(private_key_path)?,
+            control_plane_server_name: std::env::var("CONTROL_PLANE_TLS_SERVER_NAME")
+                .unwrap_or_else(|_| "control-plane.internal".to_owned()),
+        };
+        anyhow::ensure!(
+            !material.ca_certificate.is_empty()
+                && !material.certificate.is_empty()
+                && !material.private_key.is_empty(),
+            "gRPC TLS material cannot be empty"
+        );
+        Ok(Some(material))
+    }
+
+    fn client_config(&self) -> ClientTlsConfig {
+        ClientTlsConfig::new()
+            .ca_certificate(Certificate::from_pem(&self.ca_certificate))
+            .identity(Identity::from_pem(&self.certificate, &self.private_key))
+            .domain_name(&self.control_plane_server_name)
+    }
+
+    fn server_config(&self) -> ServerTlsConfig {
+        ServerTlsConfig::new()
+            .identity(Identity::from_pem(&self.certificate, &self.private_key))
+            .client_ca_root(Certificate::from_pem(&self.ca_certificate))
+    }
 }
 
 #[derive(Clone)]
@@ -358,18 +416,25 @@ impl NodeControlService {
     }
 
     async fn publish_event_receipt(&self, event: EventEnvelope) -> anyhow::Result<PublishResponse> {
+        let secure = self.grpc_tls.is_some();
         let target = if self.control_plane_event_target.starts_with("http://")
             || self.control_plane_event_target.starts_with("https://")
         {
             self.control_plane_event_target.clone()
         } else {
-            format!("http://{}", self.control_plane_event_target)
+            format!(
+                "{}://{}",
+                if secure { "https" } else { "http" },
+                self.control_plane_event_target
+            )
         };
-        let channel = tonic::transport::Endpoint::from_shared(target)?
+        let mut endpoint = tonic::transport::Endpoint::from_shared(target)?
             .connect_timeout(Duration::from_secs(2))
-            .timeout(Duration::from_secs(2))
-            .connect()
-            .await?;
+            .timeout(Duration::from_secs(2));
+        if let Some(material) = self.grpc_tls.as_ref() {
+            endpoint = endpoint.tls_config(material.client_config())?;
+        }
+        let channel = endpoint.connect().await?;
         let mut client = NodeEventServiceClient::new(channel);
         Ok(client
             .publish(PublishRequest { event: Some(event) })
@@ -2154,6 +2219,7 @@ async fn main() -> Result<()> {
         sender: desktop_disconnect_sender,
     });
     let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
+    let grpc_tls = GrpcTlsMaterial::from_environment(&environment)?.map(Arc::new);
     let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
@@ -2231,6 +2297,7 @@ async fn main() -> Result<()> {
     let service = NodeControlService {
         node_id,
         control_plane_event_target,
+        grpc_tls: grpc_tls.clone(),
         runtime_supervisor: runtime_supervisor.clone(),
         profile_store,
         profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
@@ -2278,7 +2345,11 @@ async fn main() -> Result<()> {
             redelivery_service.redeliver_pending_events().await;
         }
     });
-    tonic::transport::Server::builder()
+    let mut grpc_server = tonic::transport::Server::builder();
+    if let Some(material) = grpc_tls.as_ref() {
+        grpc_server = grpc_server.tls_config(material.server_config())?;
+    }
+    grpc_server
         .add_service(NodeControlServiceServer::new(service))
         .serve_with_shutdown(address, shutdown_signal())
         .await?;
@@ -2421,6 +2492,7 @@ mod tests {
         let service = NodeControlService {
             node_id: "node-test".into(),
             control_plane_event_target: address.to_string(),
+            grpc_tls: None,
             runtime_supervisor: Arc::new(ChromiumRuntimeSupervisor::new(PathBuf::from(
                 "/missing/chromium",
             ))),

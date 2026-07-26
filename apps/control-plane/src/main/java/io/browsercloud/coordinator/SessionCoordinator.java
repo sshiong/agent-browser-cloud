@@ -455,6 +455,17 @@ public final class SessionCoordinator {
     operationRepository.transition(
         timeout.operationId(), OperationState.ACTIVE, OperationState.TIMED_OUT);
 
+    var session = sessionRepository.requireForUpdate(timeout.sessionId());
+    if (session.state() == SessionState.STARTING || session.state() == SessionState.RECOVERING) {
+      sessionRepository.updateWithExpectedEpoch(
+          session.withState(SessionState.FAILED), session.contextEpoch());
+      outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.FAILED));
+    } else if (session.state() == SessionState.TERMINATING) {
+      sessionRepository.updateWithExpectedEpoch(
+          session.withState(SessionState.TERMINATED), session.contextEpoch());
+      outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.TERMINATED));
+    }
+
     // 发布事件
     outboxPublisher.append(new OperationTimedOutEvent(timeout.sessionId(), timeout.operationId()));
 

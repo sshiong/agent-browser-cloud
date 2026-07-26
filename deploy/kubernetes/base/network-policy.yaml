@@ -1,0 +1,52 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: browser-node-default-deny
+  namespace: browsercloud-browser-nodes
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: browser-node-controlled-traffic
+  namespace: browsercloud-browser-nodes
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: browser-node
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: browsercloud-system
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: browsercloud-system
+      ports:
+        - protocol: TCP
+          port: 9091
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              browsercloud.io/proxy-egress: "true"
+      ports:
+        - protocol: TCP
+          port: 3128
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

@@ -9,7 +9,6 @@ import io.browsercloud.proto.node.v1.CommandEnvelope;
 import io.browsercloud.proto.node.v1.DispatchRequest;
 import io.browsercloud.proto.node.v1.NodeControlServiceGrpc;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,11 +38,12 @@ public class NodeCommandOutboxDispatcher {
       OutboxEventJpaRepository outboxRepository,
       ObjectMapper objectMapper,
       AgentActionPayloadService actionPayloadService,
+      GrpcTransportFactory transportFactory,
       @Value("${browser-node.grpc-target:localhost:9090}") String grpcTarget) {
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
     this.actionPayloadService = actionPayloadService;
-    this.channel = ManagedChannelBuilder.forTarget(grpcTarget).usePlaintext().build();
+    this.channel = transportFactory.nodeChannel(grpcTarget);
   }
 
   @Scheduled(fixedDelayString = "${browser-node.dispatch-interval-ms:250}")

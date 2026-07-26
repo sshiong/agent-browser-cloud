@@ -18,6 +18,7 @@ paths:
       summary: Create a Session
       tags: [Session]
       parameters:
+        - $ref: "#/components/parameters/TenantId"
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
@@ -502,13 +503,53 @@ paths:
                 $ref: "#/components/schemas/AgentTask"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      summary: List and verify the tenant tamper-evident audit chain
+      description: Requires the SECURITY_ADMIN role. Details are redacted before persistence.
+      tags: [Audit]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: sessionId
+          in: query
+          schema:
+            type: string
+            pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        - name: eventType
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Tenant-scoped audit evidence and full-chain verification result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Required in secured environments. The current local skeleton uses X-Tenant-Id only as a development guard, not as authentication.
+      description: Production authentication. Tenant and actor are derived from validated JWT claims.
   parameters:
     SessionId:
       name: sessionId
@@ -527,8 +568,8 @@ components:
     TenantId:
       name: X-Tenant-Id
       in: header
-      required: true
-      description: Development tenant guard. Production derives tenant identity from the authenticated principal.
+      required: false
+      description: Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
       schema:
         type: string
         minLength: 1
@@ -544,8 +585,8 @@ components:
     ActorId:
       name: X-Actor-Id
       in: header
-      required: true
-      description: Development actor identity. Production derives actor identity from the authenticated principal.
+      required: false
+      description: Optional Local/Test actor identity. Ignored in Production, where actor identity is the JWT subject.
       schema:
         type: string
         minLength: 1
@@ -1333,6 +1374,8 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          deprecated: true
+          description: Backward-compatible request field. It must equal the authenticated tenant claim and cannot select a tenant.
         profileId:
           type: string
           minLength: 1
@@ -1577,6 +1620,80 @@ components:
           minimum: 1
         viewOnly:
           type: boolean
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - sequenceNo
+        - eventType
+        - actorType
+        - action
+        - result
+        - details
+        - eventHash
+        - retentionUntil
+        - legalHold
+        - createdAt
+      properties:
+        eventId:
+          type: string
+        sequenceNo:
+          type: integer
+          format: int64
+          minimum: 1
+        sessionId:
+          type: [string, "null"]
+        eventType:
+          type: string
+        actorType:
+          type: string
+        actorId:
+          type: [string, "null"]
+        resourceType:
+          type: [string, "null"]
+        resourceId:
+          type: [string, "null"]
+        action:
+          type: string
+        result:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        previousEventHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        eventHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        requestId:
+          type: [string, "null"]
+        retentionUntil:
+          type: string
+          format: date-time
+        legalHold:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    AuditEventListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, chainValid, headHash]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEvent"
+        total:
+          type: integer
+          format: int64
+        chainValid:
+          type: boolean
+        headHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
     Error:
       type: object
       additionalProperties: false

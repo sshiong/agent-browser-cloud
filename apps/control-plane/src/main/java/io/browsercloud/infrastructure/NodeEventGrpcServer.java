@@ -6,7 +6,6 @@ import io.browsercloud.proto.node.v1.NodeEventServiceGrpc;
 import io.browsercloud.proto.node.v1.PublishRequest;
 import io.browsercloud.proto.node.v1.PublishResponse;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import org.slf4j.Logger;
@@ -24,16 +23,19 @@ public class NodeEventGrpcServer implements SmartLifecycle {
   private final int port;
   private final NodeEventIngestionService ingestionService;
   private final NodeEventMapper mapper;
+  private final GrpcTransportFactory transportFactory;
   private volatile Server server;
   private volatile boolean running;
 
   public NodeEventGrpcServer(
       @Value("${control-plane.node-event-port:9091}") int port,
       NodeEventIngestionService ingestionService,
-      NodeEventMapper mapper) {
+      NodeEventMapper mapper,
+      GrpcTransportFactory transportFactory) {
     this.port = port;
     this.ingestionService = ingestionService;
     this.mapper = mapper;
+    this.transportFactory = transportFactory;
   }
 
   @Override
@@ -43,13 +45,17 @@ public class NodeEventGrpcServer implements SmartLifecycle {
     }
     try {
       server =
-          ServerBuilder.forPort(port)
+          transportFactory
+              .nodeEventServer(port)
               .maxInboundMessageSize(128 * 1024)
               .addService(new Endpoint(ingestionService, mapper))
               .build()
               .start();
       running = true;
-      log.info("Node Event gRPC server listening on port {}", port);
+      log.info(
+          "Node Event gRPC server listening on port {} (mTLS={})",
+          port,
+          transportFactory.tlsEnabled());
     } catch (IOException exception) {
       throw new IllegalStateException("Failed to start Node Event gRPC server", exception);
     }

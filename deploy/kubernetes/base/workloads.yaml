@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-plane
+  namespace: browsercloud-system
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: control-plane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: control-plane
+    spec:
+      nodeSelector:
+        browsercloud.io/workload: control-plane
+      containers:
+        - name: control-plane
+          image: ghcr.io/sshiong/agent-browser-cloud-control-plane:0.1.0
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: node-events
+              containerPort: 9091
+          env:
+            - name: APP_ENVIRONMENT
+              value: production
+            - name: GRPC_TLS_ENABLED
+              value: "true"
+          envFrom:
+            - secretRef:
+                name: control-plane-runtime-secrets
+          volumeMounts:
+            - name: mtls
+              mountPath: /var/run/browsercloud/mtls
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: mtls
+          secret:
+            secretName: control-plane-mtls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-plane
+  namespace: browsercloud-system
+spec:
+  selector:
+    app.kubernetes.io/name: control-plane
+  ports:
+    - name: http
+      port: 443
+      targetPort: http
+    - name: node-events
+      port: 9091
+      targetPort: node-events
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: browser-node
+  namespace: browsercloud-browser-nodes
+spec:
+  serviceName: browser-node
+  replicas: 3
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: browser-node
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: browser-node
+    spec:
+      runtimeClassName: browser-sandbox
+      terminationGracePeriodSeconds: 120
+      nodeSelector:
+        browsercloud.io/workload: browser-node
+      tolerations:
+        - key: browsercloud.io/workload
+          operator: Equal
+          value: browser-node
+          effect: NoSchedule
+      containers:
+        - name: browser-node
+          image: ghcr.io/sshiong/agent-browser-cloud-browser-node:0.1.0
+          ports:
+            - name: grpc
+              containerPort: 9090
+          env:
+            - name: APP_ENVIRONMENT
+              value: production
+            - name: GRPC_TLS_ENABLED
+              value: "true"
+            - name: CONTROL_PLANE_EVENT_TARGET
+              value: control-plane.browsercloud-system.svc:9091
+            - name: ALLOW_DIRECT_NETWORK
+              value: "false"
+          envFrom:
+            - secretRef:
+                name: browser-node-runtime-secrets
+          volumeMounts:
+            - name: warm-tier
+              mountPath: /var/lib/browsercloud
+            - name: mtls
+              mountPath: /var/run/browsercloud/mtls
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+      volumes:
+        - name: mtls
+          secret:
+            secretName: browser-node-mtls
+  volumeClaimTemplates:
+    - metadata:
+        name: warm-tier
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: browser-warm-tier
+        resources:
+          requests:
+            storage: 100Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-node
+  namespace: browsercloud-browser-nodes
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: browser-node
+  ports:
+    - name: grpc
+      port: 9090
+      targetPort: grpc
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: browser-node
+  namespace: browsercloud-browser-nodes
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: browser-node

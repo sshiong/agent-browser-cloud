@@ -20,6 +20,20 @@ export const DEFAULT_TENANT_ID =
   import.meta.env.VITE_TENANT_ID?.trim() || 'tenant-local';
 export const DEFAULT_ACTOR_ID =
   import.meta.env.VITE_ACTOR_ID?.trim() || 'user-local';
+const ACCESS_TOKEN = import.meta.env.VITE_ACCESS_TOKEN?.trim();
+
+export function identityHeaders(
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = DEFAULT_ACTOR_ID
+): Record<string, string> {
+  if (ACCESS_TOKEN) {
+    return { Authorization: `Bearer ${ACCESS_TOKEN}` };
+  }
+  return {
+    'X-Tenant-Id': tenantId,
+    'X-Actor-Id': actorId,
+  };
+}
 
 /**
  * API 错误类。
@@ -50,7 +64,7 @@ async function request<T>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(tenantId ? { 'X-Tenant-Id': tenantId } : {}),
+      ...(tenantId ? identityHeaders(tenantId) : {}),
       ...options?.headers,
     },
   });
@@ -75,7 +89,7 @@ async function requestOptional<T>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(tenantId ? { 'X-Tenant-Id': tenantId } : {}),
+      ...(tenantId ? identityHeaders(tenantId) : {}),
       ...options?.headers,
     },
   });
@@ -144,14 +158,18 @@ export async function createSession(
   idempotencyKey: string,
   signal?: AbortSignal
 ): Promise<CreateSessionResponse> {
-  return request<CreateSessionResponse>('/sessions', {
-    method: 'POST',
-    body: JSON.stringify(data),
-    signal,
-    headers: {
-      'Idempotency-Key': idempotencyKey,
+  return request<CreateSessionResponse>(
+    '/sessions',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
     },
-  });
+    data.tenantId
+  );
 }
 
 /**

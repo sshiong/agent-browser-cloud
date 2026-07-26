@@ -30,6 +30,10 @@ class SessionApplicationServiceTest {
   @Mock private RemoteDesktopTicketService remoteDesktopTicketService;
   @Mock private ProfileApplicationService profileApplicationService;
   @Mock private StaticProxyApplicationService proxyApplicationService;
+  @Mock private AuditApplicationService auditService;
+  @Mock private DurableWorkflowApplicationService workflowService;
+  @Mock private RuntimeBuildPolicy runtimeBuildPolicy;
+  @Mock private CapacityAdmissionService capacityAdmissionService;
 
   private SessionApplicationService service;
 
@@ -45,6 +49,10 @@ class SessionApplicationServiceTest {
             remoteDesktopTicketService,
             profileApplicationService,
             proxyApplicationService,
+            auditService,
+            workflowService,
+            runtimeBuildPolicy,
+            capacityAdmissionService,
             "runtime-test");
   }
 

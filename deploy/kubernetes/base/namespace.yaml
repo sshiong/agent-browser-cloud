@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: browsercloud-system
+  labels:
+    app.kubernetes.io/part-of: agent-browser-cloud
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: browsercloud-browser-nodes
+  labels:
+    app.kubernetes.io/part-of: agent-browser-cloud
+    browsercloud.io/zone: browser-node

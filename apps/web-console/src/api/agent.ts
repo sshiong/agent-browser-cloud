@@ -1,6 +1,7 @@
 import {
   DEFAULT_ACTOR_ID,
   DEFAULT_TENANT_ID,
+  identityHeaders,
   SessionApiError,
 } from '@/api/session';
 import type {
@@ -21,7 +22,7 @@ async function request<T>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'X-Tenant-Id': tenantId,
+      ...identityHeaders(tenantId),
       ...options?.headers,
     },
   });

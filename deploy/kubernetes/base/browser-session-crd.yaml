@@ -1,0 +1,59 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: browsersessions.browsercloud.io
+spec:
+  group: browsercloud.io
+  scope: Namespaced
+  names:
+    plural: browsersessions
+    singular: browsersession
+    kind: BrowserSession
+    shortNames: [bses]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [tenantId, profileId]
+              properties:
+                tenantId:
+                  type: string
+                  pattern: "^[A-Za-z0-9_-]{1,128}$"
+                profileId:
+                  type: string
+                  pattern: "^[A-Za-z0-9_-]{1,128}$"
+                region:
+                  type: string
+                  default: local
+                resourceClass:
+                  type: string
+                  enum: [L1, L2, L3, L4]
+                  default: L2
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                  format: int64
+                sessionId:
+                  type: string
+                phase:
+                  type: string
+                lastError:
+                  type: string
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Session
+          type: string
+          jsonPath: .status.sessionId

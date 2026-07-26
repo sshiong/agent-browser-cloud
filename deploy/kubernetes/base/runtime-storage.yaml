@@ -1,0 +1,29 @@
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: browser-sandbox
+handler: kata-qemu
+overhead:
+  podFixed:
+    cpu: 100m
+    memory: 128Mi
+scheduling:
+  nodeSelector:
+    browsercloud.io/workload: browser-node
+  tolerations:
+    - key: browsercloud.io/workload
+      operator: Equal
+      value: browser-node
+      effect: NoSchedule
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: browser-warm-tier
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+parameters:
+  type: gp3
+  encrypted: "true"

@@ -9,6 +9,7 @@ import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,10 @@ public class SessionApplicationService {
   private final RemoteDesktopTicketService remoteDesktopTicketService;
   private final ProfileApplicationService profileApplicationService;
   private final StaticProxyApplicationService proxyApplicationService;
+  private final AuditApplicationService auditService;
+  private final DurableWorkflowApplicationService workflowService;
+  private final RuntimeBuildPolicy runtimeBuildPolicy;
+  private final CapacityAdmissionService capacityAdmissionService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -41,6 +46,10 @@ public class SessionApplicationService {
       RemoteDesktopTicketService remoteDesktopTicketService,
       ProfileApplicationService profileApplicationService,
       StaticProxyApplicationService proxyApplicationService,
+      AuditApplicationService auditService,
+      DurableWorkflowApplicationService workflowService,
+      RuntimeBuildPolicy runtimeBuildPolicy,
+      CapacityAdmissionService capacityAdmissionService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -51,12 +60,20 @@ public class SessionApplicationService {
     this.remoteDesktopTicketService = remoteDesktopTicketService;
     this.profileApplicationService = profileApplicationService;
     this.proxyApplicationService = proxyApplicationService;
+    this.auditService = auditService;
+    this.workflowService = workflowService;
+    this.runtimeBuildPolicy = runtimeBuildPolicy;
+    this.capacityAdmissionService = capacityAdmissionService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
   /** 创建 Session。 */
   @Transactional
-  public CreateSessionResponse create(CreateSessionRequest request, String idempotencyKey) {
+  public CreateSessionResponse create(
+      CreateSessionRequest request, String idempotencyKey, String actorId) {
+    if (!capacityAdmissionService.snapshot().admissionOpen()) {
+      throw new CapacityUnavailableException();
+    }
     String candidateSessionId =
         "ses_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     String claimedSessionId =
@@ -95,27 +112,62 @@ public class SessionApplicationService {
         context,
         request.region() == null ? "local" : request.region(),
         request.metadata() == null ? java.util.Map.of() : request.metadata());
+    appendAudit(
+        context,
+        "SESSION_LIFECYCLE",
+        actorId,
+        "CREATE",
+        "COMMITTED",
+        Map.of("profileId", request.profileId(), "resourceClass", context.resourceClass().name()),
+        idempotencyKey);
 
     return new CreateSessionResponse(candidateSessionId, toContextView(context));
   }
 
   /** 启动 Session。 */
   @Transactional
-  public OperationResponse start(String sessionId, String tenantId) {
+  public OperationResponse start(String sessionId, String tenantId, String actorId) {
     var session = requireTenant(sessionId, tenantId);
+    runtimeBuildPolicy.requireApproved(defaultRuntimeBuildId);
     proxyApplicationService.ensureBinding(session);
     var result =
         coordinator.handle(
             new StartSession(sessionId, defaultRuntimeBuildId, UUID.randomUUID().toString()));
+    var operation = operationRepository.findActive(sessionId).orElseThrow();
+    var workflowId =
+        workflowService.start(
+            tenantId, operation, "START_RUNTIME", result.operationId(), "RELEASE_PROXY");
+    operationRepository.attachWorkflow(result.operationId(), workflowId);
+    appendAudit(
+        session,
+        "SESSION_OPERATION_TRANSITION",
+        actorId,
+        "START_RUNTIME",
+        "ACCEPTED",
+        Map.of("operationId", result.operationId(), "runtimeBuildId", defaultRuntimeBuildId),
+        result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
 
   /** 终止 Session。 */
   @Transactional
-  public OperationResponse terminate(String sessionId, String tenantId) {
-    requireTenant(sessionId, tenantId);
+  public OperationResponse terminate(String sessionId, String tenantId, String actorId) {
+    var session = requireTenant(sessionId, tenantId);
     var result = coordinator.handle(new TerminateSession(sessionId, "user_request"));
+    var operation = operationRepository.findActive(sessionId).orElseThrow();
+    var workflowId =
+        workflowService.start(
+            tenantId, operation, "TERMINATE_RUNTIME", result.operationId(), "RELEASE_PROXY");
+    operationRepository.attachWorkflow(result.operationId(), workflowId);
+    appendAudit(
+        session,
+        "SESSION_OPERATION_TRANSITION",
+        actorId,
+        "TERMINATE_RUNTIME",
+        "ACCEPTED",
+        Map.of("operationId", result.operationId(), "reason", "user_request"),
+        result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
@@ -125,6 +177,14 @@ public class SessionApplicationService {
   public OperationResponse requestTakeover(String sessionId, String tenantId, String userId) {
     requireTenant(sessionId, tenantId);
     var result = coordinator.handle(new RequestHumanTakeover(sessionId, userId));
+    appendAudit(
+        sessionRepository.require(sessionId),
+        "HUMAN_GOVERNANCE",
+        userId,
+        "REQUEST_TAKEOVER",
+        "ACCEPTED",
+        Map.of("operationId", result.operationId()),
+        result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
@@ -134,6 +194,14 @@ public class SessionApplicationService {
   public OperationResponse releaseTakeover(String sessionId, String tenantId, String userId) {
     requireTenant(sessionId, tenantId);
     var result = coordinator.handle(new ReleaseHumanTakeover(sessionId, userId));
+    appendAudit(
+        sessionRepository.require(sessionId),
+        "HUMAN_GOVERNANCE",
+        userId,
+        "RELEASE_TAKEOVER",
+        "ACCEPTED",
+        Map.of("operationId", result.operationId()),
+        result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
@@ -290,4 +358,29 @@ public class SessionApplicationService {
       throw new TenantAccessDeniedException(context.sessionId());
     }
   }
+
+  private void appendAudit(
+      SessionContext session,
+      String eventType,
+      String actorId,
+      String action,
+      String result,
+      Map<String, Object> details,
+      String requestId) {
+    auditService.append(
+        new AuditApplicationService.AuditRecord(
+            session.tenantId(),
+            session.sessionId(),
+            eventType,
+            "USER",
+            actorId,
+            "SESSION",
+            session.sessionId(),
+            action,
+            result,
+            details,
+            requestId));
+  }
+
+  public static final class CapacityUnavailableException extends RuntimeException {}
 }

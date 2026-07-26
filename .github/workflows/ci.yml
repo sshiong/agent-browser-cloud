@@ -55,5 +55,29 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: browsercloud-sbom.cdx.json
+
+      - name: Scan source and dependencies
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Upload supply-chain evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: browsercloud-supply-chain-evidence
+          path: browsercloud-sbom.cdx.json
+          if-no-files-found: error
+
       - name: Integration smoke test
         run: make test-integration

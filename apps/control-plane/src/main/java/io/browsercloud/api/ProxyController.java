@@ -1,28 +1,30 @@
 package io.browsercloud.api;
 
 import io.browsercloud.application.StaticProxyApplicationService;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import io.browsercloud.security.PlatformIdentity;
+import io.browsercloud.security.PlatformRoles;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/proxies")
 @Validated
+@PreAuthorize(PlatformRoles.READ)
 public class ProxyController {
 
   private final StaticProxyApplicationService service;
+  private final PlatformIdentity identity;
 
-  public ProxyController(StaticProxyApplicationService service) {
+  public ProxyController(StaticProxyApplicationService service, PlatformIdentity identity) {
     this.service = service;
+    this.identity = identity;
   }
 
   @GetMapping
-  public ProxyOverviewResponse overview(
-      @RequestHeader("X-Tenant-Id") @NotBlank @Size(max = 128) String tenantId) {
-    return service.overview(tenantId);
+  public ProxyOverviewResponse overview() {
+    return service.overview(identity.current().tenantId());
   }
 }

@@ -75,6 +75,20 @@ public class JpaOperationRepository implements OperationRepository {
 
   @Override
   @Transactional
+  public void attachWorkflow(String operationId, String workflowId) {
+    var entity =
+        operationJpa
+            .findById(operationId)
+            .orElseThrow(() -> new StaleOperationException(operationId, "EXISTS", "NOT_FOUND"));
+    if (entity.getWorkflowId() != null && !entity.getWorkflowId().equals(workflowId)) {
+      throw new StaleOperationException(operationId, workflowId, entity.getWorkflowId());
+    }
+    entity.setWorkflowId(workflowId);
+    operationJpa.save(entity);
+  }
+
+  @Override
+  @Transactional
   public void transition(String operationId, OperationState expected, OperationState target) {
     var entity =
         operationJpa

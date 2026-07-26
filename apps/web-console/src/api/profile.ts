@@ -1,4 +1,8 @@
-import { DEFAULT_TENANT_ID, SessionApiError } from '@/api/session';
+import {
+  DEFAULT_TENANT_ID,
+  identityHeaders,
+  SessionApiError,
+} from '@/api/session';
 import type {
   CreateProfileRequest,
   ProfileListResponse,
@@ -17,7 +21,7 @@ async function request<T>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'X-Tenant-Id': tenantId,
+      ...identityHeaders(tenantId),
       ...options?.headers,
     },
   });

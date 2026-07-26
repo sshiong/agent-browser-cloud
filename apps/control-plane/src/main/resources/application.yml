@@ -29,6 +29,12 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:}
+
 management:
   endpoints:
     web:
@@ -61,8 +67,23 @@ proxy:
 app:
   environment: ${APP_ENVIRONMENT:local}
 
+security:
+  tenant-claim: ${OIDC_TENANT_CLAIM:tenant_id}
+  roles-claim: ${OIDC_ROLES_CLAIM:roles}
+
+audit:
+  retention-days: ${AUDIT_RETENTION_DAYS:365}
+
 control-plane:
   node-event-port: ${CONTROL_PLANE_NODE_EVENT_PORT:9091}
+
+grpc:
+  tls:
+    enabled: ${GRPC_TLS_ENABLED:false}
+    ca-certificate: ${GRPC_TLS_CA_CERT:}
+    certificate: ${GRPC_TLS_CERT:}
+    private-key: ${GRPC_TLS_KEY:}
+    node-server-name: ${BROWSER_NODE_TLS_SERVER_NAME:browser-node.internal}
 
 logging:
   level:

@@ -6,6 +6,8 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
+import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
+import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
@@ -24,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -107,11 +110,44 @@ public class GlobalExceptionHandler {
         request);
   }
 
+  @ExceptionHandler(RuntimeBuildRejectedException.class)
+  ResponseEntity<ApiError> runtimeBuildRejected(
+      RuntimeBuildRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "RUNTIME_BUILD_REJECTED",
+        "The configured Runtime Build is not approved for release",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(CapacityUnavailableException.class)
+  ResponseEntity<ApiError> capacityUnavailable(
+      CapacityUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "CAPACITY_UNAVAILABLE",
+        "Admission is temporarily closed by online capacity feedback",
+        Map.of(),
+        request);
+  }
+
   @ExceptionHandler(TenantAccessDeniedException.class)
   ResponseEntity<ApiError> forbidden(
       TenantAccessDeniedException exception, HttpServletRequest request) {
     return response(
         HttpStatus.FORBIDDEN, "CAPABILITY_DENIED", "Session is not accessible", Map.of(), request);
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  ResponseEntity<ApiError> roleForbidden(
+      AccessDeniedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.FORBIDDEN,
+        "ROLE_FORBIDDEN",
+        "The authenticated identity lacks the required role",
+        Map.of(),
+        request);
   }
 
   @ExceptionHandler(ActiveOperationExistsException.class)

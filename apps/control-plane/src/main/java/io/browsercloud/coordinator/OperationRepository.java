@@ -41,6 +41,8 @@ public interface OperationRepository {
    */
   void insert(ExclusiveOperation operation);
 
+  void attachWorkflow(String operationId, String workflowId);
+
   /**
    * 转换 Operation 状态。
    *

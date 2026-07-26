@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.AgentTaskView;
 import io.browsercloud.coordinator.OperationFactory;
 import io.browsercloud.coordinator.OperationRepository;
+import io.browsercloud.coordinator.ReconcileAgentExecution;
+import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.operation.ExclusiveOperation;
@@ -39,6 +41,7 @@ public class AgentExecutionService {
   private static final long LEASE_SECONDS = 30;
 
   private final AgentTaskJpaRepository taskRepository;
+  private final SessionCoordinator coordinator;
   private final SessionRepository sessionRepository;
   private final OperationRepository operationRepository;
   private final IdempotencyService idempotencyService;
@@ -53,6 +56,7 @@ public class AgentExecutionService {
 
   public AgentExecutionService(
       AgentTaskJpaRepository taskRepository,
+      SessionCoordinator coordinator,
       SessionRepository sessionRepository,
       OperationRepository operationRepository,
       IdempotencyService idempotencyService,
@@ -63,6 +67,7 @@ public class AgentExecutionService {
       AgentApplicationService taskService,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
+    this.coordinator = coordinator;
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.idempotencyService = idempotencyService;
@@ -86,6 +91,8 @@ public class AgentExecutionService {
     var plan = readPlan(task.getPlan());
     validatePlan(plan);
     var session = requireRunningSession(task, tenantId);
+    coordinator.handle(new ReconcileAgentExecution(session.sessionId(), taskId));
+    session = requireRunningSession(task, tenantId);
 
     operationRepository.ensureNoActiveOperation(session.sessionId());
     var operation =
@@ -175,6 +182,17 @@ public class AgentExecutionService {
     if (task == null || !task.getState().equals(TaskState.RUNNING.name())) {
       return;
     }
+    coordinator.handle(new ReconcileAgentExecution(task.getSessionId(), task.getTaskId()));
+    var currentOperation =
+        operationRepository
+            .findActive(task.getSessionId())
+            .filter(value -> value.operationId().equals(task.getOperationId()));
+    if (currentOperation.isEmpty()) {
+      task.failExecution(
+          task.getCurrentStep(), task.getExecutionResults(), "COORDINATOR_FAILOVER_ABORTED", now);
+      taskRepository.save(task);
+      return;
+    }
     if (task.getStepDeadlineAt() != null && !task.getStepDeadlineAt().isAfter(now)) {
       failPendingStep(
           task.getTaskId(),
@@ -189,11 +207,7 @@ public class AgentExecutionService {
       taskRepository.save(task);
       return;
     }
-    var operation =
-        operationRepository
-            .findActive(task.getSessionId())
-            .filter(value -> value.operationId().equals(task.getOperationId()))
-            .orElse(null);
+    var operation = currentOperation.orElseThrow();
     if (operation == null || operation.isExpired(now)) {
       task.failExecution(
           task.getCurrentStep(), task.getExecutionResults(), "AGENT_OPERATION_EXPIRED", now);

@@ -7,6 +7,7 @@ import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
+import io.browsercloud.proto.node.v1.ReleaseAllInputCommand;
 import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
 import io.browsercloud.proto.node.v1.StartRuntimeCommand;
 import io.browsercloud.proto.node.v1.StopRuntimeCommand;
@@ -86,6 +87,32 @@ public final class NodeCommands {
             .build()
             .toByteArray();
     return command(session, operation, "EndHumanTakeover", payload);
+  }
+
+  /**
+   * Coordinator 换主后释放旧世代可能遗留的全部输入状态。
+   *
+   * <p>该命令不绑定新的 Exclusive Operation，Node 仅按 coordinator term fencing 并以 message id 去重。reason
+   * 只用于诊断，不能承载敏感数据。
+   */
+  public static NodeCommand releaseAllInput(
+      SessionContext session, ExclusiveOperation staleOperation, String reason) {
+    var payload =
+        ReleaseAllInputCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setReason(reason)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        newId("cmd_"),
+        "ReleaseAllInput",
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        "failover-fence:" + staleOperation.operationId(),
+        payload);
   }
 
   public static NodeCommand requestStateResync(

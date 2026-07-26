@@ -128,4 +128,33 @@ public record SessionContext(
         createdAt,
         Instant.now());
   }
+
+  /**
+   * 使用权威 Ownership Term 构造当前事务的 Session 视图。
+   *
+   * <p>Ownership 变化不是 Browser Context 变化，因此不会递增 context_epoch。持久化读取会继续从 coordinator_ownership 叠加最新
+   * term；该方法用于让接管事务中新建的 Operation 和 Node Command 立即携带新 term。
+   */
+  public SessionContext withCoordinatorTerm(long newCoordinatorTerm) {
+    if (newCoordinatorTerm < coordinatorTerm) {
+      throw new IllegalArgumentException("coordinator term cannot move backwards");
+    }
+    return new SessionContext(
+        sessionId,
+        tenantId,
+        profileId,
+        nodeId,
+        runtimeBuildId,
+        isolationProfileId,
+        proxyBindingId,
+        newCoordinatorTerm,
+        contextEpoch,
+        browserGeneration,
+        networkRevision,
+        resourceClass,
+        state,
+        policyHash,
+        createdAt,
+        Instant.now());
+  }
 }

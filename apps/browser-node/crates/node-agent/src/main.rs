@@ -2211,6 +2211,9 @@ impl NodeControlServiceRpc for NodeControlService {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| anyhow::anyhow!("failed to install the process rustls crypto provider"))?;
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),

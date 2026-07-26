@@ -395,7 +395,112 @@ class SessionCoordinatorTest {
     verify(outboxPublisher).append(any(OperationTimedOutEvent.class));
   }
 
+  @Test
+  void shouldAbortInFlightStartAndCreateNewTermCleanupAfterFailover() {
+    var session = createSession("ses-1", SessionState.STARTING, 2);
+    var stale =
+        createActiveOperation(
+            "ses-1", OperationMode.AGENT_INTERACTIVE, OperationPhase.PREPARING, "control-plane", 1);
+    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale));
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
+
+    var result = coordinator.handle(new StartSession("ses-1", "runtime-1", "idem-failover"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.ABORTED);
+    verify(operationRepository)
+        .insert(
+            argThat(
+                operation ->
+                    operation.mode() == OperationMode.TERMINATION
+                        && operation.coordinatorTerm() == 2
+                        && operation.operationEpoch() == 2));
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(
+                context ->
+                    context.state() == SessionState.TERMINATING && context.coordinatorTerm() == 2),
+            eq(0L));
+    verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("StopRuntime")
+                        && command.coordinatorTerm() == 2
+                        && command.operationEpoch() == 2));
+  }
+
+  @Test
+  void shouldRebuildHumanTakeoverBarrierUnderNewTerm() {
+    var session = createSession("ses-1", SessionState.RUNNING, 2);
+    var stale =
+        createActiveOperation(
+            "ses-1", OperationMode.HUMAN_TAKEOVER, OperationPhase.EXECUTING, "user-1", 1);
+    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale));
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(5L);
+
+    var result = coordinator.handle(new RequestHumanTakeover("ses-1", "user-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    assertThat(result.operationId()).isNotEqualTo("op-1");
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.ABORTED);
+    verify(operationRepository)
+        .insert(
+            argThat(
+                operation ->
+                    operation.mode() == OperationMode.HUMAN_TAKEOVER
+                        && operation.coordinatorTerm() == 2
+                        && operation.operationEpoch() == 5));
+    verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("BeginHumanTakeover")
+                        && command.coordinatorTerm() == 2));
+  }
+
+  @Test
+  void shouldFenceStaleAgentInputBeforeStartingHumanTakeover() {
+    var session = createSession("ses-1", SessionState.RUNNING, 2);
+    var stale =
+        createActiveOperation(
+            "ses-1", OperationMode.AGENT_INTERACTIVE, OperationPhase.EXECUTING, "task-1", 1);
+    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale), Optional.empty());
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(6L);
+
+    var result = coordinator.handle(new RequestHumanTakeover("ses-1", "user-2"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    var commands = inOrder(nodeCommandGateway);
+    commands
+        .verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("ReleaseAllInput")
+                        && command.coordinatorTerm() == 2
+                        && command.operationEpoch() == 0));
+    commands
+        .verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("BeginHumanTakeover")
+                        && command.coordinatorTerm() == 2
+                        && command.operationEpoch() == 6));
+  }
+
   private SessionContext createSession(String sessionId, SessionState state) {
+    return createSession(sessionId, state, 0);
+  }
+
+  private SessionContext createSession(String sessionId, SessionState state, long coordinatorTerm) {
     return new SessionContext(
         sessionId,
         "tenant-1",
@@ -404,7 +509,7 @@ class SessionCoordinatorTest {
         state == SessionState.CREATED ? null : "runtime-1",
         null,
         null,
-        0,
+        coordinatorTerm,
         0,
         0,
         0,
@@ -425,6 +530,15 @@ class SessionCoordinatorTest {
 
   private ExclusiveOperation createActiveOperation(
       String sessionId, OperationMode mode, OperationPhase phase, String actorId) {
+    return createActiveOperation(sessionId, mode, phase, actorId, 0);
+  }
+
+  private ExclusiveOperation createActiveOperation(
+      String sessionId,
+      OperationMode mode,
+      OperationPhase phase,
+      String actorId,
+      long coordinatorTerm) {
     return new ExclusiveOperation(
         "op-1",
         sessionId,
@@ -432,7 +546,7 @@ class SessionCoordinatorTest {
         actorId,
         mode,
         0,
-        0,
+        coordinatorTerm,
         0,
         1,
         null,

@@ -334,6 +334,26 @@ test "$diff_target_name" = "Continue integration"
 printf '%s' "$diff_state" | python3 -c \
   "import json,sys; state=json.load(sys.stdin); assert state['stateVersion'] > ${initial_state_version}; assert state['stateQuality'] == 'COMPLETE'"
 
+inflight_takeover="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: coordinator-failover-test')"
+inflight_operation_id="$(printf '%s' "$inflight_takeover" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+inflight_phase=""
+for _ in $(seq 1 60); do
+  inflight_session="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  inflight_phase="$(printf '%s' "$inflight_session" | python3 -c \
+    'import json,sys; op=json.load(sys.stdin)["currentOperation"]; print(op["phase"] if op else "")')"
+  if [[ "$inflight_phase" = "EXECUTING" ]]; then break; fi
+  sleep 0.25
+done
+test "$inflight_phase" = "EXECUTING"
+printf '%s' "$inflight_session" | python3 -c \
+  'import json,sys; op=json.load(sys.stdin)["currentOperation"]; assert op["coordinatorTerm"] == 1'
+
 ownership_before_kill="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select coordinator_owner || ':' || coordinator_term from coordinator_ownership where session_id='${session_one}'")"
 test "$ownership_before_kill" = "coordinator-integration-a:1"
@@ -387,6 +407,7 @@ test "$failover_status" = "202"
 failover_takeover="$(<"$temp_dir/failover-takeover.json")"
 failover_operation_id="$(printf '%s' "$failover_takeover" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+test "$failover_operation_id" != "$inflight_operation_id"
 failover_phase=""
 for _ in $(seq 1 60); do
   failover_session="$(curl -fsS \
@@ -415,6 +436,12 @@ for _ in $(seq 1 60); do
   sleep 0.25
 done
 test "$failover_active" = "false"
+inflight_operation_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state from exclusive_operations where operation_id='${inflight_operation_id}'")"
+test "$inflight_operation_state" = "ABORTED"
+failover_operation_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state from exclusive_operations where operation_id='${failover_operation_id}'")"
+test "$failover_operation_state" = "COMMITTED"
 ownership_after_failover="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select coordinator_owner || ':' || coordinator_term from coordinator_ownership where session_id='${session_one}'")"
 test "$ownership_after_failover" = "coordinator-integration-b:2"
@@ -1096,6 +1123,6 @@ key_rotation_audit_result="$(curl -fsS \
 printf '%s' "$key_rotation_audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 5; assert len(result["items"]) == 5; assert {item["action"] for item in result["items"]} == {"KEY_ROTATION_REQUESTED","KEY_ROTATION_APPROVAL_DENIED","KEY_ROTATION_APPROVED","KEY_ROTATION_COMPLETION_DENIED","KEY_ROTATION_COMPLETED"}'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\ncoordinator_failover_term=2\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

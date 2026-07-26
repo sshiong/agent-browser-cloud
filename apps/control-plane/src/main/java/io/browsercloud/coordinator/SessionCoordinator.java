@@ -64,17 +64,109 @@ public final class SessionCoordinator {
     if (command instanceof NodeEventReceived event) {
       ownershipService.assertCurrentOwner(event.sessionId(), event.coordinatorTerm());
     } else {
-      ownershipService.acquireSession(command.sessionId());
+      long currentTerm = ownershipService.acquireSession(command.sessionId());
+      var reconciliation = reconcileStaleOperation(command, currentTerm);
+      if (reconciliation.isPresent()) {
+        return reconciliation.orElseThrow();
+      }
     }
     return switch (command) {
       case StartSession start -> handleStart(start);
       case TerminateSession terminate -> handleTerminate(terminate);
       case RequestHumanTakeover takeover -> handleHumanTakeover(takeover);
       case ReleaseHumanTakeover release -> handleReleaseHumanTakeover(release);
+      case ReconcileAgentExecution ignored -> CoordinatorResult.completed();
       case NodeEventReceived event -> handleNodeEvent(event);
       case OperationTimedOut timeout -> handleTimeout(timeout);
       default -> CoordinatorResult.rejected("UNSUPPORTED_COMMAND");
     };
+  }
+
+  /**
+   * 在 Ownership Term 提升后处理旧世代未完成的 Operation。
+   *
+   * <p>启动、恢复和终止属于 Runtime 生命周期边界，无法在不知道旧命令是否执行的情况下安全重放； 新 Coordinator 因此统一创建新 term 的 Termination
+   * Operation，让 Node 幂等停止并释放 Profile、 Proxy 和输入资源。运行态的 HumanTakeover 则按当前用户请求重建
+   * barrier；其他运行态操作先释放全部输入， 再由当前命令继续。
+   */
+  private Optional<CoordinatorResult> reconcileStaleOperation(
+      SessionCommand command, long currentTerm) {
+    if (currentTerm <= 0) {
+      return Optional.empty();
+    }
+    var session = sessionRepository.requireForUpdate(command.sessionId());
+    var stale =
+        operationRepository
+            .findActive(session.sessionId())
+            .filter(operation -> operation.coordinatorTerm() < currentTerm);
+    if (stale.isEmpty()) {
+      return Optional.empty();
+    }
+
+    var staleOperation = stale.orElseThrow();
+    var fencedSession = session.withCoordinatorTerm(currentTerm);
+    operationRepository.transition(
+        staleOperation.operationId(), OperationState.ACTIVE, OperationState.ABORTED);
+    log.warn(
+        "Aborted stale operation {} for session {} after coordinator term advanced {} -> {}",
+        staleOperation.operationId(),
+        session.sessionId(),
+        staleOperation.coordinatorTerm(),
+        currentTerm);
+
+    if (session.state() == SessionState.STARTING
+        || session.state() == SessionState.RECOVERING
+        || session.state() == SessionState.TERMINATING) {
+      var cleanup =
+          OperationFactory.terminate(
+              fencedSession, operationRepository.nextOperationEpoch(session.sessionId()));
+      operationRepository.insert(cleanup);
+      sessionRepository.updateWithExpectedEpoch(
+          fencedSession.withState(SessionState.TERMINATING), session.contextEpoch());
+      nodeCommandGateway.send(
+          NodeCommands.stopRuntime(fencedSession, cleanup, "coordinator_failover"));
+      outboxPublisher.append(
+          new SessionStateChanged(session.sessionId(), SessionState.TERMINATING));
+      return Optional.of(CoordinatorResult.accepted(cleanup.operationId()));
+    }
+
+    if (staleOperation.mode() == OperationMode.HUMAN_TAKEOVER
+        && command instanceof RequestHumanTakeover takeover
+        && takeover.userId().equals(staleOperation.actorId())) {
+      var replacement =
+          OperationFactory.humanTakeover(
+              fencedSession,
+              takeover.userId(),
+              operationRepository.nextOperationEpoch(session.sessionId()));
+      operationRepository.insert(replacement);
+      nodeCommandGateway.send(NodeCommands.beginHumanTakeover(fencedSession, replacement));
+      return Optional.of(CoordinatorResult.accepted(replacement.operationId()));
+    }
+
+    if (staleOperation.mode() == OperationMode.HUMAN_TAKEOVER
+        && command instanceof ReleaseHumanTakeover release
+        && release.userId().equals(staleOperation.actorId())) {
+      var replacement =
+          OperationFactory.humanTakeover(
+                  fencedSession,
+                  release.userId(),
+                  operationRepository.nextOperationEpoch(session.sessionId()))
+              .withPhase(OperationPhase.COMPLETING);
+      operationRepository.insert(replacement);
+      nodeCommandGateway.send(NodeCommands.endHumanTakeover(fencedSession, replacement));
+      return Optional.of(CoordinatorResult.accepted(replacement.operationId()));
+    }
+
+    nodeCommandGateway.send(
+        NodeCommands.releaseAllInput(
+            fencedSession, staleOperation, "coordinator_failover_stale_operation"));
+    if (command instanceof OperationTimedOut timeout
+        && timeout.operationId().equals(staleOperation.operationId())) {
+      outboxPublisher.append(
+          new OperationTimedOutEvent(timeout.sessionId(), timeout.operationId()));
+      return Optional.of(CoordinatorResult.completed());
+    }
+    return Optional.empty();
   }
 
   /**

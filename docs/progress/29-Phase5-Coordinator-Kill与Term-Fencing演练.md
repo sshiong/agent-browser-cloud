@@ -3,6 +3,8 @@
 > 状态：安全点接管已完成
 > 日期：2026-07-26
 > 验收入口：`make test-integration`
+> 后续扩展：进行中 HumanTakeover 接管见
+> [进度 32](32-Phase5-Coordinator进行中Operation接管.md)
 
 ## 本轮关闭的缺口
 
@@ -86,8 +88,9 @@ make test-e2e
 创建新的 Operation。它关闭了“Session 可接管、term 递增、旧世代不能提交”的基础 Gate，
 但不等同于完整生产 Exit Gate：
 
-1. 尚未在 `STARTING`、`STOPPING`、`RECOVERING`、Agent Step 执行中或
-   HumanTakeover Barrier 中间 Kill Coordinator，并证明进行中 Operation 可恢复或安全中止；
+1. HumanTakeover `EXECUTING` Kill/Reconcile 已由进度 32 关闭；`STARTING`、
+   `STOPPING`、`RECOVERING`、Agent Step 以及 Barrier `PREPARING/COMPLETING`
+   的真实进程级竞态仍待完成；
 2. 尚未双实例同时长稳运行并注入 PostgreSQL 延迟、时钟偏差和连接池拥塞；
 3. 尚未验证数万 Session Heartbeat、Lease 扫描和 Ownership 查询的容量/P99；
 4. Session 列表当前逐项读取 Ownership Term，容量阶段需要批量投影以消除潜在 N+1；

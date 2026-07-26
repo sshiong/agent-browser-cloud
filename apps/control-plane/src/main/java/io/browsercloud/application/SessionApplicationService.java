@@ -134,17 +134,30 @@ public class SessionApplicationService {
         coordinator.handle(
             new StartSession(sessionId, defaultRuntimeBuildId, UUID.randomUUID().toString()));
     var operation = operationRepository.findActive(sessionId).orElseThrow();
+    boolean failoverCleanup = operation.mode() == OperationMode.TERMINATION;
     var workflowId =
         workflowService.start(
-            tenantId, operation, "START_RUNTIME", result.operationId(), "RELEASE_PROXY");
+            tenantId,
+            operation,
+            failoverCleanup ? "TERMINATE_RUNTIME" : "START_RUNTIME",
+            result.operationId(),
+            "RELEASE_PROXY");
     operationRepository.attachWorkflow(result.operationId(), workflowId);
     appendAudit(
         session,
         "SESSION_OPERATION_TRANSITION",
         actorId,
-        "START_RUNTIME",
+        failoverCleanup ? "COORDINATOR_FAILOVER_ABORT" : "START_RUNTIME",
         "ACCEPTED",
-        Map.of("operationId", result.operationId(), "runtimeBuildId", defaultRuntimeBuildId),
+        failoverCleanup
+            ? Map.of(
+                "operationId",
+                result.operationId(),
+                "abortedAction",
+                "START_RUNTIME",
+                "cleanup",
+                "TERMINATE_RUNTIME")
+            : Map.of("operationId", result.operationId(), "runtimeBuildId", defaultRuntimeBuildId),
         result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);

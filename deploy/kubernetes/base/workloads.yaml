@@ -119,6 +119,8 @@ spec:
           ports:
             - name: grpc
               containerPort: 9090
+            - name: remote-desktop
+              containerPort: 6080
           env:
             - name: APP_ENVIRONMENT
               value: production
@@ -270,6 +272,9 @@ spec:
     - name: grpc
       port: 9090
       targetPort: grpc
+    - name: remote-desktop
+      port: 6080
+      targetPort: remote-desktop
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -281,3 +286,84 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: browser-node
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-console
+  namespace: browsercloud-system
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web-console
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web-console
+    spec:
+      nodeSelector:
+        browsercloud.io/workload: control-plane
+      containers:
+        - name: web-console
+          image: ghcr.io/sshiong/agent-browser-cloud-web-console:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-console
+  namespace: browsercloud-system
+spec:
+  selector:
+    app.kubernetes.io/name: web-console
+  ports:
+    - name: https
+      port: 443
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-node
+  namespace: browsercloud-system
+spec:
+  type: ExternalName
+  externalName: browser-node.browsercloud-browser-nodes.svc.cluster.local
+  ports:
+    - name: remote-desktop
+      port: 6080
+      targetPort: 6080

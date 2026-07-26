@@ -6,7 +6,7 @@ RUN pnpm install --frozen-lockfile
 COPY apps/web-console ./
 RUN pnpm build
 
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY apps/web-console/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /workspace/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 8080

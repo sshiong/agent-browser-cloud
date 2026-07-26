@@ -1,0 +1,207 @@
+name: release-images
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/agent-browser-cloud
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Check out exact release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install verified Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+
+      - name: Install verified Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610
+
+      - name: Build and push Control Plane
+        id: control_plane
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: apps/control-plane/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-control-plane:sha-${{ github.sha }}
+          provenance: mode=max
+
+      - name: Build and push Browser Node
+        id: browser_node
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: apps/browser-node/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-node:sha-${{ github.sha }}
+          provenance: mode=max
+
+      - name: Build and push Web Console
+        id: web_console
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: apps/web-console/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web-console:sha-${{ github.sha }}
+          provenance: mode=max
+
+      - name: Build and push BrowserSession Operator
+        id: operator
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: tools/browser-session-operator
+          file: tools/browser-session-operator/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-operator:sha-${{ github.sha }}
+          provenance: mode=max
+
+      - name: Resolve immutable image references
+        id: images
+        env:
+          CONTROL_PLANE_DIGEST: ${{ steps.control_plane.outputs.digest }}
+          BROWSER_NODE_DIGEST: ${{ steps.browser_node.outputs.digest }}
+          WEB_CONSOLE_DIGEST: ${{ steps.web_console.outputs.digest }}
+          OPERATOR_DIGEST: ${{ steps.operator.outputs.digest }}
+        run: |
+          set -euo pipefail
+          {
+            echo "control_plane=${REGISTRY}/${IMAGE_PREFIX}-control-plane@${CONTROL_PLANE_DIGEST}"
+            echo "browser_node=${REGISTRY}/${IMAGE_PREFIX}-browser-node@${BROWSER_NODE_DIGEST}"
+            echo "web_console=${REGISTRY}/${IMAGE_PREFIX}-web-console@${WEB_CONSOLE_DIGEST}"
+            echo "operator=${REGISTRY}/${IMAGE_PREFIX}-operator@${OPERATOR_DIGEST}"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Generate image SBOMs
+        env:
+          CONTROL_PLANE_IMAGE: ${{ steps.images.outputs.control_plane }}
+          BROWSER_NODE_IMAGE: ${{ steps.images.outputs.browser_node }}
+          WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
+          OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
+        run: |
+          set -euo pipefail
+          mkdir supply-chain-evidence
+          syft "$CONTROL_PLANE_IMAGE" -o spdx-json=supply-chain-evidence/control-plane.spdx.json
+          syft "$BROWSER_NODE_IMAGE" -o spdx-json=supply-chain-evidence/browser-node.spdx.json
+          syft "$WEB_CONSOLE_IMAGE" -o spdx-json=supply-chain-evidence/web-console.spdx.json
+          syft "$OPERATOR_IMAGE" -o spdx-json=supply-chain-evidence/operator.spdx.json
+
+      - name: Keyless-sign images and attest SBOMs
+        env:
+          CONTROL_PLANE_IMAGE: ${{ steps.images.outputs.control_plane }}
+          BROWSER_NODE_IMAGE: ${{ steps.images.outputs.browser_node }}
+          WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
+          OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
+        run: |
+          set -euo pipefail
+          for image in \
+            "$CONTROL_PLANE_IMAGE" \
+            "$BROWSER_NODE_IMAGE" \
+            "$WEB_CONSOLE_IMAGE" \
+            "$OPERATOR_IMAGE"; do
+            cosign sign --yes "$image"
+          done
+          cosign attest --yes --type spdxjson \
+            --predicate supply-chain-evidence/control-plane.spdx.json "$CONTROL_PLANE_IMAGE"
+          cosign attest --yes --type spdxjson \
+            --predicate supply-chain-evidence/browser-node.spdx.json "$BROWSER_NODE_IMAGE"
+          cosign attest --yes --type spdxjson \
+            --predicate supply-chain-evidence/web-console.spdx.json "$WEB_CONSOLE_IMAGE"
+          cosign attest --yes --type spdxjson \
+            --predicate supply-chain-evidence/operator.spdx.json "$OPERATOR_IMAGE"
+
+      - name: Render signed digest-locked release bundle
+        env:
+          CONTROL_PLANE_IMAGE: ${{ steps.images.outputs.control_plane }}
+          BROWSER_NODE_IMAGE: ${{ steps.images.outputs.browser_node }}
+          WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
+          OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
+        run: |
+          set -euo pipefail
+          python3 tools/supply-chain/release_bundle.py render \
+            --source-commit "$GITHUB_SHA" \
+            --output release-bundle \
+            --image "control-plane=$CONTROL_PLANE_IMAGE" \
+            --image "browser-node=$BROWSER_NODE_IMAGE" \
+            --image "web-console=$WEB_CONSOLE_IMAGE" \
+            --image "operator=$OPERATOR_IMAGE"
+          cp -R supply-chain-evidence release-bundle/evidence
+          cosign sign-blob --yes \
+            --bundle release-bundle/release-manifest.sigstore.json \
+            release-bundle/release-manifest.json
+
+      - name: Verify release evidence before publishing
+        env:
+          CONTROL_PLANE_IMAGE: ${{ steps.images.outputs.control_plane }}
+          BROWSER_NODE_IMAGE: ${{ steps.images.outputs.browser_node }}
+          WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
+          OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
+          for image in \
+            "$CONTROL_PLANE_IMAGE" \
+            "$BROWSER_NODE_IMAGE" \
+            "$WEB_CONSOLE_IMAGE" \
+            "$OPERATOR_IMAGE"; do
+            cosign verify \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$image"
+            cosign verify-attestation \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              --type spdxjson \
+              "$image"
+          done
+          cosign verify-blob \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --bundle release-bundle/release-manifest.sigstore.json \
+            release-bundle/release-manifest.json
+          python3 tools/supply-chain/release_bundle.py verify --bundle release-bundle
+          kubectl kustomize release-bundle/production >release-bundle/rendered-production.yaml
+          if awk '/^[[:space:]]+(- )?image: / && $0 !~ /@sha256:[a-f0-9]{64}$/ { exit 1 }' \
+            release-bundle/rendered-production.yaml; then
+            :
+          else
+            echo "rendered release contains a mutable image reference" >&2
+            exit 1
+          fi
+
+      - name: Upload signed release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-release-${{ github.sha }}
+          path: release-bundle
+          if-no-files-found: error
+          retention-days: 90

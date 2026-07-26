@@ -23,7 +23,7 @@ spec:
         browsercloud.io/workload: control-plane
       containers:
         - name: operator
-          image: ghcr.io/sshiong/agent-browser-cloud-operator:latest
+          image: ghcr.io/sshiong/agent-browser-cloud-operator:0.1.0
           imagePullPolicy: IfNotPresent
           env:
             - name: CONTROL_PLANE_URL
@@ -39,6 +39,10 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop: [ALL]
           resources:

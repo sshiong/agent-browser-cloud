@@ -1,4 +1,4 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build test-integration test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-e2e ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 
@@ -71,6 +71,10 @@ docker-build:
 	docker build -f apps/browser-node/Dockerfile -t browser-node:latest .
 	docker build -f apps/web-console/Dockerfile -t web-console:latest .
 
+# Validate production release bundle invariants
+supply-chain-check:
+	./tests/supply-chain/release_bundle_test.sh
+
 # Run integration tests
 test-integration:
 	./tests/integration/smoke.sh
@@ -80,4 +84,4 @@ test-e2e:
 	./tests/e2e/run.sh
 
 # Run all checks (CI)
-ci: lint test contracts-check
+ci: lint test contracts-check supply-chain-check

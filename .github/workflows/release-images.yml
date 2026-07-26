@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-images-v3-${{ github.ref }}
+  group: release-images-v4-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -42,7 +42,7 @@ jobs:
       - name: Install verified Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
         with:
-          cosign-release: v3.1.2
+          cosign-release: v2.6.4
 
       - name: Install verified Syft
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610

@@ -27,10 +27,13 @@ import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
+import org.hibernate.exception.JDBCConnectionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -325,6 +328,15 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiError> internal(Exception exception, HttpServletRequest request) {
+    if (isDatabaseUnavailable(exception)) {
+      log.warn("Authoritative database is temporarily unavailable");
+      return response(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          "DATABASE_UNAVAILABLE",
+          "The authoritative database is temporarily unavailable",
+          Map.of(),
+          request);
+    }
     log.error("Unhandled request failure", exception);
     return response(
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -332,6 +344,24 @@ public class GlobalExceptionHandler {
         "The request could not be completed",
         Map.of(),
         request);
+  }
+
+  private boolean isDatabaseUnavailable(Throwable failure) {
+    Throwable current = failure;
+    for (int depth = 0; current != null && depth < 12; depth++) {
+      if (current instanceof DataAccessResourceFailureException
+          || current instanceof JDBCConnectionException
+          || current instanceof SQLException sqlException
+              && sqlException.getSQLState() != null
+              && sqlException.getSQLState().startsWith("08")) {
+        return true;
+      }
+      if (current.getCause() == current) {
+        break;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private ResponseEntity<ApiError> response(

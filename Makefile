@@ -1,4 +1,4 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-kubernetes-operator test-kubernetes-e2e test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-kubernetes-operator test-kubernetes-e2e test-e2e ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 
@@ -82,6 +82,10 @@ test-integration:
 # Run authorized public URLs through the real Browser Node and Chrome
 test-real-url-agent:
 	./tests/compatibility/real-url-agent-matrix.sh
+
+# Verify bounded 503 responses and durable recovery across a real PostgreSQL outage
+test-postgres-outage:
+	./tests/failure-injection/postgres-outage.sh
 
 # Run BrowserSession operator unit tests
 test-kubernetes-operator:

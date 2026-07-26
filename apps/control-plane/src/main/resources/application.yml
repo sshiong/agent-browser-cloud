@@ -14,6 +14,13 @@ spring:
     username: ${DATABASE_USER:browsercloud}
     password: ${DATABASE_PASSWORD:browsercloud}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: ${DATABASE_CONNECTION_TIMEOUT_MS:3000}
+      validation-timeout: ${DATABASE_VALIDATION_TIMEOUT_MS:1000}
+      data-source-properties:
+        connectTimeout: ${DATABASE_CONNECT_TIMEOUT_SECONDS:3}
+        socketTimeout: ${DATABASE_SOCKET_TIMEOUT_SECONDS:5}
+        tcpKeepAlive: true
 
   jpa:
     hibernate:

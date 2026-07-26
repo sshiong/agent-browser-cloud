@@ -34,6 +34,7 @@ class AgentApplicationServiceTest {
   @Mock private SessionRepository sessionRepository;
   @Mock private BrowserStateRepository stateRepository;
   @Mock private IdempotencyService idempotencyService;
+  @Mock private AuditApplicationService auditService;
 
   private AgentApplicationService service;
 
@@ -51,6 +52,7 @@ class AgentApplicationServiceTest {
                 mapper, "test-agent-capability-token-secret-with-more-than-32-bytes", "test"),
             new AgentActionPayloadService(
                 "test-agent-action-payload-secret-with-more-than-32-bytes", "test"),
+            auditService,
             mapper);
     when(sessionRepository.require(anyString())).thenReturn(runningSession());
     when(idempotencyService.claimAgentTask(

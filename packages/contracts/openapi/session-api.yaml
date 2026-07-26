@@ -561,6 +561,146 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/break-glass-requests:
+    get:
+      operationId: listBreakGlassRequests
+      summary: List tenant emergency-access requests
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped break-glass requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassRequestListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: requestBreakGlass
+      summary: Request time-bound emergency access
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBreakGlassRequest"
+      responses:
+        "201":
+          description: Pending request awaiting a second Security Admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassRequest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/break-glass-requests/{requestId}:approve:
+    post:
+      operationId: approveBreakGlass
+      summary: Activate a request using a distinct Security Admin
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/BreakGlassRequestId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Active time-bound grant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/break-glass-requests/{requestId}:reject:
+    post:
+      operationId: rejectBreakGlass
+      summary: Reject a pending emergency-access request
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/BreakGlassRequestId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/break-glass-requests/{requestId}:revoke:
+    post:
+      operationId: revokeBreakGlass
+      summary: Revoke active emergency access
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/BreakGlassRequestId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Revoked or expired request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/break-glass-requests/{requestId}:review:
+    post:
+      operationId: reviewBreakGlass
+      summary: Record the mandatory post-access review
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/BreakGlassRequestId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Terminal request with review evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -616,6 +756,13 @@ components:
       schema:
         type: string
         pattern: "^agt_[a-zA-Z0-9]{16,}$"
+    BreakGlassRequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^bgr_[a-zA-Z0-9]{20}$"
   schemas:
     CreateAgentTaskRequest:
       type: object
@@ -1761,6 +1908,120 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RuntimeBuild"
+        total:
+          type: integer
+    CreateBreakGlassRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketId
+        - reason
+        - resourceType
+        - resourceId
+        - requestedScope
+        - durationMinutes
+      properties:
+        ticketId:
+          type: string
+          pattern: "^[A-Za-z0-9._/-]{3,128}$"
+        reason:
+          type: string
+          minLength: 20
+          maxLength: 500
+        resourceType:
+          type: string
+          enum: [SESSION, PROFILE, AUDIT, RUNTIME, TENANT]
+        resourceId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,128}$"
+        requestedScope:
+          type: string
+          enum:
+            - READ_SENSITIVE_STATE
+            - SECURE_DEBUG
+            - AUDIT_EXPORT
+            - INCIDENT_RESPONSE
+        durationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 60
+    BreakGlassRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+        - ticketId
+        - reason
+        - resourceType
+        - resourceId
+        - requestedScope
+        - state
+        - requestedBy
+        - approvedBy
+        - rejectedBy
+        - revokedBy
+        - evidenceHash
+        - requestedAt
+        - approvedAt
+        - rejectedAt
+        - revokedAt
+        - expiresAt
+        - reviewedAt
+      properties:
+        requestId:
+          type: string
+          pattern: "^bgr_[a-zA-Z0-9]{20}$"
+        ticketId:
+          type: string
+        reason:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        requestedScope:
+          type: string
+        state:
+          type: string
+          enum: [REQUESTED, ACTIVE, REJECTED, REVOKED, EXPIRED]
+        requestedBy:
+          type: string
+        approvedBy:
+          type: [string, "null"]
+        rejectedBy:
+          type: [string, "null"]
+        revokedBy:
+          type: [string, "null"]
+        evidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        requestedAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: [string, "null"]
+          format: date-time
+        rejectedAt:
+          type: [string, "null"]
+          format: date-time
+        revokedAt:
+          type: [string, "null"]
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+    BreakGlassRequestListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreakGlassRequest"
         total:
           type: integer
     Error:

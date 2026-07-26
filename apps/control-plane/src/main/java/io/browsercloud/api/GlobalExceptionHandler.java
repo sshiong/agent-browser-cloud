@@ -4,6 +4,8 @@ import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundExce
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
+import io.browsercloud.application.BreakGlassApplicationService.BreakGlassNotFoundException;
+import io.browsercloud.application.BreakGlassApplicationService.BreakGlassRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
@@ -57,6 +59,28 @@ public class GlobalExceptionHandler {
       AgentTaskNotFoundException exception, HttpServletRequest request) {
     return response(
         HttpStatus.NOT_FOUND, "AGENT_TASK_NOT_FOUND", "Agent task not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(BreakGlassNotFoundException.class)
+  ResponseEntity<ApiError> breakGlassNotFound(
+      BreakGlassNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "BREAK_GLASS_NOT_FOUND",
+        "Break-glass request not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(BreakGlassRejectedException.class)
+  ResponseEntity<ApiError> breakGlassRejected(
+      BreakGlassRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "BREAK_GLASS_REJECTED",
+        "Break-glass transition was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
   }
 
   @ExceptionHandler(InvalidAgentTaskException.class)

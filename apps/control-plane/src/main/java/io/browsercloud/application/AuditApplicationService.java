@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 追加式、防篡改、租户隔离的审计服务。 */
@@ -67,6 +68,16 @@ public class AuditApplicationService {
 
   @Transactional
   public AuditEventView append(AuditRecord record) {
+    return appendRecord(record);
+  }
+
+  /** 记录随后会回滚的拒绝尝试；审计证据必须独立于被拒绝的业务事务提交。 */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public AuditEventView appendIndependent(AuditRecord record) {
+    return appendRecord(record);
+  }
+
+  private AuditEventView appendRecord(AuditRecord record) {
     headRepository.ensure(record.tenantId());
     var head = headRepository.findForUpdate(record.tenantId()).orElseThrow();
     var sequence = head.getSequenceNo() + 1;

@@ -9,6 +9,7 @@ import io.browsercloud.persistence.ProfileEntity;
 import io.browsercloud.persistence.ProfileJpaRepository;
 import io.browsercloud.persistence.SessionJpaRepository;
 import java.time.Instant;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +19,15 @@ public class ProfileApplicationService {
 
   private final ProfileJpaRepository repository;
   private final SessionJpaRepository sessionRepository;
+  private final AuditApplicationService auditService;
 
   public ProfileApplicationService(
-      ProfileJpaRepository repository, SessionJpaRepository sessionRepository) {
+      ProfileJpaRepository repository,
+      SessionJpaRepository sessionRepository,
+      AuditApplicationService auditService) {
     this.repository = repository;
     this.sessionRepository = sessionRepository;
+    this.auditService = auditService;
   }
 
   @Transactional
@@ -99,6 +104,27 @@ public class ProfileApplicationService {
         event.restoreStatus(),
         Instant.now());
     repository.save(profile);
+    if ("TECHNICAL_READY".equals(event.restoreStatus())) {
+      auditService.append(
+          new AuditApplicationService.AuditRecord(
+              tenantId,
+              event.sessionId(),
+              "PROFILE_RESTORE",
+              "NODE",
+              "node-event-stream",
+              "PROFILE",
+              event.profileId(),
+              "PROFILE_RESTORE_COMMITTED",
+              event.restoreStatus(),
+              Map.of(
+                  "checkpointId",
+                  event.checkpointId(),
+                  "checkpointEpoch",
+                  event.checkpointEpoch(),
+                  "profileWriteEpoch",
+                  event.profileWriteEpoch()),
+              event.checkpointId()));
+    }
   }
 
   private static void requireTenant(ProfileEntity profile, String tenantId) {

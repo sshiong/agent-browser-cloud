@@ -23,12 +23,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 单 Planner 安全 MVP：只生成受限 Navigation / State Read 计划，不宣称执行。 */
+/** 受限 Planner：生成带 Capability、来源、风险和验证规则的可执行计划。 */
 @Service
 public class AgentApplicationService {
 
@@ -42,6 +43,7 @@ public class AgentApplicationService {
   private final PromptSecurityService promptSecurityService;
   private final AgentCapabilityTokenService capabilityTokenService;
   private final AgentActionPayloadService actionPayloadService;
+  private final AuditApplicationService auditService;
   private final ObjectMapper objectMapper;
 
   public AgentApplicationService(
@@ -52,6 +54,7 @@ public class AgentApplicationService {
       PromptSecurityService promptSecurityService,
       AgentCapabilityTokenService capabilityTokenService,
       AgentActionPayloadService actionPayloadService,
+      AuditApplicationService auditService,
       ObjectMapper objectMapper) {
     this.repository = repository;
     this.sessionRepository = sessionRepository;
@@ -60,6 +63,7 @@ public class AgentApplicationService {
     this.promptSecurityService = promptSecurityService;
     this.capabilityTokenService = capabilityTokenService;
     this.actionPayloadService = actionPayloadService;
+    this.auditService = auditService;
     this.objectMapper = objectMapper;
   }
 
@@ -156,7 +160,35 @@ public class AgentApplicationService {
       entity.awaitConfirmation(newId("cnf_"), now.plus(5, ChronoUnit.MINUTES), now);
     }
     repository.save(entity);
+    appendSecurityAudit(tenantId, sessionId, candidateTaskId, securityEvents);
     return toView(entity);
+  }
+
+  private void appendSecurityAudit(
+      String tenantId, String sessionId, String taskId, List<SecurityEvent> events) {
+    for (var event : events) {
+      auditService.append(
+          new AuditApplicationService.AuditRecord(
+              tenantId,
+              sessionId,
+              "SECURITY_EVENT",
+              "SYSTEM",
+              "agent-safety-kernel",
+              "AGENT_TASK",
+              taskId,
+              event.eventType(),
+              event.decision(),
+              Map.of(
+                  "severity",
+                  event.severity(),
+                  "ruleCode",
+                  event.ruleCode(),
+                  "sourceType",
+                  event.sourceType().name(),
+                  "contentHash",
+                  event.contentHash()),
+              event.eventId()));
+    }
   }
 
   @Transactional(readOnly = true)

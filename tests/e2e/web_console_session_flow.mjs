@@ -457,6 +457,37 @@ try {
   await expect(
     page.getByText(/SESSION_CONTEXT_COMMIT/).first(),
   ).toBeVisible();
+  await page.getByRole("button", { name: "申请紧急访问" }).click();
+  const breakGlassTicket = `INC-E2E-${runSuffix}`;
+  await page.getByLabel("工单 ID").fill(breakGlassTicket);
+  await page
+    .getByLabel("访问原因（20–500 字符）")
+    .fill("Validate the dual-control emergency access console flow");
+  const [breakGlassResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/break-glass-requests") &&
+        response.status() === 201,
+    ),
+    page.getByRole("button", { name: "提交双人审批" }).click(),
+  ]);
+  const breakGlassRequest = await breakGlassResponse.json();
+  if (
+    breakGlassRequest.state !== "REQUESTED" ||
+    breakGlassRequest.requestedBy !== "user-local"
+  ) {
+    throw new Error("Break-glass request did not enter dual-control approval");
+  }
+  await expect(
+    page.getByText(breakGlassTicket, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("等待另一位管理员", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-security.png"),
+    fullPage: true,
+  });
 
   await page.goto(`${baseUrl}/logs`);
   await page.waitForLoadState("networkidle");

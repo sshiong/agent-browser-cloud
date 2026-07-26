@@ -37,6 +37,7 @@ public class AgentHumanGovernanceService {
   private final AgentCapabilityTokenService capabilityTokens;
   private final SessionCoordinator coordinator;
   private final AgentApplicationService taskService;
+  private final AuditApplicationService auditService;
   private final ObjectMapper objectMapper;
 
   public AgentHumanGovernanceService(
@@ -47,6 +48,7 @@ public class AgentHumanGovernanceService {
       AgentCapabilityTokenService capabilityTokens,
       SessionCoordinator coordinator,
       AgentApplicationService taskService,
+      AuditApplicationService auditService,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
     this.sessionRepository = sessionRepository;
@@ -55,6 +57,7 @@ public class AgentHumanGovernanceService {
     this.capabilityTokens = capabilityTokens;
     this.coordinator = coordinator;
     this.taskService = taskService;
+    this.auditService = auditService;
     this.objectMapper = objectMapper;
   }
 
@@ -73,6 +76,7 @@ public class AgentHumanGovernanceService {
     }
     task.approveConfirmation(actorId, evidenceHash(task, actorId, "APPROVED"), now);
     taskRepository.save(task);
+    appendAuthorizationAudit(task, actorId, "CONFIRMATION_APPROVED", "APPROVED");
     return taskService.get(taskId, tenantId);
   }
 
@@ -86,6 +90,7 @@ public class AgentHumanGovernanceService {
     var now = Instant.now();
     task.rejectConfirmation(actorId, evidenceHash(task, actorId, "REJECTED"), now);
     taskRepository.save(task);
+    appendAuthorizationAudit(task, actorId, "CONFIRMATION_REJECTED", "REJECTED");
     return taskService.get(taskId, tenantId);
   }
 
@@ -158,6 +163,7 @@ public class AgentHumanGovernanceService {
             now));
     task.acceptHumanHandoff(actorId, write(results), now);
     taskRepository.save(task);
+    appendAuthorizationAudit(task, actorId, "HUMAN_HANDOFF_ACCEPTED", "ACCEPTED");
     return taskService.get(taskId, tenantId);
   }
 
@@ -170,6 +176,7 @@ public class AgentHumanGovernanceService {
     requirePendingHandoff(task);
     task.rejectHumanHandoff(actorId, Instant.now());
     taskRepository.save(task);
+    appendAuthorizationAudit(task, actorId, "HUMAN_HANDOFF_REJECTED", "REJECTED");
     return taskService.get(taskId, tenantId);
   }
 
@@ -184,13 +191,43 @@ public class AgentHumanGovernanceService {
         && !task.getConfirmationExpiresAt().isAfter(now)) {
       task.expireConfirmation(now);
       taskRepository.save(task);
+      appendAuthorizationAudit(task, "system", "CONFIRMATION_EXPIRED", "EXPIRED");
     }
     if ("PENDING".equals(task.getHandoffStatus())
         && task.getHandoffExpiresAt() != null
         && !task.getHandoffExpiresAt().isAfter(now)) {
       task.expireHumanHandoff(now);
       taskRepository.save(task);
+      appendAuthorizationAudit(task, "system", "HUMAN_HANDOFF_EXPIRED", "EXPIRED");
     }
+  }
+
+  private void appendAuthorizationAudit(
+      AgentTaskEntity task, String actorId, String action, String result) {
+    var details = new LinkedHashMap<String, Object>();
+    details.put("taskId", task.getTaskId());
+    if (task.getConfirmationId() != null) {
+      details.put("confirmationId", task.getConfirmationId());
+    }
+    if (task.getConfirmationEvidenceHash() != null) {
+      details.put("evidenceHash", task.getConfirmationEvidenceHash());
+    }
+    if (task.getHandoffRequestId() != null) {
+      details.put("handoffRequestId", task.getHandoffRequestId());
+    }
+    auditService.append(
+        new AuditApplicationService.AuditRecord(
+            task.getTenantId(),
+            task.getSessionId(),
+            "HUMAN_AUTHORIZATION",
+            "system".equals(actorId) ? "SYSTEM" : "USER",
+            actorId,
+            "AGENT_TASK",
+            task.getTaskId(),
+            action,
+            result,
+            details,
+            task.getTaskId()));
   }
 
   private AgentTaskEntity requireTask(String taskId, String tenantId) {

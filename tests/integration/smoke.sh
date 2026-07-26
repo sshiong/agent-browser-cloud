@@ -364,6 +364,21 @@ tool_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d bro
   "select count(*) from tool_capability_uses where task_id='${read_agent_task_id}'")"
 test "$tool_capability_uses" = "3"
 
+confirmation_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-confirmation-004' \
+  -d '{"goal":"Submit a payment for the outstanding invoice","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+confirmation_task_id="$(printf '%s' "$confirmation_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "AWAITING_CONFIRMATION"; assert task["intentDecision"] == "CONFIRM_REQUIRED"; assert task["confirmation"]["status"] == "PENDING"; print(task["taskId"])')"
+approved_confirmation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${confirmation_task_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: finance-approver')"
+printf '%s' "$approved_confirmation" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; assert task["confirmation"]["status"] == "APPROVED"; assert len(task["confirmation"]["evidenceHash"]) == 64'
+
 resync_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
   -H 'Content-Type: application/json' \
@@ -639,14 +654,79 @@ for _ in $(seq 1 20); do
 done
 test "$workflow_dead_letters" = "1"
 
+break_glass_request="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/break-glass-requests" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d "{\"ticketId\":\"INC-2026-001\",\"reason\":\"Investigate the integration recovery incident\",\"resourceType\":\"SESSION\",\"resourceId\":\"${session_one}\",\"requestedScope\":\"SECURE_DEBUG\",\"durationMinutes\":30}")"
+break_glass_id="$(printf '%s' "$break_glass_request" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "REQUESTED"; assert item["requestedBy"] == "security-requester"; print(item["requestId"])')"
+self_approval_status="$(curl -sS -o "$temp_dir/break-glass-self-approval.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$self_approval_status" = "409"
+approved_break_glass="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-approver' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$approved_break_glass" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ACTIVE"; assert item["approvedBy"] == "security-approver"; assert len(item["evidenceHash"]) == 64'
+break_glass_cross_tenant_status="$(curl -sS -o "$temp_dir/break-glass-cross-tenant.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:revoke" \
+  -H 'X-Tenant-Id: different-tenant' \
+  -H 'X-Actor-Id: other-security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$break_glass_cross_tenant_status" = "404"
+revoked_break_glass="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:revoke" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: incident-commander' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$revoked_break_glass" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "REVOKED"; assert item["revokedBy"] == "incident-commander"'
+reviewed_break_glass="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:review" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-reviewer' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$reviewed_break_glass" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "REVOKED"; assert item["reviewedAt"] is not None'
+
+expired_break_glass_request="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/break-glass-requests" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d "{\"ticketId\":\"INC-2026-002\",\"reason\":\"Validate that expired emergency access cannot activate\",\"resourceType\":\"SESSION\",\"resourceId\":\"${session_one}\",\"requestedScope\":\"SECURE_DEBUG\",\"durationMinutes\":5}")"
+expired_break_glass_id="$(printf '%s' "$expired_break_glass_request" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["requestId"])')"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update break_glass_requests set requested_at=now()-interval '10 minutes', expires_at=now()-interval '5 minutes' where request_id='${expired_break_glass_id}'" \
+  >/dev/null
+expired_approval_status="$(curl -sS -o "$temp_dir/break-glass-expired-approval.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/break-glass-requests/${expired_break_glass_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-approver' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$expired_approval_status" = "409"
+expired_break_glass_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state from break_glass_requests where request_id='${expired_break_glass_id}'")"
+test "$expired_break_glass_state" = "EXPIRED"
+
 audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?limit=500" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: SECURITY_ADMIN')"
 audit_total="$(printf '%s' "$audit_result" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; assert {"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE"}.issubset(types); assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; required={"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE","HUMAN_AUTHORIZATION","SECURITY_EVENT","PROFILE_RESTORE","ADMIN_ACCESS"}; assert required.issubset(types), required-types; assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
 test "$audit_total" -ge "20"
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$audit_total"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$audit_total"

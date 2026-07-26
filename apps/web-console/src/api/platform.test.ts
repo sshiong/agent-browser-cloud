@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listAuditEvents, listRuntimeBuilds } from './platform';
+import {
+  createBreakGlassRequest,
+  listAuditEvents,
+  listRuntimeBuilds,
+  transitionBreakGlassRequest,
+} from './platform';
 
 describe('platform API', () => {
   afterEach(() => {
@@ -53,6 +58,68 @@ describe('platform API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-local',
         }),
+      })
+    );
+  });
+
+  it('creates Security Admin break-glass requests without leaking identity into the body', async () => {
+    const responseBody = {
+      requestId: 'bgr_1234567890abcdefghij',
+      state: 'REQUESTED',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(responseBody), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const input = {
+      ticketId: 'INC-2026-001',
+      reason: 'Investigate a production incident safely',
+      resourceType: 'TENANT' as const,
+      resourceId: 'tenant-local',
+      requestedScope: 'INCIDENT_RESPONSE' as const,
+      durationMinutes: 30,
+    };
+
+    await createBreakGlassRequest(input);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/break-glass-requests',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(input),
+        headers: expect.objectContaining({
+          'X-Roles': 'SECURITY_ADMIN',
+          'Content-Type': 'application/json',
+        }),
+      })
+    );
+  });
+
+  it('uses explicit transition endpoints for dual approval', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          requestId: 'bgr_1234567890abcdefghij',
+          state: 'ACTIVE',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await transitionBreakGlassRequest('bgr_1234567890abcdefghij', 'approve');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/break-glass-requests/bgr_1234567890abcdefghij:approve',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Roles': 'SECURITY_ADMIN' }),
       })
     );
   });

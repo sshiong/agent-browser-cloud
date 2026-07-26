@@ -38,8 +38,8 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 | 缺口 | 代码事实 | 验收要求 |
 |---|---|---|
 | Node Helper 权限拆分 | `network-helper`、`storage-helper` 仍由 `node-agent` 进程内链接 | 独立 UID、固定 Schema IPC、seccomp/Landlock、能力最小化、互相崩溃隔离 |
-| Break-glass | 无双人审批、时限、撤销、API/UI 和审计闭环 | 完整演练并证明跨租户访问仍受控 |
-| 审计事件覆盖 | 已有 Session/Node/Human 哈希链；尚未系统写入 Admin Access、Security Event、Runtime Release、Key Rotation、Profile Restore | 开发计划 11.3 的八类事件全部可查询并有回归测试 |
+| Break-glass | 双人审批、限时、撤销、Review、API/UI 和审计已完成；独立 Secure Debug Worker、敏感数据面与录像未完成 | 完整调试数据面演练并证明跨租户访问仍受控 |
+| 审计事件覆盖 | 八类必需事件已完成六类 | 补 Runtime Release、Key Rotation 并完成回归 |
 | 制品真实验签 | Runtime Policy 检查 Stable、时间戳、签名格式和 SBOM URL；没有使用信任根验证制品签名 | 构建摘要、签名者、信任根、撤销状态与发布记录可验证 |
 | 供应链发布 | CI 生成 SBOM/Trivy；未签名镜像，部署仍有 `:latest`，没有固定 Digest | 签名镜像、固定 Digest、N/N-1 兼容和回滚演练 |
 | 故障矩阵 | 已覆盖 Browser/Node、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补 PostgreSQL 短时不可用、Object Storage 超时、Coordinator Kill/接管和自动 GameDay |
@@ -129,9 +129,12 @@ make test-e2e
 
 集成输出确认 `runtime_registry=true`、`internal_grpc_mtls=true`、
 `node_certificate_rotation=true`、`durable_workflows=4`、
-`workflow_dead_letters=1`、`audit_chain_valid=true` 和 24 条审计事件。
+`workflow_dead_letters=1`、`break_glass_dual_approval=true`、
+`break_glass_cross_tenant=404`、`break_glass_reviewed=true`、
+`break_glass_expiry_persisted=true`、`audit_chain_valid=true` 和 35 条审计事件。
 浏览器输出确认 `WEB_CONSOLE_E2E_OK` 和 `real_web_console_e2e=true`，覆盖
-Runtime、Security、Logs 以及既有 Session、Agent、HumanTakeover、Profile、Proxy 流程。
+Runtime、Security、Logs 以及既有 Session、Agent、HumanTakeover、Profile、Proxy 流程；
+Break-glass 真实表单可创建请求，且页面无 Console/HTTP 异常。
 
 ## 建议实施顺序
 

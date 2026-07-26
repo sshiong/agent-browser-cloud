@@ -1,162 +1,208 @@
+import {
+  CheckCircle2,
+  FileJson2,
+  PackageCheck,
+  ShieldCheck,
+} from 'lucide-react';
 import { TopContextBar } from '@/components/layout/TopContextBar';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+} from '@/components/feedback/AsyncStates';
+import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import { cn } from '@/shared/lib/utils';
-import { runtimeBuilds } from '@/mocks/data';
-import { FixtureBoundary } from '@/components/feedback/FixtureNotice';
-
-const tierColors: Record<string, string> = {
-  'Tier 0': 'text-success bg-success/15',
-  'Tier 1': 'text-accent-secondary bg-accent-secondary/15',
-  'Tier 2': 'text-warning bg-warning/15',
-};
-
-const validationColors: Record<string, string> = {
-  passed: 'text-success',
-  failed: 'text-danger',
-  pending: 'text-warning',
-  unknown: 'text-text-muted',
-};
 
 export function RuntimesPage() {
+  const query = useRuntimeBuilds();
+  const builds = query.data?.items ?? [];
+  const stable = builds.filter(
+    (build) => build.regressionStatus === 'STABLE'
+  ).length;
+  const signed = builds.filter((build) => build.signatureVerified).length;
+  const withSbom = builds.filter((build) => build.sbomUrl).length;
+
   return (
     <div>
       <TopContextBar
-        title="Runtime 与内核"
-        subtitle="管理 Chromium Runtime 构建版本与验证状态"
+        title="Runtime 验证"
+        subtitle="Build Registry、签名、SBOM 与发布准入的权威状态"
       />
-      <FixtureBoundary>
-        <div className="p-6">
-          {/* Status Bar */}
-          <div className="mb-6 flex items-center gap-6 rounded-[10px] border border-border-subtle bg-surface-1 p-4">
-            <div>
-              <span className="text-[11px] text-text-muted">已安装</span>
-              <p className="text-[18px] font-semibold text-text-primary">
-                {runtimeBuilds.filter((r) => r.installed).length}
-              </p>
-            </div>
-            <div className="h-8 w-px bg-border-subtle" />
-            <div>
-              <span className="text-[11px] text-text-muted">活跃构建</span>
-              <p className="text-[18px] font-semibold text-accent">
-                Platform Stable
-              </p>
-            </div>
-            <div className="h-8 w-px bg-border-subtle" />
-            <div>
-              <span className="text-[11px] text-text-muted">Chromium 版本</span>
-              <p className="font-mono text-[14px] text-text-primary">
-                126.0.6478.126
-              </p>
-            </div>
-            <div className="h-8 w-px bg-border-subtle" />
-            <div>
-              <span className="text-[11px] text-text-muted">安全等级</span>
-              <p className="text-[14px] text-success">Tier 0 — First-party</p>
-            </div>
-          </div>
+      <main className="p-4 sm:p-6">
+        <section className="grid border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-4">
+          <Metric
+            icon={PackageCheck}
+            label="登记构建"
+            value={String(query.data?.total ?? 0)}
+          />
+          <Metric
+            icon={CheckCircle2}
+            label="Stable"
+            value={String(stable)}
+            tone="success"
+          />
+          <Metric icon={ShieldCheck} label="具备签名" value={String(signed)} />
+          <Metric icon={FileJson2} label="具备 SBOM" value={String(withSbom)} />
+        </section>
 
-          {/* Build List */}
-          <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border-subtle bg-surface-2">
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    Build
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    Chromium
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    Build ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    平台
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    安全等级
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    验证
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                    状态
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {runtimeBuilds.map((build) => (
-                  <tr
-                    key={build.id}
-                    className="border-b border-border-subtle transition-colors hover:bg-surface-2"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-medium text-text-primary">
-                          {build.name}
-                        </span>
-                        {build.isDefault && (
-                          <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
-                            默认
+        <section className="mt-4 overflow-hidden border border-border-subtle bg-surface-1">
+          {query.isLoading ? (
+            <LoadingRows rows={5} />
+          ) : query.isError ? (
+            <ErrorState
+              error={query.error}
+              onRetry={() => query.refetch()}
+              title="无法加载 Runtime Registry"
+            />
+          ) : builds.length === 0 ? (
+            <EmptyState
+              title="Runtime Registry 为空"
+              description="未登记且未验证的 Runtime 不会进入 Browser Node 调度。"
+            />
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-border-subtle bg-surface-2">
+                      {[
+                        'Build',
+                        'Engine / Version',
+                        'Platform',
+                        'Security',
+                        'Validation',
+                        'Supply chain',
+                        'Released',
+                      ].map((label) => (
+                        <th
+                          key={label}
+                          className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted"
+                        >
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {builds.map((build) => (
+                      <tr
+                        key={build.buildId}
+                        className="border-b border-border-subtle last:border-0 hover:bg-surface-2/60"
+                      >
+                        <td className="px-4 py-3.5">
+                          <p className="font-mono text-[11px] text-text-primary">
+                            {build.buildId}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <p className="text-[12px] text-text-primary">
+                            {build.engine}
+                          </p>
+                          <p className="font-mono text-[10px] text-text-muted">
+                            {build.version}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3.5 text-[11px] text-text-secondary">
+                          {build.platform}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className="bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
+                            {build.securityTier}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-[12px] text-text-secondary">
-                        {build.chromiumVersion}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-[11px] text-text-muted">
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span
+                            className={cn(
+                              'text-[11px] font-semibold',
+                              build.regressionStatus === 'STABLE'
+                                ? 'text-success'
+                                : 'text-warning'
+                            )}
+                          >
+                            {build.regressionStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <p
+                            className={cn(
+                              'text-[10px]',
+                              build.signatureVerified
+                                ? 'text-success'
+                                : 'text-danger'
+                            )}
+                          >
+                            {build.signatureVerified
+                              ? 'SIGNATURE PRESENT'
+                              : 'UNSIGNED'}
+                          </p>
+                          <p className="mt-1 max-w-[170px] truncate font-mono text-[9px] text-text-muted">
+                            {build.sbomUrl ?? 'SBOM MISSING'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3.5 text-[10px] text-text-muted">
+                          {build.releasedAt
+                            ? new Date(build.releasedAt).toLocaleString()
+                            : '未发布'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="divide-y divide-border-subtle md:hidden">
+                {builds.map((build) => (
+                  <article key={build.buildId} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <code className="text-[11px] text-text-primary">
                         {build.buildId}
+                      </code>
+                      <span className="text-[10px] font-semibold text-success">
+                        {build.regressionStatus}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[12px] text-text-secondary">
-                        {build.platform}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                          tierColors[build.securityTier]
-                        )}
-                      >
-                        {build.securityTier}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          'text-[12px] font-medium',
-                          validationColors[build.validationStatus]
-                        )}
-                      >
-                        {build.validationStatus === 'passed' && '✓ 通过'}
-                        {build.validationStatus === 'failed' && '✗ 失败'}
-                        {build.validationStatus === 'pending' && '⏳ 待验证'}
-                        {build.validationStatus === 'unknown' && '— 未知'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                          build.installed
-                            ? 'bg-success/15 text-success'
-                            : 'bg-surface-3 text-text-muted'
-                        )}
-                      >
-                        {build.installed ? '已安装' : '未安装'}
-                      </span>
-                    </td>
-                  </tr>
+                    </div>
+                    <p className="mt-2 text-[11px] text-text-secondary">
+                      {build.engine} {build.version} · {build.platform}
+                    </p>
+                    <p className="mt-1 text-[10px] text-text-muted">
+                      {build.signatureVerified ? '已登记签名' : '缺少签名'} ·{' '}
+                      {build.sbomUrl ? 'SBOM 已登记' : '缺少 SBOM'}
+                    </p>
+                  </article>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </FixtureBoundary>
+              </div>
+            </>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  tone = 'accent',
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  value: string;
+  tone?: 'accent' | 'success';
+}) {
+  return (
+    <div className="flex min-h-24 items-center gap-3 bg-surface-1 px-4 py-4">
+      <Icon
+        size={17}
+        className={tone === 'success' ? 'text-success' : 'text-accent'}
+      />
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+          {label}
+        </p>
+        <p className="mt-1 font-mono text-[18px] font-semibold text-text-primary">
+          {value}
+        </p>
+      </div>
     </div>
   );
 }

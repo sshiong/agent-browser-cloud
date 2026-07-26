@@ -1,0 +1,146 @@
+# Phase 4—7 大纲缺口审计
+
+> 审计日期：2026-07-26
+> 审计口径：代码、数据库迁移、部署清单和可重复测试必须同时有证据；只有接口、
+> 页面、字段、Kubernetes YAML 或本地 Fixture 时，不计为生产 Gate 已关闭。
+
+## 结论
+
+| 范围 | 当前状态 | Gate |
+|---|---|---|
+| Phase 4：Agent 基础与安全边界 | 开发计划中的 MVP 已闭环；V16 增强项仍缺 | MVP 已关闭，生产增强未关闭 |
+| Phase 5：可靠性、安全与审计 | Durable Workflow、身份、mTLS 和哈希审计主链路可运行 | 未关闭 |
+| Phase 6：密度与 Kubernetes | 路由、Mailbox、容量 Hysteresis、CRD/Operator/YAML 是基础实现 | 未关闭 |
+| Phase 7：企业运营 | 除只读 Runtime Registry 外，核心能力未实现 | 未开始验收 |
+| Web Console | Session/Profile/Proxy/Agent/Audit/Runtime 已接真实 API | 非生产就绪 |
+
+当前仓库是可重复运行的工程 PoC，不是 V16 生产完成版。尤其不能把
+`runtime_builds` 表、一个 `STABLE` 本地 Seed 和只读页面等同于 Runtime Validation
+Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
+
+## Phase 4：仍未实现的 V16 增强项
+
+开发计划 10.5 的 MVP Gate 已有真实 E2E 证据，但以下能力仍缺：
+
+1. 高级 Action Validation DSL：Network、Toast、Dialog、Visual、Login、
+   Business Entity，以及 All/Any/Sequence/Negative 组合表达式。
+2. 独立 Agent Worker Sandbox。Planner/Executor 当前在 Control Plane 进程内运行，
+   没有独立 UID、无宿主权限 Worker、固定 IPC 和单独故障域。
+3. Reviewer Agent、真实模型 Provider/模型治理和 Production-like Agent Replay。
+   当前是受限规则 Planner，不是可处理任意网站目标的通用智能体。
+4. Challenge Detection 与一次性 HumanAssist。现有 HumanTakeover 是完整人工接管，
+   不能代替 `allowed_action_count=1` 的挑战单击授权。
+5. 已下发 Node 动作的协作取消协议、复杂补偿和跨 Region Agent Workflow。
+6. 完整 State 数据分类、截图敏感区域模糊、Purpose 绑定访问控制。
+
+## Phase 5：生产 Exit Gate 缺口
+
+| 缺口 | 代码事实 | 验收要求 |
+|---|---|---|
+| Node Helper 权限拆分 | `network-helper`、`storage-helper` 仍由 `node-agent` 进程内链接 | 独立 UID、固定 Schema IPC、seccomp/Landlock、能力最小化、互相崩溃隔离 |
+| Break-glass | 无双人审批、时限、撤销、API/UI 和审计闭环 | 完整演练并证明跨租户访问仍受控 |
+| 审计事件覆盖 | 已有 Session/Node/Human 哈希链；尚未系统写入 Admin Access、Security Event、Runtime Release、Key Rotation、Profile Restore | 开发计划 11.3 的八类事件全部可查询并有回归测试 |
+| 制品真实验签 | Runtime Policy 检查 Stable、时间戳、签名格式和 SBOM URL；没有使用信任根验证制品签名 | 构建摘要、签名者、信任根、撤销状态与发布记录可验证 |
+| 供应链发布 | CI 生成 SBOM/Trivy；未签名镜像，部署仍有 `:latest`，没有固定 Digest | 签名镜像、固定 Digest、N/N-1 兼容和回滚演练 |
+| 故障矩阵 | 已覆盖 Browser/Node、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补 PostgreSQL 短时不可用、Object Storage 超时、Coordinator Kill/接管和自动 GameDay |
+| mTLS 生命周期 | CA 内节点证书轮换已测 | 在线 Root 双写、CRL/SPIFFE 撤销和过期证书演练 |
+| 审计生命周期 | Retention/Legal Hold 字段已落库 | 真正的 Hold 工作流、删除 Receipt、签名 Export Manifest |
+
+因此 Phase 5 只能判定为“Stage A 主链路完成”，不能判定 Exit Gate 关闭。
+
+## Phase 6：生产 Exit Gate 缺口
+
+1. Coordinator Capacity Certificate：
+   - 没有 10k/50k Actor 压测报告；
+   - 没有 Emergency Control P99、Mailbox Byte Budget、Passivation/恢复压测；
+   - 证书尚未绑定完整 Build、负载模型和可复现实验环境。
+2. Browser Capacity Certificate：
+   - Extension Weight、未知扩展 Probation、持续 P95 Profile 未实现；
+   - PSI/Cgroup Burst 深度采样、Node Pressure 驱逐和安全余量验证未实现；
+   - 资源硬限制与 500 次 Runtime 循环仍未通过。
+3. Hot Tenant/Shard：
+   - Route Epoch 和安全点模型已存在；
+   - 缺双 Coordinator 实例热点迁移、旧 Epoch 拒绝和跨 Shard 压测。
+4. Kubernetes：
+   - 尚未在真实集群安装和运行 CRD/Operator；
+   - Operator 缺 Lease Leader Election、镜像流水线和集群级 E2E；
+   - CNI 防直连与 CSI 应用一致性 Adapter 只有清单，无目标云实测；
+   - 没有 N/N-1 Rolling Upgrade GameDay。
+5. Media/GPU Capacity 和 Extension Anti-affinity 未进入调度模型。
+
+## Phase 7：尚未实现
+
+| 能力组 | 当前事实 | 缺少的完成证据 |
+|---|---|---|
+| Runtime Validation | 有 Registry、只读 API/UI 和本地 Seed | Validation Farm、创建/验证/晋级/禁用 API、隔离 Worker、能力观测、Persona 一致性 |
+| Replay/Compatibility | 无生产近似数据集和矩阵服务 | 数据授权/脱敏、版本绑定、Chromium Major 矩阵、Profile Corruption Replay |
+| Cost | 无成本表、Rate Card 或 Scheduler | Cost-aware Placement、可复算 Breakdown、版本化 Rate Card、隔离策略不可降级 |
+| SLA | 无 SLI/SLO/Error Budget 服务 | Exclusion、Burn Rate、发布冻结和 Console 可观测 |
+| Retention/Compliance | 只有审计字段 | Policy Engine、Legal Hold 工作流、删除 Receipt、Residency Gate、License Inventory、签名导出 |
+| Recovery GameDay | 无 GameDay 领域模型和 Runner | 场景编排、RTO/RPO 自动记录、失败冻结发布 |
+| Media/Extension Isolation | 无独立调度与配额 | Encoder/Bitrate 配额、独立 Browser/Profile、Privileged Extension 禁止混部 |
+| Multi-region/DR | 未实现 | Region Authority、复制/故障切换、RPO/RTO、跨 Region Workflow |
+| IaC | 无 Terraform 目录/模块 | 网络、数据库、对象存储、Kubernetes、密钥和可回滚环境 |
+| SDK | `apps/cli` 为空，无生成 SDK | 至少一种正式 SDK、版本协商、重试/幂等策略；再扩展多语言 |
+
+## Web Console 与真实使用缺口
+
+已接真实 API 的页面包括 Session、Profile、Proxy、Agent、Runtime、Logs 和 Security。
+本轮已验证 Runtime Registry、可验证审计链和事件流页面。
+
+仍未完成：
+
+1. Nodes、Extensions、Groups 仍直接读取 `src/mocks/data.ts`。
+2. Session 创建向导不是大纲中的完整九步，缺 Persona、Extension、Agent Policy 等正式
+   后端契约。
+3. Session/State/Audit 仍以轮询为主，没有统一 SSE/WebSocket 事件管理器和序列校验。
+4. 后端已有 OIDC/RBAC，但前端没有登录会话、权限查询和 `<Can>` 级别的操作隐藏/禁用。
+5. API Client 仍手写，没有从 OpenAPI 生成并进行 N/N-1 契约兼容验证。
+6. 全局搜索、通知、主题和用户菜单仍为禁用或静态状态。
+7. 完整浏览器 E2E 尚未进入 GitHub Actions。
+8. 缺 1280×800、1440×900、1920×1080 视觉回归、移动端、键盘和屏幕阅读器验收。
+
+## “真实网址”和 Agent 控制的当前边界
+
+- 集成与 Web E2E 主要使用 `fake-chromium.sh`、本地 HTTP Proxy 和本地 RFB Server，
+  可重复验证控制链路，但不代表真实公网兼容性。
+- 仓库有可选的真实 Chromium CDP/State 测试，当前验证的是本地测试页。
+- 尚未形成对多个真实网址的导航、登录、Canvas、下载、弹窗、跨域、BFCache、
+  Prerender、超时和反自动化兼容矩阵。
+- Agent 已能受控执行 Navigate、State Read、Click、Type、Scroll、Wait 和
+  Human Handoff；它不是可对任意真实网址自主规划的通用 Agent。
+
+在运行真实网址验收前，需要使用授权测试站点和专用测试账户，不能把绕过验证码、
+反自动化或网站安全控制作为验收目标。
+
+## 当前可重复证据
+
+本轮通过：
+
+```bash
+./gradlew -p apps/control-plane test
+pnpm --dir apps/web-console lint
+pnpm --dir apps/web-console test
+pnpm --dir apps/web-console build
+make contracts-check
+make test-integration
+make test-e2e
+```
+
+集成输出确认 `runtime_registry=true`、`internal_grpc_mtls=true`、
+`node_certificate_rotation=true`、`durable_workflows=4`、
+`workflow_dead_letters=1`、`audit_chain_valid=true` 和 24 条审计事件。
+浏览器输出确认 `WEB_CONSOLE_E2E_OK` 和 `real_web_console_e2e=true`，覆盖
+Runtime、Security、Logs 以及既有 Session、Agent、HumanTakeover、Profile、Proxy 流程。
+
+## 建议实施顺序
+
+1. P0：补齐 Phase 5 Helper 隔离、Break-glass、必需审计事件和真实制品验签。
+2. P0：完成 Profile Business Ready、基础设施出口防逃逸和真实 Provider 故障演练。
+3. P0：完成 Phase 6 Browser/Coordinator Capacity Certificate 与真实集群
+   Rolling Upgrade。
+4. P1：建设 Runtime Validation Farm + Compatibility/Replay，作为 Phase 7 第一条主线。
+5. P1：建设 Cost/SLA/Retention/Compliance/GameDay。
+6. P1：替换 Nodes/Extensions/Groups Fixture，接入 RBAC UI、实时事件和生成 Client。
+7. P1：在授权站点上建立多网址 Agent/浏览器兼容矩阵。
+8. P2：Multi-region/DR、Terraform 和多语言 SDK。

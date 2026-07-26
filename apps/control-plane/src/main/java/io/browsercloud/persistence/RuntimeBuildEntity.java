@@ -40,8 +40,27 @@ public class RuntimeBuildEntity {
   @Column(name = "released_at")
   private Instant releasedAt;
 
+  @Column(name = "created_at", nullable = false)
+  private Instant createdAt;
+
   public String getBuildId() {
     return buildId;
+  }
+
+  public String getEngine() {
+    return engine;
+  }
+
+  public String getVersion() {
+    return version;
+  }
+
+  public String getPlatform() {
+    return platform;
+  }
+
+  public String getSecurityTier() {
+    return securityTier;
   }
 
   public String getSignature() {
@@ -62,5 +81,9 @@ public class RuntimeBuildEntity {
 
   public Instant getReleasedAt() {
     return releasedAt;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
   }
 }

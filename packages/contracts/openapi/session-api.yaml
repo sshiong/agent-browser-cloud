@@ -543,6 +543,24 @@ paths:
                 $ref: "#/components/schemas/AuditEventListResponse"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/runtime-builds:
+    get:
+      operationId: listRuntimeBuilds
+      summary: List Runtime Build Registry entries
+      tags: [Runtime]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Runtime validation and supply-chain admission evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeBuildListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
@@ -1694,6 +1712,57 @@ components:
         headHash:
           type: [string, "null"]
           pattern: "^[a-f0-9]{64}$"
+    RuntimeBuild:
+      type: object
+      additionalProperties: false
+      required:
+        - buildId
+        - engine
+        - version
+        - platform
+        - securityTier
+        - regressionStatus
+        - signatureVerified
+        - createdAt
+      properties:
+        buildId:
+          type: string
+        engine:
+          type: string
+        version:
+          type: string
+        platform:
+          type: string
+        securityTier:
+          type: string
+        regressionStatus:
+          type: string
+        signatureVerified:
+          type: boolean
+        signature:
+          type: [string, "null"]
+        sbomUrl:
+          type: [string, "null"]
+        validatedAt:
+          type: [string, "null"]
+          format: date-time
+        releasedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    RuntimeBuildListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeBuild"
+        total:
+          type: integer
     Error:
       type: object
       additionalProperties: false
@@ -1712,6 +1781,12 @@ components:
           type: string
           format: date-time
   responses:
+    Unauthorized:
+      description: Missing or invalid authenticated principal.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     BadRequest:
       description: Invalid request.
       content:

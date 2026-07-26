@@ -159,6 +159,12 @@ curl -fsS -D "$temp_dir/health-headers.txt" -o /dev/null \
 grep -qi '^x-content-type-options: nosniff' "$temp_dir/health-headers.txt"
 grep -qi '^cache-control: no-store' "$temp_dir/health-headers.txt"
 
+runtime_builds="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/runtime-builds" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$runtime_builds" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["sbomUrl"]'
+
 unauthenticated_status="$(curl -sS -o "$temp_dir/unauthenticated.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions")"
 test "$unauthenticated_status" = "401"
@@ -641,6 +647,6 @@ audit_total="$(printf '%s' "$audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; assert {"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE"}.issubset(types); assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
 test "$audit_total" -ge "20"
 
-printf 'health=%s\nsecurity_headers=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$audit_total"

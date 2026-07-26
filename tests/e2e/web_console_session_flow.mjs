@@ -436,6 +436,41 @@ try {
     fullPage: true,
   });
 
+  await page.goto(`${baseUrl}/runtimes`);
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "Runtime 验证" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("table")
+      .getByText("runtime_local_chromium", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table").getByText("STABLE", { exact: true }),
+  ).toBeVisible();
+
+  await page.goto(`${baseUrl}/security`);
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "安全中心" })).toBeVisible();
+  await expect(page.getByText("完整", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/SESSION_CONTEXT_COMMIT/).first(),
+  ).toBeVisible();
+
+  await page.goto(`${baseUrl}/logs`);
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "事件流" })).toBeVisible();
+  await expect(
+    page.getByText("SESSION_CONTEXT_COMMIT", { exact: true }).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "暂停视图" }).click();
+  await expect(page.getByText("视图已暂停", { exact: true })).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-operations.png"),
+    fullPage: true,
+  });
+
   await page.goto(`${baseUrl}/environments/${startSessionId}`);
   await expect(page.getByRole("button", { name: "终止", exact: true })).toBeEnabled({
     timeout: 15_000,

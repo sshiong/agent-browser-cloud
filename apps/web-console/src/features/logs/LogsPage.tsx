@@ -1,86 +1,97 @@
+import { useState } from 'react';
+import { Pause, Play, RefreshCw } from 'lucide-react';
 import { TopContextBar } from '@/components/layout/TopContextBar';
-import { cn } from '@/shared/lib/utils';
-import { timelineEvents } from '@/mocks/data';
-import { FixtureBoundary } from '@/components/feedback/FixtureNotice';
-
-const severityColors: Record<string, string> = {
-  info: 'text-accent',
-  warning: 'text-warning',
-  error: 'text-danger',
-  critical: 'text-danger',
-};
-
-const severityBg: Record<string, string> = {
-  info: 'bg-accent/10',
-  warning: 'bg-warning/10',
-  error: 'bg-danger/10',
-  critical: 'bg-danger/10',
-};
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+} from '@/components/feedback/AsyncStates';
+import { useAuditEvents } from '@/features/security/platformQueries';
+import type { AuditEventView } from '@/types/platform';
 
 export function LogsPage() {
+  const query = useAuditEvents();
+  const events = query.data?.items ?? [];
+  const [pausedEvents, setPausedEvents] = useState<AuditEventView[] | null>(
+    null
+  );
+  const paused = pausedEvents !== null;
+
+  function togglePaused() {
+    setPausedEvents((snapshot) => (snapshot === null ? [...events] : null));
+  }
+
   return (
     <div>
       <TopContextBar
-        title="运行日志"
-        subtitle="实时查看系统事件、错误与审计日志"
+        title="事件流"
+        subtitle="来自 Control Plane 的已提交、脱敏审计事件"
       />
-      <FixtureBoundary>
-        <div className="p-6">
-          <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1">
-            <div className="flex items-center justify-between border-b border-border-subtle bg-surface-2 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                <span className="text-[12px] text-text-secondary">实时</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="rounded-md bg-surface-3 px-2.5 py-1 text-[11px] text-text-muted transition-colors hover:text-text-secondary">
-                  暂停
-                </button>
-                <button className="rounded-md bg-surface-3 px-2.5 py-1 text-[11px] text-text-muted transition-colors hover:text-text-secondary">
-                  导出
-                </button>
-              </div>
+      <main className="p-4 sm:p-6">
+        <section className="overflow-hidden border border-border-subtle bg-surface-1">
+          <header className="flex items-center justify-between border-b border-border-subtle bg-surface-2 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-success" />
+              <span className="text-[11px] text-text-secondary">
+                {paused ? '视图已暂停' : '每 5 秒同步'}
+              </span>
             </div>
-            <div className="max-h-[600px] overflow-y-auto">
-              {timelineEvents.map((event) => (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePaused}
+                className="inline-flex h-8 items-center gap-1.5 border border-border-default px-3 text-[11px] text-text-secondary"
+              >
+                {paused ? <Play size={12} /> : <Pause size={12} />}
+                {paused ? '继续' : '暂停视图'}
+              </button>
+              <button
+                type="button"
+                onClick={() => query.refetch()}
+                className="inline-flex h-8 items-center gap-1.5 border border-border-default px-3 text-[11px] text-text-secondary"
+              >
+                <RefreshCw size={12} />
+                刷新
+              </button>
+            </div>
+          </header>
+          {query.isLoading ? (
+            <LoadingRows rows={8} />
+          ) : query.isError ? (
+            <ErrorState error={query.error} onRetry={() => query.refetch()} />
+          ) : events.length === 0 ? (
+            <EmptyState
+              title="暂无已提交事件"
+              description="事件流只展示已经进入租户审计链的真实操作，不生成占位日志。"
+            />
+          ) : (
+            <div className="max-h-[calc(100vh-220px)] overflow-auto">
+              {(pausedEvents ?? events).map((event) => (
                 <div
-                  key={event.id}
-                  className="flex items-start gap-4 border-b border-border-subtle px-4 py-2.5 transition-colors hover:bg-surface-2"
+                  key={event.eventId}
+                  className="grid min-w-[780px] grid-cols-[90px_170px_150px_1fr_100px] items-center gap-4 border-b border-border-subtle px-4 py-2.5 hover:bg-surface-2/60"
                 >
-                  <span className="shrink-0 font-mono text-[11px] text-text-muted">
-                    {event.time}
+                  <time className="font-mono text-[10px] text-text-muted">
+                    {new Date(event.createdAt).toLocaleTimeString()}
+                  </time>
+                  <span className="truncate text-[11px] font-medium text-text-primary">
+                    {event.eventType}
                   </span>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase',
-                      severityBg[event.severity],
-                      severityColors[event.severity]
-                    )}
-                  >
-                    {event.severity}
+                  <span className="truncate font-mono text-[10px] text-accent">
+                    {event.action}
                   </span>
-                  <span className="shrink-0 w-[100px] text-[12px] text-text-secondary">
-                    {event.component}
+                  <span className="truncate font-mono text-[10px] text-text-muted">
+                    {event.sessionId ?? event.resourceId ?? event.eventId}
                   </span>
-                  <span className="flex-1 text-[12px] text-text-primary">
-                    {event.event}
+                  <span className="text-right text-[10px] font-semibold text-success">
+                    {event.result}
                   </span>
-                  {event.sessionName && (
-                    <span className="shrink-0 text-[11px] text-text-muted">
-                      {event.sessionName}
-                    </span>
-                  )}
-                  {event.details && (
-                    <span className="max-w-[300px] truncate font-mono text-[11px] text-text-muted">
-                      {event.details}
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </FixtureBoundary>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

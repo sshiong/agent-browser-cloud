@@ -460,9 +460,12 @@ try {
   await page.getByRole("button", { name: "申请紧急访问" }).click();
   const breakGlassTicket = `INC-E2E-${runSuffix}`;
   await page.getByLabel("工单 ID").fill(breakGlassTicket);
+  await page.getByLabel("资源类型").selectOption("SESSION");
+  await page.getByLabel("资源 ID").fill(startSessionId);
+  await page.getByLabel("授权范围").selectOption("SECURE_DEBUG");
   await page
     .getByLabel("访问原因（20–500 字符）")
-    .fill("Validate the dual-control emergency access console flow");
+    .fill("Validate the minimized Secure Debug console data plane");
   const [breakGlassResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -483,6 +486,96 @@ try {
   ).toBeVisible();
   await expect(
     page.getByText("等待另一位管理员", { exact: true }),
+  ).toBeVisible();
+  const approveBreakGlass = await page.request.post(
+    `${baseUrl}/api/v1/break-glass-requests/${breakGlassRequest.requestId}:approve`,
+    {
+      headers: {
+        "X-Tenant-Id": "tenant-local",
+        "X-Actor-Id": "security-approver-e2e",
+        "X-Roles": "SECURITY_ADMIN",
+      },
+    },
+  );
+  if (approveBreakGlass.status() !== 200) {
+    throw new Error(
+      `Break-glass approval failed with ${approveBreakGlass.status()}`,
+    );
+  }
+  const startDebugButton = page.getByRole("button", {
+    name: `启动 ${startSessionId}`,
+  });
+  await expect(startDebugButton).toBeVisible({ timeout: 10_000 });
+  const [debugStartResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .includes(
+            `/break-glass-requests/${breakGlassRequest.requestId}:start-secure-debug`,
+          ) && response.status() === 201,
+    ),
+    startDebugButton.click(),
+  ]);
+  const debugSession = await debugStartResponse.json();
+  if (
+    debugSession.state !== "ACTIVE" ||
+    debugSession.operatorId !== "user-local"
+  ) {
+    throw new Error("Secure Debug session did not bind to its original operator");
+  }
+  const [debugSnapshotResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .endsWith(
+            `/api/v1/secure-debug-sessions/${debugSession.debugSessionId}/snapshot`,
+          ) && response.status() === 200,
+    ),
+    page.getByRole("button", { name: "读取最小快照" }).click(),
+  ]);
+  const debugSnapshot = await debugSnapshotResponse.json();
+  const forbiddenDebugFields = [
+    "url",
+    "title",
+    "targets",
+    "cookies",
+    "profileContent",
+    "dom",
+  ];
+  if (
+    debugSnapshot.dataClassification !== "SENSITIVE_MINIMIZED" ||
+    debugSnapshot.accessCount !== 1 ||
+    forbiddenDebugFields.some((field) => field in debugSnapshot)
+  ) {
+    throw new Error("Secure Debug snapshot violated its minimized contract");
+  }
+  await expect(
+    page.getByTestId("secure-debug-snapshot"),
+  ).toContainText("SENSITIVE_MINIMIZED");
+  await expect(page.getByText("ACCESS #1 RECORDED")).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-secure-debug.png"),
+    fullPage: true,
+  });
+  const [debugEndResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .endsWith(
+            `/api/v1/secure-debug-sessions/${debugSession.debugSessionId}:end`,
+          ) && response.status() === 200,
+    ),
+    page.getByRole("button", { name: "结束", exact: true }).click(),
+  ]);
+  const endedDebugSession = await debugEndResponse.json();
+  if (endedDebugSession.state !== "ENDED") {
+    throw new Error("Secure Debug session did not terminate from the console");
+  }
+  await expect(
+    page.getByText("ENDED", { exact: true }).first(),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "发起密钥轮换" }).click();

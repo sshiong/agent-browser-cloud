@@ -9,6 +9,9 @@ import type {
   KeyRotationRequestListResponse,
   KeyRotationRequestView,
   RuntimeBuildListResponse,
+  SecureDebugSessionListResponse,
+  SecureDebugSessionView,
+  SecureDebugSnapshotView,
 } from '@/types/platform';
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -91,6 +94,38 @@ export function transitionBreakGlassRequest(
   transition: 'approve' | 'reject' | 'revoke' | 'review'
 ): Promise<BreakGlassRequestView> {
   return request(`/break-glass-requests/${requestId}:${transition}`, {
+    method: 'POST',
+    securityAdmin: true,
+  });
+}
+
+export function listSecureDebugSessions(
+  signal?: AbortSignal
+): Promise<SecureDebugSessionListResponse> {
+  return request('/secure-debug-sessions', { signal, securityAdmin: true });
+}
+
+export function startSecureDebugSession(
+  requestId: string
+): Promise<SecureDebugSessionView> {
+  return request(`/break-glass-requests/${requestId}:start-secure-debug`, {
+    method: 'POST',
+    securityAdmin: true,
+  });
+}
+
+export function readSecureDebugSnapshot(
+  debugSessionId: string
+): Promise<SecureDebugSnapshotView> {
+  return request(`/secure-debug-sessions/${debugSessionId}/snapshot`, {
+    securityAdmin: true,
+  });
+}
+
+export function endSecureDebugSession(
+  debugSessionId: string
+): Promise<SecureDebugSessionView> {
+  return request(`/secure-debug-sessions/${debugSessionId}:end`, {
     method: 'POST',
     securityAdmin: true,
   });

@@ -12,6 +12,7 @@
 | Runtime 供应链 | Stable、Validation、Artifact Digest、Signing Key ID、Ed25519 验签、SBOM Gate | Java 有效/篡改/未知 Key 测试；CI SBOM/Trivy |
 | 安全治理 | Threat Model、Incident/Key Rotation Runbook | `docs/security/` |
 | Break-glass 治理 | 工单、双人审批、5—60 分钟、自动撤销、事后 Review、独立拒绝审计事务 | Java 单测 + 集成 409/ACTIVE/404/REVOKED/REVIEWED + Web E2E |
+| Secure Debug 治理数据面 | 一次性 Grant、最长 15 分钟、单 Operator、最小 State 投影、逐次证据链、撤销关闭 | Java 单测 + PostgreSQL 证据链/404/409/撤销集成 + Web E2E |
 | Runtime Release 治理 | Platform Admin、双人晋级/禁用、发布状态、证据哈希、跨控制租户隔离 | Java 单测 + 集成禁用/404/审计 |
 | Key Rotation 治理 | 五类 Key Scope、双人审批、重叠窗口、泄露快速路径、验证证据 | Java 单测 + mTLS 轮换集成 + Web E2E |
 | 审计类型扩展 | Prompt Security、Human Authorization、Admin Access、Profile Restore | 集成审计链验证 |
@@ -23,8 +24,8 @@
 1. Network 与 Storage Helper 已从 Node Agent 拆为独立进程，并完成固定 IPC、Peer UID、
    不同容器 UID、seccomp/Capability Drop、独立 Profile 卷和进程崩溃隔离；GPU Helper
    尚未实现，且 AppArmor/SELinux/Landlock 与真实集群跨 UID 验收待补。
-2. Break-glass 治理主链路已完成；独立 Secure Debug Worker、敏感 State 数据面与
-   强制会话录像尚未实现。
+2. Break-glass 与最小化 Secure Debug 数据面已完成；独立 Secure Debug Worker、
+   像素级强制录像、WORM Recording Manifest 与真实集群故障演练尚未实现。
 3. 故障矩阵尚缺 PostgreSQL 短时不可用、Object Storage 超时和 Coordinator 进程重启的
    自动 GameDay；现有覆盖包括 Chromium Kill、Node Kill/Restart、Redis 非权威、
    Proxy Circuit、Profile Corruption、Key-up Loss、DiffTruncated 和 Workflow DLQ。
@@ -36,6 +37,6 @@
 ## Gate 判定
 
 Phase 5 的应用层可靠性/身份/审计主链路已通过，Network Helper 进程隔离切片已通过；
-生产 Exit Gate 仍因 GPU Helper、LSM/真实集群验收、Secure Debug 数据面、
+生产 Exit Gate 仍因 GPU Helper、LSM/真实集群验收、独立 Secure Debug Worker/录像、
 外部 KMS/HSM/真实签名流水线和完整故障演练保持
 “未关闭”。

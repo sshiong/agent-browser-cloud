@@ -1,6 +1,6 @@
 # Phase 5：Break-glass 与审计覆盖
 
-> 状态：双人审批治理主链路已完成；安全调试数据面和会话录像仍待实现。
+> 状态：双人审批与最小化安全调试数据面已完成；独立 Worker 和像素级会话录像仍待实现。
 
 ## 已完成
 
@@ -31,6 +31,12 @@
   - Request/Active/Terminal 状态；
   - 第二管理员审批、拒绝、撤销和 Review 操作；
   - 本人申请明确显示“等待另一位管理员”。
+- Secure Debug 数据面：
+  - Grant 单次消费、最长 15 分钟并绑定原申请人；
+  - 固定最小字段投影，不返回完整 URL、标题、DOM、Target 详情或 Profile；
+  - START/读取/拒绝/结束/过期/撤销形成独立 Evidence Hash Chain；
+  - 每次读取重新验证 Grant，撤销后立即 fail-closed；
+  - 安全中心可实际启动、读取和结束。
 
 ## 已验证不变量
 
@@ -45,6 +51,10 @@
 | 终止后可事后 Review | 集成 API `reviewedAt` |
 | 审计链包含新增类型 | 集成测试验证 `ADMIN_ACCESS`、`SECURITY_EVENT`、`HUMAN_AUTHORIZATION`、`PROFILE_RESTORE` |
 | UI 可申请且进入双人审批 | 真实浏览器 E2E，且无 Console/HTTP 异常 |
+| Debug 数据最小化 | Java 单测 + 集成响应禁止字段反向断言 |
+| Debug 单 Operator/跨租户 | 集成 409/404 |
+| Debug 访问证据连续 | PostgreSQL Sequence/Previous Hash 集成验证 |
+| Grant 撤销关闭数据面 | 集成读取 409 + Debug Session `REVOKED` |
 
 ## Phase 5 审计类型覆盖
 
@@ -63,8 +73,8 @@
 
 ## 尚未完成
 
-1. Break-glass 当前治理“授权事实”，但尚未接入独立 Secure Debug Worker、敏感 State
-   数据面和强制会话录像。
+1. Break-glass 已接入可运行的最小化 Secure Debug 数据面；尚未拆为独立 UID/固定 IPC
+   Worker，也没有像素级强制录像、WORM Retention 和签名 Recording Manifest。
 2. Key Rotation 已具备正式领域模型、双人审批和审计事件；外部 KMS/HSM 自动编排仍待完成。
 3. Security Admin 前端当前依赖现有 OIDC/本地身份；生产需要用户会话与权限查询 API，
    不能依赖前端推测 JWT Subject。

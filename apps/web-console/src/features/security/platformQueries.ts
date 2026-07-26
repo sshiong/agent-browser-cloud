@@ -3,10 +3,14 @@ import {
   createBreakGlassRequest,
   completeKeyRotationRequest,
   createKeyRotationRequest,
+  endSecureDebugSession,
   listAuditEvents,
   listBreakGlassRequests,
   listKeyRotationRequests,
   listRuntimeBuilds,
+  listSecureDebugSessions,
+  readSecureDebugSnapshot,
+  startSecureDebugSession,
   transitionBreakGlassRequest,
   transitionKeyRotationRequest,
 } from '@/api/platform';
@@ -66,6 +70,56 @@ export function useTransitionBreakGlassRequest() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['break-glass-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+      ]);
+    },
+  });
+}
+
+export function useSecureDebugSessions() {
+  return useQuery({
+    queryKey: ['secure-debug-sessions'],
+    queryFn: ({ signal }) => listSecureDebugSessions(signal),
+    refetchInterval: 3000,
+  });
+}
+
+export function useStartSecureDebugSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (requestId: string) => startSecureDebugSession(requestId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['secure-debug-sessions'] }),
+        queryClient.invalidateQueries({ queryKey: ['break-glass-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+      ]);
+    },
+  });
+}
+
+export function useReadSecureDebugSnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (debugSessionId: string) =>
+      readSecureDebugSnapshot(debugSessionId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['secure-debug-sessions'] }),
+        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+      ]);
+    },
+  });
+}
+
+export function useEndSecureDebugSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (debugSessionId: string) =>
+      endSecureDebugSession(debugSessionId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['secure-debug-sessions'] }),
         queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
       ]);
     },

@@ -71,6 +71,8 @@ security:
   tenant-claim: ${OIDC_TENANT_CLAIM:tenant_id}
   roles-claim: ${OIDC_ROLES_CLAIM:roles}
   runtime-signing-public-keys: ${RUNTIME_SIGNING_PUBLIC_KEYS:}
+  secure-debug-max-minutes: ${SECURE_DEBUG_MAX_MINUTES:15}
+  secure-debug-scan-interval-ms: ${SECURE_DEBUG_SCAN_INTERVAL_MS:5000}
 
 audit:
   retention-days: ${AUDIT_RETENTION_DAYS:365}

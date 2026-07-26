@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createBreakGlassRequest,
   createKeyRotationRequest,
+  endSecureDebugSession,
   listAuditEvents,
   listRuntimeBuilds,
+  readSecureDebugSnapshot,
+  startSecureDebugSession,
   transitionBreakGlassRequest,
 } from './platform';
 
@@ -157,6 +160,53 @@ describe('platform API', () => {
           'X-Roles': 'PLATFORM_ADMIN',
           'Content-Type': 'application/json',
         }),
+      })
+    );
+  });
+
+  it('uses the Security Admin boundary for the Secure Debug data plane', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            debugSessionId: 'dbg_1234567890abcdefghij',
+            state: 'ACTIVE',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await startSecureDebugSession('bgr_1234567890abcdefghij');
+    await readSecureDebugSnapshot('dbg_1234567890abcdefghij');
+    await endSecureDebugSession('dbg_1234567890abcdefghij');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/break-glass-requests/bgr_1234567890abcdefghij:start-secure-debug',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Roles': 'SECURITY_ADMIN' }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/secure-debug-sessions/dbg_1234567890abcdefghij/snapshot',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ 'X-Roles': 'SECURITY_ADMIN' }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/secure-debug-sessions/dbg_1234567890abcdefghij:end',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Roles': 'SECURITY_ADMIN' }),
       })
     );
   });

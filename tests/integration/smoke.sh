@@ -312,8 +312,12 @@ for _ in $(seq 1 40); do
   diff_state="$(curl -fsS \
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
-  diff_target_name="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["targets"][0]["name"])')"
-  if [[ "$diff_target_name" = "Continue integration" ]]; then break; fi
+  diff_target_name="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; item=json.load(sys.stdin); print(item["targets"][0]["name"] if item["targets"] else "")')"
+  diff_state_quality="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateQuality"])')"
+  diff_state_version="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+  if [[ "$diff_target_name" = "Continue integration" ]] \
+    && [[ "$diff_state_quality" = "COMPLETE" ]] \
+    && [[ "$diff_state_version" -gt "$initial_state_version" ]]; then break; fi
   sleep 0.25
 done
 test "$diff_target_name" = "Continue integration"
@@ -788,6 +792,49 @@ approved_break_glass="$(curl -fsS -X POST \
   -H 'X-Roles: SECURITY_ADMIN')"
 printf '%s' "$approved_break_glass" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ACTIVE"; assert item["approvedBy"] == "security-approver"; assert len(item["evidenceHash"]) == 64'
+debug_approver_status="$(curl -sS -o "$temp_dir/secure-debug-approver.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:start-secure-debug" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-approver' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$debug_approver_status" = "409"
+debug_cross_tenant_status="$(curl -sS -o "$temp_dir/secure-debug-cross-tenant.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:start-secure-debug" \
+  -H 'X-Tenant-Id: different-tenant' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$debug_cross_tenant_status" = "404"
+secure_debug_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:start-secure-debug" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+secure_debug_id="$(printf '%s' "$secure_debug_session" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ACTIVE"; assert item["operatorId"] == "security-requester"; assert item["accessCount"] == 0; print(item["debugSessionId"])')"
+debug_other_operator_status="$(curl -sS -o "$temp_dir/secure-debug-other-operator.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/secure-debug-sessions/${secure_debug_id}/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-approver' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$debug_other_operator_status" = "409"
+debug_snapshot_one="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/secure-debug-sessions/${secure_debug_id}/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+debug_evidence_one="$(printf '%s' "$debug_snapshot_one" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); forbidden={"title","url","targets","cookies","profileContent","dom"}; assert not forbidden.intersection(item); assert item["dataClassification"] == "SENSITIVE_MINIMIZED"; assert item["urlOrigin"] == "https://example.test"; assert item["sessionId"].startswith("ses_"); assert item["accessCount"] == 1; assert len(item["accessEvidenceHash"]) == 64; print(item["accessEvidenceHash"])')"
+debug_snapshot_two="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/secure-debug-sessions/${secure_debug_id}/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+debug_evidence_two="$(printf '%s' "$debug_snapshot_two" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["accessCount"] == 2; assert len(item["accessEvidenceHash"]) == 64; print(item["accessEvidenceHash"])')"
+test "$debug_evidence_one" != "$debug_evidence_two"
+secure_debug_chain="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' || bool_and(case when sequence_no=1 then previous_event_hash is null else previous_event_hash=prior_hash end) from (select sequence_no,previous_event_hash,lag(evidence_hash) over(order by sequence_no) prior_hash from secure_debug_access_events where debug_session_id='${secure_debug_id}') evidence")"
+test "$secure_debug_chain" = "4:true"
 break_glass_cross_tenant_status="$(curl -sS -o "$temp_dir/break-glass-cross-tenant.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:revoke" \
   -H 'X-Tenant-Id: different-tenant' \
@@ -801,6 +848,18 @@ revoked_break_glass="$(curl -fsS -X POST \
   -H 'X-Roles: SECURITY_ADMIN')"
 printf '%s' "$revoked_break_glass" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["state"] == "REVOKED"; assert item["revokedBy"] == "incident-commander"'
+revoked_debug_status="$(curl -sS -o "$temp_dir/secure-debug-revoked.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/secure-debug-sessions/${secure_debug_id}/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-requester' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+test "$revoked_debug_status" = "409"
+secure_debug_terminal="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/secure-debug-sessions" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$secure_debug_terminal" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); item=result["items"][0]; assert result["total"] == 1; assert item["state"] == "REVOKED"; assert item["endReason"] == "BREAK_GLASS_GRANT_INVALID"; assert item["accessCount"] == 2; assert len(item["evidenceHeadHash"]) == 64'
 reviewed_break_glass="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/break-glass-requests/${break_glass_id}:review" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -932,6 +991,6 @@ key_rotation_audit_result="$(curl -fsS \
 printf '%s' "$key_rotation_audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 5; assert len(result["items"]) == 5; assert {item["action"] for item in result["items"]} == {"KEY_ROTATION_REQUESTED","KEY_ROTATION_APPROVAL_DENIED","KEY_ROTATION_APPROVED","KEY_ROTATION_COMPLETION_DENIED","KEY_ROTATION_COMPLETED"}'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

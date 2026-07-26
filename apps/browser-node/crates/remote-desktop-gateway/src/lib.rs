@@ -256,7 +256,10 @@ impl RemoteDesktopGateway {
             .await
             .context("registered VNC endpoint is unavailable")?;
         let mut buffer = vec![0_u8; 64 * 1024];
-        let mut heartbeat = tokio::time::interval(HEARTBEAT_INTERVAL);
+        let mut heartbeat = tokio::time::interval_at(
+            tokio::time::Instant::now() + HEARTBEAT_INTERVAL,
+            HEARTBEAT_INTERVAL,
+        );
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_client_activity = tokio::time::Instant::now();
         loop {
@@ -551,7 +554,20 @@ mod tests {
             .send(Message::Binary(b"rfb".to_vec()))
             .await
             .unwrap();
-        assert_eq!(websocket.next().await.unwrap().unwrap().into_data(), b"rfb");
+        let echo = tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                match websocket.next().await.unwrap().unwrap() {
+                    Message::Binary(payload) => break payload,
+                    Message::Ping(payload) => {
+                        websocket.send(Message::Pong(payload)).await.unwrap();
+                    }
+                    other => panic!("unexpected WebSocket message before RFB echo: {other:?}"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(echo, b"rfb");
         websocket.close(None).await.unwrap();
 
         tokio::time::timeout(std::time::Duration::from_secs(1), async {

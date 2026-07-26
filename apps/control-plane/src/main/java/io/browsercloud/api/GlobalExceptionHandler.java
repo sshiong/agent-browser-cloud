@@ -13,6 +13,8 @@ import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundExce
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
+import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotFoundException;
+import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
@@ -83,6 +85,28 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "BREAK_GLASS_REJECTED",
         "Break-glass transition was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(SecureDebugNotFoundException.class)
+  ResponseEntity<ApiError> secureDebugNotFound(
+      SecureDebugNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "SECURE_DEBUG_NOT_FOUND",
+        "Secure Debug session was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(SecureDebugRejectedException.class)
+  ResponseEntity<ApiError> secureDebugRejected(
+      SecureDebugRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "SECURE_DEBUG_REJECTED",
+        "Secure Debug access was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

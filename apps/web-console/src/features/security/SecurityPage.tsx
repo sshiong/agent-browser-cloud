@@ -30,6 +30,7 @@ import type {
   CreateBreakGlassRequest,
 } from '@/types/platform';
 import { KeyRotationWorkspace } from './KeyRotationWorkspace';
+import { SecureDebugWorkspace } from './SecureDebugWorkspace';
 
 export function SecurityPage() {
   const query = useAuditEvents();
@@ -105,6 +106,8 @@ export function SecurityPage() {
           }
           onRetry={() => breakGlass.refetch()}
         />
+
+        <SecureDebugWorkspace grants={breakGlass.data?.items ?? []} />
 
         <KeyRotationWorkspace />
 

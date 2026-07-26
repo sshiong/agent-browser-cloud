@@ -156,3 +156,46 @@ export interface CreateBreakGlassRequest {
   requestedScope: BreakGlassRequestView['requestedScope'];
   durationMinutes: number;
 }
+
+export interface SecureDebugSessionView {
+  debugSessionId: string;
+  breakGlassRequestId: string;
+  resourceType: 'SESSION';
+  resourceId: string;
+  operatorId: string;
+  state: 'ACTIVE' | 'ENDED' | 'EXPIRED' | 'REVOKED';
+  startedAt: string;
+  expiresAt: string;
+  endedAt: string | null;
+  endReason: string | null;
+  accessCount: number;
+  lastAccessAt: string | null;
+  evidenceHeadHash: string | null;
+}
+
+export interface SecureDebugSessionListResponse {
+  items: SecureDebugSessionView[];
+  total: number;
+}
+
+export interface SecureDebugSnapshotView {
+  debugSessionId: string;
+  sessionId: string;
+  sessionState: string;
+  runtimeBuildId: string | null;
+  contextEpoch: number;
+  browserGeneration: number;
+  networkRevision: number;
+  urlOrigin: string | null;
+  stateVersion: number;
+  targetRevision: number;
+  stateQuality: string;
+  stateHash: string | null;
+  interactiveTargetCount: number;
+  sensitiveTargetCount: number;
+  capturedAt: string;
+  accessCount: number;
+  accessEvidenceHash: string;
+  dataClassification: 'SENSITIVE_MINIMIZED';
+  fieldProjection: string;
+}

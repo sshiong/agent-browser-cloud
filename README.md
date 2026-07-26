@@ -2,7 +2,10 @@
 
 以受控 Chromium Runtime 为核心的浏览器基础设施平台。
 
-> 当前状态：Phase 0 工程基础已可构建，但完整退出 Gate 尚未通过；Phase 1/2 仍是 PoC。真实 Chromium/CDP、State Collector、SQLite Node Journal 和持久事件重投已经落地；noVNC、真实输入、认证、mTLS、自动 Crash Recovery 与完整审计仍未通过 Gate。当前版本不能直接用于生产或真实客户数据。
+> 当前状态：单 Region 工程 PoC 的 Chromium/CDP、State/Input、noVNC、Profile/Proxy、
+> Agent、Crash Recovery、OIDC/RBAC/mTLS、哈希审计、Break-glass 与最小化 Secure
+> Debug 主链路已可重复运行。容量证书、真实集群、独立 Debug Worker/录像和 Phase 7
+> 企业运营 Gate 尚未完成，当前版本不能直接用于生产或真实客户数据。
 
 ## 快速开始
 

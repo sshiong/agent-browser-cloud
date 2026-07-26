@@ -915,6 +915,97 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/break-glass-requests/{requestId}:start-secure-debug:
+    post:
+      operationId: startSecureDebug
+      summary: Consume an approved grant to start one purpose-limited debug session
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/BreakGlassRequestId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "201":
+          description: Active Secure Debug session, capped at fifteen minutes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecureDebugSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/secure-debug-sessions:
+    get:
+      operationId: listSecureDebugSessions
+      summary: List tenant Secure Debug sessions and their evidence heads
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped Secure Debug sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecureDebugSessionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/secure-debug-sessions/{debugSessionId}/snapshot:
+    get:
+      operationId: readSecureDebugSnapshot
+      summary: Read the current purpose-limited diagnostic projection
+      description: Full URL/query, title, DOM text, target names/bounds, screenshots, cookies and Profile content are never returned.
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/SecureDebugSessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Minimized snapshot with an append-only access evidence hash.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecureDebugSnapshot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/secure-debug-sessions/{debugSessionId}:end:
+    post:
+      operationId: endSecureDebug
+      summary: End a Secure Debug session and seal its evidence chain
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/SecureDebugSessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Terminal Secure Debug session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecureDebugSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -977,6 +1068,13 @@ components:
       schema:
         type: string
         pattern: "^bgr_[a-zA-Z0-9]{20}$"
+    SecureDebugSessionId:
+      name: debugSessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^dbg_[a-zA-Z0-9]{20}$"
     RuntimeBuildId:
       name: buildId
       in: path
@@ -2500,6 +2598,141 @@ components:
             $ref: "#/components/schemas/BreakGlassRequest"
         total:
           type: integer
+    SecureDebugSession:
+      type: object
+      additionalProperties: false
+      required:
+        - debugSessionId
+        - breakGlassRequestId
+        - resourceType
+        - resourceId
+        - operatorId
+        - state
+        - startedAt
+        - expiresAt
+        - endedAt
+        - endReason
+        - accessCount
+        - lastAccessAt
+        - evidenceHeadHash
+      properties:
+        debugSessionId:
+          type: string
+          pattern: "^dbg_[a-zA-Z0-9]{20}$"
+        breakGlassRequestId:
+          type: string
+          pattern: "^bgr_[a-zA-Z0-9]{20}$"
+        resourceType:
+          type: string
+          enum: [SESSION]
+        resourceId:
+          type: string
+        operatorId:
+          type: string
+        state:
+          type: string
+          enum: [ACTIVE, ENDED, EXPIRED, REVOKED]
+        startedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: [string, "null"]
+          format: date-time
+        endReason:
+          type: [string, "null"]
+        accessCount:
+          type: integer
+          minimum: 0
+        lastAccessAt:
+          type: [string, "null"]
+          format: date-time
+        evidenceHeadHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+    SecureDebugSessionListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecureDebugSession"
+        total:
+          type: integer
+          minimum: 0
+    SecureDebugSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - debugSessionId
+        - sessionId
+        - sessionState
+        - runtimeBuildId
+        - contextEpoch
+        - browserGeneration
+        - networkRevision
+        - urlOrigin
+        - stateVersion
+        - targetRevision
+        - stateQuality
+        - stateHash
+        - interactiveTargetCount
+        - sensitiveTargetCount
+        - capturedAt
+        - accessCount
+        - accessEvidenceHash
+        - dataClassification
+        - fieldProjection
+      properties:
+        debugSessionId:
+          type: string
+        sessionId:
+          type: string
+        sessionState:
+          type: string
+        runtimeBuildId:
+          type: [string, "null"]
+        contextEpoch:
+          type: integer
+        browserGeneration:
+          type: integer
+        networkRevision:
+          type: integer
+        urlOrigin:
+          type: [string, "null"]
+          description: Origin only. Path, query, fragment and user information are excluded.
+        stateVersion:
+          type: integer
+        targetRevision:
+          type: integer
+        stateQuality:
+          type: string
+        stateHash:
+          type: [string, "null"]
+        interactiveTargetCount:
+          type: integer
+          minimum: 0
+        sensitiveTargetCount:
+          type: integer
+          minimum: 0
+        capturedAt:
+          type: string
+          format: date-time
+        accessCount:
+          type: integer
+          minimum: 1
+        accessEvidenceHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        dataClassification:
+          type: string
+          enum: [SENSITIVE_MINIMIZED]
+        fieldProjection:
+          type: string
     Error:
       type: object
       additionalProperties: false

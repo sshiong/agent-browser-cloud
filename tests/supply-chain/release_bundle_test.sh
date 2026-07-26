@@ -11,6 +11,12 @@ digest() {
 
 SOURCE_COMMIT="0123456789abcdef0123456789abcdef01234567"
 BUNDLE="$TEST_ROOT/bundle"
+EVIDENCE_ARGS=()
+for component in control-plane browser-node web-console operator; do
+  evidence_path="$TEST_ROOT/$component.spdx.json"
+  printf '{"spdxVersion":"SPDX-2.3","name":"%s"}\n' "$component" >"$evidence_path"
+  EVIDENCE_ARGS+=(--evidence "$component=$evidence_path")
+done
 python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --base-dir "$REPO_ROOT/deploy/kubernetes/base" \
   --source-commit "$SOURCE_COMMIT" \
@@ -18,7 +24,8 @@ python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --image "control-plane=ghcr.io/sshiong/agent-browser-cloud-control-plane@$(digest 1)" \
   --image "browser-node=ghcr.io/sshiong/agent-browser-cloud-browser-node@$(digest 2)" \
   --image "web-console=ghcr.io/sshiong/agent-browser-cloud-web-console@$(digest 3)" \
-  --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)"
+  --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)" \
+  "${EVIDENCE_ARGS[@]}"
 
 python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" verify --bundle "$BUNDLE"
 kubectl kustomize "$BUNDLE/production" >"$TEST_ROOT/rendered.yaml"
@@ -46,11 +53,13 @@ if python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --image "control-plane=ghcr.io/sshiong/agent-browser-cloud-control-plane:latest" \
   --image "browser-node=ghcr.io/sshiong/agent-browser-cloud-browser-node@$(digest 2)" \
   --image "web-console=ghcr.io/sshiong/agent-browser-cloud-web-console@$(digest 3)" \
-  --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)"; then
+  --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)" \
+  "${EVIDENCE_ARGS[@]}"; then
   echo "tagged production image was accepted" >&2
   exit 1
 fi
 
+cp "$BUNDLE/release-manifest.json" "$TEST_ROOT/release-manifest.json"
 python3 - "$BUNDLE/release-manifest.json" <<'PY'
 import json
 import pathlib
@@ -63,6 +72,14 @@ path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 PY
 if python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" verify --bundle "$BUNDLE"; then
   echo "tampered release manifest was accepted" >&2
+  exit 1
+fi
+cp "$TEST_ROOT/release-manifest.json" "$BUNDLE/release-manifest.json"
+
+printf '{"spdxVersion":"SPDX-2.3","name":"tampered"}\n' \
+  >"$BUNDLE/evidence/control-plane.spdx.json"
+if python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" verify --bundle "$BUNDLE"; then
+  echo "tampered SBOM evidence was accepted" >&2
   exit 1
 fi
 

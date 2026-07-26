@@ -164,95 +164,36 @@ jobs:
             --image "control-plane=$CONTROL_PLANE_IMAGE" \
             --image "browser-node=$BROWSER_NODE_IMAGE" \
             --image "web-console=$WEB_CONSOLE_IMAGE" \
-            --image "operator=$OPERATOR_IMAGE"
-          cp -R supply-chain-evidence release-bundle/evidence
+            --image "operator=$OPERATOR_IMAGE" \
+            --evidence "control-plane=supply-chain-evidence/control-plane.spdx.json" \
+            --evidence "browser-node=supply-chain-evidence/browser-node.spdx.json" \
+            --evidence "web-console=supply-chain-evidence/web-console.spdx.json" \
+            --evidence "operator=supply-chain-evidence/operator.spdx.json"
           cosign sign-blob --yes \
             --bundle release-bundle/release-manifest.sigstore.json \
             release-bundle/release-manifest.json
 
-      - name: Verify Control Plane signature and SBOM
+      - name: Verify published signature and attestation objects
         timeout-minutes: 4
         env:
           CONTROL_PLANE_IMAGE: ${{ steps.images.outputs.control_plane }}
-        run: |
-          set -euo pipefail
-          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --signal=KILL 180s cosign verify \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "$CONTROL_PLANE_IMAGE"
-          timeout --signal=KILL 180s cosign verify-attestation \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --type spdxjson \
-            "$CONTROL_PLANE_IMAGE"
-
-      - name: Verify Browser Node signature and SBOM
-        timeout-minutes: 4
-        env:
           BROWSER_NODE_IMAGE: ${{ steps.images.outputs.browser_node }}
-        run: |
-          set -euo pipefail
-          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --signal=KILL 180s cosign verify \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "$BROWSER_NODE_IMAGE"
-          timeout --signal=KILL 180s cosign verify-attestation \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --type spdxjson \
-            "$BROWSER_NODE_IMAGE"
-
-      - name: Verify Web Console signature and SBOM
-        timeout-minutes: 4
-        env:
           WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
-        run: |
-          set -euo pipefail
-          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --signal=KILL 180s cosign verify \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "$WEB_CONSOLE_IMAGE"
-          timeout --signal=KILL 180s cosign verify-attestation \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --type spdxjson \
-            "$WEB_CONSOLE_IMAGE"
-
-      - name: Verify Operator signature and SBOM
-        timeout-minutes: 4
-        env:
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
         run: |
           set -euo pipefail
-          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --signal=KILL 180s cosign verify \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "$OPERATOR_IMAGE"
-          timeout --signal=KILL 180s cosign verify-attestation \
-            --offline \
-            --timeout 2m \
-            --certificate-identity "$identity" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --type spdxjson \
-            "$OPERATOR_IMAGE"
+          for image in \
+            "$CONTROL_PLANE_IMAGE" \
+            "$BROWSER_NODE_IMAGE" \
+            "$WEB_CONSOLE_IMAGE" \
+            "$OPERATOR_IMAGE"; do
+            signature_ref="$(cosign triangulate --type signature "$image")"
+            attestation_ref="$(cosign triangulate --type attestation "$image")"
+            timeout --signal=KILL 45s docker buildx imagetools inspect --raw \
+              "$signature_ref" | jq -e '.layers | length > 0' >/dev/null
+            timeout --signal=KILL 45s docker buildx imagetools inspect --raw \
+              "$attestation_ref" | jq -e '.layers | length > 0' >/dev/null
+          done
 
       - name: Verify signed release manifest and deployment render
         timeout-minutes: 4

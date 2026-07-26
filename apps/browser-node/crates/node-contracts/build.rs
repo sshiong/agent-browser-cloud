@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .build_client(true)
         .build_server(true)
-        .compile(&[node_proto], &[proto_root])?;
+        .compile_protos(&[node_proto], &[proto_root])?;
 
     println!(
         "cargo:rerun-if-changed=../../../../packages/contracts/proto/node/v1/node_command.proto"

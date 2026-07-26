@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 COMPONENTS = {
     "control-plane": "ghcr.io/sshiong/agent-browser-cloud-control-plane",
     "browser-node": "ghcr.io/sshiong/agent-browser-cloud-browser-node",
@@ -24,6 +24,7 @@ REFERENCE_PATTERN = re.compile(
     r"@(?P<digest>sha256:[a-f0-9]{64})$"
 )
 COMMIT_PATTERN = re.compile(r"^[a-f0-9]{40}$")
+SPDX_MEDIA_TYPE = "application/spdx+json"
 
 
 class BundleError(ValueError):
@@ -68,6 +69,34 @@ def parse_images(values: list[str]) -> dict[str, dict[str, str]]:
     return images
 
 
+def parse_evidence(values: list[str]) -> dict[str, Path]:
+    evidence: dict[str, Path] = {}
+    for value in values:
+        if "=" not in value:
+            raise BundleError(f"evidence must use COMPONENT=PATH form: {value}")
+        component, raw_path = value.split("=", 1)
+        if component not in COMPONENTS:
+            raise BundleError(f"unknown evidence component: {component}")
+        if component in evidence:
+            raise BundleError(f"duplicate evidence component: {component}")
+        path = Path(raw_path).resolve()
+        if not path.is_file():
+            raise BundleError(f"SBOM evidence is missing: {component}")
+        try:
+            document = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise BundleError(f"SBOM evidence is invalid: {component}: {error}") from error
+        if not isinstance(document, dict) or not str(
+            document.get("spdxVersion", "")
+        ).startswith("SPDX-"):
+            raise BundleError(f"SBOM evidence is not an SPDX JSON document: {component}")
+        evidence[component] = path
+    missing = sorted(set(COMPONENTS) - set(evidence))
+    if missing:
+        raise BundleError(f"missing SBOM evidence: {','.join(missing)}")
+    return evidence
+
+
 def kustomization(images: dict[str, dict[str, str]]) -> str:
     lines = [
         "apiVersion: kustomize.config.k8s.io/v1beta1",
@@ -92,6 +121,7 @@ def render(args: argparse.Namespace) -> None:
     if COMMIT_PATTERN.fullmatch(args.source_commit) is None:
         raise BundleError("source commit must be a full lowercase Git SHA")
     images = parse_images(args.image)
+    evidence_sources = parse_evidence(args.evidence)
     base_dir = args.base_dir.resolve()
     if not (base_dir / "kustomization.yaml").is_file():
         raise BundleError(f"Kubernetes base is missing: {base_dir}")
@@ -105,10 +135,22 @@ def render(args: argparse.Namespace) -> None:
     production.mkdir()
     kustomization_path = production / "kustomization.yaml"
     kustomization_path.write_text(kustomization(images), encoding="utf-8")
+    evidence_dir = output / "evidence"
+    evidence_dir.mkdir()
+    evidence = {}
+    for component in COMPONENTS:
+        destination = evidence_dir / f"{component}.spdx.json"
+        shutil.copyfile(evidence_sources[component], destination)
+        evidence[component] = {
+            "path": f"evidence/{component}.spdx.json",
+            "digest": sha256_file(destination),
+            "mediaType": SPDX_MEDIA_TYPE,
+        }
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
         "sourceCommit": args.source_commit,
         "images": images,
+        "evidence": evidence,
         "deployment": {
             "entrypoint": "production/kustomization.yaml",
             "kustomizationDigest": sha256_file(kustomization_path),
@@ -146,6 +188,36 @@ def verify_bundle(bundle: Path) -> None:
     if raw_images != images:
         raise BundleError("release manifest image metadata is not canonical")
 
+    raw_evidence = manifest.get("evidence")
+    if not isinstance(raw_evidence, dict):
+        raise BundleError("release manifest evidence is missing")
+    evidence = {}
+    for component in COMPONENTS:
+        relative_path = f"evidence/{component}.spdx.json"
+        entry = raw_evidence.get(component)
+        if (
+            not isinstance(entry, dict)
+            or entry.get("path") != relative_path
+            or entry.get("mediaType") != SPDX_MEDIA_TYPE
+        ):
+            raise BundleError(f"release manifest evidence is invalid: {component}")
+        evidence_path = bundle / relative_path
+        try:
+            document = json.loads(evidence_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise BundleError(f"SBOM evidence is invalid: {component}: {error}") from error
+        if not isinstance(document, dict) or not str(
+            document.get("spdxVersion", "")
+        ).startswith("SPDX-"):
+            raise BundleError(f"SBOM evidence is not an SPDX JSON document: {component}")
+        evidence[component] = {
+            "path": relative_path,
+            "digest": sha256_file(evidence_path),
+            "mediaType": SPDX_MEDIA_TYPE,
+        }
+    if raw_evidence != evidence:
+        raise BundleError("release manifest evidence metadata is not canonical")
+
     deployment = manifest.get("deployment")
     if not isinstance(deployment, dict):
         raise BundleError("release manifest deployment metadata is missing")
@@ -178,6 +250,7 @@ def parser() -> argparse.ArgumentParser:
         "--base-dir", type=Path, default=Path("deploy/kubernetes/base")
     )
     render_parser.add_argument("--image", action="append", default=[], required=True)
+    render_parser.add_argument("--evidence", action="append", default=[], required=True)
     render_parser.set_defaults(handler=render)
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--bundle", type=Path, required=True)

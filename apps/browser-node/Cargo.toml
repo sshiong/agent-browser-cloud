@@ -31,9 +31,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-prost = "0.12"
-tonic = { version = "0.11", features = ["tls"] }
-prost-types = "0.12"
+prost = "0.13"
+tonic = { version = "0.12", features = ["tls"] }
+prost-types = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 futures-util = "0.3"

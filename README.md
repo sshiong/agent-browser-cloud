@@ -12,7 +12,7 @@
 ### 环境要求
 
 - Java 21+
-- Rust 1.75+
+- Rust 1.86+
 - Node.js 20+
 - pnpm 8+
 - Docker 24+

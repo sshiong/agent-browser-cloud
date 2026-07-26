@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 public interface CoordinatorOwnershipJpaRepository
     extends JpaRepository<CoordinatorOwnershipEntity, String> {
 
-  @Modifying
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(
       value =
           """

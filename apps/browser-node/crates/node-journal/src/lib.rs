@@ -240,6 +240,22 @@ impl SqliteNodeJournal {
         .await
     }
 
+    /// 读取 Node 已接受的最新 Coordinator Term。
+    pub async fn current_coordinator_term(&self, session_id: &str) -> anyhow::Result<Option<i64>> {
+        let session_id = session_id.to_owned();
+        self.with_connection(move |connection| {
+            connection
+                .query_row(
+                    "SELECT coordinator_term FROM coordinator_terms WHERE session_id = ?1",
+                    params![session_id],
+                    |row| row.get(0),
+                )
+                .optional()
+                .context("read current Coordinator Term")
+        })
+        .await
+    }
+
     pub async fn next_event_sequence(&self, session_id: &str) -> anyhow::Result<i64> {
         let session_id = session_id.to_owned();
         self.with_connection(move |mut connection| {
@@ -588,6 +604,10 @@ mod tests {
         assert_eq!(
             reopened.validate_and_record_term("ses_1", 7).await.unwrap(),
             TermDecision::Stale { current_term: 8 }
+        );
+        assert_eq!(
+            reopened.current_coordinator_term("ses_1").await.unwrap(),
+            Some(8)
         );
         let _ = std::fs::remove_file(path);
     }

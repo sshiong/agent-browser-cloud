@@ -18,7 +18,8 @@
 | 审计类型扩展             | Prompt Security、Human Authorization、Admin Access、Profile Restore                                                   | 集成审计链验证                                                     |
 | Network Helper 隔离      | 独立进程、固定有界 Unix IPC、Peer UID、独立容器 UID/seccomp/Capability Drop                                           | Rust 边界单测 + Helper Kill/Fail-closed/独立恢复集成测试 + Web E2E |
 | Storage Helper 隔离      | 独立进程、固定 IPC、路径重算、Write Epoch 幂等 Checkpoint、独立 Profile 卷                                            | Rust 完整性/路径/幂等测试 + Checkpoint Kill/恢复集成测试 + Web E2E |
-| PostgreSQL 短时不可用    | 有界连接/Socket Timeout、稳定脱敏 503、写暂停、恢复后同幂等键继续                                                     | `make test-postgres-outage` 真实暂停/恢复 PostgreSQL 容器           |
+| PostgreSQL 短时不可用    | 有界连接/Socket Timeout、稳定脱敏 503、写暂停、恢复后同幂等键继续                                                     | `make test-postgres-outage` 真实暂停/恢复 PostgreSQL 容器          |
+| Coordinator 安全点接管   | PostgreSQL Lease/CAS Ownership、Term +1、Node 双向 Fencing、旧事件终止清理                                            | `make test-integration` 真实 SIGKILL A、B 以 term=2 接管并继续恢复 |
 
 ## 尚未完成
 
@@ -27,10 +28,11 @@
    尚未实现，且 AppArmor/SELinux/Landlock 与真实集群跨 UID 验收待补。
 2. Break-glass 与最小化 Secure Debug 数据面已完成；独立 Secure Debug Worker、
    像素级强制录像、WORM Recording Manifest 与真实集群故障演练尚未实现。
-3. PostgreSQL 短时不可用 GameDay 已完成；故障矩阵尚缺 Object Storage 超时和
-   Coordinator 进程重启/接管的自动 GameDay。现有覆盖包括 Chromium Kill、
-   Node Kill/Restart、Redis 非权威、Proxy Circuit、Profile Corruption、Key-up Loss、
-   DiffTruncated 和 Workflow DLQ。
+3. PostgreSQL 短时不可用及 Coordinator 安全点 Kill/接管 GameDay 已完成；故障矩阵
+   尚缺 Object Storage 超时，以及在 STARTING/STOPPING/RECOVERING、Agent Step 或
+   HumanTakeover Barrier 中间 Kill 后对进行中 Operation 的恢复/安全中止。现有覆盖还包括
+   Chromium Kill、Node Kill/Restart、Redis 非权威、Proxy Circuit、Profile Corruption、
+   Key-up Loss、DiffTruncated 和 Workflow DLQ。
 4. 八类必需审计事件已全部接入，并由集成测试验证完整哈希链。
    Audit Retention 字段已落库，但删除 Receipt、签名导出 Manifest 和法规 Legal Hold
    工作流属于 Phase 7，尚未完成。

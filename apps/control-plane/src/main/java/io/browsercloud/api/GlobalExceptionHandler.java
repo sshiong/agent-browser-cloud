@@ -19,6 +19,7 @@ import io.browsercloud.application.SessionApplicationService.CapacityUnavailable
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
+import io.browsercloud.coordinator.exceptions.CoordinatorNotOwnerException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
 import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
@@ -256,6 +257,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "OPERATION_ACTIVE",
         "An active operation already exists",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(CoordinatorNotOwnerException.class)
+  ResponseEntity<ApiError> coordinatorNotOwner(
+      CoordinatorNotOwnerException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "COORDINATOR_NOT_OWNER",
+        "The Session Coordinator is owned by another instance",
         Map.of(),
         request);
   }

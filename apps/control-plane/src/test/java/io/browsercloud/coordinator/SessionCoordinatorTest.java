@@ -31,13 +31,19 @@ class SessionCoordinatorTest {
 
   @Mock private OutboxPublisher outboxPublisher;
 
+  @Mock private CoordinatorOwnershipService ownershipService;
+
   private SessionCoordinator coordinator;
 
   @BeforeEach
   void setUp() {
     coordinator =
         new SessionCoordinator(
-            sessionRepository, operationRepository, nodeCommandGateway, outboxPublisher);
+            sessionRepository,
+            operationRepository,
+            nodeCommandGateway,
+            outboxPublisher,
+            ownershipService);
   }
 
   @Test

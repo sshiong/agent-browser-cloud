@@ -196,6 +196,18 @@ impl NodeControlService {
         self.journal.next_event_sequence(session_id).await
     }
 
+    async fn current_coordinator_term(
+        &self,
+        session_id: &str,
+        fallback: i64,
+    ) -> anyhow::Result<i64> {
+        Ok(self
+            .journal
+            .current_coordinator_term(session_id)
+            .await?
+            .unwrap_or(fallback))
+    }
+
     fn ack(message_id: &str, accepted: bool, error_code: &str, error_message: &str) -> CommandAck {
         CommandAck {
             message_id: message_id.to_owned(),
@@ -449,7 +461,11 @@ impl NodeControlService {
         let event_id = event.event_id.clone();
         let acknowledgement = self.publish_event_receipt(event).await?;
         anyhow::ensure!(
-            acknowledgement.accepted || acknowledgement.error_code == "STALE_HUMAN_TAKEOVER",
+            acknowledgement.accepted
+                || matches!(
+                    acknowledgement.error_code.as_str(),
+                    "STALE_HUMAN_TAKEOVER" | "STALE_COORDINATOR_TERM"
+                ),
             "Control Plane rejected Node Event: {}",
             acknowledgement.error_code
         );
@@ -1640,6 +1656,20 @@ impl NodeControlService {
                                 .await
                             {
                                 Ok(state) => {
+                                    let coordinator_term = match service
+                                        .current_coordinator_term(&session_id, coordinator_term)
+                                        .await
+                                    {
+                                        Ok(term) => term,
+                                        Err(error) => {
+                                            tracing::warn!(
+                                                session_id,
+                                                error = %error,
+                                                "Coordinator Term lookup deferred"
+                                            );
+                                            continue;
+                                        }
+                                    };
                                     let previous = service
                                         .state_baselines
                                         .lock()
@@ -1741,16 +1771,24 @@ impl NodeControlService {
                         if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
                             gateway.unregister_session(&session_id);
                         }
-                        if let Err(error) = service
-                            .record_and_publish_crash(
-                                &tenant_id,
-                                &session_id,
-                                coordinator_term,
-                                running_context_epoch,
-                                &reason,
-                            )
+                        let result = match service
+                            .current_coordinator_term(&session_id, coordinator_term)
                             .await
                         {
+                            Ok(current_term) => {
+                                service
+                                    .record_and_publish_crash(
+                                        &tenant_id,
+                                        &session_id,
+                                        current_term,
+                                        running_context_epoch,
+                                        &reason,
+                                    )
+                                    .await
+                            }
+                            Err(error) => Err(error),
+                        };
+                        if let Err(error) = result {
                             tracing::error!(
                                 session_id,
                                 error = %error,
@@ -1985,16 +2023,23 @@ impl NodeControlService {
                 "Node restarted while Runtime lease for pid {} was active",
                 lease.pid
             );
-            if let Err(error) = self
-                .record_and_publish_crash(
-                    &lease.tenant_id,
-                    &lease.session_id,
-                    lease.coordinator_term,
-                    lease.context_epoch,
-                    &reason,
-                )
+            let result = match self
+                .current_coordinator_term(&lease.session_id, lease.coordinator_term)
                 .await
             {
+                Ok(current_term) => {
+                    self.record_and_publish_crash(
+                        &lease.tenant_id,
+                        &lease.session_id,
+                        current_term,
+                        lease.context_epoch,
+                        &reason,
+                    )
+                    .await
+                }
+                Err(error) => Err(error),
+            };
+            if let Err(error) = result {
                 tracing::error!(
                     session_id = %lease.session_id,
                     error = %error,

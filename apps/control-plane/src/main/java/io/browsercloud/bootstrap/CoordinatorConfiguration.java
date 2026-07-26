@@ -1,5 +1,6 @@
 package io.browsercloud.bootstrap;
 
+import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.NodeCommandGateway;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.OutboxPublisher;
@@ -17,8 +18,13 @@ public class CoordinatorConfiguration {
       SessionRepository sessionRepository,
       OperationRepository operationRepository,
       NodeCommandGateway nodeCommandGateway,
-      OutboxPublisher outboxPublisher) {
+      OutboxPublisher outboxPublisher,
+      CoordinatorOwnershipService ownershipService) {
     return new SessionCoordinator(
-        sessionRepository, operationRepository, nodeCommandGateway, outboxPublisher);
+        sessionRepository,
+        operationRepository,
+        nodeCommandGateway,
+        outboxPublisher,
+        ownershipService);
   }
 }

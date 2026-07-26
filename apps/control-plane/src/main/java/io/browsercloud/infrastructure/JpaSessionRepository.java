@@ -2,6 +2,7 @@ package io.browsercloud.infrastructure;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
@@ -27,14 +28,17 @@ public class JpaSessionRepository implements SessionRepository {
   private final SessionJpaRepository sessionJpa;
   private final SessionContextJpaRepository contextJpa;
   private final ObjectMapper objectMapper;
+  private final CoordinatorOwnershipService ownershipService;
 
   public JpaSessionRepository(
       SessionJpaRepository sessionJpa,
       SessionContextJpaRepository contextJpa,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      CoordinatorOwnershipService ownershipService) {
     this.sessionJpa = sessionJpa;
     this.contextJpa = contextJpa;
     this.objectMapper = objectMapper;
+    this.ownershipService = ownershipService;
   }
 
   @Override
@@ -200,6 +204,8 @@ public class JpaSessionRepository implements SessionRepository {
       isolationProfileId = ctx.getIsolationProfileId();
       proxyBindingId = ctx.getProxyBindingId();
     }
+
+    coordinatorTerm = Math.max(coordinatorTerm, ownershipService.getCurrentTerm(entity.getId()));
 
     return new SessionContext(
         entity.getId(),

@@ -87,6 +87,10 @@ audit:
 control-plane:
   node-event-port: ${CONTROL_PLANE_NODE_EVENT_PORT:9091}
 
+coordinator:
+  instance-id: ${COORDINATOR_INSTANCE_ID:${random.uuid}}
+  lease-seconds: ${COORDINATOR_LEASE_SECONDS:30}
+
 grpc:
   tls:
     enabled: ${GRPC_TLS_ENABLED:false}

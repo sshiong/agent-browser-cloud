@@ -1,7 +1,11 @@
 package io.browsercloud.coordinator;
 
+import io.browsercloud.coordinator.exceptions.CoordinatorNotOwnerException;
+import io.browsercloud.coordinator.exceptions.StaleCoordinatorTermException;
 import io.browsercloud.persistence.CoordinatorOwnershipEntity;
+import java.time.Duration;
 import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,34 +18,61 @@ import org.springframework.transaction.annotation.Transactional;
 public class CoordinatorOwnershipService {
 
   private final CoordinatorOwnershipJpaRepository ownershipJpa;
+  private final String coordinatorId;
+  private final Duration leaseDuration;
 
-  public CoordinatorOwnershipService(CoordinatorOwnershipJpaRepository ownershipJpa) {
+  public CoordinatorOwnershipService(
+      CoordinatorOwnershipJpaRepository ownershipJpa,
+      @Value("${coordinator.instance-id:${random.uuid}}") String coordinatorId,
+      @Value("${coordinator.lease-seconds:30}") long leaseSeconds) {
     this.ownershipJpa = ownershipJpa;
+    this.coordinatorId = coordinatorId;
+    this.leaseDuration = Duration.ofSeconds(Math.max(1, leaseSeconds));
   }
 
   /**
    * 尝试接管 Session 的 Coordinator 所有权。
    *
    * @param sessionId Session ID
-   * @param coordinatorId Coordinator 实例 ID
-   * @return 是否成功接管
+   * @return 当前实例持有的 Coordinator Term
    */
   @Transactional
-  public boolean claimSession(String sessionId, String coordinatorId) {
+  public long acquireSession(String sessionId) {
     var now = Instant.now();
-    return ownershipJpa.claimIfAbsentOrExpired(sessionId, coordinatorId, now, now.minusSeconds(30))
-        == 1;
+    var existing = ownershipJpa.findById(sessionId);
+    if (existing
+        .filter(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
+        .isPresent()) {
+      if (ownershipJpa.heartbeatIfOwner(sessionId, coordinatorId, now) == 1) {
+        return existing.orElseThrow().getCoordinatorTerm();
+      }
+    }
+
+    ownershipJpa.claimIfAbsentOrExpired(sessionId, coordinatorId, now, now.minus(leaseDuration));
+    return ownershipJpa
+        .findById(sessionId)
+        .filter(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
+        .map(CoordinatorOwnershipEntity::getCoordinatorTerm)
+        .orElseThrow(() -> new CoordinatorNotOwnerException(sessionId));
   }
 
-  /**
-   * 更新心跳。
-   *
-   * @param sessionId Session ID
-   * @param coordinatorId Coordinator 实例 ID
-   */
+  /** 仅允许当前实例确认并续租给定 Term。 */
   @Transactional
-  public void heartbeat(String sessionId, String coordinatorId) {
-    ownershipJpa.heartbeatIfOwner(sessionId, coordinatorId, Instant.now());
+  public void assertCurrentOwner(String sessionId, long coordinatorTerm) {
+    var current =
+        ownershipJpa
+            .findById(sessionId)
+            .filter(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
+            .orElseThrow(() -> new CoordinatorNotOwnerException(sessionId));
+    if (current.getCoordinatorTerm() != coordinatorTerm) {
+      throw new StaleCoordinatorTermException(
+          sessionId, coordinatorTerm, current.getCoordinatorTerm());
+    }
+    if (ownershipJpa.heartbeatIfOwner(
+            current.getSessionId(), current.getCoordinatorOwner(), Instant.now())
+        != 1) {
+      throw new CoordinatorNotOwnerException(sessionId);
+    }
   }
 
   /**

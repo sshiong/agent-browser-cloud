@@ -39,16 +39,19 @@ public final class SessionCoordinator {
   private final OperationRepository operationRepository;
   private final NodeCommandGateway nodeCommandGateway;
   private final OutboxPublisher outboxPublisher;
+  private final CoordinatorOwnershipService ownershipService;
 
   public SessionCoordinator(
       SessionRepository sessionRepository,
       OperationRepository operationRepository,
       NodeCommandGateway nodeCommandGateway,
-      OutboxPublisher outboxPublisher) {
+      OutboxPublisher outboxPublisher,
+      CoordinatorOwnershipService ownershipService) {
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.nodeCommandGateway = nodeCommandGateway;
     this.outboxPublisher = outboxPublisher;
+    this.ownershipService = ownershipService;
   }
 
   /**
@@ -58,6 +61,11 @@ public final class SessionCoordinator {
    * @return 处理结果
    */
   public CoordinatorResult handle(SessionCommand command) {
+    if (command instanceof NodeEventReceived event) {
+      ownershipService.assertCurrentOwner(event.sessionId(), event.coordinatorTerm());
+    } else {
+      ownershipService.acquireSession(command.sessionId());
+    }
     return switch (command) {
       case StartSession start -> handleStart(start);
       case TerminateSession terminate -> handleTerminate(terminate);

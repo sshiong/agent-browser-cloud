@@ -2,6 +2,7 @@ package io.browsercloud.infrastructure;
 
 import io.browsercloud.application.NodeEventIngestionService;
 import io.browsercloud.application.NodeEventIngestionService.NodeEventRejectedException;
+import io.browsercloud.coordinator.exceptions.StaleCoordinatorTermException;
 import io.browsercloud.proto.node.v1.NodeEventServiceGrpc;
 import io.browsercloud.proto.node.v1.PublishRequest;
 import io.browsercloud.proto.node.v1.PublishResponse;
@@ -107,6 +108,9 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 .build());
       } catch (NodeEventRejectedException exception) {
         respond(responseObserver, rejected(eventId, exception.reason(), exception.getMessage()));
+      } catch (StaleCoordinatorTermException exception) {
+        respond(
+            responseObserver, rejected(eventId, "STALE_COORDINATOR_TERM", exception.getMessage()));
       } catch (IllegalArgumentException exception) {
         respond(responseObserver, rejected(eventId, "INVALID_EVENT", exception.getMessage()));
       } catch (RuntimeException exception) {

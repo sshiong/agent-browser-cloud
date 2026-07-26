@@ -41,7 +41,8 @@
 - 列表、详情、启动和终止执行租户归属校验。
 - Session 写路径使用行锁、`context_epoch` CAS 和单 Session Active Operation 唯一索引。
 - Coordinator 事务内只写 Node Command Outbox；后台任务通过 gRPC 投递，并含超时、退避、最大重试和 Dead Letter 字段。
-- Coordinator Ownership 使用 PostgreSQL 条件 Upsert 和心跳续约。
+- Coordinator Ownership 已进入 Session Command 与 Node Event 热路径：当前 Owner
+  续租，其他实例只能在 Lease 过期后通过 PostgreSQL 条件 Upsert/CAS 接管并提升 term。
 - Control Plane 提供独立 Node Event gRPC 服务；事件限制为 128 KiB，
   Payload 白名单解析上限为 64 KiB。
 - Node Event 携带 Tenant、Coordinator Term、Context Epoch、Operation Epoch、
@@ -72,6 +73,8 @@
 - Browser State 的 URL、Title、Quality、Version、Target Role 与 Bounds 从 CDP
   经 Node Event、PostgreSQL 到 REST API 完整可读；
 - SQLite Journal 关闭并重开后仍保留去重结果、最高 Term、Event Sequence 和待投事件；
+- 实际 `SIGKILL` Coordinator A 后，Coordinator B 在 Lease 到期前 fail-closed，
+  到期后以 term=2 接管；旧 term Event 被终止清理，后续 State/Crash Event 使用 term=2；
 - 实际强杀 Chromium 后 Session 自动恢复到 Context Epoch 2 / Browser Generation 2；
   随后重启 Browser Node，Runtime Lease 对账使 Session 再恢复到 Epoch 3 /
   Generation 3，两个 Recovery Operation 均为 `COMMITTED`；
@@ -84,4 +87,5 @@
 
 - 资源硬限制、Renderer/Browser Crash 更细分类和 500 次 Runtime 循环验收。
 - Domain Outbox 消息总线 Publisher/Consumer、重放与 DLQ 演练。
-- 多 Coordinator 并发抢占、Outbox Claim 与故障注入的完整验收。
+- 多 Coordinator 同时长稳、进行中 Operation Kill 后恢复/安全中止、热点迁移、
+  Outbox Claim 和容量压测仍待完整验收。

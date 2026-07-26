@@ -64,6 +64,7 @@ POSTGRES_OUTAGE_GAMEDAY_OK ... outage_seconds=3
 
 1. 本演练是单 Control Plane、单 PostgreSQL 容器的短时网络黑洞，不等同于托管
    PostgreSQL 主备切换、DNS 切换、连接池风暴和长事务中断验收。
-2. Coordinator Kill/新实例接管、Object Storage 超时仍未形成独立自动 GameDay。
+2. Coordinator 安全点 Kill/新实例 term=2 接管已进入集成 GameDay；进行中 Operation
+   的恢复/安全中止和 Object Storage 超时仍未完成。
 3. 后续生产演练需记录连接池饱和度、API P99、恢复时间、失败请求数和数据库
    Failover Timeline，并绑定具体 Build/环境。

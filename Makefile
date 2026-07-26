@@ -1,6 +1,7 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-kubernetes-operator test-kubernetes-e2e test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-coordinator-capacity test-kubernetes-operator test-kubernetes-e2e test-e2e ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
+CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
 
 # Install workspace dependencies
 install:
@@ -87,6 +88,10 @@ test-real-url-agent:
 test-postgres-outage:
 	./tests/failure-injection/postgres-outage.sh
 
+# Generate a build-bound Stage A Coordinator capacity certificate
+test-coordinator-capacity:
+	./gradlew -p apps/control-plane coordinatorCapacityCertificate -PcapacityBuildId=$(CAPACITY_BUILD_ID)
+
 # Run BrowserSession operator unit tests
 test-kubernetes-operator:
 	python3 -m unittest discover -s tools/browser-session-operator -p 'test_*.py'
@@ -100,4 +105,4 @@ test-e2e:
 	./tests/e2e/run.sh
 
 # Run all checks (CI)
-ci: lint test contracts-check supply-chain-check test-kubernetes-operator
+ci: lint test contracts-check supply-chain-check test-kubernetes-operator test-coordinator-capacity

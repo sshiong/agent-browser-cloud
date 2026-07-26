@@ -7,6 +7,9 @@
 - Bounded Priority Mailbox 保证 Emergency/Human 消息可抢占 Telemetry，并提供空闲
   Passivation 判定。
 - 容量准入绑定 Coordinator Build ID，使用 85% 关闭/70% 重开 Hysteresis。
+- 新增 Build-bound Stage A Coordinator Capacity Certificate：固定 50,000 Actor、
+  250,000 次路由、64 Shard、10,000 个满载 Mailbox，验证 Route/Emergency P99、
+  最大 Shard 负载、Emergency 抢占和容量 Hysteresis；已进入 `make ci`。
 - BrowserSession `v1alpha1` CRD。
 - Operator 实现幂等创建、`observedGeneration`、Finalizer 终止、失败重试和双副本
   Kubernetes Lease Leader Election。
@@ -27,8 +30,8 @@
 
 1. CRD/Operator 已在临时 Kind 集群完成安装、选主和故障接管；尚未在目标云
    Kubernetes 执行 N/N-1 Rolling Upgrade。
-2. Coordinator Capacity Certificate 目前是配置绑定证书模型，尚无正式 10k/50k Actor
-   压测报告、Emergency Control P99 和 Mailbox Byte Budget 数据。
+2. Coordinator 50k 单进程 Stage A 微基准证书已完成；它不包含 PostgreSQL、网络、
+   GC 长稳、Mailbox Byte Budget、Passivation/恢复和多实例调度，尚不能作为生产并发承诺。
 3. Browser Capacity Certificate、Extension Weight/Probation、PSI/Cgroup 深度采样和
    Node Pressure 驱逐尚未实现。
 4. Hot Actor 安全点迁移有 Router/Epoch 核心，但缺双 Coordinator 实例的迁移压测。

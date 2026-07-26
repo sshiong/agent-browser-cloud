@@ -78,6 +78,28 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+tasks.register<JavaExec>("coordinatorCapacityCertificate") {
+    group = "verification"
+    description = "Runs the bounded Coordinator Stage A capacity workload and writes a JSON certificate"
+    dependsOn(tasks.testClasses)
+    javaLauncher =
+        javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "io.browsercloud.capacity.CoordinatorCapacityCertificateRunner"
+    args(
+        "--output",
+        providers.gradleProperty("capacityOutput")
+            .orElse(layout.buildDirectory.file("reports/capacity/coordinator-capacity.json").map { it.asFile.absolutePath })
+            .get(),
+        "--actors",
+        providers.gradleProperty("capacityActors").orElse("50000").get(),
+        "--build-id",
+        providers.gradleProperty("capacityBuildId").orElse("control-plane-local").get(),
+    )
+}
+
 sourceSets {
     main {
         proto {

@@ -51,9 +51,11 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 ## Phase 6：生产 Exit Gate 缺口
 
 1. Coordinator Capacity Certificate：
-   - 没有 10k/50k Actor 压测报告；
-   - 没有 Emergency Control P99、Mailbox Byte Budget、Passivation/恢复压测；
-   - 证书尚未绑定完整 Build、负载模型和可复现实验环境。
+   - 50k Actor、250k Route、10k 满 Mailbox 的单进程 Stage A 证书已绑定 Build、
+     负载模型、JVM/OS、P95/P99、Shard 分布和证书 Hash，并进入 `make ci`；
+   - 尚缺端到端 Emergency Control P99、Mailbox Byte Budget、Passivation/恢复、
+     PostgreSQL/gRPC 和容器 GC 长稳压测；
+   - 目标云证书仍未完成。
 2. Browser Capacity Certificate：
    - Extension Weight、未知扩展 Probation、持续 P95 Profile 未实现；
    - PSI/Cgroup Burst 深度采样、Node Pressure 驱逐和安全余量验证未实现；

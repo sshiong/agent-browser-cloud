@@ -1,6 +1,6 @@
 # Phase 5：Coordinator 进行中 Operation 接管
 
-> 状态：HumanTakeover 全阶段、Agent pending Step、Runtime 生命周期真实演练完成
+> 状态：HumanTakeover 全阶段、Agent pending/已执行未提交 Step、Runtime 生命周期真实演练完成
 > 日期：2026-07-26
 > 验收入口：`make test-integration`
 
@@ -93,22 +93,36 @@ HumanTakeover Barrier 的两个边界阶段也使用独立 Session 验证：
 5. 两个 term=1 Operation 均为 `ABORTED`，两个 replacement 均为 `COMMITTED:2`；
 6. 重建完成后两个 Session 都可正常 Terminate，证明没有遗留 Input Barrier。
 
+有副作用 Agent Step 使用第四个 Coordinator 世代完成精确一次性验证：
+
+1. 计划固定为 `GET_CURRENT_STATE → TYPE_TEXT → GET_URL → GET_PAGE_SUMMARY`；
+2. Node Pause 后执行 Task，使 TYPE_TEXT Command 进入已建立的 Dispatcher 请求；
+3. 暂停 Coordinator C、恢复 Node，等待 Node Journal 出现对应 Command Result，
+   且 `event_delivered=0`，证明输入已执行但回调未提交；
+4. 直接 `SIGKILL` C，Coordinator D 启动并由 Agent Recovery Scanner claim term=4；
+5. term=3 Agent Operation=`ABORTED`，Task=`FAILED`，
+   `lastError=COORDINATOR_FAILOVER_ABORTED`；
+6. Task 保留一个已验证只读检查点，TYPE_TEXT 不进入成功结果；
+7. `tool_capability_uses` 中 TYPE_TEXT 精确为 1，旧事件不能触发重复执行；
+8. 后续新的 Agent Navigate/Read/Action 任务继续正常完成。
+
 本轮真实输出包含：
 
 ```text
 coordinator_failover_term=2
 coordinator_inflight_operation_reconciled=true
 coordinator_agent_step_aborted=true
+coordinator_agent_side_effect_once=true
 coordinator_lifecycle_start_aborted=true
 coordinator_lifecycle_stop_aborted=true
 coordinator_lifecycle_recovery_aborted=true
 coordinator_barrier_preparing_rebuilt=true
 coordinator_barrier_completing_rebuilt=true
-coordinator_final_term=3
+coordinator_final_term=4
 node_events_inbox=35
-node_command_published=31
+node_command_published=33
 audit_chain_valid=true
-audit_events=56
+audit_events=96
 ```
 
 ## 同步修复的启动回归
@@ -144,7 +158,7 @@ Coordinator 单测覆盖：
    “旧命令已执行/未执行”拆成两个固定时序测试，降低随机调度对覆盖分支的影响；
 2. HumanTakeover `PREPARING`、`EXECUTING`、`COMPLETING` 已全部覆盖；仍需远程桌面
    WebSocket 正在传输输入帧时的网络分区联合演练；
-3. Navigate pending Step 已完成；仍需 Click/Type 等“Node 可能已经执行但 Event 未提交”
-   的副作用竞态与 Capability Ledger 精确计数断言；
+3. Navigate pending 与 TYPE_TEXT“已执行但 Event 未提交”均已完成；仍可扩展 Click、
+   Scroll、Wait 四种动作的参数化矩阵；
 4. 双 Coordinator 长稳、网络分区、时钟偏差、连接池拥塞和 Kubernetes Pod Kill；
 5. 将 Reconcile 延迟、旧 Operation 中止数和 Cleanup 失败数接入 Metrics/Alert。

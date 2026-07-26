@@ -37,7 +37,7 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 
 | 缺口 | 代码事实 | 验收要求 |
 |---|---|---|
-| Node Helper 权限拆分 | `network-helper`、`storage-helper` 仍由 `node-agent` 进程内链接 | 独立 UID、固定 Schema IPC、seccomp/Landlock、能力最小化、互相崩溃隔离 |
+| Node Helper 权限拆分 | Network Helper 已独立进程、固定有界 IPC、Peer UID、不同容器 UID/seccomp/Capability Drop，并通过 Kill/恢复测试；Storage 仍由 Node Agent 进程内链接，GPU 未实现 | 拆分 Storage/GPU，补 LSM Profile、独立 Audit Identity 与真实集群跨 UID/互相崩溃验收 |
 | Break-glass | 双人审批、限时、撤销、Review、API/UI 和审计已完成；独立 Secure Debug Worker、敏感数据面与录像未完成 | 完整调试数据面演练并证明跨租户访问仍受控 |
 | 审计事件覆盖 | 八类必需事件已全部接入并通过集成链验证 | 已关闭 |
 | 制品真实验签 | Runtime Policy 已验证 Artifact Digest、Signing Key ID、受信 Ed25519 签名和 SBOM URI | 补 Offline Root/HSM 真实签名流水线、OCI Digest 复算与撤销演练 |
@@ -138,7 +138,8 @@ Break-glass 真实表单可创建请求，且页面无 Console/HTTP 异常。
 
 ## 建议实施顺序
 
-1. P0：补齐 Phase 5 Helper 隔离、Secure Debug 数据面、真实签名流水线和完整故障矩阵。
+1. P0：沿已完成的 Network Helper 模式拆分 Storage/GPU Helper，并补 Secure Debug
+   数据面、真实签名流水线和完整故障矩阵。
 2. P0：完成 Profile Business Ready、基础设施出口防逃逸和真实 Provider 故障演练。
 3. P0：完成 Phase 6 Browser/Coordinator Capacity Certificate 与真实集群
    Rolling Upgrade。

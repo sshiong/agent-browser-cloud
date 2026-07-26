@@ -45,11 +45,12 @@ docker compose up -d postgres redis
 # 2. 运行数据库迁移
 make migrate
 
-# 3. 启动 Control Plane
-./gradlew -p apps/control-plane bootRun
+# 3. 启动 Control Plane（仅本地显式允许直连）
+PROXY_ALLOW_DIRECT=true ./gradlew -p apps/control-plane bootRun
 
-# 4. 启动 Browser Node
-cargo run --manifest-path apps/browser-node/Cargo.toml --bin node-agent
+# 4. 启动 Browser Node（仅本地显式允许直连）
+ALLOW_DIRECT_NETWORK=true \
+  cargo run --manifest-path apps/browser-node/Cargo.toml --bin node-agent
 
 # 5. 启动 Web Console
 cd apps/web-console && pnpm dev

@@ -103,6 +103,9 @@ spec:
     spec:
       runtimeClassName: browser-sandbox
       terminationGracePeriodSeconds: 120
+      securityContext:
+        fsGroup: 11000
+        fsGroupChangePolicy: OnRootMismatch
       nodeSelector:
         browsercloud.io/workload: browser-node
       tolerations:
@@ -125,6 +128,8 @@ spec:
               value: control-plane.browsercloud-system.svc:9091
             - name: ALLOW_DIRECT_NETWORK
               value: "false"
+            - name: NETWORK_HELPER_SOCKET
+              value: /var/run/browsercloud/helpers/network.sock
           envFrom:
             - secretRef:
                 name: browser-node-runtime-secrets
@@ -134,10 +139,14 @@ spec:
             - name: mtls
               mountPath: /var/run/browsercloud/mtls
               readOnly: true
+            - name: helper-ipc
+              mountPath: /var/run/browsercloud/helpers
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 11001
+            runAsGroup: 11000
             seccompProfile:
               type: RuntimeDefault
             capabilities:
@@ -149,10 +158,47 @@ spec:
             limits:
               cpu: "4"
               memory: 8Gi
+        - name: network-helper
+          image: ghcr.io/sshiong/agent-browser-cloud-browser-node:0.1.0
+          command: ["/usr/bin/tini", "--", "/usr/local/bin/network-helper"]
+          env:
+            - name: APP_ENVIRONMENT
+              value: production
+            - name: NETWORK_HELPER_SOCKET
+              value: /var/run/browsercloud/helpers/network.sock
+            - name: NODE_AGENT_UID
+              value: "11001"
+          envFrom:
+            - secretRef:
+                name: browser-node-runtime-secrets
+          volumeMounts:
+            - name: helper-ipc
+              mountPath: /var/run/browsercloud/helpers
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 11002
+            runAsGroup: 11000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
       volumes:
         - name: mtls
           secret:
             secretName: browser-node-mtls
+        - name: helper-ipc
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Mi
   volumeClaimTemplates:
     - metadata:
         name: warm-tier

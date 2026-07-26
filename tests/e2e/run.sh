@@ -21,7 +21,8 @@ else
 fi
 
 ./gradlew -p apps/control-plane bootJar
-cargo build --locked --manifest-path apps/browser-node/Cargo.toml --bin node-agent
+cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
+  --bin network-helper --bin node-agent
 
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-e2e-${run_id}"
@@ -29,6 +30,7 @@ redis_name="agentbrowser-redis-e2e-${run_id}"
 temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
+network_helper_pid=""
 web_pid=""
 proxy_pid=""
 
@@ -37,11 +39,13 @@ cleanup() {
   if [[ -n "$web_pid" ]]; then kill "$web_pid" 2>/dev/null || true; fi
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
+  if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/browser-node.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/web-console.log" 2>/dev/null || true
     tail -n 120 "$temp_dir/vnc-events.jsonl" 2>/dev/null || true
   fi
@@ -75,6 +79,20 @@ python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
   >"$temp_dir/proxy.log" 2>&1 &
 proxy_pid=$!
 
+NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
+NODE_AGENT_UID="$(id -u)" \
+STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
+STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
+  apps/browser-node/target/debug/network-helper >"$temp_dir/network-helper.log" 2>&1 &
+network_helper_pid=$!
+for _ in $(seq 1 40); do
+  if [[ -S "$temp_dir/network-helper.sock" ]]; then break; fi
+  if ! kill -0 "$network_helper_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.1
+done
+test -S "$temp_dir/network-helper.sock"
+
 for _ in $(seq 1 40); do
   docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
   sleep 0.5
@@ -95,9 +113,7 @@ REMOTE_DESKTOP_ALLOWED_ORIGINS="http://127.0.0.1:${web_port}" \
 XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
 X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
 FAKE_VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
-STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
-PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
+NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
 FAKE_CHROMIUM_REQUIRE_PROXY=true \
 RUST_LOG="node_agent=debug,remote_desktop_gateway=debug" \
   apps/browser-node/target/debug/node-agent >"$temp_dir/browser-node.log" 2>&1 &

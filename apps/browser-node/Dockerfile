@@ -6,6 +6,7 @@ RUN cargo build \
     --release \
     --locked \
     --manifest-path apps/browser-node/Cargo.toml \
+    --bin network-helper \
     --bin node-agent
 
 FROM debian:bookworm-slim
@@ -17,6 +18,7 @@ RUN apt-get update \
     && mkdir -p /var/lib/browsercloud/runtime \
     && chown -R browsercloud:browsercloud /var/lib/browsercloud
 COPY --from=build /workspace/apps/browser-node/target/release/node-agent /usr/local/bin/node-agent
+COPY --from=build /workspace/apps/browser-node/target/release/network-helper /usr/local/bin/network-helper
 USER browsercloud
 ENV CHROMIUM_PATH=/usr/bin/chromium \
     RUNTIME_ROOT=/var/lib/browsercloud/runtime \

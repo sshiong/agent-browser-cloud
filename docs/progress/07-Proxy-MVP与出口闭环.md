@@ -31,7 +31,8 @@
 - Chromium 启动参数注入 `--proxy-server` 和
   `--proxy-bypass-list=<-loopback>`；Runtime 停止时释放 Node 内绑定。
 - Browser Node 生产启动时拒绝 `ALLOW_DIRECT_NETWORK=true`，并要求配置
-  `STATIC_PROXY_ENDPOINT`。
+  `NETWORK_HELPER_SOCKET`；Static Provider Endpoint 与出口探测配置只交给独立
+  Network Helper。
 
 ### Web Console
 
@@ -67,12 +68,15 @@ make test-e2e
   `203.0.113.10`，且 Session 终止后 Allocation 为 `RELEASED`。
 - Web E2E 在运行中 Session 上观察到 Provider `CONFIGURED`、Allocation `BOUND`、
   出口 IP 和 Direct Fallback `DENIED`。
+- Network Helper 已拆为独立进程；Node Agent 仅通过固定有界 Unix IPC 调用，不再持有
+  Provider Endpoint。Helper Kill 时 Runtime 在 Chromium 启动前失败且不回退直连，
+  Helper 独立恢复后控制面重试成功。
 
 ## 仍未完成
 
 | 缺口 | 说明 |
 |---|---|
-| 基础设施级禁止直连 | 当前已在 CP、Node 和 Chromium 参数层 fail-closed，但尚未用 Kubernetes NetworkPolicy、eBPF 或宿主机防火墙证明任何被攻陷进程都无法绕过代理 |
+| 基础设施级禁止直连 | 当前已在 CP、Node、独立 Network Helper、Chromium 参数和 Kubernetes NetworkPolicy 清单层 fail-closed，但尚未在真实集群用 eBPF/宿主机防火墙证明任何被攻陷进程都无法绕过代理 |
 | 真实 Provider 与 Secret | 尚无供应商 Adapter 接口族、短期 Credential、Vault 引用、轮换和独立测试账户 |
 | 分布式 Provider 健康 | Circuit Breaker 当前是 Node 本地内存状态，尚无共享健康状态、探测调度、告警和跨节点熔断 |
 | 连接迁移 | 尚无显式 Proxy Transition、连接 Drain、旧新代理隔离、失败回滚和 DNS/WebRTC/QUIC 泄漏矩阵 |

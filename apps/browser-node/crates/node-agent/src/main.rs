@@ -1,8 +1,8 @@
 //! Browser Node Agent 入口。
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use helper_client::NetworkHelperClient;
 use input_sandbox::{CdpDesktopInput, DesktopInput, InputKey};
-use network_helper::{NetworkHelper, StaticProxyConfig, StaticProxyNetworkHelper};
 use node_contracts::proto::node_control_service_server::{
     NodeControlService as NodeControlServiceRpc, NodeControlServiceServer,
 };
@@ -47,7 +47,7 @@ struct NodeControlService {
     runtime_supervisor: Arc<ChromiumRuntimeSupervisor>,
     profile_store: Arc<LocalProfileStore>,
     profile_workspaces: Arc<Mutex<HashMap<String, ActiveProfileWorkspace>>>,
-    network_helper: Option<Arc<StaticProxyNetworkHelper>>,
+    network_helper: Option<Arc<NetworkHelperClient>>,
     allow_direct_network: bool,
     state_collector: Arc<CdpStateCollector>,
     state_baselines: Arc<Mutex<HashMap<String, CurrentState>>>,
@@ -845,11 +845,12 @@ impl NodeControlService {
                                         ),
                                     );
                             };
-                            let spec = network_helper
-                                .binding_spec(&payload.proxy_binding_id, &command.session_id);
-                            match network_helper.bind_proxy(spec).await {
-                                Ok(observed) => {
-                                    (Some(observed), Some(network_helper.proxy_server()))
+                            match network_helper
+                                .bind_proxy(&payload.proxy_binding_id, &command.session_id)
+                                .await
+                            {
+                                Ok((observed, proxy_server)) => {
+                                    (Some(observed), Some(proxy_server))
                                 }
                                 Err(error) => {
                                     self.release_start_resources(&command.session_id, &workspace)
@@ -2223,7 +2224,7 @@ async fn main() -> Result<()> {
     let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
-    let proxy_endpoint = std::env::var("STATIC_PROXY_ENDPOINT")
+    let network_helper_socket = std::env::var("NETWORK_HELPER_SOCKET")
         .unwrap_or_default()
         .trim()
         .to_owned();
@@ -2233,32 +2234,44 @@ async fn main() -> Result<()> {
             "ALLOW_DIRECT_NETWORK cannot be enabled in production"
         );
         anyhow::ensure!(
-            !proxy_endpoint.is_empty(),
-            "STATIC_PROXY_ENDPOINT is required in production"
+            !network_helper_socket.is_empty(),
+            "NETWORK_HELPER_SOCKET is required in production"
         );
     }
-    let network_helper = if proxy_endpoint.is_empty() {
+    let network_helper = if network_helper_socket.is_empty() {
         None
     } else {
-        let expected_exit_ip = std::env::var("STATIC_PROXY_EXPECTED_EXIT_IP")
-            .map_err(|_| anyhow::anyhow!("STATIC_PROXY_EXPECTED_EXIT_IP is required"))?;
-        let exit_check_url = std::env::var("PROXY_EXIT_CHECK_URL")
-            .unwrap_or_else(|_| "http://browsercloud.invalid/exit".to_owned());
-        let failure_threshold = std::env::var("PROXY_FAILURE_THRESHOLD")
-            .unwrap_or_else(|_| "3".to_owned())
-            .parse()?;
-        let open_seconds = std::env::var("PROXY_CIRCUIT_OPEN_SECONDS")
-            .unwrap_or_else(|_| "30".to_owned())
-            .parse()?;
-        Some(Arc::new(StaticProxyNetworkHelper::new(
-            StaticProxyConfig {
-                endpoint: proxy_endpoint,
-                expected_exit_ip,
-                exit_check_url,
-                failure_threshold,
-                open_duration: Duration::from_secs(open_seconds),
-            },
-        )?))
+        let timeout = Duration::from_millis(
+            std::env::var("NETWORK_HELPER_TIMEOUT_MS")
+                .unwrap_or_else(|_| "5000".to_owned())
+                .parse()?,
+        );
+        let client = NetworkHelperClient::new(PathBuf::from(network_helper_socket), timeout)?;
+        let startup_timeout = Duration::from_millis(
+            std::env::var("NETWORK_HELPER_STARTUP_TIMEOUT_MS")
+                .unwrap_or_else(|_| {
+                    if environment.eq_ignore_ascii_case("production") {
+                        "30000".to_owned()
+                    } else {
+                        "5000".to_owned()
+                    }
+                })
+                .parse()?,
+        );
+        let startup_deadline = tokio::time::Instant::now() + startup_timeout;
+        loop {
+            match client.ping().await {
+                Ok(()) => break,
+                Err(error) if tokio::time::Instant::now() < startup_deadline => {
+                    tracing::warn!(error = %error, "waiting for network helper");
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+                Err(error) => {
+                    return Err(error).context("network helper startup check failed");
+                }
+            }
+        }
+        Some(Arc::new(client))
     };
     let local_ticket_secret = "browsercloud-local-remote-desktop-ticket-secret-v1";
     let ticket_secret = std::env::var("REMOTE_DESKTOP_TICKET_SECRET")

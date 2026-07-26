@@ -21,6 +21,7 @@
 | PostgreSQL 短时不可用    | 有界连接/Socket Timeout、稳定脱敏 503、写暂停、恢复后同幂等键继续                                                     | `make test-postgres-outage` 真实暂停/恢复 PostgreSQL 容器          |
 | Coordinator 安全点接管   | PostgreSQL Lease/CAS Ownership、Term +1、Node 双向 Fencing、旧事件终止清理                                            | `make test-integration` 真实 SIGKILL A、B 以 term=2 接管并继续恢复 |
 | Object Storage Stage A   | S3 压缩归档、Manifest/Commit Marker 顺序、有界超时、本地 Checkpoint 可重试                                            | `make test-object-storage` 真实 MinIO 成功/暂停/恢复演练           |
+| Remote Desktop 网络分区  | 心跳驱逐、Generation/Grace 安全重连、CDP/X11 输入释放、State Resync                                                   | TCP 故障代理 `SIGSTOP` + 真实 Web Console/noVNC E2E                |
 
 ## 尚未完成
 
@@ -32,7 +33,8 @@
 3. PostgreSQL、Object Storage 超时和 Coordinator Kill/接管 GameDay 已完成；
    STARTING/TERMINATING/RECOVERING、HumanTakeover 全阶段、Agent pending 和
    TYPE_TEXT 已执行但 Event 未提交均已完成真实 SIGKILL/Reconcile 验收。故障矩阵
-   尚缺远程桌面输入传输中的网络分区及目标云 Provider 演练。
+   已补远程桌面输入传输中的双向 TCP 分区；尚缺目标云 Ingress/CNI 单向分区和
+   Provider 演练。
 4. 八类必需审计事件已全部接入，并由集成测试验证完整哈希链。
    Audit Retention 字段已落库，但删除 Receipt、签名导出 Manifest 和法规 Legal Hold
    工作流属于 Phase 7，尚未完成。

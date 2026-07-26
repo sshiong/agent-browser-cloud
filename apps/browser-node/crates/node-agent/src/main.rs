@@ -2401,8 +2401,46 @@ async fn main() -> Result<()> {
             "REMOTE_DESKTOP_ALLOWED_ORIGINS is required in production"
         );
     }
-    let remote_desktop_gateway =
-        RemoteDesktopGateway::new(ticket_secret, allowed_origins, disconnect_handler)?;
+    let remote_desktop_disconnect_grace = Duration::from_millis(
+        std::env::var("REMOTE_DESKTOP_DISCONNECT_GRACE_MS")
+            .unwrap_or_else(|_| "2000".to_owned())
+            .parse()?,
+    );
+    let remote_desktop_heartbeat_interval = Duration::from_millis(
+        std::env::var("REMOTE_DESKTOP_HEARTBEAT_INTERVAL_MS")
+            .unwrap_or_else(|_| "10000".to_owned())
+            .parse()?,
+    );
+    let remote_desktop_client_liveness_timeout = Duration::from_millis(
+        std::env::var("REMOTE_DESKTOP_CLIENT_LIVENESS_TIMEOUT_MS")
+            .unwrap_or_else(|_| "30000".to_owned())
+            .parse()?,
+    );
+    if environment.eq_ignore_ascii_case("production") {
+        anyhow::ensure!(
+            remote_desktop_disconnect_grace >= Duration::from_millis(500)
+                && remote_desktop_disconnect_grace <= Duration::from_secs(10),
+            "REMOTE_DESKTOP_DISCONNECT_GRACE_MS must be between 500 and 10000 in production"
+        );
+        anyhow::ensure!(
+            remote_desktop_heartbeat_interval >= Duration::from_secs(1)
+                && remote_desktop_heartbeat_interval <= Duration::from_secs(60),
+            "REMOTE_DESKTOP_HEARTBEAT_INTERVAL_MS must be between 1000 and 60000 in production"
+        );
+        anyhow::ensure!(
+            remote_desktop_client_liveness_timeout >= Duration::from_secs(5)
+                && remote_desktop_client_liveness_timeout <= Duration::from_secs(120),
+            "REMOTE_DESKTOP_CLIENT_LIVENESS_TIMEOUT_MS must be between 5000 and 120000 in production"
+        );
+    }
+    let remote_desktop_gateway = RemoteDesktopGateway::new_with_timeouts(
+        ticket_secret,
+        allowed_origins,
+        disconnect_handler,
+        remote_desktop_disconnect_grace,
+        remote_desktop_heartbeat_interval,
+        remote_desktop_client_liveness_timeout,
+    )?;
     let remote_desktop_port = std::env::var("REMOTE_DESKTOP_GATEWAY_PORT")
         .unwrap_or_else(|_| "6080".to_owned())
         .parse::<u16>()?;

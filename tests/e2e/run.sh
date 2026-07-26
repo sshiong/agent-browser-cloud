@@ -35,6 +35,7 @@ storage_helper_pid=""
 web_pid=""
 viewer_web_pid=""
 proxy_pid=""
+desktop_fault_proxy_pid=""
 
 cleanup() {
   exit_code=$?
@@ -45,6 +46,10 @@ cleanup() {
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_pid" ]]; then kill "$storage_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
+  if [[ -n "$desktop_fault_proxy_pid" ]]; then
+    kill -CONT "$desktop_fault_proxy_pid" 2>/dev/null || true
+    kill "$desktop_fault_proxy_pid" 2>/dev/null || true
+  fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
     tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
@@ -77,6 +82,7 @@ event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); pri
 web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 viewer_web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+desktop_fault_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 screenshot_path="${WEB_CONSOLE_SCREENSHOT:-/tmp/agent-browser-cloud-session-flow.png}"
 ticket_secret="browsercloud-e2e-remote-desktop-ticket-secret-v1"
@@ -131,6 +137,9 @@ STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
 REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
 REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
 REMOTE_DESKTOP_ALLOWED_ORIGINS="http://127.0.0.1:${web_port}" \
+REMOTE_DESKTOP_DISCONNECT_GRACE_MS=200 \
+REMOTE_DESKTOP_HEARTBEAT_INTERVAL_MS=100 \
+REMOTE_DESKTOP_CLIENT_LIVENESS_TIMEOUT_MS=300 \
 XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
 X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
 FAKE_VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
@@ -164,8 +173,21 @@ for _ in $(seq 1 90); do
 done
 printf '%s' "$health" | grep -q '"status":"UP"'
 
+python3 "$repo_root/tests/fixtures/fault-tcp-proxy.py" \
+  "$desktop_fault_port" 127.0.0.1 "$desktop_port" \
+  >"$temp_dir/desktop-fault-proxy.log" 2>&1 &
+desktop_fault_proxy_pid=$!
+for _ in $(seq 1 40); do
+  if grep -q "fault-tcp-proxy-ready=${desktop_fault_port}" \
+    "$temp_dir/desktop-fault-proxy.log" 2>/dev/null; then break; fi
+  if ! kill -0 "$desktop_fault_proxy_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.1
+done
+grep -q "fault-tcp-proxy-ready=${desktop_fault_port}" \
+  "$temp_dir/desktop-fault-proxy.log"
+
 VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
-VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_port}" \
+VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_fault_port}" \
   pnpm --dir apps/web-console exec vite \
   --host 127.0.0.1 --port "$web_port" --strictPort >"$temp_dir/web-console.log" 2>&1 &
 web_pid=$!
@@ -180,17 +202,18 @@ curl -fsS "http://127.0.0.1:${web_port}/environments" >/dev/null
 WEB_CONSOLE_BASE_URL="http://127.0.0.1:${web_port}" \
 WEB_CONSOLE_SCREENSHOT="$screenshot_path" \
 VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
+DESKTOP_FAULT_PROXY_PID="$desktop_fault_proxy_pid" \
   pnpm --dir apps/web-console exec node ../../tests/e2e/web_console_session_flow.mjs
 
 VITE_AUTH_MODE=local \
 VITE_LOCAL_ROLES=TENANT_VIEWER \
 VITE_ENABLE_FIXTURES=false \
 VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
-VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_port}" \
+VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_fault_port}" \
   pnpm --dir apps/web-console build >"$temp_dir/web-console-viewer-build.log" 2>&1
 
 VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
-VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_port}" \
+VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_fault_port}" \
   pnpm --dir apps/web-console exec vite preview \
   --host 127.0.0.1 --port "$viewer_web_port" --strictPort \
   >"$temp_dir/web-console-viewer.log" 2>&1 &

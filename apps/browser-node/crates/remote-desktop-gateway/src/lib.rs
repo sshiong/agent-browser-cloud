@@ -65,6 +65,8 @@ struct GatewayState {
     connection_generations: Mutex<HashMap<String, u64>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
+    heartbeat_interval: Duration,
+    client_liveness_timeout: Duration,
     disconnect_handler: Arc<dyn DisconnectHandler>,
 }
 
@@ -116,10 +118,40 @@ impl RemoteDesktopGateway {
         disconnect_handler: Arc<dyn DisconnectHandler>,
         disconnect_grace: Duration,
     ) -> anyhow::Result<Self> {
+        Self::new_with_timeouts(
+            ticket_secret,
+            allowed_origins,
+            disconnect_handler,
+            disconnect_grace,
+            HEARTBEAT_INTERVAL,
+            CLIENT_LIVENESS_TIMEOUT,
+        )
+    }
+
+    pub fn new_with_timeouts(
+        ticket_secret: impl Into<Vec<u8>>,
+        allowed_origins: impl IntoIterator<Item = String>,
+        disconnect_handler: Arc<dyn DisconnectHandler>,
+        disconnect_grace: Duration,
+        heartbeat_interval: Duration,
+        client_liveness_timeout: Duration,
+    ) -> anyhow::Result<Self> {
         let ticket_secret = ticket_secret.into();
         anyhow::ensure!(
             ticket_secret.len() >= 32,
             "remote desktop ticket secret must contain at least 32 bytes"
+        );
+        anyhow::ensure!(
+            !disconnect_grace.is_zero(),
+            "remote desktop disconnect grace must be positive"
+        );
+        anyhow::ensure!(
+            !heartbeat_interval.is_zero(),
+            "remote desktop heartbeat interval must be positive"
+        );
+        anyhow::ensure!(
+            client_liveness_timeout >= heartbeat_interval.saturating_mul(2),
+            "remote desktop client liveness timeout must cover at least two heartbeats"
         );
         Ok(Self {
             state: Arc::new(GatewayState {
@@ -130,6 +162,8 @@ impl RemoteDesktopGateway {
                 connection_generations: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
+                heartbeat_interval,
+                client_liveness_timeout,
                 disconnect_handler,
             }),
         })
@@ -257,8 +291,8 @@ impl RemoteDesktopGateway {
             .context("registered VNC endpoint is unavailable")?;
         let mut buffer = vec![0_u8; 64 * 1024];
         let mut heartbeat = tokio::time::interval_at(
-            tokio::time::Instant::now() + HEARTBEAT_INTERVAL,
-            HEARTBEAT_INTERVAL,
+            tokio::time::Instant::now() + self.state.heartbeat_interval,
+            self.state.heartbeat_interval,
         );
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_client_activity = tokio::time::Instant::now();
@@ -266,7 +300,7 @@ impl RemoteDesktopGateway {
             tokio::select! {
                 _ = heartbeat.tick() => {
                     anyhow::ensure!(
-                        last_client_activity.elapsed() < CLIENT_LIVENESS_TIMEOUT,
+                        last_client_activity.elapsed() < self.state.client_liveness_timeout,
                         "remote desktop client heartbeat timed out"
                     );
                     websocket.send(Message::Ping(Vec::new())).await?;
@@ -474,6 +508,7 @@ mod tests {
     use super::*;
     use futures_util::{SinkExt, StreamExt};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::sync::oneshot;
     use tokio_tungstenite::connect_async;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
@@ -571,6 +606,180 @@ mod tests {
         websocket.close(None).await.unwrap();
 
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while disconnects.0.load(Ordering::SeqCst) != 1 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn blackholed_client_runs_disconnect_barrier_after_liveness_timeout() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        let (frame_sender, frame_receiver) = oneshot::channel();
+        tokio::spawn(async move {
+            let (mut stream, _) = vnc_listener.accept().await.unwrap();
+            let mut buffer = [0_u8; 64];
+            let read = stream.read(&mut buffer).await.unwrap();
+            frame_sender.send(buffer[..read].to_vec()).unwrap();
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        });
+
+        let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
+        let gateway = RemoteDesktopGateway::new_with_timeouts(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            disconnects.clone(),
+            Duration::from_millis(10),
+            Duration::from_millis(10),
+            Duration::from_millis(30),
+        )
+        .unwrap();
+        gateway
+            .register_session("ses_blackhole123456", vnc_endpoint)
+            .unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let mut request = format!(
+            "ws://{gateway_endpoint}/desktop/v1/sessions/ses_blackhole123456?ticket={}",
+            ticket(
+                "ses_blackhole123456",
+                &uuid::Uuid::new_v4().simple().to_string()
+            )
+        )
+        .into_client_request()
+        .unwrap();
+        request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut blackholed_client, _) = connect_async(request).await.unwrap();
+        blackholed_client
+            .send(Message::Binary(b"unpaired-input".to_vec()))
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), frame_receiver)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"unpaired-input"
+        );
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while disconnects.0.load(Ordering::SeqCst) != 1 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(!gateway
+            .state
+            .active_sessions
+            .lock()
+            .unwrap()
+            .contains("ses_blackhole123456"));
+        drop(blackholed_client);
+    }
+
+    #[tokio::test]
+    async fn reconnect_within_grace_suppresses_stale_disconnect_barrier() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut stream, _) = vnc_listener.accept().await.unwrap();
+                tokio::spawn(async move {
+                    let mut buffer = [0_u8; 64];
+                    while stream.read(&mut buffer).await.unwrap_or_default() != 0 {}
+                });
+            }
+        });
+
+        let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
+        let gateway = RemoteDesktopGateway::new_with_timeouts(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            disconnects.clone(),
+            Duration::from_millis(150),
+            Duration::from_millis(10),
+            Duration::from_millis(30),
+        )
+        .unwrap();
+        gateway
+            .register_session("ses_reconnect123456", vnc_endpoint)
+            .unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let make_request = |nonce: String| {
+            let mut request = format!(
+                "ws://{gateway_endpoint}/desktop/v1/sessions/ses_reconnect123456?ticket={}",
+                ticket("ses_reconnect123456", &nonce)
+            )
+            .into_client_request()
+            .unwrap();
+            request
+                .headers_mut()
+                .insert(ORIGIN, "http://console.test".parse().unwrap());
+            request
+        };
+        let (first_client, _) =
+            connect_async(make_request(uuid::Uuid::new_v4().simple().to_string()))
+                .await
+                .unwrap();
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while gateway
+                .state
+                .active_sessions
+                .lock()
+                .unwrap()
+                .contains("ses_reconnect123456")
+            {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        drop(first_client);
+
+        let (mut replacement, _) =
+            connect_async(make_request(uuid::Uuid::new_v4().simple().to_string()))
+                .await
+                .unwrap();
+        let (stop_sender, mut stop_receiver) = oneshot::channel();
+        let replacement_task = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = &mut stop_receiver => {
+                        replacement.close(None).await.unwrap();
+                        break;
+                    }
+                    message = replacement.next() => {
+                        match message {
+                            Some(Ok(Message::Ping(payload))) => {
+                                replacement.send(Message::Pong(payload)).await.unwrap();
+                            }
+                            Some(Ok(Message::Close(_))) | None => break,
+                            Some(Err(error)) => panic!("replacement connection failed: {error}"),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        });
+
+        tokio::time::sleep(Duration::from_millis(220)).await;
+        assert_eq!(disconnects.0.load(Ordering::SeqCst), 0);
+
+        stop_sender.send(()).unwrap();
+        replacement_task.await.unwrap();
+        tokio::time::timeout(Duration::from_secs(1), async {
             while disconnects.0.load(Ordering::SeqCst) != 1 {
                 tokio::task::yield_now().await;
             }

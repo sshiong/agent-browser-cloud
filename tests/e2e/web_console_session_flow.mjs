@@ -213,24 +213,35 @@ try {
   const releaseCountBeforeDisconnect = (
     readFileSync(vncEventLog, "utf8").match(/"type":"release"/g) ?? []
   ).length;
+  const desktopFaultProxyPid = Number(process.env.DESKTOP_FAULT_PROXY_PID);
+  if (!Number.isSafeInteger(desktopFaultProxyPid) || desktopFaultProxyPid <= 0) {
+    throw new Error("DESKTOP_FAULT_PROXY_PID is required");
+  }
+  process.kill(desktopFaultProxyPid, "SIGSTOP");
+  let disconnectReleaseObserved = false;
+  try {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      const events = readFileSync(vncEventLog, "utf8");
+      const releaseCount = (events.match(/"type":"release"/g) ?? []).length;
+      if (releaseCount > releaseCountBeforeDisconnect) {
+        disconnectReleaseObserved = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  } finally {
+    process.kill(desktopFaultProxyPid, "SIGCONT");
+  }
+  await page.keyboard.up("Shift");
+  if (!disconnectReleaseObserved) {
+    throw new Error(
+      "gateway network-partition timeout did not execute the x11 all-keys-up barrier",
+    );
+  }
   await page.goto(`${baseUrl}/environments/${startSessionId}`);
   await expect(page.getByRole("button", { name: "人工接管" })).toBeEnabled({
     timeout: 15_000,
   });
-  let disconnectReleaseObserved = false;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const events = readFileSync(vncEventLog, "utf8");
-    const releaseCount = (events.match(/"type":"release"/g) ?? []).length;
-    if (releaseCount > releaseCountBeforeDisconnect) {
-      disconnectReleaseObserved = true;
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  await page.keyboard.up("Shift");
-  if (!disconnectReleaseObserved) {
-    throw new Error("gateway disconnect did not execute the x11 all-keys-up barrier");
-  }
 
   await page.goto(`${baseUrl}/automation/tasks`);
   await page.waitForLoadState("networkidle");

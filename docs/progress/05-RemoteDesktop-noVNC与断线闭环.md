@@ -12,6 +12,7 @@
   Context Epoch、Operation Epoch、过期时间和一次性 Nonce。
 - Gateway 校验 Origin、票据寿命、Nonce 重放、单 Session 单客户端和最大二进制帧。
 - WebSocket Ping/Pong 检测半开连接；两秒断线宽限允许瞬时网络抖动安全重连。
+  Heartbeat、Liveness 和 Grace 均有生产配置边界，Liveness 至少覆盖两个 Heartbeat。
 - Web Console 使用正式 `@novnc/novnc`，展示真实 Canvas 并转发键鼠输入。
 - 数据面断线后 Browser Node 独立执行 CDP `release_all` 和 x11vnc `clear_all`，
   随后重采集 Browser State。
@@ -36,11 +37,14 @@ docker compose config
 3. Canvas 鼠标点击与键盘输入抵达 VNC Server；
 4. 显式结束接管后完成输入释放、State Resync 和 Operation Commit；
 5. 再次接管后只发送 Shift KeyDown，不发送 KeyUp；
-6. 直接离开远程桌面后，Gateway 宽限到期并触发 x11vnc `clear_all`；
-7. Control Plane 自动提交 HumanTakeover，Session 可以再次接管。
+6. 暂停独立 TCP 故障代理，在不发送 WebSocket Close 的情况下冻结双向链路；
+7. Gateway 心跳超时后触发 x11vnc `clear_all`，Control Plane 自动提交
+   HumanTakeover，Session 可以再次接管；
+8. Gateway 单测确认 Grace 内重连不会被旧 Connection Generation 误释放。
 
 ## 仍属后续阶段
 
 - Frame ID / Input Timestamp Alignment 与高风险 Stale-frame Guard。
 - WebRTC/H.264、最新帧丢弃策略、媒体资源等级和录制审计。
 - 多区域媒体路由、带宽 Admission 和 Media Capacity Certificate。
+- 目标云 Ingress/CNI 上的单向分区、丢包和连接迁移 GameDay。

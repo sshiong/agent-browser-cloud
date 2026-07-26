@@ -156,8 +156,8 @@ Coordinator 单测覆盖：
 
 1. `STARTING`、`RECOVERING`、`TERMINATING` 均已完成真实进程级验证；仍可将
    “旧命令已执行/未执行”拆成两个固定时序测试，降低随机调度对覆盖分支的影响；
-2. HumanTakeover `PREPARING`、`EXECUTING`、`COMPLETING` 已全部覆盖；仍需远程桌面
-   WebSocket 正在传输输入帧时的网络分区联合演练；
+2. HumanTakeover `PREPARING`、`EXECUTING`、`COMPLETING` 已全部覆盖；远程桌面
+   输入帧传输中的双向 TCP 网络分区也已由进度 34 关闭；
 3. Navigate pending 与 TYPE_TEXT“已执行但 Event 未提交”均已完成；仍可扩展 Click、
    Scroll、Wait 四种动作的参数化矩阵；
 4. 双 Coordinator 长稳、网络分区、时钟偏差、连接池拥塞和 Kubernetes Pod Kill；

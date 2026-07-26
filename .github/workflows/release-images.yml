@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-images-v4-${{ github.ref }}
+  group: release-images-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -177,11 +177,15 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --kill-after=10s 180s cosign verify \
+          timeout --signal=KILL 180s cosign verify \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$CONTROL_PLANE_IMAGE"
-          timeout --kill-after=10s 180s cosign verify-attestation \
+          timeout --signal=KILL 180s cosign verify-attestation \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -194,11 +198,15 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --kill-after=10s 180s cosign verify \
+          timeout --signal=KILL 180s cosign verify \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$BROWSER_NODE_IMAGE"
-          timeout --kill-after=10s 180s cosign verify-attestation \
+          timeout --signal=KILL 180s cosign verify-attestation \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -211,11 +219,15 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --kill-after=10s 180s cosign verify \
+          timeout --signal=KILL 180s cosign verify \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$WEB_CONSOLE_IMAGE"
-          timeout --kill-after=10s 180s cosign verify-attestation \
+          timeout --signal=KILL 180s cosign verify-attestation \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -228,11 +240,15 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --kill-after=10s 180s cosign verify \
+          timeout --signal=KILL 180s cosign verify \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$OPERATOR_IMAGE"
-          timeout --kill-after=10s 180s cosign verify-attestation \
+          timeout --signal=KILL 180s cosign verify-attestation \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -243,7 +259,9 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout --kill-after=10s 180s cosign verify-blob \
+          timeout --signal=KILL 180s cosign verify-blob \
+            --offline \
+            --timeout 2m \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --bundle release-bundle/release-manifest.sigstore.json \

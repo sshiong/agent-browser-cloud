@@ -43,6 +43,10 @@ coverage/
 *.lcov
 htmlcov/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Build
 *.tgz
 *.tar.gz

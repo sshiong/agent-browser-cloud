@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { TopContextBar } from '@/components/layout/TopContextBar';
-import { DEFAULT_ACTOR_ID } from '@/api/session';
+import { currentActorId } from '@/api/session';
 import {
   useBrowserState,
   useReleaseHumanTakeover,
@@ -36,7 +36,7 @@ export function RemoteDesktopPage() {
   const session = sessionQuery.data;
   const takeover = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
-    takeover && session.currentOperation?.actorId === DEFAULT_ACTOR_ID;
+    takeover && session.currentOperation?.actorId === currentActorId();
   const takeoverHeldByOther = takeover && !takeoverOwned;
   const ready =
     takeoverOwned && session.currentOperation?.phase === 'EXECUTING';

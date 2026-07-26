@@ -16,8 +16,10 @@ import { CreateProfileDialog } from '@/features/profiles/CreateProfileDialog';
 import { useProfiles } from '@/features/profiles/profileQueries';
 import { cn } from '@/shared/lib/utils';
 import type { ProfileView } from '@/types/profile';
+import { useAuth } from '@/auth/AuthProvider';
 
 export function ProfilesPage() {
+  const auth = useAuth();
   const query = useProfiles();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -88,14 +90,16 @@ export function ProfilesPage() {
               placeholder="搜索 ID、名称或检查点"
             />
           </label>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex h-9 items-center justify-center gap-2 bg-accent px-4 text-[12px] font-semibold text-canvas transition-colors hover:bg-accent/90"
-          >
-            <Plus size={14} />
-            新建 Profile
-          </button>
+          {auth.canOperate && (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex h-9 items-center justify-center gap-2 bg-accent px-4 text-[12px] font-semibold text-canvas transition-colors hover:bg-accent/90"
+            >
+              <Plus size={14} />
+              新建 Profile
+            </button>
+          )}
         </div>
 
         <section className="overflow-hidden border border-border-subtle bg-surface-1">
@@ -116,7 +120,7 @@ export function ProfilesPage() {
                   : '创建第一个持久化 Profile；它会在 Session 安全停止后提交 Core 检查点。'
               }
               action={
-                !search && (
+                !search && auth.canOperate ? (
                   <button
                     type="button"
                     onClick={() => setCreateOpen(true)}
@@ -124,7 +128,7 @@ export function ProfilesPage() {
                   >
                     创建 Profile
                   </button>
-                )
+                ) : null
               }
             />
           ) : (
@@ -167,7 +171,9 @@ export function ProfilesPage() {
         </section>
       </main>
 
-      <CreateProfileDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {auth.canOperate && (
+        <CreateProfileDialog open={createOpen} onOpenChange={setCreateOpen} />
+      )}
     </div>
   );
 }

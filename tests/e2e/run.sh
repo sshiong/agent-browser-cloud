@@ -33,11 +33,13 @@ node_pid=""
 network_helper_pid=""
 storage_helper_pid=""
 web_pid=""
+viewer_web_pid=""
 proxy_pid=""
 
 cleanup() {
   exit_code=$?
   if [[ -n "$web_pid" ]]; then kill "$web_pid" 2>/dev/null || true; fi
+  if [[ -n "$viewer_web_pid" ]]; then kill "$viewer_web_pid" 2>/dev/null || true; fi
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
@@ -50,6 +52,7 @@ cleanup() {
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/web-console.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/web-console-viewer.log" 2>/dev/null || true
     tail -n 120 "$temp_dir/vnc-events.jsonl" 2>/dev/null || true
   fi
   rm -rf "$temp_dir"
@@ -72,6 +75,7 @@ node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); prin
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+viewer_web_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 screenshot_path="${WEB_CONSOLE_SCREENSHOT:-/tmp/agent-browser-cloud-session-flow.png}"
@@ -178,4 +182,30 @@ WEB_CONSOLE_SCREENSHOT="$screenshot_path" \
 VNC_EVENT_LOG="$temp_dir/vnc-events.jsonl" \
   pnpm --dir apps/web-console exec node ../../tests/e2e/web_console_session_flow.mjs
 
-printf 'real_web_console_e2e=true\nhealth=%s\n' "$health"
+VITE_AUTH_MODE=local \
+VITE_LOCAL_ROLES=TENANT_VIEWER \
+VITE_ENABLE_FIXTURES=false \
+VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
+VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_port}" \
+  pnpm --dir apps/web-console build >"$temp_dir/web-console-viewer-build.log" 2>&1
+
+VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
+VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_port}" \
+  pnpm --dir apps/web-console exec vite preview \
+  --host 127.0.0.1 --port "$viewer_web_port" --strictPort \
+  >"$temp_dir/web-console-viewer.log" 2>&1 &
+viewer_web_pid=$!
+
+for _ in $(seq 1 60); do
+  if curl -fsS "http://127.0.0.1:${viewer_web_port}/environments" >/dev/null 2>&1; then break; fi
+  if ! kill -0 "$viewer_web_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.25
+done
+curl -fsS "http://127.0.0.1:${viewer_web_port}/environments" >/dev/null
+
+WEB_CONSOLE_BASE_URL="http://127.0.0.1:${viewer_web_port}" \
+WEB_CONSOLE_VIEWER_SCREENSHOT="${screenshot_path%.png}-viewer-mobile.png" \
+  pnpm --dir apps/web-console exec node \
+  ../../tests/e2e/web_console_viewer_rbac_flow.mjs
+
+printf 'real_web_console_e2e=true\nviewer_rbac_e2e=true\nhealth=%s\n' "$health"

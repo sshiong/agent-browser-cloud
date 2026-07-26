@@ -1,4 +1,5 @@
 import {
+  currentActorId,
   DEFAULT_ACTOR_ID,
   DEFAULT_TENANT_ID,
   identityHeaders,
@@ -16,13 +17,14 @@ const API_BASE = (configuredBase || '/api/v1').replace(/\/$/, '');
 async function request<T>(
   path: string,
   options?: RequestInit,
-  tenantId = DEFAULT_TENANT_ID
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = DEFAULT_ACTOR_ID
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...identityHeaders(tenantId),
+      ...identityHeaders(tenantId, actorId),
       ...options?.headers,
     },
   });
@@ -87,7 +89,7 @@ function humanDecision(
   taskId: string,
   action: 'approve' | 'reject' | 'accept-handoff' | 'reject-handoff',
   tenantId = DEFAULT_TENANT_ID,
-  actorId = DEFAULT_ACTOR_ID,
+  actorId = currentActorId(),
   signal?: AbortSignal
 ) {
   return request<AgentTaskView>(
@@ -95,9 +97,9 @@ function humanDecision(
     {
       method: 'POST',
       signal,
-      headers: { 'X-Actor-Id': actorId },
     },
-    tenantId
+    tenantId,
+    actorId
   );
 }
 

@@ -24,15 +24,42 @@ import {
   useTransitionBreakGlassRequest,
 } from './platformQueries';
 import { cn } from '@/shared/lib/utils';
-import { DEFAULT_ACTOR_ID, DEFAULT_TENANT_ID } from '@/api/session';
+import { currentActorId, currentTenantId } from '@/api/session';
 import type {
   BreakGlassRequestView,
   CreateBreakGlassRequest,
 } from '@/types/platform';
 import { KeyRotationWorkspace } from './KeyRotationWorkspace';
 import { SecureDebugWorkspace } from './SecureDebugWorkspace';
+import { useAuth } from '@/auth/AuthProvider';
 
 export function SecurityPage() {
+  const auth = useAuth();
+  const canViewTenantSecurity = auth.hasAnyRole(['SECURITY_ADMIN']);
+  const canViewPlatformSecurity = auth.hasAnyRole(['PLATFORM_ADMIN']);
+
+  if (!canViewTenantSecurity) {
+    return (
+      <div>
+        <TopContextBar
+          title="平台密钥治理"
+          subtitle="平台密钥双人审批、轮换验证与旧密钥退休"
+        />
+        <main className="p-4 sm:p-6">
+          {canViewPlatformSecurity && <KeyRotationWorkspace />}
+        </main>
+      </div>
+    );
+  }
+
+  return <TenantSecurityWorkspace showKeyRotation={canViewPlatformSecurity} />;
+}
+
+function TenantSecurityWorkspace({
+  showKeyRotation,
+}: {
+  showKeyRotation: boolean;
+}) {
   const query = useAuditEvents();
   const breakGlass = useBreakGlassRequests();
   const createBreakGlass = useCreateBreakGlassRequest();
@@ -109,7 +136,7 @@ export function SecurityPage() {
 
         <SecureDebugWorkspace grants={breakGlass.data?.items ?? []} />
 
-        <KeyRotationWorkspace />
+        {showKeyRotation && <KeyRotationWorkspace />}
 
         <section className="mt-4 border border-border-subtle bg-surface-1">
           <div className="flex flex-col gap-3 border-b border-border-subtle bg-surface-2 px-4 py-3 md:flex-row md:items-center md:justify-between">
@@ -246,7 +273,7 @@ function BreakGlassWorkspace({
     ticketId: '',
     reason: '',
     resourceType: 'TENANT',
-    resourceId: DEFAULT_TENANT_ID,
+    resourceId: currentTenantId(),
     requestedScope: 'INCIDENT_RESPONSE',
     durationMinutes: 30,
   });
@@ -462,7 +489,7 @@ function BreakGlassRow({
     REVOKED: 'text-text-muted',
     EXPIRED: 'text-text-muted',
   }[item.state];
-  const ownRequest = item.requestedBy === DEFAULT_ACTOR_ID;
+  const ownRequest = item.requestedBy === currentActorId();
 
   return (
     <article className="grid gap-3 px-4 py-3 lg:grid-cols-[170px_1fr_180px_auto] lg:items-center">

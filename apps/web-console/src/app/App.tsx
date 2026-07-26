@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { Link, Route, Routes } from 'react-router';
+import { Link, Navigate, Route, Routes } from 'react-router';
 import { AppShell } from '@/components/layout/AppShell';
 import { LoadingPanel } from '@/components/feedback/AsyncStates';
+import { AuthGate, RequireRoles, UnauthorizedPage } from '@/auth/AuthGate';
+import { fixturesEnabled } from '@/shared/runtimeConfig';
 
 const OverviewPage = lazy(() =>
   import('@/features/overview/OverviewPage').then((module) => ({
@@ -76,29 +78,99 @@ const SettingsPage = lazy(() =>
 
 export function App() {
   return (
-    <Suspense fallback={<LoadingPanel label="正在加载页面模块" />}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<OverviewPage />} />
-          <Route path="/overview" element={<OverviewPage />} />
-          <Route path="/environments" element={<EnvironmentsPage />} />
-          <Route path="/environments/:id" element={<SessionDetailPage />} />
-          <Route path="/groups" element={<GroupsPage />} />
-          <Route path="/nodes" element={<NodesPage />} />
-          <Route path="/proxies" element={<ProxiesPage />} />
-          <Route path="/runtimes" element={<RuntimesPage />} />
-          <Route path="/profiles" element={<ProfilesPage />} />
-          <Route path="/extensions" element={<ExtensionsPage />} />
-          <Route path="/automation/tasks" element={<AutomationPage />} />
-          <Route path="/remote-desktop" element={<RemoteDesktopPage />} />
-          <Route path="/logs" element={<LogsPage />} />
-          <Route path="/security" element={<SecurityPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <AuthGate>
+      <Suspense fallback={<LoadingPanel label="正在加载页面模块" />}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<OverviewPage />} />
+            <Route path="/overview" element={<OverviewPage />} />
+            <Route path="/environments" element={<EnvironmentsPage />} />
+            <Route path="/environments/:id" element={<SessionDetailPage />} />
+            <Route
+              path="/groups"
+              element={
+                <FixtureRoute>
+                  <GroupsPage />
+                </FixtureRoute>
+              }
+            />
+            <Route
+              path="/nodes"
+              element={
+                <FixtureRoute>
+                  <NodesPage />
+                </FixtureRoute>
+              }
+            />
+            <Route path="/proxies" element={<ProxiesPage />} />
+            <Route path="/runtimes" element={<RuntimesPage />} />
+            <Route path="/profiles" element={<ProfilesPage />} />
+            <Route
+              path="/extensions"
+              element={
+                <FixtureRoute>
+                  <ExtensionsPage />
+                </FixtureRoute>
+              }
+            />
+            <Route
+              path="/automation/tasks"
+              element={
+                <RequireRoles
+                  roles={[
+                    'TENANT_OPERATOR',
+                    'TENANT_ADMIN',
+                    'SECURITY_ADMIN',
+                    'PLATFORM_ADMIN',
+                  ]}
+                >
+                  <AutomationPage />
+                </RequireRoles>
+              }
+            />
+            <Route
+              path="/remote-desktop"
+              element={
+                <RequireRoles
+                  roles={[
+                    'TENANT_OPERATOR',
+                    'TENANT_ADMIN',
+                    'SECURITY_ADMIN',
+                    'PLATFORM_ADMIN',
+                  ]}
+                >
+                  <RemoteDesktopPage />
+                </RequireRoles>
+              }
+            />
+            <Route path="/logs" element={<LogsPage />} />
+            <Route
+              path="/security"
+              element={
+                <RequireRoles roles={['SECURITY_ADMIN', 'PLATFORM_ADMIN']}>
+                  <SecurityPage />
+                </RequireRoles>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <RequireRoles roles={['PLATFORM_ADMIN']}>
+                  <SettingsPage />
+                </RequireRoles>
+              }
+            />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    </AuthGate>
   );
+}
+
+function FixtureRoute({ children }: { children: React.ReactNode }) {
+  return fixturesEnabled ? children : <Navigate to="/not-found" replace />;
 }
 
 function NotFoundPage() {

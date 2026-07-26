@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Square,
 } from 'lucide-react';
-import { DEFAULT_ACTOR_ID } from '@/api/session';
+import { currentActorId } from '@/api/session';
 import type {
   BreakGlassRequestView,
   SecureDebugSnapshotView,
@@ -42,7 +42,7 @@ export function SecureDebugWorkspace({
         grant.state === 'ACTIVE' &&
         grant.resourceType === 'SESSION' &&
         grant.requestedScope === 'SECURE_DEBUG' &&
-        grant.requestedBy === DEFAULT_ACTOR_ID &&
+        grant.requestedBy === currentActorId() &&
         !consumed.has(grant.requestId)
     );
   }, [grants, sessions.data?.items]);
@@ -145,7 +145,7 @@ export function SecureDebugWorkspace({
       ) : (
         <div className="divide-y divide-border-subtle">
           {sessions.data?.items.map((session) => {
-            const ownSession = session.operatorId === DEFAULT_ACTOR_ID;
+            const ownSession = session.operatorId === currentActorId();
             const active = session.state === 'ACTIVE';
             return (
               <article

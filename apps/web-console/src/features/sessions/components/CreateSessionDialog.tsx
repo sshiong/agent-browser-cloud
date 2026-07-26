@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
-import { DEFAULT_TENANT_ID } from '@/api/session';
+import { currentTenantId } from '@/api/session';
 import { isSessionApiError } from '@/api/session';
 import { useCreateSession } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
@@ -80,7 +80,7 @@ export function CreateSessionDialog({
     const result = await createMutation.mutateAsync({
       idempotencyKey: crypto.randomUUID(),
       request: {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: currentTenantId(),
         profileId: form.profileId,
         region: form.region,
         resourceClass: form.resourceClass,
@@ -234,7 +234,7 @@ export function CreateSessionDialog({
                   </p>
                   <dl className="mt-5 divide-y divide-border-subtle rounded-[10px] border border-border-subtle bg-surface-2 px-4">
                     <ReviewItem label="名称" value={values.name} />
-                    <ReviewItem label="租户" value={DEFAULT_TENANT_ID} mono />
+                    <ReviewItem label="租户" value={currentTenantId()} mono />
                     <ReviewItem label="Profile" value={values.profileId} mono />
                     <ReviewItem label="区域" value={values.region} mono />
                     <ReviewItem

@@ -28,15 +28,17 @@ import {
   useTerminateSession,
 } from '@/features/sessions/api/sessionQueries';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
-import { DEFAULT_ACTOR_ID, isSessionApiError } from '@/api/session';
+import { currentActorId, isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
 import type {
   BrowserStateView,
   OperationView,
   SessionState,
 } from '@/types/session';
+import { useAuth } from '@/auth/AuthProvider';
 
 export function SessionDetailPage() {
+  const auth = useAuth();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const sessionQuery = useSession(id);
@@ -52,18 +54,21 @@ export function SessionDetailPage() {
 
   const session = sessionQuery.data;
   const canStart =
+    auth.canOperate &&
     session &&
     ['CREATED', 'HIBERNATED'].includes(session.state) &&
     !session.currentOperation;
   const canTerminate =
+    auth.canOperate &&
     session &&
     !['TERMINATED', 'TERMINATING'].includes(session.state) &&
     !session.currentOperation;
   const takeoverActive = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
-    takeoverActive && session.currentOperation?.actorId === DEFAULT_ACTOR_ID;
+    takeoverActive && session.currentOperation?.actorId === currentActorId();
   const takeoverHeldByOther = takeoverActive && !takeoverOwned;
   const canTakeover =
+    auth.canOperate &&
     session &&
     ['RUNNING', 'DEGRADED'].includes(session.state) &&
     (!session.currentOperation || takeoverOwned);
@@ -244,6 +249,7 @@ export function SessionDetailPage() {
                   loading={browserStateQuery.isLoading}
                   error={browserStateQuery.error}
                   onRetry={() => browserStateQuery.refetch()}
+                  canOperate={auth.canOperate}
                   resyncing={resyncMutation.isPending}
                   resyncError={resyncMutation.error}
                   onResync={(mode, rootRef) =>
@@ -423,6 +429,7 @@ function BrowserStatePanel({
   loading,
   error,
   onRetry,
+  canOperate,
   resyncing,
   resyncError,
   onResync,
@@ -432,6 +439,7 @@ function BrowserStatePanel({
   loading: boolean;
   error: unknown;
   onRetry: () => unknown;
+  canOperate: boolean;
   resyncing: boolean;
   resyncError: unknown;
   onResync: (mode: 'FULL' | 'REGION', rootRef: string) => void;
@@ -510,11 +518,12 @@ function BrowserStatePanel({
                 value={rootRef}
                 onChange={(event) => setRootRef(event.target.value)}
                 maxLength={512}
-                className="h-8 w-40 rounded-[6px] border border-border-default bg-surface-2 px-2 font-mono text-[10px] text-text-primary outline-none focus:border-accent"
+                disabled={!canOperate}
+                className="h-8 w-40 rounded-[6px] border border-border-default bg-surface-2 px-2 font-mono text-[10px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-45"
               />
               <button
                 type="button"
-                disabled={resyncing || !rootRef.trim()}
+                disabled={!canOperate || resyncing || !rootRef.trim()}
                 onClick={() => onResync('REGION', rootRef.trim())}
                 className="h-8 rounded-[6px] border border-border-default px-2.5 text-[10px] text-text-secondary hover:border-accent/50 hover:text-text-primary disabled:opacity-40"
               >
@@ -522,7 +531,7 @@ function BrowserStatePanel({
               </button>
               <button
                 type="button"
-                disabled={resyncing}
+                disabled={!canOperate || resyncing}
                 onClick={() => onResync('FULL', '')}
                 className="inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[10px] font-semibold text-white hover:bg-accent/90 disabled:opacity-40"
               >

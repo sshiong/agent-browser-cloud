@@ -18,11 +18,16 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '@/stores/ui';
 import { cn } from '@/shared/lib/utils';
+import { useAuth } from '@/auth/AuthProvider';
+import type { PlatformRole } from '@/auth/runtimeIdentity';
+import { fixturesEnabled } from '@/shared/runtimeConfig';
 
 interface NavItem {
   label: string;
   icon: React.ReactNode;
   path: string;
+  requiredRoles?: PlatformRole[];
+  fixture?: boolean;
 }
 
 interface NavGroup {
@@ -36,8 +41,18 @@ const navGroups: NavGroup[] = [
     items: [
       { label: '总览', icon: <LayoutDashboard size={18} />, path: '/' },
       { label: '环境管理', icon: <Monitor size={18} />, path: '/environments' },
-      { label: '分组与标签', icon: <FolderTree size={18} />, path: '/groups' },
-      { label: 'Browser Node', icon: <Boxes size={18} />, path: '/nodes' },
+      {
+        label: '分组与标签',
+        icon: <FolderTree size={18} />,
+        path: '/groups',
+        fixture: true,
+      },
+      {
+        label: 'Browser Node',
+        icon: <Boxes size={18} />,
+        path: '/nodes',
+        fixture: true,
+      },
     ],
   },
   {
@@ -50,7 +65,12 @@ const navGroups: NavGroup[] = [
         icon: <HardDrive size={18} />,
         path: '/profiles',
       },
-      { label: '扩展与应用', icon: <Puzzle size={18} />, path: '/extensions' },
+      {
+        label: '扩展与应用',
+        icon: <Puzzle size={18} />,
+        path: '/extensions',
+        fixture: true,
+      },
     ],
   },
   {
@@ -60,6 +80,12 @@ const navGroups: NavGroup[] = [
         label: 'Agent 任务',
         icon: <Bot size={18} />,
         path: '/automation/tasks',
+        requiredRoles: [
+          'TENANT_OPERATOR',
+          'TENANT_ADMIN',
+          'SECURITY_ADMIN',
+          'PLATFORM_ADMIN',
+        ],
       },
     ],
   },
@@ -70,14 +96,32 @@ const navGroups: NavGroup[] = [
         label: '远程桌面',
         icon: <Webcam size={18} />,
         path: '/remote-desktop',
+        requiredRoles: [
+          'TENANT_OPERATOR',
+          'TENANT_ADMIN',
+          'SECURITY_ADMIN',
+          'PLATFORM_ADMIN',
+        ],
       },
       { label: '运行日志', icon: <ScrollText size={18} />, path: '/logs' },
-      { label: '安全中心', icon: <Shield size={18} />, path: '/security' },
+      {
+        label: '安全中心',
+        icon: <Shield size={18} />,
+        path: '/security',
+        requiredRoles: ['SECURITY_ADMIN', 'PLATFORM_ADMIN'],
+      },
     ],
   },
   {
     title: '系统',
-    items: [{ label: '设置', icon: <Settings size={18} />, path: '/settings' }],
+    items: [
+      {
+        label: '设置',
+        icon: <Settings size={18} />,
+        path: '/settings',
+        requiredRoles: ['PLATFORM_ADMIN'],
+      },
+    ],
   },
 ];
 
@@ -86,12 +130,14 @@ export function Sidebar() {
   const toggle = useUIStore((s) => s.toggleSidebar);
   const location = useLocation();
   const navigate = useNavigate();
+  const auth = useAuth();
 
   return (
     <aside
+      aria-label="主导航"
       className={cn(
         'flex flex-col border-r border-border-subtle bg-sidebar transition-all duration-200',
-        collapsed ? 'w-[72px]' : 'w-[240px]'
+        collapsed ? 'w-[64px] sm:w-[72px]' : 'w-[64px] sm:w-[240px]'
       )}
     >
       {/* Logo */}
@@ -100,7 +146,7 @@ export function Sidebar() {
           <Boxes size={18} />
         </div>
         {!collapsed && (
-          <div className="flex flex-col">
+          <div className="hidden flex-col sm:flex">
             <span className="text-sm font-semibold text-text-primary">
               Agent Browser
             </span>
@@ -110,31 +156,39 @@ export function Sidebar() {
       </div>
 
       {/* New Session Button */}
-      <div className="px-3 py-3">
-        <button
-          type="button"
-          onClick={() => navigate('/environments?create=1')}
-          aria-label="新建浏览器环境"
-          className={cn(
-            'flex w-full items-center justify-center gap-2 rounded-[7px] bg-accent px-3 py-2 text-sm font-medium text-canvas transition-colors hover:bg-accent/90',
-            collapsed && 'px-0'
-          )}
-        >
-          <Plus size={16} />
-          {!collapsed && '新建浏览器环境'}
-        </button>
-      </div>
+      {auth.canOperate && (
+        <div className="px-3 py-3">
+          <button
+            type="button"
+            onClick={() => navigate('/environments?create=1')}
+            aria-label="新建浏览器环境"
+            className={cn(
+              'flex w-full items-center justify-center gap-2 rounded-[7px] bg-accent px-3 py-2 text-sm font-medium text-canvas transition-colors hover:bg-accent/90',
+              collapsed && 'px-0'
+            )}
+          >
+            <Plus size={16} />
+            {!collapsed && (
+              <span className="hidden sm:inline">新建浏览器环境</span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
         {navGroups.map((group) => (
           <div key={group.title} className="mb-4">
             {!collapsed && (
-              <div className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-text-muted">
+              <div className="mb-1 hidden px-2 text-[11px] font-medium uppercase tracking-wider text-text-muted sm:block">
                 {group.title}
               </div>
             )}
             {group.items.map((item) => {
+              if (item.fixture && !fixturesEnabled) return null;
+              if (item.requiredRoles && !auth.hasAnyRole(item.requiredRoles)) {
+                return null;
+              }
               const isActive =
                 item.path === '/'
                   ? location.pathname === '/'
@@ -143,6 +197,8 @@ export function Sidebar() {
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  aria-label={item.label}
+                  title={item.label}
                   className={cn(
                     'group relative mb-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 text-[13px] transition-colors',
                     isActive
@@ -156,7 +212,9 @@ export function Sidebar() {
                   <span className={cn('shrink-0', isActive && 'text-accent')}>
                     {item.icon}
                   </span>
-                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && (
+                    <span className="hidden sm:inline">{item.label}</span>
+                  )}
                 </NavLink>
               );
             })}
@@ -165,7 +223,7 @@ export function Sidebar() {
       </nav>
 
       {/* Collapse Toggle */}
-      <div className="border-t border-border-subtle p-3">
+      <div className="hidden border-t border-border-subtle p-3 sm:block">
         <button
           type="button"
           onClick={toggle}

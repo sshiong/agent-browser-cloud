@@ -91,15 +91,18 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 
 仍未完成：
 
-1. Nodes、Extensions、Groups 仍直接读取 `src/mocks/data.ts`。
+1. Nodes、Extensions、Groups 仍直接读取 `src/mocks/data.ts`；生产导航和直接路由
+   已 fail-closed，但正式领域模型/API 尚未实现。
 2. Session 创建向导不是大纲中的完整九步，缺 Persona、Extension、Agent Policy 等正式
    后端契约。
 3. Session/State/Audit 仍以轮询为主，没有统一 SSE/WebSocket 事件管理器和序列校验。
-4. 后端已有 OIDC/RBAC，但前端没有登录会话、权限查询和 `<Can>` 级别的操作隐藏/禁用。
+4. 前端标准 OIDC 会话、动态 Bearer、Claim 身份、角色路由和操作 Gate 已完成，并以
+   生产 Viewer E2E 验收；尚缺真实企业 IdP 的 Metadata、Claim、MFA/ACR 与 Logout 联调。
 5. API Client 仍手写，没有从 OpenAPI 生成并进行 N/N-1 契约兼容验证。
 6. 全局搜索、通知、主题和用户菜单仍为禁用或静态状态。
 7. 完整浏览器 E2E 尚未进入 GitHub Actions。
-8. 缺 1280×800、1440×900、1920×1080 视觉回归、移动端、键盘和屏幕阅读器验收。
+8. 390×844 移动端布局和基础导航语义已进入 E2E；仍缺 1280×800、1440×900、
+   1920×1080 视觉回归，以及完整键盘和屏幕阅读器验收。
 
 ## “真实网址”和 Agent 控制的当前边界
 

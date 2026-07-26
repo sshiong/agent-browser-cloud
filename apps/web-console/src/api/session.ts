@@ -10,6 +10,7 @@ import type {
   StateResyncRequest,
   StateResyncResponse,
 } from '../types/session';
+import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
 /**
  * API 基础 URL。
@@ -20,18 +21,27 @@ export const DEFAULT_TENANT_ID =
   import.meta.env.VITE_TENANT_ID?.trim() || 'tenant-local';
 export const DEFAULT_ACTOR_ID =
   import.meta.env.VITE_ACTOR_ID?.trim() || 'user-local';
-const ACCESS_TOKEN = import.meta.env.VITE_ACCESS_TOKEN?.trim();
+
+export function currentTenantId() {
+  return getRuntimeIdentity()?.tenantId || DEFAULT_TENANT_ID;
+}
+
+export function currentActorId() {
+  return getRuntimeIdentity()?.actorId || DEFAULT_ACTOR_ID;
+}
 
 export function identityHeaders(
   tenantId = DEFAULT_TENANT_ID,
   actorId = DEFAULT_ACTOR_ID
 ): Record<string, string> {
-  if (ACCESS_TOKEN) {
-    return { Authorization: `Bearer ${ACCESS_TOKEN}` };
+  const identity = getRuntimeIdentity();
+  if (identity?.accessToken) {
+    return { Authorization: `Bearer ${identity.accessToken}` };
   }
   return {
-    'X-Tenant-Id': tenantId,
-    'X-Actor-Id': actorId,
+    'X-Tenant-Id': identity?.tenantId || tenantId,
+    'X-Actor-Id': identity?.actorId || actorId,
+    ...(identity?.roles.length ? { 'X-Roles': identity.roles.join(',') } : {}),
   };
 }
 
@@ -58,13 +68,14 @@ export function isSessionApiError(error: unknown): error is SessionApiError {
 async function request<T>(
   path: string,
   options?: RequestInit,
-  tenantId?: string
+  tenantId?: string,
+  actorId?: string
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(tenantId ? identityHeaders(tenantId) : {}),
+      ...(tenantId ? identityHeaders(tenantId, actorId) : {}),
       ...options?.headers,
     },
   });
@@ -83,13 +94,14 @@ async function request<T>(
 async function requestOptional<T>(
   path: string,
   options?: RequestInit,
-  tenantId?: string
+  tenantId?: string,
+  actorId?: string
 ): Promise<T | null> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(tenantId ? identityHeaders(tenantId) : {}),
+      ...(tenantId ? identityHeaders(tenantId, actorId) : {}),
       ...options?.headers,
     },
   });
@@ -211,7 +223,7 @@ export async function terminateSession(
 export async function requestHumanTakeover(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,
-  actorId = DEFAULT_ACTOR_ID,
+  actorId = currentActorId(),
   signal?: AbortSignal
 ): Promise<OperationResponse> {
   return request<OperationResponse>(
@@ -219,16 +231,16 @@ export async function requestHumanTakeover(
     {
       method: 'POST',
       signal,
-      headers: { 'X-Actor-Id': actorId },
     },
-    tenantId
+    tenantId,
+    actorId
   );
 }
 
 export async function releaseHumanTakeover(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,
-  actorId = DEFAULT_ACTOR_ID,
+  actorId = currentActorId(),
   signal?: AbortSignal
 ): Promise<OperationResponse> {
   return request<OperationResponse>(
@@ -236,16 +248,16 @@ export async function releaseHumanTakeover(
     {
       method: 'POST',
       signal,
-      headers: { 'X-Actor-Id': actorId },
     },
-    tenantId
+    tenantId,
+    actorId
   );
 }
 
 export async function createRemoteDesktopConnection(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,
-  actorId = DEFAULT_ACTOR_ID,
+  actorId = currentActorId(),
   signal?: AbortSignal
 ): Promise<RemoteDesktopConnection> {
   return request<RemoteDesktopConnection>(
@@ -253,9 +265,9 @@ export async function createRemoteDesktopConnection(
     {
       method: 'POST',
       signal,
-      headers: { 'X-Actor-Id': actorId },
     },
-    tenantId
+    tenantId,
+    actorId
   );
 }
 

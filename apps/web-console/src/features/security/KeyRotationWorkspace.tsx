@@ -11,7 +11,7 @@ import {
   ErrorState,
   LoadingRows,
 } from '@/components/feedback/AsyncStates';
-import { DEFAULT_ACTOR_ID } from '@/api/session';
+import { currentActorId } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
 import type {
   CompleteKeyRotationRequest,
@@ -290,7 +290,7 @@ function KeyRotationRow({
   onComplete: () => void;
   onTransition: (transition: 'approve' | 'revoke') => Promise<unknown>;
 }) {
-  const ownRequest = item.requestedBy === DEFAULT_ACTOR_ID;
+  const ownRequest = item.requestedBy === currentActorId();
   const tone = {
     REQUESTED: 'text-warning',
     ROTATING: 'text-accent',

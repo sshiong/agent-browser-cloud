@@ -23,6 +23,7 @@ import {
 } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
 import type { SessionState, SessionView } from '@/types/session';
+import { useAuth } from '@/auth/AuthProvider';
 
 const PAGE_SIZE = 20;
 
@@ -37,6 +38,7 @@ const filters: { label: string; value?: SessionState }[] = [
 ];
 
 export function EnvironmentsPage() {
+  const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [state, setState] = useState<SessionState | undefined>();
   const [search, setSearch] = useState('');
@@ -46,7 +48,7 @@ export function EnvironmentsPage() {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
-  const createOpen = searchParams.get('create') === '1';
+  const createOpen = auth.canOperate && searchParams.get('create') === '1';
 
   const visibleItems = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -69,6 +71,7 @@ export function EnvironmentsPage() {
   }, [query.data?.items, search]);
 
   const setCreateOpen = (open: boolean) => {
+    if (open && !auth.canOperate) return;
     const next = new URLSearchParams(searchParams);
     if (open) next.set('create', '1');
     else next.delete('create');
@@ -130,14 +133,16 @@ export function EnvironmentsPage() {
               />
             </label>
 
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas transition-colors hover:bg-accent/90"
-            >
-              <Plus size={14} />
-              新建环境
-            </button>
+            {auth.canOperate && (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas transition-colors hover:bg-accent/90"
+              >
+                <Plus size={14} />
+                新建环境
+              </button>
+            )}
           </div>
         </div>
 
@@ -178,14 +183,16 @@ export function EnvironmentsPage() {
                   : '创建第一个真实 Session，配置 Profile、区域与资源等级。'
               }
               action={
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(true)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas"
-                >
-                  <Plus size={13} />
-                  新建环境
-                </button>
+                auth.canOperate ? (
+                  <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas"
+                  >
+                    <Plus size={13} />
+                    新建环境
+                  </button>
+                ) : null
               }
             />
           ) : visibleItems.length === 0 ? (
@@ -274,6 +281,7 @@ export function EnvironmentsPage() {
 }
 
 function SessionRow({ session }: { session: SessionView }) {
+  const auth = useAuth();
   const navigate = useNavigate();
   const startMutation = useStartSession(session.sessionId);
   const canStart =
@@ -357,7 +365,7 @@ function SessionRow({ session }: { session: SessionView }) {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1">
-          {canStart && (
+          {auth.canOperate && canStart && (
             <button
               type="button"
               onClick={() => startMutation.mutate()}

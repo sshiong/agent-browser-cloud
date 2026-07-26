@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +39,6 @@ public class AgentExecutionService {
 
   private static final Set<ToolId> ASYNC_ACTIONS =
       Set.of(ToolId.CLICK_TARGET, ToolId.TYPE_TEXT, ToolId.SCROLL, ToolId.WAIT_FOR);
-  private static final long LEASE_SECONDS = 30;
 
   private final AgentTaskJpaRepository taskRepository;
   private final SessionCoordinator coordinator;
@@ -51,6 +51,7 @@ public class AgentExecutionService {
   private final AgentHumanGovernanceService governanceService;
   private final AgentApplicationService taskService;
   private final ObjectMapper objectMapper;
+  private final long leaseSeconds;
   private final String executorId =
       "cp_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
@@ -65,7 +66,8 @@ public class AgentExecutionService {
       AgentActionToolService actionToolService,
       AgentHumanGovernanceService governanceService,
       AgentApplicationService taskService,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      @Value("${agent.executor-lease-seconds:30}") long leaseSeconds) {
     this.taskRepository = taskRepository;
     this.coordinator = coordinator;
     this.sessionRepository = sessionRepository;
@@ -77,6 +79,7 @@ public class AgentExecutionService {
     this.governanceService = governanceService;
     this.taskService = taskService;
     this.objectMapper = objectMapper;
+    this.leaseSeconds = Math.max(1, Math.min(300, leaseSeconds));
   }
 
   @Transactional
@@ -395,8 +398,8 @@ public class AgentExecutionService {
     }
   }
 
-  private static Instant leaseUntil(Instant now) {
-    return now.plusSeconds(LEASE_SECONDS);
+  private Instant leaseUntil(Instant now) {
+    return now.plusSeconds(leaseSeconds);
   }
 
   private static boolean isTerminal(AgentTaskEntity task) {

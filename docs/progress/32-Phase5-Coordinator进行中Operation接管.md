@@ -1,6 +1,6 @@
 # Phase 5：Coordinator 进行中 Operation 接管
 
-> 状态：HumanTakeover 真实演练完成；Runtime 生命周期与 Agent Step 真实故障矩阵待补
+> 状态：HumanTakeover 与 Agent pending Step 真实演练完成；Runtime 生命周期竞态待补
 > 日期：2026-07-26
 > 验收入口：`make test-integration`
 
@@ -23,7 +23,9 @@ Lease/CAS、term 递增和旧事件 fencing 有效，但换主后数据库中的
 6. Agent Executor 创建和短 Lease 恢复前显式进入 Coordinator Reconcile。换主后旧 Agent
    Operation 被安全中止，遗留输入被释放，恢复扫描将任务标记
    `COORDINATOR_FAILOVER_ABORTED`，不盲目重放可能已执行的写 Step；
-7. START API 如果触发的是换主终止清理，会创建 `TERMINATE_RUNTIME` Workflow 和
+7. Agent Executor Lease 支持 1—300 秒受控配置，生产默认仍为 30 秒；故障演练使用
+   2 秒缩短确定性等待，不改变 fail-closed 语义；
+8. START API 如果触发的是换主终止清理，会创建 `TERMINATE_RUNTIME` Workflow 和
    `COORDINATOR_FAILOVER_ABORT` 审计，不再错误标记成新的启动工作流。
 
 ## 真实 SIGKILL 演练
@@ -40,13 +42,25 @@ Lease/CAS、term 递增和旧事件 fencing 有效，但换主后数据库中的
 8. 继续执行 Agent、Runtime Crash Recovery、Node Restart 和 Session Termination，
    证明 Reconcile 没有破坏后续链路。
 
+同一演练随后覆盖 Agent pending Step：
+
+1. Coordinator B/term=2 创建 Navigate Task；
+2. `SIGSTOP` Browser Node，使 Step 保持 `RUNNING + pendingStepId`；
+3. `SIGKILL` Coordinator B 后恢复 Node，并启动 Coordinator C；
+4. 2 秒 Executor Lease 到期后，Recovery Scanner 经 Coordinator 取得 term=3；
+5. term=2 Agent Operation 变为 `ABORTED`，Task 变为 `FAILED`，`lastError` 精确为
+   `COORDINATOR_FAILOVER_ABORTED`，`currentStep=0`；
+6. 随后的新 Agent Task 正常执行完成，证明旧 Capability/Step 没有被恢复线程重复消费。
+
 本轮真实输出包含：
 
 ```text
 coordinator_failover_term=2
 coordinator_inflight_operation_reconciled=true
+coordinator_agent_step_aborted=true
+coordinator_final_term=3
 node_events_inbox=17
-node_command_published=11
+node_command_published=13
 audit_chain_valid=true
 audit_events=56
 ```
@@ -84,8 +98,7 @@ Coordinator 单测覆盖：
    未执行两种竞态都收敛到安全终态；
 2. 在 HumanTakeover `PREPARING` 与 `COMPLETING` Barrier 中间 Kill，而不只是在
    `EXECUTING` 状态 Kill；
-3. 在 Navigate/Click/Type 等异步 Agent Step 等待 Node Event 时 Kill，验证任务最终
-   `COORDINATOR_FAILOVER_ABORTED` 且 Capability 不重复消费；
+3. Navigate pending Step 已完成；仍需 Click/Type 等“Node 可能已经执行但 Event 未提交”
+   的副作用竞态与 Capability Ledger 精确计数断言；
 4. 双 Coordinator 长稳、网络分区、时钟偏差、连接池拥塞和 Kubernetes Pod Kill；
 5. 将 Reconcile 延迟、旧 Operation 中止数和 Cleanup 失败数接入 Metrics/Alert。
-

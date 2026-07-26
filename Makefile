@@ -1,4 +1,4 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-kubernetes-operator test-kubernetes-e2e test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-kubernetes-operator test-kubernetes-e2e test-e2e ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 
@@ -78,6 +78,10 @@ supply-chain-check:
 # Run integration tests
 test-integration:
 	./tests/integration/smoke.sh
+
+# Run authorized public URLs through the real Browser Node and Chrome
+test-real-url-agent:
+	./tests/compatibility/real-url-agent-matrix.sh
 
 # Run BrowserSession operator unit tests
 test-kubernetes-operator:

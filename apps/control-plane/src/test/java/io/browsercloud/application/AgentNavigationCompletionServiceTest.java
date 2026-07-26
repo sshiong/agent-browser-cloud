@@ -28,6 +28,88 @@ import org.junit.jupiter.api.Test;
 class AgentNavigationCompletionServiceTest {
 
   @Test
+  void shouldRejectActionStateThatLeavesTheTaskAllowlist() {
+    var objectMapper = new ObjectMapper().findAndRegisterModules();
+    var service =
+        new AgentNavigationCompletionService(
+            mock(AgentTaskJpaRepository.class),
+            mock(SessionRepository.class),
+            mock(OperationRepository.class),
+            mock(NodeCommandGateway.class),
+            mock(AgentExecutionService.class),
+            objectMapper);
+    var task =
+        new AgentTaskEntity(
+            "agt_1234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "click authorized link",
+            TaskState.PLANNED.name(),
+            RiskClass.R1_LOW_RISK_CHANGE.name(),
+            IntentDecision.ALLOWED.name(),
+            null,
+            "[\"example.test\"]",
+            "{}",
+            "[]",
+            Instant.now());
+    var step =
+        new PlanStep(
+            "step_1234567890abcd",
+            ToolId.CLICK_TARGET,
+            RiskClass.R1_LOW_RISK_CHANGE,
+            null,
+            new StepInput("#target", 7L, null, null, null, null, null, null, null),
+            "click target",
+            List.of("user_goal"),
+            TrustLevel.TRUSTED,
+            List.of(),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "SESSION_RUNNING",
+            "STATE_VERSION_ADVANCED",
+            "cap_test",
+            "signed-token");
+    task.startExecution(
+        "op_agent_click", "executor-test", Instant.now().plusSeconds(30), Instant.now());
+    task.markAsyncPending(
+        0,
+        step.stepId(),
+        step.toolId().name(),
+        3,
+        "base-hash",
+        Instant.now().plusSeconds(15),
+        "[]",
+        "executor-test",
+        Instant.now().plusSeconds(30),
+        Instant.now());
+    var state =
+        new NodeEvent.StateUpdated(
+            task.getSessionId(),
+            4,
+            7,
+            "https://outside.test/landing",
+            "Outside",
+            "hash",
+            "COMPLETE",
+            List.of());
+
+    assertThat(service.verifyState(task, step, state)).isEqualTo("POST_ACTION_DOMAIN_NOT_ALLOWED");
+
+    var browserErrorState =
+        new NodeEvent.StateUpdated(
+            task.getSessionId(),
+            5,
+            8,
+            "chrome-error://chromewebdata/",
+            "Denied",
+            "error-hash",
+            "COMPLETE",
+            List.of());
+    assertThat(service.verifyState(task, step, browserErrorState))
+        .isEqualTo("POST_ACTION_DOMAIN_NOT_ALLOWED");
+  }
+
+  @Test
   void shouldBoundNavigationVerificationReplanAndAbortAfterBudgetIsExhausted() throws Exception {
     var taskRepository = mock(AgentTaskJpaRepository.class);
     var sessionRepository = mock(SessionRepository.class);

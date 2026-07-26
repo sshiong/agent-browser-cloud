@@ -99,7 +99,7 @@ public class AgentNavigationCompletionService {
         failureEvent.errorCode());
   }
 
-  private String verifyState(AgentTaskEntity task, PlanStep step, NodeEvent.StateUpdated state) {
+  String verifyState(AgentTaskEntity task, PlanStep step, NodeEvent.StateUpdated state) {
     if (task.getPendingStateVersion() == null
         || state.stateVersion() <= task.getPendingStateVersion()) {
       return "POST_ACTION_STATE_NOT_ADVANCED";
@@ -107,12 +107,32 @@ public class AgentNavigationCompletionService {
     if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())) {
       return "POST_ACTION_STATE_NOT_EXECUTABLE";
     }
+    var stateDomain = stateDomain(state.url());
     if (step.toolId() == ToolId.NAVIGATE
-        && !AgentNavigationToolService.domainOf(step.targetUrl())
-            .equals(AgentNavigationToolService.domainOf(state.url()))) {
+        && !AgentNavigationToolService.domainOf(step.targetUrl()).equals(stateDomain)) {
       return "NAVIGATION_REDIRECT_DOMAIN_MISMATCH";
     }
+    if (step.toolId() != ToolId.NAVIGATE
+        && (stateDomain == null || !allowedDomains(task).contains(stateDomain))) {
+      return "POST_ACTION_DOMAIN_NOT_ALLOWED";
+    }
     return null;
+  }
+
+  private String stateDomain(String value) {
+    try {
+      return AgentNavigationToolService.domainOf(value);
+    } catch (AgentNavigationToolService.NavigationToolException exception) {
+      return null;
+    }
+  }
+
+  private Set<String> allowedDomains(AgentTaskEntity task) {
+    try {
+      return Set.of(objectMapper.readValue(task.getAllowedDomains(), String[].class));
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Failed to read Agent allowed domains", exception);
+    }
   }
 
   private ToolExecutionResult verifiedResult(PlanStep step, NodeEvent.StateUpdated state) {

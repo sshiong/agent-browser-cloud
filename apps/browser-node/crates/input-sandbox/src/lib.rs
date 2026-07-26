@@ -396,17 +396,15 @@ impl DesktopInput for CdpDesktopInput {
             return Ok(());
         }
         let key_name = Self::input_key_name(&key)?;
-        let text = matches!(key, InputKey::Character(_)).then(|| key_name.clone());
-        self.send(
-            "Input.dispatchKeyEvent",
-            serde_json::json!({
-                "type": "keyDown",
-                "key": key_name,
-                "text": text,
-                "modifiers": Self::modifiers(&ledger)
-            }),
-        )
-        .await?;
+        let mut params = serde_json::json!({
+            "type": "keyDown",
+            "key": key_name.clone(),
+            "modifiers": Self::modifiers(&ledger)
+        });
+        if matches!(key, InputKey::Character(_)) {
+            params["text"] = serde_json::Value::String(key_name);
+        }
+        self.send("Input.dispatchKeyEvent", params).await?;
         ledger.press_key(key);
         ledger.last_sequence = sequence;
         self.mark_activity().await;
@@ -612,6 +610,7 @@ mod tests {
         let insert_text = receiver.recv().await.unwrap();
         assert_eq!(key_down["method"], "Input.dispatchKeyEvent");
         assert_eq!(key_down["params"]["type"], "keyDown");
+        assert!(key_down["params"].get("text").is_none());
         assert_eq!(key_up["params"]["type"], "keyUp");
         assert_eq!(insert_text["method"], "Input.insertText");
         assert_eq!(insert_text["params"]["text"], "public note");

@@ -489,7 +489,11 @@ fn copy_core(
         if is_ephemeral(&next_relative) {
             continue;
         }
-        anyhow::ensure!(!file_type.is_symlink(), "profile symlinks are not allowed");
+        anyhow::ensure!(
+            !file_type.is_symlink(),
+            "profile symlinks are not allowed: {}",
+            next_relative.display()
+        );
         if file_type.is_dir() {
             copy_core(source_root, destination_root, &next_relative, files)?;
         } else if file_type.is_file() {
@@ -536,6 +540,7 @@ fn is_ephemeral(relative: &Path) -> bool {
                 | "SingletonLock"
                 | "SingletonSocket"
                 | "SingletonCookie"
+                | "RunningChromeVersion"
         )
     })
 }
@@ -712,6 +717,12 @@ mod tests {
         std::os::unix::fs::symlink(
             "/tmp/chromium-singleton",
             workspace.core_dir.join("SingletonSocket"),
+        )
+        .unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            "/Applications/Google Chrome.app",
+            workspace.core_dir.join("RunningChromeVersion"),
         )
         .unwrap();
 

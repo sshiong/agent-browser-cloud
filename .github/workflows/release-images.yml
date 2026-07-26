@@ -173,11 +173,11 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout 180s cosign verify \
+          timeout --kill-after=10s 180s cosign verify \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$CONTROL_PLANE_IMAGE"
-          timeout 180s cosign verify-attestation \
+          timeout --kill-after=10s 180s cosign verify-attestation \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -189,11 +189,11 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout 180s cosign verify \
+          timeout --kill-after=10s 180s cosign verify \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$BROWSER_NODE_IMAGE"
-          timeout 180s cosign verify-attestation \
+          timeout --kill-after=10s 180s cosign verify-attestation \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -205,11 +205,11 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout 180s cosign verify \
+          timeout --kill-after=10s 180s cosign verify \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$WEB_CONSOLE_IMAGE"
-          timeout 180s cosign verify-attestation \
+          timeout --kill-after=10s 180s cosign verify-attestation \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -221,11 +221,11 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout 180s cosign verify \
+          timeout --kill-after=10s 180s cosign verify \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             "$OPERATOR_IMAGE"
-          timeout 180s cosign verify-attestation \
+          timeout --kill-after=10s 180s cosign verify-attestation \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --type spdxjson \
@@ -235,7 +235,7 @@ jobs:
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          timeout 180s cosign verify-blob \
+          timeout --kill-after=10s 180s cosign verify-blob \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --bundle release-bundle/release-manifest.sigstore.json \

@@ -22,6 +22,7 @@
 | Coordinator 安全点接管   | PostgreSQL Lease/CAS Ownership、Term +1、Node 双向 Fencing、旧事件终止清理                                            | `make test-integration` 真实 SIGKILL A、B 以 term=2 接管并继续恢复 |
 | Object Storage Stage A   | S3 压缩归档、Manifest/Commit Marker 顺序、有界超时、本地 Checkpoint 可重试                                            | `make test-object-storage` 真实 MinIO 成功/暂停/恢复演练           |
 | Remote Desktop 网络分区  | 心跳驱逐、Generation/Grace 安全重连、CDP/X11 输入释放、State Resync                                                   | TCP 故障代理 `SIGSTOP` + 真实 Web Console/noVNC E2E                |
+| Coordinator Reconcile 指标 | 延迟 Histogram、Stale Abort、Cleanup Started/Failure、Prometheus 端点与三条 Alert Rule                               | Java 成功/失败单测 + 跨 C/D 真实换主指标抓取                       |
 
 ## 尚未完成
 

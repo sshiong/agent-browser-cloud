@@ -40,18 +40,21 @@ public final class SessionCoordinator {
   private final NodeCommandGateway nodeCommandGateway;
   private final OutboxPublisher outboxPublisher;
   private final CoordinatorOwnershipService ownershipService;
+  private final CoordinatorReconciliationMetrics reconciliationMetrics;
 
   public SessionCoordinator(
       SessionRepository sessionRepository,
       OperationRepository operationRepository,
       NodeCommandGateway nodeCommandGateway,
       OutboxPublisher outboxPublisher,
-      CoordinatorOwnershipService ownershipService) {
+      CoordinatorOwnershipService ownershipService,
+      CoordinatorReconciliationMetrics reconciliationMetrics) {
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.nodeCommandGateway = nodeCommandGateway;
     this.outboxPublisher = outboxPublisher;
     this.ownershipService = ownershipService;
+    this.reconciliationMetrics = reconciliationMetrics;
   }
 
   /**
@@ -65,7 +68,8 @@ public final class SessionCoordinator {
       ownershipService.assertCurrentOwner(event.sessionId(), event.coordinatorTerm());
     } else {
       long currentTerm = ownershipService.acquireSession(command.sessionId());
-      var reconciliation = reconcileStaleOperation(command, currentTerm);
+      var reconciliation =
+          reconciliationMetrics.record(() -> reconcileStaleOperation(command, currentTerm));
       if (reconciliation.isPresent()) {
         return reconciliation.orElseThrow();
       }
@@ -107,6 +111,7 @@ public final class SessionCoordinator {
     var fencedSession = session.withCoordinatorTerm(currentTerm);
     operationRepository.transition(
         staleOperation.operationId(), OperationState.ACTIVE, OperationState.ABORTED);
+    reconciliationMetrics.staleOperationAborted();
     log.warn(
         "Aborted stale operation {} for session {} after coordinator term advanced {} -> {}",
         staleOperation.operationId(),
@@ -117,17 +122,23 @@ public final class SessionCoordinator {
     if (session.state() == SessionState.STARTING
         || session.state() == SessionState.RECOVERING
         || session.state() == SessionState.TERMINATING) {
-      var cleanup =
-          OperationFactory.terminate(
-              fencedSession, operationRepository.nextOperationEpoch(session.sessionId()));
-      operationRepository.insert(cleanup);
-      sessionRepository.updateWithExpectedEpoch(
-          fencedSession.withState(SessionState.TERMINATING), session.contextEpoch());
-      nodeCommandGateway.send(
-          NodeCommands.stopRuntime(fencedSession, cleanup, "coordinator_failover"));
-      outboxPublisher.append(
-          new SessionStateChanged(session.sessionId(), SessionState.TERMINATING));
-      return Optional.of(CoordinatorResult.accepted(cleanup.operationId()));
+      reconciliationMetrics.cleanupStarted();
+      try {
+        var cleanup =
+            OperationFactory.terminate(
+                fencedSession, operationRepository.nextOperationEpoch(session.sessionId()));
+        operationRepository.insert(cleanup);
+        sessionRepository.updateWithExpectedEpoch(
+            fencedSession.withState(SessionState.TERMINATING), session.contextEpoch());
+        nodeCommandGateway.send(
+            NodeCommands.stopRuntime(fencedSession, cleanup, "coordinator_failover"));
+        outboxPublisher.append(
+            new SessionStateChanged(session.sessionId(), SessionState.TERMINATING));
+        return Optional.of(CoordinatorResult.accepted(cleanup.operationId()));
+      } catch (RuntimeException | Error failure) {
+        reconciliationMetrics.cleanupFailed();
+        throw failure;
+      }
     }
 
     if (staleOperation.mode() == OperationMode.HUMAN_TAKEOVER

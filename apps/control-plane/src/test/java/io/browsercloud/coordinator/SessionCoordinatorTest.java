@@ -11,6 +11,7 @@ import io.browsercloud.domain.operation.*;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -34,16 +35,19 @@ class SessionCoordinatorTest {
   @Mock private CoordinatorOwnershipService ownershipService;
 
   private SessionCoordinator coordinator;
+  private SimpleMeterRegistry meterRegistry;
 
   @BeforeEach
   void setUp() {
+    meterRegistry = new SimpleMeterRegistry();
     coordinator =
         new SessionCoordinator(
             sessionRepository,
             operationRepository,
             nodeCommandGateway,
             outboxPublisher,
-            ownershipService);
+            ownershipService,
+            new CoordinatorReconciliationMetrics(meterRegistry));
   }
 
   @Test
@@ -430,6 +434,46 @@ class SessionCoordinatorTest {
                     command.commandType().equals("StopRuntime")
                         && command.coordinatorTerm() == 2
                         && command.operationEpoch() == 2));
+    assertThat(meterRegistry.get(CoordinatorReconciliationMetrics.STALE_ABORTED).counter().count())
+        .isEqualTo(1);
+    assertThat(
+            meterRegistry.get(CoordinatorReconciliationMetrics.CLEANUP_STARTED).counter().count())
+        .isEqualTo(1);
+    assertThat(
+            meterRegistry.get(CoordinatorReconciliationMetrics.CLEANUP_FAILURES).counter().count())
+        .isZero();
+    assertThat(meterRegistry.get(CoordinatorReconciliationMetrics.DURATION).timer().count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  void shouldRecordNewTermCleanupFailure() {
+    var session = createSession("ses-1", SessionState.RECOVERING, 2);
+    var stale =
+        createActiveOperation(
+            "ses-1", OperationMode.RECOVERY, OperationPhase.EXECUTING, "control-plane", 1);
+    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale));
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
+    doThrow(new IllegalStateException("node dispatcher unavailable"))
+        .when(nodeCommandGateway)
+        .send(argThat(command -> command.commandType().equals("StopRuntime")));
+
+    assertThatThrownBy(() -> coordinator.handle(new TerminateSession("ses-1", "failover-cleanup")))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("node dispatcher unavailable");
+
+    assertThat(meterRegistry.get(CoordinatorReconciliationMetrics.STALE_ABORTED).counter().count())
+        .isEqualTo(1);
+    assertThat(
+            meterRegistry.get(CoordinatorReconciliationMetrics.CLEANUP_STARTED).counter().count())
+        .isEqualTo(1);
+    assertThat(
+            meterRegistry.get(CoordinatorReconciliationMetrics.CLEANUP_FAILURES).counter().count())
+        .isEqualTo(1);
+    assertThat(meterRegistry.get(CoordinatorReconciliationMetrics.DURATION).timer().count())
+        .isEqualTo(1);
   }
 
   @Test

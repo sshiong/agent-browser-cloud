@@ -61,6 +61,8 @@ public class SecurityConfiguration {
       http.authorizeHttpRequests(
               requests ->
                   requests
+                      .requestMatchers("/actuator/prometheus")
+                      .hasRole("PLATFORM_ADMIN")
                       .requestMatchers("/actuator/health", "/actuator/info")
                       .permitAll()
                       .anyRequest()

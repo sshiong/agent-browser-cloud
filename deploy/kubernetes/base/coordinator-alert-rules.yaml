@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coordinator-alert-rules
+  namespace: browsercloud-system
+  labels:
+    browsercloud.io/component: coordinator
+    browsercloud.io/alert-rules: "true"
+data:
+  coordinator-alerts.yaml: |
+    groups:
+      - name: browsercloud-coordinator-reconcile
+        rules:
+          - alert: BrowserCloudCoordinatorCleanupFailure
+            expr: increase(browsercloud_coordinator_reconcile_cleanup_failures_total[5m]) > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: Coordinator new-term cleanup failed
+              runbook: docs/security/incident-response-runbook.md#coordinator-failover
+          - alert: BrowserCloudCoordinatorStaleOperationSpike
+            expr: increase(browsercloud_coordinator_reconcile_stale_operations_aborted_total[10m]) > 20
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Coordinator is aborting stale operations unusually often
+              runbook: docs/security/incident-response-runbook.md#coordinator-failover
+          - alert: BrowserCloudCoordinatorReconcileP99High
+            expr: histogram_quantile(0.99, sum by (le) (rate(browsercloud_coordinator_reconcile_duration_seconds_bucket[5m]))) > 1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Coordinator reconciliation P99 exceeds one second
+              runbook: docs/security/incident-response-runbook.md#coordinator-failover

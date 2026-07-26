@@ -161,4 +161,5 @@ Coordinator 单测覆盖：
 3. Navigate pending 与 TYPE_TEXT“已执行但 Event 未提交”均已完成；仍可扩展 Click、
    Scroll、Wait 四种动作的参数化矩阵；
 4. 双 Coordinator 长稳、网络分区、时钟偏差、连接池拥塞和 Kubernetes Pod Kill；
-5. 将 Reconcile 延迟、旧 Operation 中止数和 Cleanup 失败数接入 Metrics/Alert。
+5. Reconcile 延迟、旧 Operation 中止数和 Cleanup 失败数已由进度 35 接入
+   Prometheus/Alert Rule；目标 Alertmanager/Pager 到达演练仍待完成。

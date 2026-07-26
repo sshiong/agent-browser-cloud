@@ -44,6 +44,7 @@ import os
 import signal
 import struct
 import sys
+import time
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -56,6 +57,16 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     starts = 0
 marker.write_text(json.dumps({"starts": starts + 1, "durable": True}))
+delay_profile_fragment = os.environ.get("FAKE_CHROMIUM_DELAY_PROFILE_FRAGMENT", "")
+delay_start_number = int(os.environ.get("FAKE_CHROMIUM_DELAY_START_NUMBER", "0"))
+delay_seconds = float(os.environ.get("FAKE_CHROMIUM_STARTUP_DELAY_SECONDS", "0"))
+if (
+    delay_profile_fragment
+    and delay_profile_fragment in str(profile_root)
+    and starts + 1 == delay_start_number
+    and 0 < delay_seconds <= 60
+):
+    time.sleep(delay_seconds)
 mutate_after = int(os.environ.get("FAKE_CHROMIUM_MUTATE_STATE_AFTER", "0"))
 evaluation_count = 0
 

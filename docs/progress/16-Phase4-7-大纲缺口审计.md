@@ -42,7 +42,7 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 | 审计事件覆盖         | 八类必需事件已全部接入并通过集成链验证                                                                                                     | 已关闭                                                                           |
 | 制品真实验签         | Runtime Policy 已验证 Ed25519 Provenance；CI 已对四个 GHCR 镜像执行 Keyless Cosign 签名与 SPDX Attestation                                 | 补 Offline Root/HSM、Control Plane OCI Digest 复算、Admission 强制验证与撤销演练 |
 | 供应链发布           | Run `30195955615` 已生成四个 Digest 镜像、签名/Attestation、SBOM Hash 绑定和签名 Kustomize 发布包                                          | 补 N/N-1 兼容、Admission Policy 和生产回滚演练                                   |
-| 故障矩阵             | 已覆盖 Browser/Node、PostgreSQL、S3/MinIO 超时、Coordinator term=2/3、HumanTakeover EXECUTING、Navigate pending 与 STARTING/TERMINATING Kill/Reconcile、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补 Recovery/有副作用 Agent Step 竞态及目标云 Provider 演练       |
+| 故障矩阵             | 已覆盖 Browser/Node、PostgreSQL、S3/MinIO 超时、Coordinator term=2/3、HumanTakeover EXECUTING、Navigate pending 与 STARTING/RECOVERING/TERMINATING Kill/Reconcile、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补有副作用 Agent Step/Barrier 竞态及目标云 Provider 演练       |
 | mTLS 生命周期        | CA 内节点证书轮换已测                                                                                                                      | 在线 Root 双写、CRL/SPIFFE 撤销和过期证书演练                                    |
 | 审计生命周期         | Retention/Legal Hold 字段已落库                                                                                                            | 真正的 Hold 工作流、删除 Receipt、签名 Export Manifest                           |
 

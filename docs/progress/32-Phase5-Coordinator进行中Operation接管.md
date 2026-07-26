@@ -1,6 +1,6 @@
 # Phase 5：Coordinator 进行中 Operation 接管
 
-> 状态：HumanTakeover、Agent pending Step、Runtime STARTING/TERMINATING 真实演练完成
+> 状态：HumanTakeover、Agent pending Step、Runtime STARTING/RECOVERING/TERMINATING 真实演练完成
 > 日期：2026-07-26
 > 验收入口：`make test-integration`
 
@@ -72,6 +72,17 @@ Lease/CAS、term 递增和旧事件 fencing 有效，但换主后数据库中的
    拒绝后到的旧命令；
 6. Session 最终稳定为 `TERMINATED`，Profile/Proxy/Input 资源均由新 term 清理。
 
+最后使用可验证的真实子进程故障覆盖 Runtime RECOVERING：
+
+1. 独立 Session 先启动并从 Node Journal 精确读取其 Runtime PID；
+2. `SIGKILL` 该 PID，等待 Coordinator B 提交 term=1 Recovery Operation；
+3. Fake Chromium 仅对指定 Profile 的第二次启动延迟 30 秒，使 Recovery 保持 ACTIVE，
+   不影响其他 Session；
+4. Node Pause/B Kill 后，Coordinator C 对该 Session claim term=2；
+5. term=1 Recovery Operation=`ABORTED`，term=2 Stop Cleanup=`COMMITTED`；
+6. 延迟中的替代 Runtime 被停止，Session 收敛为 `TERMINATED`，旧 RuntimeStarted
+   回调不能越过 term fencing。
+
 本轮真实输出包含：
 
 ```text
@@ -80,9 +91,10 @@ coordinator_inflight_operation_reconciled=true
 coordinator_agent_step_aborted=true
 coordinator_lifecycle_start_aborted=true
 coordinator_lifecycle_stop_aborted=true
+coordinator_lifecycle_recovery_aborted=true
 coordinator_final_term=3
-node_events_inbox=20
-node_command_published=18
+node_events_inbox=23
+node_command_published=21
 audit_chain_valid=true
 audit_events=56
 ```
@@ -116,8 +128,8 @@ Coordinator 单测覆盖：
 
 本轮不能把“进行中 Operation 故障矩阵”整体标记完成，仍需：
 
-1. `STARTING`、`TERMINATING` 已完成真实进程级验证；仍需 `RECOVERING` Kill，
-   以及在可控故障点分别固定“旧命令已执行/未执行”两条时序；
+1. `STARTING`、`RECOVERING`、`TERMINATING` 均已完成真实进程级验证；仍可将
+   “旧命令已执行/未执行”拆成两个固定时序测试，降低随机调度对覆盖分支的影响；
 2. 在 HumanTakeover `PREPARING` 与 `COMPLETING` Barrier 中间 Kill，而不只是在
    `EXECUTING` 状态 Kill；
 3. Navigate pending Step 已完成；仍需 Click/Type 等“Node 可能已经执行但 Event 未提交”

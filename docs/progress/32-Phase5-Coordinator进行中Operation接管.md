@@ -1,6 +1,6 @@
 # Phase 5：Coordinator 进行中 Operation 接管
 
-> 状态：HumanTakeover、Agent pending Step 与 Runtime STARTING 真实演练完成
+> 状态：HumanTakeover、Agent pending Step、Runtime STARTING/TERMINATING 真实演练完成
 > 日期：2026-07-26
 > 验收入口：`make test-integration`
 
@@ -62,6 +62,16 @@ Lease/CAS、term 递增和旧事件 fencing 有效，但换主后数据库中的
    Node term，后到的 term=1 Start 被 fencing；
 6. Cleanup Operation=`COMMITTED`，Session=`TERMINATED`，旧 Start Workflow 不会误提交。
 
+另一个独立 Session 在暂停前先进入 RUNNING，随后覆盖 Runtime TERMINATING：
+
+1. Node 暂停后 Coordinator B 创建 term=1 Termination Operation；
+2. B 被 `SIGKILL`，旧 Stop 的执行结果保持未知；
+3. C 对该 Session 再次执行 Terminate，claim term=2；
+4. term=1 Stop Operation=`ABORTED`，term=2 Stop Cleanup=`COMMITTED`；
+5. 首次 Stop 若已完成，第二次 Stop 仍幂等产出终止事件；若尚未执行，term fencing
+   拒绝后到的旧命令；
+6. Session 最终稳定为 `TERMINATED`，Profile/Proxy/Input 资源均由新 term 清理。
+
 本轮真实输出包含：
 
 ```text
@@ -69,9 +79,10 @@ coordinator_failover_term=2
 coordinator_inflight_operation_reconciled=true
 coordinator_agent_step_aborted=true
 coordinator_lifecycle_start_aborted=true
+coordinator_lifecycle_stop_aborted=true
 coordinator_final_term=3
-node_events_inbox=18
-node_command_published=15
+node_events_inbox=20
+node_command_published=18
 audit_chain_valid=true
 audit_events=56
 ```
@@ -105,7 +116,7 @@ Coordinator 单测覆盖：
 
 本轮不能把“进行中 Operation 故障矩阵”整体标记完成，仍需：
 
-1. `STARTING` 已完成真实进程级验证；仍需 `RECOVERING`、`TERMINATING` Kill，
+1. `STARTING`、`TERMINATING` 已完成真实进程级验证；仍需 `RECOVERING` Kill，
    以及在可控故障点分别固定“旧命令已执行/未执行”两条时序；
 2. 在 HumanTakeover `PREPARING` 与 `COMPLETING` Barrier 中间 Kill，而不只是在
    `EXECUTING` 状态 Kill；

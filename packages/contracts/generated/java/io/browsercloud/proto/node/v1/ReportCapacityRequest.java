@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
@@ -84,7 +84,7 @@ private static final long serialVersionUID = 0L;
       getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       nodeId_ = b;
@@ -107,7 +107,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       region_ = s;
@@ -123,7 +123,7 @@ private static final long serialVersionUID = 0L;
       getRegionBytes() {
     java.lang.Object ref = region_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       region_ = b;
@@ -146,7 +146,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       grpcTarget_ = s;
@@ -162,7 +162,7 @@ private static final long serialVersionUID = 0L;
       getGrpcTargetBytes() {
     java.lang.Object ref = grpcTarget_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       grpcTarget_ = b;
@@ -288,7 +288,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String, java.lang.String> defaultEntry =
             com.google.protobuf.MapEntry
             .<java.lang.String, java.lang.String>newDefaultInstance(
-                io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_LabelsEntry_descriptor, 
+                io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_LabelsEntry_descriptor,
                 com.google.protobuf.WireFormat.FieldType.STRING,
                 "",
                 com.google.protobuf.WireFormat.FieldType.STRING,
@@ -361,6 +361,28 @@ java.lang.String defaultValue) {
     return map.get(key);
   }
 
+  public static final int CERTIFIED_MEDIA_SLOTS_FIELD_NUMBER = 15;
+  private int certifiedMediaSlots_ = 0;
+  /**
+   * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+   * @return The certifiedMediaSlots.
+   */
+  @java.lang.Override
+  public int getCertifiedMediaSlots() {
+    return certifiedMediaSlots_;
+  }
+
+  public static final int SUPPORTS_MEDIA_FIELD_NUMBER = 16;
+  private boolean supportsMedia_ = false;
+  /**
+   * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+   * @return The supportsMedia.
+   */
+  @java.lang.Override
+  public boolean getSupportsMedia() {
+    return supportsMedia_;
+  }
+
   public static final int MEMORY_PSI_SOME_AVG10_FIELD_NUMBER = 20;
   private double memoryPsiSomeAvg10_ = 0D;
   /**
@@ -418,7 +440,7 @@ java.lang.String defaultValue) {
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       pressureReason_ = s;
@@ -434,7 +456,7 @@ java.lang.String defaultValue) {
       getPressureReasonBytes() {
     java.lang.Object ref = pressureReason_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       pressureReason_ = b;
@@ -503,6 +525,12 @@ java.lang.String defaultValue) {
         internalGetLabels(),
         LabelsDefaultEntryHolder.defaultEntry,
         14);
+    if (certifiedMediaSlots_ != 0) {
+      output.writeUInt32(15, certifiedMediaSlots_);
+    }
+    if (supportsMedia_ != false) {
+      output.writeBool(16, supportsMedia_);
+    }
     if (java.lang.Double.doubleToRawLongBits(memoryPsiSomeAvg10_) != 0) {
       output.writeDouble(20, memoryPsiSomeAvg10_);
     }
@@ -586,6 +614,14 @@ java.lang.String defaultValue) {
       size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(14, labels__);
     }
+    if (certifiedMediaSlots_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(15, certifiedMediaSlots_);
+    }
+    if (supportsMedia_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(16, supportsMedia_);
+    }
     if (java.lang.Double.doubleToRawLongBits(memoryPsiSomeAvg10_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(20, memoryPsiSomeAvg10_);
@@ -648,6 +684,10 @@ java.lang.String defaultValue) {
         != other.getIsolationCapable()) return false;
     if (!internalGetLabels().equals(
         other.internalGetLabels())) return false;
+    if (getCertifiedMediaSlots()
+        != other.getCertifiedMediaSlots()) return false;
+    if (getSupportsMedia()
+        != other.getSupportsMedia()) return false;
     if (java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10())
         != java.lang.Double.doubleToLongBits(
             other.getMemoryPsiSomeAvg10())) return false;
@@ -707,6 +747,11 @@ java.lang.String defaultValue) {
       hash = (37 * hash) + LABELS_FIELD_NUMBER;
       hash = (53 * hash) + internalGetLabels().hashCode();
     }
+    hash = (37 * hash) + CERTIFIED_MEDIA_SLOTS_FIELD_NUMBER;
+    hash = (53 * hash) + getCertifiedMediaSlots();
+    hash = (37 * hash) + SUPPORTS_MEDIA_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getSupportsMedia());
     hash = (37 * hash) + MEMORY_PSI_SOME_AVG10_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getMemoryPsiSomeAvg10()));
@@ -888,6 +933,8 @@ java.lang.String defaultValue) {
       supportsNativeOs_ = false;
       isolationCapable_ = false;
       internalGetMutableLabels().clear();
+      certifiedMediaSlots_ = 0;
+      supportsMedia_ = false;
       memoryPsiSomeAvg10_ = 0D;
       memoryPsiFullAvg10_ = 0D;
       cpuPsiSomeAvg10_ = 0D;
@@ -970,18 +1017,24 @@ java.lang.String defaultValue) {
         result.labels_.makeImmutable();
       }
       if (((from_bitField0_ & 0x00004000) != 0)) {
-        result.memoryPsiSomeAvg10_ = memoryPsiSomeAvg10_;
+        result.certifiedMediaSlots_ = certifiedMediaSlots_;
       }
       if (((from_bitField0_ & 0x00008000) != 0)) {
-        result.memoryPsiFullAvg10_ = memoryPsiFullAvg10_;
+        result.supportsMedia_ = supportsMedia_;
       }
       if (((from_bitField0_ & 0x00010000) != 0)) {
-        result.cpuPsiSomeAvg10_ = cpuPsiSomeAvg10_;
+        result.memoryPsiSomeAvg10_ = memoryPsiSomeAvg10_;
       }
       if (((from_bitField0_ & 0x00020000) != 0)) {
-        result.ioPsiFullAvg10_ = ioPsiFullAvg10_;
+        result.memoryPsiFullAvg10_ = memoryPsiFullAvg10_;
       }
       if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.cpuPsiSomeAvg10_ = cpuPsiSomeAvg10_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.ioPsiFullAvg10_ = ioPsiFullAvg10_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
         result.pressureReason_ = pressureReason_;
       }
     }
@@ -1078,6 +1131,12 @@ java.lang.String defaultValue) {
       internalGetMutableLabels().mergeFrom(
           other.internalGetLabels());
       bitField0_ |= 0x00002000;
+      if (other.getCertifiedMediaSlots() != 0) {
+        setCertifiedMediaSlots(other.getCertifiedMediaSlots());
+      }
+      if (other.getSupportsMedia() != false) {
+        setSupportsMedia(other.getSupportsMedia());
+      }
       if (other.getMemoryPsiSomeAvg10() != 0D) {
         setMemoryPsiSomeAvg10(other.getMemoryPsiSomeAvg10());
       }
@@ -1092,7 +1151,7 @@ java.lang.String defaultValue) {
       }
       if (!other.getPressureReason().isEmpty()) {
         pressureReason_ = other.pressureReason_;
-        bitField0_ |= 0x00040000;
+        bitField0_ |= 0x00100000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1195,29 +1254,39 @@ java.lang.String defaultValue) {
               bitField0_ |= 0x00002000;
               break;
             } // case 114
+            case 120: {
+              certifiedMediaSlots_ = input.readUInt32();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 120
+            case 128: {
+              supportsMedia_ = input.readBool();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 128
             case 161: {
               memoryPsiSomeAvg10_ = input.readDouble();
-              bitField0_ |= 0x00004000;
+              bitField0_ |= 0x00010000;
               break;
             } // case 161
             case 169: {
               memoryPsiFullAvg10_ = input.readDouble();
-              bitField0_ |= 0x00008000;
+              bitField0_ |= 0x00020000;
               break;
             } // case 169
             case 177: {
               cpuPsiSomeAvg10_ = input.readDouble();
-              bitField0_ |= 0x00010000;
+              bitField0_ |= 0x00040000;
               break;
             } // case 177
             case 185: {
               ioPsiFullAvg10_ = input.readDouble();
-              bitField0_ |= 0x00020000;
+              bitField0_ |= 0x00080000;
               break;
             } // case 185
             case 194: {
               pressureReason_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00040000;
+              bitField0_ |= 0x00100000;
               break;
             } // case 194
             default: {
@@ -1262,7 +1331,7 @@ java.lang.String defaultValue) {
         getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         nodeId_ = b;
@@ -1334,7 +1403,7 @@ java.lang.String defaultValue) {
         getRegionBytes() {
       java.lang.Object ref = region_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         region_ = b;
@@ -1406,7 +1475,7 @@ java.lang.String defaultValue) {
         getGrpcTargetBytes() {
       java.lang.Object ref = grpcTarget_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         grpcTarget_ = b;
@@ -1900,6 +1969,70 @@ java.lang.String defaultValue) {
       return this;
     }
 
+    private int certifiedMediaSlots_ ;
+    /**
+     * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+     * @return The certifiedMediaSlots.
+     */
+    @java.lang.Override
+    public int getCertifiedMediaSlots() {
+      return certifiedMediaSlots_;
+    }
+    /**
+     * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+     * @param value The certifiedMediaSlots to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCertifiedMediaSlots(int value) {
+
+      certifiedMediaSlots_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCertifiedMediaSlots() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      certifiedMediaSlots_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean supportsMedia_ ;
+    /**
+     * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+     * @return The supportsMedia.
+     */
+    @java.lang.Override
+    public boolean getSupportsMedia() {
+      return supportsMedia_;
+    }
+    /**
+     * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+     * @param value The supportsMedia to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSupportsMedia(boolean value) {
+
+      supportsMedia_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSupportsMedia() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      supportsMedia_ = false;
+      onChanged();
+      return this;
+    }
+
     private double memoryPsiSomeAvg10_ ;
     /**
      * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
@@ -1917,7 +2050,7 @@ java.lang.String defaultValue) {
     public Builder setMemoryPsiSomeAvg10(double value) {
 
       memoryPsiSomeAvg10_ = value;
-      bitField0_ |= 0x00004000;
+      bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }
@@ -1926,7 +2059,7 @@ java.lang.String defaultValue) {
      * @return This builder for chaining.
      */
     public Builder clearMemoryPsiSomeAvg10() {
-      bitField0_ = (bitField0_ & ~0x00004000);
+      bitField0_ = (bitField0_ & ~0x00010000);
       memoryPsiSomeAvg10_ = 0D;
       onChanged();
       return this;
@@ -1949,7 +2082,7 @@ java.lang.String defaultValue) {
     public Builder setMemoryPsiFullAvg10(double value) {
 
       memoryPsiFullAvg10_ = value;
-      bitField0_ |= 0x00008000;
+      bitField0_ |= 0x00020000;
       onChanged();
       return this;
     }
@@ -1958,7 +2091,7 @@ java.lang.String defaultValue) {
      * @return This builder for chaining.
      */
     public Builder clearMemoryPsiFullAvg10() {
-      bitField0_ = (bitField0_ & ~0x00008000);
+      bitField0_ = (bitField0_ & ~0x00020000);
       memoryPsiFullAvg10_ = 0D;
       onChanged();
       return this;
@@ -1981,7 +2114,7 @@ java.lang.String defaultValue) {
     public Builder setCpuPsiSomeAvg10(double value) {
 
       cpuPsiSomeAvg10_ = value;
-      bitField0_ |= 0x00010000;
+      bitField0_ |= 0x00040000;
       onChanged();
       return this;
     }
@@ -1990,7 +2123,7 @@ java.lang.String defaultValue) {
      * @return This builder for chaining.
      */
     public Builder clearCpuPsiSomeAvg10() {
-      bitField0_ = (bitField0_ & ~0x00010000);
+      bitField0_ = (bitField0_ & ~0x00040000);
       cpuPsiSomeAvg10_ = 0D;
       onChanged();
       return this;
@@ -2013,7 +2146,7 @@ java.lang.String defaultValue) {
     public Builder setIoPsiFullAvg10(double value) {
 
       ioPsiFullAvg10_ = value;
-      bitField0_ |= 0x00020000;
+      bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }
@@ -2022,7 +2155,7 @@ java.lang.String defaultValue) {
      * @return This builder for chaining.
      */
     public Builder clearIoPsiFullAvg10() {
-      bitField0_ = (bitField0_ & ~0x00020000);
+      bitField0_ = (bitField0_ & ~0x00080000);
       ioPsiFullAvg10_ = 0D;
       onChanged();
       return this;
@@ -2053,7 +2186,7 @@ java.lang.String defaultValue) {
         getPressureReasonBytes() {
       java.lang.Object ref = pressureReason_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         pressureReason_ = b;
@@ -2071,7 +2204,7 @@ java.lang.String defaultValue) {
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       pressureReason_ = value;
-      bitField0_ |= 0x00040000;
+      bitField0_ |= 0x00100000;
       onChanged();
       return this;
     }
@@ -2081,7 +2214,7 @@ java.lang.String defaultValue) {
      */
     public Builder clearPressureReason() {
       pressureReason_ = getDefaultInstance().getPressureReason();
-      bitField0_ = (bitField0_ & ~0x00040000);
+      bitField0_ = (bitField0_ & ~0x00100000);
       onChanged();
       return this;
     }
@@ -2095,7 +2228,7 @@ java.lang.String defaultValue) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       pressureReason_ = value;
-      bitField0_ |= 0x00040000;
+      bitField0_ |= 0x00100000;
       onChanged();
       return this;
     }
@@ -2162,4 +2295,3 @@ java.lang.String defaultValue) {
   }
 
 }
-

@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Plus,
   Boxes,
+  Globe2,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/ui';
 import { cn } from '@/shared/lib/utils';
@@ -109,6 +110,12 @@ const navGroups: NavGroup[] = [
         icon: <Shield size={18} />,
         path: '/security',
         requiredRoles: ['SECURITY_ADMIN', 'PLATFORM_ADMIN'],
+      },
+      {
+        label: '企业运营',
+        icon: <Globe2 size={18} />,
+        path: '/enterprise',
+        requiredRoles: ['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN'],
       },
     ],
   },

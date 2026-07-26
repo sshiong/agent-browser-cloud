@@ -1,8 +1,9 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-kubernetes-operator test-kubernetes-e2e test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
 RUNTIME_CAPACITY_CYCLES ?= 500
+BROWSER_DENSITY_CONCURRENCY ?= 4
 REAL_CHROMIUM_PATH ?=
 
 # Install workspace dependencies
@@ -108,6 +109,17 @@ test-browser-runtime-capacity:
 		--build-id "$(CAPACITY_BUILD_ID)" \
 		--output apps/browser-node/target/capacity/runtime-capacity.json
 
+# Generate a real-Chromium concurrent Browser Density certificate
+test-browser-density-capacity:
+	test -n "$(REAL_CHROMIUM_PATH)"
+	cargo run --release --locked --manifest-path apps/browser-node/Cargo.toml \
+		-p runtime-supervisor --bin runtime-capacity-certificate -- \
+		--chromium "$(REAL_CHROMIUM_PATH)" \
+		--cycles "$(RUNTIME_CAPACITY_CYCLES)" \
+		--concurrency "$(BROWSER_DENSITY_CONCURRENCY)" \
+		--build-id "$(CAPACITY_BUILD_ID)" \
+		--output apps/browser-node/target/capacity/browser-density-capacity.json
+
 # Run BrowserSession operator unit tests
 test-kubernetes-operator:
 	python3 -m unittest discover -s tools/browser-session-operator -p 'test_*.py'
@@ -116,9 +128,23 @@ test-kubernetes-operator:
 test-kubernetes-e2e:
 	./tests/kubernetes/kind-operator-e2e.sh
 
+# Enforce expand-only schema, protobuf field and N/N-1 rolling compatibility
+test-upgrade-compatibility:
+	python3 ./tests/upgrade/n-minus-one-gate.py
+
 # Run E2E tests
 test-e2e:
 	./tests/e2e/run.sh
 
+# Verify the dependency-free Python, TypeScript, Go and Java SDKs
+test-sdk:
+	PYTHONPATH=sdks/python python3 -m unittest discover -s sdks/python/tests
+	pnpm -C apps/web-console exec vitest run --root ../../sdks/typescript
+	pnpm -C apps/web-console exec tsc -p ../../sdks/typescript/tsconfig.json
+	cd sdks/go && go test ./...
+	mkdir -p sdks/java/build/classes
+	javac -d sdks/java/build/classes $$(find sdks/java/src -name '*.java' -print)
+	java -cp sdks/java/build/classes io.browsercloud.sdk.BrowserCloudClientTest
+
 # Run all checks (CI)
-ci: lint test contracts-check supply-chain-check test-kubernetes-operator test-coordinator-capacity
+ci: lint test contracts-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk

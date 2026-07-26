@@ -133,10 +133,7 @@ function ExtensionCard({ extension }: { extension: ExtensionProfileView }) {
           label="Multiplier"
           value={`${extension.observedMultiplier.toFixed(2)}×`}
         />
-        <SmallStat
-          label="Confidence"
-          value={`${Math.round(extension.confidence * 100)}%`}
-        />
+        <SmallStat label="Sampling" value={extension.samplingTier} />
       </div>
 
       <div className="mt-4">
@@ -184,6 +181,18 @@ function ExtensionCard({ extension }: { extension: ExtensionProfileView }) {
             extension.p95MemoryMib === undefined
               ? 'NO SAMPLE'
               : `${extension.p95MemoryMib} MiB`
+          }
+        />
+        <KeyValue
+          label="Sampling budget"
+          value={`${extension.samplingCpuBudgetMillis}m CPU`}
+        />
+        <KeyValue
+          label="Next sample"
+          value={
+            extension.nextSampleAt
+              ? new Date(extension.nextSampleAt).toLocaleTimeString()
+              : 'DUE NOW'
           }
         />
       </dl>

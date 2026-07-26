@@ -150,7 +150,7 @@ done
 
 CHROMIUM_PATH="$chromium_path" \
 NODE_AGENT_PORT="$node_port" \
-NODE_ID=node-real-url \
+NODE_ID=node_real_url \
 CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 GRPC_TLS_ENABLED=true \
 GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -180,6 +180,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 GRPC_TLS_ENABLED=true \
 GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -202,8 +203,10 @@ for _ in $(seq 1 120); do
 done
 printf '%s' "$health" | grep -q '"status":"UP"'
 
+BROWSER_VERSION="$("$chromium_path" --version 2>/dev/null || echo unknown)" \
 python3 "$repo_root/tests/compatibility/real_url_agent_matrix.py" \
-  "http://localhost:${control_port}"
+  "http://localhost:${control_port}" \
+  "$repo_root/tests/validation/replay-dataset-v1.json"
 
 grep -q '"event": "connect_allowed".*"host": "example.com"' "$temp_dir/proxy-events.jsonl"
 grep -q '"event": "connect_allowed".*"host": "www.w3.org"' "$temp_dir/proxy-events.jsonl"

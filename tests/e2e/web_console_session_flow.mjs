@@ -77,6 +77,15 @@ try {
   ).toBeVisible();
   await expect(page.getByText("CERTIFIED", { exact: true })).toBeVisible();
 
+  await page.goto(`${baseUrl}/enterprise`);
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "企业运营" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Runtime Validation Farm" }),
+  ).toBeVisible();
+  await expect(page.getByText("local / L1", { exact: true })).toBeVisible();
+  await expect(page.getByText("PRIMARY · replication lag 0s")).toBeVisible();
+
   await page.goto(`${baseUrl}/environments`);
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "环境管理" })).toBeVisible();

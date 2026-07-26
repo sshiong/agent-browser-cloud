@@ -64,6 +64,15 @@ public class BrowserPlacementEntity {
   @Column(name = "requires_isolation", nullable = false)
   private boolean requiresIsolation;
 
+  @Column(name = "requires_media", nullable = false)
+  private boolean requiresMedia;
+
+  @Column(name = "media_slots", nullable = false)
+  private int mediaSlots;
+
+  @Column(name = "media_bitrate_kbps", nullable = false)
+  private int mediaBitrateKbps;
+
   @Column(name = "placement_score", nullable = false)
   private int placementScore;
 
@@ -106,6 +115,9 @@ public class BrowserPlacementEntity {
       boolean requiresGpu,
       boolean requiresNativeOs,
       boolean requiresIsolation,
+      boolean requiresMedia,
+      int mediaSlots,
+      int mediaBitrateKbps,
       int placementScore,
       String reasonCodes,
       Instant now) {
@@ -125,6 +137,9 @@ public class BrowserPlacementEntity {
     this.requiresGpu = requiresGpu;
     this.requiresNativeOs = requiresNativeOs;
     this.requiresIsolation = requiresIsolation;
+    this.requiresMedia = requiresMedia;
+    this.mediaSlots = mediaSlots;
+    this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
     this.reasonCodes = reasonCodes;
@@ -146,6 +161,24 @@ public class BrowserPlacementEntity {
     state = "RELEASED";
     releasedAt = now;
     return true;
+  }
+
+  public void markEvicting(Instant now) {
+    if (!state.equals("ACTIVE")) {
+      throw new IllegalStateException("only an active placement can be pressure-evicted");
+    }
+    state = "EVICTING";
+    reasonCodes =
+        reasonCodes.equals("[]")
+            ? "[\"NODE_PRESSURE_EVICTION\"]"
+            : reasonCodes.substring(0, reasonCodes.length() - 1) + ",\"NODE_PRESSURE_EVICTION\"]";
+    activatedAt = activatedAt == null ? now : activatedAt;
+  }
+
+  public void cancelEviction() {
+    if (state.equals("EVICTING")) {
+      state = "ACTIVE";
+    }
   }
 
   public String getSessionId() {
@@ -210,6 +243,18 @@ public class BrowserPlacementEntity {
 
   public boolean isRequiresIsolation() {
     return requiresIsolation;
+  }
+
+  public boolean isRequiresMedia() {
+    return requiresMedia;
+  }
+
+  public int getMediaSlots() {
+    return mediaSlots;
+  }
+
+  public int getMediaBitrateKbps() {
+    return mediaBitrateKbps;
   }
 
   public int getPlacementScore() {

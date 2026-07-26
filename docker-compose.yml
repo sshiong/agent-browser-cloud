@@ -107,6 +107,12 @@ services:
     build:
       context: .
       dockerfile: apps/web-console/Dockerfile
+      args:
+        VITE_AUTH_MODE: local
+        VITE_LOCAL_ROLES: TENANT_ADMIN,SECURITY_ADMIN,PLATFORM_ADMIN
+        VITE_TENANT_ID: tenant-local
+        VITE_ACTOR_ID: user-local
+        VITE_ENABLE_FIXTURES: "false"
     ports:
       - "127.0.0.1:3000:8080"
     depends_on:

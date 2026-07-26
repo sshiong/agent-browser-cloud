@@ -1,6 +1,7 @@
 # Phase 6：Browser Density、资源硬限制与真实 UI
 
-> 状态：Stage B 已通过；并发容量、压力驱逐和目标集群 Gate 仍未关闭  
+> 状态：Stage B、本机并发容量、Media/Extension 自适应和本地 N/N-1 滚动已通过；
+> 目标 Linux/目标云 Gate 仍未关闭
 > 日期：2026-07-26
 
 ## 本轮完成
@@ -23,6 +24,22 @@
    空态、错误、PSI、容量、隔离与画像信息。创建 Session 改为基础配置、工作负载、
    确认三步向导，可提交标签页、Agent 速率、Extension、Remote Desktop 和 Web3
    需求。
+8. PSI Critical 处置升级为有界驱逐：Admission 立即关闭后，每个调度 Tick 最多领取
+   一个低优先级 Active Placement，通过 Coordinator Operation/Term Fencing 终止；
+   若存在冲突 Operation 则归还候选并重试，不会形成全节点 Stop 风暴。
+9. 多 Node gRPC 路由测试启动两个独立 NodeControl Server，验证每条 Placement 命令
+   只到达其注册 Node。Kubernetes Runtime Journal 改存 Warm Tier，并增加 Startup、
+   Readiness、Liveness Probe，为有序滚动恢复保留 Node Journal。
+10. Media 使用独立认证 Slot、租户配额和码率预算；开启 Media 会升到 L4 资源预算，
+    但不会错误强制 GPU。Node Heartbeat、Placement、OpenAPI、Session 创建 UI 和成本
+    解释均贯穿 Media 字段。
+11. Extension 画像增加持续样本、滑动窗口 P95、自适应采样层级和单次 CPU Budget。
+    至少 20 个样本才调整画像，单个尖峰不会触发迁移，PSI Burst 使用 Deep Sample。
+12. N/N-1 Gate 对 V019—V021 执行 Expand-only/default 检查，并校验 Protobuf Field
+    Number、JSON Optional、RollingUpdate、PDB 和 Probe。
+13. Kind 实际先运行提交 `540a72e` 的 N-1 Operator，随后 Kill Leader、升级到 N、
+    保持既有 Session Ready，再回滚 N-1 并创建新 Session；最终严格断言
+    `createCalls=4`、`terminateCalls=1`。
 
 ## 验收证据
 
@@ -35,14 +52,26 @@
   Build、Contract Check、Kustomize Render 和 Diff Check 均通过。
 - Cgroup v2 单元测试验证 `cpu.max`、`memory.high`、`memory.max`、`memory.swap.max`
   和 `pids.max` 的精确值及进程附着。
+- `make test-browser-density-capacity` 使用 Chrome `150.0.7871.182` 完成 500/500
+  个真实生命周期、并发 4：Start P99 6,543ms、Stop P99 152ms、峰值聚合 RSS
+  4,083,220,480 bytes、35 个进程、Runner RSS 增长 17,760,256 bytes、FD 增长 0、
+  残留进程 0。全部十项 Gate 为 `true`，证书 Hash 为
+  `9bb31e30...5095a28b`；证据见
+  [browser-density-capacity-7cfd318.json](../evidence/capacity/browser-density-capacity-7cfd318.json)。
+- `make test-upgrade-compatibility`：V019—V021 Schema、Protobuf、JSON 与 Kubernetes
+  滚动策略全部通过，Evidence Hash 为
+  `2c40f45b...72a55f63`。
+- `KIND_BIN=/tmp/agentbrowser-kind-v0.32.0 make test-kubernetes-e2e`：Kind v0.32.0、
+  Kubernetes v1.36.1 上 N-1→N→N-1 与 Leader Kill 全部通过。
 
 ## 尚未完成
 
 1. 目标 Linux 节点上真实委派 Cgroup v2、OOM/PSI 压力及受控驱逐证书。
-2. 多个 Browser Node 同时在线时的真实命令路由故障注入与并发 Chromium 容量证书。
-3. Extension 持续自适应采样、P95 偏离升权和采样 CPU Budget。
-4. Hot Tenant 迁移长稳、目标云 CNI/CSI、Browser Node Pool 与 Rolling Upgrade
-   GameDay。
-5. GPU/Media Capacity 与目标云生产容量承诺。
+2. 多个真实 Browser Node 同时在线时的网络分区、重路由与长稳容量证书；当前已完成
+   双 gRPC Server 精确路由测试和单 Node 并发 Chrome 证书。
+3. Hot Tenant 迁移长稳、目标云 CNI/CSI、Browser Node Pool 与目标云 Rolling
+   Upgrade GameDay；本地 Kind N/N-1 已通过。
+4. GPU Helper、硬件编解码、目标云 Media Capacity 与生产容量承诺。
+5. Operator Watch/Informer、API Server/etcd 故障长稳和目标监控告警。
 
 上述未完成项不得以本轮 Stage B 结果替代，Phase 6 生产退出 Gate 仍保持开启。

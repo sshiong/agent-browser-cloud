@@ -84,6 +84,11 @@ security:
 audit:
   retention-days: ${AUDIT_RETENTION_DAYS:365}
 
+enterprise:
+  audit-export:
+    signing-key: ${AUDIT_EXPORT_SIGNING_KEY:local-development-audit-export-key}
+    signing-key-id: ${AUDIT_EXPORT_SIGNING_KEY_ID:local-development}
+
 control-plane:
   node-event-port: ${CONTROL_PLANE_NODE_EVENT_PORT:9091}
 
@@ -92,6 +97,9 @@ coordinator:
   lease-seconds: ${COORDINATOR_LEASE_SECONDS:30}
 
 browser-density:
+  pressure-remediation:
+    enabled: ${BROWSER_DENSITY_PRESSURE_REMEDIATION_ENABLED:true}
+    interval-ms: ${BROWSER_DENSITY_PRESSURE_REMEDIATION_INTERVAL_MS:1000}
   bootstrap-local-node:
     enabled: ${BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE:true}
     node-id: ${BROWSER_DENSITY_LOCAL_NODE_ID:node_local}

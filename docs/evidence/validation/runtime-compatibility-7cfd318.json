@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "baselineCommit": "7cfd318",
+  "browserVersion": "Google Chrome 150.0.7871.182",
+  "datasetId": "production-like-public-v1",
+  "datasetDigest": "sha256:ce3d175421b4a5880675d5fc622186a5bfce69cece21b150b5ae59f79ef46b28",
+  "environmentDigest": "sha256:823aa505e20506df45c67401804bd58496ce3bcdf715f9ce03d56761d5ce1c13",
+  "validationId": "val_8db951c3ee80426cbdfa",
+  "validationEvidenceHash": "d6ceedbc5b7ed836efcdc0727cd68b86eff054dd725b82eb272cc6e056a7719c",
+  "publicUrls": [
+    "https://example.com/",
+    "https://www.w3.org/"
+  ],
+  "controlFixture": "http://agent-controls.invalid/form",
+  "verifiedControls": [
+    "NAVIGATE",
+    "READ",
+    "TYPE_TEXT",
+    "SCROLL"
+  ],
+  "failClosed": [
+    "CROSS_DOMAIN_CLICK",
+    "NON_ALLOWLISTED_PLAN"
+  ]
+}

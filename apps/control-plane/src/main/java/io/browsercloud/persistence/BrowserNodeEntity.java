@@ -42,6 +42,9 @@ public class BrowserNodeEntity {
   @Column(name = "certified_gpu_slots", nullable = false)
   private int certifiedGpuSlots;
 
+  @Column(name = "certified_media_slots", nullable = false)
+  private int certifiedMediaSlots;
+
   @Column(name = "safety_margin_percent", nullable = false)
   private int safetyMarginPercent;
 
@@ -56,6 +59,9 @@ public class BrowserNodeEntity {
 
   @Column(name = "reserved_gpu_slots", nullable = false)
   private int reservedGpuSlots;
+
+  @Column(name = "reserved_media_slots", nullable = false)
+  private int reservedMediaSlots;
 
   @Column(name = "active_sessions", nullable = false)
   private int activeSessions;
@@ -90,6 +96,9 @@ public class BrowserNodeEntity {
   @Column(name = "supports_gpu", nullable = false)
   private boolean supportsGpu;
 
+  @Column(name = "supports_media", nullable = false)
+  private boolean supportsMedia;
+
   @Column(name = "supports_native_os", nullable = false)
   private boolean supportsNativeOs;
 
@@ -123,10 +132,12 @@ public class BrowserNodeEntity {
       int certifiedMemoryMib,
       int certifiedPidCount,
       int certifiedGpuSlots,
+      int certifiedMediaSlots,
       int safetyMarginPercent,
       int maxSessions,
       boolean supportsDesktop,
       boolean supportsGpu,
+      boolean supportsMedia,
       boolean supportsNativeOs,
       boolean isolationCapable,
       String labels,
@@ -140,8 +151,14 @@ public class BrowserNodeEntity {
     this.certifiedMemoryMib = certifiedMemoryMib;
     this.certifiedPidCount = certifiedPidCount;
     this.certifiedGpuSlots = certifiedGpuSlots;
+    this.certifiedMediaSlots = certifiedMediaSlots;
     this.safetyMarginPercent = safetyMarginPercent;
     this.maxSessions = maxSessions;
+    this.supportsDesktop = supportsDesktop;
+    this.supportsGpu = supportsGpu;
+    this.supportsMedia = supportsMedia;
+    this.supportsNativeOs = supportsNativeOs;
+    this.isolationCapable = isolationCapable;
     this.memoryPsiSomeAvg10 = BigDecimal.ZERO;
     this.memoryPsiFullAvg10 = BigDecimal.ZERO;
     this.cpuPsiSomeAvg10 = BigDecimal.ZERO;
@@ -160,10 +177,12 @@ public class BrowserNodeEntity {
       int certifiedMemoryMib,
       int certifiedPidCount,
       int certifiedGpuSlots,
+      int certifiedMediaSlots,
       int safetyMarginPercent,
       int maxSessions,
       boolean supportsDesktop,
       boolean supportsGpu,
+      boolean supportsMedia,
       boolean supportsNativeOs,
       boolean isolationCapable,
       String labels,
@@ -171,7 +190,8 @@ public class BrowserNodeEntity {
     if (reservedCpuMillis > certifiedCpuMillis
         || reservedMemoryMib > certifiedMemoryMib
         || reservedPidCount > certifiedPidCount
-        || reservedGpuSlots > certifiedGpuSlots) {
+        || reservedGpuSlots > certifiedGpuSlots
+        || reservedMediaSlots > certifiedMediaSlots) {
       throw new IllegalArgumentException("new certified capacity is below existing reservations");
     }
     this.region = region;
@@ -180,10 +200,12 @@ public class BrowserNodeEntity {
     this.certifiedMemoryMib = certifiedMemoryMib;
     this.certifiedPidCount = certifiedPidCount;
     this.certifiedGpuSlots = certifiedGpuSlots;
+    this.certifiedMediaSlots = certifiedMediaSlots;
     this.safetyMarginPercent = safetyMarginPercent;
     this.maxSessions = maxSessions;
     this.supportsDesktop = supportsDesktop;
     this.supportsGpu = supportsGpu;
+    this.supportsMedia = supportsMedia;
     this.supportsNativeOs = supportsNativeOs;
     this.isolationCapable = isolationCapable;
     this.labels = labels;
@@ -197,38 +219,46 @@ public class BrowserNodeEntity {
       int memoryMib,
       int pidCount,
       int gpuSlots,
+      int mediaSlots,
       boolean desktop,
       boolean nativeOs,
-      boolean isolated) {
+      boolean isolated,
+      boolean media) {
     int usablePercent = 100 - safetyMarginPercent;
     return lifecycleState.equals("READY")
         && admissionState.equals("OPEN")
         && pressureState.equals("NORMAL")
         && (!desktop || supportsDesktop)
         && (gpuSlots == 0 || supportsGpu)
+        && (!media || supportsMedia)
         && (!nativeOs || supportsNativeOs)
         && (!isolated || isolationCapable)
         && activeSessions < maxSessions
         && (reservedCpuMillis + cpuMillis) * 100L <= certifiedCpuMillis * (long) usablePercent
         && (reservedMemoryMib + memoryMib) * 100L <= certifiedMemoryMib * (long) usablePercent
         && (reservedPidCount + pidCount) * 100L <= certifiedPidCount * (long) usablePercent
-        && (reservedGpuSlots + gpuSlots) * 100L <= certifiedGpuSlots * (long) usablePercent;
+        && (reservedGpuSlots + gpuSlots) * 100L <= certifiedGpuSlots * (long) usablePercent
+        && (reservedMediaSlots + mediaSlots) * 100L <= certifiedMediaSlots * (long) usablePercent;
   }
 
-  public void reserve(int cpuMillis, int memoryMib, int pidCount, int gpuSlots, Instant now) {
+  public void reserve(
+      int cpuMillis, int memoryMib, int pidCount, int gpuSlots, int mediaSlots, Instant now) {
     reservedCpuMillis = Math.addExact(reservedCpuMillis, cpuMillis);
     reservedMemoryMib = Math.addExact(reservedMemoryMib, memoryMib);
     reservedPidCount = Math.addExact(reservedPidCount, pidCount);
     reservedGpuSlots = Math.addExact(reservedGpuSlots, gpuSlots);
+    reservedMediaSlots = Math.addExact(reservedMediaSlots, mediaSlots);
     activeSessions = Math.addExact(activeSessions, 1);
     updatedAt = now;
   }
 
-  public void release(int cpuMillis, int memoryMib, int pidCount, int gpuSlots, Instant now) {
+  public void release(
+      int cpuMillis, int memoryMib, int pidCount, int gpuSlots, int mediaSlots, Instant now) {
     reservedCpuMillis = Math.max(0, reservedCpuMillis - cpuMillis);
     reservedMemoryMib = Math.max(0, reservedMemoryMib - memoryMib);
     reservedPidCount = Math.max(0, reservedPidCount - pidCount);
     reservedGpuSlots = Math.max(0, reservedGpuSlots - gpuSlots);
+    reservedMediaSlots = Math.max(0, reservedMediaSlots - mediaSlots);
     activeSessions = Math.max(0, activeSessions - 1);
     updatedAt = now;
   }
@@ -335,6 +365,10 @@ public class BrowserNodeEntity {
     return certifiedGpuSlots;
   }
 
+  public int getCertifiedMediaSlots() {
+    return certifiedMediaSlots;
+  }
+
   public int getSafetyMarginPercent() {
     return safetyMarginPercent;
   }
@@ -353,6 +387,10 @@ public class BrowserNodeEntity {
 
   public int getReservedGpuSlots() {
     return reservedGpuSlots;
+  }
+
+  public int getReservedMediaSlots() {
+    return reservedMediaSlots;
   }
 
   public int getActiveSessions() {
@@ -393,6 +431,10 @@ public class BrowserNodeEntity {
 
   public boolean isSupportsGpu() {
     return supportsGpu;
+  }
+
+  public boolean isSupportsMedia() {
+    return supportsMedia;
   }
 
   public boolean isSupportsNativeOs() {

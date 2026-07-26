@@ -2,6 +2,10 @@
 """Exercise authorized public pages through the real Browser Node and Chrome."""
 
 import json
+import hashlib
+import os
+import pathlib
+import platform
 import sys
 import time
 import urllib.error
@@ -11,12 +15,32 @@ import uuid
 
 BASE_URL = sys.argv[1].rstrip("/")
 TENANT = "tenant-real-url"
+DATASET_PATH = pathlib.Path(sys.argv[2])
+DATASET_BYTES = DATASET_PATH.read_bytes()
+DATASET = json.loads(DATASET_BYTES)
+if DATASET["containsProductionData"] is not False:
+    raise AssertionError("Replay Dataset must not contain unauthorized production data")
+if DATASET["authorization"]["personalData"] or DATASET["authorization"]["credentials"]:
+    raise AssertionError("Replay Dataset authorization metadata is unsafe")
+DATASET_DIGEST = hashlib.sha256(DATASET_BYTES).hexdigest()
 
 
-def request(method, path, body=None, idempotency_key=None):
-    headers = {"X-Tenant-Id": TENANT, "Content-Type": "application/json"}
+def request(
+    method,
+    path,
+    body=None,
+    idempotency_key=None,
+    tenant=TENANT,
+    roles=None,
+    actor_id=None,
+):
+    headers = {"X-Tenant-Id": tenant, "Content-Type": "application/json"}
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
+    if roles:
+        headers["X-Roles"] = roles
+    if actor_id:
+        headers["X-Actor-Id"] = actor_id
     data = None if body is None else json.dumps(body).encode()
     call = urllib.request.Request(
         BASE_URL + path, data=data, headers=headers, method=method
@@ -125,9 +149,10 @@ wait_for(
     lambda item: item["state"] == "RUNNING",
 )
 
+public_cases = [case for case in DATASET["cases"] if case["kind"] == "PUBLIC_PAGE"]
 sites = [
-    ("example", "https://example.com/", "example.com"),
-    ("w3c", "https://www.w3.org/", "www.w3.org"),
+    (case["caseId"], case["url"], case["allowedDomains"][0])
+    for case in public_cases
 ]
 for label, url, domain in sites:
     task = create_execute_task(
@@ -292,10 +317,73 @@ wait_for(
     f"/api/v1/sessions/{session_id}",
     lambda item: item["state"] == "TERMINATED",
 )
+environment_facts = {
+    "browserVersion": os.environ.get("BROWSER_VERSION", "unknown"),
+    "datasetDigest": f"sha256:{DATASET_DIGEST}",
+    "os": platform.platform(),
+}
+environment_digest = "sha256:" + hashlib.sha256(
+    json.dumps(environment_facts, sort_keys=True, separators=(",", ":")).encode()
+).hexdigest()
+validation = require_status(
+    request(
+        "POST",
+        "/api/v1/enterprise/runtime-validations",
+        {
+            "buildId": "runtime_local_chromium",
+            "suiteVersion": DATASET["version"],
+            "environmentDigest": environment_digest,
+            "replayDatasetId": DATASET["datasetId"],
+            "persona": DATASET["persona"],
+        },
+        tenant="platform-control",
+        roles="PLATFORM_ADMIN",
+        actor_id="validation-farm",
+    ),
+    200,
+    "start Build-bound Runtime Validation",
+)
+validation = require_status(
+    request(
+        "POST",
+        f"/api/v1/enterprise/runtime-validations/{validation['validationId']}:complete",
+        {
+            "requiredTests": len(DATASET["cases"]),
+            "requiredFailures": 0,
+            "optionalTests": 0,
+            "optionalFailures": 0,
+            "declaredCapabilities": {
+                "agentControl": True,
+                "cdp": True,
+                "stateCollector": True,
+            },
+            "observedCapabilities": {
+                "agentControl": True,
+                "cdp": True,
+                "stateCollector": True,
+            },
+            "optionalFailureCodes": [],
+            "personaConsistent": True,
+        },
+        tenant="platform-control",
+        roles="PLATFORM_ADMIN",
+        actor_id="validation-farm",
+    ),
+    200,
+    "complete Build-bound Runtime Validation",
+)
+if validation["state"] != "PASSED" or len(validation["evidenceHash"]) != 64:
+    raise AssertionError(f"Runtime Validation evidence is incomplete: {validation}")
 print(
     json.dumps(
         {
             "status": "PASS",
+            "datasetId": DATASET["datasetId"],
+            "datasetDigest": f"sha256:{DATASET_DIGEST}",
+            "environmentDigest": environment_digest,
+            "browserVersion": environment_facts["browserVersion"],
+            "validationId": validation["validationId"],
+            "validationEvidenceHash": validation["evidenceHash"],
             "sessionId": session_id,
             "publicUrls": [url for _, url, _ in sites],
             "controlFixture": control_url,

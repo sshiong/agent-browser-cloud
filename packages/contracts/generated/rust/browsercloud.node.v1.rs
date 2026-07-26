@@ -92,6 +92,10 @@ pub struct ReportCapacityRequest {
     pub isolation_capable: bool,
     #[prost(map="string, string", tag="14")]
     pub labels: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(uint32, tag="15")]
+    pub certified_media_slots: u32,
+    #[prost(bool, tag="16")]
+    pub supports_media: bool,
     #[prost(double, tag="20")]
     pub memory_psi_some_avg10: f64,
     #[prost(double, tag="21")]

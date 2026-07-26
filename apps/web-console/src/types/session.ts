@@ -94,6 +94,9 @@ export interface CreateSessionRequest {
   agentActionsPerMinute?: number;
   remoteDesktop?: boolean;
   web3Workload?: boolean;
+  mediaWorkload?: boolean;
+  requestedMediaStreams?: number;
+  mediaBitrateKbps?: number;
   extensionIds?: string[];
   metadata?: Record<string, string>;
 }

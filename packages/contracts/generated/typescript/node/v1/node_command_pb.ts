@@ -400,6 +400,16 @@ export class ReportCapacityRequest extends Message<ReportCapacityRequest> {
   labels: { [key: string]: string } = {};
 
   /**
+   * @generated from field: uint32 certified_media_slots = 15;
+   */
+  certifiedMediaSlots = 0;
+
+  /**
+   * @generated from field: bool supports_media = 16;
+   */
+  supportsMedia = false;
+
+  /**
    * @generated from field: double memory_psi_some_avg10 = 20;
    */
   memoryPsiSomeAvg10 = 0;
@@ -446,6 +456,8 @@ export class ReportCapacityRequest extends Message<ReportCapacityRequest> {
     { no: 12, name: "supports_native_os", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 13, name: "isolation_capable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 14, name: "labels", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
+    { no: 15, name: "certified_media_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 16, name: "supports_media", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 20, name: "memory_psi_some_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 21, name: "memory_psi_full_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 22, name: "cpu_psi_some_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },

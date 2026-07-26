@@ -40,6 +40,7 @@ try {
   await expect(page.getByRole("link", { name: "分组与标签" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Browser Node" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "扩展与应用" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "企业运营" })).toHaveCount(0);
 
   if (sessionRequestHeaders?.["x-roles"] !== "TENANT_VIEWER") {
     throw new Error(
@@ -48,6 +49,10 @@ try {
   }
 
   await page.goto(`${baseUrl}/automation/tasks`);
+  await page.waitForURL("**/unauthorized");
+  await expect(page.getByRole("heading", { name: "权限不足" })).toBeVisible();
+
+  await page.goto(`${baseUrl}/enterprise`);
   await page.waitForURL("**/unauthorized");
   await expect(page.getByRole("heading", { name: "权限不足" })).toBeVisible();
 

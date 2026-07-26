@@ -67,6 +67,14 @@ public class BrowserCapacityController {
     return service.upsertExtension(extensionId, request, Instant.now());
   }
 
+  @PostMapping("/extensions/{extensionId}:sample")
+  @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
+  public ExtensionProfileView recordExtensionSample(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String extensionId,
+      @Valid @RequestBody RecordExtensionSampleRequest request) {
+    return service.recordExtensionSample(extensionId, request, Instant.now());
+  }
+
   @GetMapping("/browser-placements/{sessionId}")
   @PreAuthorize(PlatformRoles.READ)
   public BrowserPlacementView getPlacement(

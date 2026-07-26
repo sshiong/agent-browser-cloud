@@ -8,6 +8,7 @@ import io.browsercloud.api.BrowserNodeView;
 import io.browsercloud.api.BrowserPlacementView;
 import io.browsercloud.api.ExtensionProfileListResponse;
 import io.browsercloud.api.ExtensionProfileView;
+import io.browsercloud.api.RecordExtensionSampleRequest;
 import io.browsercloud.api.RecordNodePressureRequest;
 import io.browsercloud.api.RegisterBrowserNodeRequest;
 import io.browsercloud.api.UpsertExtensionProfileRequest;
@@ -21,6 +22,8 @@ import io.browsercloud.persistence.BrowserPlacementEntity;
 import io.browsercloud.persistence.BrowserPlacementJpaRepository;
 import io.browsercloud.persistence.ExtensionProfileEntity;
 import io.browsercloud.persistence.ExtensionProfileJpaRepository;
+import io.browsercloud.persistence.ExtensionProfileSampleEntity;
+import io.browsercloud.persistence.ExtensionProfileSampleJpaRepository;
 import io.browsercloud.persistence.SessionResourceDemandEntity;
 import io.browsercloud.persistence.SessionResourceDemandJpaRepository;
 import java.math.BigDecimal;
@@ -32,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -45,27 +49,34 @@ public class BrowserCapacityApplicationService {
   private static final int UNKNOWN_EXTENSION_CPU_MILLIS = 150;
   private static final int UNKNOWN_EXTENSION_MEMORY_MIB = 256;
   private static final int UNKNOWN_EXTENSION_PER_NODE_LIMIT = 2;
-  private static final Set<String> ACTIVE_PLACEMENT_STATES = Set.of("RESERVED", "ACTIVE");
+  private static final Set<String> ACTIVE_PLACEMENT_STATES =
+      Set.of("RESERVED", "ACTIVE", "EVICTING");
 
   private final BrowserNodeJpaRepository nodeRepository;
   private final ExtensionProfileJpaRepository extensionRepository;
+  private final ExtensionProfileSampleJpaRepository extensionSampleRepository;
   private final SessionResourceDemandJpaRepository demandRepository;
   private final BrowserPlacementJpaRepository placementRepository;
   private final SessionRepository sessionRepository;
+  private final EnterpriseOperationsApplicationService enterpriseOperationsService;
   private final ObjectMapper objectMapper;
 
   public BrowserCapacityApplicationService(
       BrowserNodeJpaRepository nodeRepository,
       ExtensionProfileJpaRepository extensionRepository,
+      ExtensionProfileSampleJpaRepository extensionSampleRepository,
       SessionResourceDemandJpaRepository demandRepository,
       BrowserPlacementJpaRepository placementRepository,
       SessionRepository sessionRepository,
+      EnterpriseOperationsApplicationService enterpriseOperationsService,
       ObjectMapper objectMapper) {
     this.nodeRepository = nodeRepository;
     this.extensionRepository = extensionRepository;
+    this.extensionSampleRepository = extensionSampleRepository;
     this.demandRepository = demandRepository;
     this.placementRepository = placementRepository;
     this.sessionRepository = sessionRepository;
+    this.enterpriseOperationsService = enterpriseOperationsService;
     this.objectMapper = objectMapper;
   }
 
@@ -75,6 +86,9 @@ public class BrowserCapacityApplicationService {
     validateNodeId(nodeId);
     if (request.supportsGpu() && request.certifiedGpuSlots() == 0) {
       throw new IllegalArgumentException("GPU-capable node must certify at least one GPU slot");
+    }
+    if (request.supportsMedia() && request.certifiedMediaSlots() == 0) {
+      throw new IllegalArgumentException("Media-capable node must certify at least one media slot");
     }
     var labels = writeJson(request.labels() == null ? Map.of() : request.labels());
     var existing = nodeRepository.findForUpdate(nodeId);
@@ -89,10 +103,12 @@ public class BrowserCapacityApplicationService {
                     request.certifiedMemoryMib(),
                     request.certifiedPidCount(),
                     request.certifiedGpuSlots(),
+                    request.certifiedMediaSlots(),
                     request.safetyMarginPercent(),
                     request.maxSessions(),
                     request.supportsDesktop(),
                     request.supportsGpu(),
+                    request.supportsMedia(),
                     request.supportsNativeOs(),
                     request.isolationCapable(),
                     labels,
@@ -105,10 +121,12 @@ public class BrowserCapacityApplicationService {
           request.certifiedMemoryMib(),
           request.certifiedPidCount(),
           request.certifiedGpuSlots(),
+          request.certifiedMediaSlots(),
           request.safetyMarginPercent(),
           request.maxSessions(),
           request.supportsDesktop(),
           request.supportsGpu(),
+          request.supportsMedia(),
           request.supportsNativeOs(),
           request.isolationCapable(),
           labels,
@@ -203,6 +221,49 @@ public class BrowserCapacityApplicationService {
   }
 
   @Transactional
+  public ExtensionProfileView recordExtensionSample(
+      String extensionId, RecordExtensionSampleRequest request, Instant now) {
+    var extension =
+        extensionRepository
+            .findById(extensionId)
+            .orElseThrow(() -> new ExtensionProfileRejectedException("extension not found"));
+    if (!nodeRepository.existsById(request.nodeId())) {
+      throw new BrowserNodeNotFoundException(request.nodeId());
+    }
+    if (request.sampleCpuMillis() > extension.getSamplingCpuBudgetMillis()) {
+      throw new ExtensionProfileRejectedException("extension sampling CPU budget exceeded");
+    }
+    if (request.observedAt().isAfter(now.plusSeconds(60))
+        || request.observedAt().isBefore(now.minus(Duration.ofDays(7)))) {
+      throw new ExtensionProfileRejectedException("extension sample timestamp is outside window");
+    }
+    extensionSampleRepository.save(
+        new ExtensionProfileSampleEntity(
+            "xps_" + UUID.randomUUID().toString().replace("-", ""),
+            extensionId,
+            request.nodeId(),
+            request.cpuMillis(),
+            request.memoryMib(),
+            request.cgroupPsiBurst(),
+            request.sampleCpuMillis(),
+            request.observedAt(),
+            now));
+    extensionSampleRepository.flush();
+    var window =
+        extensionSampleRepository.findTop1000ByExtensionIdOrderByObservedAtDesc(extensionId);
+    var cpu = window.stream().map(ExtensionProfileSampleEntity::getCpuMillis).sorted().toList();
+    var memory = window.stream().map(ExtensionProfileSampleEntity::getMemoryMib).sorted().toList();
+    int percentileIndex = Math.max(0, (int) Math.ceil(window.size() * 0.95) - 1);
+    extension.applyObservation(
+        window.size(),
+        cpu.get(percentileIndex),
+        memory.get(percentileIndex),
+        request.cgroupPsiBurst(),
+        request.observedAt());
+    return toExtensionView(extensionRepository.save(extension));
+  }
+
+  @Transactional
   public void recordDemand(
       String sessionId,
       String tenantId,
@@ -211,8 +272,15 @@ public class BrowserCapacityApplicationService {
       int agentActionsPerMinute,
       boolean remoteDesktop,
       boolean web3Workload,
+      boolean mediaWorkload,
+      int requestedMediaStreams,
+      int mediaBitrateKbps,
       List<String> extensionIds,
       Instant now) {
+    if (mediaWorkload != (requestedMediaStreams > 0 && mediaBitrateKbps > 0)) {
+      throw new IllegalArgumentException(
+          "media workload requires positive streams and aggregate bitrate");
+    }
     var normalizedExtensions = normalizeExtensionIds(extensionIds);
     demandRepository.save(
         new SessionResourceDemandEntity(
@@ -223,6 +291,9 @@ public class BrowserCapacityApplicationService {
             agentActionsPerMinute,
             remoteDesktop,
             web3Workload,
+            mediaWorkload,
+            requestedMediaStreams,
+            mediaBitrateKbps,
             writeJson(normalizedExtensions),
             now));
   }
@@ -242,6 +313,9 @@ public class BrowserCapacityApplicationService {
       throw new BrowserCapacityUnavailableException("RESOURCE_DEMAND_TENANT_MISMATCH");
     }
     var calculated = calculateDemand(demand);
+    enterpriseOperationsService.requireResidency(session.tenantId(), region);
+    enterpriseOperationsService.requireMediaQuota(
+        session.tenantId(), calculated.mediaSlots(), calculated.mediaBitrateKbps());
     var now = Instant.now();
     var candidates =
         nodeRepository.lockPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL)).stream()
@@ -259,6 +333,7 @@ public class BrowserCapacityApplicationService {
         calculated.memoryRequestMib(),
         calculated.pidLimit(),
         calculated.requiresGpu() ? 1 : 0,
+        calculated.mediaSlots(),
         now);
     nodeRepository.save(node);
     if (existing.isPresent()) {
@@ -283,6 +358,9 @@ public class BrowserCapacityApplicationService {
             calculated.requiresGpu(),
             calculated.requiresNativeOs(),
             calculated.requiresIsolation(),
+            calculated.requiresMedia(),
+            calculated.mediaSlots(),
+            calculated.mediaBitrateKbps(),
             chosen.score(),
             writeJson(calculated.reasonCodes()),
             now);
@@ -323,6 +401,7 @@ public class BrowserCapacityApplicationService {
           current.getMemoryRequestMib(),
           current.getPidLimit(),
           current.isRequiresGpu() ? 1 : 0,
+          current.getMediaSlots(),
           now);
       nodeRepository.save(node);
       placementRepository.save(current);
@@ -339,6 +418,31 @@ public class BrowserCapacityApplicationService {
       throw new BrowserPlacementNotFoundException(sessionId);
     }
     return toPlacementView(placement);
+  }
+
+  /** 在 Critical Node 上一次只领取一个低优先级 Placement，避免压力处理本身形成终止风暴。 */
+  @Transactional
+  public java.util.Optional<NodePressureEvictionCandidate> claimPressureEviction() {
+    return placementRepository
+        .claimPressureEvictionCandidate()
+        .map(
+            placement -> {
+              placement.markEvicting(Instant.now());
+              placementRepository.save(placement);
+              return new NodePressureEvictionCandidate(
+                  placement.getSessionId(), placement.getTenantId(), placement.getNodeId());
+            });
+  }
+
+  @Transactional
+  public void cancelPressureEviction(String sessionId) {
+    placementRepository
+        .findForUpdate(sessionId)
+        .ifPresent(
+            placement -> {
+              placement.cancelEviction();
+              placementRepository.save(placement);
+            });
   }
 
   private CalculatedDemand calculateDemand(SessionResourceDemandEntity demand) {
@@ -367,6 +471,7 @@ public class BrowserCapacityApplicationService {
                 .anyMatch(profile -> profile.isWeb3() || profile.isCrypto());
     boolean crypto = profiles.values().stream().anyMatch(ExtensionProfileEntity::isCrypto);
     boolean privileged = profiles.values().stream().anyMatch(ExtensionProfileEntity::isPrivileged);
+    boolean media = demand.isMediaWorkload();
     var effectiveClass = demand.resourceClass();
     var reasons = new ArrayList<String>();
     if (!unknownIds.isEmpty() && effectiveClass.ordinal() < ResourceClass.L2.ordinal()) {
@@ -383,6 +488,10 @@ public class BrowserCapacityApplicationService {
       reasons.add(
           crypto ? "CRYPTO_PROMOTION" : privileged ? "PRIVILEGED_PROMOTION" : "DESKTOP_PROMOTION");
     }
+    if (media && effectiveClass.ordinal() < ResourceClass.L4.ordinal()) {
+      effectiveClass = ResourceClass.L4;
+      reasons.add("MEDIA_PROMOTION");
+    }
 
     int extensionCpu =
         profiles.values().stream().mapToInt(ExtensionProfileEntity::effectiveCpuMillis).sum()
@@ -391,6 +500,8 @@ public class BrowserCapacityApplicationService {
         profiles.values().stream().mapToInt(ExtensionProfileEntity::effectiveMemoryMib).sum()
             + unknownIds.size() * UNKNOWN_EXTENSION_MEMORY_MIB;
     int activityCpu = ((demand.getAgentActionsPerMinute() + 9) / 10) * 20;
+    int mediaCpu = demand.getRequestedMediaStreams() * 200;
+    int mediaMemory = demand.getRequestedMediaStreams() * 128;
 
     BrowserResourceBudget budget;
     int cpu;
@@ -401,8 +512,10 @@ public class BrowserCapacityApplicationService {
       cpu =
           Math.addExact(
               budget.cpuMillis(), Math.addExact(extensionCpu, activityCpu + excessTabs * 40));
+      cpu = Math.addExact(cpu, mediaCpu);
       memory =
           Math.addExact(budget.memoryRequestMib(), Math.addExact(extensionMemory, excessTabs * 64));
+      memory = Math.addExact(memory, mediaMemory);
       boolean fits =
           demand.getRequestedTabs() <= budget.tabBudget()
               && (!demand.isRemoteDesktop() || budget.desktopAllowed())
@@ -431,9 +544,12 @@ public class BrowserCapacityApplicationService {
         budget.pidLimit(),
         Math.max(budget.tabBudget(), demand.getRequestedTabs()),
         demand.isRemoteDesktop(),
-        budget.gpuRequired(),
+        budget.gpuRequired() && !media,
         budget.nativeOsRequired(),
         privileged,
+        media,
+        demand.getRequestedMediaStreams(),
+        demand.getMediaBitrateKbps(),
         crypto,
         List.copyOf(reasons));
   }
@@ -455,16 +571,20 @@ public class BrowserCapacityApplicationService {
             demand.memoryRequestMib(),
             demand.pidLimit(),
             demand.requiresGpu() ? 1 : 0,
+            demand.mediaSlots(),
             demand.requiresDesktop(),
             demand.requiresNativeOs(),
-            demand.requiresIsolation());
+            demand.requiresIsolation(),
+            demand.requiresMedia());
     if (!isolationEligible || !probationEligible || !capacityEligible) {
       return new Candidate(node, Integer.MAX_VALUE, false);
     }
 
     int score =
         node.getActiveSessions() * 20
-            + (node.getReservedMemoryMib() * 100 / Math.max(1, node.getCertifiedMemoryMib()));
+            + (node.getReservedMemoryMib() * 100 / Math.max(1, node.getCertifiedMemoryMib()))
+            + enterpriseOperationsService.placementCostScore(
+                node.getRegion(), demand.effectiveClass().name());
     var requested = new HashSet<>(demand.extensionIds());
     for (var placement : active) {
       if (placement.getTenantId().equals(tenantId)) {
@@ -491,11 +611,13 @@ public class BrowserCapacityApplicationService {
         node.getCertifiedMemoryMib(),
         node.getCertifiedPidCount(),
         node.getCertifiedGpuSlots(),
+        node.getCertifiedMediaSlots(),
         node.getSafetyMarginPercent(),
         node.getReservedCpuMillis(),
         node.getReservedMemoryMib(),
         node.getReservedPidCount(),
         node.getReservedGpuSlots(),
+        node.getReservedMediaSlots(),
         node.getActiveSessions(),
         node.getMaxSessions(),
         node.getMemoryPsiSomeAvg10(),
@@ -506,6 +628,7 @@ public class BrowserCapacityApplicationService {
         node.getPressureReason(),
         node.isSupportsDesktop(),
         node.isSupportsGpu(),
+        node.isSupportsMedia(),
         node.isSupportsNativeOs(),
         node.isIsolationCapable(),
         readStringMap(node.getLabels()),
@@ -535,6 +658,9 @@ public class BrowserCapacityApplicationService {
         extension.getP95CpuMillis(),
         extension.getP95MemoryMib(),
         extension.getLastProfiledAt(),
+        extension.getSamplingTier(),
+        extension.getSamplingCpuBudgetMillis(),
+        extension.getNextSampleAt(),
         extension.getUpdatedAt());
   }
 
@@ -556,6 +682,9 @@ public class BrowserCapacityApplicationService {
         placement.isRequiresGpu(),
         placement.isRequiresNativeOs(),
         placement.isRequiresIsolation(),
+        placement.isRequiresMedia(),
+        placement.getMediaSlots(),
+        placement.getMediaBitrateKbps(),
         placement.getPlacementScore(),
         placement.getState(),
         readStringList(placement.getReasonCodes()),
@@ -614,6 +743,8 @@ public class BrowserCapacityApplicationService {
 
   private record Candidate(BrowserNodeEntity node, int score, boolean eligible) {}
 
+  public record NodePressureEvictionCandidate(String sessionId, String tenantId, String nodeId) {}
+
   private record CalculatedDemand(
       ResourceClass effectiveClass,
       List<String> extensionIds,
@@ -627,6 +758,9 @@ public class BrowserCapacityApplicationService {
       boolean requiresGpu,
       boolean requiresNativeOs,
       boolean requiresIsolation,
+      boolean requiresMedia,
+      int mediaSlots,
+      int mediaBitrateKbps,
       boolean crypto,
       List<String> reasonCodes) {}
 

@@ -35,6 +35,15 @@ public class SessionResourceDemandEntity {
   @Column(name = "web3_workload", nullable = false)
   private boolean web3Workload;
 
+  @Column(name = "media_workload", nullable = false)
+  private boolean mediaWorkload;
+
+  @Column(name = "requested_media_streams", nullable = false)
+  private int requestedMediaStreams;
+
+  @Column(name = "media_bitrate_kbps", nullable = false)
+  private int mediaBitrateKbps;
+
   @Column(name = "extension_ids", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String extensionIds;
@@ -55,6 +64,9 @@ public class SessionResourceDemandEntity {
       int agentActionsPerMinute,
       boolean remoteDesktop,
       boolean web3Workload,
+      boolean mediaWorkload,
+      int requestedMediaStreams,
+      int mediaBitrateKbps,
       String extensionIds,
       Instant now) {
     this.sessionId = sessionId;
@@ -64,6 +76,9 @@ public class SessionResourceDemandEntity {
     this.agentActionsPerMinute = agentActionsPerMinute;
     this.remoteDesktop = remoteDesktop;
     this.web3Workload = web3Workload;
+    this.mediaWorkload = mediaWorkload;
+    this.requestedMediaStreams = requestedMediaStreams;
+    this.mediaBitrateKbps = mediaBitrateKbps;
     this.extensionIds = extensionIds;
     this.createdAt = now;
     this.updatedAt = now;
@@ -95,6 +110,18 @@ public class SessionResourceDemandEntity {
 
   public boolean isWeb3Workload() {
     return web3Workload;
+  }
+
+  public boolean isMediaWorkload() {
+    return mediaWorkload;
+  }
+
+  public int getRequestedMediaStreams() {
+    return requestedMediaStreams;
+  }
+
+  public int getMediaBitrateKbps() {
+    return mediaBitrateKbps;
   }
 
   public String getExtensionIds() {

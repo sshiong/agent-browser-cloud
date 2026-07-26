@@ -86,10 +86,12 @@ struct NodeCapacityReporter {
     certified_memory_mib: u32,
     certified_pid_count: u32,
     certified_gpu_slots: u32,
+    certified_media_slots: u32,
     safety_margin_percent: u32,
     max_sessions: u32,
     supports_desktop: bool,
     supports_gpu: bool,
+    supports_media: bool,
     supports_native_os: bool,
     isolation_capable: bool,
     labels: HashMap<String, String>,
@@ -122,14 +124,20 @@ impl NodeCapacityReporter {
             Self::capacity_u32("NODE_CERTIFIED_MEMORY_MIB", 16_384, production)?;
         let certified_pid_count = Self::capacity_u32("NODE_CERTIFIED_PID_COUNT", 4096, production)?;
         let certified_gpu_slots = Self::capacity_u32("NODE_CERTIFIED_GPU_SLOTS", 0, false)?;
+        let certified_media_slots = Self::capacity_u32("NODE_CERTIFIED_MEDIA_SLOTS", 0, false)?;
         let safety_margin_percent =
             Self::capacity_u32("NODE_SAFETY_MARGIN_PERCENT", 20, production)?;
         let max_sessions = Self::capacity_u32("NODE_MAX_SESSIONS", 10, production)?;
         let supports_gpu = Self::bool_env("NODE_SUPPORTS_GPU", false);
+        let supports_media = Self::bool_env("NODE_SUPPORTS_MEDIA", false);
         let supports_native_os = Self::bool_env("NODE_SUPPORTS_NATIVE_OS", false);
         anyhow::ensure!(
             !supports_gpu || certified_gpu_slots > 0,
             "NODE_SUPPORTS_GPU requires NODE_CERTIFIED_GPU_SLOTS"
+        );
+        anyhow::ensure!(
+            !supports_media || certified_media_slots > 0,
+            "NODE_SUPPORTS_MEDIA requires NODE_CERTIFIED_MEDIA_SLOTS"
         );
         anyhow::ensure!(
             !production || cgroup_enabled,
@@ -163,10 +171,12 @@ impl NodeCapacityReporter {
             certified_memory_mib,
             certified_pid_count,
             certified_gpu_slots,
+            certified_media_slots,
             safety_margin_percent,
             max_sessions,
             supports_desktop,
             supports_gpu,
+            supports_media,
             supports_native_os,
             isolation_capable: cgroup_enabled,
             labels,
@@ -243,10 +253,12 @@ impl NodeCapacityReporter {
                 certified_memory_mib: self.certified_memory_mib,
                 certified_pid_count: self.certified_pid_count,
                 certified_gpu_slots: self.certified_gpu_slots,
+                certified_media_slots: self.certified_media_slots,
                 safety_margin_percent: self.safety_margin_percent,
                 max_sessions: self.max_sessions,
                 supports_desktop: self.supports_desktop,
                 supports_gpu: self.supports_gpu,
+                supports_media: self.supports_media,
                 supports_native_os: self.supports_native_os,
                 isolation_capable: self.isolation_capable,
                 labels: self.labels.clone(),

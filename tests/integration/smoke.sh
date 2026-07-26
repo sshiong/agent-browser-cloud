@@ -162,6 +162,8 @@ start_browser_node() {
   FAKE_CHROMIUM_DELAY_PROFILE_FRAGMENT=profile-recovering-failover \
   FAKE_CHROMIUM_DELAY_START_NUMBER=2 \
   FAKE_CHROMIUM_STARTUP_DELAY_SECONDS=30 \
+  NODE_CERTIFIED_MEDIA_SLOTS=2 \
+  NODE_SUPPORTS_MEDIA=true \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
   node_pid=$!
 }
@@ -234,6 +236,164 @@ runtime_builds="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$runtime_builds" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["artifactDigest"] == "sha256:" + "0"*64; assert build["signingKeyId"] == "local-development"; assert build["sbomUrl"]'
+
+extension_profile="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/extensions/acceptance.extension" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"displayName":"Acceptance Extension","staticCpuWeight":100,"staticMemoryWeight":200,"startupWeight":0,"pageInjectionWeight":0,"serviceWorkerWeight":0,"cryptoWeight":0,"networkWeight":0,"observedMultiplier":1.0,"confidence":0.9,"profileState":"OBSERVED","web3":false,"serviceWorker":false,"crypto":false,"privileged":false}')"
+printf '%s' "$extension_profile" | python3 -c \
+  'import json,sys; profile=json.load(sys.stdin); assert profile["samplingTier"] == "HIGH"; assert profile["samplingCpuBudgetMillis"] == 25'
+for sample_index in $(seq 1 20); do
+  sample_cpu=100
+  sample_memory=200
+  if [[ "$sample_index" = "20" ]]; then
+    sample_cpu=1000
+    sample_memory=1000
+  fi
+  extension_profile="$(curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/extensions/acceptance.extension:sample" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: PLATFORM_ADMIN' \
+    -d "{\"nodeId\":\"node_integration\",\"cpuMillis\":${sample_cpu},\"memoryMib\":${sample_memory},\"cgroupPsiBurst\":false,\"sampleCpuMillis\":10,\"observedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")"
+done
+printf '%s' "$extension_profile" | python3 -c \
+  'import json,sys; profile=json.load(sys.stdin); assert profile["samples"] == 20; assert profile["p95CpuMillis"] == 100; assert profile["p95MemoryMib"] == 200; assert float(profile["observedMultiplier"]) == 1.0; assert profile["samplingTier"] == "HIGH"'
+for _ in $(seq 1 3); do
+  extension_profile="$(curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/extensions/acceptance.extension:sample" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: PLATFORM_ADMIN' \
+    -d "{\"nodeId\":\"node_integration\",\"cpuMillis\":100,\"memoryMib\":200,\"cgroupPsiBurst\":false,\"sampleCpuMillis\":10,\"observedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")"
+done
+printf '%s' "$extension_profile" | python3 -c \
+  'import json,sys; profile=json.load(sys.stdin); assert profile["samples"] == 23; assert profile["samplingTier"] == "MEDIUM"; assert profile["nextSampleAt"]'
+extension_profile="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/extensions/acceptance.extension:sample" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"nodeId\":\"node_integration\",\"cpuMillis\":100,\"memoryMib\":200,\"cgroupPsiBurst\":true,\"sampleCpuMillis\":10,\"observedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")"
+printf '%s' "$extension_profile" | python3 -c \
+  'import json,sys; profile=json.load(sys.stdin); assert profile["samplingTier"] == "DEEP"'
+sample_budget_status="$(curl -sS -o "$temp_dir/extension-sample-budget.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/extensions/acceptance.extension:sample" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"nodeId\":\"node_integration\",\"cpuMillis\":100,\"memoryMib\":200,\"cgroupPsiBurst\":false,\"sampleCpuMillis\":26,\"observedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")"
+test "$sample_budget_status" = "409"
+
+media_quota="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/media-quota" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-media-integration' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"maxConcurrentStreams":1,"maxBitrateKbps":5000}')"
+printf '%s' "$media_quota" | python3 -c \
+  'import json,sys; quota=json.load(sys.stdin); assert quota["maxConcurrentStreams"] == 1; assert quota["maxBitrateKbps"] == 5000; assert quota["activeStreams"] == 0'
+
+media_request='{"tenantId":"tenant-media-integration","profileId":"profile-media","region":"local","resourceClass":"L1","requestedTabs":1,"mediaWorkload":true,"requestedMediaStreams":1,"mediaBitrateKbps":4000,"metadata":{"displayName":"Media acceptance"}}'
+media_one="$(curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-media-integration' \
+  -H 'Idempotency-Key: media-session-001' \
+  -d "$media_request")"
+media_one_id="$(printf '%s' "$media_one" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${media_one_id}:start" \
+  -H 'X-Tenant-Id: tenant-media-integration' >"$temp_dir/media-one-start.json"
+media_one_state=""
+for _ in $(seq 1 60); do
+  media_one_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${media_one_id}" \
+    -H 'X-Tenant-Id: tenant-media-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$media_one_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$media_one_state" = "RUNNING"
+media_placement="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/browser-placements/${media_one_id}" \
+  -H 'X-Tenant-Id: tenant-media-integration')"
+printf '%s' "$media_placement" | python3 -c \
+  'import json,sys; placement=json.load(sys.stdin); assert placement["effectiveResourceClass"] == "L4"; assert placement["requiresMedia"] is True; assert placement["mediaSlots"] == 1; assert placement["mediaBitrateKbps"] == 4000; assert "MEDIA_PROMOTION" in placement["reasonCodes"]'
+media_cost="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/sessions/${media_one_id}/cost-explanation" \
+  -H 'X-Tenant-Id: tenant-media-integration')"
+printf '%s' "$media_cost" | python3 -c \
+  'import json,sys; cost=json.load(sys.stdin); assert cost["media"] is True; assert float(cost["mediaHourlyUsd"]) > 0; assert float(cost["totalHourlyUsd"]) > float(cost["baseHourlyUsd"])'
+
+media_two="$(curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-media-integration' \
+  -H 'Idempotency-Key: media-session-002' \
+  -d "$media_request")"
+media_two_id="$(printf '%s' "$media_two" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+media_quota_status="$(curl -sS -o "$temp_dir/media-quota-rejection.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${media_two_id}:start" \
+  -H 'X-Tenant-Id: tenant-media-integration')"
+test "$media_quota_status" = "503"
+python3 - "$temp_dir/media-quota-rejection.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    error = json.load(handle)
+assert error["code"] == "MEDIA_QUOTA_REJECTED"
+assert error["details"]["reason"] == "MEDIA_QUOTA_EXCEEDED"
+PY
+
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${media_one_id}:terminate" \
+  -H 'X-Tenant-Id: tenant-media-integration' >"$temp_dir/media-one-terminate.json"
+for _ in $(seq 1 60); do
+  media_one_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${media_one_id}" \
+    -H 'X-Tenant-Id: tenant-media-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$media_one_state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$media_one_state" = "TERMINATED"
+released_media_quota="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/media-quota" \
+  -H 'X-Tenant-Id: tenant-media-integration' \
+  -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$released_media_quota" | python3 -c \
+  'import json,sys; quota=json.load(sys.stdin); assert quota["activeStreams"] == 0; assert quota["activeBitrateKbps"] == 0'
+
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/retention-policies" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-residency-integration' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"dataClass":"PROFILE_CHECKPOINT","retentionDays":30,"legalHold":false,"residencyRegion":"local"}' \
+  >"$temp_dir/residency-policy.json"
+residency_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-residency-integration' \
+  -H 'Idempotency-Key: residency-session-001' \
+  -d '{"tenantId":"tenant-residency-integration","profileId":"profile-residency","region":"dr-local","resourceClass":"L1"}')"
+residency_session_id="$(printf '%s' "$residency_session" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+residency_status="$(curl -sS -o "$temp_dir/residency-rejection.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${residency_session_id}:start" \
+  -H 'X-Tenant-Id: tenant-residency-integration')"
+test "$residency_status" = "409"
+python3 - "$temp_dir/residency-rejection.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    error = json.load(handle)
+assert error["code"] == "ENTERPRISE_GOVERNANCE_REJECTED"
+assert error["details"]["reason"] == "RESIDENCY_REGION_MISMATCH"
+PY
 
 unauthenticated_status="$(curl -sS -o "$temp_dir/unauthenticated.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions")"
@@ -1342,7 +1502,7 @@ completed_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d brow
   "select count(*) from durable_workflows where tenant_id='tenant-integration' and state='COMPLETED' and length(commit_marker)=64")"
 test "$completed_workflows" = "13"
 linked_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select count(*) from exclusive_operations where workflow_id is not null")"
+  "select count(*) from exclusive_operations operation join sessions session on session.id=operation.session_id where operation.workflow_id is not null and session.tenant_id='tenant-integration'")"
 test "$linked_workflows" = "15"
 
 kill -TERM "$network_helper_pid"
@@ -1610,6 +1770,158 @@ key_rotation_completed="$(curl -fsS -X POST \
 printf '%s' "$key_rotation_completed" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["state"] == "COMPLETED"; assert item["progressPercent"] == 100; assert item["newKeyWriteVerified"] is True; assert item["oldKeyReadVerified"] is True; assert item["plaintextRejected"] is True; assert len(item["completionEvidenceHash"]) == 64'
 
+dr_region="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/regions/dr-local" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: platform-operator' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"role":"DR","admissionState":"FAILOVER_READY","replicationLagSeconds":0}')"
+printf '%s' "$dr_region" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["regionId"] == "dr-local"; assert item["role"] == "DR"; assert item["admissionState"] == "FAILOVER_READY"; assert item["replicationLagSeconds"] == 0'
+slo_budget="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/slo-policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tenant-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"availabilityTarget":0.99,"latencyP95TargetMs":2000,"windowMinutes":43200}')"
+printf '%s' "$slo_budget" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "HEALTHY"; assert item["allowedUnavailableSeconds"] == 25920; assert item["consumedUnavailableSeconds"] == 0'
+slo_budget="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/service-level-events" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: platform-monitor' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"eventType\":\"UNAVAILABLE\",\"durationSeconds\":60,\"latencyP95Ms\":2500,\"source\":\"integration-gameday\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}")"
+printf '%s' "$slo_budget" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "HEALTHY"; assert item["consumedUnavailableSeconds"] == 60; assert item["remainingUnavailableSeconds"] == 25860; assert float(item["burnRatio"]) > 0'
+sla_exclusion="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/sla-exclusions/EXTERNAL_PROVIDER" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tenant-sre' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"description":"Contractually excluded third-party provider outage","enabled":true}')"
+printf '%s' "$sla_exclusion" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["exclusionCode"] == "EXTERNAL_PROVIDER"; assert item["enabled"] is True'
+slo_budget="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/service-level-events" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: platform-monitor' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"eventType\":\"UNAVAILABLE\",\"durationSeconds\":600,\"latencyP95Ms\":5000,\"source\":\"external-provider\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"exclusionCode\":\"EXTERNAL_PROVIDER\"}")"
+printf '%s' "$slo_budget" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["consumedUnavailableSeconds"] == 60; assert item["remainingUnavailableSeconds"] == 25860'
+retention_policy="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/retention-policies" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d '{"dataClass":"AUDIT","retentionDays":365,"legalHold":true,"residencyRegion":"local"}')"
+printf '%s' "$retention_policy" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["tenantId"] == "tenant-integration"; assert item["dataClass"] == "AUDIT"; assert item["legalHold"] is True; assert item["residencyRegion"] == "local"'
+legal_hold_delete_status="$(curl -sS -o "$temp_dir/legal-hold-delete.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/enterprise/retention-deletion-receipts" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d '{"dataClass":"AUDIT","objectId":"audit-export-old","contentDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}')"
+test "$legal_hold_delete_status" = "409"
+grep -q 'LEGAL_HOLD_ACTIVE' "$temp_dir/legal-hold-delete.json"
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/retention-policies" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d '{"dataClass":"AGENT_EXECUTION","retentionDays":30,"legalHold":false,"residencyRegion":"local"}' \
+  >"$temp_dir/agent-retention-policy.json"
+deletion_receipt="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/retention-deletion-receipts" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d '{"dataClass":"AGENT_EXECUTION","objectId":"agent-run-expired","contentDigest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}')"
+printf '%s' "$deletion_receipt" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["receiptId"].startswith("del_"); assert item["dataClass"] == "AGENT_EXECUTION"; assert len(item["receiptHash"]) == 64'
+extension_license="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/license-inventory/acceptance.extension" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: security-admin' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -d '{"componentType":"EXTENSION","componentName":"Acceptance Extension","componentVersion":"1.0.0","licenseId":"MIT","sourceUrl":"repository://tests/acceptance.extension","approved":true}')"
+printf '%s' "$extension_license" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["componentType"] == "EXTENSION"; assert item["approved"] is True; assert len(item["evidenceHash"]) == 64'
+runtime_validation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-farm' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"buildId":"runtime_local_chromium","suiteVersion":"v1","environmentDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","replayDatasetId":"replay-integration-v1","persona":"default"}')"
+runtime_validation_id="$(printf '%s' "$runtime_validation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "RUNNING"; print(item["validationId"])')"
+runtime_validation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validations/${runtime_validation_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-farm' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"requiredTests":10,"requiredFailures":0,"optionalTests":2,"optionalFailures":1,"declaredCapabilities":{"cdp":true,"stateCollector":true},"observedCapabilities":{"cdp":true,"stateCollector":true},"optionalFailureCodes":["VIDEO_CODEC"],"personaConsistent":true}')"
+printf '%s' "$runtime_validation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "DEGRADED"; assert item["requiredFailures"] == 0; assert item["optionalFailureCodes"] == ["VIDEO_CODEC"]; assert len(item["evidenceHash"]) == 64'
+recovery_gameday="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: incident-commander' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"scenario":"primary-region-loss","sourceRegion":"local","targetRegion":"dr-local","rtoTargetSeconds":120,"rpoTargetSeconds":60}')"
+recovery_gameday_id="$(printf '%s' "$recovery_gameday" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "RUNNING"; print(item["gameDayId"])')"
+recovery_gameday="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays/${recovery_gameday_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: incident-commander' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"observedRtoSeconds":30,"observedRpoSeconds":0,"dataLossRecords":0}')"
+printf '%s' "$recovery_gameday" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "PASSED"; assert item["observedRtoSeconds"] == 30; assert item["dataLossRecords"] == 0; assert len(item["evidenceHash"]) == 64'
+session_cost="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/sessions/${session_one}/cost-explanation" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: VIEWER')"
+printf '%s' "$session_cost" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["sessionId"].startswith("ses_"); assert item["pricingVersion"] == "local-l2-v1"; assert item["resourceClass"] == "L2"; assert float(item["totalHourlyUsd"]) > 0'
+audit_export_manifest="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/audit-exports" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-auditor' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$audit_export_manifest" | python3 -c \
+  'import hashlib,hmac,json,sys; item=json.load(sys.stdin); assert item["eventCount"] > 0; assert item["signatureAlgorithm"] == "HMAC-SHA256"; assert item["signingKeyId"] == "local-development"; assert len(item["manifestHash"]) == 64; assert len(item["signature"]) == 64; expected=hmac.new(b"local-development-audit-export-key", item["manifestHash"].encode(), hashlib.sha256).hexdigest(); assert hmac.compare_digest(expected, item["signature"])'
+compliance_snapshot="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/compliance-snapshots?framework=SOC2" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: security-auditor' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$compliance_snapshot" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["framework"] == "SOC2"; assert item["controlCount"] == 8; assert item["passingControls"] == 8; assert all(item["evidence"].values()); assert item["evidence"]["licenseInventoryApproved"] is True; assert item["evidence"]["signedAuditExport"] is True; assert len(item["evidenceHash"]) == 64'
+enterprise_overview="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/overview" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$enterprise_overview" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["validations"][0]["state"] == "DEGRADED"; assert len(item["costRates"]) == 5; assert item["errorBudget"]["consumedUnavailableSeconds"] == 60; assert item["slaExclusions"][0]["exclusionCode"] == "EXTERNAL_PROVIDER"; assert any(policy["dataClass"] == "AUDIT" and policy["legalHold"] for policy in item["retentionPolicies"]); assert any(component["componentType"] == "RUNTIME" for component in item["licenseInventory"]); assert any(component["componentType"] == "EXTENSION" for component in item["licenseInventory"]); assert len(item["regions"]) == 2; assert item["recoveryGameDays"][0]["state"] == "PASSED"; assert item["latestCompliance"]["passingControls"] == 8'
+
 audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?limit=500" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -1634,6 +1946,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

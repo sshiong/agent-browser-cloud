@@ -139,6 +139,18 @@ java.lang.String defaultValue);
       java.lang.String key);
 
   /**
+   * <code>uint32 certified_media_slots = 15 [json_name = "certifiedMediaSlots"];</code>
+   * @return The certifiedMediaSlots.
+   */
+  int getCertifiedMediaSlots();
+
+  /**
+   * <code>bool supports_media = 16 [json_name = "supportsMedia"];</code>
+   * @return The supportsMedia.
+   */
+  boolean getSupportsMedia();
+
+  /**
    * <code>double memory_psi_some_avg10 = 20 [json_name = "memoryPsiSomeAvg10"];</code>
    * @return The memoryPsiSomeAvg10.
    */

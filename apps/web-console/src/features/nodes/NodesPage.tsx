@@ -108,6 +108,10 @@ function NodeCard({ node }: { node: BrowserNodeView }) {
   );
   const cpuPercent = percent(node.reservedCpuMillis, node.certifiedCpuMillis);
   const pidPercent = percent(node.reservedPidCount, node.certifiedPidCount);
+  const mediaPercent = percent(
+    node.reservedMediaSlots,
+    node.certifiedMediaSlots
+  );
   const status = nodeHealth(node);
 
   return (
@@ -142,6 +146,16 @@ function NodeCard({ node }: { node: BrowserNodeView }) {
           percentValue={cpuPercent}
           safetyLimit={usablePercent}
         />
+        {node.supportsMedia ? (
+          <CapacityBar
+            label="Media slots"
+            value={node.reservedMediaSlots}
+            limit={node.certifiedMediaSlots}
+            unit=""
+            percentValue={mediaPercent}
+            safetyLimit={usablePercent}
+          />
+        ) : null}
         <CapacityBar
           label="Memory reservation"
           value={node.reservedMemoryMib}

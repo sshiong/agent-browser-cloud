@@ -124,6 +124,9 @@ public class SessionApplicationService {
         request.agentActionsPerMinute(),
         request.remoteDesktop(),
         request.web3Workload(),
+        request.mediaWorkload(),
+        request.requestedMediaStreams(),
+        request.mediaBitrateKbps(),
         request.extensionIds() == null ? java.util.List.of() : request.extensionIds(),
         now);
     appendAudit(
@@ -205,8 +208,20 @@ public class SessionApplicationService {
   /** 终止 Session。 */
   @Transactional
   public OperationResponse terminate(String sessionId, String tenantId, String actorId) {
+    return terminate(sessionId, tenantId, actorId, "user_request");
+  }
+
+  /** Node PSI 达到 Critical 后由有界压力治理调用；不向外暴露为用户 API。 */
+  @Transactional
+  public OperationResponse terminateForNodePressure(
+      String sessionId, String tenantId, String nodeId) {
+    return terminate(sessionId, tenantId, "system:node-pressure", "node_pressure:" + nodeId);
+  }
+
+  private OperationResponse terminate(
+      String sessionId, String tenantId, String actorId, String reason) {
     var session = requireTenant(sessionId, tenantId);
-    var result = coordinator.handle(new TerminateSession(sessionId, "user_request"));
+    var result = coordinator.handle(new TerminateSession(sessionId, reason));
     var operation = operationRepository.findActive(sessionId).orElseThrow();
     var workflowId =
         workflowService.start(
@@ -218,7 +233,7 @@ public class SessionApplicationService {
         actorId,
         "TERMINATE_RUNTIME",
         "ACCEPTED",
-        Map.of("operationId", result.operationId(), "reason", "user_request"),
+        Map.of("operationId", result.operationId(), "reason", reason),
         result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);

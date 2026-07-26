@@ -147,6 +147,10 @@ spec:
               value: /var/run/browsercloud/helpers/storage.sock
             - name: PROFILE_STORAGE_ROOT
               value: /var/lib/browsercloud/profiles
+            - name: RUNTIME_ROOT
+              value: /var/lib/browsercloud/runtime
+            - name: NODE_JOURNAL_PATH
+              value: /var/lib/browsercloud/runtime/node-journal.sqlite3
             - name: RUNTIME_CGROUP_ROOT
               value: /sys/fs/cgroup/browsercloud
             - name: NODE_REGION
@@ -159,6 +163,10 @@ spec:
               value: "2048"
             - name: NODE_CERTIFIED_GPU_SLOTS
               value: "0"
+            - name: NODE_CERTIFIED_MEDIA_SLOTS
+              value: "4"
+            - name: NODE_SUPPORTS_MEDIA
+              value: "true"
             - name: NODE_SAFETY_MARGIN_PERCENT
               value: "20"
             - name: NODE_MAX_SESSIONS
@@ -178,6 +186,23 @@ spec:
               mountPath: /var/run/browsercloud/helpers
             - name: runtime-cgroup
               mountPath: /sys/fs/cgroup/browsercloud
+          startupProbe:
+            tcpSocket:
+              port: grpc
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

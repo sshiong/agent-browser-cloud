@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "scope": "REAL_CHROMIUM_CONCURRENT_DENSITY_SINGLE_NODE",
+  "buildId": "7cfd318bb0763ba1217c4de7b5696d075c0d9e5d",
+  "generatedAtEpochSeconds": 1785081587,
+  "environment": {
+    "os": "macos",
+    "architecture": "aarch64",
+    "logicalCpus": 10,
+    "chromiumVersion": "Google Chrome 150.0.7871.182"
+  },
+  "loadModel": {
+    "cycles": 500,
+    "concurrency": 4,
+    "mode": "CONCURRENT_HEADLESS",
+    "sessionReuse": false,
+    "profileReuse": false
+  },
+  "startLatency": {
+    "minimumMillis": 1928,
+    "p50Millis": 4120,
+    "p95Millis": 5282,
+    "p99Millis": 6543,
+    "maximumMillis": 7335
+  },
+  "stopLatency": {
+    "minimumMillis": 21,
+    "p50Millis": 73,
+    "p95Millis": 124,
+    "p99Millis": 152,
+    "maximumMillis": 217
+  },
+  "resources": {
+    "peakRuntimeTreeRssBytes": 4083220480,
+    "peakRuntimeProcesses": 35,
+    "peakConcurrentSessions": 4,
+    "runnerRssBeforeBytes": 7405568,
+    "runnerRssAfterBytes": 25165824,
+    "runnerRssGrowthBytes": 17760256,
+    "runnerFdsBefore": 9,
+    "runnerFdsAfter": 9,
+    "runnerFdGrowth": 0,
+    "residualProcesses": 0
+  },
+  "gates": {
+    "allCyclesCompleted": true,
+    "noCycleFailures": true,
+    "noResidualProcesses": true,
+    "requestedConcurrencyReached": true,
+    "runnerFdGrowthWithinLimit": true,
+    "runnerRssGrowthWithinLimit": true,
+    "runtimeProcessCountWithinLimit": true,
+    "runtimeTreeRssWithinLimit": true,
+    "startP99WithinLimit": true,
+    "stopP99WithinLimit": true
+  },
+  "failures": [],
+  "passed": true,
+  "certificateHash": "9bb31e30e30124c61980d6ace092489b6e9490d0ade8234eec4d83f85095a28b"
+}

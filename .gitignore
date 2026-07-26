@@ -29,6 +29,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.terraform/
 
 # OS
 .DS_Store

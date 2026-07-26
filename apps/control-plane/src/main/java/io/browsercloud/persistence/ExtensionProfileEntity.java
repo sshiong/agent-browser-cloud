@@ -74,6 +74,18 @@ public class ExtensionProfileEntity {
   @Column(name = "last_profiled_at")
   private Instant lastProfiledAt;
 
+  @Column(name = "sampling_tier", nullable = false)
+  private String samplingTier;
+
+  @Column(name = "healthy_sample_streak", nullable = false)
+  private int healthySampleStreak;
+
+  @Column(name = "next_sample_at")
+  private Instant nextSampleAt;
+
+  @Column(name = "sampling_cpu_budget_millis", nullable = false)
+  private int samplingCpuBudgetMillis;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -106,6 +118,9 @@ public class ExtensionProfileEntity {
       Instant now) {
     this.extensionId = extensionId;
     this.createdAt = now;
+    this.samplingTier = "HIGH";
+    this.samplingCpuBudgetMillis = 25;
+    this.nextSampleAt = now;
     update(
         displayName,
         staticCpuWeight,
@@ -180,6 +195,64 @@ public class ExtensionProfileEntity {
         .multiply(BigDecimal.valueOf(base))
         .setScale(0, RoundingMode.CEILING)
         .intValueExact();
+  }
+
+  public void applyObservation(
+      long sampleCount,
+      int p95CpuMillis,
+      int p95MemoryMib,
+      boolean pressureBurst,
+      Instant observedAt) {
+    this.samples = sampleCount;
+    this.p95CpuMillis = p95CpuMillis;
+    this.p95MemoryMib = p95MemoryMib;
+    this.lastProfiledAt = observedAt;
+
+    int cpuBase =
+        Math.max(
+            1,
+            staticCpuWeight + startupWeight + pageInjectionWeight + cryptoWeight + networkWeight);
+    int memoryBase =
+        Math.max(1, staticMemoryWeight + serviceWorkerWeight + cryptoWeight + pageInjectionWeight);
+    BigDecimal observedRatio =
+        BigDecimal.valueOf(
+                Math.max(p95CpuMillis / (double) cpuBase, p95MemoryMib / (double) memoryBase))
+            .setScale(4, RoundingMode.CEILING);
+
+    if (pressureBurst) {
+      samplingTier = "DEEP";
+      healthySampleStreak = 0;
+      nextSampleAt = observedAt.plusSeconds(15);
+    } else if (sampleCount < 20 || profileState.equals("PROBATION")) {
+      samplingTier = "HIGH";
+      healthySampleStreak = 0;
+      nextSampleAt = observedAt.plusSeconds(30);
+    } else if (observedRatio.compareTo(new BigDecimal("1.5000")) > 0) {
+      observedMultiplier = observedMultiplier.max(observedRatio);
+      samplingTier = "HIGH";
+      healthySampleStreak = 0;
+      nextSampleAt = observedAt.plusSeconds(30);
+    } else {
+      healthySampleStreak++;
+      if (healthySampleStreak >= 3) {
+        samplingTier =
+            switch (samplingTier) {
+              case "DEEP", "HIGH" -> "MEDIUM";
+              case "MEDIUM" -> "LOW";
+              default -> "LOW";
+            };
+        healthySampleStreak = 0;
+      }
+      nextSampleAt =
+          observedAt.plusSeconds(
+              switch (samplingTier) {
+                case "DEEP" -> 15;
+                case "HIGH" -> 30;
+                case "MEDIUM" -> 120;
+                default -> 300;
+              });
+    }
+    updatedAt = observedAt;
   }
 
   public String getExtensionId() {
@@ -260,6 +333,22 @@ public class ExtensionProfileEntity {
 
   public Instant getLastProfiledAt() {
     return lastProfiledAt;
+  }
+
+  public String getSamplingTier() {
+    return samplingTier;
+  }
+
+  public int getHealthySampleStreak() {
+    return healthySampleStreak;
+  }
+
+  public Instant getNextSampleAt() {
+    return nextSampleAt;
+  }
+
+  public int getSamplingCpuBudgetMillis() {
+    return samplingCpuBudgetMillis;
   }
 
   public Instant getUpdatedAt() {

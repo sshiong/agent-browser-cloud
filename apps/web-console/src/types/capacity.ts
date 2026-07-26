@@ -8,11 +8,13 @@ export interface BrowserNodeView {
   certifiedMemoryMib: number;
   certifiedPidCount: number;
   certifiedGpuSlots: number;
+  certifiedMediaSlots: number;
   safetyMarginPercent: number;
   reservedCpuMillis: number;
   reservedMemoryMib: number;
   reservedPidCount: number;
   reservedGpuSlots: number;
+  reservedMediaSlots: number;
   activeSessions: number;
   maxSessions: number;
   memoryPsiSomeAvg10: number;
@@ -23,6 +25,7 @@ export interface BrowserNodeView {
   pressureReason?: string;
   supportsDesktop: boolean;
   supportsGpu: boolean;
+  supportsMedia: boolean;
   supportsNativeOs: boolean;
   isolationCapable: boolean;
   labels: Record<string, string>;
@@ -56,6 +59,9 @@ export interface ExtensionProfileView {
   p95CpuMillis?: number;
   p95MemoryMib?: number;
   lastProfiledAt?: string;
+  samplingTier: 'LOW' | 'MEDIUM' | 'HIGH' | 'DEEP';
+  samplingCpuBudgetMillis: number;
+  nextSampleAt?: string;
   updatedAt: string;
 }
 

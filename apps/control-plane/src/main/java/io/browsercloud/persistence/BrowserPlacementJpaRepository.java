@@ -14,6 +14,25 @@ public interface BrowserPlacementJpaRepository
 
   List<BrowserPlacementEntity> findAllByNodeIdAndStateIn(String nodeId, Collection<String> states);
 
+  @Query(
+      value =
+          """
+          SELECT placement.*
+          FROM browser_placements placement
+          JOIN browser_nodes node ON node.node_id = placement.node_id
+          WHERE node.pressure_state = 'CRITICAL'
+            AND placement.state = 'ACTIVE'
+          ORDER BY
+            placement.unknown_extension_count DESC,
+            placement.requested_resource_class ASC,
+            placement.memory_request_mib DESC,
+            placement.reserved_at DESC
+          FOR UPDATE OF placement SKIP LOCKED
+          LIMIT 1
+          """,
+      nativeQuery = true)
+  Optional<BrowserPlacementEntity> claimPressureEvictionCandidate();
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
       "select placement from BrowserPlacementEntity placement where placement.sessionId = :sessionId")

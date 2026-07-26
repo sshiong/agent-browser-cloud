@@ -73,6 +73,8 @@ message ReportCapacityRequest {
   bool supports_native_os = 12;
   bool isolation_capable = 13;
   map<string, string> labels = 14;
+  uint32 certified_media_slots = 15;
+  bool supports_media = 16;
   double memory_psi_some_avg10 = 20;
   double memory_psi_full_avg10 = 21;
   double cpu_psi_some_avg10 = 22;

@@ -70,6 +70,11 @@ const SecurityPage = lazy(() =>
     default: module.SecurityPage,
   }))
 );
+const EnterpriseOperationsPage = lazy(() =>
+  import('@/features/enterprise/EnterpriseOperationsPage').then((module) => ({
+    default: module.EnterpriseOperationsPage,
+  }))
+);
 const SettingsPage = lazy(() =>
   import('@/features/settings/SettingsPage').then((module) => ({
     default: module.SettingsPage,
@@ -153,6 +158,16 @@ export function App() {
               element={
                 <RequireRoles roles={['SECURITY_ADMIN', 'PLATFORM_ADMIN']}>
                   <SecurityPage />
+                </RequireRoles>
+              }
+            />
+            <Route
+              path="/enterprise"
+              element={
+                <RequireRoles
+                  roles={['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN']}
+                >
+                  <EnterpriseOperationsPage />
                 </RequireRoles>
               }
             />

@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, ArrowRight, Check, LoaderCircle, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
@@ -10,35 +10,52 @@ import { isSessionApiError } from '@/api/session';
 import { useCreateSession } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
 
-const schema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, '请输入环境名称')
-    .max(128, '环境名称不能超过 128 个字符'),
-  profileId: z.string().trim().min(1, '请输入 Profile ID').max(128),
-  region: z
-    .string()
-    .trim()
-    .regex(/^[a-z0-9-]{1,32}$/, '仅支持小写字母、数字和连字符'),
-  resourceClass: z.enum(['L0', 'L1', 'L2', 'L3', 'L4', 'L5']),
-  requestedTabs: z.coerce.number().int().min(1).max(64),
-  agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
-  remoteDesktop: z.boolean(),
-  web3Workload: z.boolean(),
-  extensionIds: z
-    .string()
-    .max(2048)
-    .refine(
-      (value) =>
-        value
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean)
-          .every((item) => /^[a-zA-Z0-9_.-]{1,128}$/.test(item)),
-      '扩展 ID 仅支持字母、数字、点、下划线和连字符'
-    ),
-});
+const schema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, '请输入环境名称')
+      .max(128, '环境名称不能超过 128 个字符'),
+    profileId: z.string().trim().min(1, '请输入 Profile ID').max(128),
+    region: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9-]{1,32}$/, '仅支持小写字母、数字和连字符'),
+    resourceClass: z.enum(['L0', 'L1', 'L2', 'L3', 'L4', 'L5']),
+    requestedTabs: z.coerce.number().int().min(1).max(64),
+    agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
+    remoteDesktop: z.boolean(),
+    web3Workload: z.boolean(),
+    mediaWorkload: z.boolean(),
+    requestedMediaStreams: z.coerce.number().int().min(0).max(32),
+    mediaBitrateKbps: z.coerce.number().int().min(0).max(1_000_000),
+    extensionIds: z
+      .string()
+      .max(2048)
+      .refine(
+        (value) =>
+          value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .every((item) => /^[a-zA-Z0-9_.-]{1,128}$/.test(item)),
+        '扩展 ID 仅支持字母、数字、点、下划线和连字符'
+      ),
+  })
+  .superRefine((value, context) => {
+    const hasMediaBudget =
+      value.requestedMediaStreams > 0 && value.mediaBitrateKbps > 0;
+    if (value.mediaWorkload !== hasMediaBudget) {
+      context.addIssue({
+        code: 'custom',
+        path: ['requestedMediaStreams'],
+        message: value.mediaWorkload
+          ? '媒体任务需要正数流数量和聚合码率'
+          : '未启用媒体任务时媒体预算必须为 0',
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -65,6 +82,7 @@ export function CreateSessionDialog({
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
     trigger,
     watch,
   } = useForm<FormValues>({
@@ -78,11 +96,21 @@ export function CreateSessionDialog({
       agentActionsPerMinute: 60,
       remoteDesktop: false,
       web3Workload: false,
+      mediaWorkload: false,
+      requestedMediaStreams: 0,
+      mediaBitrateKbps: 0,
       extensionIds: '',
     },
   });
 
   const values = watch();
+
+  useEffect(() => {
+    if (!values.mediaWorkload) {
+      setValue('requestedMediaStreams', 0);
+      setValue('mediaBitrateKbps', 0);
+    }
+  }, [setValue, values.mediaWorkload]);
 
   const resetFlow = () => {
     setStep(1);
@@ -104,6 +132,9 @@ export function CreateSessionDialog({
             'agentActionsPerMinute',
             'remoteDesktop',
             'web3Workload',
+            'mediaWorkload',
+            'requestedMediaStreams',
+            'mediaBitrateKbps',
             'extensionIds',
           ] as const);
     if (await trigger(fields)) setStep((current) => (current + 1) as 2 | 3);
@@ -121,6 +152,9 @@ export function CreateSessionDialog({
         agentActionsPerMinute: form.agentActionsPerMinute,
         remoteDesktop: form.remoteDesktop,
         web3Workload: form.web3Workload,
+        mediaWorkload: form.mediaWorkload,
+        requestedMediaStreams: form.requestedMediaStreams,
+        mediaBitrateKbps: form.mediaBitrateKbps,
         extensionIds: form.extensionIds
           .split(',')
           .map((item) => item.trim())
@@ -329,6 +363,52 @@ export function CreateSessionDialog({
                   <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
                     <input
                       type="checkbox"
+                      {...register('mediaWorkload')}
+                      className="mt-0.5 h-4 w-4 accent-accent"
+                    />
+                    <span>
+                      <span className="block text-[12px] font-medium text-text-primary">
+                        Media / Encoder 工作负载
+                      </span>
+                      <span className="mt-1 block text-[10px] text-text-muted">
+                        使用独立媒体槽位、租户并发流和聚合码率配额，并至少提升到
+                        L4。
+                      </span>
+                    </span>
+                  </label>
+
+                  {values.mediaWorkload ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field
+                        label="并发媒体流"
+                        error={errors.requestedMediaStreams?.message}
+                      >
+                        <input
+                          type="number"
+                          min={1}
+                          max={32}
+                          {...register('requestedMediaStreams')}
+                          className="field-input font-mono"
+                        />
+                      </Field>
+                      <Field
+                        label="聚合码率 (kbps)"
+                        error={errors.mediaBitrateKbps?.message}
+                      >
+                        <input
+                          type="number"
+                          min={1}
+                          max={1_000_000}
+                          {...register('mediaBitrateKbps')}
+                          className="field-input font-mono"
+                        />
+                      </Field>
+                    </div>
+                  ) : null}
+
+                  <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
+                    <input
+                      type="checkbox"
                       {...register('web3Workload')}
                       className="mt-0.5 h-4 w-4 accent-accent"
                     />
@@ -369,6 +449,15 @@ export function CreateSessionDialog({
                     <ReviewItem
                       label="远程桌面 / Web3"
                       value={`${values.remoteDesktop ? 'YES' : 'NO'} / ${values.web3Workload ? 'YES' : 'NO'}`}
+                      mono
+                    />
+                    <ReviewItem
+                      label="Media streams / bitrate"
+                      value={
+                        values.mediaWorkload
+                          ? `${values.requestedMediaStreams} / ${values.mediaBitrateKbps} kbps`
+                          : 'NONE'
+                      }
                       mono
                     />
                     <ReviewItem

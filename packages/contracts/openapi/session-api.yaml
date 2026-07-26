@@ -1125,6 +1125,39 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/extensions/{extensionId}:sample:
+    post:
+      operationId: recordExtensionProfileSample
+      summary: Record a budgeted Extension runtime sample and update its P95 profile
+      tags: [Capacity]
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordExtensionSampleRequest"
+      responses:
+        "200":
+          description: Updated adaptive Extension profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/browser-placements/{sessionId}:
     get:
       operationId: getBrowserPlacement
@@ -1143,6 +1176,539 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/overview:
+    get:
+      operationId: getEnterpriseOverview
+      summary: Read tenant enterprise operations state
+      tags: [Enterprise]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Runtime validation, cost, SLO, retention, compliance and DR overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseOverview"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/runtime-validations:
+    get:
+      operationId: listRuntimeValidations
+      summary: List Build-bound Runtime Validation runs
+      tags: [Enterprise, Runtime]
+      responses:
+        "200":
+          description: Validation runs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RuntimeValidation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: startRuntimeValidation
+      summary: Start a Build/environment/dataset-bound Runtime Validation
+      tags: [Enterprise, Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRuntimeValidationRequest"
+      responses:
+        "200":
+          description: Validation started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/runtime-validations/{validationId}:complete:
+    post:
+      operationId: completeRuntimeValidation
+      summary: Commit immutable Runtime Validation evidence
+      tags: [Enterprise, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/ValidationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteRuntimeValidationRequest"
+      responses:
+        "200":
+          description: Validation completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/cost-rates:
+    get:
+      operationId: listEnterpriseCostRates
+      summary: List versioned scheduler cost rates
+      tags: [Enterprise, Cost]
+      responses:
+        "200":
+          description: Cost rates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CostRate"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createEnterpriseCostRate
+      summary: Create an immutable effective-dated cost rate
+      tags: [Enterprise, Cost]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCostRateRequest"
+      responses:
+        "200":
+          description: Cost rate created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostRate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/enterprise/sessions/{sessionId}/cost-explanation:
+    get:
+      operationId: explainSessionCost
+      summary: Recompute the hourly Session cost from its Placement and pricing version
+      tags: [Enterprise, Cost]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Cost components and total.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionCostExplanation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/media-quota:
+    get:
+      operationId: getTenantMediaQuota
+      summary: Read independent tenant encoder-stream and bitrate limits
+      tags: [Enterprise, Cost]
+      responses:
+        "200":
+          description: Media quota and current active usage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaQuota"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: upsertTenantMediaQuota
+      summary: Configure independent tenant encoder-stream and bitrate limits
+      tags: [Enterprise, Cost]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertMediaQuotaRequest"
+      responses:
+        "200":
+          description: Updated media quota and current usage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaQuota"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/enterprise/slo-policy:
+    put:
+      operationId: upsertSloPolicy
+      summary: Configure the tenant SLO and error-budget window
+      tags: [Enterprise, SLO]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertSloPolicyRequest"
+      responses:
+        "200":
+          description: Current error budget.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBudget"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/enterprise/error-budget:
+    get:
+      operationId: getErrorBudget
+      summary: Calculate the tenant error budget
+      tags: [Enterprise, SLO]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current error budget.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBudget"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/service-level-events:
+    post:
+      operationId: recordServiceLevelEvent
+      summary: Record a bounded service-level observation
+      tags: [Enterprise, SLO]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordServiceLevelEventRequest"
+      responses:
+        "200":
+          description: Recalculated error budget.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBudget"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/enterprise/sla-exclusions:
+    get:
+      operationId: listSlaExclusions
+      summary: List explicit contract exclusions used by Error Budget accounting
+      tags: [Enterprise, SLO]
+      responses:
+        "200":
+          description: SLA exclusions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SlaExclusion"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/sla-exclusions/{exclusionCode}:
+    put:
+      operationId: upsertSlaExclusion
+      summary: Configure an explicit SLA exclusion
+      tags: [Enterprise, SLO]
+      parameters:
+        - name: exclusionCode
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z0-9_]{1,64}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertSlaExclusionRequest"
+      responses:
+        "200":
+          description: Updated SLA exclusion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlaExclusion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/retention-policies:
+    get:
+      operationId: listRetentionPolicies
+      summary: List tenant retention, residency and legal-hold policies
+      tags: [Enterprise, Compliance]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Retention policies.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RetentionPolicy"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: upsertRetentionPolicy
+      summary: Configure a tenant data-class retention policy
+      tags: [Enterprise, Compliance]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertRetentionPolicyRequest"
+      responses:
+        "200":
+          description: Retention policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionPolicy"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/enterprise/retention-deletion-receipts:
+    post:
+      operationId: createRetentionDeletionReceipt
+      summary: Delete an eligible retained object and generate a tamper-evident receipt
+      tags: [Enterprise, Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeletionReceiptRequest"
+      responses:
+        "200":
+          description: Deletion receipt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionReceipt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/enterprise/license-inventory:
+    get:
+      operationId: listLicenseInventory
+      summary: List Runtime, Extension, Service and SDK license evidence
+      tags: [Enterprise, Compliance]
+      responses:
+        "200":
+          description: License inventory.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LicenseInventory"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/license-inventory/{componentId}:
+    put:
+      operationId: upsertLicenseInventory
+      summary: Upsert a license evidence record
+      tags: [Enterprise, Compliance]
+      parameters:
+        - name: componentId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertLicenseInventoryRequest"
+      responses:
+        "200":
+          description: License evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LicenseInventory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/audit-exports:
+    post:
+      operationId: generateAuditExportManifest
+      summary: Generate a signed manifest for a contiguous tenant audit range
+      tags: [Enterprise, Compliance]
+      parameters:
+        - name: fromSequence
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: toSequence
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Signed audit export manifest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditExportManifest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/regions:
+    get:
+      operationId: listEnterpriseRegions
+      summary: List authoritative Region and replication state
+      tags: [Enterprise, DR]
+      responses:
+        "200":
+          description: Regions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EnterpriseRegion"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/regions/{regionId}:
+    put:
+      operationId: upsertEnterpriseRegion
+      summary: Register or verify a Region
+      tags: [Enterprise, DR]
+      parameters:
+        - $ref: "#/components/parameters/RegionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertRegionRequest"
+      responses:
+        "200":
+          description: Region state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseRegion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/enterprise/recovery-gamedays:
+    get:
+      operationId: listRecoveryGameDays
+      summary: List measured Recovery GameDays
+      tags: [Enterprise, DR]
+      responses:
+        "200":
+          description: Recovery GameDays.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecoveryGameDay"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: startRecoveryGameDay
+      summary: Start an RTO/RPO-bound Recovery GameDay
+      tags: [Enterprise, DR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRecoveryGameDayRequest"
+      responses:
+        "200":
+          description: GameDay started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryGameDay"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/enterprise/recovery-gamedays/{gameDayId}:complete:
+    post:
+      operationId: completeRecoveryGameDay
+      summary: Complete a Recovery GameDay with measured evidence
+      tags: [Enterprise, DR]
+      parameters:
+        - $ref: "#/components/parameters/GameDayId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteRecoveryGameDayRequest"
+      responses:
+        "200":
+          description: GameDay completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryGameDay"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/enterprise/compliance-snapshots:
+    post:
+      operationId: generateComplianceSnapshot
+      summary: Generate a hash-bound tenant compliance snapshot
+      tags: [Enterprise, Compliance]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: framework
+          in: query
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_.-]{1,64}$"
+            default: SOC2
+      responses:
+        "200":
+          description: Compliance snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   securitySchemes:
     bearerAuth:
@@ -1233,6 +1799,27 @@ components:
       schema:
         type: string
         pattern: "^rot_[A-Za-z0-9]{20}$"
+    ValidationId:
+      name: validationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^val_[A-Za-z0-9]{20}$"
+    RegionId:
+      name: regionId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]{1,32}$"
+    GameDayId:
+      name: gameDayId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^gameday_[A-Za-z0-9]{20}$"
   schemas:
     CreateAgentTaskRequest:
       type: object
@@ -1931,6 +2518,10 @@ components:
           type: integer
           minimum: 0
           maximum: 1024
+        certifiedMediaSlots:
+          type: integer
+          minimum: 0
+          maximum: 10000
         safetyMarginPercent:
           type: integer
           minimum: 10
@@ -1942,6 +2533,8 @@ components:
         supportsDesktop:
           type: boolean
         supportsGpu:
+          type: boolean
+        supportsMedia:
           type: boolean
         supportsNativeOs:
           type: boolean
@@ -1995,11 +2588,13 @@ components:
         - certifiedMemoryMib
         - certifiedPidCount
         - certifiedGpuSlots
+        - certifiedMediaSlots
         - safetyMarginPercent
         - reservedCpuMillis
         - reservedMemoryMib
         - reservedPidCount
         - reservedGpuSlots
+        - reservedMediaSlots
         - activeSessions
         - maxSessions
         - memoryPsiSomeAvg10
@@ -2009,6 +2604,7 @@ components:
         - pressureState
         - supportsDesktop
         - supportsGpu
+        - supportsMedia
         - supportsNativeOs
         - isolationCapable
         - labels
@@ -2035,6 +2631,8 @@ components:
           type: integer
         certifiedGpuSlots:
           type: integer
+        certifiedMediaSlots:
+          type: integer
         safetyMarginPercent:
           type: integer
         reservedCpuMillis:
@@ -2044,6 +2642,8 @@ components:
         reservedPidCount:
           type: integer
         reservedGpuSlots:
+          type: integer
+        reservedMediaSlots:
           type: integer
         activeSessions:
           type: integer
@@ -2065,6 +2665,8 @@ components:
         supportsDesktop:
           type: boolean
         supportsGpu:
+          type: boolean
+        supportsMedia:
           type: boolean
         supportsNativeOs:
           type: boolean
@@ -2177,6 +2779,9 @@ components:
         - crypto
         - privileged
         - samples
+        - samplingTier
+        - samplingCpuBudgetMillis
+        - nextSampleAt
         - updatedAt
       properties:
         extensionId:
@@ -2222,7 +2827,48 @@ components:
         lastProfiledAt:
           type: [string, "null"]
           format: date-time
+        samplingTier:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, DEEP]
+        samplingCpuBudgetMillis:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        nextSampleAt:
+          type: [string, "null"]
+          format: date-time
         updatedAt:
+          type: string
+          format: date-time
+    RecordExtensionSampleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - nodeId
+        - cpuMillis
+        - memoryMib
+        - cgroupPsiBurst
+        - sampleCpuMillis
+        - observedAt
+      properties:
+        nodeId:
+          type: string
+          pattern: "^node_[a-zA-Z0-9_-]{1,123}$"
+        cpuMillis:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        memoryMib:
+          type: integer
+          minimum: 0
+          maximum: 1048576
+        cgroupPsiBurst:
+          type: boolean
+        sampleCpuMillis:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        observedAt:
           type: string
           format: date-time
     ExtensionProfileListResponse:
@@ -2257,6 +2903,9 @@ components:
         - requiresGpu
         - requiresNativeOs
         - requiresIsolation
+        - requiresMedia
+        - mediaSlots
+        - mediaBitrateKbps
         - placementScore
         - state
         - reasonCodes
@@ -2296,11 +2945,21 @@ components:
           type: boolean
         requiresIsolation:
           type: boolean
+        requiresMedia:
+          type: boolean
+        mediaSlots:
+          type: integer
+          minimum: 0
+          maximum: 32
+        mediaBitrateKbps:
+          type: integer
+          minimum: 0
+          maximum: 1000000
         placementScore:
           type: integer
         state:
           type: string
-          enum: [RESERVED, ACTIVE, RELEASED]
+          enum: [RESERVED, ACTIVE, EVICTING, RELEASED]
         reasonCodes:
           type: array
           items:
@@ -2459,6 +3118,19 @@ components:
         web3Workload:
           type: boolean
           default: false
+        mediaWorkload:
+          type: boolean
+          default: false
+        requestedMediaStreams:
+          type: integer
+          minimum: 0
+          maximum: 32
+          default: 0
+        mediaBitrateKbps:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+          default: 0
         extensionIds:
           type: array
           maxItems: 32
@@ -3316,6 +3988,885 @@ components:
           enum: [SENSITIVE_MINIMIZED]
         fieldProjection:
           type: string
+    StartRuntimeValidationRequest:
+      type: object
+      additionalProperties: false
+      required: [buildId, suiteVersion, environmentDigest, replayDatasetId, persona]
+      properties:
+        buildId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,128}$"
+        suiteVersion:
+          type: string
+          maxLength: 64
+        environmentDigest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        replayDatasetId:
+          type: string
+          maxLength: 128
+        persona:
+          type: string
+          maxLength: 64
+    CompleteRuntimeValidationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - requiredTests
+        - requiredFailures
+        - optionalTests
+        - optionalFailures
+        - declaredCapabilities
+        - observedCapabilities
+        - optionalFailureCodes
+        - personaConsistent
+      properties:
+        requiredTests:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        requiredFailures:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        optionalTests:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        optionalFailures:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        declaredCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        observedCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        optionalFailureCodes:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            maxLength: 128
+        personaConsistent:
+          type: boolean
+    RuntimeValidation:
+      type: object
+      additionalProperties: false
+      required:
+        - validationId
+        - buildId
+        - suiteVersion
+        - environmentDigest
+        - replayDatasetId
+        - persona
+        - state
+        - requiredTests
+        - requiredFailures
+        - optionalTests
+        - optionalFailures
+        - declaredCapabilities
+        - observedCapabilities
+        - optionalFailureCodes
+        - evidenceHash
+        - requestedBy
+        - startedAt
+        - completedAt
+      properties:
+        validationId:
+          type: string
+          pattern: "^val_[A-Za-z0-9]{20}$"
+        buildId:
+          type: string
+        suiteVersion:
+          type: string
+        environmentDigest:
+          type: string
+        replayDatasetId:
+          type: string
+        persona:
+          type: string
+        state:
+          type: string
+          enum: [RUNNING, PASSED, DEGRADED, FAILED]
+        requiredTests:
+          type: integer
+        requiredFailures:
+          type: integer
+        optionalTests:
+          type: integer
+        optionalFailures:
+          type: integer
+        declaredCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        observedCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        optionalFailureCodes:
+          type: array
+          items:
+            type: string
+        evidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        requestedBy:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    CreateCostRateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - region
+        - resourceClass
+        - baseHourlyUsd
+        - cpuCoreHourlyUsd
+        - memoryGibHourlyUsd
+        - desktopHourlyUsd
+        - gpuHourlyUsd
+        - mediaHourlyUsd
+        - effectiveAt
+      properties:
+        region:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+        resourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        baseHourlyUsd:
+          type: number
+          minimum: 0
+        cpuCoreHourlyUsd:
+          type: number
+          minimum: 0
+        memoryGibHourlyUsd:
+          type: number
+          minimum: 0
+        desktopHourlyUsd:
+          type: number
+          minimum: 0
+        gpuHourlyUsd:
+          type: number
+          minimum: 0
+        mediaHourlyUsd:
+          type: number
+          minimum: 0
+        effectiveAt:
+          type: string
+          format: date-time
+    CostRate:
+      type: object
+      additionalProperties: false
+      required:
+        - pricingVersion
+        - region
+        - resourceClass
+        - baseHourlyUsd
+        - cpuCoreHourlyUsd
+        - memoryGibHourlyUsd
+        - desktopHourlyUsd
+        - gpuHourlyUsd
+        - mediaHourlyUsd
+        - effectiveAt
+        - createdBy
+        - createdAt
+      properties:
+        pricingVersion:
+          type: string
+        region:
+          type: string
+        resourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        baseHourlyUsd:
+          type: number
+        cpuCoreHourlyUsd:
+          type: number
+        memoryGibHourlyUsd:
+          type: number
+        desktopHourlyUsd:
+          type: number
+        gpuHourlyUsd:
+          type: number
+        mediaHourlyUsd:
+          type: number
+        effectiveAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    SessionCostExplanation:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - nodeId
+        - region
+        - resourceClass
+        - pricingVersion
+        - cpuMillis
+        - memoryRequestMib
+        - desktop
+        - gpu
+        - media
+        - baseHourlyUsd
+        - cpuHourlyUsd
+        - memoryHourlyUsd
+        - desktopHourlyUsd
+        - gpuHourlyUsd
+        - mediaHourlyUsd
+        - totalHourlyUsd
+        - pricedAt
+      properties:
+        sessionId:
+          type: string
+        nodeId:
+          type: string
+        region:
+          type: string
+        resourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        pricingVersion:
+          type: string
+        cpuMillis:
+          type: integer
+        memoryRequestMib:
+          type: integer
+        desktop:
+          type: boolean
+        gpu:
+          type: boolean
+        media:
+          type: boolean
+        baseHourlyUsd:
+          type: number
+        cpuHourlyUsd:
+          type: number
+        memoryHourlyUsd:
+          type: number
+        desktopHourlyUsd:
+          type: number
+        gpuHourlyUsd:
+          type: number
+        mediaHourlyUsd:
+          type: number
+        totalHourlyUsd:
+          type: number
+        pricedAt:
+          type: string
+          format: date-time
+    UpsertMediaQuotaRequest:
+      type: object
+      additionalProperties: false
+      required: [maxConcurrentStreams, maxBitrateKbps]
+      properties:
+        maxConcurrentStreams:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        maxBitrateKbps:
+          type: integer
+          minimum: 0
+          maximum: 100000000
+    MediaQuota:
+      type: object
+      additionalProperties: false
+      required:
+        - tenantId
+        - maxConcurrentStreams
+        - maxBitrateKbps
+        - activeStreams
+        - activeBitrateKbps
+        - updatedBy
+        - updatedAt
+      properties:
+        tenantId:
+          type: string
+        maxConcurrentStreams:
+          type: integer
+        maxBitrateKbps:
+          type: integer
+        activeStreams:
+          type: integer
+          format: int64
+        activeBitrateKbps:
+          type: integer
+          format: int64
+        updatedBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    UpsertSloPolicyRequest:
+      type: object
+      additionalProperties: false
+      required: [availabilityTarget, latencyP95TargetMs, windowMinutes]
+      properties:
+        availabilityTarget:
+          type: number
+          minimum: 0.9
+          maximum: 0.999999
+        latencyP95TargetMs:
+          type: integer
+          minimum: 1
+          maximum: 600000
+        windowMinutes:
+          type: integer
+          minimum: 60
+          maximum: 527040
+    RecordServiceLevelEventRequest:
+      type: object
+      additionalProperties: false
+      required: [eventType, durationSeconds, latencyP95Ms, source, occurredAt]
+      properties:
+        eventType:
+          type: string
+          enum: [UNAVAILABLE, LATENCY_BREACH, HEALTHY]
+        durationSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+        latencyP95Ms:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 600000
+        source:
+          type: string
+          maxLength: 128
+        occurredAt:
+          type: string
+          format: date-time
+        exclusionCode:
+          type: [string, "null"]
+          pattern: "^[A-Z0-9_]{1,64}$"
+    UpsertSlaExclusionRequest:
+      type: object
+      additionalProperties: false
+      required: [description, enabled]
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 256
+        enabled:
+          type: boolean
+    SlaExclusion:
+      type: object
+      additionalProperties: false
+      required: [tenantId, exclusionCode, description, enabled, updatedBy, updatedAt]
+      properties:
+        tenantId:
+          type: string
+        exclusionCode:
+          type: string
+        description:
+          type: string
+        enabled:
+          type: boolean
+        updatedBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    ErrorBudget:
+      type: object
+      additionalProperties: false
+      required:
+        - tenantId
+        - availabilityTarget
+        - latencyP95TargetMs
+        - windowMinutes
+        - allowedUnavailableSeconds
+        - consumedUnavailableSeconds
+        - remainingUnavailableSeconds
+        - burnRatio
+        - state
+        - windowStartedAt
+        - calculatedAt
+      properties:
+        tenantId:
+          type: string
+        availabilityTarget:
+          type: number
+        latencyP95TargetMs:
+          type: integer
+        windowMinutes:
+          type: integer
+        allowedUnavailableSeconds:
+          type: integer
+          format: int64
+        consumedUnavailableSeconds:
+          type: integer
+          format: int64
+        remainingUnavailableSeconds:
+          type: integer
+          format: int64
+        burnRatio:
+          type: number
+        state:
+          type: string
+          enum: [HEALTHY, EXHAUSTED]
+        windowStartedAt:
+          type: string
+          format: date-time
+        calculatedAt:
+          type: string
+          format: date-time
+    UpsertRetentionPolicyRequest:
+      type: object
+      additionalProperties: false
+      required: [dataClass, retentionDays, legalHold, residencyRegion]
+      properties:
+        dataClass:
+          type: string
+          enum:
+            - AUDIT
+            - AGENT_EXECUTION
+            - PROFILE_CHECKPOINT
+            - REMOTE_DESKTOP_RECORDING
+            - SECURE_DEBUG
+        retentionDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        legalHold:
+          type: boolean
+        residencyRegion:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+    RetentionPolicy:
+      type: object
+      additionalProperties: false
+      required:
+        - tenantId
+        - dataClass
+        - retentionDays
+        - legalHold
+        - residencyRegion
+        - updatedBy
+        - updatedAt
+      properties:
+        tenantId:
+          type: string
+        dataClass:
+          type: string
+        retentionDays:
+          type: integer
+        legalHold:
+          type: boolean
+        residencyRegion:
+          type: string
+        updatedBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    CreateDeletionReceiptRequest:
+      type: object
+      additionalProperties: false
+      required: [dataClass, objectId, contentDigest]
+      properties:
+        dataClass:
+          type: string
+          enum:
+            - AUDIT
+            - AGENT_EXECUTION
+            - PROFILE_CHECKPOINT
+            - REMOTE_DESKTOP_RECORDING
+            - SECURE_DEBUG
+        objectId:
+          type: string
+          minLength: 1
+          maxLength: 256
+        contentDigest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+    DeletionReceipt:
+      type: object
+      additionalProperties: false
+      required:
+        - receiptId
+        - tenantId
+        - dataClass
+        - objectId
+        - contentDigest
+        - policyUpdatedAt
+        - receiptHash
+        - deletedBy
+        - deletedAt
+      properties:
+        receiptId:
+          type: string
+        tenantId:
+          type: string
+        dataClass:
+          type: string
+        objectId:
+          type: string
+        contentDigest:
+          type: string
+        policyUpdatedAt:
+          type: string
+          format: date-time
+        receiptHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        deletedBy:
+          type: string
+        deletedAt:
+          type: string
+          format: date-time
+    UpsertLicenseInventoryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - componentType
+        - componentName
+        - componentVersion
+        - licenseId
+        - sourceUrl
+        - approved
+      properties:
+        componentType:
+          type: string
+          enum: [RUNTIME, EXTENSION, SERVICE, SDK]
+        componentName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        componentVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+        licenseId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        sourceUrl:
+          type: string
+          minLength: 1
+          maxLength: 512
+        approved:
+          type: boolean
+    LicenseInventory:
+      type: object
+      additionalProperties: false
+      required:
+        - componentId
+        - componentType
+        - componentName
+        - componentVersion
+        - licenseId
+        - sourceUrl
+        - approved
+        - evidenceHash
+        - updatedBy
+        - updatedAt
+      properties:
+        componentId:
+          type: string
+        componentType:
+          type: string
+          enum: [RUNTIME, EXTENSION, SERVICE, SDK]
+        componentName:
+          type: string
+        componentVersion:
+          type: string
+        licenseId:
+          type: string
+        sourceUrl:
+          type: string
+        approved:
+          type: boolean
+        evidenceHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        updatedBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    AuditExportManifest:
+      type: object
+      additionalProperties: false
+      required:
+        - exportId
+        - tenantId
+        - fromSequence
+        - toSequence
+        - eventCount
+        - firstEventHash
+        - lastEventHash
+        - manifestHash
+        - signatureAlgorithm
+        - signingKeyId
+        - signature
+        - generatedBy
+        - generatedAt
+      properties:
+        exportId:
+          type: string
+        tenantId:
+          type: string
+        fromSequence:
+          type: integer
+          format: int64
+        toSequence:
+          type: integer
+          format: int64
+        eventCount:
+          type: integer
+          format: int64
+        firstEventHash:
+          type: string
+        lastEventHash:
+          type: string
+        manifestHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        signatureAlgorithm:
+          type: string
+          enum: [HMAC-SHA256]
+        signingKeyId:
+          type: string
+        signature:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        generatedBy:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+    UpsertRegionRequest:
+      type: object
+      additionalProperties: false
+      required: [role, admissionState, replicationLagSeconds]
+      properties:
+        role:
+          type: string
+          enum: [PRIMARY, SECONDARY, DR]
+        admissionState:
+          type: string
+          enum: [OPEN, CLOSED, FAILOVER_READY]
+        replicationLagSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+    EnterpriseRegion:
+      type: object
+      additionalProperties: false
+      required:
+        - regionId
+        - role
+        - admissionState
+        - replicationLagSeconds
+        - lastVerifiedAt
+        - updatedBy
+      properties:
+        regionId:
+          type: string
+        role:
+          type: string
+          enum: [PRIMARY, SECONDARY, DR]
+        admissionState:
+          type: string
+          enum: [OPEN, CLOSED, FAILOVER_READY]
+        replicationLagSeconds:
+          type: integer
+        lastVerifiedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+    StartRecoveryGameDayRequest:
+      type: object
+      additionalProperties: false
+      required: [scenario, sourceRegion, targetRegion, rtoTargetSeconds, rpoTargetSeconds]
+      properties:
+        scenario:
+          type: string
+          maxLength: 128
+        sourceRegion:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+        targetRegion:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+        rtoTargetSeconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+        rpoTargetSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+    CompleteRecoveryGameDayRequest:
+      type: object
+      additionalProperties: false
+      required: [observedRtoSeconds, observedRpoSeconds, dataLossRecords]
+      properties:
+        observedRtoSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+        observedRpoSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+        dataLossRecords:
+          type: integer
+          minimum: 0
+    RecoveryGameDay:
+      type: object
+      additionalProperties: false
+      required:
+        - gameDayId
+        - scenario
+        - sourceRegion
+        - targetRegion
+        - state
+        - rtoTargetSeconds
+        - rpoTargetSeconds
+        - observedRtoSeconds
+        - observedRpoSeconds
+        - dataLossRecords
+        - evidenceHash
+        - startedBy
+        - startedAt
+        - completedAt
+      properties:
+        gameDayId:
+          type: string
+        scenario:
+          type: string
+        sourceRegion:
+          type: string
+        targetRegion:
+          type: string
+        state:
+          type: string
+          enum: [RUNNING, PASSED, FAILED]
+        rtoTargetSeconds:
+          type: integer
+        rpoTargetSeconds:
+          type: integer
+        observedRtoSeconds:
+          type: [integer, "null"]
+        observedRpoSeconds:
+          type: [integer, "null"]
+        dataLossRecords:
+          type: [integer, "null"]
+        evidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        startedBy:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    ComplianceSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - snapshotId
+        - tenantId
+        - framework
+        - controlCount
+        - passingControls
+        - evidenceHash
+        - evidence
+        - generatedBy
+        - generatedAt
+      properties:
+        snapshotId:
+          type: string
+        tenantId:
+          type: string
+        framework:
+          type: string
+        controlCount:
+          type: integer
+        passingControls:
+          type: integer
+        evidenceHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        evidence:
+          $ref: "#/components/schemas/BooleanMap"
+        generatedBy:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+    EnterpriseOverview:
+      type: object
+      additionalProperties: false
+      required:
+        - validations
+        - costRates
+        - mediaQuota
+        - errorBudget
+        - slaExclusions
+        - retentionPolicies
+        - licenseInventory
+        - regions
+        - recoveryGameDays
+        - latestCompliance
+        - generatedAt
+      properties:
+        validations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeValidation"
+        costRates:
+          type: array
+          items:
+            $ref: "#/components/schemas/CostRate"
+        mediaQuota:
+          oneOf:
+            - $ref: "#/components/schemas/MediaQuota"
+            - type: "null"
+        errorBudget:
+          oneOf:
+            - $ref: "#/components/schemas/ErrorBudget"
+            - type: "null"
+        slaExclusions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlaExclusion"
+        retentionPolicies:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionPolicy"
+        licenseInventory:
+          type: array
+          items:
+            $ref: "#/components/schemas/LicenseInventory"
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnterpriseRegion"
+        recoveryGameDays:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryGameDay"
+        latestCompliance:
+          oneOf:
+            - $ref: "#/components/schemas/ComplianceSnapshot"
+            - type: "null"
+        generatedAt:
+          type: string
+          format: date-time
+    BooleanMap:
+      type: object
+      additionalProperties:
+        type: boolean
     Error:
       type: object
       additionalProperties: false
@@ -3360,6 +4911,12 @@ components:
             $ref: "#/components/schemas/Error"
     Conflict:
       description: State or idempotency conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServiceUnavailable:
+      description: A required capacity or dependency is temporarily unavailable.
       content:
         application/json:
           schema:

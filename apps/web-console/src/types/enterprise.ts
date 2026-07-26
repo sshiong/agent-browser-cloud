@@ -1,0 +1,143 @@
+export interface RuntimeValidationView {
+  validationId: string;
+  buildId: string;
+  suiteVersion: string;
+  environmentDigest: string;
+  replayDatasetId: string;
+  persona: string;
+  state: 'RUNNING' | 'PASSED' | 'DEGRADED' | 'FAILED';
+  requiredTests: number;
+  requiredFailures: number;
+  optionalTests: number;
+  optionalFailures: number;
+  declaredCapabilities: Record<string, boolean>;
+  observedCapabilities: Record<string, boolean>;
+  optionalFailureCodes: string[];
+  evidenceHash: string | null;
+  requestedBy: string;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface CostRateView {
+  pricingVersion: string;
+  region: string;
+  resourceClass: string;
+  baseHourlyUsd: number;
+  cpuCoreHourlyUsd: number;
+  memoryGibHourlyUsd: number;
+  desktopHourlyUsd: number;
+  gpuHourlyUsd: number;
+  mediaHourlyUsd: number;
+  effectiveAt: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface ErrorBudgetView {
+  tenantId: string;
+  availabilityTarget: number;
+  latencyP95TargetMs: number;
+  windowMinutes: number;
+  allowedUnavailableSeconds: number;
+  consumedUnavailableSeconds: number;
+  remainingUnavailableSeconds: number;
+  burnRatio: number;
+  state: 'HEALTHY' | 'EXHAUSTED';
+  windowStartedAt: string;
+  calculatedAt: string;
+}
+
+export interface MediaQuotaView {
+  tenantId: string;
+  maxConcurrentStreams: number;
+  maxBitrateKbps: number;
+  activeStreams: number;
+  activeBitrateKbps: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface RetentionPolicyView {
+  tenantId: string;
+  dataClass: string;
+  retentionDays: number;
+  legalHold: boolean;
+  residencyRegion: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface SlaExclusionView {
+  tenantId: string;
+  exclusionCode: string;
+  description: string;
+  enabled: boolean;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface LicenseInventoryView {
+  componentId: string;
+  componentType: 'RUNTIME' | 'EXTENSION' | 'SERVICE' | 'SDK';
+  componentName: string;
+  componentVersion: string;
+  licenseId: string;
+  sourceUrl: string;
+  approved: boolean;
+  evidenceHash: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface RegionView {
+  regionId: string;
+  role: 'PRIMARY' | 'SECONDARY' | 'DR';
+  admissionState: 'OPEN' | 'CLOSED' | 'FAILOVER_READY';
+  replicationLagSeconds: number;
+  lastVerifiedAt: string;
+  updatedBy: string;
+}
+
+export interface RecoveryGameDayView {
+  gameDayId: string;
+  scenario: string;
+  sourceRegion: string;
+  targetRegion: string;
+  state: 'RUNNING' | 'PASSED' | 'FAILED';
+  rtoTargetSeconds: number;
+  rpoTargetSeconds: number;
+  observedRtoSeconds: number | null;
+  observedRpoSeconds: number | null;
+  dataLossRecords: number | null;
+  evidenceHash: string | null;
+  startedBy: string;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface ComplianceSnapshotView {
+  snapshotId: string;
+  tenantId: string;
+  framework: string;
+  controlCount: number;
+  passingControls: number;
+  evidenceHash: string;
+  evidence: Record<string, boolean>;
+  generatedBy: string;
+  generatedAt: string;
+}
+
+export interface EnterpriseOverviewResponse {
+  validations: RuntimeValidationView[];
+  costRates: CostRateView[];
+  mediaQuota: MediaQuotaView | null;
+  errorBudget: ErrorBudgetView | null;
+  slaExclusions: SlaExclusionView[];
+  retentionPolicies: RetentionPolicyView[];
+  licenseInventory: LicenseInventoryView[];
+  regions: RegionView[];
+  recoveryGameDays: RecoveryGameDayView[];
+  latestCompliance: ComplianceSnapshotView | null;
+  generatedAt: string;
+}

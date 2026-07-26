@@ -8,16 +8,20 @@ CLUSTER_NAME="${KIND_CLUSTER_NAME:-agent-browser-operator}"
 KUBE_CONTEXT="kind-${CLUSTER_NAME}"
 NAMESPACE="browsercloud-system"
 OPERATOR_IMAGE="agent-browser-cloud/operator:kind"
+N_MINUS_ONE_OPERATOR_IMAGE="agent-browser-cloud/operator:kind-n-minus-one"
+N_MINUS_ONE_COMMIT="${N_MINUS_ONE_COMMIT:-$(git -C "${ROOT_DIR}" rev-parse HEAD^)}"
 MOCK_IMAGE="agent-browser-cloud/mock-control-plane:kind"
 PYTHON_BASE_IMAGE="${PYTHON_BASE_IMAGE:-cgr.dev/chainguard/python@sha256:a0365f7b90bf7b78a5e35f2709efb7c9263acf9c7b1905e0ec4c3e943c88e64d}"
 PORT_FORWARD_PID=""
 CLUSTER_CREATED=false
+N_MINUS_ONE_CONTEXT="$(mktemp -d)"
 
 cleanup() {
   if [[ -n "${PORT_FORWARD_PID}" ]]; then
     kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
   fi
   "${KIND_BIN}" delete cluster --name "${CLUSTER_NAME}" >/dev/null 2>&1 || true
+  rm -rf "${N_MINUS_ONE_CONTEXT}"
 }
 
 failure_context() {
@@ -62,12 +66,18 @@ command -v "${KIND_BIN}" >/dev/null
 
 docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
   -t "${OPERATOR_IMAGE}" "${ROOT_DIR}/tools/browser-session-operator"
+git -C "${ROOT_DIR}" archive "${N_MINUS_ONE_COMMIT}" tools/browser-session-operator |
+  tar -x -C "${N_MINUS_ONE_CONTEXT}"
+docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
+  -t "${N_MINUS_ONE_OPERATOR_IMAGE}" \
+  "${N_MINUS_ONE_CONTEXT}/tools/browser-session-operator"
 docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
   -t "${MOCK_IMAGE}" "${ROOT_DIR}/tests/kubernetes/fixtures"
 
 "${KIND_BIN}" create cluster --name "${CLUSTER_NAME}" --wait 90s
 CLUSTER_CREATED=true
-"${KIND_BIN}" load docker-image --name "${CLUSTER_NAME}" "${OPERATOR_IMAGE}" "${MOCK_IMAGE}"
+"${KIND_BIN}" load docker-image --name "${CLUSTER_NAME}" \
+  "${OPERATOR_IMAGE}" "${N_MINUS_ONE_OPERATOR_IMAGE}" "${MOCK_IMAGE}"
 
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply \
   -f "${ROOT_DIR}/deploy/kubernetes/base/namespace.yaml" \
@@ -110,7 +120,7 @@ for entry in container["env"]:
         entry.pop("valueFrom", None)
         entry["value"] = "http://mock-control-plane.browsercloud-system.svc:8080"
 json.dump(deployment, sys.stdout)
-' "${OPERATOR_IMAGE}" |
+' "${N_MINUS_ONE_OPERATOR_IMAGE}" |
   "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
 
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" create --dry-run=client \
@@ -213,6 +223,45 @@ spec:
 YAML
 wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
 
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  set image deployment/browser-session-operator "operator=${OPERATOR_IMAGE}"
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  rollout status deployment/browser-session-operator --timeout=90s
+wait_for_jsonpath "browsersession/kind-primary" "{.status.phase}" "Ready"
+wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
+
+cat <<'YAML' | "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
+apiVersion: browsercloud.io/v1alpha1
+kind: BrowserSession
+metadata:
+  name: kind-after-upgrade
+  namespace: browsercloud-system
+spec:
+  tenantId: tenant-kind
+  profileId: profile-kind
+  region: local
+  resourceClass: L2
+YAML
+wait_for_jsonpath "browsersession/kind-after-upgrade" "{.status.phase}" "Ready"
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  set image deployment/browser-session-operator "operator=${N_MINUS_ONE_OPERATOR_IMAGE}"
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  rollout status deployment/browser-session-operator --timeout=90s
+wait_for_jsonpath "browsersession/kind-after-upgrade" "{.status.phase}" "Ready"
+
+cat <<'YAML' | "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
+apiVersion: browsercloud.io/v1alpha1
+kind: BrowserSession
+metadata:
+  name: kind-after-rollback
+  namespace: browsercloud-system
+spec:
+  tenantId: tenant-kind
+  profileId: profile-kind
+YAML
+wait_for_jsonpath "browsersession/kind-after-rollback" "{.status.phase}" "Ready"
+
 if cat <<'YAML' | "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f - >/dev/null 2>&1
 apiVersion: browsercloud.io/v1alpha1
 kind: BrowserSession
@@ -248,9 +297,9 @@ import json
 import os
 
 stats = json.loads(os.environ["STATS"])
-assert stats["createCalls"] == 2, stats
+assert stats["createCalls"] == 4, stats
 assert stats["terminateCalls"] == 1, stats
 '
 
-printf 'Kubernetes operator E2E passed: leader=%s failoverLeader=%s stats=%s\n' \
-  "${leader}" "${new_leader}" "${stats}"
+printf 'Kubernetes operator N/N-1 E2E passed: baseline=%s leader=%s failoverLeader=%s stats=%s\n' \
+  "${N_MINUS_ONE_COMMIT}" "${leader}" "${new_leader}" "${stats}"

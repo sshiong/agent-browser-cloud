@@ -126,10 +126,12 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 request.getCertifiedMemoryMib(),
                 request.getCertifiedPidCount(),
                 request.getCertifiedGpuSlots(),
+                request.getCertifiedMediaSlots(),
                 request.getSafetyMarginPercent(),
                 request.getMaxSessions(),
                 request.getSupportsDesktop(),
                 request.getSupportsGpu(),
+                request.getSupportsMedia(),
                 request.getSupportsNativeOs(),
                 request.getIsolationCapable(),
                 request.getLabelsMap());

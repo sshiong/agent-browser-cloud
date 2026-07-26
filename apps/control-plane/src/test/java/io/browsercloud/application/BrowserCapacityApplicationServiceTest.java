@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.api.RecordExtensionSampleRequest;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapacityUnavailableException;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.ResourceClass;
@@ -19,6 +20,7 @@ import io.browsercloud.persistence.BrowserPlacementEntity;
 import io.browsercloud.persistence.BrowserPlacementJpaRepository;
 import io.browsercloud.persistence.ExtensionProfileEntity;
 import io.browsercloud.persistence.ExtensionProfileJpaRepository;
+import io.browsercloud.persistence.ExtensionProfileSampleJpaRepository;
 import io.browsercloud.persistence.SessionResourceDemandEntity;
 import io.browsercloud.persistence.SessionResourceDemandJpaRepository;
 import java.math.BigDecimal;
@@ -37,9 +39,11 @@ class BrowserCapacityApplicationServiceTest {
 
   @Mock private BrowserNodeJpaRepository nodeRepository;
   @Mock private ExtensionProfileJpaRepository extensionRepository;
+  @Mock private ExtensionProfileSampleJpaRepository extensionSampleRepository;
   @Mock private SessionResourceDemandJpaRepository demandRepository;
   @Mock private BrowserPlacementJpaRepository placementRepository;
   @Mock private SessionRepository sessionRepository;
+  @Mock private EnterpriseOperationsApplicationService enterpriseOperationsService;
 
   private BrowserCapacityApplicationService service;
   private ObjectMapper objectMapper;
@@ -51,9 +55,11 @@ class BrowserCapacityApplicationServiceTest {
         new BrowserCapacityApplicationService(
             nodeRepository,
             extensionRepository,
+            extensionSampleRepository,
             demandRepository,
             placementRepository,
             sessionRepository,
+            enterpriseOperationsService,
             objectMapper);
   }
 
@@ -69,6 +75,9 @@ class BrowserCapacityApplicationServiceTest {
             0,
             false,
             false,
+            false,
+            0,
+            0,
             objectMapper.writeValueAsString(List.of("unknown.wallet")),
             now);
     var node = standardNode(now);
@@ -100,6 +109,96 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   @Test
+  void rejectsExtensionSampleThatExceedsProfilingCpuBudget() {
+    var now = Instant.now();
+    var profile =
+        new ExtensionProfileEntity(
+            "extension.wallet",
+            "Wallet",
+            100,
+            200,
+            0,
+            0,
+            0,
+            0,
+            0,
+            BigDecimal.ONE,
+            new BigDecimal("0.9000"),
+            "OBSERVED",
+            true,
+            false,
+            false,
+            false,
+            now);
+    when(extensionRepository.findById("extension.wallet")).thenReturn(Optional.of(profile));
+    when(nodeRepository.existsById("node_local")).thenReturn(true);
+
+    assertThatThrownBy(
+            () ->
+                service.recordExtensionSample(
+                    "extension.wallet",
+                    new RecordExtensionSampleRequest("node_local", 100, 200, false, 26, now),
+                    now))
+        .isInstanceOf(BrowserCapacityApplicationService.ExtensionProfileRejectedException.class)
+        .hasMessage("extension sampling CPU budget exceeded");
+  }
+
+  @Test
+  void mediaWorkloadUsesIndependentEncoderSlotsWithoutRequiringGpu() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L1,
+            1,
+            0,
+            false,
+            false,
+            true,
+            1,
+            4000,
+            "[]",
+            now);
+    var node =
+        new BrowserNodeEntity(
+            "node_local",
+            "local",
+            "localhost:9090",
+            10_000,
+            16_384,
+            4096,
+            0,
+            2,
+            20,
+            10,
+            true,
+            false,
+            true,
+            false,
+            true,
+            "{}",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
+        .thenReturn(List.of());
+    when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var placement = service.reserve(session(ResourceClass.L1), "local");
+
+    assertThat(placement.effectiveResourceClass()).isEqualTo(ResourceClass.L4);
+    assertThat(placement.requiresMedia()).isTrue();
+    assertThat(placement.requiresGpu()).isFalse();
+    assertThat(placement.mediaSlots()).isEqualTo(1);
+    assertThat(node.getReservedMediaSlots()).isEqualTo(1);
+    verify(enterpriseOperationsService).requireMediaQuota("tenant-a", 1, 4000);
+  }
+
+  @Test
   void privilegedExtensionCannotMixWithAnExistingOrdinaryPlacement() throws Exception {
     var now = Instant.now();
     var demand =
@@ -111,6 +210,9 @@ class BrowserCapacityApplicationServiceTest {
             0,
             false,
             false,
+            false,
+            0,
+            0,
             objectMapper.writeValueAsString(List.of("wallet.privileged")),
             now);
     var extension =
@@ -151,6 +253,9 @@ class BrowserCapacityApplicationServiceTest {
             false,
             false,
             false,
+            false,
+            0,
+            0,
             0,
             "[]",
             now);
@@ -203,6 +308,45 @@ class BrowserCapacityApplicationServiceTest {
     assertThat(node.getAdmissionState()).isEqualTo("OPEN");
   }
 
+  @Test
+  void criticalPressureClaimsOnlyOneActivePlacementForBoundedEviction() {
+    var now = Instant.now();
+    var placement =
+        new BrowserPlacementEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            "node_local",
+            ResourceClass.L1,
+            ResourceClass.L2,
+            "[]",
+            1,
+            750,
+            1024,
+            1280,
+            192,
+            8,
+            false,
+            false,
+            false,
+            false,
+            false,
+            0,
+            0,
+            0,
+            "[]",
+            now);
+    placement.activate(now);
+    when(placementRepository.claimPressureEvictionCandidate()).thenReturn(Optional.of(placement));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var candidate = service.claimPressureEviction().orElseThrow();
+
+    assertThat(candidate.sessionId()).isEqualTo("ses_1234567890abcdef");
+    assertThat(candidate.nodeId()).isEqualTo("node_local");
+    assertThat(placement.getState()).isEqualTo("EVICTING");
+    assertThat(placement.getReasonCodes()).contains("NODE_PRESSURE_EVICTION");
+  }
+
   private static BrowserNodeEntity standardNode(Instant now) {
     return new BrowserNodeEntity(
         "node_local",
@@ -212,9 +356,11 @@ class BrowserCapacityApplicationServiceTest {
         16_384,
         4096,
         0,
+        0,
         20,
         10,
         true,
+        false,
         false,
         false,
         true,

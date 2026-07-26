@@ -1,0 +1,49 @@
+{
+  "datasetId": "production-like-public-v1",
+  "version": "1.0.0",
+  "containsProductionData": false,
+  "authorization": {
+    "basis": "Public documentation pages and a repository-owned synthetic control fixture",
+    "personalData": false,
+    "credentials": false,
+    "reviewedAt": "2026-07-26T00:00:00Z"
+  },
+  "persona": "default",
+  "cases": [
+    {
+      "caseId": "public-example-navigation",
+      "kind": "PUBLIC_PAGE",
+      "url": "https://example.com/",
+      "allowedDomains": ["example.com"],
+      "requiredTools": ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
+    },
+    {
+      "caseId": "public-w3c-navigation",
+      "kind": "PUBLIC_PAGE",
+      "url": "https://www.w3.org/",
+      "allowedDomains": ["www.w3.org"],
+      "requiredTools": ["NAVIGATE", "GET_CURRENT_STATE", "GET_URL", "GET_PAGE_SUMMARY"]
+    },
+    {
+      "caseId": "synthetic-form-controls",
+      "kind": "SYNTHETIC_CONTROL",
+      "url": "http://agent-controls.invalid/form",
+      "allowedDomains": ["agent-controls.invalid"],
+      "requiredControls": ["NAVIGATE", "TYPE_TEXT", "SCROLL"]
+    },
+    {
+      "caseId": "cross-domain-fail-closed",
+      "kind": "SECURITY_NEGATIVE",
+      "url": "https://example.com/",
+      "allowedDomains": ["example.com"],
+      "expectedFailure": "POST_ACTION_DOMAIN_NOT_ALLOWED"
+    },
+    {
+      "caseId": "non-allowlisted-plan",
+      "kind": "SECURITY_NEGATIVE",
+      "url": "https://www.iana.org/",
+      "allowedDomains": ["example.com"],
+      "expectedState": "BLOCKED"
+    }
+  ]
+}

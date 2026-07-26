@@ -5,8 +5,9 @@
 > 当前状态：单 Region 工程 PoC 的 Chromium/CDP、State/Input、noVNC、Profile/Proxy、
 > Agent、Crash Recovery、OIDC/RBAC/mTLS、哈希审计、Break-glass 与最小化 Secure
 > Debug 主链路已可重复运行；GHCR 四镜像已具备 Keyless Cosign 签名、SPDX Attestation、
-> SBOM Hash 绑定和 Digest 锁定发布包。容量证书、真实集群、独立 Debug Worker/录像和
-> Phase 7 企业运营 Gate 尚未完成，当前版本不能直接用于生产或真实客户数据。
+> SBOM Hash 绑定和 Digest 锁定发布包。Phase 4 MVP、Phase 6 本机容量/N/N-1 和
+> Phase 7 企业运营核心已通过仓库内验收；目标云、多 Region、HSM、独立 Debug
+> Worker/录像与组织 Gate 尚未完成，当前版本不能直接用于生产或真实客户数据。
 
 ## 快速开始
 
@@ -38,6 +39,8 @@ make compose-up
 # 验证服务
 curl http://localhost:8080/actuator/health
 open http://localhost:3000
+# 企业运营工作台
+open http://localhost:3000/enterprise
 ```
 
 ### 分步启动
@@ -86,6 +89,7 @@ agent-browser-cloud/
 │   ├── migrations/             # 数据库迁移
 │   └── seeds/                  # 种子数据
 ├── deploy/                     # 部署配置
+├── sdks/                       # TypeScript/Python/Go/Java SDK
 ├── docs/                       # 文档
 ├── tests/                      # 测试
 ├── tools/                      # 工具
@@ -128,6 +132,8 @@ make contracts
 make contracts-check
 make test-integration
 make test-e2e
+make test-real-url-agent
+make test-sdk
 
 # 真实 Chromium 500 次生命周期容量证书
 make test-browser-runtime-capacity \
@@ -137,6 +143,7 @@ make test-browser-runtime-capacity \
 # Operator 单测；集群 E2E 需本机 Docker、kubectl 和 Kind
 make test-kubernetes-operator
 KIND_BIN=/path/to/kind make test-kubernetes-e2e
+make test-upgrade-compatibility
 ```
 
 ## API 文档

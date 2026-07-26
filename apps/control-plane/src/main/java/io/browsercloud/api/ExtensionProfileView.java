@@ -24,4 +24,7 @@ public record ExtensionProfileView(
     Integer p95CpuMillis,
     Integer p95MemoryMib,
     Instant lastProfiledAt,
+    String samplingTier,
+    int samplingCpuBudgetMillis,
+    Instant nextSampleAt,
     Instant updatedAt) {}

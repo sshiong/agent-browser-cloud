@@ -1,7 +1,7 @@
 # Phase 6：Kubernetes Operator 真实集群验收
 
-> 状态：临时 Kind 集群中的 CRD、RBAC、双副本选主、调和、故障接管与 Finalizer
-> 已闭环；目标云多节点、CNI/CSI 和 N/N-1 Rolling Upgrade Gate 仍未关闭。
+> 状态：临时 Kind 集群中的 CRD、RBAC、双副本选主、调和、故障接管、Finalizer
+> 和 N/N-1 Rolling Upgrade/Rollback 已闭环；目标云多节点与 CNI/CSI Gate 仍未关闭。
 
 ## 已完成
 
@@ -39,10 +39,13 @@ KIND_BIN=/path/to/kind make test-kubernetes-e2e
    其余 Security Context 由实际 Pod 执行并断言；
 4. 创建合法 BrowserSession，等待 `phase=Ready`、`observedGeneration=1`、
    `browsercloud.io/session-cleanup` finalizer 和实际 Session ID；
-5. 删除当前 Lease Holder Pod，等待另一 Pod 接管，再创建第二个 BrowserSession；
-6. 创建非法 tenantId，确认 CRD admission 拒绝；
-7. 删除首个 BrowserSession，确认终止调用完成且 finalizer 被移除；
-8. 查询 Mock Control Plane，严格断言 `createCalls=2`、`terminateCalls=1`。
+5. 使用 `git archive HEAD^` 构建真实 N-1 Operator，先以 N-1 调谐首个 Session；
+6. 删除当前 Lease Holder Pod，等待另一 Pod 接管，再创建第二个 BrowserSession；
+7. 滚动升级至当前 N，确认既有 Session 保持 Ready 并创建第三个 Session；
+8. 回滚到 N-1，确认 N 创建的 Session 仍 Ready，并创建第四个 Session；
+9. 创建非法 tenantId，确认 CRD admission 拒绝；
+10. 删除首个 BrowserSession，确认终止调用完成且 finalizer 被移除；
+11. 查询 Mock Control Plane，严格断言 `createCalls=4`、`terminateCalls=1`。
 
 GitHub CI 设有独立 `kubernetes-operator-e2e` Job；Kind v0.32.0 下载内容固定
 SHA-256，以上集群验收会阻断主分支合并。
@@ -50,10 +53,11 @@ SHA-256，以上集群验收会阻断主分支合并。
 本轮实际输出：
 
 ```text
-Kubernetes operator E2E passed:
-leader=browser-session-operator-...-9g9wc
-failoverLeader=browser-session-operator-...-xv6qm
-createCalls=2 terminateCalls=1
+Kubernetes operator N/N-1 E2E passed:
+baseline=540a72eb84941f92a2a808fef5815e7307f800c1
+leader=browser-session-operator-...-6hp5h
+failoverLeader=browser-session-operator-...-jgxdk
+createCalls=4 terminateCalls=1
 ```
 
 ## 尚未完成
@@ -62,8 +66,9 @@ createCalls=2 terminateCalls=1
 2. 使用 Watch/Informer 替代每 2 秒全量 List，并提供 reconcile/lease 指标和告警。
 3. API Server 短时不可用、etcd 延迟、网络分区下的长时间稳定性与不会双 Leader 证明。
 4. CNI 防直连、CSI Snapshot 一致性 Adapter、Kata RuntimeClass 在目标环境的实测。
-5. Operator 和 CRD 的 N/N-1 兼容、Rolling Upgrade 与回滚 GameDay。
-6. Browser/Coordinator Capacity Certificate、目标密度和多节点调度压力证书。
+5. 在目标云和正式制品 Registry 重复 N/N-1、Node Drain 与回滚 GameDay；本地源码
+   构建的 Kind Gate 已闭环。
+6. Browser/Coordinator 目标云容量、目标密度和多节点调度压力证书。
 
 ## Gate 判定
 

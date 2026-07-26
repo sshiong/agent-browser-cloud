@@ -10,6 +10,9 @@ import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapa
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserNodeNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserPlacementNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionProfileRejectedException;
+import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
+import io.browsercloud.application.EnterpriseOperationsApplicationService.GovernanceRejectedException;
+import io.browsercloud.application.EnterpriseOperationsApplicationService.MediaQuotaRejectedException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotFoundException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
@@ -53,6 +56,28 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(GovernanceRejectedException.class)
+  ResponseEntity<ApiError> governanceRejected(
+      GovernanceRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "ENTERPRISE_GOVERNANCE_REJECTED",
+        "Enterprise governance policy rejected the operation",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(MediaQuotaRejectedException.class)
+  ResponseEntity<ApiError> mediaQuotaRejected(
+      MediaQuotaRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "MEDIA_QUOTA_REJECTED",
+        "Media capacity admission was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(SessionNotFoundException.class)
   ResponseEntity<ApiError> notFound(
@@ -254,6 +279,17 @@ public class GlobalExceptionHandler {
         HttpStatus.NOT_FOUND,
         "BROWSER_CAPACITY_RESOURCE_NOT_FOUND",
         "Browser capacity resource was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(EnterpriseResourceNotFoundException.class)
+  ResponseEntity<ApiError> enterpriseResourceNotFound(
+      EnterpriseResourceNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "ENTERPRISE_RESOURCE_NOT_FOUND",
+        "Enterprise operations resource was not found",
         Map.of(),
         request);
   }

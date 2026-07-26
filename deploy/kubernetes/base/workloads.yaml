@@ -52,6 +52,10 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            appArmorProfile:
+              type: RuntimeDefault
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop: [ALL]
           resources:
@@ -155,6 +159,8 @@ spec:
             runAsNonRoot: true
             runAsUser: 11001
             runAsGroup: 11000
+            appArmorProfile:
+              type: RuntimeDefault
             seccompProfile:
               type: RuntimeDefault
             capabilities:
@@ -188,6 +194,8 @@ spec:
             runAsNonRoot: true
             runAsUser: 11002
             runAsGroup: 11000
+            appArmorProfile:
+              type: RuntimeDefault
             seccompProfile:
               type: RuntimeDefault
             capabilities:
@@ -222,6 +230,8 @@ spec:
             runAsNonRoot: true
             runAsUser: 11003
             runAsGroup: 11000
+            appArmorProfile:
+              type: RuntimeDefault
             seccompProfile:
               type: RuntimeDefault
             capabilities:
@@ -330,6 +340,8 @@ spec:
             runAsNonRoot: true
             runAsUser: 101
             runAsGroup: 101
+            appArmorProfile:
+              type: RuntimeDefault
             seccompProfile:
               type: RuntimeDefault
             capabilities:

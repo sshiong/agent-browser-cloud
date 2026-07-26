@@ -128,6 +128,10 @@ make contracts
 make contracts-check
 make test-integration
 make test-e2e
+
+# Operator 单测；集群 E2E 需本机 Docker、kubectl 和 Kind
+make test-kubernetes-operator
+KIND_BIN=/path/to/kind make test-kubernetes-e2e
 ```
 
 ## API 文档

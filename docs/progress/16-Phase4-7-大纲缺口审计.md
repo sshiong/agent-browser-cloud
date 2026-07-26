@@ -10,7 +10,7 @@
 | ----------------------------- | ------------------------------------------------------------ | -------------------------- |
 | Phase 4：Agent 基础与安全边界 | 开发计划中的 MVP 已闭环；V16 增强项仍缺                      | MVP 已关闭，生产增强未关闭 |
 | Phase 5：可靠性、安全与审计   | Durable Workflow、身份、mTLS 和哈希审计主链路可运行          | 未关闭                     |
-| Phase 6：密度与 Kubernetes    | 路由、Mailbox、容量 Hysteresis、CRD/Operator/YAML 是基础实现 | 未关闭                     |
+| Phase 6：密度与 Kubernetes    | 路由、Mailbox、容量 Hysteresis、CRD/Operator/Kind E2E 已实现 | 未关闭                     |
 | Phase 7：企业运营             | 除只读 Runtime Registry 外，核心能力未实现                   | 未开始验收                 |
 | Web Console                   | Session/Profile/Proxy/Agent/Audit/Runtime 已接真实 API       | 非生产就绪                 |
 
@@ -62,8 +62,9 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
    - Route Epoch 和安全点模型已存在；
    - 缺双 Coordinator 实例热点迁移、旧 Epoch 拒绝和跨 Shard 压测。
 4. Kubernetes：
-   - 尚未在真实集群安装和运行 CRD/Operator；
-   - Operator 缺 Lease Leader Election 和集群级 E2E；镜像流水线已完成；
+   - CRD/Operator 已在临时 Kind 集群真实运行，双副本 Lease Leader Election、
+     CRD admission、RBAC、Leader Kill 接管与 Finalizer E2E 已通过；
+   - 尚缺目标云多节点安装、Watch/Informer 长稳、API Server 故障和 N/N-1 升级验收；
    - CNI 防直连与 CSI 应用一致性 Adapter 只有清单，无目标云实测；
    - 没有 N/N-1 Rolling Upgrade GameDay。
 5. Media/GPU Capacity 和 Extension Anti-affinity 未进入调度模型。

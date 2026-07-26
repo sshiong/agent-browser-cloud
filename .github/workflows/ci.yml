@@ -81,3 +81,21 @@ jobs:
 
       - name: Integration smoke test
         run: make test-integration
+
+  kubernetes-operator-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install pinned Kind
+        run: |
+          curl --fail --location --retry 5 \
+            --output /tmp/kind \
+            https://github.com/kubernetes-sigs/kind/releases/download/v0.32.0/kind-linux-amd64
+          echo "50030de23cf40a18505f20426f6a8506bedf13c6e509244bd1fa9463721b0f54  /tmp/kind" \
+            | sha256sum --check
+          chmod +x /tmp/kind
+
+      - name: Run Kubernetes operator E2E
+        run: KIND_BIN=/tmp/kind make test-kubernetes-e2e

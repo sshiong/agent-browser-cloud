@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+KIND_BIN="${KIND_BIN:-kind}"
+KUBECTL_BIN="${KUBECTL_BIN:-kubectl}"
+CLUSTER_NAME="${KIND_CLUSTER_NAME:-agent-browser-operator}"
+KUBE_CONTEXT="kind-${CLUSTER_NAME}"
+NAMESPACE="browsercloud-system"
+OPERATOR_IMAGE="agent-browser-cloud/operator:kind"
+MOCK_IMAGE="agent-browser-cloud/mock-control-plane:kind"
+PYTHON_BASE_IMAGE="${PYTHON_BASE_IMAGE:-cgr.dev/chainguard/python@sha256:a0365f7b90bf7b78a5e35f2709efb7c9263acf9c7b1905e0ec4c3e943c88e64d}"
+PORT_FORWARD_PID=""
+CLUSTER_CREATED=false
+
+cleanup() {
+  if [[ -n "${PORT_FORWARD_PID}" ]]; then
+    kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
+  fi
+  "${KIND_BIN}" delete cluster --name "${CLUSTER_NAME}" >/dev/null 2>&1 || true
+}
+
+failure_context() {
+  local exit_code=$?
+  printf 'Kubernetes E2E failed at line %s: %s\n' "${BASH_LINENO[0]}" "${BASH_COMMAND}" >&2
+  if [[ "${CLUSTER_CREATED}" == true ]]; then
+    "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+      get deployments,pods -l app.kubernetes.io/name=browser-session-operator >&2 || true
+    "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+      get deployments,pods -l app.kubernetes.io/name=mock-control-plane >&2 || true
+    "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+      logs deployment/browser-session-operator --tail=100 --prefix=true >&2 || true
+  fi
+  exit "${exit_code}"
+}
+
+trap failure_context ERR
+trap cleanup EXIT
+
+wait_for_jsonpath() {
+  local resource=$1
+  local jsonpath=$2
+  local expected=$3
+  local timeout_seconds=${4:-90}
+  local deadline=$((SECONDS + timeout_seconds))
+  while ((SECONDS < deadline)); do
+    local actual
+    actual="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+      get "${resource}" -o "jsonpath=${jsonpath}" 2>/dev/null || true)"
+    if [[ "${actual}" == "${expected}" ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  printf 'Timed out waiting for %s %s=%s\n' "${resource}" "${jsonpath}" "${expected}" >&2
+  return 1
+}
+
+command -v docker >/dev/null
+command -v "${KUBECTL_BIN}" >/dev/null
+command -v "${KIND_BIN}" >/dev/null
+
+docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
+  -t "${OPERATOR_IMAGE}" "${ROOT_DIR}/tools/browser-session-operator"
+docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
+  -t "${MOCK_IMAGE}" "${ROOT_DIR}/tests/kubernetes/fixtures"
+
+"${KIND_BIN}" create cluster --name "${CLUSTER_NAME}" --wait 90s
+CLUSTER_CREATED=true
+"${KIND_BIN}" load docker-image --name "${CLUSTER_NAME}" "${OPERATOR_IMAGE}" "${MOCK_IMAGE}"
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply \
+  -f "${ROOT_DIR}/deploy/kubernetes/base/namespace.yaml" \
+  -f "${ROOT_DIR}/deploy/kubernetes/base/browser-session-crd.yaml" \
+  -f "${ROOT_DIR}/deploy/kubernetes/base/operator-rbac.yaml"
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" create secret generic \
+  browser-session-operator-credentials --from-literal=token=kind-test-token
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply --server-side --dry-run=server \
+  -f "${ROOT_DIR}/deploy/kubernetes/base/operator-deployment.yaml" -o json |
+  python3 -c '
+import json
+import sys
+
+deployment = json.load(sys.stdin)
+security = deployment["spec"]["template"]["spec"]["containers"][0]["securityContext"]
+assert security["appArmorProfile"]["type"] == "RuntimeDefault"
+'
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply --server-side --dry-run=server \
+  -f "${ROOT_DIR}/tests/kubernetes/mock-control-plane.yaml" >/dev/null
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" create --dry-run=client \
+  -f "${ROOT_DIR}/deploy/kubernetes/base/operator-deployment.yaml" -o json |
+  python3 -c '
+import json
+import sys
+
+deployment = json.load(sys.stdin)
+pod_spec = deployment["spec"]["template"]["spec"]
+pod_spec.pop("nodeSelector", None)
+container = pod_spec["containers"][0]
+container["image"] = sys.argv[1]
+container["imagePullPolicy"] = "Never"
+container["securityContext"].pop("appArmorProfile", None)
+container["env"] = [
+    entry for entry in container["env"] if entry["name"] != "CONTROL_PLANE_CA"
+]
+for entry in container["env"]:
+    if entry["name"] == "CONTROL_PLANE_URL":
+        entry.pop("valueFrom", None)
+        entry["value"] = "http://mock-control-plane.browsercloud-system.svc:8080"
+json.dump(deployment, sys.stdout)
+' "${OPERATOR_IMAGE}" |
+  "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" create --dry-run=client \
+  -f "${ROOT_DIR}/tests/kubernetes/mock-control-plane.yaml" -o json |
+  python3 -c '
+import json
+import sys
+
+raw = sys.stdin.read()
+decoder = json.JSONDecoder()
+items = []
+while raw.strip():
+    raw = raw.lstrip()
+    item, offset = decoder.raw_decode(raw)
+    items.append(item)
+    raw = raw[offset:]
+for item in items:
+    if item["kind"] == "Deployment":
+        security = item["spec"]["template"]["spec"]["containers"][0]["securityContext"]
+        security.pop("appArmorProfile", None)
+json.dump({"apiVersion": "v1", "kind": "List", "items": items}, sys.stdout)
+' |
+  "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  rollout status deployment/mock-control-plane --timeout=90s
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  rollout status deployment/browser-session-operator --timeout=90s
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" auth can-i get leases.coordination.k8s.io \
+  --as "system:serviceaccount:${NAMESPACE}:browser-session-operator" \
+  --namespace "${NAMESPACE}" | grep -qx yes
+secret_permission="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" auth can-i create secrets \
+  --as "system:serviceaccount:${NAMESPACE}:browser-session-operator" \
+  --namespace "${NAMESPACE}" || true)"
+test "${secret_permission}" = "no"
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  get deployment browser-session-operator -o json |
+  python3 -c '
+import json
+import sys
+
+deployment = json.load(sys.stdin)
+container = deployment["spec"]["template"]["spec"]["containers"][0]
+security = container["securityContext"]
+assert security["allowPrivilegeEscalation"] is False
+assert security["readOnlyRootFilesystem"] is True
+assert security["capabilities"]["drop"] == ["ALL"]
+assert security["seccompProfile"]["type"] == "RuntimeDefault"
+'
+
+cat <<'YAML' | "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
+apiVersion: browsercloud.io/v1alpha1
+kind: BrowserSession
+metadata:
+  name: kind-primary
+  namespace: browsercloud-system
+spec:
+  tenantId: tenant-kind
+  profileId: profile-kind
+  region: local
+  resourceClass: L2
+YAML
+
+wait_for_jsonpath "browsersession/kind-primary" "{.status.phase}" "Ready"
+wait_for_jsonpath "browsersession/kind-primary" "{.status.observedGeneration}" "1"
+wait_for_jsonpath "browsersession/kind-primary" "{.metadata.finalizers[0]}" \
+  "browsercloud.io/session-cleanup"
+
+leader="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  get lease browser-session-operator -o jsonpath='{.spec.holderIdentity}')"
+test -n "${leader}"
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" get pod "${leader}" >/dev/null
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" delete pod "${leader}" \
+  --wait=false
+
+deadline=$((SECONDS + 90))
+new_leader=""
+while ((SECONDS < deadline)); do
+  new_leader="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    get lease browser-session-operator -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || true)"
+  if [[ -n "${new_leader}" && "${new_leader}" != "${leader}" ]]; then
+    break
+  fi
+  sleep 2
+done
+test -n "${new_leader}"
+test "${new_leader}" != "${leader}"
+
+cat <<'YAML' | "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f -
+apiVersion: browsercloud.io/v1alpha1
+kind: BrowserSession
+metadata:
+  name: kind-after-failover
+  namespace: browsercloud-system
+spec:
+  tenantId: tenant-kind
+  profileId: profile-kind
+YAML
+wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
+
+if cat <<'YAML' | "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply -f - >/dev/null 2>&1
+apiVersion: browsercloud.io/v1alpha1
+kind: BrowserSession
+metadata:
+  name: kind-invalid
+  namespace: browsercloud-system
+spec:
+  tenantId: "invalid tenant"
+  profileId: profile-kind
+YAML
+then
+  printf 'CRD admission accepted an invalid tenantId\n' >&2
+  exit 1
+fi
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  delete browsersession kind-primary
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  wait --for=delete browsersession/kind-primary --timeout=90s
+
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  port-forward service/mock-control-plane 18080:8080 >/tmp/agentbrowser-kind-port-forward.log 2>&1 &
+PORT_FORWARD_PID=$!
+for _ in {1..30}; do
+  if curl --fail --silent http://127.0.0.1:18080/health >/dev/null; then
+    break
+  fi
+  sleep 1
+done
+stats="$(curl --fail --silent http://127.0.0.1:18080/stats)"
+STATS="${stats}" python3 -c '
+import json
+import os
+
+stats = json.loads(os.environ["STATS"])
+assert stats["createCalls"] == 2, stats
+assert stats["terminateCalls"] == 1, stats
+'
+
+printf 'Kubernetes operator E2E passed: leader=%s failoverLeader=%s stats=%s\n' \
+  "${leader}" "${new_leader}" "${stats}"

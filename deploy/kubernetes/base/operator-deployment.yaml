@@ -26,6 +26,18 @@ spec:
           image: ghcr.io/sshiong/agent-browser-cloud-operator:0.1.0
           imagePullPolicy: IfNotPresent
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: LEASE_NAME
+              value: browser-session-operator
+            - name: LEASE_DURATION_SECONDS
+              value: "15"
             - name: CONTROL_PLANE_URL
               value: https://control-plane.browsercloud-system.svc
             - name: CONTROL_PLANE_TOKEN
@@ -41,6 +53,8 @@ spec:
             runAsNonRoot: true
             runAsUser: 65532
             runAsGroup: 65532
+            appArmorProfile:
+              type: RuntimeDefault
             seccompProfile:
               type: RuntimeDefault
             capabilities:

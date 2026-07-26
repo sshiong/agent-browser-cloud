@@ -348,7 +348,12 @@ agent_task_replay="$(curl -fsS -X POST \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-agent-task-001' \
   -d "$agent_task_request")"
-test "$agent_task_replay" = "$agent_task"
+python3 - "$agent_task" "$agent_task_replay" <<'PY'
+import json
+import sys
+
+assert json.loads(sys.argv[1]) == json.loads(sys.argv[2])
+PY
 navigate_execute="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/agent-tasks/${agent_task_id}:execute" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -446,7 +451,12 @@ resync_replay="$(curl -fsS -X POST \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-state-resync-001' \
   -d '{"mode":"FULL","reason":"INTEGRATION_TEST"}')"
-test "$resync_replay" = "$resync_result"
+python3 - "$resync_result" "$resync_replay" <<'PY'
+import json
+import sys
+
+assert json.loads(sys.argv[1]) == json.loads(sys.argv[2])
+PY
 resync_conflict_status="$(curl -sS -o "$temp_dir/resync-conflict.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
   -H 'Content-Type: application/json' \

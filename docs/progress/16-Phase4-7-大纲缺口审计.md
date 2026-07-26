@@ -135,15 +135,16 @@ make test-e2e
 ```
 
 集成输出确认 `runtime_registry=true`、`internal_grpc_mtls=true`、
-`node_certificate_rotation=true`、`durable_workflows=4`、
+`node_certificate_rotation=true`、`durable_workflows=13`、
 `workflow_dead_letters=1`、`break_glass_dual_approval=true`、
-`coordinator_failover_term=2`、`automatic_crash_recovery=3`、
+`coordinator_failover_term=2`、`coordinator_final_term=4`、
+`coordinator_agent_side_effect_once=true`、`automatic_crash_recovery=3`、
 `node_restart_reconciliation=4`、
 `break_glass_cross_tenant=404`、`break_glass_reviewed=true`、
 `break_glass_expiry_persisted=true`、`secure_debug_minimized=true`、
 `secure_debug_single_operator=true`、`secure_debug_cross_tenant=404`、
 `secure_debug_evidence_chain=true`、`secure_debug_revocation_closed=true`、
-`audit_chain_valid=true` 和 54 条审计事件。
+`audit_chain_valid=true` 和 96 条审计事件。
 浏览器输出确认 `WEB_CONSOLE_E2E_OK` 和 `real_web_console_e2e=true`，覆盖
 Runtime、Security、Logs 以及既有 Session、Agent、HumanTakeover、Profile、Proxy 流程；
 Break-glass 真实表单和 Secure Debug 启动/最小快照/结束均可操作，且页面无
@@ -153,8 +154,7 @@ Console/HTTP 异常。
 
 1. P0：为现有 Network/Storage Helper 补 LSM/真实集群验收，按需实现 GPU Helper，
    将已完成的 Secure Debug 治理数据面拆为独立 Worker/强制录像，并补 Offline
-   Root/HSM、Admission 强制验证、回滚演练、目标云 Object Storage/IAM 和进行中
-   Operation 的 Coordinator Kill/接管演练。
+   Root/HSM、Admission 强制验证、回滚演练和目标云 Object Storage/IAM。
 2. P0：完成 Profile Business Ready、基础设施出口防逃逸和真实 Provider 故障演练。
 3. P0：完成 Phase 6 Browser/Coordinator Capacity Certificate 与真实集群
    Rolling Upgrade。

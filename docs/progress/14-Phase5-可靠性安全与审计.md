@@ -29,11 +29,10 @@
    尚未实现，且 AppArmor/SELinux/Landlock 与真实集群跨 UID 验收待补。
 2. Break-glass 与最小化 Secure Debug 数据面已完成；独立 Secure Debug Worker、
    像素级强制录像、WORM Recording Manifest 与真实集群故障演练尚未实现。
-3. PostgreSQL、Object Storage 超时及 Coordinator 安全点 Kill/接管 GameDay 已完成；
-   故障矩阵尚缺在 STARTING/STOPPING/RECOVERING、Agent Step 或 HumanTakeover
-   Barrier 中间 Kill 后对进行中 Operation 的恢复/安全中止。现有覆盖还包括
-   Chromium Kill、Node Kill/Restart、Redis 非权威、Proxy Circuit、Profile Corruption、
-   Key-up Loss、DiffTruncated 和 Workflow DLQ。
+3. PostgreSQL、Object Storage 超时和 Coordinator Kill/接管 GameDay 已完成；
+   STARTING/TERMINATING/RECOVERING、HumanTakeover 全阶段、Agent pending 和
+   TYPE_TEXT 已执行但 Event 未提交均已完成真实 SIGKILL/Reconcile 验收。故障矩阵
+   尚缺远程桌面输入传输中的网络分区及目标云 Provider 演练。
 4. 八类必需审计事件已全部接入，并由集成测试验证完整哈希链。
    Audit Retention 字段已落库，但删除 Receipt、签名导出 Manifest 和法规 Legal Hold
    工作流属于 Phase 7，尚未完成。

@@ -54,6 +54,8 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-control-plane:sha-${{ github.sha }}
           provenance: mode=max
+          cache-from: type=gha,scope=release-control-plane
+          cache-to: type=gha,mode=max,scope=release-control-plane
 
       - name: Build and push Browser Node
         id: browser_node
@@ -64,6 +66,8 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-node:sha-${{ github.sha }}
           provenance: mode=max
+          cache-from: type=gha,scope=release-browser-node
+          cache-to: type=gha,mode=max,scope=release-browser-node
 
       - name: Build and push Web Console
         id: web_console
@@ -74,6 +78,8 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web-console:sha-${{ github.sha }}
           provenance: mode=max
+          cache-from: type=gha,scope=release-web-console
+          cache-to: type=gha,mode=max,scope=release-web-console
 
       - name: Build and push BrowserSession Operator
         id: operator
@@ -84,6 +90,8 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-operator:sha-${{ github.sha }}
           provenance: mode=max
+          cache-from: type=gha,scope=release-operator
+          cache-to: type=gha,mode=max,scope=release-operator
 
       - name: Resolve immutable image references
         id: images
@@ -159,31 +167,75 @@ jobs:
             --bundle release-bundle/release-manifest.sigstore.json \
             release-bundle/release-manifest.json
 
-      - name: Verify release evidence before publishing
+      - name: Verify Control Plane signature and SBOM
         env:
           CONTROL_PLANE_IMAGE: ${{ steps.images.outputs.control_plane }}
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
+          timeout 180s cosign verify \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$CONTROL_PLANE_IMAGE"
+          timeout 180s cosign verify-attestation \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --type spdxjson \
+            "$CONTROL_PLANE_IMAGE"
+
+      - name: Verify Browser Node signature and SBOM
+        env:
           BROWSER_NODE_IMAGE: ${{ steps.images.outputs.browser_node }}
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
+          timeout 180s cosign verify \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$BROWSER_NODE_IMAGE"
+          timeout 180s cosign verify-attestation \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --type spdxjson \
+            "$BROWSER_NODE_IMAGE"
+
+      - name: Verify Web Console signature and SBOM
+        env:
           WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
+          timeout 180s cosign verify \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$WEB_CONSOLE_IMAGE"
+          timeout 180s cosign verify-attestation \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --type spdxjson \
+            "$WEB_CONSOLE_IMAGE"
+
+      - name: Verify Operator signature and SBOM
+        env:
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
         run: |
           set -euo pipefail
           identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
-          for image in \
-            "$CONTROL_PLANE_IMAGE" \
-            "$BROWSER_NODE_IMAGE" \
-            "$WEB_CONSOLE_IMAGE" \
-            "$OPERATOR_IMAGE"; do
-            cosign verify \
-              --certificate-identity "$identity" \
-              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-              "$image"
-            cosign verify-attestation \
-              --certificate-identity "$identity" \
-              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-              --type spdxjson \
-              "$image"
-          done
-          cosign verify-blob \
+          timeout 180s cosign verify \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$OPERATOR_IMAGE"
+          timeout 180s cosign verify-attestation \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --type spdxjson \
+            "$OPERATOR_IMAGE"
+
+      - name: Verify signed release manifest and deployment render
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
+          timeout 180s cosign verify-blob \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --bundle release-bundle/release-manifest.sigstore.json \

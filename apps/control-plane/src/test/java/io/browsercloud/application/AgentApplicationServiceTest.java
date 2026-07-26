@@ -103,6 +103,9 @@ class AgentApplicationServiceTest {
               assertThat(step.capabilityTokenId()).startsWith("cap_");
               assertThat(step.supportingSources()).contains("user_goal", "platform_policy");
             });
+    assertThat(view.createdAt().getNano() % 1_000).isZero();
+    assertThat(view.updatedAt().getNano() % 1_000).isZero();
+    assertThat(view.plan().expiresAt().getNano() % 1_000).isZero();
     assertThat(view.toString()).doesNotContain("browsercloud-local", "eyJ");
   }
 

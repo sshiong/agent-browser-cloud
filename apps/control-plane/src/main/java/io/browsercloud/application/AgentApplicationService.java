@@ -85,7 +85,10 @@ public class AgentApplicationService {
 
     var evaluation = promptSecurityService.evaluate(request.goal(), request.contextSources());
     var allowedDomains = normalizeDomains(request.allowedDomains());
-    var now = Instant.now();
+    // PostgreSQL stores Instant-backed timestamps at microsecond precision. Normalize before
+    // constructing the first response so an idempotent replay loaded from the database is
+    // semantically identical on hosts whose clock exposes nanoseconds.
+    var now = Instant.now().truncatedTo(ChronoUnit.MICROS);
     var intentId = newId("int_");
     var maxActions = request.maxActions() == null ? DEFAULT_MAX_ACTIONS : request.maxActions();
     var replanBudget =

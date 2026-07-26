@@ -88,9 +88,9 @@ make test-e2e
 创建新的 Operation。它关闭了“Session 可接管、term 递增、旧世代不能提交”的基础 Gate，
 但不等同于完整生产 Exit Gate：
 
-1. HumanTakeover `EXECUTING`、Navigate pending，以及 `STARTING`、`RECOVERING`、
-   `STOPPING` Kill/Reconcile 已由进度 32 关闭；有副作用 Agent Step 和 Barrier
-   `PREPARING/COMPLETING` 的真实进程级竞态仍待完成；
+1. HumanTakeover `PREPARING/EXECUTING/COMPLETING`、Navigate pending，以及
+   `STARTING/RECOVERING/STOPPING` Kill/Reconcile 已由进度 32 关闭；有副作用
+   Agent Step 与远程桌面输入传输中的网络分区仍待完成；
 2. 尚未双实例同时长稳运行并注入 PostgreSQL 延迟、时钟偏差和连接池拥塞；
 3. 尚未验证数万 Session Heartbeat、Lease 扫描和 Ownership 查询的容量/P99；
 4. Session 列表当前逐项读取 Ownership Term，容量阶段需要批量投影以消除潜在 N+1；

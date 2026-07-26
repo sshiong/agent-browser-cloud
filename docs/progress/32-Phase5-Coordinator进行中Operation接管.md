@@ -1,6 +1,6 @@
 # Phase 5：Coordinator 进行中 Operation 接管
 
-> 状态：HumanTakeover、Agent pending Step、Runtime STARTING/RECOVERING/TERMINATING 真实演练完成
+> 状态：HumanTakeover 全阶段、Agent pending Step、Runtime 生命周期真实演练完成
 > 日期：2026-07-26
 > 验收入口：`make test-integration`
 
@@ -83,6 +83,16 @@ Lease/CAS、term 递增和旧事件 fencing 有效，但换主后数据库中的
 6. 延迟中的替代 Runtime 被停止，Session 收敛为 `TERMINATED`，旧 RuntimeStarted
    回调不能越过 term fencing。
 
+HumanTakeover Barrier 的两个边界阶段也使用独立 Session 验证：
+
+1. PREPARING：Node Pause 后提交 Begin，确认旧 Operation 保持 `PREPARING`；
+2. COMPLETING：先等待 Takeover=`EXECUTING`，Node Pause 后提交 End，确认旧 Operation
+   保持 `COMPLETING`；
+3. B Kill/C claim 后，PREPARING 使用 term=2 重建 Begin 并进入 EXECUTING；
+4. COMPLETING 使用 term=2 重建 End 并直接提交；
+5. 两个 term=1 Operation 均为 `ABORTED`，两个 replacement 均为 `COMMITTED:2`；
+6. 重建完成后两个 Session 都可正常 Terminate，证明没有遗留 Input Barrier。
+
 本轮真实输出包含：
 
 ```text
@@ -92,9 +102,11 @@ coordinator_agent_step_aborted=true
 coordinator_lifecycle_start_aborted=true
 coordinator_lifecycle_stop_aborted=true
 coordinator_lifecycle_recovery_aborted=true
+coordinator_barrier_preparing_rebuilt=true
+coordinator_barrier_completing_rebuilt=true
 coordinator_final_term=3
-node_events_inbox=23
-node_command_published=21
+node_events_inbox=35
+node_command_published=31
 audit_chain_valid=true
 audit_events=56
 ```
@@ -130,8 +142,8 @@ Coordinator 单测覆盖：
 
 1. `STARTING`、`RECOVERING`、`TERMINATING` 均已完成真实进程级验证；仍可将
    “旧命令已执行/未执行”拆成两个固定时序测试，降低随机调度对覆盖分支的影响；
-2. 在 HumanTakeover `PREPARING` 与 `COMPLETING` Barrier 中间 Kill，而不只是在
-   `EXECUTING` 状态 Kill；
+2. HumanTakeover `PREPARING`、`EXECUTING`、`COMPLETING` 已全部覆盖；仍需远程桌面
+   WebSocket 正在传输输入帧时的网络分区联合演练；
 3. Navigate pending Step 已完成；仍需 Click/Type 等“Node 可能已经执行但 Event 未提交”
    的副作用竞态与 Capability Ledger 精确计数断言；
 4. 双 Coordinator 长稳、网络分区、时钟偏差、连接池拥塞和 Kubernetes Pod Kill；

@@ -58,14 +58,14 @@
 | Admin Access | 已完成 |
 | Security Event | 已完成 |
 | Runtime Release | 已完成 |
-| Key Rotation | 未完成 |
+| Key Rotation | 已完成 |
 | Profile Restore | 已完成 |
 
 ## 尚未完成
 
 1. Break-glass 当前治理“授权事实”，但尚未接入独立 Secure Debug Worker、敏感 State
    数据面和强制会话录像。
-2. Key Rotation 仍需正式领域模型、双人审批和审计事件。
+2. Key Rotation 已具备正式领域模型、双人审批和审计事件；外部 KMS/HSM 自动编排仍待完成。
 3. Security Admin 前端当前依赖现有 OIDC/本地身份；生产需要用户会话与权限查询 API，
    不能依赖前端推测 JWT Subject。
 4. Phase 5 Exit Gate 仍受 Node Helper OS 级隔离、完整故障矩阵和真实制品验签阻塞。

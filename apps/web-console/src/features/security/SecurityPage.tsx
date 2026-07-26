@@ -29,6 +29,7 @@ import type {
   BreakGlassRequestView,
   CreateBreakGlassRequest,
 } from '@/types/platform';
+import { KeyRotationWorkspace } from './KeyRotationWorkspace';
 
 export function SecurityPage() {
   const query = useAuditEvents();
@@ -104,6 +105,8 @@ export function SecurityPage() {
           }
           onRetry={() => breakGlass.refetch()}
         />
+
+        <KeyRotationWorkspace />
 
         <section className="mt-4 border border-border-subtle bg-surface-1">
           <div className="flex flex-col gap-3 border-b border-border-subtle bg-surface-2 px-4 py-3 md:flex-row md:items-center md:justify-between">

@@ -669,6 +669,112 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/key-rotation-requests:
+    get:
+      operationId: listKeyRotationRequests
+      summary: List platform key rotation requests
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Key rotation lifecycle records for the current control tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyRotationRequestListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: requestKeyRotation
+      summary: Request a dual-control key rotation
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKeyRotationRequest"
+      responses:
+        "200":
+          description: Rotation request awaiting a second Platform Admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyRotationRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/key-rotation-requests/{rotationId}:approve:
+    post:
+      operationId: approveKeyRotation
+      summary: Approve and start a key rotation
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/KeyRotationId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Rotation entered dual-read and single-write execution.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyRotationRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/key-rotation-requests/{rotationId}:complete:
+    post:
+      operationId: completeKeyRotation
+      summary: Complete a verified key rotation
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/KeyRotationId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteKeyRotationRequest"
+      responses:
+        "200":
+          description: Completed rotation with immutable verification evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyRotationRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/key-rotation-requests/{rotationId}:revoke:
+    post:
+      operationId: revokeKeyRotation
+      summary: Revoke a requested or in-progress key rotation
+      tags: [Security]
+      parameters:
+        - $ref: "#/components/parameters/KeyRotationId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Revoked key rotation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyRotationRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/break-glass-requests:
     get:
       operationId: listBreakGlassRequests
@@ -885,6 +991,13 @@ components:
       schema:
         type: string
         pattern: "^rel_[A-Za-z0-9]{20}$"
+    KeyRotationId:
+      name: rotationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^rot_[A-Za-z0-9]{20}$"
   schemas:
     CreateAgentTaskRequest:
       type: object
@@ -2111,6 +2224,161 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RuntimeReleaseRequest"
+        total:
+          type: integer
+    CreateKeyRotationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - keyScope
+        - oldKeyId
+        - newKeyId
+        - rotationTrigger
+        - reason
+        - overlapMinutes
+      properties:
+        keyScope:
+          type: string
+          enum:
+            - NODE_MTLS
+            - RUNTIME_SIGNING
+            - PROFILE_KEK
+            - REMOTE_DESKTOP
+            - AGENT_CAPABILITY
+        oldKeyId:
+          type: string
+          pattern: "^[A-Za-z0-9._:/-]{3,200}$"
+        newKeyId:
+          type: string
+          pattern: "^[A-Za-z0-9._:/-]{3,200}$"
+        rotationTrigger:
+          type: string
+          enum:
+            - SCHEDULED
+            - PERSONNEL_CHANGE
+            - POLICY_CHANGE
+            - SUSPECTED_COMPROMISE
+            - TENANT_REQUEST
+        reason:
+          type: string
+          minLength: 20
+          maxLength: 500
+        overlapMinutes:
+          type: integer
+          minimum: 0
+          maximum: 1440
+    CompleteKeyRotationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - newKeyWriteVerified
+        - oldKeyReadVerified
+        - plaintextRejected
+        - affectedWorkloads
+        - verificationReference
+      properties:
+        newKeyWriteVerified:
+          type: boolean
+        oldKeyReadVerified:
+          type: boolean
+        plaintextRejected:
+          type: boolean
+        affectedWorkloads:
+          type: integer
+          minimum: 1
+        verificationReference:
+          type: string
+          minLength: 8
+          maxLength: 500
+    KeyRotationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - rotationId
+        - keyScope
+        - oldKeyId
+        - newKeyId
+        - rotationTrigger
+        - reason
+        - requestedOverlapMinutes
+        - state
+        - requestedBy
+        - requestedAt
+        - progressPercent
+      properties:
+        rotationId:
+          type: string
+          pattern: "^rot_[A-Za-z0-9]{20}$"
+        keyScope:
+          type: string
+        oldKeyId:
+          type: string
+        newKeyId:
+          type: string
+        rotationTrigger:
+          type: string
+        reason:
+          type: string
+        requestedOverlapMinutes:
+          type: integer
+        state:
+          type: string
+          enum: [REQUESTED, ROTATING, COMPLETED, REVOKED, FAILED]
+        requestedBy:
+          type: string
+        approvedBy:
+          type: [string, "null"]
+        completedBy:
+          type: [string, "null"]
+        revokedBy:
+          type: [string, "null"]
+        requestedAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: [string, "null"]
+          format: date-time
+        startedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        revokedAt:
+          type: [string, "null"]
+          format: date-time
+        overlapUntil:
+          type: [string, "null"]
+          format: date-time
+        progressPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        newKeyWriteVerified:
+          type: [boolean, "null"]
+        oldKeyReadVerified:
+          type: [boolean, "null"]
+        plaintextRejected:
+          type: [boolean, "null"]
+        affectedWorkloads:
+          type: [integer, "null"]
+        verificationReference:
+          type: [string, "null"]
+        approvalEvidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        completionEvidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+    KeyRotationRequestListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyRotationRequest"
         total:
           type: integer
     CreateBreakGlassRequest:

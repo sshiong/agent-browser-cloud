@@ -3,7 +3,11 @@ import type {
   AuditEventListResponse,
   BreakGlassRequestListResponse,
   BreakGlassRequestView,
+  CompleteKeyRotationRequest,
   CreateBreakGlassRequest,
+  CreateKeyRotationRequest,
+  KeyRotationRequestListResponse,
+  KeyRotationRequestView,
   RuntimeBuildListResponse,
 } from '@/types/platform';
 
@@ -15,6 +19,7 @@ async function request<T>(
   options: {
     signal?: AbortSignal;
     securityAdmin?: boolean;
+    platformAdmin?: boolean;
     method?: 'GET' | 'POST';
     body?: unknown;
   } = {}
@@ -32,7 +37,9 @@ async function request<T>(
       ...identity,
       ...(!('Authorization' in identity) && options.securityAdmin
         ? { 'X-Roles': 'SECURITY_ADMIN' }
-        : {}),
+        : !('Authorization' in identity) && options.platformAdmin
+          ? { 'X-Roles': 'PLATFORM_ADMIN' }
+          : {}),
     },
   });
   if (!response.ok) {
@@ -86,5 +93,42 @@ export function transitionBreakGlassRequest(
   return request(`/break-glass-requests/${requestId}:${transition}`, {
     method: 'POST',
     securityAdmin: true,
+  });
+}
+
+export function listKeyRotationRequests(
+  signal?: AbortSignal
+): Promise<KeyRotationRequestListResponse> {
+  return request('/key-rotation-requests', { signal, platformAdmin: true });
+}
+
+export function createKeyRotationRequest(
+  input: CreateKeyRotationRequest
+): Promise<KeyRotationRequestView> {
+  return request('/key-rotation-requests', {
+    method: 'POST',
+    body: input,
+    platformAdmin: true,
+  });
+}
+
+export function transitionKeyRotationRequest(
+  rotationId: string,
+  transition: 'approve' | 'revoke'
+): Promise<KeyRotationRequestView> {
+  return request(`/key-rotation-requests/${rotationId}:${transition}`, {
+    method: 'POST',
+    platformAdmin: true,
+  });
+}
+
+export function completeKeyRotationRequest(
+  rotationId: string,
+  completion: CompleteKeyRotationRequest
+): Promise<KeyRotationRequestView> {
+  return request(`/key-rotation-requests/${rotationId}:complete`, {
+    method: 'POST',
+    body: completion,
+    platformAdmin: true,
   });
 }

@@ -13,6 +13,7 @@
 | 安全治理 | Threat Model、Incident/Key Rotation Runbook | `docs/security/` |
 | Break-glass 治理 | 工单、双人审批、5—60 分钟、自动撤销、事后 Review、独立拒绝审计事务 | Java 单测 + 集成 409/ACTIVE/404/REVOKED/REVIEWED + Web E2E |
 | Runtime Release 治理 | Platform Admin、双人晋级/禁用、发布状态、证据哈希、跨控制租户隔离 | Java 单测 + 集成禁用/404/审计 |
+| Key Rotation 治理 | 五类 Key Scope、双人审批、重叠窗口、泄露快速路径、验证证据 | Java 单测 + mTLS 轮换集成 + Web E2E |
 | 审计类型扩展 | Prompt Security、Human Authorization、Admin Access、Profile Restore | 集成审计链验证 |
 
 ## 尚未完成
@@ -24,7 +25,7 @@
 3. 故障矩阵尚缺 PostgreSQL 短时不可用、Object Storage 超时和 Coordinator 进程重启的
    自动 GameDay；现有覆盖包括 Chromium Kill、Node Kill/Restart、Redis 非权威、
    Proxy Circuit、Profile Corruption、Key-up Loss、DiffTruncated 和 Workflow DLQ。
-4. 八类必需审计事件已完成七类；`KEY_ROTATION` 尚未接入。
+4. 八类必需审计事件已全部接入，并由集成测试验证完整哈希链。
    Audit Retention 字段已落库，但删除 Receipt、签名导出 Manifest 和法规 Legal Hold
    工作流属于 Phase 7，尚未完成。
 5. mTLS 已支持 CA 内证书轮换；在线信任根双写、CRL/SPIFFE 撤销尚未完成。
@@ -32,5 +33,5 @@
 ## Gate 判定
 
 Phase 5 的应用层可靠性/身份/审计主链路已通过，生产 Exit Gate 仍因 OS 级 Helper
-权限拆分、Secure Debug 数据面、Key Rotation 审计、真实制品验签和完整故障演练保持
+权限拆分、Secure Debug 数据面、外部 KMS/HSM 编排、真实制品验签和完整故障演练保持
 “未关闭”。

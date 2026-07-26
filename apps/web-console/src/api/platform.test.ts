@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createBreakGlassRequest,
+  createKeyRotationRequest,
   listAuditEvents,
   listRuntimeBuilds,
   transitionBreakGlassRequest,
@@ -120,6 +121,42 @@ describe('platform API', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'X-Roles': 'SECURITY_ADMIN' }),
+      })
+    );
+  });
+
+  it('uses the Platform Admin boundary for key rotation requests', async () => {
+    const responseBody = {
+      rotationId: 'rot_1234567890abcdefghij',
+      state: 'REQUESTED',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(responseBody), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const input = {
+      keyScope: 'NODE_MTLS' as const,
+      oldKeyId: 'node-ca-v1',
+      newKeyId: 'node-ca-v2',
+      rotationTrigger: 'SCHEDULED' as const,
+      reason: 'Rotate the node certificate authority before expiry',
+      overlapMinutes: 30,
+    };
+
+    await createKeyRotationRequest(input);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/key-rotation-requests',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(input),
+        headers: expect.objectContaining({
+          'X-Roles': 'PLATFORM_ADMIN',
+          'Content-Type': 'application/json',
+        }),
       })
     );
   });

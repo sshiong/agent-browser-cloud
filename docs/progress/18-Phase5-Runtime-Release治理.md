@@ -57,4 +57,4 @@ make test-e2e
 2. Production Policy 当前验证签名格式与受信 SBOM URI，但还没有使用 Offline
    Root/Online Intermediate 对真实制品执行密码学签名验证。
 3. Web Console 当前只展示 Release Channel；Platform Admin 的发布审批工作区尚未接入。
-4. `KEY_ROTATION` 是八类必需审计中最后一个未完成类型。
+4. `KEY_ROTATION` 已完成治理与审计闭环；外部 KMS/HSM 自动执行仍是生产化缺口。

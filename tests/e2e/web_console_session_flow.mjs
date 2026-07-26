@@ -484,6 +484,33 @@ try {
   await expect(
     page.getByText("等待另一位管理员", { exact: true }),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "发起密钥轮换" }).click();
+  const newKeyId = `node-ca-e2e-${runSuffix}`;
+  await page.getByLabel("旧 Key ID").fill("node-ca-e2e-current");
+  await page.getByLabel("新 Key ID").fill(newKeyId);
+  await page
+    .getByLabel("轮换原因与影响（20–500 字符）")
+    .fill("Validate the dual-control key rotation governance console");
+  const [keyRotationResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/key-rotation-requests") &&
+        response.status() === 200,
+    ),
+    page.getByRole("button", { name: "提交双人审批" }).click(),
+  ]);
+  const keyRotationRequest = await keyRotationResponse.json();
+  if (
+    keyRotationRequest.state !== "REQUESTED" ||
+    keyRotationRequest.requestedBy !== "user-local"
+  ) {
+    throw new Error("Key rotation request did not enter dual-control approval");
+  }
+  await expect(page.getByText(newKeyId, { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("等待另一位管理员", { exact: true }).last(),
+  ).toBeVisible();
   await page.screenshot({
     path: screenshotPath.replace(/\.png$/, "-security.png"),
     fullPage: true,

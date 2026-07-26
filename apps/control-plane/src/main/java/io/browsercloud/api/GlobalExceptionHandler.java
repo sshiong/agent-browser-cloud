@@ -6,6 +6,8 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassNotFoundException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassRejectedException;
+import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotFoundException;
+import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
@@ -81,6 +83,28 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "BREAK_GLASS_REJECTED",
         "Break-glass transition was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(KeyRotationNotFoundException.class)
+  ResponseEntity<ApiError> keyRotationNotFound(
+      KeyRotationNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "KEY_ROTATION_NOT_FOUND",
+        "Key rotation request was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(KeyRotationRejectedException.class)
+  ResponseEntity<ApiError> keyRotationRejected(
+      KeyRotationRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "KEY_ROTATION_REJECTED",
+        "Key rotation transition was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

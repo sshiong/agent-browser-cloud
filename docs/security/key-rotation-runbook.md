@@ -20,3 +20,16 @@
 The integration smoke test rotates the Browser Node certificate during Node restart and proves that
 the same CA trust policy admits the new identity without accepting plaintext.
 
+## Control Plane governance
+
+All production rotations must be registered through:
+
+- `POST /api/v1/key-rotation-requests`;
+- `POST /api/v1/key-rotation-requests/{rotationId}:approve` by a different Platform Admin;
+- `POST /api/v1/key-rotation-requests/{rotationId}:complete` with workload verification evidence;
+- `POST /api/v1/key-rotation-requests/{rotationId}:revoke` for containment or rollback.
+
+Normal completion is blocked until the verifier overlap window has elapsed and the new-key write,
+old-key read and plaintext-rejection probes pass. A suspected-compromise rotation removes the
+overlap window immediately and does not require an old-key read probe. Every decision is appended
+as `KEY_ROTATION` with separate approval and completion evidence hashes.

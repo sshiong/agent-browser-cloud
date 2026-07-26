@@ -1,12 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createBreakGlassRequest,
+  completeKeyRotationRequest,
+  createKeyRotationRequest,
   listAuditEvents,
   listBreakGlassRequests,
+  listKeyRotationRequests,
   listRuntimeBuilds,
   transitionBreakGlassRequest,
+  transitionKeyRotationRequest,
 } from '@/api/platform';
-import type { CreateBreakGlassRequest } from '@/types/platform';
+import type {
+  CompleteKeyRotationRequest,
+  CreateBreakGlassRequest,
+  CreateKeyRotationRequest,
+} from '@/types/platform';
 
 export function useAuditEvents(eventType?: string) {
   return useQuery({
@@ -58,6 +66,66 @@ export function useTransitionBreakGlassRequest() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['break-glass-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+      ]);
+    },
+  });
+}
+
+export function useKeyRotationRequests() {
+  return useQuery({
+    queryKey: ['key-rotation-requests'],
+    queryFn: ({ signal }) => listKeyRotationRequests(signal),
+    refetchInterval: 5000,
+  });
+}
+
+export function useCreateKeyRotationRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateKeyRotationRequest) =>
+      createKeyRotationRequest(input),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['key-rotation-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+      ]);
+    },
+  });
+}
+
+export function useTransitionKeyRotationRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      rotationId,
+      transition,
+    }: {
+      rotationId: string;
+      transition: 'approve' | 'revoke';
+    }) => transitionKeyRotationRequest(rotationId, transition),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['key-rotation-requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+      ]);
+    },
+  });
+}
+
+export function useCompleteKeyRotationRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      rotationId,
+      completion,
+    }: {
+      rotationId: string;
+      completion: CompleteKeyRotationRequest;
+    }) => completeKeyRotationRequest(rotationId, completion),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['key-rotation-requests'] }),
         queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
       ]);
     },

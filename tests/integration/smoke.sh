@@ -754,6 +754,52 @@ runtime_disabled="$(curl -fsS \
 printf '%s' "$runtime_disabled" | python3 -c \
   'import json,sys; item=json.load(sys.stdin)["items"][0]; assert item["releaseChannel"] == "DISABLED"; assert item["regressionStatus"] == "DISABLED"; assert item["disabledBy"] == "release-approver"; assert item["disabledAt"] is not None'
 
+key_rotation_request="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/key-rotation-requests" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: key-requester' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"keyScope":"NODE_MTLS","oldKeyId":"integration-node-cert-v1","newKeyId":"integration-node-cert-v2","rotationTrigger":"SCHEDULED","reason":"Record the verified Browser Node certificate rotation drill","overlapMinutes":0}')"
+key_rotation_id="$(printf '%s' "$key_rotation_request" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "REQUESTED"; print(item["rotationId"])')"
+key_self_approval_status="$(curl -sS -o "$temp_dir/key-self-approval.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/key-rotation-requests/${key_rotation_id}:approve" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: key-requester' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+test "$key_self_approval_status" = "409"
+key_rotation_cross_tenant_status="$(curl -sS -o "$temp_dir/key-cross-tenant.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/key-rotation-requests/${key_rotation_id}:approve" \
+  -H 'X-Tenant-Id: different-platform' \
+  -H 'X-Actor-Id: key-approver' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+test "$key_rotation_cross_tenant_status" = "404"
+key_rotation_approved="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/key-rotation-requests/${key_rotation_id}:approve" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: key-approver' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$key_rotation_approved" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ROTATING"; assert item["approvedBy"] == "key-approver"; assert len(item["approvalEvidenceHash"]) == 64'
+key_bad_completion_status="$(curl -sS -o "$temp_dir/key-bad-completion.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/key-rotation-requests/${key_rotation_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: key-operator' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"newKeyWriteVerified":true,"oldKeyReadVerified":true,"plaintextRejected":false,"affectedWorkloads":1,"verificationReference":"integration/rejected-plaintext-probe"}')"
+test "$key_bad_completion_status" = "409"
+key_rotation_completed="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/key-rotation-requests/${key_rotation_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: key-operator' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"newKeyWriteVerified":true,"oldKeyReadVerified":true,"plaintextRejected":true,"affectedWorkloads":1,"verificationReference":"integration/node-certificate-restart"}')"
+printf '%s' "$key_rotation_completed" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "COMPLETED"; assert item["progressPercent"] == 100; assert item["newKeyWriteVerified"] is True; assert item["oldKeyReadVerified"] is True; assert item["plaintextRejected"] is True; assert len(item["completionEvidenceHash"]) == 64'
+
 audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?limit=500" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -766,8 +812,14 @@ runtime_audit_result="$(curl -fsS \
   -H 'X-Tenant-Id: platform-control' \
   -H 'X-Roles: SECURITY_ADMIN')"
 printf '%s' "$runtime_audit_result" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] == 3; assert {item["action"] for item in result["items"]} == {"RUNTIME_RELEASE_REQUESTED","RUNTIME_RELEASE_APPROVAL_DENIED","RUNTIME_RELEASE_APPROVED"}'
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 3; assert len(result["items"]) == 3; assert {item["action"] for item in result["items"]} == {"RUNTIME_RELEASE_REQUESTED","RUNTIME_RELEASE_APPROVAL_DENIED","RUNTIME_RELEASE_APPROVED"}'
+key_rotation_audit_result="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/audit-events?eventType=KEY_ROTATION&limit=50" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$key_rotation_audit_result" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 5; assert len(result["items"]) == 5; assert {item["action"] for item in result["items"]} == {"KEY_ROTATION_REQUESTED","KEY_ROTATION_APPROVAL_DENIED","KEY_ROTATION_APPROVED","KEY_ROTATION_COMPLETION_DENIED","KEY_ROTATION_COMPLETED"}'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$runtime_release_cross_tenant_status" "$audit_total"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

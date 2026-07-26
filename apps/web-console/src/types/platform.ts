@@ -48,6 +48,71 @@ export interface RuntimeBuildListResponse {
   total: number;
 }
 
+export type KeyRotationScope =
+  | 'NODE_MTLS'
+  | 'RUNTIME_SIGNING'
+  | 'PROFILE_KEK'
+  | 'REMOTE_DESKTOP'
+  | 'AGENT_CAPABILITY';
+
+export type KeyRotationTrigger =
+  | 'SCHEDULED'
+  | 'PERSONNEL_CHANGE'
+  | 'POLICY_CHANGE'
+  | 'SUSPECTED_COMPROMISE'
+  | 'TENANT_REQUEST';
+
+export interface CreateKeyRotationRequest {
+  keyScope: KeyRotationScope;
+  oldKeyId: string;
+  newKeyId: string;
+  rotationTrigger: KeyRotationTrigger;
+  reason: string;
+  overlapMinutes: number;
+}
+
+export interface CompleteKeyRotationRequest {
+  newKeyWriteVerified: boolean;
+  oldKeyReadVerified: boolean;
+  plaintextRejected: boolean;
+  affectedWorkloads: number;
+  verificationReference: string;
+}
+
+export interface KeyRotationRequestView {
+  rotationId: string;
+  keyScope: KeyRotationScope;
+  oldKeyId: string;
+  newKeyId: string;
+  rotationTrigger: KeyRotationTrigger;
+  reason: string;
+  requestedOverlapMinutes: number;
+  state: 'REQUESTED' | 'ROTATING' | 'COMPLETED' | 'REVOKED' | 'FAILED';
+  requestedBy: string;
+  approvedBy: string | null;
+  completedBy: string | null;
+  revokedBy: string | null;
+  requestedAt: string;
+  approvedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  revokedAt: string | null;
+  overlapUntil: string | null;
+  progressPercent: number;
+  newKeyWriteVerified: boolean | null;
+  oldKeyReadVerified: boolean | null;
+  plaintextRejected: boolean | null;
+  affectedWorkloads: number | null;
+  verificationReference: string | null;
+  approvalEvidenceHash: string | null;
+  completionEvidenceHash: string | null;
+}
+
+export interface KeyRotationRequestListResponse {
+  items: KeyRotationRequestView[];
+  total: number;
+}
+
 export type BreakGlassState =
   'REQUESTED' | 'ACTIVE' | 'REJECTED' | 'REVOKED' | 'EXPIRED';
 

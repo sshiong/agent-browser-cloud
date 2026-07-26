@@ -17,7 +17,7 @@ export function RuntimesPage() {
   const query = useRuntimeBuilds();
   const builds = query.data?.items ?? [];
   const stable = builds.filter(
-    (build) => build.regressionStatus === 'STABLE'
+    (build) => build.releaseChannel === 'STABLE'
   ).length;
   const signed = builds.filter((build) => build.signatureVerified).length;
   const withSbom = builds.filter((build) => build.sbomUrl).length;
@@ -114,12 +114,12 @@ export function RuntimesPage() {
                           <span
                             className={cn(
                               'text-[11px] font-semibold',
-                              build.regressionStatus === 'STABLE'
+                              build.releaseChannel === 'STABLE'
                                 ? 'text-success'
                                 : 'text-warning'
                             )}
                           >
-                            {build.regressionStatus}
+                            {build.regressionStatus} / {build.releaseChannel}
                           </span>
                         </td>
                         <td className="px-4 py-3.5">
@@ -157,7 +157,7 @@ export function RuntimesPage() {
                         {build.buildId}
                       </code>
                       <span className="text-[10px] font-semibold text-success">
-                        {build.regressionStatus}
+                        {build.releaseChannel}
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] text-text-secondary">

@@ -40,6 +40,15 @@ public class RuntimeBuildEntity {
   @Column(name = "released_at")
   private Instant releasedAt;
 
+  @Column(name = "release_channel", nullable = false)
+  private String releaseChannel;
+
+  @Column(name = "disabled_at")
+  private Instant disabledAt;
+
+  @Column(name = "disabled_by")
+  private String disabledBy;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -83,7 +92,34 @@ public class RuntimeBuildEntity {
     return releasedAt;
   }
 
+  public String getReleaseChannel() {
+    return releaseChannel;
+  }
+
+  public Instant getDisabledAt() {
+    return disabledAt;
+  }
+
+  public String getDisabledBy() {
+    return disabledBy;
+  }
+
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public void release(String channel, Instant now) {
+    releaseChannel = channel;
+    regressionStatus = channel;
+    releasedAt = now;
+    disabledAt = null;
+    disabledBy = null;
+  }
+
+  public void disable(String actorId, Instant now) {
+    releaseChannel = "DISABLED";
+    regressionStatus = "DISABLED";
+    disabledAt = now;
+    disabledBy = actorId;
   }
 }

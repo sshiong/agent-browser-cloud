@@ -28,11 +28,14 @@ public class RuntimeBuildApplicationService {
                         build.getPlatform(),
                         build.getSecurityTier(),
                         build.getRegressionStatus(),
+                        build.getReleaseChannel(),
                         build.getSignature() != null && !build.getSignature().isBlank(),
                         build.getSignature(),
                         build.getSbomUrl(),
                         build.getValidatedAt(),
                         build.getReleasedAt(),
+                        build.getDisabledAt(),
+                        build.getDisabledBy(),
                         build.getCreatedAt()))
             .toList();
     return new RuntimeBuildListResponse(items, items.size());

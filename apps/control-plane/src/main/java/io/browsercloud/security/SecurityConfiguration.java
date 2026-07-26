@@ -105,7 +105,8 @@ public class SecurityConfiguration {
                   role.equals("TENANT_VIEWER")
                       || role.equals("TENANT_OPERATOR")
                       || role.equals("TENANT_ADMIN")
-                      || role.equals("SECURITY_ADMIN"))
+                      || role.equals("SECURITY_ADMIN")
+                      || role.equals("PLATFORM_ADMIN"))
           .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
           .toList();
     }

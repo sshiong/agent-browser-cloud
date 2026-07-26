@@ -447,7 +447,7 @@ try {
       .getByText("runtime_local_chromium", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("table").getByText("STABLE", { exact: true }),
+    page.getByRole("table").getByText("STABLE / STABLE", { exact: true }),
   ).toBeVisible();
 
   await page.goto(`${baseUrl}/security`);

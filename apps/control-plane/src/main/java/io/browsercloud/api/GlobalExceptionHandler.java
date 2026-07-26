@@ -9,6 +9,8 @@ import io.browsercloud.application.BreakGlassApplicationService.BreakGlassReject
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
+import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
+import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
@@ -141,6 +143,28 @@ public class GlobalExceptionHandler {
         HttpStatus.SERVICE_UNAVAILABLE,
         "RUNTIME_BUILD_REJECTED",
         "The configured Runtime Build is not approved for release",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(RuntimeReleaseNotFoundException.class)
+  ResponseEntity<ApiError> runtimeReleaseNotFound(
+      RuntimeReleaseNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "RUNTIME_RELEASE_NOT_FOUND",
+        "Runtime release request was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RuntimeReleaseRejectedException.class)
+  ResponseEntity<ApiError> runtimeReleaseRejected(
+      RuntimeReleaseRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RUNTIME_RELEASE_REJECTED",
+        "Runtime release transition was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

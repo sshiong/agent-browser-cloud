@@ -1,5 +1,6 @@
 package io.browsercloud.application;
 
+import io.browsercloud.persistence.RuntimeBuildEntity;
 import io.browsercloud.persistence.RuntimeBuildJpaRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,10 +24,26 @@ public class RuntimeBuildPolicy {
             .findById(buildId)
             .orElseThrow(() -> new RuntimeBuildRejectedException("BUILD_NOT_REGISTERED"));
     if (!"STABLE".equals(build.getRegressionStatus())
+        || !"STABLE".equals(build.getReleaseChannel())
         || build.getValidatedAt() == null
         || build.getReleasedAt() == null) {
       throw new RuntimeBuildRejectedException("BUILD_NOT_VALIDATED");
     }
+    requireSupplyChainEvidence(build);
+  }
+
+  public void requireReleaseCandidate(String buildId) {
+    var build =
+        repository
+            .findById(buildId)
+            .orElseThrow(() -> new RuntimeBuildRejectedException("BUILD_NOT_REGISTERED"));
+    if (build.getValidatedAt() == null || "DISABLED".equals(build.getRegressionStatus())) {
+      throw new RuntimeBuildRejectedException("BUILD_NOT_VALIDATED");
+    }
+    requireSupplyChainEvidence(build);
+  }
+
+  private void requireSupplyChainEvidence(RuntimeBuildEntity build) {
     if (build.getSignature() == null
         || build.getSignature().isBlank()
         || build.getSbomUrl() == null

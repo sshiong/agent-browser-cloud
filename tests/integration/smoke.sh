@@ -719,6 +719,41 @@ expired_break_glass_state="$(docker exec "$postgres_name" psql -U browsercloud -
   "select state from break_glass_requests where request_id='${expired_break_glass_id}'")"
 test "$expired_break_glass_state" = "EXPIRED"
 
+runtime_disable_request="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/runtime-builds/runtime_local_chromium:disable" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: release-requester' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"reason":"Disable the completed integration build after release governance validation"}')"
+runtime_release_id="$(printf '%s' "$runtime_disable_request" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "REQUESTED"; assert item["targetChannel"] == "DISABLED"; print(item["releaseId"])')"
+runtime_self_approval_status="$(curl -sS -o "$temp_dir/runtime-self-approval.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/runtime-release-requests/${runtime_release_id}:approve" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: release-requester' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+test "$runtime_self_approval_status" = "409"
+runtime_release_cross_tenant_status="$(curl -sS -o "$temp_dir/runtime-cross-tenant.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/runtime-release-requests/${runtime_release_id}:approve" \
+  -H 'X-Tenant-Id: different-platform' \
+  -H 'X-Actor-Id: release-approver' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+test "$runtime_release_cross_tenant_status" = "404"
+runtime_disable_approved="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/runtime-release-requests/${runtime_release_id}:approve" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: release-approver' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$runtime_disable_approved" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "APPROVED"; assert item["approvedBy"] == "release-approver"; assert len(item["evidenceHash"]) == 64'
+runtime_disabled="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/runtime-builds" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$runtime_disabled" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin)["items"][0]; assert item["releaseChannel"] == "DISABLED"; assert item["regressionStatus"] == "DISABLED"; assert item["disabledBy"] == "release-approver"; assert item["disabledAt"] is not None'
+
 audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?limit=500" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -726,7 +761,13 @@ audit_result="$(curl -fsS \
 audit_total="$(printf '%s' "$audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; required={"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE","HUMAN_AUTHORIZATION","SECURITY_EVENT","PROFILE_RESTORE","ADMIN_ACCESS"}; assert required.issubset(types), required-types; assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
 test "$audit_total" -ge "20"
+runtime_audit_result="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/audit-events?eventType=RUNTIME_RELEASE&limit=50" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: SECURITY_ADMIN')"
+printf '%s' "$runtime_audit_result" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] == 3; assert {item["action"] for item in result["items"]} == {"RUNTIME_RELEASE_REQUESTED","RUNTIME_RELEASE_APPROVAL_DENIED","RUNTIME_RELEASE_APPROVED"}'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
-  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$audit_total"
+  "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$runtime_release_cross_tenant_status" "$audit_total"

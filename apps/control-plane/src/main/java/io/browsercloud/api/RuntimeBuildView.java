@@ -9,9 +9,12 @@ public record RuntimeBuildView(
     String platform,
     String securityTier,
     String regressionStatus,
+    String releaseChannel,
     boolean signatureVerified,
     String signature,
     String sbomUrl,
     Instant validatedAt,
     Instant releasedAt,
+    Instant disabledAt,
+    String disabledBy,
     Instant createdAt) {}

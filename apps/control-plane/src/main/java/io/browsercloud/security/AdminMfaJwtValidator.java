@@ -42,6 +42,10 @@ public final class AdminMfaJwtValidator implements OAuth2TokenValidator<Jwt> {
     return roles.stream()
         .map(String::valueOf)
         .map(value -> value.toUpperCase(Locale.ROOT))
-        .anyMatch(value -> value.equals("TENANT_ADMIN") || value.equals("SECURITY_ADMIN"));
+        .anyMatch(
+            value ->
+                value.equals("TENANT_ADMIN")
+                    || value.equals("SECURITY_ADMIN")
+                    || value.equals("PLATFORM_ADMIN"));
   }
 }

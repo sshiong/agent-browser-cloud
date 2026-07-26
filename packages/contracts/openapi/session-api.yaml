@@ -561,6 +561,114 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/runtime-builds/{buildId}:promote:
+    post:
+      operationId: requestRuntimePromotion
+      summary: Request a dual-control Runtime promotion
+      tags: [Runtime]
+      parameters:
+        - $ref: "#/components/parameters/RuntimeBuildId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRuntimeReleaseRequest"
+      responses:
+        "200":
+          description: Promotion request awaiting a second Platform Admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeReleaseRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/runtime-builds/{buildId}:disable:
+    post:
+      operationId: requestRuntimeDisable
+      summary: Request a dual-control Runtime disable
+      tags: [Runtime]
+      parameters:
+        - $ref: "#/components/parameters/RuntimeBuildId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRuntimeDisableRequest"
+      responses:
+        "200":
+          description: Disable request awaiting a second Platform Admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeReleaseRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/runtime-release-requests:
+    get:
+      operationId: listRuntimeReleaseRequests
+      summary: List Runtime release decisions
+      tags: [Runtime]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Platform release requests visible to the current control tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeReleaseRequestListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/runtime-release-requests/{releaseId}:approve:
+    post:
+      operationId: approveRuntimeRelease
+      summary: Approve a Runtime release decision as the second Platform Admin
+      tags: [Runtime]
+      parameters:
+        - $ref: "#/components/parameters/RuntimeReleaseId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Approved release decision and evidence hash.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeReleaseRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/runtime-release-requests/{releaseId}:reject:
+    post:
+      operationId: rejectRuntimeRelease
+      summary: Reject a pending Runtime release decision
+      tags: [Runtime]
+      parameters:
+        - $ref: "#/components/parameters/RuntimeReleaseId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Rejected release decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeReleaseRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/break-glass-requests:
     get:
       operationId: listBreakGlassRequests
@@ -763,6 +871,20 @@ components:
       schema:
         type: string
         pattern: "^bgr_[a-zA-Z0-9]{20}$"
+    RuntimeBuildId:
+      name: buildId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9_-]{1,128}$"
+    RuntimeReleaseId:
+      name: releaseId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^rel_[A-Za-z0-9]{20}$"
   schemas:
     CreateAgentTaskRequest:
       type: object
@@ -1869,6 +1991,7 @@ components:
         - platform
         - securityTier
         - regressionStatus
+        - releaseChannel
         - signatureVerified
         - createdAt
       properties:
@@ -1884,6 +2007,9 @@ components:
           type: string
         regressionStatus:
           type: string
+        releaseChannel:
+          type: string
+          enum: [UNRELEASED, CANARY, STABLE, DISABLED]
         signatureVerified:
           type: boolean
         signature:
@@ -1896,6 +2022,11 @@ components:
         releasedAt:
           type: [string, "null"]
           format: date-time
+        disabledAt:
+          type: [string, "null"]
+          format: date-time
+        disabledBy:
+          type: [string, "null"]
         createdAt:
           type: string
           format: date-time
@@ -1908,6 +2039,78 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RuntimeBuild"
+        total:
+          type: integer
+    CreateRuntimeReleaseRequest:
+      type: object
+      additionalProperties: false
+      required: [targetChannel, reason]
+      properties:
+        targetChannel:
+          type: string
+          enum: [CANARY, STABLE]
+        reason:
+          type: string
+          minLength: 20
+          maxLength: 500
+    CreateRuntimeDisableRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 20
+          maxLength: 500
+    RuntimeReleaseRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - releaseId
+        - buildId
+        - targetChannel
+        - reason
+        - state
+        - requestedBy
+        - requestedAt
+      properties:
+        releaseId:
+          type: string
+          pattern: "^rel_[A-Za-z0-9]{20}$"
+        buildId:
+          type: string
+        targetChannel:
+          type: string
+          enum: [CANARY, STABLE, DISABLED]
+        reason:
+          type: string
+        state:
+          type: string
+          enum: [REQUESTED, APPROVED, REJECTED]
+        requestedBy:
+          type: string
+        approvedBy:
+          type: [string, "null"]
+        rejectedBy:
+          type: [string, "null"]
+        requestedAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: [string, "null"]
+          format: date-time
+        evidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+    RuntimeReleaseRequestListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeReleaseRequest"
         total:
           type: integer
     CreateBreakGlassRequest:

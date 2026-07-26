@@ -20,7 +20,8 @@ public final class LocalHeaderAuthenticationFilter extends OncePerRequestFilter 
 
   private static final String IDENTIFIER = "^[A-Za-z0-9_-]{1,128}$";
   private static final Set<String> ALLOWED_ROLES =
-      Set.of("TENANT_VIEWER", "TENANT_OPERATOR", "TENANT_ADMIN", "SECURITY_ADMIN");
+      Set.of(
+          "TENANT_VIEWER", "TENANT_OPERATOR", "TENANT_ADMIN", "SECURITY_ADMIN", "PLATFORM_ADMIN");
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {

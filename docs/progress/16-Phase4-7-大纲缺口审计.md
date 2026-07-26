@@ -39,7 +39,7 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 |---|---|---|
 | Node Helper 权限拆分 | `network-helper`、`storage-helper` 仍由 `node-agent` 进程内链接 | 独立 UID、固定 Schema IPC、seccomp/Landlock、能力最小化、互相崩溃隔离 |
 | Break-glass | 双人审批、限时、撤销、Review、API/UI 和审计已完成；独立 Secure Debug Worker、敏感数据面与录像未完成 | 完整调试数据面演练并证明跨租户访问仍受控 |
-| 审计事件覆盖 | 八类必需事件已完成六类 | 补 Runtime Release、Key Rotation 并完成回归 |
+| 审计事件覆盖 | 八类必需事件已完成七类 | 补 Key Rotation 并完成回归 |
 | 制品真实验签 | Runtime Policy 检查 Stable、时间戳、签名格式和 SBOM URL；没有使用信任根验证制品签名 | 构建摘要、签名者、信任根、撤销状态与发布记录可验证 |
 | 供应链发布 | CI 生成 SBOM/Trivy；未签名镜像，部署仍有 `:latest`，没有固定 Digest | 签名镜像、固定 Digest、N/N-1 兼容和回滚演练 |
 | 故障矩阵 | 已覆盖 Browser/Node、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补 PostgreSQL 短时不可用、Object Storage 超时、Coordinator Kill/接管和自动 GameDay |
@@ -72,7 +72,7 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 
 | 能力组 | 当前事实 | 缺少的完成证据 |
 |---|---|---|
-| Runtime Validation | 有 Registry、只读 API/UI 和本地 Seed | Validation Farm、创建/验证/晋级/禁用 API、隔离 Worker、能力观测、Persona 一致性 |
+| Runtime Validation | 有 Registry、发布/禁用双人治理 API、只读 UI 和本地 Seed | Build 创建/验证、Validation Farm、隔离 Worker、能力观测、Persona 一致性 |
 | Replay/Compatibility | 无生产近似数据集和矩阵服务 | 数据授权/脱敏、版本绑定、Chromium Major 矩阵、Profile Corruption Replay |
 | Cost | 无成本表、Rate Card 或 Scheduler | Cost-aware Placement、可复算 Breakdown、版本化 Rate Card、隔离策略不可降级 |
 | SLA | 无 SLI/SLO/Error Budget 服务 | Exclusion、Burn Rate、发布冻结和 Console 可观测 |

@@ -12,6 +12,8 @@ use std::io::{Read, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
+pub mod object_archive;
+
 const MAX_PROFILE_FILES: usize = 50_000;
 const MAX_PROFILE_FILE_BYTES: u64 = 512 * 1024 * 1024;
 const MANIFEST_FILE: &str = "manifest.json";
@@ -106,6 +108,45 @@ impl LocalProfileStore {
         let runtime_build_id = runtime_build_id.to_owned();
         tokio::task::spawn_blocking(move || {
             checkpoint_blocking(&root, &workspace, &runtime_build_id)
+        })
+        .await?
+    }
+
+    pub async fn pack_checkpoint(
+        &self,
+        manifest: &ProfileCheckpointManifest,
+    ) -> anyhow::Result<Vec<u8>> {
+        validate_identifier("tenant_id", &manifest.tenant_id)?;
+        validate_identifier("profile_id", &manifest.profile_id)?;
+        validate_identifier("checkpoint_id", &manifest.checkpoint_id)?;
+        let checkpoint = profile_root(&self.root, &manifest.tenant_id, &manifest.profile_id)
+            .join("checkpoints")
+            .join(&manifest.checkpoint_id);
+        let expected = manifest.clone();
+        tokio::task::spawn_blocking(move || {
+            let validated = validate_committed_checkpoint(
+                checkpoint
+                    .parent()
+                    .and_then(Path::parent)
+                    .ok_or_else(|| anyhow::anyhow!("invalid checkpoint path"))?,
+                &expected.checkpoint_id,
+            )?;
+            anyhow::ensure!(validated == expected, "checkpoint changed before archive");
+            let encoder = zstd::Encoder::new(Vec::new(), 3)?;
+            let mut archive = tar::Builder::new(encoder);
+            archive.follow_symlinks(false);
+            archive.append_path_with_name(checkpoint.join(MANIFEST_FILE), MANIFEST_FILE)?;
+            archive
+                .append_path_with_name(checkpoint.join(COMMIT_MARKER_FILE), COMMIT_MARKER_FILE)?;
+            for file in &expected.files {
+                let relative = safe_relative_path(&file.relative_path)?;
+                archive.append_path_with_name(
+                    checkpoint.join("core").join(&relative),
+                    Path::new("core").join(relative),
+                )?;
+            }
+            let encoder = archive.into_inner()?;
+            Ok(encoder.finish()?)
         })
         .await?
     }
@@ -730,6 +771,27 @@ mod tests {
         assert_eq!(manifest.files.len(), 1);
         assert_eq!(manifest.files[0].relative_path, "Default/Cookies");
         assert!(manifest.committed);
+        let packed = store.pack_checkpoint(&manifest).await.unwrap();
+        let decoder = zstd::Decoder::new(packed.as_slice()).unwrap();
+        let mut archive = tar::Archive::new(decoder);
+        let paths = archive
+            .entries()
+            .unwrap()
+            .map(|entry| {
+                entry
+                    .unwrap()
+                    .path()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect::<Vec<_>>();
+        assert!(paths.iter().any(|path| path.ends_with("manifest.json")));
+        assert!(paths.iter().any(|path| path.ends_with("COMMITTED")));
+        assert!(paths
+            .iter()
+            .any(|path| path.ends_with("core/Default/Cookies")));
+        assert!(!paths.iter().any(|path| path.contains("Cache/cache.bin")));
         store.release_writer(&workspace).await.unwrap();
 
         let restored = store

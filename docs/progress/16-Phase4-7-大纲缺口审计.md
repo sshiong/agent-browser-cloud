@@ -35,16 +35,16 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 
 ## Phase 5：生产 Exit Gate 缺口
 
-| 缺口                 | 代码事实                                                                                                                                  | 验收要求                                                                         |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Node Helper 权限拆分 | Network/Storage Helper 已独立进程、固定有界 IPC、Peer UID、不同容器 UID/seccomp/Capability Drop、独立卷，并通过 Kill/恢复测试；GPU 未实现 | 补 GPU、LSM Profile、独立 Audit Identity 与真实集群跨 UID/互相崩溃验收           |
-| Break-glass          | 双人审批、限时、撤销、Review，以及一次性/单 Operator/最小投影/逐次证据的 Secure Debug 数据面和 UI 已完成；独立 Worker 与像素录像未完成    | 补独立 UID Worker、WORM Recording Manifest 和真实集群 Kill/撤销演练              |
-| 审计事件覆盖         | 八类必需事件已全部接入并通过集成链验证                                                                                                    | 已关闭                                                                           |
-| 制品真实验签         | Runtime Policy 已验证 Ed25519 Provenance；CI 已对四个 GHCR 镜像执行 Keyless Cosign 签名与 SPDX Attestation                                | 补 Offline Root/HSM、Control Plane OCI Digest 复算、Admission 强制验证与撤销演练 |
-| 供应链发布           | Run `30195955615` 已生成四个 Digest 镜像、签名/Attestation、SBOM Hash 绑定和签名 Kustomize 发布包                                         | 补 N/N-1 兼容、Admission Policy 和生产回滚演练                                   |
-| 故障矩阵             | 已覆盖 Browser/Node、PostgreSQL 短时不可用、Coordinator 安全点 Kill/term=2 接管、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ    | 补 Object Storage 超时，以及进行中 Operation 的 Coordinator Kill 恢复/安全中止   |
-| mTLS 生命周期        | CA 内节点证书轮换已测                                                                                                                     | 在线 Root 双写、CRL/SPIFFE 撤销和过期证书演练                                    |
-| 审计生命周期         | Retention/Legal Hold 字段已落库                                                                                                           | 真正的 Hold 工作流、删除 Receipt、签名 Export Manifest                           |
+| 缺口                 | 代码事实                                                                                                                                   | 验收要求                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Node Helper 权限拆分 | Network/Storage Helper 已独立进程、固定有界 IPC、Peer UID、不同容器 UID/seccomp/Capability Drop、独立卷，并通过 Kill/恢复测试；GPU 未实现  | 补 GPU、LSM Profile、独立 Audit Identity 与真实集群跨 UID/互相崩溃验收           |
+| Break-glass          | 双人审批、限时、撤销、Review，以及一次性/单 Operator/最小投影/逐次证据的 Secure Debug 数据面和 UI 已完成；独立 Worker 与像素录像未完成     | 补独立 UID Worker、WORM Recording Manifest 和真实集群 Kill/撤销演练              |
+| 审计事件覆盖         | 八类必需事件已全部接入并通过集成链验证                                                                                                     | 已关闭                                                                           |
+| 制品真实验签         | Runtime Policy 已验证 Ed25519 Provenance；CI 已对四个 GHCR 镜像执行 Keyless Cosign 签名与 SPDX Attestation                                 | 补 Offline Root/HSM、Control Plane OCI Digest 复算、Admission 强制验证与撤销演练 |
+| 供应链发布           | Run `30195955615` 已生成四个 Digest 镜像、签名/Attestation、SBOM Hash 绑定和签名 Kustomize 发布包                                          | 补 N/N-1 兼容、Admission Policy 和生产回滚演练                                   |
+| 故障矩阵             | 已覆盖 Browser/Node、PostgreSQL、S3/MinIO 超时、Coordinator 安全点 Kill/term=2 接管、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补进行中 Operation 的 Coordinator Kill 恢复/安全中止及目标云 Provider 演练       |
+| mTLS 生命周期        | CA 内节点证书轮换已测                                                                                                                      | 在线 Root 双写、CRL/SPIFFE 撤销和过期证书演练                                    |
+| 审计生命周期         | Retention/Legal Hold 字段已落库                                                                                                            | 真正的 Hold 工作流、删除 Receipt、签名 Export Manifest                           |
 
 因此 Phase 5 只能判定为“Stage A 主链路完成”，不能判定 Exit Gate 关闭。
 
@@ -153,8 +153,8 @@ Console/HTTP 异常。
 
 1. P0：为现有 Network/Storage Helper 补 LSM/真实集群验收，按需实现 GPU Helper，
    将已完成的 Secure Debug 治理数据面拆为独立 Worker/强制录像，并补 Offline
-   Root/HSM、Admission 强制验证、回滚演练、Object Storage 超时和进行中 Operation
-   的 Coordinator Kill/接管演练。
+   Root/HSM、Admission 强制验证、回滚演练、目标云 Object Storage/IAM 和进行中
+   Operation 的 Coordinator Kill/接管演练。
 2. P0：完成 Profile Business Ready、基础设施出口防逃逸和真实 Provider 故障演练。
 3. P0：完成 Phase 6 Browser/Coordinator Capacity Certificate 与真实集群
    Rolling Upgrade。

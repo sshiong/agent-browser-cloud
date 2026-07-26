@@ -8,6 +8,8 @@ use nix::unistd::Uid;
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
+use storage_helper::object_archive::{ObjectArchive, S3ArchiveConfig};
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
@@ -15,13 +17,15 @@ use tracing::{error, info, warn};
 
 struct StorageService {
     store: LocalProfileStore,
+    archive: Option<ObjectArchive>,
     profile_locks: Vec<Mutex<()>>,
 }
 
 impl StorageService {
-    fn new(store: LocalProfileStore) -> Self {
+    fn new(store: LocalProfileStore, archive: Option<ObjectArchive>) -> Self {
         Self {
             store,
+            archive,
             profile_locks: (0..64).map(|_| Mutex::new(())).collect(),
         }
     }
@@ -35,7 +39,7 @@ impl StorageService {
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
-        execute_storage_operation(&self.store, command).await
+        execute_storage_operation(&self.store, self.archive.as_ref(), command).await
     }
 }
 
@@ -50,10 +54,12 @@ async fn main() -> anyhow::Result<()> {
 
     let socket_path = required_absolute_path("STORAGE_HELPER_SOCKET")?;
     let storage_root = required_absolute_path("PROFILE_STORAGE_ROOT")?;
+    let object_archive = object_archive_from_environment()?;
     prepare_socket_path(&socket_path).await?;
     let allowed_uid = configured_node_agent_uid()?;
     let service = Arc::new(StorageService::new(
         LocalProfileStore::open(storage_root).await?,
+        object_archive,
     ));
     let listener = UnixListener::bind(&socket_path)
         .with_context(|| format!("failed to bind {}", socket_path.display()))?;
@@ -116,6 +122,7 @@ async fn serve_connection(
 
 async fn execute_storage_operation(
     store: &LocalProfileStore,
+    archive: Option<&ObjectArchive>,
     command: &StorageCommand,
 ) -> anyhow::Result<(Option<StorageWorkspace>, Option<StorageCheckpoint>)> {
     match command {
@@ -140,6 +147,9 @@ async fn execute_storage_operation(
                 .resume_workspace(tenant_id, profile_id, session_id)
                 .await?;
             let checkpoint = store.checkpoint(&workspace, runtime_build_id).await?;
+            if let Some(archive) = archive {
+                archive.commit_checkpoint(store, &checkpoint).await?;
+            }
             Ok((
                 None,
                 Some(StorageCheckpoint {
@@ -162,6 +172,45 @@ async fn execute_storage_operation(
             Ok((None, None))
         }
     }
+}
+
+fn object_archive_from_environment() -> anyhow::Result<Option<ObjectArchive>> {
+    let enabled = std::env::var("OBJECT_STORAGE_ENABLED")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if !enabled {
+        return Ok(None);
+    }
+    let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
+    let endpoint = required_environment("OBJECT_STORAGE_ENDPOINT")?;
+    let allow_http = endpoint.starts_with("http://");
+    anyhow::ensure!(
+        !environment.eq_ignore_ascii_case("production") || !allow_http,
+        "production Object Storage requires HTTPS"
+    );
+    let connect_timeout = duration_from_environment("OBJECT_STORAGE_CONNECT_TIMEOUT_MS", 1_000)?;
+    let operation_timeout =
+        duration_from_environment("OBJECT_STORAGE_OPERATION_TIMEOUT_MS", 3_000)?;
+    Ok(Some(ObjectArchive::s3(S3ArchiveConfig {
+        bucket: required_environment("OBJECT_STORAGE_BUCKET")?,
+        region: std::env::var("OBJECT_STORAGE_REGION").unwrap_or_else(|_| "us-east-1".to_owned()),
+        endpoint,
+        access_key_id: required_environment("OBJECT_STORAGE_ACCESS_KEY_ID")?,
+        secret_access_key: required_environment("OBJECT_STORAGE_SECRET_ACCESS_KEY")?,
+        prefix: std::env::var("OBJECT_STORAGE_PREFIX").unwrap_or_default(),
+        connect_timeout,
+        operation_timeout,
+        allow_http,
+    })?))
+}
+
+fn duration_from_environment(name: &str, default_millis: u64) -> anyhow::Result<Duration> {
+    let millis = std::env::var(name)
+        .unwrap_or_else(|_| default_millis.to_string())
+        .parse::<u64>()
+        .with_context(|| format!("{name} must be an integer"))?;
+    anyhow::ensure!((100..=60_000).contains(&millis), "{name} is out of range");
+    Ok(Duration::from_millis(millis))
 }
 
 fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
@@ -308,6 +357,7 @@ mod tests {
             LocalProfileStore::open(root.join("profiles"))
                 .await
                 .unwrap(),
+            None,
         ));
         let disallowed_uid = Uid::current().as_raw().saturating_add(1);
         let error = serve_connection(stream, disallowed_uid, service)

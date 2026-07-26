@@ -94,4 +94,5 @@ make test-e2e
 5. 尚未在 Kubernetes Pod Kill/网络分区下结合 PDB、RollingUpdate 和 N/N-1 版本执行；
 6. 热租户迁移、Route Epoch 与 Coordinator Ownership 的联合 GameDay 仍属于 Phase 6。
 
-因此 Phase 5 故障矩阵仍保留“进行中 Operation 接管”和“Object Storage 超时”两项。
+后续 S3/MinIO 超时 GameDay 已在进度 31 关闭 Stage A；Phase 5 故障矩阵仍保留
+“进行中 Operation 接管”和目标云 Object Storage/IAM/跨 Region 恢复。

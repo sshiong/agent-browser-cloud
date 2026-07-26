@@ -213,6 +213,8 @@ spec:
           env:
             - name: APP_ENVIRONMENT
               value: production
+            - name: OBJECT_STORAGE_ENABLED
+              value: "false"
             - name: STORAGE_HELPER_SOCKET
               value: /var/run/browsercloud/helpers/storage.sock
             - name: PROFILE_STORAGE_ROOT

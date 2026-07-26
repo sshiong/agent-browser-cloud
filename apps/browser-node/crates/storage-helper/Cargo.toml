@@ -10,12 +10,16 @@ path = "src/main.rs"
 [dependencies]
 async-trait.workspace = true
 anyhow.workspace = true
+bytes.workspace = true
 helper-contracts = { path = "../helper-contracts" }
 nix.workspace = true
+object_store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+tar.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+zstd.workspace = true

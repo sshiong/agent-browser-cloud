@@ -1,4 +1,4 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-coordinator-capacity test-kubernetes-operator test-kubernetes-e2e test-e2e ci
+.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-kubernetes-operator test-kubernetes-e2e test-e2e ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -87,6 +87,10 @@ test-real-url-agent:
 # Verify bounded 503 responses and durable recovery across a real PostgreSQL outage
 test-postgres-outage:
 	./tests/failure-injection/postgres-outage.sh
+
+# Verify S3-compatible checkpoint commit ordering, bounded timeout, and retry safety
+test-object-storage:
+	./tests/failure-injection/object-storage-timeout.sh
 
 # Generate a build-bound Stage A Coordinator capacity certificate
 test-coordinator-capacity:

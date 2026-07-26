@@ -92,6 +92,7 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "/usr/local/bin/storage-helper"]
     environment:
       APP_ENVIRONMENT: local
+      OBJECT_STORAGE_ENABLED: "false"
       PROFILE_STORAGE_ROOT: /var/lib/browsercloud/profiles
       STORAGE_HELPER_SOCKET: /var/run/browsercloud/helpers/storage.sock
       RUST_LOG: info

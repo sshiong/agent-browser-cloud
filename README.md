@@ -4,8 +4,9 @@
 
 > 当前状态：单 Region 工程 PoC 的 Chromium/CDP、State/Input、noVNC、Profile/Proxy、
 > Agent、Crash Recovery、OIDC/RBAC/mTLS、哈希审计、Break-glass 与最小化 Secure
-> Debug 主链路已可重复运行。容量证书、真实集群、独立 Debug Worker/录像和 Phase 7
-> 企业运营 Gate 尚未完成，当前版本不能直接用于生产或真实客户数据。
+> Debug 主链路已可重复运行；GHCR 四镜像已具备 Keyless Cosign 签名、SPDX Attestation、
+> SBOM Hash 绑定和 Digest 锁定发布包。容量证书、真实集群、独立 Debug Worker/录像和
+> Phase 7 企业运营 Gate 尚未完成，当前版本不能直接用于生产或真实客户数据。
 
 ## 快速开始
 
@@ -147,12 +148,12 @@ curl -H 'X-Tenant-Id: tenant-local' \
 
 ## 技术栈
 
-| 层级 | 技术选型 |
-|------|---------|
-| 控制面 | Java 21 + Spring Boot |
-| Browser Node | Rust + Tokio |
-| Web Console | React + TypeScript |
-| 数据库 | PostgreSQL 17 |
-| 缓存 | Redis 7 |
-| 内部协议 | Protobuf |
-| 外部 API | OpenAPI 3.1 |
+| 层级         | 技术选型              |
+| ------------ | --------------------- |
+| 控制面       | Java 21 + Spring Boot |
+| Browser Node | Rust + Tokio          |
+| Web Console  | React + TypeScript    |
+| 数据库       | PostgreSQL 17         |
+| 缓存         | Redis 7               |
+| 内部协议     | Protobuf              |
+| 外部 API     | OpenAPI 3.1           |

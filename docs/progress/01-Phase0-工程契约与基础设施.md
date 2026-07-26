@@ -12,6 +12,9 @@
 - PostgreSQL/Redis、Control Plane、Browser Node、Web Console 均有 Dockerfile；Compose 不向宿主暴露 CDP/VNC。
 - ADR-001—ADR-006 和开发 Seed 已存在。
 - Web Console 已恢复 ESLint、Prettier、Vitest、Playwright 依赖与 CSP/Referrer 基线。
+- GitHub Release Workflow 构建并推送四个 GHCR 镜像，生成 SPDX SBOM，执行 Keyless
+  Cosign 签名/Attestation，并产出绑定 Source Commit、镜像 Digest、SBOM Hash 和
+  Kubernetes Kustomization Hash 的签名发布包。
 
 ## 已验收命令
 
@@ -26,6 +29,6 @@ docker compose config
 ## 尚未完成
 
 - Owner、威胁模型与设计评审的组织签字。
-- SBOM、镜像签名、镜像扫描与固定 Digest。
-- 正式 Release 流程、版本兼容策略自动验证和生产回滚演练。
+- N/N-1 版本兼容自动验证和生产回滚演练。
+- Offline Root/HSM、签名密钥撤销以及 Admission 侧强制验证。
 - 容器镜像构建仍可能受本机 Docker Registry Mirror 网络状态影响。

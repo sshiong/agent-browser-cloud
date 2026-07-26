@@ -6,13 +6,13 @@
 
 ## 结论
 
-| 范围 | 当前状态 | Gate |
-|---|---|---|
-| Phase 4：Agent 基础与安全边界 | 开发计划中的 MVP 已闭环；V16 增强项仍缺 | MVP 已关闭，生产增强未关闭 |
-| Phase 5：可靠性、安全与审计 | Durable Workflow、身份、mTLS 和哈希审计主链路可运行 | 未关闭 |
-| Phase 6：密度与 Kubernetes | 路由、Mailbox、容量 Hysteresis、CRD/Operator/YAML 是基础实现 | 未关闭 |
-| Phase 7：企业运营 | 除只读 Runtime Registry 外，核心能力未实现 | 未开始验收 |
-| Web Console | Session/Profile/Proxy/Agent/Audit/Runtime 已接真实 API | 非生产就绪 |
+| 范围                          | 当前状态                                                     | Gate                       |
+| ----------------------------- | ------------------------------------------------------------ | -------------------------- |
+| Phase 4：Agent 基础与安全边界 | 开发计划中的 MVP 已闭环；V16 增强项仍缺                      | MVP 已关闭，生产增强未关闭 |
+| Phase 5：可靠性、安全与审计   | Durable Workflow、身份、mTLS 和哈希审计主链路可运行          | 未关闭                     |
+| Phase 6：密度与 Kubernetes    | 路由、Mailbox、容量 Hysteresis、CRD/Operator/YAML 是基础实现 | 未关闭                     |
+| Phase 7：企业运营             | 除只读 Runtime Registry 外，核心能力未实现                   | 未开始验收                 |
+| Web Console                   | Session/Profile/Proxy/Agent/Audit/Runtime 已接真实 API       | 非生产就绪                 |
 
 当前仓库是可重复运行的工程 PoC，不是 V16 生产完成版。尤其不能把
 `runtime_builds` 表、一个 `STABLE` 本地 Seed 和只读页面等同于 Runtime Validation
@@ -35,16 +35,16 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 
 ## Phase 5：生产 Exit Gate 缺口
 
-| 缺口 | 代码事实 | 验收要求 |
-|---|---|---|
-| Node Helper 权限拆分 | Network/Storage Helper 已独立进程、固定有界 IPC、Peer UID、不同容器 UID/seccomp/Capability Drop、独立卷，并通过 Kill/恢复测试；GPU 未实现 | 补 GPU、LSM Profile、独立 Audit Identity 与真实集群跨 UID/互相崩溃验收 |
-| Break-glass | 双人审批、限时、撤销、Review，以及一次性/单 Operator/最小投影/逐次证据的 Secure Debug 数据面和 UI 已完成；独立 Worker 与像素录像未完成 | 补独立 UID Worker、WORM Recording Manifest 和真实集群 Kill/撤销演练 |
-| 审计事件覆盖 | 八类必需事件已全部接入并通过集成链验证 | 已关闭 |
-| 制品真实验签 | Runtime Policy 已验证 Artifact Digest、Signing Key ID、受信 Ed25519 签名和 SBOM URI | 补 Offline Root/HSM 真实签名流水线、OCI Digest 复算与撤销演练 |
-| 供应链发布 | CI 生成 SBOM/Trivy；未签名镜像，部署仍有 `:latest`，没有固定 Digest | 签名镜像、固定 Digest、N/N-1 兼容和回滚演练 |
-| 故障矩阵 | 已覆盖 Browser/Node、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ | 补 PostgreSQL 短时不可用、Object Storage 超时、Coordinator Kill/接管和自动 GameDay |
-| mTLS 生命周期 | CA 内节点证书轮换已测 | 在线 Root 双写、CRL/SPIFFE 撤销和过期证书演练 |
-| 审计生命周期 | Retention/Legal Hold 字段已落库 | 真正的 Hold 工作流、删除 Receipt、签名 Export Manifest |
+| 缺口                 | 代码事实                                                                                                                                  | 验收要求                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Node Helper 权限拆分 | Network/Storage Helper 已独立进程、固定有界 IPC、Peer UID、不同容器 UID/seccomp/Capability Drop、独立卷，并通过 Kill/恢复测试；GPU 未实现 | 补 GPU、LSM Profile、独立 Audit Identity 与真实集群跨 UID/互相崩溃验收             |
+| Break-glass          | 双人审批、限时、撤销、Review，以及一次性/单 Operator/最小投影/逐次证据的 Secure Debug 数据面和 UI 已完成；独立 Worker 与像素录像未完成    | 补独立 UID Worker、WORM Recording Manifest 和真实集群 Kill/撤销演练                |
+| 审计事件覆盖         | 八类必需事件已全部接入并通过集成链验证                                                                                                    | 已关闭                                                                             |
+| 制品真实验签         | Runtime Policy 已验证 Ed25519 Provenance；CI 已对四个 GHCR 镜像执行 Keyless Cosign 签名与 SPDX Attestation                                | 补 Offline Root/HSM、Control Plane OCI Digest 复算、Admission 强制验证与撤销演练   |
+| 供应链发布           | Run `30195955615` 已生成四个 Digest 镜像、签名/Attestation、SBOM Hash 绑定和签名 Kustomize 发布包                                         | 补 N/N-1 兼容、Admission Policy 和生产回滚演练                                     |
+| 故障矩阵             | 已覆盖 Browser/Node、Proxy、Profile Corruption、Key-up、Diff、Workflow DLQ                                                                | 补 PostgreSQL 短时不可用、Object Storage 超时、Coordinator Kill/接管和自动 GameDay |
+| mTLS 生命周期        | CA 内节点证书轮换已测                                                                                                                     | 在线 Root 双写、CRL/SPIFFE 撤销和过期证书演练                                      |
+| 审计生命周期         | Retention/Legal Hold 字段已落库                                                                                                           | 真正的 Hold 工作流、删除 Receipt、签名 Export Manifest                             |
 
 因此 Phase 5 只能判定为“Stage A 主链路完成”，不能判定 Exit Gate 关闭。
 
@@ -63,25 +63,25 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
    - 缺双 Coordinator 实例热点迁移、旧 Epoch 拒绝和跨 Shard 压测。
 4. Kubernetes：
    - 尚未在真实集群安装和运行 CRD/Operator；
-   - Operator 缺 Lease Leader Election、镜像流水线和集群级 E2E；
+   - Operator 缺 Lease Leader Election 和集群级 E2E；镜像流水线已完成；
    - CNI 防直连与 CSI 应用一致性 Adapter 只有清单，无目标云实测；
    - 没有 N/N-1 Rolling Upgrade GameDay。
 5. Media/GPU Capacity 和 Extension Anti-affinity 未进入调度模型。
 
 ## Phase 7：尚未实现
 
-| 能力组 | 当前事实 | 缺少的完成证据 |
-|---|---|---|
-| Runtime Validation | 有 Registry、发布/禁用双人治理 API、只读 UI 和本地 Seed | Build 创建/验证、Validation Farm、隔离 Worker、能力观测、Persona 一致性 |
-| Replay/Compatibility | 无生产近似数据集和矩阵服务 | 数据授权/脱敏、版本绑定、Chromium Major 矩阵、Profile Corruption Replay |
-| Cost | 无成本表、Rate Card 或 Scheduler | Cost-aware Placement、可复算 Breakdown、版本化 Rate Card、隔离策略不可降级 |
-| SLA | 无 SLI/SLO/Error Budget 服务 | Exclusion、Burn Rate、发布冻结和 Console 可观测 |
-| Retention/Compliance | 只有审计字段 | Policy Engine、Legal Hold 工作流、删除 Receipt、Residency Gate、License Inventory、签名导出 |
-| Recovery GameDay | 无 GameDay 领域模型和 Runner | 场景编排、RTO/RPO 自动记录、失败冻结发布 |
-| Media/Extension Isolation | 无独立调度与配额 | Encoder/Bitrate 配额、独立 Browser/Profile、Privileged Extension 禁止混部 |
-| Multi-region/DR | 未实现 | Region Authority、复制/故障切换、RPO/RTO、跨 Region Workflow |
-| IaC | 无 Terraform 目录/模块 | 网络、数据库、对象存储、Kubernetes、密钥和可回滚环境 |
-| SDK | `apps/cli` 为空，无生成 SDK | 至少一种正式 SDK、版本协商、重试/幂等策略；再扩展多语言 |
+| 能力组                    | 当前事实                                                | 缺少的完成证据                                                                              |
+| ------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Runtime Validation        | 有 Registry、发布/禁用双人治理 API、只读 UI 和本地 Seed | Build 创建/验证、Validation Farm、隔离 Worker、能力观测、Persona 一致性                     |
+| Replay/Compatibility      | 无生产近似数据集和矩阵服务                              | 数据授权/脱敏、版本绑定、Chromium Major 矩阵、Profile Corruption Replay                     |
+| Cost                      | 无成本表、Rate Card 或 Scheduler                        | Cost-aware Placement、可复算 Breakdown、版本化 Rate Card、隔离策略不可降级                  |
+| SLA                       | 无 SLI/SLO/Error Budget 服务                            | Exclusion、Burn Rate、发布冻结和 Console 可观测                                             |
+| Retention/Compliance      | 只有审计字段                                            | Policy Engine、Legal Hold 工作流、删除 Receipt、Residency Gate、License Inventory、签名导出 |
+| Recovery GameDay          | 无 GameDay 领域模型和 Runner                            | 场景编排、RTO/RPO 自动记录、失败冻结发布                                                    |
+| Media/Extension Isolation | 无独立调度与配额                                        | Encoder/Bitrate 配额、独立 Browser/Profile、Privileged Extension 禁止混部                   |
+| Multi-region/DR           | 未实现                                                  | Region Authority、复制/故障切换、RPO/RTO、跨 Region Workflow                                |
+| IaC                       | 无 Terraform 目录/模块                                  | 网络、数据库、对象存储、Kubernetes、密钥和可回滚环境                                        |
+| SDK                       | `apps/cli` 为空，无生成 SDK                             | 至少一种正式 SDK、版本协商、重试/幂等策略；再扩展多语言                                     |
 
 ## Web Console 与真实使用缺口
 
@@ -143,8 +143,8 @@ Console/HTTP 异常。
 ## 建议实施顺序
 
 1. P0：为现有 Network/Storage Helper 补 LSM/真实集群验收，按需实现 GPU Helper，
-   将已完成的 Secure Debug 治理数据面拆为独立 Worker/强制录像，并补真实签名流水线
-   和完整故障矩阵。
+   将已完成的 Secure Debug 治理数据面拆为独立 Worker/强制录像，并补 Offline
+   Root/HSM、Admission 强制验证、回滚演练和完整故障矩阵。
 2. P0：完成 Profile Business Ready、基础设施出口防逃逸和真实 Provider 故障演练。
 3. P0：完成 Phase 6 Browser/Coordinator Capacity Certificate 与真实集群
    Rolling Upgrade。

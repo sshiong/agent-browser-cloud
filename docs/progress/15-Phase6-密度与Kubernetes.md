@@ -13,6 +13,7 @@
 - Kata RuntimeClass、默认拒绝 NetworkPolicy、仅 CP/Proxy/DNS Egress、CSI Warm Tier、
   PDB 和 RollingUpdate 清单。
 - Java 密度单元测试、Python 语法检查、`kubectl kustomize` 均通过。
+- Operator 镜像已进入统一 GHCR 构建、SBOM、签名、Attestation 与 Digest 发布流水线。
 
 ## 尚未完成
 
@@ -23,9 +24,8 @@
    Node Pressure 驱逐尚未实现。
 4. Hot Actor 安全点迁移有 Router/Epoch 核心，但缺双 Coordinator 实例的迁移压测。
 5. CNI/CSI 清单已定义，仍需目标云环境验证防直连泄漏与 Snapshot 一致性 Adapter。
-6. Operator 镜像流水线、Lease Leader Election 和集群级 E2E 尚未完成。
+6. Operator Lease Leader Election 和集群级 E2E 尚未完成。
 
 ## Gate 判定
 
 Phase 6 当前为“基础实现完成、真实集群容量与升级 Gate 未关闭”，不得发布稳定并发承诺。
-

@@ -2,22 +2,22 @@
 
 ## 已完成并有测试证据
 
-| 能力 | 实现 | 验收证据 |
-|---|---|---|
-| Durable Workflow Stage A | Workflow Record、Deadline、CAS Version、幂等、Stale Callback、Commit Marker、补偿、DLQ | 集成测试 4 个 Completed Workflow + 1 个故障注入 Dead Letter |
-| OIDC/RBAC | 生产 JWT Principal 派生 Tenant/Actor；四级角色 | 单元测试与 401/403/跨租户集成测试 |
-| Admin MFA | Admin JWT 必须包含 `amr=mfa` | `AdminMfaJwtValidatorTest` |
-| 内部 mTLS | CP→Node、Node→CP 双向证书 | 临时 CA 全链路 + Node 证书轮换 |
-| 审计 | 租户序列、Previous Hash、Event Hash、查询、脱敏、Retention/Legal Hold | 集成测试 `chainValid=true` |
-| Runtime 供应链 | Stable、Validation、Artifact Digest、Signing Key ID、Ed25519 验签、SBOM Gate | Java 有效/篡改/未知 Key 测试；CI SBOM/Trivy |
-| 安全治理 | Threat Model、Incident/Key Rotation Runbook | `docs/security/` |
-| Break-glass 治理 | 工单、双人审批、5—60 分钟、自动撤销、事后 Review、独立拒绝审计事务 | Java 单测 + 集成 409/ACTIVE/404/REVOKED/REVIEWED + Web E2E |
-| Secure Debug 治理数据面 | 一次性 Grant、最长 15 分钟、单 Operator、最小 State 投影、逐次证据链、撤销关闭 | Java 单测 + PostgreSQL 证据链/404/409/撤销集成 + Web E2E |
-| Runtime Release 治理 | Platform Admin、双人晋级/禁用、发布状态、证据哈希、跨控制租户隔离 | Java 单测 + 集成禁用/404/审计 |
-| Key Rotation 治理 | 五类 Key Scope、双人审批、重叠窗口、泄露快速路径、验证证据 | Java 单测 + mTLS 轮换集成 + Web E2E |
-| 审计类型扩展 | Prompt Security、Human Authorization、Admin Access、Profile Restore | 集成审计链验证 |
-| Network Helper 隔离 | 独立进程、固定有界 Unix IPC、Peer UID、独立容器 UID/seccomp/Capability Drop | Rust 边界单测 + Helper Kill/Fail-closed/独立恢复集成测试 + Web E2E |
-| Storage Helper 隔离 | 独立进程、固定 IPC、路径重算、Write Epoch 幂等 Checkpoint、独立 Profile 卷 | Rust 完整性/路径/幂等测试 + Checkpoint Kill/恢复集成测试 + Web E2E |
+| 能力                     | 实现                                                                                                                  | 验收证据                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Durable Workflow Stage A | Workflow Record、Deadline、CAS Version、幂等、Stale Callback、Commit Marker、补偿、DLQ                                | 集成测试 4 个 Completed Workflow + 1 个故障注入 Dead Letter        |
+| OIDC/RBAC                | 生产 JWT Principal 派生 Tenant/Actor；四级角色                                                                        | 单元测试与 401/403/跨租户集成测试                                  |
+| Admin MFA                | Admin JWT 必须包含 `amr=mfa`                                                                                          | `AdminMfaJwtValidatorTest`                                         |
+| 内部 mTLS                | CP→Node、Node→CP 双向证书                                                                                             | 临时 CA 全链路 + Node 证书轮换                                     |
+| 审计                     | 租户序列、Previous Hash、Event Hash、查询、脱敏、Retention/Legal Hold                                                 | 集成测试 `chainValid=true`                                         |
+| Runtime 供应链           | Stable、Validation、Artifact Digest、Signing Key ID、Ed25519 验签、GHCR Keyless 签名、SPDX Attestation、Digest 发布包 | Java 有效/篡改/未知 Key；Trivy；Release Run `30195955615`          |
+| 安全治理                 | Threat Model、Incident/Key Rotation Runbook                                                                           | `docs/security/`                                                   |
+| Break-glass 治理         | 工单、双人审批、5—60 分钟、自动撤销、事后 Review、独立拒绝审计事务                                                    | Java 单测 + 集成 409/ACTIVE/404/REVOKED/REVIEWED + Web E2E         |
+| Secure Debug 治理数据面  | 一次性 Grant、最长 15 分钟、单 Operator、最小 State 投影、逐次证据链、撤销关闭                                        | Java 单测 + PostgreSQL 证据链/404/409/撤销集成 + Web E2E           |
+| Runtime Release 治理     | Platform Admin、双人晋级/禁用、发布状态、证据哈希、跨控制租户隔离                                                     | Java 单测 + 集成禁用/404/审计                                      |
+| Key Rotation 治理        | 五类 Key Scope、双人审批、重叠窗口、泄露快速路径、验证证据                                                            | Java 单测 + mTLS 轮换集成 + Web E2E                                |
+| 审计类型扩展             | Prompt Security、Human Authorization、Admin Access、Profile Restore                                                   | 集成审计链验证                                                     |
+| Network Helper 隔离      | 独立进程、固定有界 Unix IPC、Peer UID、独立容器 UID/seccomp/Capability Drop                                           | Rust 边界单测 + Helper Kill/Fail-closed/独立恢复集成测试 + Web E2E |
+| Storage Helper 隔离      | 独立进程、固定 IPC、路径重算、Write Epoch 幂等 Checkpoint、独立 Profile 卷                                            | Rust 完整性/路径/幂等测试 + Checkpoint Kill/恢复集成测试 + Web E2E |
 
 ## 尚未完成
 
@@ -38,5 +38,5 @@
 
 Phase 5 的应用层可靠性/身份/审计主链路已通过，Network Helper 进程隔离切片已通过；
 生产 Exit Gate 仍因 GPU Helper、LSM/真实集群验收、独立 Secure Debug Worker/录像、
-外部 KMS/HSM/真实签名流水线和完整故障演练保持
+Offline Root/HSM、OCI Admission 强制验证、回滚演练和完整故障矩阵保持
 “未关闭”。

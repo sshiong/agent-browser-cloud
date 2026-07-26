@@ -1,7 +1,7 @@
 # Phase 5：Runtime Release 治理
 
-> 状态：发布与紧急禁用的双人治理、准入状态和审计闭环已完成；Validation Farm 与真实
-> 制品密码学验签仍属于未关闭项。
+> 状态：发布与紧急禁用治理、GHCR Keyless 签名及 Digest 发布包已完成；Validation
+> Farm、Offline Root/HSM 与 Admission 强制验证仍属于未关闭项。
 
 ## 已完成
 
@@ -27,6 +27,12 @@
   - 申请、自批拒绝、批准和拒绝写入 `RUNTIME_RELEASE`；
   - 自批拒绝使用独立事务，业务拒绝不丢审计；
   - 批准证据使用 64 位 SHA-256 Hash 固化 Build、通道和双 Actor。
+- 制品发布：
+  - 四个 GHCR 镜像按 Source Commit 构建并解析不可变 Digest；
+  - 生成 SPDX JSON、Keyless Cosign 签名和 SPDX Attestation；
+  - 签名 Release Manifest 同时绑定镜像 Digest、SBOM SHA-256、Source Commit 和
+    Production Kustomization；
+  - GitHub Actions Run `30195955615` 完整成功并上传可重复验证的发布包。
 
 ## 可重复证据
 
@@ -54,7 +60,7 @@ make test-e2e
 
 1. Runtime Build 的 Create/Validate、隔离 Worker、Capability Snapshot、回归矩阵和
    Performance/Security Gate 仍属于 Phase 7 Validation Farm。
-2. Production Policy 已执行受信 Key ID 与 Ed25519 密码学验证；Offline Root/Online
-   Intermediate 的真实签名流水线与 OCI 内容 Digest 复算仍未完成。
+2. CI Keyless 签名已完成；Offline Root/HSM、Control Plane OCI 内容 Digest 复算和
+   Kubernetes Admission 强制验证仍未完成。
 3. Web Console 当前只展示 Release Channel；Platform Admin 的发布审批工作区尚未接入。
 4. `KEY_ROTATION` 已完成治理与审计闭环；外部 KMS/HSM 自动执行仍是生产化缺口。

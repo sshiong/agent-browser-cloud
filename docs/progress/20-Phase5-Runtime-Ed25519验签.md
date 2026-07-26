@@ -1,7 +1,7 @@
 # Phase 5：Runtime Ed25519 制品验签
 
-> 状态：Production 准入的密码学验证器已完成；真实 Offline Root/Intermediate 签名流水线
-> 和 Registry 制品下载校验仍待接入。
+> 状态：Production 准入验证器与 GHCR Keyless 签名发布流水线已完成；Offline Root/HSM
+> 和 Control Plane Registry 制品下载校验仍待接入。
 
 ## 已完成
 
@@ -13,6 +13,8 @@
   非法 Base64/Ed25519 签名以及非 HTTPS/OCI 的 SBOM Provenance。
 - Runtime Registry API/UI 显示 Artifact Digest 与 Signing Key ID；Production 的
   `signatureVerified` 来自真实 Ed25519 验证结果，不再只是字符串存在性。
+- Release Workflow 对 Control Plane、Browser Node、Web Console 和 Operator 执行
+  Keyless Cosign 签名、SPDX Attestation，并签署绑定镜像/SBOM Digest 的 Release Manifest。
 
 ## 验证
 
@@ -27,6 +29,7 @@ Java 单元测试使用运行时生成的 Ed25519 Key Pair 覆盖：
 
 ## 尚未完成
 
-1. CI 还未从 Offline Root/Online Intermediate/短期 Release Signing Key 产生真实签名。
-2. Control Plane 尚未下载 OCI Artifact 重新计算内容 Digest。
-3. HSM/KMS 签名、Key Compromise Release Block 与真实回滚演练仍待完成。
+1. Offline Root/Online Intermediate/HSM 的长期生产密钥层级尚未接入。
+2. Control Plane 尚未下载 OCI Artifact 重新计算内容 Digest，Ed25519 Runtime Build
+   准入与 Cosign OCI 发布证据尚未统一为同一验证 Provider。
+3. Key Compromise Release Block、Admission Policy 与真实回滚演练仍待完成。

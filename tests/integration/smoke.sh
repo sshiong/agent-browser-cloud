@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+report_failure() {
+  exit_code=$?
+  printf 'INTEGRATION_SMOKE_FAILED line=%s command=%q exit=%s\n' \
+    "${BASH_LINENO[0]}" "$BASH_COMMAND" "$exit_code" >&2
+  return "$exit_code"
+}
+trap report_failure ERR
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 

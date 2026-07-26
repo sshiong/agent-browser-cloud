@@ -40,6 +40,7 @@ services:
       BROWSER_NODE_GRPC_TARGET: browser-node:9090
       CONTROL_PLANE_NODE_EVENT_PORT: 9091
       APP_ENVIRONMENT: local
+      BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED: "false"
       REMOTE_DESKTOP_TICKET_SECRET: ${REMOTE_DESKTOP_TICKET_SECRET:-browsercloud-local-remote-desktop-ticket-secret-v1}
       PROXY_ALLOW_DIRECT: "true"
       SERVER_PORT: 8080
@@ -61,7 +62,9 @@ services:
       dockerfile: apps/browser-node/Dockerfile
     environment:
       NODE_AGENT_PORT: 9090
-      NODE_ID: node-compose-1
+      NODE_ID: node_compose_1
+      NODE_REGION: local
+      NODE_ADVERTISED_GRPC_TARGET: browser-node:9090
       CONTROL_PLANE_EVENT_TARGET: control-plane:9091
       CHROMIUM_PATH: /usr/bin/chromium
       RUNTIME_ROOT: /var/lib/browsercloud/runtime

@@ -1,6 +1,8 @@
 package io.browsercloud.coordinator;
 
 import io.browsercloud.domain.agent.AgentModels.PlanStep;
+import io.browsercloud.domain.capacity.BrowserResourceBudget;
+import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
@@ -24,7 +26,14 @@ public final class NodeCommands {
 
   /** 构建 StartRuntime 命令。 */
   public static NodeCommand startRuntime(
-      SessionContext session, ExclusiveOperation operation, String requestedRuntimeBuildId) {
+      SessionContext session,
+      ExclusiveOperation operation,
+      String requestedRuntimeBuildId,
+      RuntimeResourceLimits requestedLimits) {
+    var limits = requestedLimits == null ? defaultLimits(session) : requestedLimits;
+    if (limits.resourceClass() != session.resourceClass()) {
+      throw new IllegalArgumentException("Runtime limits do not match committed Resource Class");
+    }
     var payload =
         StartRuntimeCommand.newBuilder()
             .setSessionId(session.sessionId())
@@ -33,11 +42,22 @@ public final class NodeCommands {
             .setDisplay("")
             .setCdpPort(0)
             .setProxyBindingId(session.proxyBindingId() == null ? "" : session.proxyBindingId())
+            .setResourceClass(limits.resourceClass().name())
+            .setCpuMillis(limits.cpuMillis())
+            .setMemoryRequestMib(limits.memoryRequestMib())
+            .setMemoryLimitMib(limits.memoryLimitMib())
+            .setPidLimit(limits.pidLimit())
+            .setTabBudget(limits.tabBudget())
+            .setDesktopRequired(limits.desktop())
+            .setGpuRequired(limits.gpu())
+            .setNativeOsRequired(limits.nativeOs())
+            .setIsolationRequired(limits.isolated())
             .build()
             .toByteArray();
     return new NodeCommand(
         newId("cmd_"),
         "StartRuntime",
+        session.nodeId(),
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),
@@ -45,6 +65,21 @@ public final class NodeCommands {
         operation.operationEpoch(),
         operation.operationId(),
         payload);
+  }
+
+  private static RuntimeResourceLimits defaultLimits(SessionContext session) {
+    var budget = BrowserResourceBudget.of(session.resourceClass());
+    return new RuntimeResourceLimits(
+        budget.resourceClass(),
+        budget.cpuMillis(),
+        budget.memoryRequestMib(),
+        budget.memoryLimitMib(),
+        budget.pidLimit(),
+        budget.tabBudget(),
+        budget.desktopAllowed(),
+        budget.gpuRequired(),
+        budget.nativeOsRequired(),
+        false);
   }
 
   /** 构建 StopRuntime 命令。 */
@@ -59,6 +94,7 @@ public final class NodeCommands {
     return new NodeCommand(
         newId("cmd_"),
         "StopRuntime",
+        session.nodeId(),
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),
@@ -106,6 +142,7 @@ public final class NodeCommands {
     return new NodeCommand(
         newId("cmd_"),
         "ReleaseAllInput",
+        session.nodeId(),
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),
@@ -128,6 +165,7 @@ public final class NodeCommands {
     return new NodeCommand(
         newId("cmd_"),
         "RequestStateResync",
+        session.nodeId(),
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),
@@ -173,6 +211,7 @@ public final class NodeCommands {
     return new NodeCommand(
         newId("cmd_"),
         "RequestStateResync",
+        session.nodeId(),
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),
@@ -218,6 +257,7 @@ public final class NodeCommands {
     return new NodeCommand(
         newId("cmd_"),
         commandType,
+        session.nodeId(),
         session.sessionId(),
         session.tenantId(),
         session.coordinatorTerm(),

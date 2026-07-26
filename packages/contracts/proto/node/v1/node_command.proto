@@ -16,6 +16,8 @@ service NodeControlService {
 // Control Plane 只有在 Inbox 去重和 Coordinator 状态提交成功后才确认事件。
 service NodeEventService {
   rpc Publish(PublishRequest) returns (PublishResponse);
+  // mTLS-authenticated Browser Node registration and live PSI heartbeat.
+  rpc ReportCapacity(ReportCapacityRequest) returns (ReportCapacityResponse);
 }
 
 message PingRequest {
@@ -54,6 +56,37 @@ message PublishResponse {
   bool duplicate = 3;
   string error_code = 4;
   string error_message = 5;
+}
+
+message ReportCapacityRequest {
+  string node_id = 1;
+  string region = 2;
+  string grpc_target = 3;
+  uint32 certified_cpu_millis = 4;
+  uint32 certified_memory_mib = 5;
+  uint32 certified_pid_count = 6;
+  uint32 certified_gpu_slots = 7;
+  uint32 safety_margin_percent = 8;
+  uint32 max_sessions = 9;
+  bool supports_desktop = 10;
+  bool supports_gpu = 11;
+  bool supports_native_os = 12;
+  bool isolation_capable = 13;
+  map<string, string> labels = 14;
+  double memory_psi_some_avg10 = 20;
+  double memory_psi_full_avg10 = 21;
+  double cpu_psi_some_avg10 = 22;
+  double io_psi_full_avg10 = 23;
+  string pressure_reason = 24;
+}
+
+message ReportCapacityResponse {
+  string node_id = 1;
+  bool accepted = 2;
+  string admission_state = 3;
+  string pressure_state = 4;
+  string error_code = 5;
+  string error_message = 6;
 }
 
 // 命令信封
@@ -97,6 +130,16 @@ message StartRuntimeCommand {
   string display = 4;
   int32 cdp_port = 5;
   string proxy_binding_id = 6;
+  string resource_class = 7;
+  uint32 cpu_millis = 8;
+  uint32 memory_request_mib = 9;
+  uint32 memory_limit_mib = 10;
+  uint32 pid_limit = 11;
+  uint32 tab_budget = 12;
+  bool desktop_required = 13;
+  bool gpu_required = 14;
+  bool native_os_required = 15;
+  bool isolation_required = 16;
 }
 
 // Runtime 启动事件

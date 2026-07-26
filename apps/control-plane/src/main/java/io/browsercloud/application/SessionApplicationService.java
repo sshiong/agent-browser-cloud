@@ -4,6 +4,7 @@ import io.browsercloud.api.*;
 import io.browsercloud.coordinator.*;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
+import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.session.SessionContext;
@@ -35,6 +36,7 @@ public class SessionApplicationService {
   private final DurableWorkflowApplicationService workflowService;
   private final RuntimeBuildPolicy runtimeBuildPolicy;
   private final CapacityAdmissionService capacityAdmissionService;
+  private final BrowserCapacityApplicationService browserCapacityService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -50,6 +52,7 @@ public class SessionApplicationService {
       DurableWorkflowApplicationService workflowService,
       RuntimeBuildPolicy runtimeBuildPolicy,
       CapacityAdmissionService capacityAdmissionService,
+      BrowserCapacityApplicationService browserCapacityService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -64,6 +67,7 @@ public class SessionApplicationService {
     this.workflowService = workflowService;
     this.runtimeBuildPolicy = runtimeBuildPolicy;
     this.capacityAdmissionService = capacityAdmissionService;
+    this.browserCapacityService = browserCapacityService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -112,6 +116,16 @@ public class SessionApplicationService {
         context,
         request.region() == null ? "local" : request.region(),
         request.metadata() == null ? java.util.Map.of() : request.metadata());
+    browserCapacityService.recordDemand(
+        context.sessionId(),
+        context.tenantId(),
+        context.resourceClass(),
+        request.requestedTabs() == 0 ? 1 : request.requestedTabs(),
+        request.agentActionsPerMinute(),
+        request.remoteDesktop(),
+        request.web3Workload(),
+        request.extensionIds() == null ? java.util.List.of() : request.extensionIds(),
+        now);
     appendAudit(
         context,
         "SESSION_LIFECYCLE",
@@ -129,10 +143,27 @@ public class SessionApplicationService {
   public OperationResponse start(String sessionId, String tenantId, String actorId) {
     var session = requireTenant(sessionId, tenantId);
     runtimeBuildPolicy.requireApproved(defaultRuntimeBuildId);
+    var descriptor = sessionRepository.describe(sessionId);
+    var placement = browserCapacityService.reserve(session, descriptor.region());
+    session = sessionRepository.require(sessionId);
     proxyApplicationService.ensureBinding(session);
     var result =
         coordinator.handle(
-            new StartSession(sessionId, defaultRuntimeBuildId, UUID.randomUUID().toString()));
+            new StartSession(
+                sessionId,
+                defaultRuntimeBuildId,
+                UUID.randomUUID().toString(),
+                new RuntimeResourceLimits(
+                    placement.effectiveResourceClass(),
+                    placement.cpuMillis(),
+                    placement.memoryRequestMib(),
+                    placement.memoryLimitMib(),
+                    placement.pidLimit(),
+                    placement.tabBudget(),
+                    placement.requiresDesktop(),
+                    placement.requiresGpu(),
+                    placement.requiresNativeOs(),
+                    placement.requiresIsolation())));
     var operation = operationRepository.findActive(sessionId).orElseThrow();
     boolean failoverCleanup = operation.mode() == OperationMode.TERMINATION;
     var workflowId =
@@ -157,7 +188,15 @@ public class SessionApplicationService {
                 "START_RUNTIME",
                 "cleanup",
                 "TERMINATE_RUNTIME")
-            : Map.of("operationId", result.operationId(), "runtimeBuildId", defaultRuntimeBuildId),
+            : Map.of(
+                "operationId",
+                result.operationId(),
+                "runtimeBuildId",
+                defaultRuntimeBuildId,
+                "nodeId",
+                placement.nodeId(),
+                "effectiveResourceClass",
+                placement.effectiveResourceClass().name()),
         result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);

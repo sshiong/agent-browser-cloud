@@ -326,6 +326,218 @@ export class PublishResponse extends Message<PublishResponse> {
 }
 
 /**
+ * @generated from message browsercloud.node.v1.ReportCapacityRequest
+ */
+export class ReportCapacityRequest extends Message<ReportCapacityRequest> {
+  /**
+   * @generated from field: string node_id = 1;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string region = 2;
+   */
+  region = "";
+
+  /**
+   * @generated from field: string grpc_target = 3;
+   */
+  grpcTarget = "";
+
+  /**
+   * @generated from field: uint32 certified_cpu_millis = 4;
+   */
+  certifiedCpuMillis = 0;
+
+  /**
+   * @generated from field: uint32 certified_memory_mib = 5;
+   */
+  certifiedMemoryMib = 0;
+
+  /**
+   * @generated from field: uint32 certified_pid_count = 6;
+   */
+  certifiedPidCount = 0;
+
+  /**
+   * @generated from field: uint32 certified_gpu_slots = 7;
+   */
+  certifiedGpuSlots = 0;
+
+  /**
+   * @generated from field: uint32 safety_margin_percent = 8;
+   */
+  safetyMarginPercent = 0;
+
+  /**
+   * @generated from field: uint32 max_sessions = 9;
+   */
+  maxSessions = 0;
+
+  /**
+   * @generated from field: bool supports_desktop = 10;
+   */
+  supportsDesktop = false;
+
+  /**
+   * @generated from field: bool supports_gpu = 11;
+   */
+  supportsGpu = false;
+
+  /**
+   * @generated from field: bool supports_native_os = 12;
+   */
+  supportsNativeOs = false;
+
+  /**
+   * @generated from field: bool isolation_capable = 13;
+   */
+  isolationCapable = false;
+
+  /**
+   * @generated from field: map<string, string> labels = 14;
+   */
+  labels: { [key: string]: string } = {};
+
+  /**
+   * @generated from field: double memory_psi_some_avg10 = 20;
+   */
+  memoryPsiSomeAvg10 = 0;
+
+  /**
+   * @generated from field: double memory_psi_full_avg10 = 21;
+   */
+  memoryPsiFullAvg10 = 0;
+
+  /**
+   * @generated from field: double cpu_psi_some_avg10 = 22;
+   */
+  cpuPsiSomeAvg10 = 0;
+
+  /**
+   * @generated from field: double io_psi_full_avg10 = 23;
+   */
+  ioPsiFullAvg10 = 0;
+
+  /**
+   * @generated from field: string pressure_reason = 24;
+   */
+  pressureReason = "";
+
+  constructor(data?: PartialMessage<ReportCapacityRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ReportCapacityRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "region", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "grpc_target", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "certified_cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 5, name: "certified_memory_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 6, name: "certified_pid_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 7, name: "certified_gpu_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 8, name: "safety_margin_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 9, name: "max_sessions", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 10, name: "supports_desktop", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 11, name: "supports_gpu", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 12, name: "supports_native_os", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 13, name: "isolation_capable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 14, name: "labels", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
+    { no: 20, name: "memory_psi_some_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 21, name: "memory_psi_full_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 22, name: "cpu_psi_some_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 23, name: "io_psi_full_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 24, name: "pressure_reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportCapacityRequest {
+    return new ReportCapacityRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReportCapacityRequest {
+    return new ReportCapacityRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReportCapacityRequest {
+    return new ReportCapacityRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ReportCapacityRequest | PlainMessage<ReportCapacityRequest> | undefined, b: ReportCapacityRequest | PlainMessage<ReportCapacityRequest> | undefined): boolean {
+    return proto3.util.equals(ReportCapacityRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.ReportCapacityResponse
+ */
+export class ReportCapacityResponse extends Message<ReportCapacityResponse> {
+  /**
+   * @generated from field: string node_id = 1;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: bool accepted = 2;
+   */
+  accepted = false;
+
+  /**
+   * @generated from field: string admission_state = 3;
+   */
+  admissionState = "";
+
+  /**
+   * @generated from field: string pressure_state = 4;
+   */
+  pressureState = "";
+
+  /**
+   * @generated from field: string error_code = 5;
+   */
+  errorCode = "";
+
+  /**
+   * @generated from field: string error_message = 6;
+   */
+  errorMessage = "";
+
+  constructor(data?: PartialMessage<ReportCapacityResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ReportCapacityResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "accepted", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "admission_state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "pressure_state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "error_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportCapacityResponse {
+    return new ReportCapacityResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReportCapacityResponse {
+    return new ReportCapacityResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReportCapacityResponse {
+    return new ReportCapacityResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ReportCapacityResponse | PlainMessage<ReportCapacityResponse> | undefined, b: ReportCapacityResponse | PlainMessage<ReportCapacityResponse> | undefined): boolean {
+    return proto3.util.equals(ReportCapacityResponse, a, b);
+  }
+}
+
+/**
  * 命令信封
  *
  * @generated from message browsercloud.node.v1.CommandEnvelope
@@ -541,6 +753,56 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   proxyBindingId = "";
 
+  /**
+   * @generated from field: string resource_class = 7;
+   */
+  resourceClass = "";
+
+  /**
+   * @generated from field: uint32 cpu_millis = 8;
+   */
+  cpuMillis = 0;
+
+  /**
+   * @generated from field: uint32 memory_request_mib = 9;
+   */
+  memoryRequestMib = 0;
+
+  /**
+   * @generated from field: uint32 memory_limit_mib = 10;
+   */
+  memoryLimitMib = 0;
+
+  /**
+   * @generated from field: uint32 pid_limit = 11;
+   */
+  pidLimit = 0;
+
+  /**
+   * @generated from field: uint32 tab_budget = 12;
+   */
+  tabBudget = 0;
+
+  /**
+   * @generated from field: bool desktop_required = 13;
+   */
+  desktopRequired = false;
+
+  /**
+   * @generated from field: bool gpu_required = 14;
+   */
+  gpuRequired = false;
+
+  /**
+   * @generated from field: bool native_os_required = 15;
+   */
+  nativeOsRequired = false;
+
+  /**
+   * @generated from field: bool isolation_required = 16;
+   */
+  isolationRequired = false;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -555,6 +817,16 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 4, name: "display", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "cdp_port", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 6, name: "proxy_binding_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 9, name: "memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 10, name: "memory_limit_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 11, name: "pid_limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 12, name: "tab_budget", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 13, name: "desktop_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 14, name: "gpu_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 15, name: "native_os_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 16, name: "isolation_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {

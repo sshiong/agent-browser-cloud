@@ -145,7 +145,7 @@ start_storage_helper() {
 start_browser_node() {
   CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
   NODE_AGENT_PORT="$node_port" \
-  NODE_ID=node-integration \
+  NODE_ID=node_integration \
   CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
   GRPC_TLS_ENABLED=true \
   GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -185,6 +185,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 GRPC_TLS_ENABLED=true \
 GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -214,6 +215,20 @@ curl -fsS -D "$temp_dir/health-headers.txt" -o /dev/null \
 grep -qi '^x-content-type-options: nosniff' "$temp_dir/health-headers.txt"
 grep -qi '^cache-control: no-store' "$temp_dir/health-headers.txt"
 
+browser_nodes=""
+for _ in $(seq 1 30); do
+  browser_nodes="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/browser-nodes" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
+  if printf '%s' "$browser_nodes" | python3 -c \
+    'import json,sys; data=json.load(sys.stdin); assert data["total"] == 1' \
+    2>/dev/null; then break; fi
+  sleep 0.25
+done
+printf '%s' "$browser_nodes" | python3 -c \
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["lastHeartbeatAt"]'
+
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -232,7 +247,7 @@ unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_co
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
 
-request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","metadata":{"displayName":"Integration browser"}}'
+request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","requestedTabs":2,"agentActionsPerMinute":60,"extensionIds":["unknown.integration"],"metadata":{"displayName":"Integration browser"}}'
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -295,9 +310,14 @@ for _ in $(seq 1 40); do
 done
 test "$state" = "RUNNING"
 printf '%s' "$session_after_start" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L1"'
+  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L2"'
 printf '%s' "$session_after_start" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node-integration"; assert item["contextEpoch"] == 2; assert item["proxyBindingId"] is not None'
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node_integration"; assert item["contextEpoch"] == 3; assert item["proxyBindingId"] is not None'
+placement="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/browser-placements/${session_one}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$placement" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] == "node_integration"; assert item["requestedResourceClass"] == "L1"; assert item["effectiveResourceClass"] == "L2"; assert item["unknownExtensionCount"] == 1; assert "UNKNOWN_EXTENSION_PROBATION" in item["reasonCodes"]; assert item["state"] == "ACTIVE"'
 proxy_overview="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_overview" | python3 -c \
@@ -318,7 +338,7 @@ for _ in $(seq 1 40); do
 done
 test "$state_status" = "200"
 printf '%s' "$browser_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 2; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
 
 initial_state_version="$(printf '%s' "$browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
 diff_state=""
@@ -373,6 +393,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 GRPC_TLS_ENABLED=true \
 GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -630,6 +651,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 GRPC_TLS_ENABLED=true \
 GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -879,6 +901,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 GRPC_TLS_ENABLED=true \
 GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
@@ -1084,11 +1107,14 @@ for _ in $(seq 1 120); do
     -H 'X-Tenant-Id: tenant-integration')"
   recovered_state="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
   recovered_epoch="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$recovered_state" = "RUNNING" ]] && [[ "$recovered_epoch" = "3" ]]; then break; fi
+  recovered_generation="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["browserGeneration"])')"
+  if [[ "$recovered_state" = "RUNNING" ]] \
+    && [[ "$recovered_epoch" = "4" ]] \
+    && [[ "$recovered_generation" = "2" ]]; then break; fi
   sleep 0.25
 done
 test "$recovered_state" = "RUNNING"
-test "$recovered_epoch" = "3"
+test "$recovered_epoch" = "4"
 printf '%s' "$recovered_session" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 2; assert item["currentOperation"] is None'
 
@@ -1098,10 +1124,10 @@ for _ in $(seq 1 40); do
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
   recovered_state_epoch="$(printf '%s' "$recovered_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$recovered_state_epoch" = "3" ]]; then break; fi
+  if [[ "$recovered_state_epoch" = "4" ]]; then break; fi
   sleep 0.25
 done
-test "$recovered_state_epoch" = "3"
+test "$recovered_state_epoch" = "4"
 printf '%s' "$recovered_browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["stateVersion"] >= 2; assert state["stateQuality"] == "COMPLETE"'
 
@@ -1120,11 +1146,11 @@ for _ in $(seq 1 160); do
     -H 'X-Tenant-Id: tenant-integration')"
   reconciled_state="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
   reconciled_epoch="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$reconciled_state" = "RUNNING" ]] && [[ "$reconciled_epoch" = "4" ]]; then break; fi
+  if [[ "$reconciled_state" = "RUNNING" ]] && [[ "$reconciled_epoch" = "5" ]]; then break; fi
   sleep 0.25
 done
 test "$reconciled_state" = "RUNNING"
-test "$reconciled_epoch" = "4"
+test "$reconciled_epoch" = "5"
 printf '%s' "$reconciled_session" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 3; assert item["currentOperation"] is None'
 
@@ -1134,10 +1160,10 @@ for _ in $(seq 1 40); do
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
   reconciled_state_epoch="$(printf '%s' "$reconciled_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$reconciled_state_epoch" = "4" ]]; then break; fi
+  if [[ "$reconciled_state_epoch" = "5" ]]; then break; fi
   sleep 0.25
 done
-test "$reconciled_state_epoch" = "4"
+test "$reconciled_state_epoch" = "5"
 
 takeover_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
@@ -1178,7 +1204,7 @@ takeover_state="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$takeover_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 4; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"'
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 5; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"'
 
 published="0"
 for _ in $(seq 1 30); do

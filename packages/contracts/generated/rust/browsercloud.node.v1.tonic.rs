@@ -483,6 +483,36 @@ pub mod node_event_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn report_capacity(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReportCapacityRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportCapacityResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/browsercloud.node.v1.NodeEventService/ReportCapacity",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "browsercloud.node.v1.NodeEventService",
+                        "ReportCapacity",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -496,6 +526,13 @@ pub mod node_event_service_server {
             &self,
             request: tonic::Request<super::PublishRequest>,
         ) -> std::result::Result<tonic::Response<super::PublishResponse>, tonic::Status>;
+        async fn report_capacity(
+            &self,
+            request: tonic::Request<super::ReportCapacityRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportCapacityResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct NodeEventServiceServer<T: NodeEventService> {
@@ -607,6 +644,53 @@ pub mod node_event_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = PublishSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/browsercloud.node.v1.NodeEventService/ReportCapacity" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReportCapacitySvc<T: NodeEventService>(pub Arc<T>);
+                    impl<
+                        T: NodeEventService,
+                    > tonic::server::UnaryService<super::ReportCapacityRequest>
+                    for ReportCapacitySvc<T> {
+                        type Response = super::ReportCapacityResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReportCapacityRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as NodeEventService>::report_capacity(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = ReportCapacitySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

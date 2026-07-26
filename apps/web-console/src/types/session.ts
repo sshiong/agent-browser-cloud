@@ -90,6 +90,11 @@ export interface CreateSessionRequest {
   profileId: string;
   region?: string;
   resourceClass?: ResourceClass;
+  requestedTabs?: number;
+  agentActionsPerMinute?: number;
+  remoteDesktop?: boolean;
+  web3Workload?: boolean;
+  extensionIds?: string[];
   metadata?: Record<string, string>;
 }
 

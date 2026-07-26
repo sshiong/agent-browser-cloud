@@ -1,0 +1,238 @@
+package io.browsercloud.persistence;
+
+import io.browsercloud.domain.session.ResourceClass;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import java.time.Instant;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+@Entity
+@Table(name = "browser_placements")
+public class BrowserPlacementEntity {
+
+  @Id
+  @Column(name = "session_id")
+  private String sessionId;
+
+  @Column(name = "tenant_id", nullable = false)
+  private String tenantId;
+
+  @Column(name = "node_id", nullable = false)
+  private String nodeId;
+
+  @Column(name = "requested_resource_class", nullable = false)
+  private String requestedResourceClass;
+
+  @Column(name = "effective_resource_class", nullable = false)
+  private String effectiveResourceClass;
+
+  @Column(name = "extension_ids", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String extensionIds;
+
+  @Column(name = "unknown_extension_count", nullable = false)
+  private int unknownExtensionCount;
+
+  @Column(name = "cpu_millis", nullable = false)
+  private int cpuMillis;
+
+  @Column(name = "memory_request_mib", nullable = false)
+  private int memoryRequestMib;
+
+  @Column(name = "memory_limit_mib", nullable = false)
+  private int memoryLimitMib;
+
+  @Column(name = "pid_limit", nullable = false)
+  private int pidLimit;
+
+  @Column(name = "tab_budget", nullable = false)
+  private int tabBudget;
+
+  @Column(name = "requires_desktop", nullable = false)
+  private boolean requiresDesktop;
+
+  @Column(name = "requires_gpu", nullable = false)
+  private boolean requiresGpu;
+
+  @Column(name = "requires_native_os", nullable = false)
+  private boolean requiresNativeOs;
+
+  @Column(name = "requires_isolation", nullable = false)
+  private boolean requiresIsolation;
+
+  @Column(name = "placement_score", nullable = false)
+  private int placementScore;
+
+  @Column(nullable = false)
+  private String state;
+
+  @Column(name = "reason_codes", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String reasonCodes;
+
+  @Column(name = "reserved_at", nullable = false)
+  private Instant reservedAt;
+
+  @Column(name = "activated_at")
+  private Instant activatedAt;
+
+  @Column(name = "released_at")
+  private Instant releasedAt;
+
+  @Version
+  @Column(nullable = false)
+  private long version;
+
+  protected BrowserPlacementEntity() {}
+
+  public BrowserPlacementEntity(
+      String sessionId,
+      String tenantId,
+      String nodeId,
+      ResourceClass requestedResourceClass,
+      ResourceClass effectiveResourceClass,
+      String extensionIds,
+      int unknownExtensionCount,
+      int cpuMillis,
+      int memoryRequestMib,
+      int memoryLimitMib,
+      int pidLimit,
+      int tabBudget,
+      boolean requiresDesktop,
+      boolean requiresGpu,
+      boolean requiresNativeOs,
+      boolean requiresIsolation,
+      int placementScore,
+      String reasonCodes,
+      Instant now) {
+    this.sessionId = sessionId;
+    this.tenantId = tenantId;
+    this.nodeId = nodeId;
+    this.requestedResourceClass = requestedResourceClass.name();
+    this.effectiveResourceClass = effectiveResourceClass.name();
+    this.extensionIds = extensionIds;
+    this.unknownExtensionCount = unknownExtensionCount;
+    this.cpuMillis = cpuMillis;
+    this.memoryRequestMib = memoryRequestMib;
+    this.memoryLimitMib = memoryLimitMib;
+    this.pidLimit = pidLimit;
+    this.tabBudget = tabBudget;
+    this.requiresDesktop = requiresDesktop;
+    this.requiresGpu = requiresGpu;
+    this.requiresNativeOs = requiresNativeOs;
+    this.requiresIsolation = requiresIsolation;
+    this.placementScore = placementScore;
+    this.state = "RESERVED";
+    this.reasonCodes = reasonCodes;
+    this.reservedAt = now;
+  }
+
+  public void activate(Instant now) {
+    if (state.equals("RELEASED")) {
+      throw new IllegalStateException("released placement cannot be activated");
+    }
+    state = "ACTIVE";
+    activatedAt = now;
+  }
+
+  public boolean release(Instant now) {
+    if (state.equals("RELEASED")) {
+      return false;
+    }
+    state = "RELEASED";
+    releasedAt = now;
+    return true;
+  }
+
+  public String getSessionId() {
+    return sessionId;
+  }
+
+  public String getTenantId() {
+    return tenantId;
+  }
+
+  public String getNodeId() {
+    return nodeId;
+  }
+
+  public ResourceClass requestedResourceClass() {
+    return ResourceClass.valueOf(requestedResourceClass);
+  }
+
+  public ResourceClass effectiveResourceClass() {
+    return ResourceClass.valueOf(effectiveResourceClass);
+  }
+
+  public String getExtensionIds() {
+    return extensionIds;
+  }
+
+  public int getUnknownExtensionCount() {
+    return unknownExtensionCount;
+  }
+
+  public int getCpuMillis() {
+    return cpuMillis;
+  }
+
+  public int getMemoryRequestMib() {
+    return memoryRequestMib;
+  }
+
+  public int getMemoryLimitMib() {
+    return memoryLimitMib;
+  }
+
+  public int getPidLimit() {
+    return pidLimit;
+  }
+
+  public int getTabBudget() {
+    return tabBudget;
+  }
+
+  public boolean isRequiresDesktop() {
+    return requiresDesktop;
+  }
+
+  public boolean isRequiresGpu() {
+    return requiresGpu;
+  }
+
+  public boolean isRequiresNativeOs() {
+    return requiresNativeOs;
+  }
+
+  public boolean isRequiresIsolation() {
+    return requiresIsolation;
+  }
+
+  public int getPlacementScore() {
+    return placementScore;
+  }
+
+  public String getState() {
+    return state;
+  }
+
+  public String getReasonCodes() {
+    return reasonCodes;
+  }
+
+  public Instant getReservedAt() {
+    return reservedAt;
+  }
+
+  public Instant getActivatedAt() {
+    return activatedAt;
+  }
+
+  public Instant getReleasedAt() {
+    return releasedAt;
+  }
+}

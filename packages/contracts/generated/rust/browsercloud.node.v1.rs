@@ -61,6 +61,64 @@ pub struct PublishResponse {
     #[prost(string, tag="5")]
     pub error_message: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportCapacityRequest {
+    #[prost(string, tag="1")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub region: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub grpc_target: ::prost::alloc::string::String,
+    #[prost(uint32, tag="4")]
+    pub certified_cpu_millis: u32,
+    #[prost(uint32, tag="5")]
+    pub certified_memory_mib: u32,
+    #[prost(uint32, tag="6")]
+    pub certified_pid_count: u32,
+    #[prost(uint32, tag="7")]
+    pub certified_gpu_slots: u32,
+    #[prost(uint32, tag="8")]
+    pub safety_margin_percent: u32,
+    #[prost(uint32, tag="9")]
+    pub max_sessions: u32,
+    #[prost(bool, tag="10")]
+    pub supports_desktop: bool,
+    #[prost(bool, tag="11")]
+    pub supports_gpu: bool,
+    #[prost(bool, tag="12")]
+    pub supports_native_os: bool,
+    #[prost(bool, tag="13")]
+    pub isolation_capable: bool,
+    #[prost(map="string, string", tag="14")]
+    pub labels: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(double, tag="20")]
+    pub memory_psi_some_avg10: f64,
+    #[prost(double, tag="21")]
+    pub memory_psi_full_avg10: f64,
+    #[prost(double, tag="22")]
+    pub cpu_psi_some_avg10: f64,
+    #[prost(double, tag="23")]
+    pub io_psi_full_avg10: f64,
+    #[prost(string, tag="24")]
+    pub pressure_reason: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportCapacityResponse {
+    #[prost(string, tag="1")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub accepted: bool,
+    #[prost(string, tag="3")]
+    pub admission_state: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub pressure_state: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub error_code: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub error_message: ::prost::alloc::string::String,
+}
 /// 命令信封
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -126,6 +184,26 @@ pub struct StartRuntimeCommand {
     pub cdp_port: i32,
     #[prost(string, tag="6")]
     pub proxy_binding_id: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub resource_class: ::prost::alloc::string::String,
+    #[prost(uint32, tag="8")]
+    pub cpu_millis: u32,
+    #[prost(uint32, tag="9")]
+    pub memory_request_mib: u32,
+    #[prost(uint32, tag="10")]
+    pub memory_limit_mib: u32,
+    #[prost(uint32, tag="11")]
+    pub pid_limit: u32,
+    #[prost(uint32, tag="12")]
+    pub tab_budget: u32,
+    #[prost(bool, tag="13")]
+    pub desktop_required: bool,
+    #[prost(bool, tag="14")]
+    pub gpu_required: bool,
+    #[prost(bool, tag="15")]
+    pub native_os_required: bool,
+    #[prost(bool, tag="16")]
+    pub isolation_required: bool,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]

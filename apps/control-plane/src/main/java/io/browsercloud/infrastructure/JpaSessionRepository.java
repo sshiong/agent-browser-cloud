@@ -130,6 +130,7 @@ public class JpaSessionRepository implements SessionRepository {
     }
 
     entity.setState(context.state().name());
+    entity.setResourceClass(context.resourceClass().name());
     entity.setUpdatedAt(Instant.now());
     if (context.state() == SessionState.TERMINATED) {
       entity.setTerminatedAt(Instant.now());

@@ -5,6 +5,7 @@ package io.browsercloud.coordinator;
  *
  * @param messageId 消息 ID
  * @param commandType 命令类型
+ * @param nodeId Placement 已提交的 Browser Node ID
  * @param sessionId Session ID
  * @param tenantId 租户 ID
  * @param coordinatorTerm Coordinator 世代
@@ -16,6 +17,7 @@ package io.browsercloud.coordinator;
 public record NodeCommand(
     String messageId,
     String commandType,
+    String nodeId,
     String sessionId,
     String tenantId,
     long coordinatorTerm,

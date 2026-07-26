@@ -97,9 +97,11 @@ export function App() {
             <Route
               path="/nodes"
               element={
-                <FixtureRoute>
+                <RequireRoles
+                  roles={['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN']}
+                >
                   <NodesPage />
-                </FixtureRoute>
+                </RequireRoles>
               }
             />
             <Route path="/proxies" element={<ProxiesPage />} />
@@ -108,9 +110,11 @@ export function App() {
             <Route
               path="/extensions"
               element={
-                <FixtureRoute>
+                <RequireRoles
+                  roles={['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN']}
+                >
                   <ExtensionsPage />
-                </FixtureRoute>
+                </RequireRoles>
               }
             />
             <Route

@@ -1,6 +1,6 @@
 use anyhow::Context;
 use runtime_supervisor::{
-    ChromiumRuntimeSupervisor, RuntimeHealth, RuntimeSpec, RuntimeSupervisor,
+    ChromiumRuntimeSupervisor, RuntimeHealth, RuntimeResourceLimits, RuntimeSpec, RuntimeSupervisor,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -293,6 +293,7 @@ async fn run_cycle(
             display: String::new(),
             cdp_port,
             vnc_port: None,
+            resource_limits: RuntimeResourceLimits::local_test_default(),
         })
         .await?;
     let start_millis = elapsed_millis(started_at);

@@ -6,8 +6,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::io::ErrorKind;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::process::Child;
@@ -25,6 +27,38 @@ pub struct RuntimeSpec {
     pub display: String,
     pub cdp_port: u16,
     pub vnc_port: Option<u16>,
+    pub resource_limits: RuntimeResourceLimits,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeResourceLimits {
+    pub resource_class: String,
+    pub cpu_millis: u32,
+    pub memory_request_mib: u32,
+    pub memory_limit_mib: u32,
+    pub pid_limit: u32,
+    pub tab_budget: u32,
+    pub desktop_required: bool,
+    pub gpu_required: bool,
+    pub native_os_required: bool,
+    pub isolation_required: bool,
+}
+
+impl RuntimeResourceLimits {
+    pub fn local_test_default() -> Self {
+        Self {
+            resource_class: "L2".to_owned(),
+            cpu_millis: 600,
+            memory_request_mib: 768,
+            memory_limit_mib: 1280,
+            pid_limit: 192,
+            tab_budget: 8,
+            desktop_required: false,
+            gpu_required: false,
+            native_os_required: false,
+            isolation_required: false,
+        }
+    }
 }
 
 /// Runtime 句柄。
@@ -68,6 +102,7 @@ struct RunningRuntime {
     handle: RuntimeHandle,
     child: Child,
     desktop: Option<DesktopProcesses>,
+    cgroup: Option<RuntimeCgroup>,
 }
 
 struct DesktopProcesses {
@@ -84,12 +119,124 @@ pub struct DesktopRuntimeConfig {
     pub depth: u8,
 }
 
+/// A cgroup v2 subtree that has been delegated to the unprivileged Node Agent.
+///
+/// The Node Agent never receives host-level cgroup privileges. Node provisioning must create
+/// and chown this exact subtree to the Node Agent UID before the workload starts.
+#[derive(Debug, Clone)]
+pub struct CgroupV2Config {
+    pub root: PathBuf,
+}
+
+#[derive(Debug)]
+struct RuntimeCgroup {
+    path: PathBuf,
+}
+
+impl RuntimeCgroup {
+    const CPU_PERIOD_MICROS: u64 = 100_000;
+
+    fn prepare(config: &CgroupV2Config, spec: &RuntimeSpec) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            config.root.is_absolute(),
+            "Runtime cgroup root must be absolute"
+        );
+        anyhow::ensure!(
+            config.root.join("cgroup.controllers").is_file(),
+            "Runtime cgroup root is not a delegated cgroup v2 subtree"
+        );
+        let controllers = fs::read_to_string(config.root.join("cgroup.controllers"))
+            .context("failed to read delegated cgroup controllers")?;
+        for required in ["cpu", "memory", "pids"] {
+            anyhow::ensure!(
+                controllers
+                    .split_whitespace()
+                    .any(|value| value == required),
+                "delegated cgroup does not expose the {required} controller"
+            );
+        }
+        let subtree_control = config.root.join("cgroup.subtree_control");
+        fs::write(&subtree_control, "+cpu +memory +pids")
+            .context("failed to enable delegated cgroup controllers")?;
+
+        let path = config.root.join(&spec.session_id);
+        fs::create_dir(&path).context("failed to create runtime cgroup")?;
+        let result = (|| {
+            let limits = &spec.resource_limits;
+            let quota = u64::from(limits.cpu_millis)
+                .saturating_mul(Self::CPU_PERIOD_MICROS)
+                .div_ceil(1000);
+            Self::write(
+                &path,
+                "cpu.max",
+                format!("{quota} {}", Self::CPU_PERIOD_MICROS),
+            )?;
+            Self::write(
+                &path,
+                "memory.high",
+                u64::from(limits.memory_request_mib)
+                    .saturating_mul(1024 * 1024)
+                    .to_string(),
+            )?;
+            Self::write(
+                &path,
+                "memory.max",
+                u64::from(limits.memory_limit_mib)
+                    .saturating_mul(1024 * 1024)
+                    .to_string(),
+            )?;
+            let swap_max = path.join("memory.swap.max");
+            if swap_max.exists() {
+                fs::write(&swap_max, "0").context("failed to disable runtime swap")?;
+            }
+            Self::write(&path, "pids.max", limits.pid_limit.to_string())?;
+            Ok::<(), anyhow::Error>(())
+        })();
+        if let Err(error) = result {
+            let _ = fs::remove_dir(&path);
+            return Err(error);
+        }
+        Ok(Self { path })
+    }
+
+    fn write(path: &Path, setting: &str, value: String) -> anyhow::Result<()> {
+        fs::write(path.join(setting), value)
+            .with_context(|| format!("failed to enforce cgroup setting {setting}"))
+    }
+
+    fn attach(&self, pid: u32) -> anyhow::Result<()> {
+        anyhow::ensure!(pid > 0, "cannot attach an invalid process to cgroup");
+        Self::write(&self.path, "cgroup.procs", pid.to_string())
+            .context("failed to attach runtime process to cgroup")
+    }
+
+    fn kill_all(&self) {
+        let kill = self.path.join("cgroup.kill");
+        if kill.exists() {
+            if let Err(error) = fs::write(kill, "1") {
+                tracing::warn!(cgroup = %self.path.display(), error = %error, "Failed to kill runtime cgroup");
+            }
+        }
+    }
+
+    fn cleanup(&self) {
+        match fs::remove_dir(&self.path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => {
+                tracing::warn!(cgroup = %self.path.display(), error = %error, "Runtime cgroup cleanup deferred")
+            }
+        }
+    }
+}
+
 /// Chromium Runtime Supervisor 实现。
 pub struct ChromiumRuntimeSupervisor {
     chromium_binary: PathBuf,
     runtimes: Arc<Mutex<HashMap<String, RunningRuntime>>>,
     generations: Arc<Mutex<HashMap<String, u64>>>,
     desktop: Option<DesktopRuntimeConfig>,
+    cgroup_v2: Option<CgroupV2Config>,
 }
 
 impl ChromiumRuntimeSupervisor {
@@ -99,6 +246,7 @@ impl ChromiumRuntimeSupervisor {
             runtimes: Arc::new(Mutex::new(HashMap::new())),
             generations: Arc::new(Mutex::new(HashMap::new())),
             desktop: None,
+            cgroup_v2: None,
         }
     }
 
@@ -115,6 +263,15 @@ impl ChromiumRuntimeSupervisor {
         Ok(self)
     }
 
+    pub fn with_cgroup_v2(mut self, config: CgroupV2Config) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            config.root.join("cgroup.controllers").is_file(),
+            "Runtime cgroup root is not a delegated cgroup v2 subtree"
+        );
+        self.cgroup_v2 = Some(config);
+        Ok(self)
+    }
+
     fn validate_spec(spec: &RuntimeSpec) -> anyhow::Result<()> {
         let valid_session_id = spec.session_id.starts_with("ses_")
             && spec
@@ -123,6 +280,29 @@ impl ChromiumRuntimeSupervisor {
                 .all(|character| character.is_ascii_alphanumeric() || character == '_');
         anyhow::ensure!(valid_session_id, "invalid session id");
         anyhow::ensure!(spec.cdp_port > 0, "cdp port must be assigned");
+        let limits = &spec.resource_limits;
+        anyhow::ensure!(
+            matches!(
+                limits.resource_class.as_str(),
+                "L0" | "L1" | "L2" | "L3" | "L4" | "L5"
+            ),
+            "resource class is invalid"
+        );
+        anyhow::ensure!(
+            limits.resource_class != "L0",
+            "L0 cannot start a browser runtime"
+        );
+        anyhow::ensure!(limits.cpu_millis > 0, "CPU limit is required");
+        anyhow::ensure!(
+            limits.memory_request_mib > 0 && limits.memory_limit_mib >= limits.memory_request_mib,
+            "memory limits are invalid"
+        );
+        anyhow::ensure!(limits.pid_limit >= 32, "PID limit is invalid");
+        anyhow::ensure!(limits.tab_budget > 0, "tab budget is invalid");
+        anyhow::ensure!(
+            !limits.desktop_required || !spec.display.is_empty(),
+            "desktop-required placement has no display"
+        );
         if spec.display.is_empty() {
             anyhow::ensure!(
                 spec.vnc_port.is_none(),
@@ -158,7 +338,11 @@ impl ChromiumRuntimeSupervisor {
         }
     }
 
-    async fn start_desktop(&self, spec: &RuntimeSpec) -> anyhow::Result<Option<DesktopProcesses>> {
+    async fn start_desktop(
+        &self,
+        spec: &RuntimeSpec,
+        cgroup: Option<&RuntimeCgroup>,
+    ) -> anyhow::Result<Option<DesktopProcesses>> {
         if spec.display.is_empty() {
             return Ok(None);
         }
@@ -186,6 +370,16 @@ impl ChromiumRuntimeSupervisor {
             .kill_on_drop(true)
             .spawn()
             .context("failed to start Xvfb")?;
+        if let Some(cgroup) = cgroup {
+            if let Err(error) = xvfb
+                .id()
+                .ok_or_else(|| anyhow::anyhow!("missing Xvfb pid"))
+                .and_then(|pid| cgroup.attach(pid))
+            {
+                let _ = xvfb.start_kill();
+                return Err(error);
+            }
+        }
         sleep(Duration::from_millis(200)).await;
         if let Some(status) = xvfb.try_wait()? {
             anyhow::bail!("Xvfb exited during startup with {status}");
@@ -216,6 +410,17 @@ impl ChromiumRuntimeSupervisor {
                 return Err(error).context("failed to start x11vnc");
             }
         };
+        if let Some(cgroup) = cgroup {
+            if let Err(error) = vnc
+                .id()
+                .ok_or_else(|| anyhow::anyhow!("missing x11vnc pid"))
+                .and_then(|pid| cgroup.attach(pid))
+            {
+                let _ = vnc.start_kill();
+                let _ = xvfb.start_kill();
+                return Err(error);
+            }
+        }
         let endpoint = SocketAddr::from(([127, 0, 0, 1], vnc_port));
         if let Err(error) = Self::wait_for_tcp(endpoint, Duration::from_secs(10)).await {
             let _ = vnc.start_kill();
@@ -362,7 +567,21 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
 
         tokio::fs::create_dir_all(&spec.profile_dir).await?;
         tokio::fs::create_dir_all(&spec.cache_dir).await?;
-        let mut desktop = self.start_desktop(&spec).await?;
+        let cgroup = self
+            .cgroup_v2
+            .as_ref()
+            .map(|config| RuntimeCgroup::prepare(config, &spec))
+            .transpose()?;
+        let mut desktop = match self.start_desktop(&spec, cgroup.as_ref()).await {
+            Ok(desktop) => desktop,
+            Err(error) => {
+                if let Some(cgroup) = cgroup.as_ref() {
+                    cgroup.kill_all();
+                    cgroup.cleanup();
+                }
+                return Err(error);
+            }
+        };
 
         let mut command = tokio::process::Command::new(&self.chromium_binary);
         command
@@ -400,12 +619,28 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                     Self::stop_child(&mut desktop.vnc, Duration::from_secs(2)).await;
                     Self::stop_child(&mut desktop.xvfb, Duration::from_secs(2)).await;
                 }
+                if let Some(cgroup) = cgroup.as_ref() {
+                    cgroup.kill_all();
+                    cgroup.cleanup();
+                }
                 return Err(error.into());
             }
         };
         let pid = child
             .id()
             .ok_or_else(|| anyhow::anyhow!("missing Chromium pid"))?;
+        if let Some(cgroup) = cgroup.as_ref() {
+            if let Err(error) = cgroup.attach(pid) {
+                let _ = child.start_kill();
+                if let Some(desktop) = desktop.as_mut() {
+                    Self::stop_child(&mut desktop.vnc, Duration::from_secs(2)).await;
+                    Self::stop_child(&mut desktop.xvfb, Duration::from_secs(2)).await;
+                }
+                cgroup.kill_all();
+                cgroup.cleanup();
+                return Err(error);
+            }
+        }
         let browser_generation = {
             let mut generations = self.generations.lock().await;
             let generation = generations.entry(spec.session_id.clone()).or_default();
@@ -438,6 +673,10 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 Self::stop_child(&mut desktop.vnc, Duration::from_secs(2)).await;
                 Self::stop_child(&mut desktop.xvfb, Duration::from_secs(2)).await;
             }
+            if let Some(cgroup) = cgroup.as_ref() {
+                cgroup.kill_all();
+                cgroup.cleanup();
+            }
             return Err(error.context("Chromium started but CDP did not become ready"));
         }
         runtimes.insert(
@@ -446,6 +685,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 handle: handle.clone(),
                 child,
                 desktop,
+                cgroup,
             },
         );
 
@@ -464,7 +704,12 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             return Ok(());
         };
 
-        runtime.child.start_kill()?;
+        if let Some(cgroup) = runtime.cgroup.as_ref() {
+            cgroup.kill_all();
+        }
+        if runtime.child.try_wait()?.is_none() {
+            runtime.child.start_kill()?;
+        }
         if timeout(Duration::from_secs(10), runtime.child.wait())
             .await
             .is_err()
@@ -478,6 +723,9 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
         if let Some(mut desktop) = runtime.desktop {
             Self::stop_child(&mut desktop.vnc, Duration::from_secs(2)).await;
             Self::stop_child(&mut desktop.xvfb, Duration::from_secs(2)).await;
+        }
+        if let Some(cgroup) = runtime.cgroup {
+            cgroup.cleanup();
         }
 
         tracing::info!(
@@ -512,7 +760,12 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 }
                 Some(status) => {
                     let reason = format!("Chromium exited with {status}");
-                    runtimes.remove(session_id);
+                    if let Some(runtime) = runtimes.remove(session_id) {
+                        if let Some(cgroup) = runtime.cgroup {
+                            cgroup.kill_all();
+                            cgroup.cleanup();
+                        }
+                    }
                     return Ok(RuntimeHealth::Crashed(reason));
                 }
             }
@@ -582,9 +835,67 @@ mod tests {
                 display: String::new(),
                 cdp_port: 9222,
                 vnc_port: None,
+                resource_limits: RuntimeResourceLimits::local_test_default(),
             })
             .await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn writes_exact_cgroup_v2_limits() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("browsercloud-cgroup-v2-{nonce}"));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("cgroup.controllers"), "cpu memory pids io").unwrap();
+        fs::write(root.join("cgroup.subtree_control"), "").unwrap();
+        let spec = RuntimeSpec {
+            session_id: "ses_capacity_limits".into(),
+            runtime_build_id: "runtime-test".into(),
+            profile_dir: root.join("profile"),
+            cache_dir: root.join("cache"),
+            proxy_server: None,
+            display: String::new(),
+            cdp_port: 9222,
+            vnc_port: None,
+            resource_limits: RuntimeResourceLimits {
+                resource_class: "L3".into(),
+                cpu_millis: 1_250,
+                memory_request_mib: 1_024,
+                memory_limit_mib: 2_048,
+                pid_limit: 256,
+                tab_budget: 16,
+                desktop_required: false,
+                gpu_required: false,
+                native_os_required: false,
+                isolation_required: false,
+            },
+        };
+        let cgroup = RuntimeCgroup::prepare(&CgroupV2Config { root: root.clone() }, &spec).unwrap();
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("cpu.max")).unwrap(),
+            "125000 100000"
+        );
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("memory.high")).unwrap(),
+            "1073741824"
+        );
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("memory.max")).unwrap(),
+            "2147483648"
+        );
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("pids.max")).unwrap(),
+            "256"
+        );
+        cgroup.attach(42).unwrap();
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("cgroup.procs")).unwrap(),
+            "42"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
@@ -612,6 +923,7 @@ mod tests {
                 display: String::new(),
                 cdp_port,
                 vnc_port: None,
+                resource_limits: RuntimeResourceLimits::local_test_default(),
             })
             .await
             .unwrap();

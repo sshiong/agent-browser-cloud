@@ -6,6 +6,10 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassNotFoundException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassRejectedException;
+import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapacityUnavailableException;
+import io.browsercloud.application.BrowserCapacityApplicationService.BrowserNodeNotFoundException;
+import io.browsercloud.application.BrowserCapacityApplicationService.BrowserPlacementNotFoundException;
+import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionProfileRejectedException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotFoundException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
@@ -232,6 +236,39 @@ public class GlobalExceptionHandler {
         request);
   }
 
+  @ExceptionHandler(BrowserCapacityUnavailableException.class)
+  ResponseEntity<ApiError> browserCapacityUnavailable(
+      BrowserCapacityUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "BROWSER_CAPACITY_UNAVAILABLE",
+        "No Browser Node can safely admit this resource demand",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler({BrowserNodeNotFoundException.class, BrowserPlacementNotFoundException.class})
+  ResponseEntity<ApiError> browserCapacityResourceNotFound(
+      RuntimeException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "BROWSER_CAPACITY_RESOURCE_NOT_FOUND",
+        "Browser capacity resource was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ExtensionProfileRejectedException.class)
+  ResponseEntity<ApiError> extensionProfileRejected(
+      ExtensionProfileRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "EXTENSION_PROFILE_REJECTED",
+        "Extension profile cannot be used for placement",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
   @ExceptionHandler(TenantAccessDeniedException.class)
   ResponseEntity<ApiError> forbidden(
       TenantAccessDeniedException exception, HttpServletRequest request) {
@@ -331,7 +368,8 @@ public class GlobalExceptionHandler {
     MethodArgumentNotValidException.class,
     ConstraintViolationException.class,
     MissingRequestHeaderException.class,
-    HttpMessageNotReadableException.class
+    HttpMessageNotReadableException.class,
+    IllegalArgumentException.class
   })
   ResponseEntity<ApiError> invalidRequest(Exception exception, HttpServletRequest request) {
     return response(

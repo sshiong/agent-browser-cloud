@@ -112,6 +112,13 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
       nodeSelector:
         browsercloud.io/workload: browser-node
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: browser-node
+              topologyKey: kubernetes.io/hostname
       tolerations:
         - key: browsercloud.io/workload
           operator: Equal
@@ -140,6 +147,22 @@ spec:
               value: /var/run/browsercloud/helpers/storage.sock
             - name: PROFILE_STORAGE_ROOT
               value: /var/lib/browsercloud/profiles
+            - name: RUNTIME_CGROUP_ROOT
+              value: /sys/fs/cgroup/browsercloud
+            - name: NODE_REGION
+              value: primary
+            - name: NODE_CERTIFIED_CPU_MILLIS
+              value: "4000"
+            - name: NODE_CERTIFIED_MEMORY_MIB
+              value: "8192"
+            - name: NODE_CERTIFIED_PID_COUNT
+              value: "2048"
+            - name: NODE_CERTIFIED_GPU_SLOTS
+              value: "0"
+            - name: NODE_SAFETY_MARGIN_PERCENT
+              value: "20"
+            - name: NODE_MAX_SESSIONS
+              value: "8"
           envFrom:
             - secretRef:
                 name: browser-node-runtime-secrets
@@ -153,6 +176,8 @@ spec:
               readOnly: true
             - name: helper-ipc
               mountPath: /var/run/browsercloud/helpers
+            - name: runtime-cgroup
+              mountPath: /sys/fs/cgroup/browsercloud
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -253,6 +278,10 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 8Mi
+        - name: runtime-cgroup
+          hostPath:
+            path: /sys/fs/cgroup/browsercloud
+            type: Directory
   volumeClaimTemplates:
     - metadata:
         name: warm-tier

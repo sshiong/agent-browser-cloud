@@ -34,6 +34,7 @@ class SessionApplicationServiceTest {
   @Mock private DurableWorkflowApplicationService workflowService;
   @Mock private RuntimeBuildPolicy runtimeBuildPolicy;
   @Mock private CapacityAdmissionService capacityAdmissionService;
+  @Mock private BrowserCapacityApplicationService browserCapacityService;
 
   private SessionApplicationService service;
 
@@ -53,6 +54,7 @@ class SessionApplicationServiceTest {
             workflowService,
             runtimeBuildPolicy,
             capacityAdmissionService,
+            browserCapacityService,
             "runtime-test");
   }
 

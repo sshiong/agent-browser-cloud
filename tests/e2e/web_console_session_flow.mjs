@@ -60,6 +60,23 @@ async function executeSelectedTaskAndWait(taskId, expectedState, timeoutMs = 25_
 }
 
 try {
+  await page.goto(`${baseUrl}/nodes`);
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "Browser Node" })).toBeVisible();
+  await expect(page.getByText("node_e2e", { exact: true })).toBeVisible();
+  await expect(page.getByText("OPEN", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("NORMAL", { exact: true }).first()).toBeVisible();
+
+  await page.goto(`${baseUrl}/extensions`);
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "扩展资源画像" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("E2E Accessibility Helper", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("CERTIFIED", { exact: true })).toBeVisible();
+
   await page.goto(`${baseUrl}/environments`);
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "环境管理" })).toBeVisible();
@@ -74,6 +91,10 @@ try {
   await page.getByLabel("Profile ID").fill("profile-e2e-start");
   await page.getByLabel("部署区域").fill("local");
   await expect(nameInput).toHaveValue(startName);
+  await page.getByRole("button", { name: "下一步" }).click();
+  await page.getByLabel("请求标签页").fill("3");
+  await page.getByLabel("Agent 动作/分钟").fill("90");
+  await page.getByLabel("Extension IDs").fill("extension.e2e");
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("button", { name: "确认创建" })).toBeVisible();
   await page.getByRole("button", { name: "确认创建" }).click();
@@ -685,6 +706,7 @@ try {
   await page.getByLabel("Profile ID").fill("profile-e2e-terminate");
   await page.getByLabel("部署区域").fill("local");
   await expect(terminateNameInput).toHaveValue(terminateName);
+  await page.getByRole("button", { name: "下一步" }).click();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("button", { name: "确认创建" })).toBeVisible();
   await page.getByRole("button", { name: "确认创建" }).click();

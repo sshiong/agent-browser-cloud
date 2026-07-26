@@ -1,10 +1,13 @@
 package io.browsercloud.api;
 
 import io.browsercloud.domain.session.ResourceClass;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -14,6 +17,11 @@ import java.util.Map;
  * @param profileId Profile ID
  * @param region 部署区域
  * @param resourceClass 资源等级
+ * @param requestedTabs 预期最大 Tab 数；省略时为 1
+ * @param agentActionsPerMinute Agent 动作速率预算
+ * @param remoteDesktop 是否要求常驻 Remote Desktop
+ * @param web3Workload 是否为 Web3 工作负载
+ * @param extensionIds Extension ID 集合；未知 ID 自动进入 Probation
  * @param metadata 扩展元数据
  */
 public record CreateSessionRequest(
@@ -21,5 +29,11 @@ public record CreateSessionRequest(
     @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId,
     @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
     ResourceClass resourceClass,
+    @Min(0) @Max(64) int requestedTabs,
+    @Min(0) @Max(600) int agentActionsPerMinute,
+    boolean remoteDesktop,
+    boolean web3Workload,
+    @Size(max = 32)
+        List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> extensionIds,
     @Size(max = 32)
         Map<@NotBlank @Size(max = 128) String, @NotNull @Size(max = 1024) String> metadata) {}

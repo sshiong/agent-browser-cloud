@@ -5,6 +5,7 @@ import io.browsercloud.coordinator.CoordinatorReconciliationMetrics;
 import io.browsercloud.coordinator.NodeCommandGateway;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.OutboxPublisher;
+import io.browsercloud.coordinator.RuntimeResourceLimitsRepository;
 import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.coordinator.SessionRepository;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -22,14 +23,16 @@ public class CoordinatorConfiguration {
       NodeCommandGateway nodeCommandGateway,
       OutboxPublisher outboxPublisher,
       CoordinatorOwnershipService ownershipService,
-      CoordinatorReconciliationMetrics reconciliationMetrics) {
+      CoordinatorReconciliationMetrics reconciliationMetrics,
+      RuntimeResourceLimitsRepository resourceLimitsRepository) {
     return new SessionCoordinator(
         sessionRepository,
         operationRepository,
         nodeCommandGateway,
         outboxPublisher,
         ownershipService,
-        reconciliationMetrics);
+        reconciliationMetrics,
+        resourceLimitsRepository);
   }
 
   @Bean

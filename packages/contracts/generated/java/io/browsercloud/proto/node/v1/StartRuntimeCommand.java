@@ -26,6 +26,7 @@ private static final long serialVersionUID = 0L;
     profileId_ = "";
     display_ = "";
     proxyBindingId_ = "";
+    resourceClass_ = "";
   }
 
   @java.lang.Override
@@ -254,6 +255,144 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int RESOURCE_CLASS_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object resourceClass_ = "";
+  /**
+   * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   * @return The resourceClass.
+   */
+  @java.lang.Override
+  public java.lang.String getResourceClass() {
+    java.lang.Object ref = resourceClass_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      resourceClass_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   * @return The bytes for resourceClass.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getResourceClassBytes() {
+    java.lang.Object ref = resourceClass_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      resourceClass_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CPU_MILLIS_FIELD_NUMBER = 8;
+  private int cpuMillis_ = 0;
+  /**
+   * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+   * @return The cpuMillis.
+   */
+  @java.lang.Override
+  public int getCpuMillis() {
+    return cpuMillis_;
+  }
+
+  public static final int MEMORY_REQUEST_MIB_FIELD_NUMBER = 9;
+  private int memoryRequestMib_ = 0;
+  /**
+   * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+   * @return The memoryRequestMib.
+   */
+  @java.lang.Override
+  public int getMemoryRequestMib() {
+    return memoryRequestMib_;
+  }
+
+  public static final int MEMORY_LIMIT_MIB_FIELD_NUMBER = 10;
+  private int memoryLimitMib_ = 0;
+  /**
+   * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+   * @return The memoryLimitMib.
+   */
+  @java.lang.Override
+  public int getMemoryLimitMib() {
+    return memoryLimitMib_;
+  }
+
+  public static final int PID_LIMIT_FIELD_NUMBER = 11;
+  private int pidLimit_ = 0;
+  /**
+   * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+   * @return The pidLimit.
+   */
+  @java.lang.Override
+  public int getPidLimit() {
+    return pidLimit_;
+  }
+
+  public static final int TAB_BUDGET_FIELD_NUMBER = 12;
+  private int tabBudget_ = 0;
+  /**
+   * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+   * @return The tabBudget.
+   */
+  @java.lang.Override
+  public int getTabBudget() {
+    return tabBudget_;
+  }
+
+  public static final int DESKTOP_REQUIRED_FIELD_NUMBER = 13;
+  private boolean desktopRequired_ = false;
+  /**
+   * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+   * @return The desktopRequired.
+   */
+  @java.lang.Override
+  public boolean getDesktopRequired() {
+    return desktopRequired_;
+  }
+
+  public static final int GPU_REQUIRED_FIELD_NUMBER = 14;
+  private boolean gpuRequired_ = false;
+  /**
+   * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+   * @return The gpuRequired.
+   */
+  @java.lang.Override
+  public boolean getGpuRequired() {
+    return gpuRequired_;
+  }
+
+  public static final int NATIVE_OS_REQUIRED_FIELD_NUMBER = 15;
+  private boolean nativeOsRequired_ = false;
+  /**
+   * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+   * @return The nativeOsRequired.
+   */
+  @java.lang.Override
+  public boolean getNativeOsRequired() {
+    return nativeOsRequired_;
+  }
+
+  public static final int ISOLATION_REQUIRED_FIELD_NUMBER = 16;
+  private boolean isolationRequired_ = false;
+  /**
+   * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+   * @return The isolationRequired.
+   */
+  @java.lang.Override
+  public boolean getIsolationRequired() {
+    return isolationRequired_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -286,6 +425,36 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 6, proxyBindingId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(resourceClass_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 7, resourceClass_);
+    }
+    if (cpuMillis_ != 0) {
+      output.writeUInt32(8, cpuMillis_);
+    }
+    if (memoryRequestMib_ != 0) {
+      output.writeUInt32(9, memoryRequestMib_);
+    }
+    if (memoryLimitMib_ != 0) {
+      output.writeUInt32(10, memoryLimitMib_);
+    }
+    if (pidLimit_ != 0) {
+      output.writeUInt32(11, pidLimit_);
+    }
+    if (tabBudget_ != 0) {
+      output.writeUInt32(12, tabBudget_);
+    }
+    if (desktopRequired_ != false) {
+      output.writeBool(13, desktopRequired_);
+    }
+    if (gpuRequired_ != false) {
+      output.writeBool(14, gpuRequired_);
+    }
+    if (nativeOsRequired_ != false) {
+      output.writeBool(15, nativeOsRequired_);
+    }
+    if (isolationRequired_ != false) {
+      output.writeBool(16, isolationRequired_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -314,6 +483,45 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyBindingId_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, proxyBindingId_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(resourceClass_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, resourceClass_);
+    }
+    if (cpuMillis_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(8, cpuMillis_);
+    }
+    if (memoryRequestMib_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(9, memoryRequestMib_);
+    }
+    if (memoryLimitMib_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(10, memoryLimitMib_);
+    }
+    if (pidLimit_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(11, pidLimit_);
+    }
+    if (tabBudget_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(12, tabBudget_);
+    }
+    if (desktopRequired_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(13, desktopRequired_);
+    }
+    if (gpuRequired_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(14, gpuRequired_);
+    }
+    if (nativeOsRequired_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(15, nativeOsRequired_);
+    }
+    if (isolationRequired_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(16, isolationRequired_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -341,6 +549,26 @@ private static final long serialVersionUID = 0L;
         != other.getCdpPort()) return false;
     if (!getProxyBindingId()
         .equals(other.getProxyBindingId())) return false;
+    if (!getResourceClass()
+        .equals(other.getResourceClass())) return false;
+    if (getCpuMillis()
+        != other.getCpuMillis()) return false;
+    if (getMemoryRequestMib()
+        != other.getMemoryRequestMib()) return false;
+    if (getMemoryLimitMib()
+        != other.getMemoryLimitMib()) return false;
+    if (getPidLimit()
+        != other.getPidLimit()) return false;
+    if (getTabBudget()
+        != other.getTabBudget()) return false;
+    if (getDesktopRequired()
+        != other.getDesktopRequired()) return false;
+    if (getGpuRequired()
+        != other.getGpuRequired()) return false;
+    if (getNativeOsRequired()
+        != other.getNativeOsRequired()) return false;
+    if (getIsolationRequired()
+        != other.getIsolationRequired()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -364,6 +592,30 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getCdpPort();
     hash = (37 * hash) + PROXY_BINDING_ID_FIELD_NUMBER;
     hash = (53 * hash) + getProxyBindingId().hashCode();
+    hash = (37 * hash) + RESOURCE_CLASS_FIELD_NUMBER;
+    hash = (53 * hash) + getResourceClass().hashCode();
+    hash = (37 * hash) + CPU_MILLIS_FIELD_NUMBER;
+    hash = (53 * hash) + getCpuMillis();
+    hash = (37 * hash) + MEMORY_REQUEST_MIB_FIELD_NUMBER;
+    hash = (53 * hash) + getMemoryRequestMib();
+    hash = (37 * hash) + MEMORY_LIMIT_MIB_FIELD_NUMBER;
+    hash = (53 * hash) + getMemoryLimitMib();
+    hash = (37 * hash) + PID_LIMIT_FIELD_NUMBER;
+    hash = (53 * hash) + getPidLimit();
+    hash = (37 * hash) + TAB_BUDGET_FIELD_NUMBER;
+    hash = (53 * hash) + getTabBudget();
+    hash = (37 * hash) + DESKTOP_REQUIRED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getDesktopRequired());
+    hash = (37 * hash) + GPU_REQUIRED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getGpuRequired());
+    hash = (37 * hash) + NATIVE_OS_REQUIRED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getNativeOsRequired());
+    hash = (37 * hash) + ISOLATION_REQUIRED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getIsolationRequired());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -505,6 +757,16 @@ private static final long serialVersionUID = 0L;
       display_ = "";
       cdpPort_ = 0;
       proxyBindingId_ = "";
+      resourceClass_ = "";
+      cpuMillis_ = 0;
+      memoryRequestMib_ = 0;
+      memoryLimitMib_ = 0;
+      pidLimit_ = 0;
+      tabBudget_ = 0;
+      desktopRequired_ = false;
+      gpuRequired_ = false;
+      nativeOsRequired_ = false;
+      isolationRequired_ = false;
       return this;
     }
 
@@ -555,6 +817,36 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.proxyBindingId_ = proxyBindingId_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.resourceClass_ = resourceClass_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.cpuMillis_ = cpuMillis_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.memoryRequestMib_ = memoryRequestMib_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.memoryLimitMib_ = memoryLimitMib_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.pidLimit_ = pidLimit_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.tabBudget_ = tabBudget_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.desktopRequired_ = desktopRequired_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.gpuRequired_ = gpuRequired_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.nativeOsRequired_ = nativeOsRequired_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.isolationRequired_ = isolationRequired_;
       }
     }
 
@@ -630,6 +922,38 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000020;
         onChanged();
       }
+      if (!other.getResourceClass().isEmpty()) {
+        resourceClass_ = other.resourceClass_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (other.getCpuMillis() != 0) {
+        setCpuMillis(other.getCpuMillis());
+      }
+      if (other.getMemoryRequestMib() != 0) {
+        setMemoryRequestMib(other.getMemoryRequestMib());
+      }
+      if (other.getMemoryLimitMib() != 0) {
+        setMemoryLimitMib(other.getMemoryLimitMib());
+      }
+      if (other.getPidLimit() != 0) {
+        setPidLimit(other.getPidLimit());
+      }
+      if (other.getTabBudget() != 0) {
+        setTabBudget(other.getTabBudget());
+      }
+      if (other.getDesktopRequired() != false) {
+        setDesktopRequired(other.getDesktopRequired());
+      }
+      if (other.getGpuRequired() != false) {
+        setGpuRequired(other.getGpuRequired());
+      }
+      if (other.getNativeOsRequired() != false) {
+        setNativeOsRequired(other.getNativeOsRequired());
+      }
+      if (other.getIsolationRequired() != false) {
+        setIsolationRequired(other.getIsolationRequired());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -686,6 +1010,56 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              resourceClass_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 64: {
+              cpuMillis_ = input.readUInt32();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 72: {
+              memoryRequestMib_ = input.readUInt32();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 80: {
+              memoryLimitMib_ = input.readUInt32();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
+            case 88: {
+              pidLimit_ = input.readUInt32();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 88
+            case 96: {
+              tabBudget_ = input.readUInt32();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 96
+            case 104: {
+              desktopRequired_ = input.readBool();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
+            case 112: {
+              gpuRequired_ = input.readBool();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 112
+            case 120: {
+              nativeOsRequired_ = input.readBool();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 120
+            case 128: {
+              isolationRequired_ = input.readBool();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 128
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1091,6 +1465,366 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       proxyBindingId_ = value;
       bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object resourceClass_ = "";
+    /**
+     * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     * @return The resourceClass.
+     */
+    public java.lang.String getResourceClass() {
+      java.lang.Object ref = resourceClass_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        resourceClass_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     * @return The bytes for resourceClass.
+     */
+    public com.google.protobuf.ByteString
+        getResourceClassBytes() {
+      java.lang.Object ref = resourceClass_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        resourceClass_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     * @param value The resourceClass to set.
+     * @return This builder for chaining.
+     */
+    public Builder setResourceClass(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      resourceClass_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearResourceClass() {
+      resourceClass_ = getDefaultInstance().getResourceClass();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+     * @param value The bytes for resourceClass to set.
+     * @return This builder for chaining.
+     */
+    public Builder setResourceClassBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      resourceClass_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private int cpuMillis_ ;
+    /**
+     * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+     * @return The cpuMillis.
+     */
+    @java.lang.Override
+    public int getCpuMillis() {
+      return cpuMillis_;
+    }
+    /**
+     * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+     * @param value The cpuMillis to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCpuMillis(int value) {
+
+      cpuMillis_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCpuMillis() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      cpuMillis_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int memoryRequestMib_ ;
+    /**
+     * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+     * @return The memoryRequestMib.
+     */
+    @java.lang.Override
+    public int getMemoryRequestMib() {
+      return memoryRequestMib_;
+    }
+    /**
+     * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+     * @param value The memoryRequestMib to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMemoryRequestMib(int value) {
+
+      memoryRequestMib_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMemoryRequestMib() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      memoryRequestMib_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int memoryLimitMib_ ;
+    /**
+     * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+     * @return The memoryLimitMib.
+     */
+    @java.lang.Override
+    public int getMemoryLimitMib() {
+      return memoryLimitMib_;
+    }
+    /**
+     * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+     * @param value The memoryLimitMib to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMemoryLimitMib(int value) {
+
+      memoryLimitMib_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMemoryLimitMib() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      memoryLimitMib_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int pidLimit_ ;
+    /**
+     * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+     * @return The pidLimit.
+     */
+    @java.lang.Override
+    public int getPidLimit() {
+      return pidLimit_;
+    }
+    /**
+     * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+     * @param value The pidLimit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPidLimit(int value) {
+
+      pidLimit_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPidLimit() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      pidLimit_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int tabBudget_ ;
+    /**
+     * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+     * @return The tabBudget.
+     */
+    @java.lang.Override
+    public int getTabBudget() {
+      return tabBudget_;
+    }
+    /**
+     * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+     * @param value The tabBudget to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTabBudget(int value) {
+
+      tabBudget_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTabBudget() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      tabBudget_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean desktopRequired_ ;
+    /**
+     * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+     * @return The desktopRequired.
+     */
+    @java.lang.Override
+    public boolean getDesktopRequired() {
+      return desktopRequired_;
+    }
+    /**
+     * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+     * @param value The desktopRequired to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDesktopRequired(boolean value) {
+
+      desktopRequired_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDesktopRequired() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      desktopRequired_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean gpuRequired_ ;
+    /**
+     * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+     * @return The gpuRequired.
+     */
+    @java.lang.Override
+    public boolean getGpuRequired() {
+      return gpuRequired_;
+    }
+    /**
+     * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+     * @param value The gpuRequired to set.
+     * @return This builder for chaining.
+     */
+    public Builder setGpuRequired(boolean value) {
+
+      gpuRequired_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearGpuRequired() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      gpuRequired_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean nativeOsRequired_ ;
+    /**
+     * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+     * @return The nativeOsRequired.
+     */
+    @java.lang.Override
+    public boolean getNativeOsRequired() {
+      return nativeOsRequired_;
+    }
+    /**
+     * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+     * @param value The nativeOsRequired to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNativeOsRequired(boolean value) {
+
+      nativeOsRequired_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNativeOsRequired() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      nativeOsRequired_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean isolationRequired_ ;
+    /**
+     * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+     * @return The isolationRequired.
+     */
+    @java.lang.Override
+    public boolean getIsolationRequired() {
+      return isolationRequired_;
+    }
+    /**
+     * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+     * @param value The isolationRequired to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIsolationRequired(boolean value) {
+
+      isolationRequired_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIsolationRequired() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      isolationRequired_ = false;
       onChanged();
       return this;
     }

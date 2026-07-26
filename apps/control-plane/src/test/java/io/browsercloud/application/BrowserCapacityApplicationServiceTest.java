@@ -1,0 +1,245 @@
+package io.browsercloud.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapacityUnavailableException;
+import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.session.ResourceClass;
+import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.domain.session.SessionState;
+import io.browsercloud.persistence.BrowserNodeEntity;
+import io.browsercloud.persistence.BrowserNodeJpaRepository;
+import io.browsercloud.persistence.BrowserPlacementEntity;
+import io.browsercloud.persistence.BrowserPlacementJpaRepository;
+import io.browsercloud.persistence.ExtensionProfileEntity;
+import io.browsercloud.persistence.ExtensionProfileJpaRepository;
+import io.browsercloud.persistence.SessionResourceDemandEntity;
+import io.browsercloud.persistence.SessionResourceDemandJpaRepository;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class BrowserCapacityApplicationServiceTest {
+
+  @Mock private BrowserNodeJpaRepository nodeRepository;
+  @Mock private ExtensionProfileJpaRepository extensionRepository;
+  @Mock private SessionResourceDemandJpaRepository demandRepository;
+  @Mock private BrowserPlacementJpaRepository placementRepository;
+  @Mock private SessionRepository sessionRepository;
+
+  private BrowserCapacityApplicationService service;
+  private ObjectMapper objectMapper;
+
+  @BeforeEach
+  void setUp() {
+    objectMapper = new ObjectMapper();
+    service =
+        new BrowserCapacityApplicationService(
+            nodeRepository,
+            extensionRepository,
+            demandRepository,
+            placementRepository,
+            sessionRepository,
+            objectMapper);
+  }
+
+  @Test
+  void unknownExtensionUsesProbationAndPromotesL1BeforePlacement() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L1,
+            2,
+            0,
+            false,
+            false,
+            objectMapper.writeValueAsString(List.of("unknown.wallet")),
+            now);
+    var node = standardNode(now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
+        .thenReturn(List.of());
+    when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var placement = service.reserve(session(ResourceClass.L1), "local");
+
+    assertThat(placement.requestedResourceClass()).isEqualTo(ResourceClass.L1);
+    assertThat(placement.effectiveResourceClass()).isEqualTo(ResourceClass.L2);
+    assertThat(placement.unknownExtensionCount()).isEqualTo(1);
+    assertThat(placement.reasonCodes()).contains("UNKNOWN_EXTENSION_PROBATION");
+    assertThat(placement.cpuMillis()).isEqualTo(750);
+    assertThat(placement.memoryRequestMib()).isEqualTo(1024);
+    assertThat(node.getActiveSessions()).isEqualTo(1);
+    assertThat(node.getReservedMemoryMib()).isEqualTo(1024);
+
+    var context = ArgumentCaptor.forClass(SessionContext.class);
+    verify(sessionRepository).updateWithExpectedEpoch(context.capture(), eq(0L));
+    assertThat(context.getValue().nodeId()).isEqualTo("node_local");
+    assertThat(context.getValue().resourceClass()).isEqualTo(ResourceClass.L2);
+    assertThat(context.getValue().contextEpoch()).isEqualTo(1);
+  }
+
+  @Test
+  void privilegedExtensionCannotMixWithAnExistingOrdinaryPlacement() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L1,
+            2,
+            0,
+            false,
+            false,
+            objectMapper.writeValueAsString(List.of("wallet.privileged")),
+            now);
+    var extension =
+        new ExtensionProfileEntity(
+            "wallet.privileged",
+            "Privileged Wallet",
+            100,
+            128,
+            20,
+            20,
+            64,
+            100,
+            20,
+            BigDecimal.ONE,
+            new BigDecimal("0.9"),
+            "CERTIFIED",
+            true,
+            true,
+            true,
+            true,
+            now);
+    var node = standardNode(now);
+    var existing =
+        new BrowserPlacementEntity(
+            "ses_ordinary1234567",
+            "tenant-b",
+            "node_local",
+            ResourceClass.L2,
+            ResourceClass.L2,
+            "[]",
+            0,
+            600,
+            768,
+            1280,
+            192,
+            8,
+            false,
+            false,
+            false,
+            false,
+            0,
+            "[]",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of(extension));
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
+        .thenReturn(List.of(existing));
+
+    assertThatThrownBy(() -> service.reserve(session(ResourceClass.L1), "local"))
+        .isInstanceOf(BrowserCapacityUnavailableException.class)
+        .hasMessage("NO_ELIGIBLE_BROWSER_NODE");
+  }
+
+  @Test
+  void pressureClosesAdmissionImmediatelyAndRequiresThreeHealthySamplesToReopen() {
+    var node = standardNode(Instant.now());
+    var now = Instant.now();
+
+    node.recordPressure(
+        new BigDecimal("21"),
+        BigDecimal.ZERO,
+        BigDecimal.ZERO,
+        BigDecimal.ZERO,
+        "MEMORY_BURST",
+        now);
+    assertThat(node.getPressureState()).isEqualTo("CRITICAL");
+    assertThat(node.getAdmissionState()).isEqualTo("CLOSED");
+
+    for (int sample = 0; sample < 2; sample++) {
+      node.recordPressure(
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          null,
+          now.plusSeconds(sample + 1));
+    }
+    assertThat(node.getAdmissionState()).isEqualTo("CLOSED");
+
+    node.recordPressure(
+        BigDecimal.ZERO,
+        BigDecimal.ZERO,
+        BigDecimal.ZERO,
+        BigDecimal.ZERO,
+        null,
+        now.plusSeconds(3));
+    assertThat(node.getPressureState()).isEqualTo("NORMAL");
+    assertThat(node.getAdmissionState()).isEqualTo("OPEN");
+  }
+
+  private static BrowserNodeEntity standardNode(Instant now) {
+    return new BrowserNodeEntity(
+        "node_local",
+        "local",
+        "localhost:9090",
+        10_000,
+        16_384,
+        4096,
+        0,
+        20,
+        10,
+        true,
+        false,
+        false,
+        true,
+        "{}",
+        now);
+  }
+
+  private static SessionContext session(ResourceClass resourceClass) {
+    var now = Instant.now();
+    return new SessionContext(
+        "ses_1234567890abcdef",
+        "tenant-a",
+        "profile-a",
+        null,
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        resourceClass,
+        SessionState.CREATED,
+        "",
+        now,
+        now);
+  }
+}

@@ -55,6 +55,34 @@ public record SessionContext(
         Instant.now());
   }
 
+  /** Placement 属于核心运行上下文；Node 或有效资源等级变化必须产生新的 Context Epoch。 */
+  public SessionContext withPlacement(
+      String newNodeId, ResourceClass effectiveResourceClass, long newContextEpoch) {
+    if (newNodeId == null || newNodeId.isBlank()) {
+      throw new IllegalArgumentException("placement node id is required");
+    }
+    if (newContextEpoch != contextEpoch + 1) {
+      throw new IllegalArgumentException("placement must advance context epoch exactly once");
+    }
+    return new SessionContext(
+        sessionId,
+        tenantId,
+        profileId,
+        newNodeId,
+        runtimeBuildId,
+        isolationProfileId,
+        proxyBindingId,
+        coordinatorTerm,
+        newContextEpoch,
+        browserGeneration,
+        networkRevision,
+        effectiveResourceClass,
+        state,
+        policyHash,
+        createdAt,
+        Instant.now());
+  }
+
   /**
    * 递增 network_revision，表示轻量网络变化。
    *

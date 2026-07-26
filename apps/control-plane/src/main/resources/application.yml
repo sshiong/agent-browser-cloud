@@ -91,6 +91,12 @@ coordinator:
   instance-id: ${COORDINATOR_INSTANCE_ID:${random.uuid}}
   lease-seconds: ${COORDINATOR_LEASE_SECONDS:30}
 
+browser-density:
+  bootstrap-local-node:
+    enabled: ${BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE:true}
+    node-id: ${BROWSER_DENSITY_LOCAL_NODE_ID:node_local}
+    heartbeat-ms: ${BROWSER_DENSITY_LOCAL_HEARTBEAT_MS:20000}
+
 grpc:
   tls:
     enabled: ${GRPC_TLS_ENABLED:false}

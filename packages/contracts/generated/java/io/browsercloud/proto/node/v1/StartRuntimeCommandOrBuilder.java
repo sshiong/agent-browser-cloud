@@ -73,4 +73,70 @@ public interface StartRuntimeCommandOrBuilder extends
    */
   com.google.protobuf.ByteString
       getProxyBindingIdBytes();
+
+  /**
+   * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   * @return The resourceClass.
+   */
+  java.lang.String getResourceClass();
+  /**
+   * <code>string resource_class = 7 [json_name = "resourceClass"];</code>
+   * @return The bytes for resourceClass.
+   */
+  com.google.protobuf.ByteString
+      getResourceClassBytes();
+
+  /**
+   * <code>uint32 cpu_millis = 8 [json_name = "cpuMillis"];</code>
+   * @return The cpuMillis.
+   */
+  int getCpuMillis();
+
+  /**
+   * <code>uint32 memory_request_mib = 9 [json_name = "memoryRequestMib"];</code>
+   * @return The memoryRequestMib.
+   */
+  int getMemoryRequestMib();
+
+  /**
+   * <code>uint32 memory_limit_mib = 10 [json_name = "memoryLimitMib"];</code>
+   * @return The memoryLimitMib.
+   */
+  int getMemoryLimitMib();
+
+  /**
+   * <code>uint32 pid_limit = 11 [json_name = "pidLimit"];</code>
+   * @return The pidLimit.
+   */
+  int getPidLimit();
+
+  /**
+   * <code>uint32 tab_budget = 12 [json_name = "tabBudget"];</code>
+   * @return The tabBudget.
+   */
+  int getTabBudget();
+
+  /**
+   * <code>bool desktop_required = 13 [json_name = "desktopRequired"];</code>
+   * @return The desktopRequired.
+   */
+  boolean getDesktopRequired();
+
+  /**
+   * <code>bool gpu_required = 14 [json_name = "gpuRequired"];</code>
+   * @return The gpuRequired.
+   */
+  boolean getGpuRequired();
+
+  /**
+   * <code>bool native_os_required = 15 [json_name = "nativeOsRequired"];</code>
+   * @return The nativeOsRequired.
+   */
+  boolean getNativeOsRequired();
+
+  /**
+   * <code>bool isolation_required = 16 [json_name = "isolationRequired"];</code>
+   * @return The isolationRequired.
+   */
+  boolean getIsolationRequired();
 }

@@ -41,6 +41,7 @@ public final class SessionCoordinator {
   private final OutboxPublisher outboxPublisher;
   private final CoordinatorOwnershipService ownershipService;
   private final CoordinatorReconciliationMetrics reconciliationMetrics;
+  private final RuntimeResourceLimitsRepository resourceLimitsRepository;
 
   public SessionCoordinator(
       SessionRepository sessionRepository,
@@ -48,13 +49,15 @@ public final class SessionCoordinator {
       NodeCommandGateway nodeCommandGateway,
       OutboxPublisher outboxPublisher,
       CoordinatorOwnershipService ownershipService,
-      CoordinatorReconciliationMetrics reconciliationMetrics) {
+      CoordinatorReconciliationMetrics reconciliationMetrics,
+      RuntimeResourceLimitsRepository resourceLimitsRepository) {
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.nodeCommandGateway = nodeCommandGateway;
     this.outboxPublisher = outboxPublisher;
     this.ownershipService = ownershipService;
     this.reconciliationMetrics = reconciliationMetrics;
+    this.resourceLimitsRepository = resourceLimitsRepository;
   }
 
   /**
@@ -214,7 +217,8 @@ public final class SessionCoordinator {
 
     // 发送 Node Command
     nodeCommandGateway.send(
-        NodeCommands.startRuntime(session, operation, command.requestedRuntimeBuildId()));
+        NodeCommands.startRuntime(
+            session, operation, command.requestedRuntimeBuildId(), command.resourceLimits()));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.STARTING));
 
     log.info(
@@ -444,7 +448,11 @@ public final class SessionCoordinator {
         sessionRepository.updateWithExpectedEpoch(
             session.withState(SessionState.RECOVERING), session.contextEpoch());
         nodeCommandGateway.send(
-            NodeCommands.startRuntime(session, recovery, session.runtimeBuildId()));
+            NodeCommands.startRuntime(
+                session,
+                recovery,
+                session.runtimeBuildId(),
+                resourceLimitsRepository.require(session.sessionId())));
         outboxPublisher.append(
             new SessionStateChanged(session.sessionId(), SessionState.RECOVERING));
 

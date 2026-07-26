@@ -129,7 +129,7 @@ done
 
 CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
 NODE_AGENT_PORT="$node_port" \
-NODE_ID=node-e2e \
+NODE_ID=node_e2e \
 CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 RUNTIME_ROOT="$temp_dir/runtime" \
 PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
@@ -155,6 +155,7 @@ DATABASE_PASSWORD=browsercloud \
 REDIS_HOST=localhost \
 REDIS_PORT="$redis_port" \
 BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
 CONTROL_PLANE_NODE_EVENT_PORT="$event_port" \
 REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
 STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
@@ -172,6 +173,28 @@ for _ in $(seq 1 90); do
   sleep 0.5
 done
 printf '%s' "$health" | grep -q '"status":"UP"'
+
+browser_nodes=""
+for _ in $(seq 1 30); do
+  browser_nodes="$(curl -fsS \
+    "http://127.0.0.1:${control_port}/api/v1/browser-nodes" \
+    -H 'X-Tenant-Id: tenant-local' \
+    -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
+  if printf '%s' "$browser_nodes" | python3 -c \
+    'import json,sys; data=json.load(sys.stdin); assert data["total"] == 1' \
+    2>/dev/null; then break; fi
+  sleep 0.25
+done
+printf '%s' "$browser_nodes" | python3 -c \
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_e2e"; assert node["admissionState"] == "OPEN"'
+
+curl -fsS -X PUT \
+  "http://127.0.0.1:${control_port}/api/v1/extensions/extension.e2e" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"displayName":"E2E Accessibility Helper","staticCpuWeight":40,"staticMemoryWeight":64,"startupWeight":20,"pageInjectionWeight":10,"serviceWorkerWeight":0,"cryptoWeight":0,"networkWeight":10,"observedMultiplier":1.0,"confidence":0.9,"profileState":"CERTIFIED","web3":false,"serviceWorker":false,"crypto":false,"privileged":false}' \
+  >"$temp_dir/extension-profile.json"
 
 python3 "$repo_root/tests/fixtures/fault-tcp-proxy.py" \
   "$desktop_fault_port" 127.0.0.1 "$desktop_port" \

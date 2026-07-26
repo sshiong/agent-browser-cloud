@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
 import io.browsercloud.coordinator.NodeCommand;
+import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.CommandEnvelope;
 import io.browsercloud.proto.node.v1.DispatchRequest;
@@ -12,6 +13,8 @@ import io.grpc.ManagedChannel;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -32,18 +35,24 @@ public class NodeCommandOutboxDispatcher {
   private final OutboxEventJpaRepository outboxRepository;
   private final ObjectMapper objectMapper;
   private final AgentActionPayloadService actionPayloadService;
-  private final ManagedChannel channel;
+  private final BrowserNodeJpaRepository browserNodeRepository;
+  private final GrpcTransportFactory transportFactory;
+  private final String legacyGrpcTarget;
+  private final Map<String, NodeChannel> nodeChannels = new HashMap<>();
 
   public NodeCommandOutboxDispatcher(
       OutboxEventJpaRepository outboxRepository,
       ObjectMapper objectMapper,
       AgentActionPayloadService actionPayloadService,
+      BrowserNodeJpaRepository browserNodeRepository,
       GrpcTransportFactory transportFactory,
       @Value("${browser-node.grpc-target:localhost:9090}") String grpcTarget) {
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
     this.actionPayloadService = actionPayloadService;
-    this.channel = transportFactory.nodeChannel(grpcTarget);
+    this.browserNodeRepository = browserNodeRepository;
+    this.transportFactory = transportFactory;
+    this.legacyGrpcTarget = grpcTarget;
   }
 
   @Scheduled(fixedDelayString = "${browser-node.dispatch-interval-ms:250}")
@@ -55,6 +64,7 @@ public class NodeCommandOutboxDispatcher {
     for (var event : events) {
       try {
         var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
+        var channel = channelFor(command);
         var response =
             NodeControlServiceGrpc.newBlockingStub(channel)
                 .withDeadlineAfter(5, TimeUnit.SECONDS)
@@ -81,6 +91,35 @@ public class NodeCommandOutboxDispatcher {
             exception.getMessage());
       }
     }
+  }
+
+  private ManagedChannel channelFor(NodeCommand command) {
+    String nodeId = command.nodeId();
+    if (nodeId == null || nodeId.isBlank()) {
+      // N/N-1 compatibility for commands created before node_id became part of the outbox payload.
+      return channelForTarget("legacy", legacyGrpcTarget);
+    }
+    var node =
+        browserNodeRepository
+            .findById(nodeId)
+            .orElseThrow(() -> new IllegalStateException("PLACEMENT_NODE_NOT_REGISTERED"));
+    if (!node.isReadyForDispatch()) {
+      throw new IllegalStateException("PLACEMENT_NODE_NOT_READY");
+    }
+    return channelForTarget(nodeId, node.getGrpcTarget());
+  }
+
+  private ManagedChannel channelForTarget(String channelKey, String target) {
+    var existing = nodeChannels.get(channelKey);
+    if (existing != null && existing.target().equals(target) && !existing.channel().isShutdown()) {
+      return existing.channel();
+    }
+    if (existing != null) {
+      existing.channel().shutdown();
+    }
+    var replacement = new NodeChannel(target, transportFactory.nodeChannel(target));
+    nodeChannels.put(channelKey, replacement);
+    return replacement.channel();
   }
 
   private void recordFailure(
@@ -138,7 +177,10 @@ public class NodeCommandOutboxDispatcher {
   }
 
   @PreDestroy
-  void closeChannel() {
-    channel.shutdown();
+  void closeChannels() {
+    nodeChannels.values().forEach(nodeChannel -> nodeChannel.channel().shutdown());
+    nodeChannels.clear();
   }
+
+  private record NodeChannel(String target, ManagedChannel channel) {}
 }

@@ -34,6 +34,8 @@ class SessionCoordinatorTest {
 
   @Mock private CoordinatorOwnershipService ownershipService;
 
+  @Mock private RuntimeResourceLimitsRepository resourceLimitsRepository;
+
   private SessionCoordinator coordinator;
   private SimpleMeterRegistry meterRegistry;
 
@@ -47,7 +49,8 @@ class SessionCoordinatorTest {
             nodeCommandGateway,
             outboxPublisher,
             ownershipService,
-            new CoordinatorReconciliationMetrics(meterRegistry));
+            new CoordinatorReconciliationMetrics(meterRegistry),
+            resourceLimitsRepository);
   }
 
   @Test

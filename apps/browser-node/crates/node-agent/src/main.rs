@@ -15,8 +15,9 @@ use node_contracts::proto::{
     CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
     EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
     HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
-    PublishResponse, ReleaseAllInputCommand, RequestStateResyncCommand, RuntimeStartedEvent,
-    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest, RequestStateResyncCommand,
+    RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
+    TargetBounds,
 };
 use node_journal::{
     PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
@@ -24,7 +25,8 @@ use node_journal::{
 use prost::Message;
 use remote_desktop_gateway::{DisconnectHandler, RemoteDesktopGateway, RemoteDesktopTicketClaims};
 use runtime_supervisor::{
-    ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeSpec, RuntimeSupervisor,
+    CgroupV2Config, ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeResourceLimits,
+    RuntimeSpec, RuntimeSupervisor,
 };
 use state_collector::{
     diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
@@ -71,6 +73,204 @@ struct GrpcTlsMaterial {
     certificate: Vec<u8>,
     private_key: Vec<u8>,
     control_plane_server_name: String,
+}
+
+#[derive(Clone)]
+struct NodeCapacityReporter {
+    node_id: String,
+    region: String,
+    advertised_grpc_target: String,
+    control_plane_event_target: String,
+    grpc_tls: Option<Arc<GrpcTlsMaterial>>,
+    certified_cpu_millis: u32,
+    certified_memory_mib: u32,
+    certified_pid_count: u32,
+    certified_gpu_slots: u32,
+    safety_margin_percent: u32,
+    max_sessions: u32,
+    supports_desktop: bool,
+    supports_gpu: bool,
+    supports_native_os: bool,
+    isolation_capable: bool,
+    labels: HashMap<String, String>,
+    pressure_root: PathBuf,
+}
+
+impl NodeCapacityReporter {
+    fn from_environment(
+        environment: &str,
+        node_id: String,
+        node_port: u16,
+        control_plane_event_target: String,
+        grpc_tls: Option<Arc<GrpcTlsMaterial>>,
+        supports_desktop: bool,
+        cgroup_enabled: bool,
+    ) -> Result<Self> {
+        let production = environment.eq_ignore_ascii_case("production");
+        let region = std::env::var("NODE_REGION").unwrap_or_else(|_| "local".to_owned());
+        let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| node_id.clone());
+        let default_target = if production {
+            format!("{hostname}.browser-node.browsercloud-browser-nodes.svc:{node_port}")
+        } else {
+            format!("127.0.0.1:{node_port}")
+        };
+        let advertised_grpc_target =
+            std::env::var("NODE_ADVERTISED_GRPC_TARGET").unwrap_or(default_target);
+        let certified_cpu_millis =
+            Self::capacity_u32("NODE_CERTIFIED_CPU_MILLIS", 10_000, production)?;
+        let certified_memory_mib =
+            Self::capacity_u32("NODE_CERTIFIED_MEMORY_MIB", 16_384, production)?;
+        let certified_pid_count = Self::capacity_u32("NODE_CERTIFIED_PID_COUNT", 4096, production)?;
+        let certified_gpu_slots = Self::capacity_u32("NODE_CERTIFIED_GPU_SLOTS", 0, false)?;
+        let safety_margin_percent =
+            Self::capacity_u32("NODE_SAFETY_MARGIN_PERCENT", 20, production)?;
+        let max_sessions = Self::capacity_u32("NODE_MAX_SESSIONS", 10, production)?;
+        let supports_gpu = Self::bool_env("NODE_SUPPORTS_GPU", false);
+        let supports_native_os = Self::bool_env("NODE_SUPPORTS_NATIVE_OS", false);
+        anyhow::ensure!(
+            !supports_gpu || certified_gpu_slots > 0,
+            "NODE_SUPPORTS_GPU requires NODE_CERTIFIED_GPU_SLOTS"
+        );
+        anyhow::ensure!(
+            !production || cgroup_enabled,
+            "production capacity reporting requires cgroup enforcement"
+        );
+        let pressure_root = std::env::var("NODE_PRESSURE_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/proc/pressure"));
+        if production {
+            for resource in ["memory", "cpu", "io"] {
+                anyhow::ensure!(
+                    pressure_root.join(resource).is_file(),
+                    "production PSI source {resource} is unavailable"
+                );
+            }
+        }
+        let mut labels = HashMap::new();
+        labels.insert("runtime".to_owned(), "chromium".to_owned());
+        labels.insert(
+            "resourceEnforcement".to_owned(),
+            if cgroup_enabled { "cgroup-v2" } else { "none" }.to_owned(),
+        );
+        labels.insert("environment".to_owned(), environment.to_owned());
+        Ok(Self {
+            node_id,
+            region,
+            advertised_grpc_target,
+            control_plane_event_target,
+            grpc_tls,
+            certified_cpu_millis,
+            certified_memory_mib,
+            certified_pid_count,
+            certified_gpu_slots,
+            safety_margin_percent,
+            max_sessions,
+            supports_desktop,
+            supports_gpu,
+            supports_native_os,
+            isolation_capable: cgroup_enabled,
+            labels,
+            pressure_root,
+        })
+    }
+
+    fn capacity_u32(name: &str, local_default: u32, required: bool) -> Result<u32> {
+        match std::env::var(name) {
+            Ok(value) => value
+                .parse::<u32>()
+                .with_context(|| format!("{name} must be an unsigned integer")),
+            Err(_) if required => anyhow::bail!("{name} is required in production"),
+            Err(_) => Ok(local_default),
+        }
+    }
+
+    fn bool_env(name: &str, default: bool) -> bool {
+        std::env::var(name)
+            .map(|value| value.eq_ignore_ascii_case("true"))
+            .unwrap_or(default)
+    }
+
+    fn psi_avg10(&self, resource: &str, category: &str) -> Result<f64> {
+        let path = self.pressure_root.join(resource);
+        if !path.is_file() {
+            return Ok(0.0);
+        }
+        let contents = std::fs::read_to_string(&path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        let line = contents
+            .lines()
+            .find(|line| line.starts_with(category))
+            .ok_or_else(|| anyhow::anyhow!("{resource} PSI has no {category} sample"))?;
+        let value = line
+            .split_whitespace()
+            .find_map(|field| field.strip_prefix("avg10="))
+            .ok_or_else(|| anyhow::anyhow!("{resource} PSI has no avg10 value"))?
+            .parse::<f64>()?;
+        anyhow::ensure!(
+            value.is_finite() && (0.0..=100.0).contains(&value),
+            "invalid PSI"
+        );
+        Ok(value)
+    }
+
+    async fn report(&self) -> Result<()> {
+        let secure = self.grpc_tls.is_some();
+        let target = if self.control_plane_event_target.starts_with("http://")
+            || self.control_plane_event_target.starts_with("https://")
+        {
+            self.control_plane_event_target.clone()
+        } else {
+            format!(
+                "{}://{}",
+                if secure { "https" } else { "http" },
+                self.control_plane_event_target
+            )
+        };
+        let mut endpoint = tonic::transport::Endpoint::from_shared(target)?
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(2));
+        if let Some(material) = self.grpc_tls.as_ref() {
+            endpoint = endpoint.tls_config(material.client_config())?;
+        }
+        let channel = endpoint.connect().await?;
+        let mut client = NodeEventServiceClient::new(channel);
+        let response = client
+            .report_capacity(ReportCapacityRequest {
+                node_id: self.node_id.clone(),
+                region: self.region.clone(),
+                grpc_target: self.advertised_grpc_target.clone(),
+                certified_cpu_millis: self.certified_cpu_millis,
+                certified_memory_mib: self.certified_memory_mib,
+                certified_pid_count: self.certified_pid_count,
+                certified_gpu_slots: self.certified_gpu_slots,
+                safety_margin_percent: self.safety_margin_percent,
+                max_sessions: self.max_sessions,
+                supports_desktop: self.supports_desktop,
+                supports_gpu: self.supports_gpu,
+                supports_native_os: self.supports_native_os,
+                isolation_capable: self.isolation_capable,
+                labels: self.labels.clone(),
+                memory_psi_some_avg10: self.psi_avg10("memory", "some")?,
+                memory_psi_full_avg10: self.psi_avg10("memory", "full")?,
+                cpu_psi_some_avg10: self.psi_avg10("cpu", "some")?,
+                io_psi_full_avg10: self.psi_avg10("io", "full")?,
+                pressure_reason: String::new(),
+            })
+            .await?
+            .into_inner();
+        anyhow::ensure!(
+            response.accepted,
+            "Control Plane rejected capacity report: {}",
+            response.error_code
+        );
+        tracing::debug!(
+            node_id = response.node_id,
+            admission_state = response.admission_state,
+            pressure_state = response.pressure_state,
+            "Browser Node capacity heartbeat accepted"
+        );
+        Ok(())
+    }
 }
 
 impl GrpcTlsMaterial {
@@ -826,6 +1026,34 @@ impl NodeControlService {
                                 ),
                             );
                         }
+                        if payload.resource_class == "L0"
+                            || payload.cpu_millis == 0
+                            || payload.memory_request_mib == 0
+                            || payload.memory_limit_mib < payload.memory_request_mib
+                            || payload.pid_limit < 32
+                            || payload.tab_budget == 0
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("runtime resource limit payload is invalid"),
+                            );
+                        }
+                        if payload.desktop_required && !self.desktop_enabled {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "desktop-required placement reached a headless node"
+                                ),
+                            );
+                        }
+                        if payload.gpu_required || payload.native_os_required {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "placement requires a Node capability not supported by this agent"
+                                ),
+                            );
+                        }
                         let Some(storage_helper) = self.storage_helper.as_ref() else {
                             return self.failed(
                                 command,
@@ -909,6 +1137,18 @@ impl NodeControlService {
                                 display,
                                 cdp_port,
                                 vnc_port,
+                                resource_limits: RuntimeResourceLimits {
+                                    resource_class: payload.resource_class,
+                                    cpu_millis: payload.cpu_millis,
+                                    memory_request_mib: payload.memory_request_mib,
+                                    memory_limit_mib: payload.memory_limit_mib,
+                                    pid_limit: payload.pid_limit,
+                                    tab_budget: payload.tab_budget,
+                                    desktop_required: payload.desktop_required,
+                                    gpu_required: payload.gpu_required,
+                                    native_os_required: payload.native_os_required,
+                                    isolation_required: payload.isolation_required,
+                                },
                             })
                             .await
                         {
@@ -2225,12 +2465,34 @@ async fn main() -> Result<()> {
     let node_port = std::env::var("NODE_AGENT_PORT")
         .unwrap_or_else(|_| "9090".to_owned())
         .parse::<u16>()?;
-    let node_id = std::env::var("NODE_ID").unwrap_or_else(|_| "node-local-1".to_owned());
+    let node_id = std::env::var("NODE_ID").unwrap_or_else(|_| {
+        let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| "local".to_owned());
+        let normalized = hostname
+            .chars()
+            .map(|character| {
+                if character.is_ascii_alphanumeric() || matches!(character, '_' | '-') {
+                    character
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        format!("node_{normalized}")
+    });
+    anyhow::ensure!(
+        node_id.starts_with("node_")
+            && node_id.len() <= 128
+            && node_id.chars().all(
+                |character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            ),
+        "NODE_ID must use the node_ prefix and contain only letters, numbers, '_' or '-'"
+    );
     let control_plane_event_target =
         std::env::var("CONTROL_PLANE_EVENT_TARGET").unwrap_or_else(|_| "127.0.0.1:9091".to_owned());
     let runtime_root = std::env::var("RUNTIME_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| Path::new("/tmp/browsercloud-runtime").to_path_buf());
+    let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
     tokio::fs::create_dir_all(&runtime_root).await?;
     let journal_path = std::env::var("NODE_JOURNAL_PATH")
         .map(PathBuf::from)
@@ -2255,6 +2517,22 @@ async fn main() -> Result<()> {
         "State Diff limits are invalid"
     );
     let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
+    let runtime_cgroup_root = std::env::var("RUNTIME_CGROUP_ROOT")
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let cgroup_enabled = !runtime_cgroup_root.is_empty();
+    if environment.eq_ignore_ascii_case("production") {
+        anyhow::ensure!(
+            !runtime_cgroup_root.is_empty(),
+            "RUNTIME_CGROUP_ROOT is required in production"
+        );
+    }
+    if !runtime_cgroup_root.is_empty() {
+        runtime_supervisor = runtime_supervisor.with_cgroup_v2(CgroupV2Config {
+            root: PathBuf::from(runtime_cgroup_root),
+        })?;
+    }
     let desktop_config = match (std::env::var("XVFB_PATH"), std::env::var("X11VNC_PATH")) {
         (Ok(xvfb_binary), Ok(x11vnc_binary)) => Some(DesktopRuntimeConfig {
             xvfb_binary: PathBuf::from(xvfb_binary),
@@ -2282,8 +2560,16 @@ async fn main() -> Result<()> {
     let disconnect_handler = Arc::new(DesktopDisconnectPublisher {
         sender: desktop_disconnect_sender,
     });
-    let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
     let grpc_tls = GrpcTlsMaterial::from_environment(&environment)?.map(Arc::new);
+    let capacity_reporter = NodeCapacityReporter::from_environment(
+        &environment,
+        node_id.clone(),
+        node_port,
+        control_plane_event_target.clone(),
+        grpc_tls.clone(),
+        desktop_enabled,
+        cgroup_enabled,
+    )?;
     let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
@@ -2453,6 +2739,18 @@ async fn main() -> Result<()> {
             tracing::error!(error = %error, "Remote desktop gateway stopped");
         }
     });
+    tokio::spawn(async move {
+        loop {
+            let delay = match capacity_reporter.report().await {
+                Ok(()) => Duration::from_secs(15),
+                Err(error) => {
+                    tracing::warn!(error = %error, "Browser Node capacity heartbeat failed");
+                    Duration::from_secs(1)
+                }
+            };
+            tokio::time::sleep(delay).await;
+        }
+    });
     let service = NodeControlService {
         node_id,
         control_plane_event_target,
@@ -2549,7 +2847,9 @@ mod tests {
     use node_contracts::proto::node_event_service_server::{
         NodeEventService, NodeEventServiceServer,
     };
-    use node_contracts::proto::{PublishResponse, RuntimeStoppedEvent};
+    use node_contracts::proto::{
+        PublishResponse, ReportCapacityRequest, ReportCapacityResponse, RuntimeStoppedEvent,
+    };
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
 
@@ -2575,6 +2875,21 @@ mod tests {
                 event_id: event.event_id,
                 accepted: true,
                 duplicate: false,
+                error_code: String::new(),
+                error_message: String::new(),
+            }))
+        }
+
+        async fn report_capacity(
+            &self,
+            request: Request<ReportCapacityRequest>,
+        ) -> Result<Response<ReportCapacityResponse>, Status> {
+            let report = request.into_inner();
+            Ok(Response::new(ReportCapacityResponse {
+                node_id: report.node_id,
+                accepted: true,
+                admission_state: "OPEN".to_owned(),
+                pressure_state: "NORMAL".to_owned(),
                 error_code: String::new(),
                 error_message: String::new(),
             }))

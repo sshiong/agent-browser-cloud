@@ -1006,6 +1006,143 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/browser-nodes:
+    get:
+      operationId: listBrowserNodes
+      summary: List certified Browser Node capacity and live pressure
+      tags: [Capacity]
+      responses:
+        "200":
+          description: Browser Node capacity inventory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserNodeListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/browser-nodes/{nodeId}:
+    put:
+      operationId: registerBrowserNode
+      summary: Register or update a certified Browser Node
+      tags: [Capacity]
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^node_[a-zA-Z0-9_-]{1,123}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBrowserNodeRequest"
+      responses:
+        "200":
+          description: Registered Browser Node.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserNode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/browser-nodes/{nodeId}:pressure:
+    post:
+      operationId: reportBrowserNodePressure
+      summary: Record cgroup/PSI pressure and update admission hysteresis
+      tags: [Capacity]
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^node_[a-zA-Z0-9_-]{1,123}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordNodePressureRequest"
+      responses:
+        "200":
+          description: Updated Browser Node pressure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserNode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/extensions:
+    get:
+      operationId: listExtensionProfiles
+      summary: List Extension Weight profiles
+      tags: [Capacity]
+      responses:
+        "200":
+          description: Extension profiling inventory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionProfileListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/extensions/{extensionId}:
+    put:
+      operationId: upsertExtensionProfile
+      summary: Create or update an Extension Weight profile
+      tags: [Capacity]
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertExtensionProfileRequest"
+      responses:
+        "200":
+          description: Updated Extension profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/browser-placements/{sessionId}:
+    get:
+      operationId: getBrowserPlacement
+      summary: Get the tenant-scoped Browser Placement decision
+      tags: [Capacity, Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Effective resource limits and placement reasons.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserPlacement"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -1754,6 +1891,429 @@ components:
     ResourceClass:
       type: string
       enum: [L0, L1, L2, L3, L4, L5]
+    RegisterBrowserNodeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - region
+        - grpcTarget
+        - certifiedCpuMillis
+        - certifiedMemoryMib
+        - certifiedPidCount
+        - certifiedGpuSlots
+        - safetyMarginPercent
+        - maxSessions
+        - supportsDesktop
+        - supportsGpu
+        - supportsNativeOs
+        - isolationCapable
+      properties:
+        region:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+        grpcTarget:
+          type: string
+          minLength: 1
+          maxLength: 255
+        certifiedCpuMillis:
+          type: integer
+          minimum: 100
+          maximum: 1000000
+        certifiedMemoryMib:
+          type: integer
+          minimum: 128
+          maximum: 4194304
+        certifiedPidCount:
+          type: integer
+          minimum: 32
+          maximum: 1000000
+        certifiedGpuSlots:
+          type: integer
+          minimum: 0
+          maximum: 1024
+        safetyMarginPercent:
+          type: integer
+          minimum: 10
+          maximum: 40
+        maxSessions:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        supportsDesktop:
+          type: boolean
+        supportsGpu:
+          type: boolean
+        supportsNativeOs:
+          type: boolean
+        isolationCapable:
+          type: boolean
+        labels:
+          type: object
+          maxProperties: 32
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 128
+    RecordNodePressureRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - memoryPsiSomeAvg10
+        - memoryPsiFullAvg10
+        - cpuPsiSomeAvg10
+        - ioPsiFullAvg10
+      properties:
+        memoryPsiSomeAvg10:
+          type: number
+          minimum: 0
+          maximum: 100
+        memoryPsiFullAvg10:
+          type: number
+          minimum: 0
+          maximum: 100
+        cpuPsiSomeAvg10:
+          type: number
+          minimum: 0
+          maximum: 100
+        ioPsiFullAvg10:
+          type: number
+          minimum: 0
+          maximum: 100
+        reason:
+          type: [string, "null"]
+          maxLength: 128
+    BrowserNode:
+      type: object
+      additionalProperties: false
+      required:
+        - nodeId
+        - region
+        - grpcTarget
+        - lifecycleState
+        - admissionState
+        - certifiedCpuMillis
+        - certifiedMemoryMib
+        - certifiedPidCount
+        - certifiedGpuSlots
+        - safetyMarginPercent
+        - reservedCpuMillis
+        - reservedMemoryMib
+        - reservedPidCount
+        - reservedGpuSlots
+        - activeSessions
+        - maxSessions
+        - memoryPsiSomeAvg10
+        - memoryPsiFullAvg10
+        - cpuPsiSomeAvg10
+        - ioPsiFullAvg10
+        - pressureState
+        - supportsDesktop
+        - supportsGpu
+        - supportsNativeOs
+        - isolationCapable
+        - labels
+        - lastHeartbeatAt
+        - updatedAt
+      properties:
+        nodeId:
+          type: string
+        region:
+          type: string
+        grpcTarget:
+          type: string
+        lifecycleState:
+          type: string
+          enum: [READY, DRAINING, OFFLINE]
+        admissionState:
+          type: string
+          enum: [OPEN, CLOSED]
+        certifiedCpuMillis:
+          type: integer
+        certifiedMemoryMib:
+          type: integer
+        certifiedPidCount:
+          type: integer
+        certifiedGpuSlots:
+          type: integer
+        safetyMarginPercent:
+          type: integer
+        reservedCpuMillis:
+          type: integer
+        reservedMemoryMib:
+          type: integer
+        reservedPidCount:
+          type: integer
+        reservedGpuSlots:
+          type: integer
+        activeSessions:
+          type: integer
+        maxSessions:
+          type: integer
+        memoryPsiSomeAvg10:
+          type: number
+        memoryPsiFullAvg10:
+          type: number
+        cpuPsiSomeAvg10:
+          type: number
+        ioPsiFullAvg10:
+          type: number
+        pressureState:
+          type: string
+          enum: [NORMAL, DEGRADED, CRITICAL]
+        pressureReason:
+          type: [string, "null"]
+        supportsDesktop:
+          type: boolean
+        supportsGpu:
+          type: boolean
+        supportsNativeOs:
+          type: boolean
+        isolationCapable:
+          type: boolean
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        lastHeartbeatAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    BrowserNodeListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BrowserNode"
+        total:
+          type: integer
+          minimum: 0
+    UpsertExtensionProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - displayName
+        - staticCpuWeight
+        - staticMemoryWeight
+        - startupWeight
+        - pageInjectionWeight
+        - serviceWorkerWeight
+        - cryptoWeight
+        - networkWeight
+        - observedMultiplier
+        - confidence
+        - profileState
+        - web3
+        - serviceWorker
+        - crypto
+        - privileged
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+        staticCpuWeight:
+          type: integer
+          minimum: 0
+        staticMemoryWeight:
+          type: integer
+          minimum: 0
+        startupWeight:
+          type: integer
+          minimum: 0
+        pageInjectionWeight:
+          type: integer
+          minimum: 0
+        serviceWorkerWeight:
+          type: integer
+          minimum: 0
+        cryptoWeight:
+          type: integer
+          minimum: 0
+        networkWeight:
+          type: integer
+          minimum: 0
+        observedMultiplier:
+          type: number
+          minimum: 0.5
+          maximum: 8
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        profileState:
+          type: string
+          enum: [PROBATION, OBSERVED, CERTIFIED, DISABLED]
+        web3:
+          type: boolean
+        serviceWorker:
+          type: boolean
+        crypto:
+          type: boolean
+        privileged:
+          type: boolean
+    ExtensionProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - extensionId
+        - displayName
+        - staticCpuWeight
+        - staticMemoryWeight
+        - startupWeight
+        - pageInjectionWeight
+        - serviceWorkerWeight
+        - cryptoWeight
+        - networkWeight
+        - observedMultiplier
+        - confidence
+        - profileState
+        - web3
+        - serviceWorker
+        - crypto
+        - privileged
+        - samples
+        - updatedAt
+      properties:
+        extensionId:
+          type: string
+        displayName:
+          type: string
+        staticCpuWeight:
+          type: integer
+        staticMemoryWeight:
+          type: integer
+        startupWeight:
+          type: integer
+        pageInjectionWeight:
+          type: integer
+        serviceWorkerWeight:
+          type: integer
+        cryptoWeight:
+          type: integer
+        networkWeight:
+          type: integer
+        observedMultiplier:
+          type: number
+        confidence:
+          type: number
+        profileState:
+          type: string
+          enum: [PROBATION, OBSERVED, CERTIFIED, DISABLED]
+        web3:
+          type: boolean
+        serviceWorker:
+          type: boolean
+        crypto:
+          type: boolean
+        privileged:
+          type: boolean
+        samples:
+          type: integer
+          format: int64
+        p95CpuMillis:
+          type: [integer, "null"]
+        p95MemoryMib:
+          type: [integer, "null"]
+        lastProfiledAt:
+          type: [string, "null"]
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ExtensionProfileListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtensionProfile"
+        total:
+          type: integer
+          minimum: 0
+    BrowserPlacement:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - tenantId
+        - nodeId
+        - requestedResourceClass
+        - effectiveResourceClass
+        - extensionIds
+        - unknownExtensionCount
+        - cpuMillis
+        - memoryRequestMib
+        - memoryLimitMib
+        - pidLimit
+        - tabBudget
+        - requiresDesktop
+        - requiresGpu
+        - requiresNativeOs
+        - requiresIsolation
+        - placementScore
+        - state
+        - reasonCodes
+        - reservedAt
+      properties:
+        sessionId:
+          type: string
+        tenantId:
+          type: string
+        nodeId:
+          type: string
+        requestedResourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        effectiveResourceClass:
+          $ref: "#/components/schemas/ResourceClass"
+        extensionIds:
+          type: array
+          items:
+            type: string
+        unknownExtensionCount:
+          type: integer
+        cpuMillis:
+          type: integer
+        memoryRequestMib:
+          type: integer
+        memoryLimitMib:
+          type: integer
+        pidLimit:
+          type: integer
+        tabBudget:
+          type: integer
+        requiresDesktop:
+          type: boolean
+        requiresGpu:
+          type: boolean
+        requiresNativeOs:
+          type: boolean
+        requiresIsolation:
+          type: boolean
+        placementScore:
+          type: integer
+        state:
+          type: string
+          enum: [RESERVED, ACTIVE, RELEASED]
+        reasonCodes:
+          type: array
+          items:
+            type: string
+        reservedAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type: [string, "null"]
+          format: date-time
+        releasedAt:
+          type: [string, "null"]
+          format: date-time
     BrowserState:
       type: object
       additionalProperties: false
@@ -1883,6 +2443,29 @@ components:
           pattern: "^[a-z0-9-]{1,32}$"
         resourceClass:
           $ref: "#/components/schemas/ResourceClass"
+        requestedTabs:
+          type: integer
+          minimum: 0
+          maximum: 64
+          default: 1
+        agentActionsPerMinute:
+          type: integer
+          minimum: 0
+          maximum: 600
+          default: 0
+        remoteDesktop:
+          type: boolean
+          default: false
+        web3Workload:
+          type: boolean
+          default: false
+        extensionIds:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^[a-zA-Z0-9_.-]{1,128}$"
         metadata:
           type: object
           maxProperties: 32

@@ -50,6 +50,37 @@ public final class NodeEventServiceGrpc {
     return getPublishMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportCapacityRequest,
+      io.browsercloud.proto.node.v1.ReportCapacityResponse> getReportCapacityMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "ReportCapacity",
+      requestType = io.browsercloud.proto.node.v1.ReportCapacityRequest.class,
+      responseType = io.browsercloud.proto.node.v1.ReportCapacityResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportCapacityRequest,
+      io.browsercloud.proto.node.v1.ReportCapacityResponse> getReportCapacityMethod() {
+    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ReportCapacityRequest, io.browsercloud.proto.node.v1.ReportCapacityResponse> getReportCapacityMethod;
+    if ((getReportCapacityMethod = NodeEventServiceGrpc.getReportCapacityMethod) == null) {
+      synchronized (NodeEventServiceGrpc.class) {
+        if ((getReportCapacityMethod = NodeEventServiceGrpc.getReportCapacityMethod) == null) {
+          NodeEventServiceGrpc.getReportCapacityMethod = getReportCapacityMethod =
+              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.ReportCapacityRequest, io.browsercloud.proto.node.v1.ReportCapacityResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ReportCapacity"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.ReportCapacityRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.ReportCapacityResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new NodeEventServiceMethodDescriptorSupplier("ReportCapacity"))
+              .build();
+        }
+      }
+    }
+    return getReportCapacityMethod;
+  }
+
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -108,6 +139,16 @@ public final class NodeEventServiceGrpc {
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPublishMethod(), responseObserver);
     }
+
+    /**
+     * <pre>
+     * mTLS-authenticated Browser Node registration and live PSI heartbeat.
+     * </pre>
+     */
+    default void reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getReportCapacityMethod(), responseObserver);
+    }
   }
 
   /**
@@ -152,6 +193,17 @@ public final class NodeEventServiceGrpc {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getPublishMethod(), getCallOptions()), request, responseObserver);
     }
+
+    /**
+     * <pre>
+     * mTLS-authenticated Browser Node registration and live PSI heartbeat.
+     * </pre>
+     */
+    public void reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getReportCapacityMethod(), getCallOptions()), request, responseObserver);
+    }
   }
 
   /**
@@ -179,6 +231,16 @@ public final class NodeEventServiceGrpc {
     public io.browsercloud.proto.node.v1.PublishResponse publish(io.browsercloud.proto.node.v1.PublishRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPublishMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
+     * mTLS-authenticated Browser Node registration and live PSI heartbeat.
+     * </pre>
+     */
+    public io.browsercloud.proto.node.v1.ReportCapacityResponse reportCapacity(io.browsercloud.proto.node.v1.ReportCapacityRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getReportCapacityMethod(), getCallOptions(), request);
     }
   }
 
@@ -209,9 +271,21 @@ public final class NodeEventServiceGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPublishMethod(), getCallOptions()), request);
     }
+
+    /**
+     * <pre>
+     * mTLS-authenticated Browser Node registration and live PSI heartbeat.
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.ReportCapacityResponse> reportCapacity(
+        io.browsercloud.proto.node.v1.ReportCapacityRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getReportCapacityMethod(), getCallOptions()), request);
+    }
   }
 
   private static final int METHODID_PUBLISH = 0;
+  private static final int METHODID_REPORT_CAPACITY = 1;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -233,6 +307,10 @@ public final class NodeEventServiceGrpc {
         case METHODID_PUBLISH:
           serviceImpl.publish((io.browsercloud.proto.node.v1.PublishRequest) request,
               (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PublishResponse>) responseObserver);
+          break;
+        case METHODID_REPORT_CAPACITY:
+          serviceImpl.reportCapacity((io.browsercloud.proto.node.v1.ReportCapacityRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ReportCapacityResponse>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -259,6 +337,13 @@ public final class NodeEventServiceGrpc {
               io.browsercloud.proto.node.v1.PublishRequest,
               io.browsercloud.proto.node.v1.PublishResponse>(
                 service, METHODID_PUBLISH)))
+        .addMethod(
+          getReportCapacityMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              io.browsercloud.proto.node.v1.ReportCapacityRequest,
+              io.browsercloud.proto.node.v1.ReportCapacityResponse>(
+                service, METHODID_REPORT_CAPACITY)))
         .build();
   }
 
@@ -308,6 +393,7 @@ public final class NodeEventServiceGrpc {
           serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
               .setSchemaDescriptor(new NodeEventServiceFileDescriptorSupplier())
               .addMethod(getPublishMethod())
+              .addMethod(getReportCapacityMethod())
               .build();
         }
       }

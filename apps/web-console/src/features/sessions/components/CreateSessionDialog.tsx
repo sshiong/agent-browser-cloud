@@ -22,6 +22,22 @@ const schema = z.object({
     .trim()
     .regex(/^[a-z0-9-]{1,32}$/, '仅支持小写字母、数字和连字符'),
   resourceClass: z.enum(['L0', 'L1', 'L2', 'L3', 'L4', 'L5']),
+  requestedTabs: z.coerce.number().int().min(1).max(64),
+  agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
+  remoteDesktop: z.boolean(),
+  web3Workload: z.boolean(),
+  extensionIds: z
+    .string()
+    .max(2048)
+    .refine(
+      (value) =>
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .every((item) => /^[a-zA-Z0-9_.-]{1,128}$/.test(item)),
+      '扩展 ID 仅支持字母、数字、点、下划线和连字符'
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -30,6 +46,8 @@ const resourceOptions = [
   { value: 'L1', label: 'L1 · Lite', description: '轻量只读与低频任务' },
   { value: 'L2', label: 'L2 · Standard', description: '标准 Agent 自动化' },
   { value: 'L3', label: 'L3 · Interactive', description: '远程桌面与人工接管' },
+  { value: 'L4', label: 'L4 · Heavy', description: '高并发标签页与重型扩展' },
+  { value: 'L5', label: 'L5 · Native', description: '原生系统隔离专用节点' },
 ] as const;
 
 export function CreateSessionDialog({
@@ -41,7 +59,7 @@ export function CreateSessionDialog({
 }) {
   const navigate = useNavigate();
   const createMutation = useCreateSession();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const {
     register,
     handleSubmit,
@@ -56,6 +74,11 @@ export function CreateSessionDialog({
       profileId: 'profile-local-default',
       region: 'local',
       resourceClass: 'L2',
+      requestedTabs: 2,
+      agentActionsPerMinute: 60,
+      remoteDesktop: false,
+      web3Workload: false,
+      extensionIds: '',
     },
   });
 
@@ -73,7 +96,17 @@ export function CreateSessionDialog({
   };
 
   const advance = async () => {
-    if (await trigger()) setStep(2);
+    const fields =
+      step === 1
+        ? (['name', 'profileId', 'region', 'resourceClass'] as const)
+        : ([
+            'requestedTabs',
+            'agentActionsPerMinute',
+            'remoteDesktop',
+            'web3Workload',
+            'extensionIds',
+          ] as const);
+    if (await trigger(fields)) setStep((current) => (current + 1) as 2 | 3);
   };
 
   const submit = handleSubmit(async (form) => {
@@ -84,6 +117,14 @@ export function CreateSessionDialog({
         profileId: form.profileId,
         region: form.region,
         resourceClass: form.resourceClass,
+        requestedTabs: form.requestedTabs,
+        agentActionsPerMinute: form.agentActionsPerMinute,
+        remoteDesktop: form.remoteDesktop,
+        web3Workload: form.web3Workload,
+        extensionIds: form.extensionIds
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
         metadata: { displayName: form.name },
       },
     });
@@ -112,7 +153,7 @@ export function CreateSessionDialog({
                 id="create-session-description"
                 className="mt-0.5 text-[11px] text-text-muted"
               >
-                创建真实 Session；Runtime、Proxy 与扩展配置将在后续契约中开放。
+                创建真实 Session，并将工作负载、扩展和隔离需求提交给 Placement。
               </Dialog.Description>
             </div>
             <Dialog.Close
@@ -124,10 +165,11 @@ export function CreateSessionDialog({
           </div>
 
           <div className="border-b border-border-subtle px-6 py-4">
-            <ol className="grid grid-cols-2 gap-3" aria-label="创建步骤">
+            <ol className="grid grid-cols-3 gap-3" aria-label="创建步骤">
               {[
                 { number: 1, label: '基础配置' },
-                { number: 2, label: '确认创建' },
+                { number: 2, label: '工作负载' },
+                { number: 3, label: '确认创建' },
               ].map((item) => (
                 <li
                   key={item.number}
@@ -200,7 +242,7 @@ export function CreateSessionDialog({
                     <legend className="mb-2 text-[12px] font-medium text-text-primary">
                       资源等级
                     </legend>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {resourceOptions.map((option) => (
                         <label
                           key={option.value}
@@ -223,6 +265,83 @@ export function CreateSessionDialog({
                     </div>
                   </fieldset>
                 </div>
+              ) : step === 2 ? (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field
+                      label="请求标签页"
+                      error={errors.requestedTabs?.message}
+                      hint="Placement 会同时受 Resource Class 的 Tab Budget 限制。"
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        max={64}
+                        {...register('requestedTabs')}
+                        className="field-input font-mono"
+                      />
+                    </Field>
+                    <Field
+                      label="Agent 动作/分钟"
+                      error={errors.agentActionsPerMinute?.message}
+                      hint="用于估算 CPU、网络和 Planner 压力。"
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        max={600}
+                        {...register('agentActionsPerMinute')}
+                        className="field-input font-mono"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field
+                    label="Extension IDs"
+                    error={errors.extensionIds?.message}
+                    hint="逗号分隔。未知扩展自动进入 Probation，并提升资源等级。"
+                  >
+                    <textarea
+                      {...register('extensionIds')}
+                      rows={3}
+                      spellCheck={false}
+                      placeholder="wallet.example, accessibility.helper"
+                      className="field-input min-h-20 resize-y font-mono"
+                    />
+                  </Field>
+
+                  <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
+                    <input
+                      type="checkbox"
+                      {...register('remoteDesktop')}
+                      className="mt-0.5 h-4 w-4 accent-accent"
+                    />
+                    <span>
+                      <span className="block text-[12px] font-medium text-text-primary">
+                        需要远程桌面
+                      </span>
+                      <span className="mt-1 block text-[10px] text-text-muted">
+                        自动要求支持 Xvfb/x11vnc 的 Node，并至少提升到 L3。
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
+                    <input
+                      type="checkbox"
+                      {...register('web3Workload')}
+                      className="mt-0.5 h-4 w-4 accent-accent"
+                    />
+                    <span>
+                      <span className="block text-[12px] font-medium text-text-primary">
+                        Web3 / Crypto 工作负载
+                      </span>
+                      <span className="mt-1 block text-[10px] text-text-muted">
+                        强制高风险隔离策略；不会为了容量降低安全等级。
+                      </span>
+                    </span>
+                  </label>
+                </div>
               ) : (
                 <div>
                   <h3 className="text-[13px] font-semibold text-text-primary">
@@ -240,6 +359,21 @@ export function CreateSessionDialog({
                     <ReviewItem
                       label="资源等级"
                       value={values.resourceClass}
+                      mono
+                    />
+                    <ReviewItem
+                      label="标签页 / Agent 速率"
+                      value={`${values.requestedTabs} / ${values.agentActionsPerMinute} min⁻¹`}
+                      mono
+                    />
+                    <ReviewItem
+                      label="远程桌面 / Web3"
+                      value={`${values.remoteDesktop ? 'YES' : 'NO'} / ${values.web3Workload ? 'YES' : 'NO'}`}
+                      mono
+                    />
+                    <ReviewItem
+                      label="扩展"
+                      value={values.extensionIds || 'NONE'}
                       mono
                     />
                     <ReviewItem label="初始状态" value="CREATED" mono />
@@ -271,10 +405,10 @@ export function CreateSessionDialog({
                 所有写操作均等待后端真实响应，不进行前端伪成功。
               </p>
               <div className="flex items-center gap-2">
-                {step === 2 && (
+                {step > 1 && (
                   <button
                     type="button"
-                    onClick={() => setStep(1)}
+                    onClick={() => setStep((current) => (current - 1) as 1 | 2)}
                     disabled={createMutation.isPending}
                     className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-border-default px-3 text-[12px] text-text-secondary hover:bg-surface-2 disabled:opacity-50"
                   >
@@ -282,7 +416,7 @@ export function CreateSessionDialog({
                     上一步
                   </button>
                 )}
-                {step === 1 ? (
+                {step < 3 ? (
                   <button
                     type="button"
                     onClick={advance}

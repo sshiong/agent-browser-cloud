@@ -1,4 +1,4 @@
-.PHONY: install build test lint fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop test test-desktop lint lint-desktop fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -10,17 +10,29 @@ REAL_CHROMIUM_PATH ?=
 install:
 	pnpm --dir apps/web-console install --frozen-lockfile
 
+# Install the independently locked Tauri CLI.
+install-desktop:
+	pnpm --dir apps/desktop install --frozen-lockfile
+
 # Build all components
 build:
 	./gradlew -p apps/control-plane build
 	cargo build --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console build
 
+# Build the shared Web UI and native desktop binary without producing unsigned installers.
+build-desktop:
+	pnpm --dir apps/desktop build:unsigned
+
 # Run all tests
 test:
 	./gradlew -p apps/control-plane test
 	cargo test --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console test
+
+# Run native desktop security-boundary unit tests.
+test-desktop:
+	cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 # Code check
 lint:
@@ -29,6 +41,11 @@ lint:
 	cargo clippy --locked --workspace --all-targets --manifest-path apps/browser-node/Cargo.toml -- -D warnings
 	pnpm --dir apps/web-console lint
 	pnpm --dir apps/web-console format:check
+
+# Validate native formatting and the least-privilege Tauri configuration.
+lint-desktop:
+	cargo fmt --all --check --manifest-path apps/desktop/src-tauri/Cargo.toml
+	cargo check --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 # Format code
 fmt:

@@ -99,4 +99,5 @@
    给出保守的通用浏览器状态结论。
 6. PostgreSQL Resource/Migration Event SSE、`Last-Event-ID` 和断线恢复已完成；
    State/Audit 通用事件层与跨 Region Event Bus 尚未完成。
-7. Tauri 2 容器、安全存储、签名和桌面验收。
+7. Tauri 2 容器与 OS 安全存储已完成；仍缺签名发行、真实 Updater/IdP 和桌面端
+   迁移/休眠视觉与网络恢复验收。

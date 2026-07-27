@@ -6,7 +6,18 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { UserManager, WebStorageStateStore, type User } from 'oidc-client-ts';
+import {
+  UserManager,
+  WebStorageStateStore,
+  type INavigator,
+  type IWindow,
+  type NavigateParams,
+  type NavigateResponse,
+  type User,
+} from 'oidc-client-ts';
+import { PlatformSecureStateStore } from './PlatformSecureStateStore';
+import { usePlatform } from '@/platform/PlatformProvider';
+import type { PlatformAdapter } from '@/platform';
 import {
   canOperate,
   canRead,
@@ -49,29 +60,77 @@ const authMode: AuthMode =
         : 'oidc';
 
 let manager: UserManager | null = null;
+let managerPlatform: PlatformAdapter | null = null;
 let callbackPromise: Promise<User> | null = null;
 
-function oidcManager() {
-  if (manager) return manager;
+function oidcManager(platform: PlatformAdapter) {
+  if (manager && managerPlatform === platform) return manager;
   const authority = import.meta.env.VITE_OIDC_AUTHORITY?.trim();
   const clientId = import.meta.env.VITE_OIDC_CLIENT_ID?.trim();
   if (!authority || !clientId) return null;
   const origin = window.location.origin;
-  manager = new UserManager({
-    authority,
-    client_id: clientId,
-    redirect_uri: `${origin}/auth/callback`,
-    post_logout_redirect_uri: origin,
-    response_type: 'code',
-    scope:
-      import.meta.env.VITE_OIDC_SCOPE?.trim() ||
-      'openid profile offline_access',
-    automaticSilentRenew: true,
-    monitorSession: true,
-    loadUserInfo: false,
-    userStore: new WebStorageStateStore({ store: window.sessionStorage }),
-  });
+  const redirectUri =
+    import.meta.env.VITE_OIDC_REDIRECT_URI?.trim() ||
+    (platform.desktop
+      ? 'agentbrowsercloud://auth/callback'
+      : `${origin}/auth/callback`);
+  const postLogoutRedirectUri =
+    import.meta.env.VITE_OIDC_POST_LOGOUT_REDIRECT_URI?.trim() ||
+    (platform.desktop ? 'agentbrowsercloud://auth/logout' : origin);
+  const userStore = platform.desktop
+    ? new PlatformSecureStateStore(platform, 'user')
+    : new WebStorageStateStore({ store: window.sessionStorage });
+  const stateStore = platform.desktop
+    ? new PlatformSecureStateStore(platform, 'state')
+    : new WebStorageStateStore({ store: window.sessionStorage });
+  const redirectNavigator = platform.desktop
+    ? new DesktopRedirectNavigator(platform)
+    : undefined;
+  manager = new UserManager(
+    {
+      authority,
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      post_logout_redirect_uri: postLogoutRedirectUri,
+      response_type: 'code',
+      scope:
+        import.meta.env.VITE_OIDC_SCOPE?.trim() ||
+        'openid profile offline_access',
+      automaticSilentRenew: true,
+      monitorSession: !platform.desktop,
+      loadUserInfo: false,
+      userStore,
+      stateStore,
+    },
+    redirectNavigator
+  );
+  managerPlatform = platform;
   return manager;
+}
+
+class DesktopRedirectNavigator implements INavigator {
+  constructor(private readonly platform: PlatformAdapter) {}
+
+  async prepare(): Promise<IWindow> {
+    return new DesktopExternalWindow(this.platform);
+  }
+
+  async callback() {
+    // The deep-link plugin forwards callbacks to AuthProvider.
+  }
+}
+
+class DesktopExternalWindow implements IWindow {
+  constructor(private readonly platform: PlatformAdapter) {}
+
+  async navigate(params: NavigateParams): Promise<NavigateResponse> {
+    await this.platform.openExternal(params.url);
+    return { url: params.url };
+  }
+
+  close() {
+    // The system browser owns its own lifecycle.
+  }
 }
 
 function normalizeRoles(value: unknown): PlatformRole[] {
@@ -124,6 +183,7 @@ function localIdentity(): RuntimeIdentity {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const platform = usePlatform();
   const [identity, setIdentity] = useState<RuntimeIdentity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return () => setRuntimeIdentity(null);
     }
 
-    const oidc = oidcManager();
+    const oidc = oidcManager(platform);
     if (!oidc) {
       setError(
         '生产 OIDC 未配置：需要 VITE_OIDC_AUTHORITY 与 VITE_OIDC_CLIENT_ID。'
@@ -165,25 +225,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     oidc.events.addAccessTokenExpired(unloaded);
 
     let active = true;
+    let unlistenDeepLinks: (() => void) | undefined;
+    const processedDeepLinks = new Set<string>();
     void (async () => {
       try {
-        const isCallback =
-          window.location.pathname === '/auth/callback' &&
-          new URLSearchParams(window.location.search).has('code');
         let user: User | null;
-        if (isCallback) {
-          callbackPromise ??= oidc.signinRedirectCallback();
-          user = await callbackPromise;
-          const state = user.state as { returnTo?: unknown } | undefined;
-          const returnTo =
-            typeof state?.returnTo === 'string' &&
-            state.returnTo.startsWith('/') &&
-            !state.returnTo.startsWith('//')
-              ? state.returnTo
-              : '/';
-          window.history.replaceState({}, '', returnTo);
-        } else {
+        if (platform.desktop) {
+          const processUrls = async (urls: string[]) => {
+            for (const url of urls) {
+              if (processedDeepLinks.has(url)) continue;
+              processedDeepLinks.add(url);
+              await processDesktopAuthCallback(
+                oidc,
+                url,
+                acceptUser,
+                () => active
+              );
+            }
+          };
+          unlistenDeepLinks = await platform.onOpenUrls((urls) => {
+            if (!active) return;
+            setLoading(true);
+            void processUrls(urls)
+              .catch((cause) => {
+                if (active) {
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : 'Desktop OIDC 回调失败'
+                  );
+                }
+              })
+              .finally(() => {
+                if (active) setLoading(false);
+              });
+          });
+          await processUrls(await platform.getInitialOpenUrls());
           user = await oidc.getUser();
+        } else {
+          const isCallback =
+            window.location.pathname === '/auth/callback' &&
+            new URLSearchParams(window.location.search).has('code');
+          if (isCallback) {
+            callbackPromise ??= oidc.signinRedirectCallback();
+            user = await callbackPromise;
+            window.history.replaceState({}, '', returnPath(user));
+          } else {
+            user = await oidc.getUser();
+          }
         }
         if (active) acceptUser(user);
       } catch (cause) {
@@ -198,27 +287,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
     return () => {
       active = false;
+      unlistenDeepLinks?.();
       oidc.events.removeUserLoaded(loaded);
       oidc.events.removeUserUnloaded(unloaded);
       oidc.events.removeAccessTokenExpired(unloaded);
     };
-  }, [acceptUser]);
+  }, [acceptUser, platform]);
 
   const login = useCallback(async () => {
-    const oidc = oidcManager();
+    const oidc = oidcManager(platform);
     if (!oidc) throw new Error('OIDC 未配置');
     const returnTo = `${window.location.pathname}${window.location.search}`;
     await oidc.signinRedirect({ state: { returnTo } });
-  }, []);
+  }, [platform]);
 
   const logout = useCallback(async () => {
     if (authMode === 'local') return;
-    const oidc = oidcManager();
+    const oidc = oidcManager(platform);
     if (!oidc) return;
     setRuntimeIdentity(null);
     setIdentity(null);
     await oidc.signoutRedirect();
-  }, []);
+  }, [platform]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -245,4 +335,38 @@ export function useAuth() {
   const value = useContext(AuthContext);
   if (!value) throw new Error('useAuth must be used inside AuthProvider');
   return value;
+}
+
+async function processDesktopAuthCallback(
+  oidc: UserManager,
+  value: string,
+  acceptUser: (user: User | null) => void,
+  isActive: () => boolean
+) {
+  const url = new URL(value);
+  if (url.protocol !== 'agentbrowsercloud:' || url.hostname !== 'auth') return;
+  if (url.pathname === '/callback') {
+    const user = await oidc.signinRedirectCallback(value);
+    if (isActive()) {
+      acceptUser(user);
+      window.history.replaceState({}, '', returnPath(user));
+    }
+    return;
+  }
+  if (url.pathname === '/logout') {
+    await oidc.signoutRedirectCallback(value);
+    if (isActive()) {
+      acceptUser(null);
+      window.history.replaceState({}, '', '/');
+    }
+  }
+}
+
+function returnPath(user: User) {
+  const state = user.state as { returnTo?: unknown } | undefined;
+  return typeof state?.returnTo === 'string' &&
+    state.returnTo.startsWith('/') &&
+    !state.returnTo.startsWith('//')
+    ? state.returnTo
+    : '/';
 }

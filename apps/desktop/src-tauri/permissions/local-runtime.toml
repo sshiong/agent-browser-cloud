@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-local-runtime-status"
+description = "Allows the main window to inspect whether a packaged local Runtime executable exists."
+commands.allow = ["check_local_runtime"]

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-secure-storage"
+description = "Allows the main window to store only validated OIDC state in the OS credential vault."
+commands.allow = ["secure_get", "secure_set", "secure_remove"]

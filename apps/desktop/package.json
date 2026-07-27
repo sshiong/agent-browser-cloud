@@ -1,0 +1,16 @@
+{
+  "name": "@browsercloud/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev": "tauri dev",
+    "check": "cargo check --locked --manifest-path src-tauri/Cargo.toml",
+    "build:unsigned": "tauri build --no-bundle",
+    "build:signed": "node scripts/build-signed.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}

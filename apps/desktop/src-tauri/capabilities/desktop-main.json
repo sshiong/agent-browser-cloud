@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-main",
+  "description": "Least-privilege capability set for the Agent Browser Cloud main window.",
+  "windows": ["main"],
+  "platforms": ["macOS", "windows"],
+  "local": true,
+  "permissions": [
+    "core:default",
+    "deep-link:default",
+    "dialog:default",
+    "notification:default",
+    "opener:allow-open-url",
+    "os:default",
+    "process:allow-restart",
+    "updater:default",
+    "allow-secure-storage",
+    "allow-local-runtime-status"
+  ]
+}

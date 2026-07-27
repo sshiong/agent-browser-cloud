@@ -81,4 +81,5 @@
 2. PostgreSQL Polling 之外的跨 Region Event Bus、分区消费和灾备切换。
 3. 大规模并发订阅、慢客户端、代理 Idle Timeout、背压和目标云 Ingress 长稳证书。
 4. Web 列表级批量资源摘要流；当前流按打开的 Session 详情页建立。
-5. Tauri 2 桌面端对同一 Fetch/SSE Client 的打包、断网恢复与休眠唤醒验收。
+5. Tauri 2 已打包复用同一 Fetch/SSE Client；仍缺桌面端断网、网络切换和休眠唤醒
+   的长期恢复验收。

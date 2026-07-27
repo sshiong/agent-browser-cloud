@@ -6,17 +6,20 @@ import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SessionApplicationService;
 import io.browsercloud.application.SessionMigrationApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
+import io.browsercloud.application.SessionResourceEventStreamService;
 import io.browsercloud.application.StateGatewayApplicationService;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -39,6 +42,7 @@ public class SessionController {
   private final SessionResourceApplicationService resourceService;
   private final SafePointApplicationService safePointService;
   private final SessionMigrationApplicationService migrationService;
+  private final SessionResourceEventStreamService resourceEventStream;
 
   public SessionController(
       SessionApplicationService service,
@@ -46,13 +50,15 @@ public class SessionController {
       PlatformIdentity identity,
       SessionResourceApplicationService resourceService,
       SafePointApplicationService safePointService,
-      SessionMigrationApplicationService migrationService) {
+      SessionMigrationApplicationService migrationService,
+      SessionResourceEventStreamService resourceEventStream) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
     this.resourceService = resourceService;
     this.safePointService = safePointService;
     this.migrationService = migrationService;
+    this.resourceEventStream = resourceEventStream;
   }
 
   /**
@@ -168,6 +174,16 @@ public class SessionController {
       @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return resourceService.events(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  @GetMapping(value = "/{sessionId}/resource-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamResourceChanges(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader(name = "Last-Event-ID", required = false) String lastEventId,
+      HttpServletResponse response) {
+    response.setHeader("Cache-Control", "no-cache, no-transform");
+    response.setHeader("X-Accel-Buffering", "no");
+    return resourceEventStream.subscribe(sessionId, identity.current().tenantId(), lastEventId);
   }
 
   @GetMapping("/{sessionId}/safe-point")

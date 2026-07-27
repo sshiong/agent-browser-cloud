@@ -56,6 +56,25 @@ excluded_from_sla = re.search(
 assert excluded_from_sla, "missing additive excluded_from_sla column"
 assert "DEFAULT FALSE" in excluded_from_sla.group(0).upper()
 
+resource_stream_migration = read(
+    "database/migrations/V026__session_resource_event_stream.sql"
+)
+resource_stream_upper = resource_stream_migration.upper()
+assert "CREATE SEQUENCE" not in resource_stream_upper, (
+    "resource stream must not use connection-cached PostgreSQL sequence cursors"
+)
+for invariant in (
+    "CREATE TABLE SESSION_RESOURCE_STREAM_CURSORS",
+    "PRIMARY KEY (TENANT_ID, SESSION_ID)",
+    "PARTITION BY TENANT_ID, SESSION_ID",
+    "ON CONFLICT (TENANT_ID, SESSION_ID)",
+    "BEFORE INSERT ON SESSION_RESOURCE_SAMPLES",
+    "BEFORE INSERT ON SESSION_RESOURCE_EVENTS",
+):
+    assert invariant in resource_stream_upper, (
+        f"resource stream migration lacks commit-ordered invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {

@@ -25,6 +25,7 @@ import {
   useRequestHumanTakeover,
   useResyncBrowserState,
   useSessionResourceEvents,
+  useSessionResourceStream,
   useSessionResources,
   useSessionSafePoint,
   useSessionMigration,
@@ -56,23 +57,11 @@ export function SessionDetailPage() {
   const terminateMutation = useTerminateSession(id);
   const takeoverMutation = useRequestHumanTakeover(id);
   const resyncMutation = useResyncBrowserState(id);
-  const resourceQuery = useSessionResources(
-    id,
-    ['RUNNING', 'DEGRADED'].includes(sessionQuery.data?.state ?? '')
-  );
+  const resourceQuery = useSessionResources(id);
   const resourceEventsQuery = useSessionResourceEvents(id);
-  const safePointQuery = useSessionSafePoint(
-    id,
-    ['RUNNING', 'DEGRADED', 'HIBERNATING', 'RECOVERING'].includes(
-      sessionQuery.data?.state ?? ''
-    )
-  );
-  const migrationQuery = useSessionMigration(
-    id,
-    ['HIBERNATING', 'HIBERNATED', 'STARTING', 'RECOVERING', 'RUNNING'].includes(
-      sessionQuery.data?.state ?? ''
-    )
-  );
+  const safePointQuery = useSessionSafePoint(id);
+  const migrationQuery = useSessionMigration(id);
+  const resourceStreamState = useSessionResourceStream(id, Boolean(id));
   const resourcePolicyMutation = useUpdateResourcePolicy(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
 
@@ -277,6 +266,7 @@ export function SessionDetailPage() {
                   safePoint={safePointQuery.data}
                   safePointError={safePointQuery.error}
                   migration={migrationQuery.data ?? undefined}
+                  streamState={resourceStreamState}
                   loading={resourceQuery.isLoading}
                   error={resourceQuery.error}
                   canAdminister={auth.hasAnyRole([

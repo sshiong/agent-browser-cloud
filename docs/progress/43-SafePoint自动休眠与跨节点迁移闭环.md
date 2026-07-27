@@ -97,5 +97,6 @@
    E2E、断点重试、源/目标 Node 故障注入和长期稳定性证书。
 5. Tenant/Application-aware Business Recovery Validator 插件；默认 Validator 只能
    给出保守的通用浏览器状态结论。
-6. SSE/WebSocket Resource/Migration Event、Last-Event-ID 和断线恢复。
+6. PostgreSQL Resource/Migration Event SSE、`Last-Event-ID` 和断线恢复已完成；
+   State/Audit 通用事件层与跨 Region Event Bus 尚未完成。
 7. Tauri 2 容器、安全存储、签名和桌面验收。

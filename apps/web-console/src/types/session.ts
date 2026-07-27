@@ -212,6 +212,23 @@ export interface ResourceEventListResponse {
   offset: number;
 }
 
+export interface ResourceStreamEvent {
+  sequence: number;
+  changeType: 'RESOURCE_SAMPLE' | 'RESOURCE_EVENT';
+  entityId: string;
+  occurredAt: string;
+  replayed: boolean;
+}
+
+export interface ResourceStreamControl {
+  cursor: number;
+  resetRequired: boolean;
+  connectedAt: string;
+}
+
+export type ResourceStreamConnectionState =
+  'IDLE' | 'CONNECTING' | 'LIVE' | 'RECONNECTING' | 'OFFLINE';
+
 export interface SafePointBlockerView {
   code: string;
   source: string;

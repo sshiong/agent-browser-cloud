@@ -222,12 +222,12 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 request.getDangerEvent(),
                 Instant.ofEpochMilli(request.getObservedAtMs()));
         validate(sample);
-        resourceService.recordSampleFromNode(
-            request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
-        if (request.hasInputActive()
-            || request.hasActiveDrag()
-            || request.hasPressedKeyCount()
-            || request.hasPressedButtonCount()) {
+        var hasInputObservation =
+            request.hasInputActive()
+                || request.hasActiveDrag()
+                || request.hasPressedKeyCount()
+                || request.hasPressedButtonCount();
+        if (hasInputObservation) {
           if (!request.hasInputActive()
               || !request.hasActiveDrag()
               || !request.hasPressedKeyCount()
@@ -246,6 +246,10 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                   request.getPressedButtonCount(),
                   Instant.ofEpochMilli(request.getObservedAtMs())));
         }
+        // Persist the sample after the matching input ledger observation. Its durable stream
+        // sequence becomes the notification barrier for both resource and Safe Point readers.
+        resourceService.recordSampleFromNode(
+            request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
         respond(
             responseObserver,
             ReportSessionResourcesResponse.newBuilder()

@@ -1,7 +1,8 @@
 # Web Console AUTO 资源策略与详情面板
 
 > 日期：2026-07-27
-> 状态：AUTO 创建、策略持久化、基础真实遥测、同节点在线资源执行器、安全点/迁移详情 UI 已完成；完整指标、真实双 Node E2E 与流式事件待完成
+> 状态：AUTO 创建、策略持久化、基础真实遥测、同节点在线资源执行器、安全点/迁移详情
+> UI 和可恢复资源 SSE 已完成；完整指标与真实双 Node E2E 待完成
 
 ## 本轮目标
 
@@ -114,8 +115,9 @@
 5. Checkpoint → 排除源 Node Placement → S3 Restore → State Resync → 默认 Business
    Recovery Validation 已实现；真实双 Node + S3 + Chromium 故障矩阵仍待验收。
 6. 自动休眠和严格预算终止已接入真实 Operation/Node 执行链。
-7. Resource Event 的 SSE/WebSocket 推送尚未实现；Web 当前以 5 秒/30 秒真实 API
-   轮询更新。
+7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
+   Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
+   层仍未实现。
 8. Tauri 2 容器、桌面安全存储与签名发布尚未创建；本轮只保证组件/API/权限逻辑可复用。
 
 ## 下一步建议
@@ -123,5 +125,5 @@
 1. 补齐 Browser/Agent/State/Extension/Remote Desktop/Media 的真实指标采集。
 2. 增加 Safe Point Aggregator，再实现跨 Node 迁移和 Business Recovery Validation。
 3. 接入自动休眠、严格预算终止和危险事件即时保护执行链。
-4. 增加 SSE Resource Event 流和断线恢复游标。
+4. 增加 State/Audit 统一事件流和跨 Region Event Bus。
 5. 执行压力、冷却、抖动、HumanTakeover 与危险事件集成矩阵。

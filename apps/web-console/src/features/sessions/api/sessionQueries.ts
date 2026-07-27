@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import {
   createSession,
   getBrowserState,
@@ -14,9 +15,11 @@ import {
   startSession,
   terminateSession,
   updateSessionResourcePolicy,
+  streamSessionResourceChanges,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
+  ResourceStreamConnectionState,
   SessionState,
   StateResyncRequest,
   ResourcePolicyRequest,
@@ -101,12 +104,11 @@ export function useBrowserState(sessionId: string, enabled: boolean) {
   });
 }
 
-export function useSessionResources(sessionId: string, live: boolean) {
+export function useSessionResources(sessionId: string) {
   return useQuery({
     queryKey: sessionKeys.resources(sessionId),
     queryFn: ({ signal }) => getSessionResources(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: live ? 5_000 : 30_000,
   });
 }
 
@@ -116,25 +118,142 @@ export function useSessionResourceEvents(sessionId: string) {
     queryFn: ({ signal }) =>
       getSessionResourceEvents(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: 30_000,
   });
 }
 
-export function useSessionSafePoint(sessionId: string, live: boolean) {
+export function useSessionSafePoint(sessionId: string) {
   return useQuery({
     queryKey: sessionKeys.safePoint(sessionId),
     queryFn: ({ signal }) => getSessionSafePoint(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: live ? 5_000 : 30_000,
   });
 }
 
-export function useSessionMigration(sessionId: string, live: boolean) {
+export function useSessionMigration(sessionId: string) {
   return useQuery({
     queryKey: sessionKeys.migration(sessionId),
     queryFn: ({ signal }) => getSessionMigration(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: live ? 2_000 : 30_000,
+  });
+}
+
+export function useSessionResourceStream(
+  sessionId: string,
+  enabled: boolean
+): ResourceStreamConnectionState {
+  const queryClient = useQueryClient();
+  const [connectionState, setConnectionState] =
+    useState<ResourceStreamConnectionState>(enabled ? 'CONNECTING' : 'IDLE');
+
+  useEffect(() => {
+    if (!enabled || !sessionId) {
+      setConnectionState('IDLE');
+      return;
+    }
+    const controller = new AbortController();
+    let lastEventId: string | undefined;
+    let reconnectAttempt = 0;
+
+    const invalidateAllResourceViews = () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.detail(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.resources(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.resourceEvents(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.safePoint(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.migration(sessionId),
+        }),
+      ]);
+
+    const run = async () => {
+      while (!controller.signal.aborted) {
+        if (!navigator.onLine) {
+          setConnectionState('OFFLINE');
+          if (!(await waitForReconnect(2_000, controller.signal))) return;
+          continue;
+        }
+        setConnectionState(
+          reconnectAttempt === 0 ? 'CONNECTING' : 'RECONNECTING'
+        );
+        try {
+          await streamSessionResourceChanges({
+            sessionId,
+            lastEventId,
+            signal: controller.signal,
+            onOpen: () => {
+              setConnectionState(
+                reconnectAttempt === 0 ? 'CONNECTING' : 'RECONNECTING'
+              );
+            },
+            onControl: (control) => {
+              reconnectAttempt = 0;
+              lastEventId = String(control.cursor);
+              setConnectionState('LIVE');
+              void invalidateAllResourceViews();
+            },
+            onChange: (change) => {
+              lastEventId = String(change.sequence);
+              if (change.changeType === 'RESOURCE_SAMPLE') {
+                void Promise.all([
+                  queryClient.invalidateQueries({
+                    queryKey: sessionKeys.resources(sessionId),
+                  }),
+                  queryClient.invalidateQueries({
+                    queryKey: sessionKeys.safePoint(sessionId),
+                  }),
+                ]);
+              } else {
+                void invalidateAllResourceViews();
+              }
+            },
+          });
+        } catch {
+          if (controller.signal.aborted) return;
+        }
+        reconnectAttempt += 1;
+        setConnectionState(navigator.onLine ? 'RECONNECTING' : 'OFFLINE');
+        const backoff =
+          Math.min(30_000, 1_000 * 2 ** Math.min(reconnectAttempt - 1, 5)) +
+          Math.round(Math.random() * 500);
+        if (!(await waitForReconnect(backoff, controller.signal))) return;
+      }
+    };
+
+    const markOffline = () => setConnectionState('OFFLINE');
+    const markOnline = () => setConnectionState('RECONNECTING');
+    window.addEventListener('offline', markOffline);
+    window.addEventListener('online', markOnline);
+    void run();
+    return () => {
+      controller.abort();
+      window.removeEventListener('offline', markOffline);
+      window.removeEventListener('online', markOnline);
+    };
+  }, [enabled, queryClient, sessionId]);
+
+  return connectionState;
+}
+
+async function waitForReconnect(milliseconds: number, signal: AbortSignal) {
+  if (signal.aborted) return false;
+  return new Promise<boolean>((resolve) => {
+    const timeout = window.setTimeout(() => {
+      signal.removeEventListener('abort', cancel);
+      resolve(true);
+    }, milliseconds);
+    const cancel = () => {
+      window.clearTimeout(timeout);
+      resolve(false);
+    };
+    signal.addEventListener('abort', cancel, { once: true });
   });
 }
 
@@ -221,6 +340,15 @@ function useSessionOperation(
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.browserState(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.resources(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.safePoint(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.migration(sessionId),
         }),
         queryClient.invalidateQueries({ queryKey: sessionKeys.all }),
       ]);

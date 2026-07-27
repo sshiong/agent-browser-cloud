@@ -15,6 +15,8 @@ import type {
   ResourcePolicyOperationResponse,
   SessionSafePointView,
   SessionMigrationView,
+  ResourceStreamControl,
+  ResourceStreamEvent,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
@@ -194,6 +196,150 @@ export async function getSessionMigration(
     `/sessions/${sessionId}/migration`,
     { signal },
     tenantId
+  );
+}
+
+export async function streamSessionResourceChanges({
+  sessionId,
+  tenantId = DEFAULT_TENANT_ID,
+  lastEventId,
+  signal,
+  onOpen,
+  onControl,
+  onChange,
+}: {
+  sessionId: string;
+  tenantId?: string;
+  lastEventId?: string;
+  signal: AbortSignal;
+  onOpen: () => void;
+  onControl: (control: ResourceStreamControl) => void;
+  onChange: (change: ResourceStreamEvent) => void;
+}): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/sessions/${sessionId}/resource-stream`,
+    {
+      signal,
+      headers: {
+        Accept: 'text/event-stream',
+        ...identityHeaders(tenantId),
+        ...(lastEventId ? { 'Last-Event-ID': lastEventId } : {}),
+      },
+    }
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({
+      code: 'RESOURCE_STREAM_UNAVAILABLE',
+      message: `Resource stream failed with status ${response.status}`,
+    }));
+    throw new SessionApiError(response.status, body);
+  }
+  if (!response.body) {
+    throw new Error('Resource stream response body is unavailable');
+  }
+  onOpen();
+  let acceptedCursor: number | undefined;
+  await consumeEventStream(response.body, ({ id, event, data }) => {
+    const parsed: unknown = JSON.parse(data);
+    if (
+      event === 'resource-stream-ready' ||
+      event === 'resource-stream-reset'
+    ) {
+      if (!isResourceStreamControl(parsed)) {
+        throw new Error('Resource stream control event is invalid');
+      }
+      requireMatchingEventId(id, parsed.cursor);
+      acceptedCursor = parsed.cursor;
+      onControl(parsed);
+      return;
+    }
+    if (event === 'session-resource-change') {
+      if (!isResourceStreamEvent(parsed)) {
+        throw new Error('Resource stream change event is invalid');
+      }
+      requireMatchingEventId(id, parsed.sequence);
+      if (acceptedCursor !== undefined && parsed.sequence <= acceptedCursor) {
+        throw new Error('Resource stream sequence did not advance');
+      }
+      acceptedCursor = parsed.sequence;
+      onChange(parsed);
+    }
+  });
+}
+
+function requireMatchingEventId(id: string | undefined, sequence: number) {
+  if (id === undefined || !/^[0-9]+$/.test(id) || Number(id) !== sequence) {
+    throw new Error('Resource stream event ID does not match its payload');
+  }
+}
+
+async function consumeEventStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: { id?: string; event: string; data: string }) => void
+) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let streamComplete = false;
+  while (!streamComplete) {
+    const { done, value } = await reader.read();
+    streamComplete = done;
+    buffer += decoder.decode(value, { stream: !done });
+    buffer = buffer.replaceAll('\r\n', '\n');
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary >= 0) {
+      const frame = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      parseEventFrame(frame, onEvent);
+      boundary = buffer.indexOf('\n\n');
+    }
+  }
+}
+
+function parseEventFrame(
+  frame: string,
+  onEvent: (event: { id?: string; event: string; data: string }) => void
+) {
+  let id: string | undefined;
+  let event = 'message';
+  const data: string[] = [];
+  for (const line of frame.split('\n')) {
+    if (!line || line.startsWith(':')) continue;
+    const separator = line.indexOf(':');
+    const field = separator < 0 ? line : line.slice(0, separator);
+    const value =
+      separator < 0 ? '' : line.slice(separator + 1).replace(/^\s/, '');
+    if (field === 'id') id = value;
+    if (field === 'event') event = value;
+    if (field === 'data') data.push(value);
+  }
+  if (data.length > 0) onEvent({ id, event, data: data.join('\n') });
+}
+
+function isResourceStreamControl(
+  value: unknown
+): value is ResourceStreamControl {
+  if (!value || typeof value !== 'object') return false;
+  const control = value as Partial<ResourceStreamControl>;
+  return (
+    typeof control.cursor === 'number' &&
+    Number.isSafeInteger(control.cursor) &&
+    typeof control.resetRequired === 'boolean' &&
+    typeof control.connectedAt === 'string'
+  );
+}
+
+function isResourceStreamEvent(value: unknown): value is ResourceStreamEvent {
+  if (!value || typeof value !== 'object') return false;
+  const change = value as Partial<ResourceStreamEvent>;
+  return (
+    typeof change.sequence === 'number' &&
+    Number.isSafeInteger(change.sequence) &&
+    (change.changeType === 'RESOURCE_SAMPLE' ||
+      change.changeType === 'RESOURCE_EVENT') &&
+    typeof change.entityId === 'string' &&
+    typeof change.occurredAt === 'string' &&
+    typeof change.replayed === 'boolean'
   );
 }
 

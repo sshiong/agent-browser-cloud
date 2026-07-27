@@ -84,6 +84,9 @@ public final class SessionResourceModels {
 
   public record ResourceEventListResponse(List<ResourceEventView> items, int limit, int offset) {}
 
+  public record ResourceStreamEventView(
+      long sequence, String changeType, String entityId, Instant occurredAt, boolean replayed) {}
+
   public record ResourcePolicyOperationResponse(
       String operationId, String state, PolicyView resourcePolicy) {}
 

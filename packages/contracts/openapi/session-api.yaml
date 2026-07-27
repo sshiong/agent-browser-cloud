@@ -162,6 +162,51 @@ paths:
                 $ref: "#/components/schemas/ResourceEventList"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/resource-stream:
+    get:
+      operationId: streamSessionResourceChanges
+      summary: Stream durable Session resource changes with resumable SSE
+      description: >
+        Emits PostgreSQL-backed resource sample and adjustment change notifications.
+        Reconnect with Last-Event-ID to replay changes after the last processed monotonic
+        sequence. The event data identifies the durable row; clients then refresh the
+        authoritative resource, timeline, safe-point and migration views.
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: Last successfully processed numeric resource stream sequence.
+          schema:
+            type: string
+            pattern: "^[0-9]+$"
+      responses:
+        "200":
+          description: >
+            SSE stream. Events are resource-stream-ready, resource-stream-reset and
+            session-resource-change; keepalive comments do not advance the cursor.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          description: Per-process or per-Session live subscriber bound reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/sessions/{sessionId}/safe-point:
     get:
       operationId: getSessionSafePoint

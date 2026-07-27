@@ -75,11 +75,11 @@ health={"status":"UP"}
 
 1. 尚未接入一个真实企业 IdP 完成 Issuer Metadata、Redirect URI、Claim Mapping、
    MFA/ACR 和 RP-Initiated Logout 联调；当前完成的是标准客户端和生产配置边界。
-2. Session、State 和 Audit 仍以轮询为主，缺统一 SSE/WebSocket 事件管理器、
-   Sequence Gap 检测与 Full Resync。
-3. Groups、Nodes、Extensions 仍是开发 Fixture，尚无正式后端领域模型和 API。
+2. Resource/Migration 已完成 PostgreSQL SSE、`Last-Event-ID` 和断线重放；Session
+   State 与 Audit 仍以轮询为主，缺统一事件管理器和 Full Resync。
+3. Nodes、Extensions 已接正式 API；Groups 仍缺正式后端领域模型和 API。
 4. API Client 仍手写，缺 OpenAPI 生成、版本协商和 N/N-1 契约兼容测试。
-5. Session 创建向导仍未覆盖 Persona、Extension、Agent Policy 等完整生产步骤。
+5. Session 创建向导已覆盖 Extension，仍未覆盖 Persona、Agent Policy 等完整生产步骤。
 6. 本轮覆盖移动窄屏与基础可访问语义；完整键盘、屏幕阅读器、对比度和多分辨率视觉
    回归仍需独立验收。
 7. 全局搜索、通知、主题和用户偏好仍是明确禁用的占位，不计为已完成能力。

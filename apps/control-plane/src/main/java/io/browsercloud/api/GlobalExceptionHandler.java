@@ -27,6 +27,8 @@ import io.browsercloud.application.SessionApplicationService.CapacityUnavailable
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
+import io.browsercloud.application.SessionResourceEventStreamService.ResourceStreamCapacityException;
+import io.browsercloud.application.SessionResourceEventStreamService.ResourceStreamConnectionException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
@@ -54,6 +56,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 
 /** 将领域异常转换为正式契约中的 Error Envelope，避免向客户端泄露堆栈。 */
 @RestControllerAdvice
@@ -131,6 +134,28 @@ public class GlobalExceptionHandler {
         "RESOURCE_TELEMETRY_REJECTED",
         "Resource sample does not match the active Browser placement",
         Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(ResourceStreamCapacityException.class)
+  ResponseEntity<ApiError> resourceStreamCapacity(
+      ResourceStreamCapacityException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.TOO_MANY_REQUESTS,
+        "RESOURCE_STREAM_CAPACITY_EXCEEDED",
+        "Too many live resource stream subscribers",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ResourceStreamConnectionException.class)
+  ResponseEntity<ApiError> resourceStreamConnection(
+      ResourceStreamConnectionException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "RESOURCE_STREAM_UNAVAILABLE",
+        "The resource event stream is temporarily unavailable",
+        Map.of(),
         request);
   }
 
@@ -458,6 +483,11 @@ public class GlobalExceptionHandler {
   ResponseEntity<ApiError> invalidRequest(Exception exception, HttpServletRequest request) {
     return response(
         HttpStatus.BAD_REQUEST, "REQUEST_INVALID", "Request validation failed", Map.of(), request);
+  }
+
+  @ExceptionHandler(AsyncRequestTimeoutException.class)
+  void asyncRequestCompleted(AsyncRequestTimeoutException exception) {
+    // SSE clients routinely disconnect or rotate long-lived connections after headers commit.
   }
 
   @ExceptionHandler(Exception.class)

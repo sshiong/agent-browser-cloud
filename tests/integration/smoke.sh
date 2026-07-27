@@ -41,6 +41,7 @@ node_pid=""
 network_helper_pid=""
 storage_helper_pid=""
 proxy_pid=""
+resource_stream_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
   -subj '/CN=BrowserCloud Integration CA' \
@@ -76,8 +77,25 @@ cleanup() {
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_pid" ]]; then kill "$storage_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
-  docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
+  if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
   if [[ "$exit_code" -ne 0 ]]; then
+    if [[ -f "$temp_dir/resource-stream-live.sse" ]]; then
+      echo '--- resource-stream-live.sse ---' >&2
+      cat "$temp_dir/resource-stream-live.sse" >&2 || true
+    fi
+    if [[ -f "$temp_dir/resource-sample.json" ]]; then
+      echo '--- resource-sample.json ---' >&2
+      cat "$temp_dir/resource-sample.json" >&2 || true
+    fi
+    if [[ -n "${session_one:-}" ]]; then
+      echo '--- durable resource stream rows ---' >&2
+      docker exec "$postgres_name" psql -U browsercloud -d browsercloud -x -c \
+        "select sample_id, tenant_id, session_id, stream_sequence, observed_at
+         from session_resource_samples where session_id='${session_one}' order by stream_sequence;
+         select event_id, tenant_id, session_id, stream_sequence, occurred_at
+         from session_resource_events where session_id='${session_one}' order by stream_sequence;" \
+        >&2 2>/dev/null || true
+    fi
     grep -E 'Runtime health|Chromium runtime|orphan Runtime|Node reconciliation|Browser crash' \
       "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/control-plane.log" 2>/dev/null || true
@@ -85,6 +103,7 @@ cleanup() {
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
   fi
+  docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   rm -rf "$temp_dir"
 }
 trap cleanup EXIT INT TERM
@@ -489,6 +508,78 @@ placement="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$placement" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] == "node_integration"; assert item["requestedResourceClass"] == "L1"; assert item["effectiveResourceClass"] == "L2"; assert item["unknownExtensionCount"] == 1; assert "UNKNOWN_EXTENSION_PROBATION" in item["reasonCodes"]; assert item["state"] == "ACTIVE"'
+
+resource_stream_cursor="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select greatest(
+      coalesce((select max(stream_sequence) from session_resource_samples where session_id='${session_one}'), 0),
+      coalesce((select max(stream_sequence) from session_resource_events where session_id='${session_one}'), 0)
+   )")"
+test -n "$resource_stream_cursor"
+curl -fsS --no-buffer --max-time 8 \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H "Last-Event-ID: ${resource_stream_cursor}" \
+  >"$temp_dir/resource-stream-live.sse" &
+resource_stream_pid=$!
+for _ in $(seq 1 40); do
+  if grep -q 'event:resource-stream-ready' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q 'event:resource-stream-ready' "$temp_dir/resource-stream-live.sse"
+resource_observed_at="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-samples" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"nodeId\":\"node_integration\",\"cpuPercent\":42.5,\"memoryRssMib\":640,\"memoryPsiSomeAvg10\":0.02,\"observedAt\":\"${resource_observed_at}\"}" \
+  >"$temp_dir/resource-sample.json"
+for _ in $(seq 1 50); do
+  if grep -q 'event:session-resource-change' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q 'event:session-resource-change' "$temp_dir/resource-stream-live.sse"
+grep -q '"changeType":"RESOURCE_SAMPLE"' "$temp_dir/resource-stream-live.sse"
+grep -q '"replayed":false' "$temp_dir/resource-stream-live.sse"
+resource_stream_sequence="$(awk -F: '/^id:/{gsub(/[[:space:]]/,"",$2); value=$2} END{print value}' \
+  "$temp_dir/resource-stream-live.sse")"
+test "$resource_stream_sequence" -gt "$resource_stream_cursor"
+kill "$resource_stream_pid" 2>/dev/null || true
+wait "$resource_stream_pid" 2>/dev/null || true
+resource_stream_pid=""
+
+curl -fsS --no-buffer --max-time 8 \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H "Last-Event-ID: ${resource_stream_cursor}" \
+  >"$temp_dir/resource-stream-replay.sse" &
+resource_stream_pid=$!
+for _ in $(seq 1 50); do
+  if grep -q '"replayed":true' "$temp_dir/resource-stream-replay.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q '"replayed":true' "$temp_dir/resource-stream-replay.sse"
+grep -q "\"sequence\":${resource_stream_sequence}" "$temp_dir/resource-stream-replay.sse"
+kill "$resource_stream_pid" 2>/dev/null || true
+wait "$resource_stream_pid" 2>/dev/null || true
+resource_stream_pid=""
+
+resource_stream_cross_tenant_status="$(curl -sS --max-time 2 \
+  -o "$temp_dir/resource-stream-cross-tenant.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-stream" \
+  -H 'X-Tenant-Id: different-tenant')"
+test "$resource_stream_cross_tenant_status" = "404"
+printf '%s' "$(<"$temp_dir/resource-sample.json")" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["usage"]["cpuPercent"] == 42.5; assert result["dataFreshness"] == "LIVE"'
+
 proxy_overview="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_overview" | python3 -c \

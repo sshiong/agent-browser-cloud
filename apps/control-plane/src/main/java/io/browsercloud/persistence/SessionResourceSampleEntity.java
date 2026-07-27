@@ -40,6 +40,9 @@ public class SessionResourceSampleEntity {
   @Column(nullable = false)
   private Instant receivedAt;
 
+  @Column(name = "stream_sequence", insertable = false, updatable = false)
+  private Long streamSequence;
+
   protected SessionResourceSampleEntity() {}
 
   public SessionResourceSampleEntity(
@@ -112,6 +115,10 @@ public class SessionResourceSampleEntity {
 
   public Instant getObservedAt() {
     return observedAt;
+  }
+
+  public Long getStreamSequence() {
+    return streamSequence;
   }
 
   private static BigDecimal decimal(Double value) {

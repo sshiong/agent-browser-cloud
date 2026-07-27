@@ -42,6 +42,9 @@ public class SessionResourceEventEntity {
   @Column(nullable = false)
   private Instant occurredAt;
 
+  @Column(name = "stream_sequence", insertable = false, updatable = false)
+  private Long streamSequence;
+
   protected SessionResourceEventEntity() {}
 
   public SessionResourceEventEntity(
@@ -109,5 +112,9 @@ public class SessionResourceEventEntity {
 
   public Instant getOccurredAt() {
     return occurredAt;
+  }
+
+  public Long getStreamSequence() {
+    return streamSequence;
   }
 }

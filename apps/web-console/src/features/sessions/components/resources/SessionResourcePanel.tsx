@@ -29,6 +29,7 @@ import type {
   ResourceEventView,
   ResourcePolicyRequest,
   ResourcePolicyStatus,
+  ResourceStreamConnectionState,
   SessionSafePointView,
   SessionMigrationView,
   SessionResourceView,
@@ -53,6 +54,7 @@ export function SessionResourcePanel({
   safePoint,
   safePointError,
   migration,
+  streamState,
   loading,
   error,
   canAdminister,
@@ -68,6 +70,7 @@ export function SessionResourcePanel({
   safePoint?: SessionSafePointView;
   safePointError: unknown;
   migration?: SessionMigrationView;
+  streamState: ResourceStreamConnectionState;
   loading: boolean;
   error: unknown;
   canAdminister: boolean;
@@ -109,6 +112,7 @@ export function SessionResourcePanel({
       className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1"
       aria-labelledby="session-resource-title"
     >
+      <ResourceStreamHealth state={streamState} />
       <ResourcePolicyCard
         resource={resource}
         canAdminister={canAdminister}
@@ -183,6 +187,45 @@ export function SessionResourcePanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function ResourceStreamHealth({
+  state,
+}: {
+  state: ResourceStreamConnectionState;
+}) {
+  const live = state === 'LIVE';
+  const offline = state === 'OFFLINE';
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn(
+        'flex items-center gap-2 border-b px-5 py-2 text-[10px]',
+        live
+          ? 'border-accent/15 bg-accent/[0.04] text-text-muted'
+          : 'border-warning/25 bg-warning/[0.06] text-warning'
+      )}
+    >
+      <span
+        className={cn(
+          'h-1.5 w-1.5 rounded-full',
+          live
+            ? 'bg-accent'
+            : offline
+              ? 'bg-danger'
+              : 'animate-pulse bg-warning'
+        )}
+      />
+      {live
+        ? '实时事件已连接 · PostgreSQL 序列支持断点恢复'
+        : offline
+          ? '网络已断开，资源数据可能过期；恢复网络后将自动补齐事件'
+          : state === 'RECONNECTING'
+            ? '实时事件正在重连，当前资源数据可能过期'
+            : '正在建立资源事件流，当前数据来自最近一次权威读取'}
+    </div>
   );
 }
 

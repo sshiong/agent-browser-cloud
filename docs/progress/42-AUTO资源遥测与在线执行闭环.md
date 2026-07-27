@@ -1,7 +1,9 @@
 # AUTO 资源遥测与在线执行闭环
 
 > 日期：2026-07-27
-> 状态：CPU/内存/Memory PSI/Input Ledger 的 5 秒真实遥测、同节点 Cgroup 在线扩缩容、Safe Point、休眠和持久跨 Node 迁移核心链已完成；完整指标与目标双 Node E2E 待完成
+> 状态：CPU/内存/Memory PSI/Input Ledger 的 5 秒真实遥测、同节点 Cgroup 在线扩缩容、
+> Safe Point、休眠、持久跨 Node 迁移和可恢复资源 SSE 已完成；完整指标与目标双 Node
+> E2E 待完成
 
 ## 本轮完成
 
@@ -73,5 +75,6 @@
 4. 跨 Node 核心链已实现；仍缺双真实 Browser Node + S3 + Chromium 的故障注入和长稳证书。
 5. `WAIT_SAFE_POINT_MIGRATE`、`HIBERNATE` 和 `TERMINATE_STRICT` 已进入真实执行链；
    业务恢复非 READY 时继续保持 Agent 暂停。
-6. Resource Event SSE/WebSocket、断线游标与 Web 轮询替换。
+6. Resource Event SSE、断线游标与 Web 资源轮询替换已完成；State/Audit 通用事件层
+   与跨 Region Event Bus 尚未完成。
 7. 目标 Linux 多 Session 长稳、缩容抖动、OOM/磁盘满即时保护和多 Node 容量验收。

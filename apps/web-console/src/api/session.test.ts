@@ -8,6 +8,7 @@ import {
   resyncBrowserState,
   SessionApiError,
   startSession,
+  streamSessionResourceChanges,
 } from './session';
 
 describe('session API', () => {
@@ -239,5 +240,82 @@ describe('session API', () => {
         }),
       })
     );
+  });
+
+  it('consumes resumable authenticated resource SSE across chunk boundaries', async () => {
+    const encoder = new TextEncoder();
+    const payload =
+      'id: 4\r\nevent: resource-stream-ready\r\ndata: {"cursor":4,"resetRequired":false,"connectedAt":"2026-07-28T00:00:00Z"}\r\n\r\n' +
+      'id: 5\r\nevent: session-resource-change\r\ndata: {"sequence":5,"changeType":"RESOURCE_SAMPLE","entityId":"rs_5","occurredAt":"2026-07-28T00:00:05Z","replayed":true}\r\n\r\n';
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(payload.slice(0, 37)));
+        controller.enqueue(encoder.encode(payload.slice(37, 121)));
+        controller.enqueue(encoder.encode(payload.slice(121)));
+        controller.close();
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const controls: number[] = [];
+    const changes: number[] = [];
+
+    await streamSessionResourceChanges({
+      sessionId: 'ses_1234567890abcdef',
+      tenantId: 'tenant-test',
+      lastEventId: '3',
+      signal: new AbortController().signal,
+      onOpen: vi.fn(),
+      onControl: (control) => controls.push(control.cursor),
+      onChange: (change) => changes.push(change.sequence),
+    });
+
+    expect(controls).toEqual([4]);
+    expect(changes).toEqual([5]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef/resource-stream',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: 'text/event-stream',
+          'Last-Event-ID': '3',
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('rejects a resource SSE event whose frame ID disagrees with the payload', async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'id: 8\n' +
+              'event: resource-stream-ready\n' +
+              'data: {"cursor":7,"resetRequired":false,"connectedAt":"2026-07-28T00:00:00Z"}\n\n'
+          )
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(body, { status: 200 }))
+    );
+
+    await expect(
+      streamSessionResourceChanges({
+        sessionId: 'ses_1234567890abcdef',
+        signal: new AbortController().signal,
+        onOpen: vi.fn(),
+        onControl: vi.fn(),
+        onChange: vi.fn(),
+      })
+    ).rejects.toThrow('event ID does not match');
   });
 });

@@ -185,6 +185,10 @@ impl NodeCapacityReporter {
             if cgroup_enabled { "cgroup-v2" } else { "none" }.to_owned(),
         );
         labels.insert("environment".to_owned(), environment.to_owned());
+        labels.insert(
+            "safePointBrowserActivity".to_owned(),
+            "cdp-network-v1".to_owned(),
+        );
         Ok(Self {
             node_id,
             region,
@@ -706,6 +710,7 @@ impl NodeControlService {
         tenant_id: &str,
         session_id: &str,
         context_epoch: i64,
+        include_resource_metrics: bool,
     ) -> anyhow::Result<()> {
         let metrics = self.runtime_supervisor.metrics(session_id).await?;
         let browser_metrics = tokio::time::timeout(
@@ -764,12 +769,15 @@ impl NodeControlService {
         } else {
             None
         };
-        let agent_action_latency_ms = self
-            .agent_action_latencies
-            .lock()
-            .await
-            .remove(session_id)
-            .and_then(AgentLatencyWindow::maximum);
+        let agent_action_latency_ms = if include_resource_metrics {
+            self.agent_action_latencies
+                .lock()
+                .await
+                .remove(session_id)
+                .and_then(AgentLatencyWindow::maximum)
+        } else {
+            None
+        };
         let state_diff_queue_depth = self
             .pending_state_events
             .lock()
@@ -790,6 +798,10 @@ impl NodeControlService {
             Some(input) => Some(input.ledger_snapshot().await),
             None => None,
         };
+        let browser_safety = self
+            .state_collector
+            .browser_safety_observation(session_id)
+            .await;
         let secure = self.grpc_tls.is_some();
         let target = if self.control_plane_event_target.starts_with("http://")
             || self.control_plane_event_target.starts_with("https://")
@@ -817,20 +829,35 @@ impl NodeControlService {
                 session_id: session_id.to_owned(),
                 context_epoch,
                 observed_at_ms,
-                cpu_percent: Some(cpu_percent),
-                memory_rss_mib: Some(metrics.resident_memory_bytes.div_ceil(1024 * 1024)),
-                memory_psi_some_avg10: metrics.memory_psi_some_avg10,
-                renderer_count: browser_metrics
-                    .as_ref()
-                    .and_then(|metrics| metrics.renderer_count),
-                tab_count: browser_metrics.as_ref().map(|metrics| metrics.tab_count),
-                main_thread_blocked_ms,
-                agent_action_latency_ms,
-                state_diff_queue_depth: Some(state_diff_queue_depth),
+                cpu_percent: include_resource_metrics.then_some(cpu_percent),
+                memory_rss_mib: include_resource_metrics
+                    .then_some(metrics.resident_memory_bytes.div_ceil(1024 * 1024)),
+                memory_psi_some_avg10: include_resource_metrics
+                    .then_some(metrics.memory_psi_some_avg10)
+                    .flatten(),
+                renderer_count: include_resource_metrics
+                    .then(|| {
+                        browser_metrics
+                            .as_ref()
+                            .and_then(|metrics| metrics.renderer_count)
+                    })
+                    .flatten(),
+                tab_count: include_resource_metrics
+                    .then(|| browser_metrics.as_ref().map(|metrics| metrics.tab_count))
+                    .flatten(),
+                main_thread_blocked_ms: include_resource_metrics
+                    .then_some(main_thread_blocked_ms)
+                    .flatten(),
+                agent_action_latency_ms: include_resource_metrics
+                    .then_some(agent_action_latency_ms)
+                    .flatten(),
+                state_diff_queue_depth: include_resource_metrics.then_some(state_diff_queue_depth),
                 profile_io_bytes_per_second: None,
                 extension_cpu_percent: None,
                 extension_memory_mib: None,
-                remote_desktop_frame_age_ms,
+                remote_desktop_frame_age_ms: include_resource_metrics
+                    .then_some(remote_desktop_frame_age_ms)
+                    .flatten(),
                 media_encoder_percent: None,
                 danger_event: String::new(),
                 input_active: input_ledger.as_ref().map(|ledger| ledger.has_any_input()),
@@ -841,6 +868,15 @@ impl NodeControlService {
                 pressed_button_count: input_ledger
                     .as_ref()
                     .map(|ledger| ledger.pressed_buttons.len().try_into().unwrap_or(u32::MAX)),
+                active_upload_count: browser_safety
+                    .fresh
+                    .then_some(browser_safety.active_upload_count),
+                active_download_count: browser_safety
+                    .fresh
+                    .then_some(browser_safety.active_download_count),
+                active_form_submission_count: browser_safety
+                    .fresh
+                    .then_some(browser_safety.active_form_submission_count),
             })
             .await?
             .into_inner();
@@ -1538,6 +1574,22 @@ impl NodeControlService {
                                         &command.session_id,
                                         state_collector_budget_percent,
                                     )
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
+                                if let Err(error) = self
+                                    .state_collector
+                                    .start_safety_monitor(&command.session_id)
                                     .await
                                 {
                                     if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
@@ -2419,12 +2471,20 @@ impl NodeControlService {
                             }
                         }
                         probe_count += 1;
-                        if probe_count.is_multiple_of(service.resource_report_interval_probes) {
+                        // Safe Point must not wait for a deliberately long telemetry interval.
+                        // Always publish the first complete observation after five healthy probes;
+                        // production keeps the normal five-second cadence, while capacity/failure
+                        // tests may use a longer steady-state interval without losing fail-closed
+                        // startup coverage.
+                        let regular_resource_report =
+                            probe_count.is_multiple_of(service.resource_report_interval_probes);
+                        if probe_count == 5 || regular_resource_report {
                             if let Err(error) = service
                                 .report_session_resources(
                                     &tenant_id,
                                     &session_id,
                                     running_context_epoch,
+                                    regular_resource_report,
                                 )
                                 .await
                             {

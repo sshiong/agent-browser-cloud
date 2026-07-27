@@ -227,23 +227,39 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 || request.hasActiveDrag()
                 || request.hasPressedKeyCount()
                 || request.hasPressedButtonCount();
-        if (hasInputObservation) {
-          if (!request.hasInputActive()
-              || !request.hasActiveDrag()
-              || !request.hasPressedKeyCount()
-              || !request.hasPressedButtonCount()) {
-            throw new IllegalArgumentException("complete input ledger observation is required");
-          }
+        var hasBrowserActivityObservation =
+            request.hasActiveUploadCount()
+                || request.hasActiveDownloadCount()
+                || request.hasActiveFormSubmissionCount();
+        if (hasInputObservation
+            && (!request.hasInputActive()
+                || !request.hasActiveDrag()
+                || !request.hasPressedKeyCount()
+                || !request.hasPressedButtonCount())) {
+          throw new IllegalArgumentException("complete input ledger observation is required");
+        }
+        if (hasBrowserActivityObservation
+            && (!request.hasActiveUploadCount()
+                || !request.hasActiveDownloadCount()
+                || !request.hasActiveFormSubmissionCount())) {
+          throw new IllegalArgumentException("complete Browser activity observation is required");
+        }
+        if (hasInputObservation || hasBrowserActivityObservation) {
           safePointService.recordNodeObservation(
               request.getSessionId(),
               request.getTenantId(),
               request.getNodeId(),
               request.getContextEpoch(),
               new NodeSafetyObservation(
-                  request.getInputActive(),
-                  request.getActiveDrag(),
-                  request.getPressedKeyCount(),
-                  request.getPressedButtonCount(),
+                  request.hasInputActive() ? request.getInputActive() : null,
+                  request.hasActiveDrag() ? request.getActiveDrag() : null,
+                  request.hasPressedKeyCount() ? request.getPressedKeyCount() : null,
+                  request.hasPressedButtonCount() ? request.getPressedButtonCount() : null,
+                  request.hasActiveUploadCount() ? request.getActiveUploadCount() : null,
+                  request.hasActiveDownloadCount() ? request.getActiveDownloadCount() : null,
+                  request.hasActiveFormSubmissionCount()
+                      ? request.getActiveFormSubmissionCount()
+                      : null,
                   Instant.ofEpochMilli(request.getObservedAtMs())));
         }
         // Persist the sample after the matching input ledger observation. Its durable stream

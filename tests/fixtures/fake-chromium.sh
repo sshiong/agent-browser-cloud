@@ -112,50 +112,84 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "Upgrade")
         self.send_header("Sec-WebSocket-Accept", accept)
         self.end_headers()
-        request = self.read_websocket_text()
-        if request is None:
-            return
-        command = json.loads(request)
-        if command.get("method") == "Runtime.evaluate":
-            evaluation_count += 1
-            target_name = (
-                "Continue integration"
-                if mutate_after > 0 and evaluation_count >= mutate_after
-                else "Run integration"
-            )
-            result = {
-                "url": "https://example.test/runtime",
-                "title": "Browser Cloud Test Page",
-                "targets": [{
-                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
-                    "role": "button",
-                    "name": target_name,
-                    "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
-                    "enabled": True,
-                    "visible": True,
-                    "sensitive": False,
-                }, {
-                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
-                    "role": "textbox",
-                    "name": "Public note",
-                    "bounds": {"x": 20.0, "y": 84.0, "width": 240.0, "height": 36.0},
-                    "enabled": True,
-                    "visible": True,
-                    "sensitive": False,
-                }, {
-                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(2)",
-                    "role": "textbox",
-                    "name": None,
-                    "bounds": {"x": 20.0, "y": 138.0, "width": 240.0, "height": 36.0},
-                    "enabled": True,
-                    "visible": True,
-                    "sensitive": True,
-                }],
-            }
-            response = {"id": command["id"], "result": {"result": {"type": "object", "value": result}}}
-        else:
-            response = {"id": command.get("id", 1), "result": {}}
-        self.write_websocket_text(json.dumps(response))
+        while True:
+            request = self.read_websocket_text()
+            if request is None:
+                return
+            command = json.loads(request)
+            method = command.get("method")
+            if method == "Runtime.evaluate":
+                evaluation_count += 1
+                target_name = (
+                    "Continue integration"
+                    if mutate_after > 0 and evaluation_count >= mutate_after
+                    else "Run integration"
+                )
+                result = {
+                    "url": "https://example.test/runtime",
+                    "title": "Browser Cloud Test Page",
+                    "targets": [{
+                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
+                        "role": "button",
+                        "name": target_name,
+                        "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
+                        "enabled": True,
+                        "visible": True,
+                        "sensitive": False,
+                    }, {
+                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
+                        "role": "textbox",
+                        "name": "Public note",
+                        "bounds": {"x": 20.0, "y": 84.0, "width": 240.0, "height": 36.0},
+                        "enabled": True,
+                        "visible": True,
+                        "sensitive": False,
+                    }, {
+                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(2)",
+                        "role": "textbox",
+                        "name": None,
+                        "bounds": {"x": 20.0, "y": 138.0, "width": 240.0, "height": 36.0},
+                        "enabled": True,
+                        "visible": True,
+                        "sensitive": True,
+                    }],
+                }
+                response = {
+                    "id": command["id"],
+                    "result": {"result": {"type": "object", "value": result}},
+                }
+            elif method == "SystemInfo.getProcessInfo":
+                response = {
+                    "id": command["id"],
+                    "result": {
+                        "processInfo": [
+                            {"type": "browser", "id": 1},
+                            {"type": "renderer", "id": 2},
+                        ]
+                    },
+                }
+            elif method == "Performance.getMetrics":
+                response = {
+                    "id": command["id"],
+                    "result": {
+                        "metrics": [
+                            {"name": "Timestamp", "value": time.monotonic()},
+                            {"name": "TaskDuration", "value": 0.125},
+                        ]
+                    },
+                }
+            else:
+                response = {"id": command.get("id", 1), "result": {}}
+            self.write_websocket_text(json.dumps(response))
+            if method == "Target.setAutoAttach":
+                self.write_websocket_text(json.dumps({
+                    "method": "Target.attachedToTarget",
+                    "params": {
+                        "sessionId": "fake-page-session",
+                        "targetInfo": {"targetId": "page-1", "type": "page"},
+                        "waitingForDebugger": False,
+                    },
+                }))
 
     def read_exact(self, length):
         result = b""

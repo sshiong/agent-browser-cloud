@@ -545,6 +545,73 @@ private static final long serialVersionUID = 0L;
     return pressedButtonCount_;
   }
 
+  public static final int ACTIVE_UPLOAD_COUNT_FIELD_NUMBER = 28;
+  private int activeUploadCount_ = 0;
+  /**
+   * <pre>
+   * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+   * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+   * </pre>
+   *
+   * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   * @return Whether the activeUploadCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasActiveUploadCount() {
+    return ((bitField0_ & 0x00020000) != 0);
+  }
+  /**
+   * <pre>
+   * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+   * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+   * </pre>
+   *
+   * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   * @return The activeUploadCount.
+   */
+  @java.lang.Override
+  public int getActiveUploadCount() {
+    return activeUploadCount_;
+  }
+
+  public static final int ACTIVE_DOWNLOAD_COUNT_FIELD_NUMBER = 29;
+  private int activeDownloadCount_ = 0;
+  /**
+   * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   * @return Whether the activeDownloadCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasActiveDownloadCount() {
+    return ((bitField0_ & 0x00040000) != 0);
+  }
+  /**
+   * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   * @return The activeDownloadCount.
+   */
+  @java.lang.Override
+  public int getActiveDownloadCount() {
+    return activeDownloadCount_;
+  }
+
+  public static final int ACTIVE_FORM_SUBMISSION_COUNT_FIELD_NUMBER = 30;
+  private int activeFormSubmissionCount_ = 0;
+  /**
+   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * @return Whether the activeFormSubmissionCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasActiveFormSubmissionCount() {
+    return ((bitField0_ & 0x00080000) != 0);
+  }
+  /**
+   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * @return The activeFormSubmissionCount.
+   */
+  @java.lang.Override
+  public int getActiveFormSubmissionCount() {
+    return activeFormSubmissionCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -627,6 +694,15 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00010000) != 0)) {
       output.writeUInt32(27, pressedButtonCount_);
+    }
+    if (((bitField0_ & 0x00020000) != 0)) {
+      output.writeUInt32(28, activeUploadCount_);
+    }
+    if (((bitField0_ & 0x00040000) != 0)) {
+      output.writeUInt32(29, activeDownloadCount_);
+    }
+    if (((bitField0_ & 0x00080000) != 0)) {
+      output.writeUInt32(30, activeFormSubmissionCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -724,6 +800,18 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00010000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(27, pressedButtonCount_);
+    }
+    if (((bitField0_ & 0x00020000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(28, activeUploadCount_);
+    }
+    if (((bitField0_ & 0x00040000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(29, activeDownloadCount_);
+    }
+    if (((bitField0_ & 0x00080000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(30, activeFormSubmissionCount_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -841,6 +929,21 @@ private static final long serialVersionUID = 0L;
       if (getPressedButtonCount()
           != other.getPressedButtonCount()) return false;
     }
+    if (hasActiveUploadCount() != other.hasActiveUploadCount()) return false;
+    if (hasActiveUploadCount()) {
+      if (getActiveUploadCount()
+          != other.getActiveUploadCount()) return false;
+    }
+    if (hasActiveDownloadCount() != other.hasActiveDownloadCount()) return false;
+    if (hasActiveDownloadCount()) {
+      if (getActiveDownloadCount()
+          != other.getActiveDownloadCount()) return false;
+    }
+    if (hasActiveFormSubmissionCount() != other.hasActiveFormSubmissionCount()) return false;
+    if (hasActiveFormSubmissionCount()) {
+      if (getActiveFormSubmissionCount()
+          != other.getActiveFormSubmissionCount()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -942,6 +1045,18 @@ private static final long serialVersionUID = 0L;
     if (hasPressedButtonCount()) {
       hash = (37 * hash) + PRESSED_BUTTON_COUNT_FIELD_NUMBER;
       hash = (53 * hash) + getPressedButtonCount();
+    }
+    if (hasActiveUploadCount()) {
+      hash = (37 * hash) + ACTIVE_UPLOAD_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getActiveUploadCount();
+    }
+    if (hasActiveDownloadCount()) {
+      hash = (37 * hash) + ACTIVE_DOWNLOAD_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getActiveDownloadCount();
+    }
+    if (hasActiveFormSubmissionCount()) {
+      hash = (37 * hash) + ACTIVE_FORM_SUBMISSION_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getActiveFormSubmissionCount();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1097,6 +1212,9 @@ private static final long serialVersionUID = 0L;
       activeDrag_ = false;
       pressedKeyCount_ = 0;
       pressedButtonCount_ = 0;
+      activeUploadCount_ = 0;
+      activeDownloadCount_ = 0;
+      activeFormSubmissionCount_ = 0;
       return this;
     }
 
@@ -1216,6 +1334,18 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00400000) != 0)) {
         result.pressedButtonCount_ = pressedButtonCount_;
         to_bitField0_ |= 0x00010000;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.activeUploadCount_ = activeUploadCount_;
+        to_bitField0_ |= 0x00020000;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.activeDownloadCount_ = activeDownloadCount_;
+        to_bitField0_ |= 0x00040000;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.activeFormSubmissionCount_ = activeFormSubmissionCount_;
+        to_bitField0_ |= 0x00080000;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1340,6 +1470,15 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasPressedButtonCount()) {
         setPressedButtonCount(other.getPressedButtonCount());
+      }
+      if (other.hasActiveUploadCount()) {
+        setActiveUploadCount(other.getActiveUploadCount());
+      }
+      if (other.hasActiveDownloadCount()) {
+        setActiveDownloadCount(other.getActiveDownloadCount());
+      }
+      if (other.hasActiveFormSubmissionCount()) {
+        setActiveFormSubmissionCount(other.getActiveFormSubmissionCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1482,6 +1621,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00400000;
               break;
             } // case 216
+            case 224: {
+              activeUploadCount_ = input.readUInt32();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 224
+            case 232: {
+              activeDownloadCount_ = input.readUInt32();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 232
+            case 240: {
+              activeFormSubmissionCount_ = input.readUInt32();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 240
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2527,6 +2681,146 @@ private static final long serialVersionUID = 0L;
     public Builder clearPressedButtonCount() {
       bitField0_ = (bitField0_ & ~0x00400000);
       pressedButtonCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int activeUploadCount_ ;
+    /**
+     * <pre>
+     * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+     * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+     * </pre>
+     *
+     * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     * @return Whether the activeUploadCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasActiveUploadCount() {
+      return ((bitField0_ & 0x00800000) != 0);
+    }
+    /**
+     * <pre>
+     * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+     * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+     * </pre>
+     *
+     * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     * @return The activeUploadCount.
+     */
+    @java.lang.Override
+    public int getActiveUploadCount() {
+      return activeUploadCount_;
+    }
+    /**
+     * <pre>
+     * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+     * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+     * </pre>
+     *
+     * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     * @param value The activeUploadCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveUploadCount(int value) {
+
+      activeUploadCount_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+     * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+     * </pre>
+     *
+     * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveUploadCount() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      activeUploadCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int activeDownloadCount_ ;
+    /**
+     * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     * @return Whether the activeDownloadCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasActiveDownloadCount() {
+      return ((bitField0_ & 0x01000000) != 0);
+    }
+    /**
+     * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     * @return The activeDownloadCount.
+     */
+    @java.lang.Override
+    public int getActiveDownloadCount() {
+      return activeDownloadCount_;
+    }
+    /**
+     * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     * @param value The activeDownloadCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveDownloadCount(int value) {
+
+      activeDownloadCount_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveDownloadCount() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      activeDownloadCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int activeFormSubmissionCount_ ;
+    /**
+     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * @return Whether the activeFormSubmissionCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasActiveFormSubmissionCount() {
+      return ((bitField0_ & 0x02000000) != 0);
+    }
+    /**
+     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * @return The activeFormSubmissionCount.
+     */
+    @java.lang.Override
+    public int getActiveFormSubmissionCount() {
+      return activeFormSubmissionCount_;
+    }
+    /**
+     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * @param value The activeFormSubmissionCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveFormSubmissionCount(int value) {
+
+      activeFormSubmissionCount_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveFormSubmissionCount() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      activeFormSubmissionCount_ = 0;
       onChanged();
       return this;
     }

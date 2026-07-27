@@ -75,6 +75,24 @@ for invariant in (
         f"resource stream migration lacks commit-ordered invariant: {invariant}"
     )
 
+browser_activity_migration = read(
+    "database/migrations/V028__browser_activity_safety_signals.sql"
+)
+browser_activity_upper = browser_activity_migration.upper()
+for invariant in (
+    "ADD CONSTRAINT SESSION_SAFETY_SIGNALS_SIGNAL_TYPE_CHECK_V2",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT SESSION_SAFETY_SIGNALS_SIGNAL_TYPE_CHECK_V2",
+    "DROP CONSTRAINT SESSION_SAFETY_SIGNALS_SIGNAL_TYPE_CHECK",
+    "RENAME CONSTRAINT SESSION_SAFETY_SIGNALS_SIGNAL_TYPE_CHECK_V2",
+    "'FILE_UPLOAD_ACTIVE'",
+    "'FILE_DOWNLOAD_ACTIVE'",
+    "'FORM_SUBMISSION_ACTIVE'",
+):
+    assert invariant in browser_activity_upper, (
+        f"browser activity migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -89,6 +107,30 @@ assert len(tags.values()) == len(set(tags.values())), "protobuf field number reu
 assert tags["certified_media_slots"] == 15
 assert tags["supports_media"] == 16
 assert tags["memory_psi_some_avg10"] == 20
+
+resource_report = proto.split("message ReportSessionResourcesRequest {", 1)[1].split(
+    "}", 1
+)[0]
+resource_tags = {
+    name: (field_type, int(tag))
+    for field_type, name, tag in re.findall(
+        r"^\s*(optional\s+)?(?:map<[^>]+>|[a-z0-9_]+)\s+([a-z0-9_]+)\s*=\s*(\d+);",
+        resource_report,
+        flags=re.MULTILINE,
+    )
+}
+resource_tag_numbers = [tag for _, tag in resource_tags.values()]
+assert len(resource_tag_numbers) == len(set(resource_tag_numbers)), (
+    "resource report protobuf field number reused"
+)
+for name, expected_tag in (
+    ("active_upload_count", 28),
+    ("active_download_count", 29),
+    ("active_form_submission_count", 30),
+):
+    qualifier, actual_tag = resource_tags[name]
+    assert qualifier is not None, f"{name} must remain optional for N/N-1"
+    assert actual_tag == expected_tag
 
 openapi = read("packages/contracts/openapi/session-api.yaml")
 register = openapi.split("    RegisterBrowserNodeRequest:", 1)[1].split(
@@ -113,8 +155,8 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021-expand-only-with-compatible-defaults",
-    "protobuf": "unknown-fields-15-16",
+    "schema": "V019-V021 additive,V028 expand-validate-contract",
+    "protobuf": "unknown-fields-15-16,optional-28-30",
     "json": "new-media-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

@@ -8,11 +8,28 @@ public final class SafePointModels {
   private SafePointModels() {}
 
   public record NodeSafetyObservation(
-      boolean inputActive,
-      boolean activeDrag,
-      int pressedKeyCount,
-      int pressedButtonCount,
-      Instant observedAt) {}
+      Boolean inputActive,
+      Boolean activeDrag,
+      Integer pressedKeyCount,
+      Integer pressedButtonCount,
+      Integer activeUploadCount,
+      Integer activeDownloadCount,
+      Integer activeFormSubmissionCount,
+      Instant observedAt) {
+
+    public boolean hasInputObservation() {
+      return inputActive != null
+          || activeDrag != null
+          || pressedKeyCount != null
+          || pressedButtonCount != null;
+    }
+
+    public boolean hasBrowserActivityObservation() {
+      return activeUploadCount != null
+          || activeDownloadCount != null
+          || activeFormSubmissionCount != null;
+    }
+  }
 
   public record SafePointBlockerView(
       String code, String source, String detail, Instant observedAt, Instant expiresAt) {}

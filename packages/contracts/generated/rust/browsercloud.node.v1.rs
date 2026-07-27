@@ -172,6 +172,14 @@ pub struct ReportSessionResourcesRequest {
     pub pressed_key_count: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="27")]
     pub pressed_button_count: ::core::option::Option<u32>,
+    /// 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+    /// 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+    #[prost(uint32, optional, tag="28")]
+    pub active_upload_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="29")]
+    pub active_download_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="30")]
+    pub active_form_submission_count: ::core::option::Option<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

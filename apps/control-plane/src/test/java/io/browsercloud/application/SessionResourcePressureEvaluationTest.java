@@ -64,6 +64,33 @@ class SessionResourcePressureEvaluationTest {
   }
 
   @Test
+  void safetyOnlySampleDoesNotDiluteSustainedCpuPressure() {
+    var now = Instant.parse("2026-07-28T00:00:00Z");
+    var policy = policy(now, 60, 1_200);
+    var placement = placement(now);
+    var samples =
+        List.of(
+            sample(now.minusSeconds(61), 100.0, 640, null, null),
+            sample(now.minusSeconds(3), null, null, null, null),
+            sample(now.minusSeconds(2), 42.5, 640, null, null),
+            sample(now, 100.0, 640, null, null));
+
+    assertThat(service.scaleUpPressureReason(samples, policy, placement))
+        .isEqualTo("SUSTAINED_CPU_PRESSURE");
+  }
+
+  @Test
+  void emptyDangerEventFromNodeTelemetryIsNotCritical() {
+    var now = Instant.parse("2026-07-28T00:00:00Z");
+
+    assertThat(
+            service.hasDangerEvent(
+                List.of(sample(now, null, null, null, null), sample(now, 10.0, 100, null, null))))
+        .isFalse();
+    assertThat(service.hasDangerEvent(List.of(sample(now, 10.0, 100, null, null, "OOM")))).isTrue();
+  }
+
+  @Test
   void initialPlacementDoesNotStartAdjustmentCooldown() {
     var now = Instant.parse("2026-07-28T00:00:00Z");
     var policy = policy(now, 30, 1_200);
@@ -130,6 +157,17 @@ class SessionResourcePressureEvaluationTest {
       Integer memoryRssMib,
       Integer agentActionLatencyMs,
       Integer remoteDesktopFrameAgeMs) {
+    return sample(
+        observedAt, cpuPercent, memoryRssMib, agentActionLatencyMs, remoteDesktopFrameAgeMs, "");
+  }
+
+  private static SessionResourceSampleEntity sample(
+      Instant observedAt,
+      Double cpuPercent,
+      Integer memoryRssMib,
+      Integer agentActionLatencyMs,
+      Integer remoteDesktopFrameAgeMs,
+      String dangerEvent) {
     return new SessionResourceSampleEntity(
         "rs_" + observedAt.toEpochMilli(),
         "ses_pressure",
@@ -149,7 +187,7 @@ class SessionResourcePressureEvaluationTest {
             0,
             remoteDesktopFrameAgeMs,
             0.0,
-            "",
+            dangerEvent,
             observedAt),
         observedAt);
   }

@@ -2,13 +2,17 @@
 //!
 //! 负责采集浏览器当前状态。
 
+mod safety_monitor;
+
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
+pub use safety_monitor::BrowserSafetyObservation;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
+use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
@@ -234,6 +238,8 @@ pub struct CdpStateCollector {
     cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
     target_registries: Arc<Mutex<HashMap<String, TargetRegistry>>>,
     resource_budget_percentages: Arc<RwLock<HashMap<String, u32>>>,
+    safety_observations: Arc<RwLock<HashMap<String, BrowserSafetyObservation>>>,
+    safety_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
 }
 
 #[derive(Debug, Default)]
@@ -293,6 +299,47 @@ impl CdpStateCollector {
             .write()
             .await
             .remove(session_id);
+        self.safety_observations.write().await.remove(session_id);
+        if let Some(monitor) = self.safety_monitors.lock().await.remove(session_id) {
+            monitor.abort();
+        }
+    }
+
+    /// 启动持续、只读的 CDP Browser/Network 活动观察器。
+    ///
+    /// 观察器在独立 Browser WebSocket 上运行，不阻塞 State/Resource 的周期采集。
+    /// 一旦已经建立过的观察连接丢失，本代 Runtime 会保持 fail-closed，不会把重连后的
+    /// 不完整请求集合误报为“无上传/下载”。
+    pub async fn start_safety_monitor(&self, session_id: &str) -> anyhow::Result<()> {
+        let endpoint = self.endpoint(session_id).await?;
+        if let Some(previous) = self.safety_monitors.lock().await.remove(session_id) {
+            previous.abort();
+        }
+        self.safety_observations
+            .write()
+            .await
+            .insert(session_id.to_owned(), BrowserSafetyObservation::default());
+        let monitor = safety_monitor::spawn(
+            session_id.to_owned(),
+            endpoint,
+            Arc::clone(&self.safety_observations),
+        );
+        self.safety_monitors
+            .lock()
+            .await
+            .insert(session_id.to_owned(), monitor);
+        Ok(())
+    }
+
+    /// 返回当前 Browser 活动观察。`fresh=false` 时调用方必须省略安全字段，使
+    /// Control Plane 依靠 TTL 和缺失信号 fail-closed。
+    pub async fn browser_safety_observation(&self, session_id: &str) -> BrowserSafetyObservation {
+        self.safety_observations
+            .read()
+            .await
+            .get(session_id)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// 在线调整单 Session 的 State Collector 工作预算，返回旧值。
@@ -1272,6 +1319,26 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
         assert!(ready, "real Chromium CDP did not become ready");
+        collector
+            .start_safety_monitor("ses_real_chromium")
+            .await
+            .unwrap();
+        let mut safety_observer_ready = false;
+        for _ in 0..50 {
+            if collector
+                .browser_safety_observation("ses_real_chromium")
+                .await
+                .fresh
+            {
+                safety_observer_ready = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(
+            safety_observer_ready,
+            "real Chromium safety observer did not enable Browser/Network domains"
+        );
 
         collector
             .navigate(
@@ -1301,6 +1368,7 @@ mod tests {
             .iter()
             .any(|target| target.role == "textbox" && target.name.as_deref() == Some("Name")));
 
+        collector.unregister_runtime("ses_real_chromium").await;
         let _ = child.start_kill();
         let _ = child.wait().await;
         page_task.abort();

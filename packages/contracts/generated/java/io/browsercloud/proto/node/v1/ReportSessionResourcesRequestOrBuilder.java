@@ -254,4 +254,47 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * @return The pressedButtonCount.
    */
   int getPressedButtonCount();
+
+  /**
+   * <pre>
+   * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+   * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+   * </pre>
+   *
+   * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   * @return Whether the activeUploadCount field is set.
+   */
+  boolean hasActiveUploadCount();
+  /**
+   * <pre>
+   * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+   * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+   * </pre>
+   *
+   * <code>optional uint32 active_upload_count = 28 [json_name = "activeUploadCount"];</code>
+   * @return The activeUploadCount.
+   */
+  int getActiveUploadCount();
+
+  /**
+   * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   * @return Whether the activeDownloadCount field is set.
+   */
+  boolean hasActiveDownloadCount();
+  /**
+   * <code>optional uint32 active_download_count = 29 [json_name = "activeDownloadCount"];</code>
+   * @return The activeDownloadCount.
+   */
+  int getActiveDownloadCount();
+
+  /**
+   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * @return Whether the activeFormSubmissionCount field is set.
+   */
+  boolean hasActiveFormSubmissionCount();
+  /**
+   * <code>optional uint32 active_form_submission_count = 30 [json_name = "activeFormSubmissionCount"];</code>
+   * @return The activeFormSubmissionCount.
+   */
+  int getActiveFormSubmissionCount();
 }

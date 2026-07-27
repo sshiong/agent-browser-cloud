@@ -290,7 +290,7 @@ public class SessionResourceApplicationService {
       policies.save(policy);
       return;
     }
-    if (window.stream().anyMatch(sample -> sample.getDangerEvent() != null)) {
+    if (hasDangerEvent(window)) {
       policy.evaluate(ResourcePolicyStatus.CRITICAL, "DANGER_EVENT_REPORTED", now);
       policies.save(policy);
       return;
@@ -853,6 +853,11 @@ public class SessionResourceApplicationService {
       return "SUSTAINED_MEDIA_ENCODER_PRESSURE";
     }
     return null;
+  }
+
+  boolean hasDangerEvent(List<SessionResourceSampleEntity> window) {
+    return window.stream()
+        .anyMatch(sample -> sample.getDangerEvent() != null && !sample.getDangerEvent().isBlank());
   }
 
   private static Double number(Number value) {

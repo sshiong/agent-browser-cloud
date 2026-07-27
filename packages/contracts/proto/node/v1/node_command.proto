@@ -120,6 +120,11 @@ message ReportSessionResourcesRequest {
   optional bool active_drag = 25;
   optional uint32 pressed_key_count = 26;
   optional uint32 pressed_button_count = 27;
+  // 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+  // 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+  optional uint32 active_upload_count = 28;
+  optional uint32 active_download_count = 29;
+  optional uint32 active_form_submission_count = 30;
 }
 
 message ReportSessionResourcesResponse {

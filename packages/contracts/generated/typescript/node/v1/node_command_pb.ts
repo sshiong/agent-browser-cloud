@@ -668,6 +668,24 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
    */
   pressedButtonCount?: number;
 
+  /**
+   * 持续 CDP Browser/Network 观察器的活动计数。三项必须同时出现；
+   * 缺失表示观察器尚未形成可信快照，Control Plane 必须按能力标签 fail-closed。
+   *
+   * @generated from field: optional uint32 active_upload_count = 28;
+   */
+  activeUploadCount?: number;
+
+  /**
+   * @generated from field: optional uint32 active_download_count = 29;
+   */
+  activeDownloadCount?: number;
+
+  /**
+   * @generated from field: optional uint32 active_form_submission_count = 30;
+   */
+  activeFormSubmissionCount?: number;
+
   constructor(data?: PartialMessage<ReportSessionResourcesRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -699,6 +717,9 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
     { no: 25, name: "active_drag", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 26, name: "pressed_key_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 27, name: "pressed_button_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 28, name: "active_upload_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 29, name: "active_download_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 30, name: "active_form_submission_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportSessionResourcesRequest {

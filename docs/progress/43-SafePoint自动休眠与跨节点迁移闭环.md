@@ -1,7 +1,7 @@
 # Safe Point、自动休眠与跨节点迁移闭环
 
 > 日期：2026-07-28
-> 状态：仓库内核心执行链和单元/契约/数据库验收完成；真实双 Browser Node + S3 全链路 E2E、业务专用 Validator 和外部事务信号生产者待完成
+> 状态：仓库内核心执行链和单元/契约/数据库验收完成；CDP 文件传输/导航表单信号已补齐，真实双 Browser Node + S3 全链路 E2E、业务专用 Validator 和应用事务信号生产者待完成
 
 ## 本轮完成
 
@@ -23,9 +23,11 @@
     Business Recovery 信号。
 - 新增 `GET /api/v1/sessions/{id}/safe-point`。Session 详情显示 SAFE/BLOCKED/UNKNOWN、
   信号新鲜度和非纯颜色的阻塞原因。
-- 当前已经有真实生产者的是 Input Ledger、Operation、Agent Task 和 Durable Workflow。
-  File Transfer、Form Submission、Payment/Security 等业务信号模型已保留，但对应业务
-  子系统尚未全部实现生产者，因此不能宣称任意网站都已具备业务安全点识别。
+- 当前已经有真实生产者的是 Input Ledger、CDP File Upload/Download、导航级 Form
+  Submission、Operation、Agent Task 和 Durable Workflow。Payment/Security、SPA
+  应用语义和关键业务事务仍需应用侧生产者，因此不能宣称任意网站都已具备完整业务
+  安全点识别。CDP 浏览器活动的后续实现和证据见
+  [CDP 浏览器活动 Safe Point](48-CDP浏览器活动SafePoint.md)。
 
 ### 达到上限的真实动作
 
@@ -87,12 +89,13 @@
 
 ## 仍未完成
 
-1. Renderer、Tab、主线程、Agent 延迟、State Diff、Profile I/O、Extension、
-   Remote Desktop 和 Media 的真实细分指标。
-2. State Collector 预算、Encoder Slot、Remote Desktop 码率和 Extension Weight
-   在线执行器。
-3. File Upload/Download、Form Submission、Payment/Security 和应用关键事务的真实
-   Signal Producer/Lease；当前不会伪造这些状态。
+1. Renderer、Tab、主线程、Agent 延迟、State Diff 和 Remote Desktop 的真实细分指标
+   已完成；仍缺 Profile I/O、Extension 和 Media 指标生产者。
+2. State Collector 预算和 Remote Desktop 码率在线执行器已完成；仍缺 Encoder Slot
+   和 Extension Weight 在线执行器。
+3. File Upload/Download 和导航级 Form Submission 的 CDP Signal Producer 已完成；
+   仍缺 Payment/Security、SPA 应用语义和应用关键事务 Producer/Lease，当前不会伪造
+   这些状态。
 4. 两个真实 Browser Node + S3-compatible Object Storage + 真实 Chromium 的迁移
    E2E、断点重试、源/目标 Node 故障注入和长期稳定性证书。
 5. Tenant/Application-aware Business Recovery Validator 插件；默认 Validator 只能

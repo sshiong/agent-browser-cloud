@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.browsercloud.api.BrowserNodeView;
+import io.browsercloud.api.SafePointModels.NodeSafetyObservation;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
 import io.browsercloud.application.SafePointApplicationService;
@@ -23,6 +25,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class NodeCapacityGrpcEndpointTest {
 
@@ -148,6 +151,88 @@ class NodeCapacityGrpcEndpointTest {
       verify(safePoints)
           .recordNodeObservation(
               eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), eq(7L), any());
+    }
+  }
+
+  @Test
+  void authenticNodeResourceReportRecordsCompleteBrowserActivityObservation() {
+    var resources = mock(SessionResourceApplicationService.class);
+    var safePoints = mock(SafePointApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              safePoints,
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setActiveUploadCount(1)
+              .setActiveDownloadCount(2)
+              .setActiveFormSubmissionCount(3)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .extracting(ReportSessionResourcesResponse::getAccepted)
+          .isEqualTo(true);
+      var observation = ArgumentCaptor.forClass(NodeSafetyObservation.class);
+      verify(safePoints)
+          .recordNodeObservation(
+              eq("ses_test_1"),
+              eq("tenant-test"),
+              eq("node_test_1"),
+              eq(7L),
+              observation.capture());
+      assertThat(observation.getValue().activeUploadCount()).isEqualTo(1);
+      assertThat(observation.getValue().activeDownloadCount()).isEqualTo(2);
+      assertThat(observation.getValue().activeFormSubmissionCount()).isEqualTo(3);
+    }
+  }
+
+  @Test
+  void partialBrowserActivityObservationIsRejectedBeforePersistence() {
+    var resources = mock(SessionResourceApplicationService.class);
+    var safePoints = mock(SafePointApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              safePoints,
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setActiveUploadCount(1)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .satisfies(
+              response -> {
+                assertThat(response.getAccepted()).isFalse();
+                assertThat(response.getErrorCode()).isEqualTo("INVALID_RESOURCE_SAMPLE");
+              });
+      verify(resources, never()).recordSampleFromNode(any(), any(), eq(7L), any());
+      verify(safePoints, never()).recordNodeObservation(any(), any(), any(), eq(7L), any());
     }
   }
 

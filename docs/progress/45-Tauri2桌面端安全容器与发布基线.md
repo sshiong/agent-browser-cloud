@@ -1,7 +1,7 @@
 # Tauri 2 桌面端安全容器与发布基线
 
 > 日期：2026-07-28
-> 状态：macOS 本机编译与无安装包验证构建已完成；Windows 由新增 CI 验证；
+> 状态：macOS 本机及 GitHub macOS/Windows 无安装包验证构建已完成；
 > 平台代码签名、Notarization、真实更新源和桌面视觉/无障碍矩阵仍是发布 Gate
 
 ## 本轮完成
@@ -93,8 +93,8 @@ pnpm --dir apps/desktop build:unsigned
    验证合法升级、篡改拒绝、降级策略和密钥撤销。
 4. 在真实企业 IdP 注册桌面 Redirect URI，完成 PKCE、MFA/ACR、Refresh、
    Logout、Deep Link 冷/热启动和租户 Claim 联调。
-5. Windows CI 首次运行结果、真实 Windows 机器 Credential Manager/Deep Link/
-   Tray/Updater 验收；当前本机只证明 macOS 编译。
+5. GitHub Windows 编译/单测已通过；仍缺真实 Windows 机器 Credential Manager、
+   Deep Link、Tray、Updater、SmartScreen 和安装/卸载验收。
 6. 桌面端 SSE 在断网、系统休眠/唤醒、网络切换和长期后台运行下的重连验收。
 7. 1280×800、1440×900、Windows 缩放、全键盘、屏幕阅读器和视觉回归矩阵。
 8. 若交付本机 Browser Node，仍需将签名 Runtime 作为 Tauri Resource 打包，并完成

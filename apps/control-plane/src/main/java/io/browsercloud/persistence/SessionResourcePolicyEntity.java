@@ -136,7 +136,6 @@ public class SessionResourcePolicyEntity {
     resolvedTemplate = template;
     status = ResourcePolicyStatus.OBSERVING.name();
     statusReason = "PLACEMENT_RESOLVED_AWAITING_TELEMETRY";
-    lastAdjustedAt = now;
     updatedAt = now;
   }
 

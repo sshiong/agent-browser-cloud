@@ -44,6 +44,12 @@ pub struct RuntimeResourceLimits {
     pub isolation_required: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeResourceAdjustment {
+    pub previous: RuntimeResourceLimits,
+    pub applied: RuntimeResourceLimits,
+}
+
 impl RuntimeResourceLimits {
     pub fn local_test_default() -> Self {
         Self {
@@ -101,7 +107,7 @@ pub trait RuntimeSupervisor: Send + Sync {
         &self,
         session_id: &str,
         limits: RuntimeResourceLimits,
-    ) -> anyhow::Result<RuntimeResourceLimits>;
+    ) -> anyhow::Result<RuntimeResourceAdjustment>;
     async fn stop(&self, session_id: &str) -> anyhow::Result<()>;
     async fn health(&self, session_id: &str) -> anyhow::Result<RuntimeHealth>;
     async fn metrics(&self, session_id: &str) -> anyhow::Result<RuntimeMetrics>;
@@ -854,7 +860,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
         &self,
         session_id: &str,
         limits: RuntimeResourceLimits,
-    ) -> anyhow::Result<RuntimeResourceLimits> {
+    ) -> anyhow::Result<RuntimeResourceAdjustment> {
         let mut runtimes = self.runtimes.lock().await;
         let runtime = runtimes
             .get_mut(session_id)
@@ -866,14 +872,27 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 && limits.isolation_required == runtime.resource_limits.isolation_required,
             "online adjustment cannot change execution environment capabilities"
         );
-        let cgroup = runtime
-            .cgroup
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("runtime resource enforcement is unavailable"))?;
         let previous = runtime.resource_limits.clone();
+        let Some(cgroup) = runtime.cgroup.as_ref() else {
+            tracing::warn!(
+                session_id,
+                requested_cpu_millis = limits.cpu_millis,
+                applied_cpu_millis = previous.cpu_millis,
+                requested_memory_limit_mib = limits.memory_limit_mib,
+                applied_memory_limit_mib = previous.memory_limit_mib,
+                "Cgroup resource adjustment skipped because enforcement is unavailable"
+            );
+            return Ok(RuntimeResourceAdjustment {
+                previous: previous.clone(),
+                applied: previous,
+            });
+        };
         cgroup.adjust(&previous, &limits)?;
-        runtime.resource_limits = limits;
-        Ok(previous)
+        runtime.resource_limits = limits.clone();
+        Ok(RuntimeResourceAdjustment {
+            previous,
+            applied: limits,
+        })
     }
 
     async fn stop(&self, session_id: &str) -> anyhow::Result<()> {

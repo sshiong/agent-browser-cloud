@@ -579,6 +579,23 @@ public class SessionResourceApplicationService {
       return;
     }
     memoryRequestMib = Math.min(memoryRequestMib, memoryLimitMib);
+    var scalingUp = status == ResourcePolicyStatus.SCALING_UP;
+    var stateCollectorBudgetPercent =
+        scalingUp
+            ? Math.min(100, placement.getStateCollectorBudgetPercent() + 25)
+            : Math.max(25, placement.getStateCollectorBudgetPercent() - 25);
+    var remoteDesktopBitrateKbps =
+        !placement.isRequiresDesktop()
+            ? 0
+            : scalingUp
+                ? Math.min(
+                    12_000,
+                    Math.max(
+                        1_000,
+                        Math.max(
+                            placement.getRemoteDesktopBitrateKbps() + 500,
+                            placement.getRemoteDesktopBitrateKbps() * 3 / 2)))
+                : Math.max(750, placement.getRemoteDesktopBitrateKbps() * 3 / 4);
     var operationId = newId("op_");
     var operation =
         OperationFactory.resourceAdjustment(
@@ -591,6 +608,8 @@ public class SessionResourceApplicationService {
             memoryLimitMib,
             placement.getPidLimit(),
             placement.getTabBudget(),
+            stateCollectorBudgetPercent,
+            remoteDesktopBitrateKbps,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
@@ -606,7 +625,13 @@ public class SessionResourceApplicationService {
         "ADJUSTMENT_REQUESTED",
         reason,
         allocationMap(placement),
-        allocationMap(placement, cpuMillis, memoryRequestMib, memoryLimitMib),
+        allocationMap(
+            placement,
+            cpuMillis,
+            memoryRequestMib,
+            memoryLimitMib,
+            stateCollectorBudgetPercent,
+            remoteDesktopBitrateKbps),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -631,15 +656,34 @@ public class SessionResourceApplicationService {
         || placement.getPidLimit() != adjusted.oldPidLimit()
         || placement.getTabBudget() != adjusted.oldTabBudget()
         || placement.getPidLimit() != adjusted.newPidLimit()
-        || placement.getTabBudget() != adjusted.newTabBudget()) {
+        || placement.getTabBudget() != adjusted.newTabBudget()
+        || (adjusted.oldStateCollectorBudgetPercent() != null
+            && placement.getStateCollectorBudgetPercent()
+                != adjusted.oldStateCollectorBudgetPercent())
+        || (adjusted.oldRemoteDesktopBitrateKbps() != null
+            && placement.getRemoteDesktopBitrateKbps() != adjusted.oldRemoteDesktopBitrateKbps())) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
+    var nextStateCollectorBudgetPercent =
+        adjusted.newStateCollectorBudgetPercent() == null
+            ? placement.getStateCollectorBudgetPercent()
+            : adjusted.newStateCollectorBudgetPercent();
+    var nextRemoteDesktopBitrateKbps =
+        adjusted.newRemoteDesktopBitrateKbps() == null
+            ? placement.getRemoteDesktopBitrateKbps()
+            : adjusted.newRemoteDesktopBitrateKbps();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
         || adjusted.newMemoryRequestMib() <= 0
         || adjusted.newMemoryLimitMib() < adjusted.newMemoryRequestMib()
-        || adjusted.newMemoryLimitMib() > policy.getMaximumMemoryMib()) {
+        || adjusted.newMemoryLimitMib() > policy.getMaximumMemoryMib()
+        || nextStateCollectorBudgetPercent < 10
+        || nextStateCollectorBudgetPercent > 100
+        || nextRemoteDesktopBitrateKbps < 0
+        || nextRemoteDesktopBitrateKbps > 100_000
+        || (placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps < 250)
+        || (!placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps != 0)) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
     var old = allocationMap(placement);
@@ -648,7 +692,9 @@ public class SessionResourceApplicationService {
         adjusted.newMemoryRequestMib(),
         adjusted.newMemoryLimitMib(),
         adjusted.newPidLimit(),
-        adjusted.newTabBudget());
+        adjusted.newTabBudget(),
+        nextStateCollectorBudgetPercent,
+        nextRemoteDesktopBitrateKbps);
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -932,6 +978,8 @@ public class SessionResourceApplicationService {
         placement.getMemoryRequestMib(),
         placement.getMemoryLimitMib(),
         placement.getTabBudget(),
+        placement.getStateCollectorBudgetPercent(),
+        placement.getRemoteDesktopBitrateKbps(),
         placement.getState());
   }
 
@@ -1013,6 +1061,8 @@ public class SessionResourceApplicationService {
         "template", templateFor(placement.effectiveResourceClass()),
         "cpuMillis", placement.cpuMillis(),
         "memoryLimitMib", placement.memoryLimitMib(),
+        "stateCollectorBudgetPercent", placement.stateCollectorBudgetPercent(),
+        "remoteDesktopBitrateKbps", placement.remoteDesktopBitrateKbps(),
         "nodeId", placement.nodeId());
   }
 
@@ -1021,16 +1071,25 @@ public class SessionResourceApplicationService {
         placement,
         placement.getCpuMillis(),
         placement.getMemoryRequestMib(),
-        placement.getMemoryLimitMib());
+        placement.getMemoryLimitMib(),
+        placement.getStateCollectorBudgetPercent(),
+        placement.getRemoteDesktopBitrateKbps());
   }
 
   private Map<String, Object> allocationMap(
-      BrowserPlacementEntity placement, int cpuMillis, int memoryRequestMib, int memoryLimitMib) {
+      BrowserPlacementEntity placement,
+      int cpuMillis,
+      int memoryRequestMib,
+      int memoryLimitMib,
+      int stateCollectorBudgetPercent,
+      int remoteDesktopBitrateKbps) {
     return Map.of(
         "template", templateFor(placement.effectiveResourceClass()),
         "cpuMillis", cpuMillis,
         "memoryRequestMib", memoryRequestMib,
         "memoryLimitMib", memoryLimitMib,
+        "stateCollectorBudgetPercent", stateCollectorBudgetPercent,
+        "remoteDesktopBitrateKbps", remoteDesktopBitrateKbps,
         "nodeId", placement.getNodeId());
   }
 

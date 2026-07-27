@@ -12,6 +12,7 @@ import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
+import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.TargetBounds;
@@ -87,6 +88,92 @@ class NodeEventMapperTest {
               assertThat(stopped.profileWriteEpoch()).isEqualTo(2);
               assertThat(stopped.coreSizeBytes()).isEqualTo(42);
               assertThat(stopped.restoreStatus()).isEqualTo("TECHNICAL_READY");
+            });
+  }
+
+  @Test
+  void shouldMapOptionalNonCgroupResourceAdjustmentAcknowledgement() {
+    var payload =
+        RuntimeResourcesAdjustedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setNodeId("node-test")
+            .setOldResourceClass("L2")
+            .setOldCpuMillis(600)
+            .setOldMemoryRequestMib(768)
+            .setOldMemoryLimitMib(1280)
+            .setOldPidLimit(256)
+            .setOldTabBudget(8)
+            .setNewResourceClass("L2")
+            .setNewCpuMillis(900)
+            .setNewMemoryRequestMib(1024)
+            .setNewMemoryLimitMib(1792)
+            .setNewPidLimit(256)
+            .setNewTabBudget(8)
+            .setReason("SUSTAINED_MEMORY_PRESSURE")
+            .setOperationId("op-resource")
+            .setOldStateCollectorBudgetPercent(100)
+            .setNewStateCollectorBudgetPercent(75)
+            .setOldRemoteDesktopBitrateKbps(8000)
+            .setNewRemoteDesktopBitrateKbps(6000)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-resource")
+            .setEventType(NodeEventMapper.RUNTIME_RESOURCES_ADJUSTED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.RuntimeResourcesAdjusted.class,
+            adjusted -> {
+              assertThat(adjusted.oldStateCollectorBudgetPercent()).isEqualTo(100);
+              assertThat(adjusted.newStateCollectorBudgetPercent()).isEqualTo(75);
+              assertThat(adjusted.oldRemoteDesktopBitrateKbps()).isEqualTo(8000);
+              assertThat(adjusted.newRemoteDesktopBitrateKbps()).isEqualTo(6000);
+            });
+  }
+
+  @Test
+  void shouldAcceptLegacyResourceAdjustmentWithoutNonCgroupFields() {
+    var payload =
+        RuntimeResourcesAdjustedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setNodeId("node-test")
+            .setOldResourceClass("L2")
+            .setOldCpuMillis(600)
+            .setOldMemoryRequestMib(768)
+            .setOldMemoryLimitMib(1280)
+            .setOldPidLimit(256)
+            .setOldTabBudget(8)
+            .setNewResourceClass("L2")
+            .setNewCpuMillis(900)
+            .setNewMemoryRequestMib(1024)
+            .setNewMemoryLimitMib(1792)
+            .setNewPidLimit(256)
+            .setNewTabBudget(8)
+            .setReason("SUSTAINED_MEMORY_PRESSURE")
+            .setOperationId("op-resource")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-resource-legacy")
+            .setEventType(NodeEventMapper.RUNTIME_RESOURCES_ADJUSTED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.RuntimeResourcesAdjusted.class,
+            adjusted -> {
+              assertThat(adjusted.oldStateCollectorBudgetPercent()).isNull();
+              assertThat(adjusted.newRemoteDesktopBitrateKbps()).isNull();
             });
   }
 

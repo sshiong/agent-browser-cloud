@@ -52,6 +52,12 @@ public class BrowserPlacementEntity {
   @Column(name = "tab_budget", nullable = false)
   private int tabBudget;
 
+  @Column(name = "state_collector_budget_percent", nullable = false)
+  private int stateCollectorBudgetPercent;
+
+  @Column(name = "remote_desktop_bitrate_kbps", nullable = false)
+  private int remoteDesktopBitrateKbps;
+
   @Column(name = "requires_desktop", nullable = false)
   private boolean requiresDesktop;
 
@@ -133,6 +139,8 @@ public class BrowserPlacementEntity {
     this.memoryLimitMib = memoryLimitMib;
     this.pidLimit = pidLimit;
     this.tabBudget = tabBudget;
+    this.stateCollectorBudgetPercent = 50;
+    this.remoteDesktopBitrateKbps = requiresDesktop ? 8_000 : 0;
     this.requiresDesktop = requiresDesktop;
     this.requiresGpu = requiresGpu;
     this.requiresNativeOs = requiresNativeOs;
@@ -186,7 +194,9 @@ public class BrowserPlacementEntity {
       int nextMemoryRequestMib,
       int nextMemoryLimitMib,
       int nextPidLimit,
-      int nextTabBudget) {
+      int nextTabBudget,
+      int nextStateCollectorBudgetPercent,
+      int nextRemoteDesktopBitrateKbps) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -194,7 +204,13 @@ public class BrowserPlacementEntity {
         || nextMemoryRequestMib <= 0
         || nextMemoryLimitMib < nextMemoryRequestMib
         || nextPidLimit < 32
-        || nextTabBudget <= 0) {
+        || nextTabBudget <= 0
+        || nextStateCollectorBudgetPercent < 10
+        || nextStateCollectorBudgetPercent > 100
+        || nextRemoteDesktopBitrateKbps < 0
+        || nextRemoteDesktopBitrateKbps > 100_000
+        || (requiresDesktop && nextRemoteDesktopBitrateKbps < 250)
+        || (!requiresDesktop && nextRemoteDesktopBitrateKbps != 0)) {
       throw new IllegalArgumentException("resource adjustment is invalid");
     }
     cpuMillis = nextCpuMillis;
@@ -202,6 +218,8 @@ public class BrowserPlacementEntity {
     memoryLimitMib = nextMemoryLimitMib;
     pidLimit = nextPidLimit;
     tabBudget = nextTabBudget;
+    stateCollectorBudgetPercent = nextStateCollectorBudgetPercent;
+    remoteDesktopBitrateKbps = nextRemoteDesktopBitrateKbps;
   }
 
   public String getSessionId() {
@@ -250,6 +268,14 @@ public class BrowserPlacementEntity {
 
   public int getTabBudget() {
     return tabBudget;
+  }
+
+  public int getStateCollectorBudgetPercent() {
+    return stateCollectorBudgetPercent;
+  }
+
+  public int getRemoteDesktopBitrateKbps() {
+    return remoteDesktopBitrateKbps;
   }
 
   public boolean isRequiresDesktop() {

@@ -40,6 +40,8 @@ public final class SessionResourceModels {
       Integer memoryRequestMib,
       Integer memoryLimitMib,
       Integer tabBudget,
+      Integer stateCollectorBudgetPercent,
+      Integer remoteDesktopBitrateKbps,
       String placementState) {}
 
   public record UsageView(

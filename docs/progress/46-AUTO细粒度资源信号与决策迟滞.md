@@ -1,8 +1,9 @@
 # AUTO 细粒度资源信号与决策迟滞
 
 > 日期：2026-07-28
-> 状态：首批六类细粒度真实信号和多指标决策迟滞已完成；Profile/Extension/Media
-> 指标生产者与非 Cgroup 执行器待完成
+> 状态：首批六类细粒度真实信号、多指标决策迟滞、State Collector Budget 和
+> Remote Desktop Bitrate 执行器已完成；Profile/Extension/Media 指标生产者与
+> Extension/Media 执行器待完成
 
 ## 本轮目标
 
@@ -79,8 +80,8 @@ make test-integration
 ## 尚未完成
 
 1. Profile I/O、Extension CPU/内存和 Media Encoder 的真实指标生产者。
-2. State Collector Budget、Remote Desktop Bitrate、Extension Resource Weight 和
-   Media Encoder Slot 的在线执行器、回滚与 Node ACK 语义。
+2. State Collector Budget、Remote Desktop Bitrate、回滚和 Node ACK 语义已完成；
+   仍缺 Extension Resource Weight 与 Media Encoder Slot 在线执行器。
 3. Long Tasks/页面主线程阻塞的更精确采集；当前使用 CDP `TaskDuration` 差值。
 4. 目标 Linux 的多 Session 5 秒遥测长稳、缩容抖动和 OOM/磁盘满即时保护证书。
 5. 双真实 Browser Node + S3 + Chromium 的迁移故障注入与长稳证书。
@@ -88,6 +89,5 @@ make test-integration
 
 ## 下一步
 
-优先实现 Remote Desktop Bitrate 与 State Collector Budget 执行器，使已经产生的压力
-信号能在不迁移 Session 的情况下先降低非核心开销；随后补 Extension/Media 的隔离
-执行器和真实指标生产者。
+优先补 Extension/Media 的隔离执行器和真实指标生产者；随后在双真实桌面 Browser Node
+上验证 Remote Desktop Bitrate、迁移和业务恢复的故障矩阵。

@@ -165,6 +165,8 @@ export interface SessionResourceView {
     memoryRequestMib?: number;
     memoryLimitMib?: number;
     tabBudget?: number;
+    stateCollectorBudgetPercent?: number;
+    remoteDesktopBitrateKbps?: number;
     placementState: string;
   };
   usage?: {

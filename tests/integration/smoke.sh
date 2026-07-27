@@ -507,7 +507,7 @@ placement="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/browser-placements/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$placement" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] == "node_integration"; assert item["requestedResourceClass"] == "L1"; assert item["effectiveResourceClass"] == "L2"; assert item["unknownExtensionCount"] == 1; assert "UNKNOWN_EXTENSION_PROBATION" in item["reasonCodes"]; assert item["state"] == "ACTIVE"'
+  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] == "node_integration"; assert item["requestedResourceClass"] == "L1"; assert item["effectiveResourceClass"] == "L2"; assert item["unknownExtensionCount"] == 1; assert item["stateCollectorBudgetPercent"] == 50; assert item["remoteDesktopBitrateKbps"] == 0; assert "UNKNOWN_EXTENSION_PROBATION" in item["reasonCodes"]; assert item["state"] == "ACTIVE"'
 
 resource_stream_cursor="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select greatest(
@@ -619,6 +619,35 @@ done
 test "$diff_target_name" = "Continue integration"
 printf '%s' "$diff_state" | python3 -c \
   "import json,sys; state=json.load(sys.stdin); assert state['stateVersion'] > ${initial_state_version}; assert state['stateQuality'] == 'COMPLETE'"
+
+resource_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=61)).isoformat().replace("+00:00","Z"))')"
+resource_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
+for observed_at in "$resource_pressure_start" "$resource_pressure_end"; do
+  curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-samples" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: PLATFORM_ADMIN' \
+    -d "{\"nodeId\":\"node_integration\",\"cpuPercent\":100.0,\"memoryRssMib\":640,\"memoryPsiSomeAvg10\":0.02,\"observedAt\":\"${observed_at}\"}" \
+    >/dev/null
+done
+non_cgroup_resource_limits=""
+for _ in $(seq 1 160); do
+  non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps
+     from browser_placements where session_id='${session_one}'")"
+  if [[ "$non_cgroup_resource_limits" = "75:0" ]]; then break; fi
+  sleep 0.25
+done
+test "$non_cgroup_resource_limits" = "75:0"
+non_cgroup_adjustment_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from session_resource_events
+   where session_id='${session_one}'
+     and event_type='ALLOCATION_ADJUSTED'
+     and (new_resources->>'stateCollectorBudgetPercent')::integer = 75
+     and (new_resources->>'remoteDesktopBitrateKbps')::integer = 0
+     and result='COMMITTED'")"
+test "$non_cgroup_adjustment_events" = "1"
 
 inflight_takeover="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
@@ -1502,10 +1531,14 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "9"
+test "$committed_operations" = "10"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
-test "$resource_policy_operations" = "1"
+test "$resource_policy_operations" = "2"
+non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps
+   from browser_placements where session_id='${session_one}'")"
+test "$non_cgroup_resource_limits" = "75:0"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"

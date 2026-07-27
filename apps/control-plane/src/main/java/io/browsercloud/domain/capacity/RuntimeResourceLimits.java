@@ -10,6 +10,8 @@ public record RuntimeResourceLimits(
     int memoryLimitMib,
     int pidLimit,
     int tabBudget,
+    int stateCollectorBudgetPercent,
+    int remoteDesktopBitrateKbps,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,
@@ -20,7 +22,13 @@ public record RuntimeResourceLimits(
         || memoryRequestMib < 0
         || memoryLimitMib < memoryRequestMib
         || pidLimit < 0
-        || tabBudget < 0) {
+        || tabBudget < 0
+        || stateCollectorBudgetPercent < 10
+        || stateCollectorBudgetPercent > 100
+        || remoteDesktopBitrateKbps < 0
+        || remoteDesktopBitrateKbps > 100_000
+        || (desktop && remoteDesktopBitrateKbps < 250)
+        || (!desktop && remoteDesktopBitrateKbps != 0)) {
       throw new IllegalArgumentException("Runtime resource limits are invalid");
     }
   }

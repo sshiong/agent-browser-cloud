@@ -151,4 +151,34 @@ public interface StartRuntimeCommandOrBuilder extends
    */
   com.google.protobuf.ByteString
       getProfileCheckpointIdBytes();
+
+  /**
+   * <pre>
+   * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
+   * </pre>
+   *
+   * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+   * @return Whether the stateCollectorBudgetPercent field is set.
+   */
+  boolean hasStateCollectorBudgetPercent();
+  /**
+   * <pre>
+   * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
+   * </pre>
+   *
+   * <code>optional uint32 state_collector_budget_percent = 18 [json_name = "stateCollectorBudgetPercent"];</code>
+   * @return The stateCollectorBudgetPercent.
+   */
+  int getStateCollectorBudgetPercent();
+
+  /**
+   * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * @return Whether the remoteDesktopBitrateKbps field is set.
+   */
+  boolean hasRemoteDesktopBitrateKbps();
+  /**
+   * <code>optional uint32 remote_desktop_bitrate_kbps = 19 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * @return The remoteDesktopBitrateKbps.
+   */
+  int getRemoteDesktopBitrateKbps();
 }

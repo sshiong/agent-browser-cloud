@@ -17,6 +17,8 @@ public record BrowserPlacementView(
     int memoryLimitMib,
     int pidLimit,
     int tabBudget,
+    int stateCollectorBudgetPercent,
+    int remoteDesktopBitrateKbps,
     boolean requiresDesktop,
     boolean requiresGpu,
     boolean requiresNativeOs,

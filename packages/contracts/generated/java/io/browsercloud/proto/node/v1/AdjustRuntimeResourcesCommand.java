@@ -46,6 +46,7 @@ private static final long serialVersionUID = 0L;
             io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand.class, io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand.Builder.class);
   }
 
+  private int bitField0_;
   public static final int SESSION_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
@@ -262,6 +263,52 @@ private static final long serialVersionUID = 0L;
     return isolationRequired_;
   }
 
+  public static final int STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER = 13;
+  private int stateCollectorBudgetPercent_ = 0;
+  /**
+   * <pre>
+   * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+   * </pre>
+   *
+   * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+   * @return Whether the stateCollectorBudgetPercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasStateCollectorBudgetPercent() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+   * </pre>
+   *
+   * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+   * @return The stateCollectorBudgetPercent.
+   */
+  @java.lang.Override
+  public int getStateCollectorBudgetPercent() {
+    return stateCollectorBudgetPercent_;
+  }
+
+  public static final int REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER = 14;
+  private int remoteDesktopBitrateKbps_ = 0;
+  /**
+   * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * @return Whether the remoteDesktopBitrateKbps field is set.
+   */
+  @java.lang.Override
+  public boolean hasRemoteDesktopBitrateKbps() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * @return The remoteDesktopBitrateKbps.
+   */
+  @java.lang.Override
+  public int getRemoteDesktopBitrateKbps() {
+    return remoteDesktopBitrateKbps_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -311,6 +358,12 @@ private static final long serialVersionUID = 0L;
     }
     if (isolationRequired_ != false) {
       output.writeBool(12, isolationRequired_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeUInt32(13, stateCollectorBudgetPercent_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeUInt32(14, remoteDesktopBitrateKbps_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -366,6 +419,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(12, isolationRequired_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(13, stateCollectorBudgetPercent_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(14, remoteDesktopBitrateKbps_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -405,6 +466,16 @@ private static final long serialVersionUID = 0L;
         != other.getNativeOsRequired()) return false;
     if (getIsolationRequired()
         != other.getIsolationRequired()) return false;
+    if (hasStateCollectorBudgetPercent() != other.hasStateCollectorBudgetPercent()) return false;
+    if (hasStateCollectorBudgetPercent()) {
+      if (getStateCollectorBudgetPercent()
+          != other.getStateCollectorBudgetPercent()) return false;
+    }
+    if (hasRemoteDesktopBitrateKbps() != other.hasRemoteDesktopBitrateKbps()) return false;
+    if (hasRemoteDesktopBitrateKbps()) {
+      if (getRemoteDesktopBitrateKbps()
+          != other.getRemoteDesktopBitrateKbps()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -444,6 +515,14 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + ISOLATION_REQUIRED_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getIsolationRequired());
+    if (hasStateCollectorBudgetPercent()) {
+      hash = (37 * hash) + STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getStateCollectorBudgetPercent();
+    }
+    if (hasRemoteDesktopBitrateKbps()) {
+      hash = (37 * hash) + REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER;
+      hash = (53 * hash) + getRemoteDesktopBitrateKbps();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -591,6 +670,8 @@ private static final long serialVersionUID = 0L;
       gpuRequired_ = false;
       nativeOsRequired_ = false;
       isolationRequired_ = false;
+      stateCollectorBudgetPercent_ = 0;
+      remoteDesktopBitrateKbps_ = 0;
       return this;
     }
 
@@ -660,6 +741,16 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000800) != 0)) {
         result.isolationRequired_ = isolationRequired_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.stateCollectorBudgetPercent_ = stateCollectorBudgetPercent_;
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.remoteDesktopBitrateKbps_ = remoteDesktopBitrateKbps_;
+        to_bitField0_ |= 0x00000002;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -748,6 +839,12 @@ private static final long serialVersionUID = 0L;
       if (other.getIsolationRequired() != false) {
         setIsolationRequired(other.getIsolationRequired());
       }
+      if (other.hasStateCollectorBudgetPercent()) {
+        setStateCollectorBudgetPercent(other.getStateCollectorBudgetPercent());
+      }
+      if (other.hasRemoteDesktopBitrateKbps()) {
+        setRemoteDesktopBitrateKbps(other.getRemoteDesktopBitrateKbps());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -834,6 +931,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000800;
               break;
             } // case 96
+            case 104: {
+              stateCollectorBudgetPercent_ = input.readUInt32();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
+            case 112: {
+              remoteDesktopBitrateKbps_ = input.readUInt32();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 112
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1351,6 +1458,102 @@ private static final long serialVersionUID = 0L;
     public Builder clearIsolationRequired() {
       bitField0_ = (bitField0_ & ~0x00000800);
       isolationRequired_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int stateCollectorBudgetPercent_ ;
+    /**
+     * <pre>
+     * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+     * </pre>
+     *
+     * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+     * @return Whether the stateCollectorBudgetPercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasStateCollectorBudgetPercent() {
+      return ((bitField0_ & 0x00001000) != 0);
+    }
+    /**
+     * <pre>
+     * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+     * </pre>
+     *
+     * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+     * @return The stateCollectorBudgetPercent.
+     */
+    @java.lang.Override
+    public int getStateCollectorBudgetPercent() {
+      return stateCollectorBudgetPercent_;
+    }
+    /**
+     * <pre>
+     * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+     * </pre>
+     *
+     * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+     * @param value The stateCollectorBudgetPercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStateCollectorBudgetPercent(int value) {
+
+      stateCollectorBudgetPercent_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+     * </pre>
+     *
+     * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStateCollectorBudgetPercent() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      stateCollectorBudgetPercent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int remoteDesktopBitrateKbps_ ;
+    /**
+     * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * @return Whether the remoteDesktopBitrateKbps field is set.
+     */
+    @java.lang.Override
+    public boolean hasRemoteDesktopBitrateKbps() {
+      return ((bitField0_ & 0x00002000) != 0);
+    }
+    /**
+     * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * @return The remoteDesktopBitrateKbps.
+     */
+    @java.lang.Override
+    public int getRemoteDesktopBitrateKbps() {
+      return remoteDesktopBitrateKbps_;
+    }
+    /**
+     * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * @param value The remoteDesktopBitrateKbps to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRemoteDesktopBitrateKbps(int value) {
+
+      remoteDesktopBitrateKbps_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRemoteDesktopBitrateKbps() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      remoteDesktopBitrateKbps_ = 0;
       onChanged();
       return this;
     }

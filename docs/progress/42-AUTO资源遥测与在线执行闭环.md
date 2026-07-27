@@ -3,8 +3,9 @@
 > 日期：2026-07-27
 > 状态：CPU/内存/Memory PSI/Input Ledger、Renderer/Tab、CDP 主线程执行压力、
 > Agent Action 延迟、持久 State Diff 深度和 Remote Desktop Frame Age 的 5 秒真实
-> 遥测，同节点 Cgroup 在线扩缩容、Safe Point、休眠、持久跨 Node 迁移和可恢复资源
-> SSE 已完成；Profile/Extension/Media 指标、非 Cgroup 执行器与目标双 Node E2E 待完成
+> 遥测，同节点 Cgroup、State Collector Budget、Remote Desktop Bitrate 在线调整、
+> Safe Point、休眠、持久跨 Node 迁移和可恢复资源 SSE 已完成；Profile/Extension/Media
+> 指标、Extension/Media 执行器与目标双 Node E2E 待完成
 
 ## 本轮完成
 
@@ -45,10 +46,14 @@
   - 任一次级指标仍高于缩容迟滞阈值时保持 `OBSERVING`，不因 CPU/内存短时低位缩容；
   - 已有 Active Operation 时等待，不重复提交调整。
 - 调整请求先创建真实 `RESOURCE_ADJUSTMENT` Active Operation 并写入 Outbox。
-- Runtime Supervisor 只在委派 Cgroup v2 可用时执行 `cpu.max`、`memory.high`、
-  `memory.max` 和 `pids.max` 更新；无资源执行边界时 fail-closed。
+- Runtime Supervisor 在委派 Cgroup v2 可用时执行 `cpu.max`、`memory.high`、
+  `memory.max` 和 `pids.max` 更新；无 Cgroup 的非生产节点保持原 CPU/内存并在 ACK
+  中回报实际值，不把未执行的 Cgroup 请求伪装成成功。
 - 内存/PID 缩容会先校验当前使用量；部分写入失败会尽力恢复旧限制。
-- Browser Node 只有在 Cgroup 全部调整成功后才发送 ACK Event。
+- State Collector Budget 会按 Session 调整采集 cadence、State Diff 上限与 CDP Target
+  上限；Remote Desktop Bitrate 会限制已注册桌面会话的 VNC→WebSocket 数据面速率。
+- Browser Node 只有所有适用执行器成功后才发送 ACK Event；后续执行器或 Event Sequence
+  失败时会回滚已应用的 Cgroup、State Collector 和 Remote Desktop 值。
 - Control Plane 收到且验证 Node、Context、Operation、旧资源快照均匹配后，才更新
   `browser_placements`、Policy 当前模板和资源时间线。
 - 非 Durable Workflow 的 Active Operation 增加 1 秒 Deadline Scanner；Node 不可用或
@@ -87,8 +92,8 @@
 1. Profile I/O、Extension CPU/内存和 Media Encoder 的真实指标生产者；Renderer、
    Tab、CDP `TaskDuration` 差值、Agent Action、State Diff 和 Remote Desktop Frame
    Age 已完成。
-2. State Collector 预算、Media Encoder Slot、Remote Desktop 码率和 Extension Weight
-   的独立在线执行器。
+2. State Collector Budget 和 Remote Desktop Bitrate 在线执行器已完成；仍缺
+   Media Encoder Slot 与 Extension Resource Weight 执行器。
 3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；
    上传下载、表单、支付、安全和应用关键事务仍缺真实信号生产者。
 4. 跨 Node 核心链已实现；仍缺双真实 Browser Node + S3 + Chromium 的故障注入和长稳证书。

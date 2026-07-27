@@ -58,6 +58,8 @@ public final class NodeCommands {
             .setMemoryLimitMib(limits.memoryLimitMib())
             .setPidLimit(limits.pidLimit())
             .setTabBudget(limits.tabBudget())
+            .setStateCollectorBudgetPercent(limits.stateCollectorBudgetPercent())
+            .setRemoteDesktopBitrateKbps(limits.remoteDesktopBitrateKbps())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
@@ -87,6 +89,8 @@ public final class NodeCommands {
         budget.memoryLimitMib(),
         budget.pidLimit(),
         budget.tabBudget(),
+        50,
+        budget.desktopAllowed() ? 8_000 : 0,
         budget.desktopAllowed(),
         budget.gpuRequired(),
         budget.nativeOsRequired(),
@@ -107,6 +111,8 @@ public final class NodeCommands {
             .setMemoryLimitMib(limits.memoryLimitMib())
             .setPidLimit(limits.pidLimit())
             .setTabBudget(limits.tabBudget())
+            .setStateCollectorBudgetPercent(limits.stateCollectorBudgetPercent())
+            .setRemoteDesktopBitrateKbps(limits.remoteDesktopBitrateKbps())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

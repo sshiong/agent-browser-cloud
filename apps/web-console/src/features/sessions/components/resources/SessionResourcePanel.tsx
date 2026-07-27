@@ -134,7 +134,15 @@ export function SessionResourcePanel({
                   ? `${formatCpu(resource.allocation.cpuMillis)} / ${formatMemory(resource.allocation.memoryLimitMib)}`
                   : '尚未分配'
               }
-              detail={resource.allocation?.template ?? '等待 Placement'}
+              detail={
+                resource.allocation
+                  ? `${resource.allocation.template} · State ${resource.allocation.stateCollectorBudgetPercent ?? '—'}% · Desktop ${
+                      resource.allocation.remoteDesktopBitrateKbps
+                        ? `${resource.allocation.remoteDesktopBitrateKbps} Kbps`
+                        : '未启用'
+                    }`
+                  : '等待 Placement'
+              }
             />
             <Metric
               icon={Gauge}

@@ -333,7 +333,7 @@ public final class NodeCommand {
       "#\n\rcontext_epoch\030\013 \001(\003R\014contextEpoch\022\'\n\017" +
       "operation_epoch\030\014 \001(\003R\016operationEpoch\022\032\n" +
       "\010sequence\030\r \001(\003R\010sequence\022\030\n\007payload\030\024 \001" +
-      "(\014R\007payload\"\225\005\n\023StartRuntimeCommand\022\035\n\ns" +
+      "(\014R\007payload\"\346\006\n\023StartRuntimeCommand\022\035\n\ns" +
       "ession_id\030\001 \001(\tR\tsessionId\022(\n\020runtime_bu" +
       "ild_id\030\002 \001(\tR\016runtimeBuildId\022\035\n\nprofile_" +
       "id\030\003 \001(\tR\tprofileId\022\030\n\007display\030\004 \001(\tR\007di" +
@@ -349,57 +349,79 @@ public final class NodeCommand {
       "puRequired\022,\n\022native_os_required\030\017 \001(\010R\020" +
       "nativeOsRequired\022-\n\022isolation_required\030\020" +
       " \001(\010R\021isolationRequired\0222\n\025profile_check" +
-      "point_id\030\021 \001(\tR\023profileCheckpointId\"\334\002\n\023" +
-      "RuntimeStartedEvent\022\035\n\nsession_id\030\001 \001(\tR" +
-      "\tsessionId\022\020\n\003pid\030\002 \001(\rR\003pid\022-\n\022browser_" +
-      "generation\030\003 \001(\004R\021browserGeneration\022!\n\014c" +
-      "dp_endpoint\030\004 \001(\tR\013cdpEndpoint\022\027\n\007node_i" +
-      "d\030\005 \001(\tR\006nodeId\022(\n\020runtime_build_id\030\006 \001(" +
-      "\tR\016runtimeBuildId\022(\n\020proxy_binding_id\030\007 " +
-      "\001(\tR\016proxyBindingId\022\027\n\007exit_ip\030\010 \001(\tR\006ex" +
-      "itIp\022!\n\014exit_country\030\t \001(\tR\013exitCountry\022" +
-      "\031\n\010exit_asn\030\n \001(\tR\007exitAsn\"K\n\022StopRuntim" +
-      "eCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022" +
-      "\026\n\006reason\030\002 \001(\tR\006reason\"\213\003\n\023RuntimeStopp" +
-      "edEvent\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\026" +
-      "\n\006reason\030\002 \001(\tR\006reason\022\033\n\texit_code\030\003 \001(" +
-      "\005R\010exitCode\022\035\n\nprofile_id\030\004 \001(\tR\tprofile" +
-      "Id\022#\n\rcheckpoint_id\030\005 \001(\tR\014checkpointId\022" +
-      ")\n\020checkpoint_epoch\030\006 \001(\004R\017checkpointEpo" +
-      "ch\022.\n\023profile_write_epoch\030\007 \001(\004R\021profile" +
-      "WriteEpoch\022&\n\017core_size_bytes\030\010 \001(\004R\rcor" +
-      "eSizeBytes\0222\n\025checkpoint_file_count\030\t \001(" +
-      "\004R\023checkpointFileCount\022%\n\016restore_status" +
-      "\030\n \001(\tR\rrestoreStatus\"\333\003\n\035AdjustRuntimeR" +
-      "esourcesCommand\022\035\n\nsession_id\030\001 \001(\tR\tses" +
-      "sionId\022%\n\016resource_class\030\002 \001(\tR\rresource" +
-      "Class\022\035\n\ncpu_millis\030\003 \001(\rR\tcpuMillis\022,\n\022" +
-      "memory_request_mib\030\004 \001(\rR\020memoryRequestM" +
-      "ib\022(\n\020memory_limit_mib\030\005 \001(\rR\016memoryLimi" +
-      "tMib\022\033\n\tpid_limit\030\006 \001(\rR\010pidLimit\022\035\n\ntab" +
-      "_budget\030\007 \001(\rR\ttabBudget\022\026\n\006reason\030\010 \001(\t" +
-      "R\006reason\022)\n\020desktop_required\030\t \001(\010R\017desk" +
-      "topRequired\022!\n\014gpu_required\030\n \001(\010R\013gpuRe" +
-      "quired\022,\n\022native_os_required\030\013 \001(\010R\020nati" +
-      "veOsRequired\022-\n\022isolation_required\030\014 \001(\010" +
-      "R\021isolationRequired\"\232\005\n\035RuntimeResources" +
-      "AdjustedEvent\022\035\n\nsession_id\030\001 \001(\tR\tsessi" +
-      "onId\022\027\n\007node_id\030\002 \001(\tR\006nodeId\022,\n\022old_res" +
-      "ource_class\030\003 \001(\tR\020oldResourceClass\022$\n\016o" +
-      "ld_cpu_millis\030\004 \001(\rR\014oldCpuMillis\0223\n\026old" +
-      "_memory_request_mib\030\005 \001(\rR\023oldMemoryRequ" +
-      "estMib\022/\n\024old_memory_limit_mib\030\006 \001(\rR\021ol" +
-      "dMemoryLimitMib\022\"\n\rold_pid_limit\030\007 \001(\rR\013" +
-      "oldPidLimit\022$\n\016old_tab_budget\030\010 \001(\rR\014old" +
-      "TabBudget\022,\n\022new_resource_class\030\t \001(\tR\020n" +
-      "ewResourceClass\022$\n\016new_cpu_millis\030\n \001(\rR" +
-      "\014newCpuMillis\0223\n\026new_memory_request_mib\030" +
-      "\013 \001(\rR\023newMemoryRequestMib\022/\n\024new_memory" +
-      "_limit_mib\030\014 \001(\rR\021newMemoryLimitMib\022\"\n\rn" +
-      "ew_pid_limit\030\r \001(\rR\013newPidLimit\022$\n\016new_t" +
-      "ab_budget\030\016 \001(\rR\014newTabBudget\022\026\n\006reason\030" +
-      "\017 \001(\tR\006reason\022!\n\014operation_id\030\020 \001(\tR\013ope" +
-      "rationId\"\217\001\n\021BrowserCrashEvent\022\035\n\nsessio" +
+      "point_id\030\021 \001(\tR\023profileCheckpointId\022H\n\036s" +
+      "tate_collector_budget_percent\030\022 \001(\rH\000R\033s" +
+      "tateCollectorBudgetPercent\210\001\001\022B\n\033remote_" +
+      "desktop_bitrate_kbps\030\023 \001(\rH\001R\030remoteDesk" +
+      "topBitrateKbps\210\001\001B!\n\037_state_collector_bu" +
+      "dget_percentB\036\n\034_remote_desktop_bitrate_" +
+      "kbps\"\334\002\n\023RuntimeStartedEvent\022\035\n\nsession_" +
+      "id\030\001 \001(\tR\tsessionId\022\020\n\003pid\030\002 \001(\rR\003pid\022-\n" +
+      "\022browser_generation\030\003 \001(\004R\021browserGenera" +
+      "tion\022!\n\014cdp_endpoint\030\004 \001(\tR\013cdpEndpoint\022" +
+      "\027\n\007node_id\030\005 \001(\tR\006nodeId\022(\n\020runtime_buil" +
+      "d_id\030\006 \001(\tR\016runtimeBuildId\022(\n\020proxy_bind" +
+      "ing_id\030\007 \001(\tR\016proxyBindingId\022\027\n\007exit_ip\030" +
+      "\010 \001(\tR\006exitIp\022!\n\014exit_country\030\t \001(\tR\013exi" +
+      "tCountry\022\031\n\010exit_asn\030\n \001(\tR\007exitAsn\"K\n\022S" +
+      "topRuntimeCommand\022\035\n\nsession_id\030\001 \001(\tR\ts" +
+      "essionId\022\026\n\006reason\030\002 \001(\tR\006reason\"\213\003\n\023Run" +
+      "timeStoppedEvent\022\035\n\nsession_id\030\001 \001(\tR\tse" +
+      "ssionId\022\026\n\006reason\030\002 \001(\tR\006reason\022\033\n\texit_" +
+      "code\030\003 \001(\005R\010exitCode\022\035\n\nprofile_id\030\004 \001(\t" +
+      "R\tprofileId\022#\n\rcheckpoint_id\030\005 \001(\tR\014chec" +
+      "kpointId\022)\n\020checkpoint_epoch\030\006 \001(\004R\017chec" +
+      "kpointEpoch\022.\n\023profile_write_epoch\030\007 \001(\004" +
+      "R\021profileWriteEpoch\022&\n\017core_size_bytes\030\010" +
+      " \001(\004R\rcoreSizeBytes\0222\n\025checkpoint_file_c" +
+      "ount\030\t \001(\004R\023checkpointFileCount\022%\n\016resto" +
+      "re_status\030\n \001(\tR\rrestoreStatus\"\254\005\n\035Adjus" +
+      "tRuntimeResourcesCommand\022\035\n\nsession_id\030\001" +
+      " \001(\tR\tsessionId\022%\n\016resource_class\030\002 \001(\tR" +
+      "\rresourceClass\022\035\n\ncpu_millis\030\003 \001(\rR\tcpuM" +
+      "illis\022,\n\022memory_request_mib\030\004 \001(\rR\020memor" +
+      "yRequestMib\022(\n\020memory_limit_mib\030\005 \001(\rR\016m" +
+      "emoryLimitMib\022\033\n\tpid_limit\030\006 \001(\rR\010pidLim" +
+      "it\022\035\n\ntab_budget\030\007 \001(\rR\ttabBudget\022\026\n\006rea" +
+      "son\030\010 \001(\tR\006reason\022)\n\020desktop_required\030\t " +
+      "\001(\010R\017desktopRequired\022!\n\014gpu_required\030\n \001" +
+      "(\010R\013gpuRequired\022,\n\022native_os_required\030\013 " +
+      "\001(\010R\020nativeOsRequired\022-\n\022isolation_requi" +
+      "red\030\014 \001(\010R\021isolationRequired\022H\n\036state_co" +
+      "llector_budget_percent\030\r \001(\rH\000R\033stateCol" +
+      "lectorBudgetPercent\210\001\001\022B\n\033remote_desktop" +
+      "_bitrate_kbps\030\016 \001(\rH\001R\030remoteDesktopBitr" +
+      "ateKbps\210\001\001B!\n\037_state_collector_budget_pe" +
+      "rcentB\036\n\034_remote_desktop_bitrate_kbps\"\350\010" +
+      "\n\035RuntimeResourcesAdjustedEvent\022\035\n\nsessi" +
+      "on_id\030\001 \001(\tR\tsessionId\022\027\n\007node_id\030\002 \001(\tR" +
+      "\006nodeId\022,\n\022old_resource_class\030\003 \001(\tR\020old" +
+      "ResourceClass\022$\n\016old_cpu_millis\030\004 \001(\rR\014o" +
+      "ldCpuMillis\0223\n\026old_memory_request_mib\030\005 " +
+      "\001(\rR\023oldMemoryRequestMib\022/\n\024old_memory_l" +
+      "imit_mib\030\006 \001(\rR\021oldMemoryLimitMib\022\"\n\rold" +
+      "_pid_limit\030\007 \001(\rR\013oldPidLimit\022$\n\016old_tab" +
+      "_budget\030\010 \001(\rR\014oldTabBudget\022,\n\022new_resou" +
+      "rce_class\030\t \001(\tR\020newResourceClass\022$\n\016new" +
+      "_cpu_millis\030\n \001(\rR\014newCpuMillis\0223\n\026new_m" +
+      "emory_request_mib\030\013 \001(\rR\023newMemoryReques" +
+      "tMib\022/\n\024new_memory_limit_mib\030\014 \001(\rR\021newM" +
+      "emoryLimitMib\022\"\n\rnew_pid_limit\030\r \001(\rR\013ne" +
+      "wPidLimit\022$\n\016new_tab_budget\030\016 \001(\rR\014newTa" +
+      "bBudget\022\026\n\006reason\030\017 \001(\tR\006reason\022!\n\014opera" +
+      "tion_id\030\020 \001(\tR\013operationId\022O\n\"old_state_" +
+      "collector_budget_percent\030\021 \001(\rH\000R\036oldSta" +
+      "teCollectorBudgetPercent\210\001\001\022I\n\037old_remot" +
+      "e_desktop_bitrate_kbps\030\022 \001(\rH\001R\033oldRemot" +
+      "eDesktopBitrateKbps\210\001\001\022O\n\"new_state_coll" +
+      "ector_budget_percent\030\023 \001(\rH\002R\036newStateCo" +
+      "llectorBudgetPercent\210\001\001\022I\n\037new_remote_de" +
+      "sktop_bitrate_kbps\030\024 \001(\rH\003R\033newRemoteDes" +
+      "ktopBitrateKbps\210\001\001B%\n#_old_state_collect" +
+      "or_budget_percentB\"\n _old_remote_desktop" +
+      "_bitrate_kbpsB%\n#_new_state_collector_bu" +
+      "dget_percentB\"\n _new_remote_desktop_bitr" +
+      "ate_kbps\"\217\001\n\021BrowserCrashEvent\022\035\n\nsessio" +
       "n_id\030\001 \001(\tR\tsessionId\022\035\n\ncrash_type\030\002 \001(" +
       "\tR\tcrashType\022\026\n\006reason\030\003 \001(\tR\006reason\022$\n\016" +
       "detected_at_ms\030\004 \001(\003R\014detectedAtMs\"O\n\026Re" +
@@ -603,7 +625,7 @@ public final class NodeCommand {
     internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor,
-        new java.lang.String[] { "SessionId", "RuntimeBuildId", "ProfileId", "Display", "CdpPort", "ProxyBindingId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "ProfileCheckpointId", });
+        new java.lang.String[] { "SessionId", "RuntimeBuildId", "ProfileId", "Display", "CdpPort", "ProxyBindingId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "ProfileCheckpointId", "StateCollectorBudgetPercent", "RemoteDesktopBitrateKbps", });
     internal_static_browsercloud_node_v1_RuntimeStartedEvent_descriptor =
       getDescriptor().getMessageTypes().get(14);
     internal_static_browsercloud_node_v1_RuntimeStartedEvent_fieldAccessorTable = new
@@ -627,13 +649,13 @@ public final class NodeCommand {
     internal_static_browsercloud_node_v1_AdjustRuntimeResourcesCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AdjustRuntimeResourcesCommand_descriptor,
-        new java.lang.String[] { "SessionId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "Reason", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", });
+        new java.lang.String[] { "SessionId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "Reason", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "StateCollectorBudgetPercent", "RemoteDesktopBitrateKbps", });
     internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor =
       getDescriptor().getMessageTypes().get(18);
     internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor,
-        new java.lang.String[] { "SessionId", "NodeId", "OldResourceClass", "OldCpuMillis", "OldMemoryRequestMib", "OldMemoryLimitMib", "OldPidLimit", "OldTabBudget", "NewResourceClass", "NewCpuMillis", "NewMemoryRequestMib", "NewMemoryLimitMib", "NewPidLimit", "NewTabBudget", "Reason", "OperationId", });
+        new java.lang.String[] { "SessionId", "NodeId", "OldResourceClass", "OldCpuMillis", "OldMemoryRequestMib", "OldMemoryLimitMib", "OldPidLimit", "OldTabBudget", "NewResourceClass", "NewCpuMillis", "NewMemoryRequestMib", "NewMemoryLimitMib", "NewPidLimit", "NewTabBudget", "Reason", "OperationId", "OldStateCollectorBudgetPercent", "OldRemoteDesktopBitrateKbps", "NewStateCollectorBudgetPercent", "NewRemoteDesktopBitrateKbps", });
     internal_static_browsercloud_node_v1_BrowserCrashEvent_descriptor =
       getDescriptor().getMessageTypes().get(19);
     internal_static_browsercloud_node_v1_BrowserCrashEvent_fieldAccessorTable = new

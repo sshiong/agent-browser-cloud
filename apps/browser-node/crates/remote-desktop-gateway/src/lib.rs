@@ -64,6 +64,7 @@ struct GatewayState {
     active_sessions: Mutex<HashSet<String>>,
     connection_generations: Mutex<HashMap<String, u64>>,
     last_server_frame_at: Mutex<HashMap<String, Instant>>,
+    bitrate_limits_kbps: Mutex<HashMap<String, u32>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
@@ -162,6 +163,7 @@ impl RemoteDesktopGateway {
                 active_sessions: Mutex::new(HashSet::new()),
                 connection_generations: Mutex::new(HashMap::new()),
                 last_server_frame_at: Mutex::new(HashMap::new()),
+                bitrate_limits_kbps: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -186,6 +188,12 @@ impl RemoteDesktopGateway {
             .write()
             .expect("VNC endpoint lock poisoned")
             .insert(session_id.to_owned(), vnc_endpoint);
+        self.state
+            .bitrate_limits_kbps
+            .lock()
+            .expect("bitrate limit lock poisoned")
+            .entry(session_id.to_owned())
+            .or_insert(0);
         Ok(())
     }
 
@@ -200,6 +208,54 @@ impl RemoteDesktopGateway {
             .lock()
             .expect("frame timestamp lock poisoned")
             .remove(session_id);
+        self.state
+            .bitrate_limits_kbps
+            .lock()
+            .expect("bitrate limit lock poisoned")
+            .remove(session_id);
+    }
+
+    /// 在线调整 VNC Server → WebSocket Client 的单 Session 速率边界。
+    ///
+    /// `0` 表示该 Session 未启用桌面速率限制；非零值限制在 250—100000 Kbps。
+    pub fn set_bitrate_limit(&self, session_id: &str, bitrate_kbps: u32) -> anyhow::Result<u32> {
+        anyhow::ensure!(
+            bitrate_kbps == 0 || (250..=100_000).contains(&bitrate_kbps),
+            "remote desktop bitrate must be zero or between 250 and 100000 Kbps"
+        );
+        anyhow::ensure!(
+            self.state
+                .vnc_endpoints
+                .read()
+                .expect("VNC endpoint lock poisoned")
+                .contains_key(session_id),
+            "remote desktop session is not registered"
+        );
+        Ok(self
+            .state
+            .bitrate_limits_kbps
+            .lock()
+            .expect("bitrate limit lock poisoned")
+            .insert(session_id.to_owned(), bitrate_kbps)
+            .unwrap_or(0))
+    }
+
+    pub fn bitrate_limit_kbps(&self, session_id: &str) -> Option<u32> {
+        self.state
+            .bitrate_limits_kbps
+            .lock()
+            .expect("bitrate limit lock poisoned")
+            .get(session_id)
+            .copied()
+    }
+
+    async fn apply_server_bitrate_limit(&self, session_id: &str, bytes: usize) {
+        let bitrate_kbps = self.bitrate_limit_kbps(session_id).unwrap_or_default();
+        if bitrate_kbps == 0 || bytes == 0 {
+            return;
+        }
+        let seconds = bytes as f64 * 8.0 / (f64::from(bitrate_kbps) * 1_000.0);
+        tokio::time::sleep(Duration::from_secs_f64(seconds)).await;
     }
 
     /// 返回当前活跃远程桌面连接距离最近一批 VNC Server 数据的年龄。
@@ -328,7 +384,8 @@ impl RemoteDesktopGateway {
             .lock()
             .expect("frame timestamp lock poisoned")
             .insert(authorized.claims.session_id.clone(), Instant::now());
-        let mut buffer = vec![0_u8; 64 * 1024];
+        // 有界分片避免最低码率下单次等待过长而妨碍心跳和客户端存活检查。
+        let mut buffer = vec![0_u8; 16 * 1024];
         let mut heartbeat = tokio::time::interval_at(
             tokio::time::Instant::now() + self.state.heartbeat_interval,
             self.state.heartbeat_interval,
@@ -354,6 +411,8 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
+                    self.apply_server_bitrate_limit(&authorized.claims.session_id, read)
+                        .await;
                     websocket
                         .send(Message::Binary(buffer[..read].to_vec()))
                         .await?;
@@ -608,6 +667,20 @@ mod tests {
         gateway
             .register_session("ses_test1234567890", vnc_endpoint)
             .unwrap();
+        assert_eq!(gateway.bitrate_limit_kbps("ses_test1234567890"), Some(0));
+        assert_eq!(
+            gateway
+                .set_bitrate_limit("ses_test1234567890", 8_000)
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            gateway.bitrate_limit_kbps("ses_test1234567890"),
+            Some(8_000)
+        );
+        assert!(gateway
+            .set_bitrate_limit("ses_test1234567890", 100)
+            .is_err());
         let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let gateway_endpoint = gateway_listener.local_addr().unwrap();
         tokio::spawn(gateway.clone().serve(gateway_listener));
@@ -664,6 +737,33 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(gateway.frame_age_ms("ses_test1234567890"), None);
+        gateway.unregister_session("ses_test1234567890");
+        assert_eq!(gateway.bitrate_limit_kbps("ses_test1234567890"), None);
+    }
+
+    #[tokio::test]
+    async fn enforces_configured_server_to_client_bitrate_delay() {
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        gateway
+            .register_session("ses_bitrate1234567890", "127.0.0.1:5901".parse().unwrap())
+            .unwrap();
+        gateway
+            .set_bitrate_limit("ses_bitrate1234567890", 250)
+            .unwrap();
+
+        let started = Instant::now();
+        gateway
+            .apply_server_bitrate_limit("ses_bitrate1234567890", 1_000)
+            .await;
+        assert!(
+            started.elapsed() >= Duration::from_millis(30),
+            "1KB at 250Kbps must consume the configured transmission budget"
+        );
     }
 
     #[tokio::test]

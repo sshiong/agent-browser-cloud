@@ -139,4 +139,56 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getOperationIdBytes();
+
+  /**
+   * <pre>
+   * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
+   * </pre>
+   *
+   * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+   * @return Whether the oldStateCollectorBudgetPercent field is set.
+   */
+  boolean hasOldStateCollectorBudgetPercent();
+  /**
+   * <pre>
+   * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
+   * </pre>
+   *
+   * <code>optional uint32 old_state_collector_budget_percent = 17 [json_name = "oldStateCollectorBudgetPercent"];</code>
+   * @return The oldStateCollectorBudgetPercent.
+   */
+  int getOldStateCollectorBudgetPercent();
+
+  /**
+   * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+   * @return Whether the oldRemoteDesktopBitrateKbps field is set.
+   */
+  boolean hasOldRemoteDesktopBitrateKbps();
+  /**
+   * <code>optional uint32 old_remote_desktop_bitrate_kbps = 18 [json_name = "oldRemoteDesktopBitrateKbps"];</code>
+   * @return The oldRemoteDesktopBitrateKbps.
+   */
+  int getOldRemoteDesktopBitrateKbps();
+
+  /**
+   * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+   * @return Whether the newStateCollectorBudgetPercent field is set.
+   */
+  boolean hasNewStateCollectorBudgetPercent();
+  /**
+   * <code>optional uint32 new_state_collector_budget_percent = 19 [json_name = "newStateCollectorBudgetPercent"];</code>
+   * @return The newStateCollectorBudgetPercent.
+   */
+  int getNewStateCollectorBudgetPercent();
+
+  /**
+   * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+   * @return Whether the newRemoteDesktopBitrateKbps field is set.
+   */
+  boolean hasNewRemoteDesktopBitrateKbps();
+  /**
+   * <code>optional uint32 new_remote_desktop_bitrate_kbps = 20 [json_name = "newRemoteDesktopBitrateKbps"];</code>
+   * @return The newRemoteDesktopBitrateKbps.
+   */
+  int getNewRemoteDesktopBitrateKbps();
 }

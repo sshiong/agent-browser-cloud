@@ -272,6 +272,11 @@ pub struct StartRuntimeCommand {
     pub isolation_required: bool,
     #[prost(string, tag="17")]
     pub profile_checkpoint_id: ::prost::alloc::string::String,
+    /// N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
+    #[prost(uint32, optional, tag="18")]
+    pub state_collector_budget_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="19")]
+    pub remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -360,6 +365,11 @@ pub struct AdjustRuntimeResourcesCommand {
     pub native_os_required: bool,
     #[prost(bool, tag="12")]
     pub isolation_required: bool,
+    /// optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+    #[prost(uint32, optional, tag="13")]
+    pub state_collector_budget_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="14")]
+    pub remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
 }
 /// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -397,6 +407,15 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub reason: ::prost::alloc::string::String,
     #[prost(string, tag="16")]
     pub operation_id: ::prost::alloc::string::String,
+    /// N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
+    #[prost(uint32, optional, tag="17")]
+    pub old_state_collector_budget_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="18")]
+    pub old_remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="19")]
+    pub new_state_collector_budget_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="20")]
+    pub new_remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

@@ -29,6 +29,8 @@ public class JpaRuntimeResourceLimitsRepository implements RuntimeResourceLimits
         placement.getMemoryLimitMib(),
         placement.getPidLimit(),
         placement.getTabBudget(),
+        placement.getStateCollectorBudgetPercent(),
+        placement.getRemoteDesktopBitrateKbps(),
         placement.isRequiresDesktop(),
         placement.isRequiresGpu(),
         placement.isRequiresNativeOs(),

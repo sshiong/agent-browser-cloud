@@ -97,4 +97,34 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The isolationRequired.
    */
   boolean getIsolationRequired();
+
+  /**
+   * <pre>
+   * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+   * </pre>
+   *
+   * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+   * @return Whether the stateCollectorBudgetPercent field is set.
+   */
+  boolean hasStateCollectorBudgetPercent();
+  /**
+   * <pre>
+   * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+   * </pre>
+   *
+   * <code>optional uint32 state_collector_budget_percent = 13 [json_name = "stateCollectorBudgetPercent"];</code>
+   * @return The stateCollectorBudgetPercent.
+   */
+  int getStateCollectorBudgetPercent();
+
+  /**
+   * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * @return Whether the remoteDesktopBitrateKbps field is set.
+   */
+  boolean hasRemoteDesktopBitrateKbps();
+  /**
+   * <code>optional uint32 remote_desktop_bitrate_kbps = 14 [json_name = "remoteDesktopBitrateKbps"];</code>
+   * @return The remoteDesktopBitrateKbps.
+   */
+  int getRemoteDesktopBitrateKbps();
 }

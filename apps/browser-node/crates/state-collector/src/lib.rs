@@ -233,6 +233,7 @@ pub struct CdpStateCollector {
     endpoints: Arc<RwLock<HashMap<String, String>>>,
     cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
     target_registries: Arc<Mutex<HashMap<String, TargetRegistry>>>,
+    resource_budget_percentages: Arc<RwLock<HashMap<String, u32>>>,
 }
 
 #[derive(Debug, Default)]
@@ -277,12 +278,72 @@ impl CdpStateCollector {
             session_id.to_owned(),
             cdp_endpoint.trim_end_matches('/').to_owned(),
         );
+        self.resource_budget_percentages
+            .write()
+            .await
+            .entry(session_id.to_owned())
+            .or_insert(100);
         Ok(())
     }
 
     pub async fn unregister_runtime(&self, session_id: &str) {
         self.endpoints.write().await.remove(session_id);
         self.target_registries.lock().await.remove(session_id);
+        self.resource_budget_percentages
+            .write()
+            .await
+            .remove(session_id);
+    }
+
+    /// 在线调整单 Session 的 State Collector 工作预算，返回旧值。
+    ///
+    /// 预算会同时影响周期采集间隔、Diff 上限和轻量 CDP Page 指标目标数。
+    pub async fn set_resource_budget(
+        &self,
+        session_id: &str,
+        budget_percent: u32,
+    ) -> anyhow::Result<u32> {
+        anyhow::ensure!(
+            (10..=100).contains(&budget_percent),
+            "State Collector budget must be between 10 and 100 percent"
+        );
+        anyhow::ensure!(
+            self.endpoints.read().await.contains_key(session_id),
+            "runtime CDP endpoint is not registered"
+        );
+        Ok(self
+            .resource_budget_percentages
+            .write()
+            .await
+            .insert(session_id.to_owned(), budget_percent)
+            .unwrap_or(100))
+    }
+
+    pub async fn resource_budget_percent(&self, session_id: &str) -> u32 {
+        self.resource_budget_percentages
+            .read()
+            .await
+            .get(session_id)
+            .copied()
+            .unwrap_or(100)
+    }
+
+    pub async fn collection_interval_probes(&self, session_id: &str) -> u64 {
+        let budget = self.resource_budget_percent(session_id).await;
+        u64::from(200_u32.div_ceil(budget)).max(2)
+    }
+
+    pub async fn bounded_diff_limits(
+        &self,
+        session_id: &str,
+        configured_max_bytes: usize,
+        configured_max_changes: usize,
+    ) -> (usize, usize) {
+        let budget = self.resource_budget_percent(session_id).await as usize;
+        (
+            (configured_max_bytes.saturating_mul(budget) / 100).max(1_024),
+            (configured_max_changes.saturating_mul(budget) / 100).max(1),
+        )
     }
 
     async fn target_websocket(&self, session_id: &str) -> anyhow::Result<String> {
@@ -377,15 +438,15 @@ impl CdpStateCollector {
         &self,
         session_id: &str,
     ) -> anyhow::Result<BrowserResourceMetrics> {
-        const MAX_PAGE_METRIC_TARGETS: usize = 32;
-
         let endpoint = self.endpoint(session_id).await?;
         let targets = Self::list_targets(&endpoint).await?;
+        let page_metric_target_budget =
+            (32 * self.resource_budget_percent(session_id).await as usize / 100).max(1);
         let page_websockets = targets
             .iter()
             .filter(|target| target.target_type == "page")
             .filter_map(|target| target.web_socket_debugger_url.as_deref())
-            .take(MAX_PAGE_METRIC_TARGETS)
+            .take(page_metric_target_budget)
             .collect::<Vec<_>>();
         let tab_count = targets
             .iter()
@@ -1048,6 +1109,46 @@ mod tests {
         browser_task.await.unwrap();
         page_task.await.unwrap();
         http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn applies_per_session_collector_budget_to_cadence_and_diff_limits() {
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_budget", "http://127.0.0.1:9222")
+            .await
+            .unwrap();
+
+        assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);
+        assert_eq!(collector.collection_interval_probes("ses_budget").await, 2);
+        assert_eq!(
+            collector
+                .bounded_diff_limits("ses_budget", 60_000, 200)
+                .await,
+            (60_000, 200)
+        );
+
+        assert_eq!(
+            collector
+                .set_resource_budget("ses_budget", 25)
+                .await
+                .unwrap(),
+            100
+        );
+        assert_eq!(collector.collection_interval_probes("ses_budget").await, 8);
+        assert_eq!(
+            collector
+                .bounded_diff_limits("ses_budget", 60_000, 200)
+                .await,
+            (15_000, 50)
+        );
+        assert!(collector
+            .set_resource_budget("ses_budget", 9)
+            .await
+            .is_err());
+
+        collector.unregister_runtime("ses_budget").await;
+        assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);
     }
 
     #[test]

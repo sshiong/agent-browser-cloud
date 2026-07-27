@@ -198,6 +198,8 @@ public class SessionApplicationService {
                     placement.memoryLimitMib(),
                     placement.pidLimit(),
                     placement.tabBudget(),
+                    placement.stateCollectorBudgetPercent(),
+                    placement.remoteDesktopBitrateKbps(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

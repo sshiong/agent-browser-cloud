@@ -1044,6 +1044,18 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   profileCheckpointId = "";
 
+  /**
+   * N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
+   *
+   * @generated from field: optional uint32 state_collector_budget_percent = 18;
+   */
+  stateCollectorBudgetPercent?: number;
+
+  /**
+   * @generated from field: optional uint32 remote_desktop_bitrate_kbps = 19;
+   */
+  remoteDesktopBitrateKbps?: number;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1069,6 +1081,8 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 15, name: "native_os_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 16, name: "isolation_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 17, name: "profile_checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 18, name: "state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 19, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1385,6 +1399,18 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   isolationRequired = false;
 
+  /**
+   * optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
+   *
+   * @generated from field: optional uint32 state_collector_budget_percent = 13;
+   */
+  stateCollectorBudgetPercent?: number;
+
+  /**
+   * @generated from field: optional uint32 remote_desktop_bitrate_kbps = 14;
+   */
+  remoteDesktopBitrateKbps?: number;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1405,6 +1431,8 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 10, name: "gpu_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 11, name: "native_os_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 12, name: "isolation_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 13, name: "state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 14, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1510,6 +1538,28 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   operationId = "";
 
+  /**
+   * N-1 Node 不会上报这些字段；Control Plane 此时只提交已确认的 Cgroup 调整。
+   *
+   * @generated from field: optional uint32 old_state_collector_budget_percent = 17;
+   */
+  oldStateCollectorBudgetPercent?: number;
+
+  /**
+   * @generated from field: optional uint32 old_remote_desktop_bitrate_kbps = 18;
+   */
+  oldRemoteDesktopBitrateKbps?: number;
+
+  /**
+   * @generated from field: optional uint32 new_state_collector_budget_percent = 19;
+   */
+  newStateCollectorBudgetPercent?: number;
+
+  /**
+   * @generated from field: optional uint32 new_remote_desktop_bitrate_kbps = 20;
+   */
+  newRemoteDesktopBitrateKbps?: number;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1534,6 +1584,10 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 14, name: "new_tab_budget", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
     { no: 15, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 16, name: "operation_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 17, name: "old_state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 18, name: "old_remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 19, name: "new_state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 20, name: "new_remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

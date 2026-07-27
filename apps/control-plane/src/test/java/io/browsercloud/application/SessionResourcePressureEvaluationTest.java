@@ -63,6 +63,16 @@ class SessionResourcePressureEvaluationTest {
     assertThat(service.hasSecondaryLoadInScaleDownWindow(samples, policy, placement, now)).isTrue();
   }
 
+  @Test
+  void initialPlacementDoesNotStartAdjustmentCooldown() {
+    var now = Instant.parse("2026-07-28T00:00:00Z");
+    var policy = policy(now, 30, 1_200);
+
+    policy.resolveTemplate("standard-v1", now.plusSeconds(1));
+
+    assertThat(policy.getLastAdjustedAt()).isNull();
+  }
+
   private static SessionResourcePolicyEntity policy(
       Instant now, int scaleUpWindowSeconds, int scaleDownWindowSeconds) {
     return SessionResourcePolicyEntity.create(

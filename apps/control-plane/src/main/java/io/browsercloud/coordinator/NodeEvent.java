@@ -63,6 +63,10 @@ public sealed interface NodeEvent
       int newMemoryLimitMib,
       int newPidLimit,
       int newTabBudget,
+      Integer oldStateCollectorBudgetPercent,
+      Integer oldRemoteDesktopBitrateKbps,
+      Integer newStateCollectorBudgetPercent,
+      Integer newRemoteDesktopBitrateKbps,
       String reason,
       String operationId)
       implements NodeEvent {}

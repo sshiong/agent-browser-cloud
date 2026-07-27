@@ -137,6 +137,36 @@ public class NodeEventMapper {
               || payload.getNewTabBudget() <= 0) {
             throw new IllegalArgumentException("resource adjustment limits are invalid");
           }
+          var oldStateCollectorBudget =
+              payload.hasOldStateCollectorBudgetPercent()
+                  ? payload.getOldStateCollectorBudgetPercent()
+                  : null;
+          var oldRemoteDesktopBitrate =
+              payload.hasOldRemoteDesktopBitrateKbps()
+                  ? payload.getOldRemoteDesktopBitrateKbps()
+                  : null;
+          var newStateCollectorBudget =
+              payload.hasNewStateCollectorBudgetPercent()
+                  ? payload.getNewStateCollectorBudgetPercent()
+                  : null;
+          var newRemoteDesktopBitrate =
+              payload.hasNewRemoteDesktopBitrateKbps()
+                  ? payload.getNewRemoteDesktopBitrateKbps()
+                  : null;
+          if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
+              || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
+              || (oldStateCollectorBudget != null
+                  && (oldStateCollectorBudget < 10
+                      || oldStateCollectorBudget > 100
+                      || newStateCollectorBudget < 10
+                      || newStateCollectorBudget > 100))
+              || (oldRemoteDesktopBitrate != null
+                  && (oldRemoteDesktopBitrate < 0
+                      || oldRemoteDesktopBitrate > 100_000
+                      || newRemoteDesktopBitrate < 0
+                      || newRemoteDesktopBitrate > 100_000))) {
+            throw new IllegalArgumentException("non-cgroup resource adjustment limits are invalid");
+          }
           yield new NodeEvent.RuntimeResourcesAdjusted(
               payload.getSessionId(),
               payload.getNodeId(),
@@ -152,6 +182,10 @@ public class NodeEventMapper {
               payload.getNewMemoryLimitMib(),
               payload.getNewPidLimit(),
               payload.getNewTabBudget(),
+              oldStateCollectorBudget,
+              oldRemoteDesktopBitrate,
+              newStateCollectorBudget,
+              newRemoteDesktopBitrate,
               payload.getReason(),
               payload.getOperationId());
         }

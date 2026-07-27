@@ -691,6 +691,8 @@ public class BrowserCapacityApplicationService {
         placement.getMemoryLimitMib(),
         placement.getPidLimit(),
         placement.getTabBudget(),
+        placement.getStateCollectorBudgetPercent(),
+        placement.getRemoteDesktopBitrateKbps(),
         placement.isRequiresDesktop(),
         placement.isRequiresGpu(),
         placement.isRequiresNativeOs(),

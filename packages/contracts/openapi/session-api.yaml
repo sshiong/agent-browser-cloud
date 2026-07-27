@@ -3060,6 +3060,8 @@ components:
         - memoryLimitMib
         - pidLimit
         - tabBudget
+        - stateCollectorBudgetPercent
+        - remoteDesktopBitrateKbps
         - requiresDesktop
         - requiresGpu
         - requiresNativeOs
@@ -3098,6 +3100,14 @@ components:
           type: integer
         tabBudget:
           type: integer
+        stateCollectorBudgetPercent:
+          type: integer
+          minimum: 10
+          maximum: 100
+        remoteDesktopBitrateKbps:
+          type: integer
+          minimum: 0
+          maximum: 100000
         requiresDesktop:
           type: boolean
         requiresGpu:

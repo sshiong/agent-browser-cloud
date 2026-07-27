@@ -852,6 +852,52 @@ impl NodeControlService {
         Ok(())
     }
 
+    async fn rollback_resource_adjustment(
+        &self,
+        session_id: &str,
+        previous_runtime: RuntimeResourceLimits,
+        previous_state_collector_budget_percent: u32,
+        previous_remote_desktop_bitrate_kbps: u32,
+    ) {
+        if let Some(gateway) = self
+            .remote_desktop_gateway
+            .as_ref()
+            .filter(|gateway| gateway.bitrate_limit_kbps(session_id).is_some())
+        {
+            if let Err(error) =
+                gateway.set_bitrate_limit(session_id, previous_remote_desktop_bitrate_kbps)
+            {
+                tracing::error!(
+                    session_id,
+                    error = %error,
+                    "Remote Desktop bitrate rollback failed"
+                );
+            }
+        }
+        if let Err(error) = self
+            .state_collector
+            .set_resource_budget(session_id, previous_state_collector_budget_percent)
+            .await
+        {
+            tracing::error!(
+                session_id,
+                error = %error,
+                "State Collector budget rollback failed"
+            );
+        }
+        if let Err(error) = self
+            .runtime_supervisor
+            .adjust_resources(session_id, previous_runtime)
+            .await
+        {
+            tracing::error!(
+                session_id,
+                error = %error,
+                "Cgroup resource rollback failed"
+            );
+        }
+    }
+
     async fn publish_and_mark(&self, event: EventEnvelope) -> anyhow::Result<()> {
         let event_id = event.event_id.clone();
         let backlog_session =
@@ -1282,12 +1328,21 @@ impl NodeControlService {
                                 ),
                             );
                         }
+                        let state_collector_budget_percent =
+                            payload.state_collector_budget_percent.unwrap_or(100);
+                        let remote_desktop_bitrate_kbps =
+                            payload.remote_desktop_bitrate_kbps.unwrap_or(0);
                         if payload.resource_class == "L0"
                             || payload.cpu_millis == 0
                             || payload.memory_request_mib == 0
                             || payload.memory_limit_mib < payload.memory_request_mib
                             || payload.pid_limit < 32
                             || payload.tab_budget == 0
+                            || !(10..=100).contains(&state_collector_budget_percent)
+                            || remote_desktop_bitrate_kbps > 100_000
+                            || (payload.desktop_required
+                                && !(250..=100_000).contains(&remote_desktop_bitrate_kbps))
+                            || (!payload.desktop_required && remote_desktop_bitrate_kbps != 0)
                         {
                             return self.failed(
                                 command,
@@ -1449,6 +1504,20 @@ impl NodeControlService {
                                         .await;
                                         return self.failed(command, error);
                                     }
+                                    if let Err(error) = gateway.set_bitrate_limit(
+                                        &command.session_id,
+                                        remote_desktop_bitrate_kbps,
+                                    ) {
+                                        gateway.unregister_session(&command.session_id);
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
+                                        return self.failed(command, error);
+                                    }
                                 }
                                 if let Err(error) = self
                                     .state_collector
@@ -1458,6 +1527,25 @@ impl NodeControlService {
                                     if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
                                         gateway.unregister_session(&command.session_id);
                                     }
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
+                                if let Err(error) = self
+                                    .state_collector
+                                    .set_resource_budget(
+                                        &command.session_id,
+                                        state_collector_budget_percent,
+                                    )
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                                     self.release_start_resources(&command.session_id, &workspace)
                                         .await;
@@ -1721,47 +1809,143 @@ impl NodeControlService {
                             native_os_required: payload.native_os_required,
                             isolation_required: payload.isolation_required,
                         };
-                        match self
+                        let previous_state_collector_budget_percent = self
+                            .state_collector
+                            .resource_budget_percent(&command.session_id)
+                            .await;
+                        let next_state_collector_budget_percent = payload
+                            .state_collector_budget_percent
+                            .unwrap_or(previous_state_collector_budget_percent);
+                        if !(10..=100).contains(&next_state_collector_budget_percent) {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "State Collector budget must be between 10 and 100 percent"
+                                ),
+                            );
+                        }
+                        let registered_remote_desktop_bitrate_kbps = self
+                            .remote_desktop_gateway
+                            .as_ref()
+                            .and_then(|gateway| gateway.bitrate_limit_kbps(&command.session_id));
+                        let previous_remote_desktop_bitrate_kbps =
+                            registered_remote_desktop_bitrate_kbps.unwrap_or_default();
+                        let next_remote_desktop_bitrate_kbps = payload
+                            .remote_desktop_bitrate_kbps
+                            .unwrap_or(previous_remote_desktop_bitrate_kbps);
+                        if next_remote_desktop_bitrate_kbps != 0
+                            && !(250..=100_000).contains(&next_remote_desktop_bitrate_kbps)
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "Remote Desktop bitrate must be zero or between 250 and 100000 Kbps"
+                                ),
+                            );
+                        }
+                        if next_remote_desktop_bitrate_kbps != 0
+                            && registered_remote_desktop_bitrate_kbps.is_none()
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Remote Desktop bitrate actuator is unavailable"),
+                            );
+                        }
+                        let runtime_adjustment = match self
                             .runtime_supervisor
                             .adjust_resources(&command.session_id, next)
                             .await
                         {
-                            Ok(previous) => {
-                                let sequence =
-                                    match self.next_event_sequence(&command.session_id).await {
-                                        Ok(sequence) => sequence,
-                                        Err(error) => return self.failed(command, error),
-                                    };
-                                let event = Self::event(
-                                    command,
-                                    "RuntimeResourcesAdjusted",
-                                    sequence,
-                                    RuntimeResourcesAdjustedEvent {
-                                        session_id: command.session_id.clone(),
-                                        node_id: self.node_id.clone(),
-                                        old_resource_class: previous.resource_class,
-                                        old_cpu_millis: previous.cpu_millis,
-                                        old_memory_request_mib: previous.memory_request_mib,
-                                        old_memory_limit_mib: previous.memory_limit_mib,
-                                        old_pid_limit: previous.pid_limit,
-                                        old_tab_budget: previous.tab_budget,
-                                        new_resource_class: payload.resource_class,
-                                        new_cpu_millis: payload.cpu_millis,
-                                        new_memory_request_mib: payload.memory_request_mib,
-                                        new_memory_limit_mib: payload.memory_limit_mib,
-                                        new_pid_limit: payload.pid_limit,
-                                        new_tab_budget: payload.tab_budget,
-                                        reason: payload.reason,
-                                        operation_id: command.idempotency_key.clone(),
-                                    },
-                                );
-                                Self::result(
-                                    Self::ack(&command.message_id, true, "", ""),
-                                    Some(event),
-                                )
-                            }
-                            Err(error) => self.failed(command, error),
+                            Ok(adjustment) => adjustment,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let previous = runtime_adjustment.previous;
+                        let applied = runtime_adjustment.applied;
+                        if let Err(error) = self
+                            .state_collector
+                            .set_resource_budget(
+                                &command.session_id,
+                                next_state_collector_budget_percent,
+                            )
+                            .await
+                        {
+                            self.rollback_resource_adjustment(
+                                &command.session_id,
+                                previous.clone(),
+                                previous_state_collector_budget_percent,
+                                previous_remote_desktop_bitrate_kbps,
+                            )
+                            .await;
+                            return self.failed(command, error);
                         }
+                        if let Some(gateway) = self
+                            .remote_desktop_gateway
+                            .as_ref()
+                            .filter(|_| registered_remote_desktop_bitrate_kbps.is_some())
+                        {
+                            if let Err(error) = gateway.set_bitrate_limit(
+                                &command.session_id,
+                                next_remote_desktop_bitrate_kbps,
+                            ) {
+                                self.rollback_resource_adjustment(
+                                    &command.session_id,
+                                    previous.clone(),
+                                    previous_state_collector_budget_percent,
+                                    previous_remote_desktop_bitrate_kbps,
+                                )
+                                .await;
+                                return self.failed(command, error);
+                            }
+                        }
+                        let sequence = match self.next_event_sequence(&command.session_id).await {
+                            Ok(sequence) => sequence,
+                            Err(error) => {
+                                self.rollback_resource_adjustment(
+                                    &command.session_id,
+                                    previous,
+                                    previous_state_collector_budget_percent,
+                                    previous_remote_desktop_bitrate_kbps,
+                                )
+                                .await;
+                                return self.failed(command, error);
+                            }
+                        };
+                        let event = Self::event(
+                            command,
+                            "RuntimeResourcesAdjusted",
+                            sequence,
+                            RuntimeResourcesAdjustedEvent {
+                                session_id: command.session_id.clone(),
+                                node_id: self.node_id.clone(),
+                                old_resource_class: previous.resource_class,
+                                old_cpu_millis: previous.cpu_millis,
+                                old_memory_request_mib: previous.memory_request_mib,
+                                old_memory_limit_mib: previous.memory_limit_mib,
+                                old_pid_limit: previous.pid_limit,
+                                old_tab_budget: previous.tab_budget,
+                                new_resource_class: applied.resource_class,
+                                new_cpu_millis: applied.cpu_millis,
+                                new_memory_request_mib: applied.memory_request_mib,
+                                new_memory_limit_mib: applied.memory_limit_mib,
+                                new_pid_limit: applied.pid_limit,
+                                new_tab_budget: applied.tab_budget,
+                                reason: payload.reason,
+                                operation_id: command.idempotency_key.clone(),
+                                old_state_collector_budget_percent: Some(
+                                    previous_state_collector_budget_percent,
+                                ),
+                                old_remote_desktop_bitrate_kbps: Some(
+                                    previous_remote_desktop_bitrate_kbps,
+                                ),
+                                new_state_collector_budget_percent: Some(
+                                    next_state_collector_budget_percent,
+                                ),
+                                new_remote_desktop_bitrate_kbps: Some(
+                                    next_remote_desktop_bitrate_kbps,
+                                ),
+                            },
+                        );
+                        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
                     }
                     Err(error) => self.failed(command, error.into()),
                 }
@@ -2251,7 +2435,11 @@ impl NodeControlService {
                                 );
                             }
                         }
-                        if probe_count.is_multiple_of(2) {
+                        let state_collection_interval = service
+                            .state_collector
+                            .collection_interval_probes(&session_id)
+                            .await;
+                        if probe_count.is_multiple_of(state_collection_interval) {
                             if service.resync_required.lock().await.contains(&session_id) {
                                 continue;
                             }
@@ -2299,11 +2487,19 @@ impl NodeControlService {
                                             continue;
                                         }
                                         Some(previous) => {
+                                            let (diff_max_bytes, diff_max_changes) = service
+                                                .state_collector
+                                                .bounded_diff_limits(
+                                                    &session_id,
+                                                    service.diff_max_bytes,
+                                                    service.diff_max_changes,
+                                                )
+                                                .await;
                                             match diff_states(
                                                 &previous,
                                                 &state,
-                                                service.diff_max_bytes,
-                                                service.diff_max_changes,
+                                                diff_max_bytes,
+                                                diff_max_changes,
                                             ) {
                                                 Ok(DiffOutcome::Diff(diff)) => {
                                                     service

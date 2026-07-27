@@ -10,12 +10,13 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    AgentActionCommand, AgentActionFailedEvent, AgentNavigateCommand, AgentNavigationFailedEvent,
-    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
-    CommandAck, CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
-    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
-    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
-    PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest, RequestStateResyncCommand,
+    AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent,
+    AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
+    BrowserStateDiffEvent, BrowserStateEvent, CommandAck, CommandEnvelope, DiffTruncatedEvent,
+    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
+    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
+    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
+    ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
     RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
     TargetBounds,
 };
@@ -36,7 +37,7 @@ use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, Mutex};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
@@ -61,6 +62,8 @@ struct NodeControlService {
     journal: Arc<SqliteNodeJournal>,
     inflight: Arc<Mutex<HashSet<String>>>,
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
+    resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
+    resource_report_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
     remote_desktop_gateway: Option<RemoteDesktopGateway>,
@@ -372,11 +375,19 @@ impl NodeControlService {
                 .all(|character| character.is_ascii_alphanumeric() || character == '_')
     }
 
-    async fn allocate_cdp_port(&self) -> u16 {
-        let mut port = self.next_cdp_port.lock().await;
-        let allocated = *port;
-        *port = if *port >= 19_999 { 10_000 } else { *port + 1 };
-        allocated
+    async fn allocate_cdp_port(&self) -> anyhow::Result<u16> {
+        for _ in 10_000..=19_999 {
+            let candidate = {
+                let mut port = self.next_cdp_port.lock().await;
+                let candidate = *port;
+                *port = if *port >= 19_999 { 10_000 } else { *port + 1 };
+                candidate
+            };
+            if std::net::TcpListener::bind(("127.0.0.1", candidate)).is_ok() {
+                return Ok(candidate);
+            }
+        }
+        anyhow::bail!("no loopback CDP port is available in the configured range")
     }
 
     async fn allocate_display(&self) -> String {
@@ -667,6 +678,93 @@ impl NodeControlService {
             .publish(PublishRequest { event: Some(event) })
             .await?
             .into_inner())
+    }
+
+    async fn report_session_resources(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        context_epoch: i64,
+    ) -> anyhow::Result<()> {
+        let metrics = self.runtime_supervisor.metrics(session_id).await?;
+        let cpu_percent = if let Some(current_usage_micros) = metrics.cumulative_cpu_usage_micros {
+            let now = Instant::now();
+            let previous = self
+                .resource_cpu_baselines
+                .lock()
+                .await
+                .insert(session_id.to_owned(), (current_usage_micros, now));
+            previous
+                .and_then(|(previous_usage_micros, previous_at)| {
+                    let elapsed_micros = now.duration_since(previous_at).as_micros() as f64;
+                    let cpu_limit_cores = f64::from(metrics.cpu_limit_millis) / 1000.0;
+                    (elapsed_micros > 0.0 && cpu_limit_cores > 0.0).then(|| {
+                        (current_usage_micros.saturating_sub(previous_usage_micros) as f64
+                            / elapsed_micros
+                            / cpu_limit_cores
+                            * 100.0)
+                            .clamp(0.0, 100.0)
+                    })
+                })
+                .unwrap_or_else(|| f64::from(metrics.cpu_usage_percent).clamp(0.0, 100.0))
+        } else {
+            f64::from(metrics.cpu_usage_percent).clamp(0.0, 100.0)
+        };
+        let observed_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_millis()
+            .try_into()
+            .context("resource sample timestamp exceeds i64")?;
+        let secure = self.grpc_tls.is_some();
+        let target = if self.control_plane_event_target.starts_with("http://")
+            || self.control_plane_event_target.starts_with("https://")
+        {
+            self.control_plane_event_target.clone()
+        } else {
+            format!(
+                "{}://{}",
+                if secure { "https" } else { "http" },
+                self.control_plane_event_target
+            )
+        };
+        let mut endpoint = tonic::transport::Endpoint::from_shared(target)?
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(2));
+        if let Some(material) = self.grpc_tls.as_ref() {
+            endpoint = endpoint.tls_config(material.client_config())?;
+        }
+        let channel = endpoint.connect().await?;
+        let mut client = NodeEventServiceClient::new(channel);
+        let response = client
+            .report_session_resources(ReportSessionResourcesRequest {
+                node_id: self.node_id.clone(),
+                tenant_id: tenant_id.to_owned(),
+                session_id: session_id.to_owned(),
+                context_epoch,
+                observed_at_ms,
+                cpu_percent: Some(cpu_percent),
+                memory_rss_mib: Some(metrics.resident_memory_bytes.div_ceil(1024 * 1024)),
+                memory_psi_some_avg10: metrics.memory_psi_some_avg10,
+                renderer_count: None,
+                tab_count: None,
+                main_thread_blocked_ms: None,
+                agent_action_latency_ms: None,
+                state_diff_queue_depth: None,
+                profile_io_bytes_per_second: None,
+                extension_cpu_percent: None,
+                extension_memory_mib: None,
+                remote_desktop_frame_age_ms: None,
+                media_encoder_percent: None,
+                danger_event: String::new(),
+            })
+            .await?
+            .into_inner();
+        anyhow::ensure!(
+            response.accepted,
+            "Control Plane rejected Session resource sample: {}",
+            response.error_code
+        );
+        Ok(())
     }
 
     async fn publish_and_mark(&self, event: EventEnvelope) -> anyhow::Result<()> {
@@ -1123,7 +1221,14 @@ impl NodeControlService {
                                 }
                             }
                         };
-                        let cdp_port = self.allocate_cdp_port().await;
+                        let cdp_port = match self.allocate_cdp_port().await {
+                            Ok(port) => port,
+                            Err(error) => {
+                                self.release_start_resources(&command.session_id, &workspace)
+                                    .await;
+                                return self.failed(command, error);
+                            }
+                        };
                         let runtime_build_id = payload.runtime_build_id;
                         let (display, vnc_port) = if self.desktop_enabled {
                             let vnc_port = match Self::allocate_loopback_port() {
@@ -1445,6 +1550,74 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "AdjustRuntimeResources" => {
+                match AdjustRuntimeResourcesCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "resource payload session_id does not match envelope"
+                                ),
+                            );
+                        }
+                        let next = RuntimeResourceLimits {
+                            resource_class: payload.resource_class.clone(),
+                            cpu_millis: payload.cpu_millis,
+                            memory_request_mib: payload.memory_request_mib,
+                            memory_limit_mib: payload.memory_limit_mib,
+                            pid_limit: payload.pid_limit,
+                            tab_budget: payload.tab_budget,
+                            desktop_required: payload.desktop_required,
+                            gpu_required: payload.gpu_required,
+                            native_os_required: payload.native_os_required,
+                            isolation_required: payload.isolation_required,
+                        };
+                        match self
+                            .runtime_supervisor
+                            .adjust_resources(&command.session_id, next)
+                            .await
+                        {
+                            Ok(previous) => {
+                                let sequence =
+                                    match self.next_event_sequence(&command.session_id).await {
+                                        Ok(sequence) => sequence,
+                                        Err(error) => return self.failed(command, error),
+                                    };
+                                let event = Self::event(
+                                    command,
+                                    "RuntimeResourcesAdjusted",
+                                    sequence,
+                                    RuntimeResourcesAdjustedEvent {
+                                        session_id: command.session_id.clone(),
+                                        node_id: self.node_id.clone(),
+                                        old_resource_class: previous.resource_class,
+                                        old_cpu_millis: previous.cpu_millis,
+                                        old_memory_request_mib: previous.memory_request_mib,
+                                        old_memory_limit_mib: previous.memory_limit_mib,
+                                        old_pid_limit: previous.pid_limit,
+                                        old_tab_budget: previous.tab_budget,
+                                        new_resource_class: payload.resource_class,
+                                        new_cpu_millis: payload.cpu_millis,
+                                        new_memory_request_mib: payload.memory_request_mib,
+                                        new_memory_limit_mib: payload.memory_limit_mib,
+                                        new_pid_limit: payload.pid_limit,
+                                        new_tab_budget: payload.tab_budget,
+                                        reason: payload.reason,
+                                        operation_id: command.idempotency_key.clone(),
+                                    },
+                                );
+                                Self::result(
+                                    Self::ack(&command.message_id, true, "", ""),
+                                    Some(event),
+                                )
+                            }
+                            Err(error) => self.failed(command, error),
+                        }
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "ExecuteInput" => match ExecuteInputCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
                     if payload.session_id != command.session_id {
@@ -1883,6 +2056,14 @@ impl NodeControlService {
                         continue;
                     }
                 };
+                if !service
+                    .monitored_sessions
+                    .lock()
+                    .await
+                    .contains(&session_id)
+                {
+                    return;
+                }
                 match health {
                     runtime_supervisor::RuntimeHealth::Healthy => {
                         if let Some(input) =
@@ -1898,6 +2079,22 @@ impl NodeControlService {
                             }
                         }
                         probe_count += 1;
+                        if probe_count.is_multiple_of(service.resource_report_interval_probes) {
+                            if let Err(error) = service
+                                .report_session_resources(
+                                    &tenant_id,
+                                    &session_id,
+                                    running_context_epoch,
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    session_id,
+                                    error = %error,
+                                    "Session resource telemetry report failed"
+                                );
+                            }
+                        }
                         if probe_count.is_multiple_of(2) {
                             if service.resync_required.lock().await.contains(&session_id) {
                                 continue;
@@ -2019,7 +2216,17 @@ impl NodeControlService {
                         tracing::warn!(session_id, reason = %reason, "Runtime health is degraded");
                     }
                     runtime_supervisor::RuntimeHealth::Crashed(reason) => {
+                        tracing::warn!(
+                            session_id,
+                            reason = %reason,
+                            "Runtime health monitor detected a Browser crash"
+                        );
                         service.monitored_sessions.lock().await.remove(&session_id);
+                        service
+                            .resource_cpu_baselines
+                            .lock()
+                            .await
+                            .remove(&session_id);
                         if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
                             gateway.unregister_session(&session_id);
                         }
@@ -2528,6 +2735,13 @@ async fn main() -> Result<()> {
         (1024..=60_000).contains(&diff_max_bytes) && diff_max_changes > 0,
         "State Diff limits are invalid"
     );
+    let resource_report_interval_probes = std::env::var("SESSION_RESOURCE_REPORT_INTERVAL_SECONDS")
+        .unwrap_or_else(|_| "5".to_owned())
+        .parse::<u64>()?;
+    anyhow::ensure!(
+        (5..=3600).contains(&resource_report_interval_probes),
+        "SESSION_RESOURCE_REPORT_INTERVAL_SECONDS must be between 5 and 3600"
+    );
     let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
     let runtime_cgroup_root = std::env::var("RUNTIME_CGROUP_ROOT")
         .unwrap_or_default()
@@ -2781,6 +2995,8 @@ async fn main() -> Result<()> {
         journal,
         inflight: Arc::new(Mutex::new(HashSet::new())),
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
+        resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resource_report_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
         remote_desktop_gateway: Some(remote_desktop_gateway),
@@ -2819,9 +3035,13 @@ async fn main() -> Result<()> {
         grpc_server = grpc_server.tls_config(material.server_config())?;
     }
     grpc_server
-        .add_service(NodeControlServiceServer::new(service))
+        .add_service(NodeControlServiceServer::new(service.clone()))
         .serve_with_shutdown(address, shutdown_signal())
         .await?;
+    // A process-level shutdown is not a Browser crash. Stop health monitors before terminating
+    // their Runtime children so they cannot enqueue a second recovery while the Node is exiting.
+    service.monitored_sessions.lock().await.clear();
+    service.resource_cpu_baselines.lock().await.clear();
     runtime_supervisor.stop_all().await;
     Ok(())
 }
@@ -2860,7 +3080,8 @@ mod tests {
         NodeEventService, NodeEventServiceServer,
     };
     use node_contracts::proto::{
-        PublishResponse, ReportCapacityRequest, ReportCapacityResponse, RuntimeStoppedEvent,
+        PublishResponse, ReportCapacityRequest, ReportCapacityResponse,
+        ReportSessionResourcesRequest, ReportSessionResourcesResponse, RuntimeStoppedEvent,
     };
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
@@ -2902,6 +3123,19 @@ mod tests {
                 accepted: true,
                 admission_state: "OPEN".to_owned(),
                 pressure_state: "NORMAL".to_owned(),
+                error_code: String::new(),
+                error_message: String::new(),
+            }))
+        }
+
+        async fn report_session_resources(
+            &self,
+            request: Request<ReportSessionResourcesRequest>,
+        ) -> Result<Response<ReportSessionResourcesResponse>, Status> {
+            let report = request.into_inner();
+            Ok(Response::new(ReportSessionResourcesResponse {
+                session_id: report.session_id,
+                accepted: true,
                 error_code: String::new(),
                 error_message: String::new(),
             }))
@@ -2995,6 +3229,8 @@ mod tests {
             journal: reopened.clone(),
             inflight: Arc::new(Mutex::new(HashSet::new())),
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
+            resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resource_report_interval_probes: 5,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),
             remote_desktop_gateway: None,

@@ -10,8 +10,11 @@ import static org.mockito.Mockito.when;
 import io.browsercloud.api.BrowserNodeView;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
+import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.proto.node.v1.ReportCapacityRequest;
 import io.browsercloud.proto.node.v1.ReportCapacityResponse;
+import io.browsercloud.proto.node.v1.ReportSessionResourcesRequest;
+import io.browsercloud.proto.node.v1.ReportSessionResourcesResponse;
 import io.grpc.stub.StreamObserver;
 import jakarta.validation.Validation;
 import java.math.BigDecimal;
@@ -66,6 +69,7 @@ class NodeCapacityGrpcEndpointTest {
           new NodeEventGrpcServer.Endpoint(
               mock(NodeEventIngestionService.class),
               capacity,
+              mock(SessionResourceApplicationService.class),
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportCapacityResponse>();
@@ -100,11 +104,46 @@ class NodeCapacityGrpcEndpointTest {
     }
   }
 
-  private static StreamObserver<ReportCapacityResponse> observer(
-      ArrayList<ReportCapacityResponse> responses) {
+  @Test
+  void authenticNodeResourceReportRecordsRealSessionSample() {
+    var resources = mock(SessionResourceApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setCpuPercent(64.5)
+              .setMemoryRssMib(1536)
+              .setMemoryPsiSomeAvg10(2.75)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .satisfies(
+              response -> {
+                assertThat(response.getSessionId()).isEqualTo("ses_test_1");
+                assertThat(response.getAccepted()).isTrue();
+              });
+      verify(resources).recordSampleFromNode(eq("ses_test_1"), eq("tenant-test"), eq(7L), any());
+    }
+  }
+
+  private static <T> StreamObserver<T> observer(ArrayList<T> responses) {
     return new StreamObserver<>() {
       @Override
-      public void onNext(ReportCapacityResponse value) {
+      public void onNext(T value) {
         responses.add(value);
       }
 

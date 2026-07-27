@@ -35,6 +35,7 @@ class NodeEventIngestionServiceTest {
   @Mock private AuditApplicationService auditService;
   @Mock private DurableWorkflowApplicationService workflowService;
   @Mock private BrowserCapacityApplicationService browserCapacityService;
+  @Mock private SessionResourceApplicationService resourceService;
 
   private NodeEventIngestionService service;
 
@@ -52,7 +53,8 @@ class NodeEventIngestionServiceTest {
             agentNavigationCompletionService,
             auditService,
             workflowService,
-            browserCapacityService);
+            browserCapacityService,
+            resourceService);
   }
 
   @Test
@@ -108,6 +110,36 @@ class NodeEventIngestionServiceTest {
     service.receive(command);
 
     verify(browserStateRepository).save("tenant-test", 2, state);
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldApplyResourceAdjustmentBeforeAcknowledgingInbox() {
+    var adjusted =
+        new NodeEvent.RuntimeResourcesAdjusted(
+            "ses-test",
+            "node-test",
+            "L2",
+            600,
+            768,
+            1280,
+            256,
+            8,
+            "L2",
+            900,
+            1024,
+            1792,
+            256,
+            8,
+            "SUSTAINED_MEMORY_PRESSURE",
+            "op-resource");
+    var command =
+        new NodeEventReceived("evt-resource", "tenant-test", "ses-test", 1, 2, 3, 5, adjusted);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(resourceService).recordAdjustmentAcknowledged("tenant-test", adjusted);
     verify(inboxRepository).save(any());
   }
 

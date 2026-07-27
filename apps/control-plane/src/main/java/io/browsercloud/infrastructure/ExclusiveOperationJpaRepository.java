@@ -2,7 +2,9 @@ package io.browsercloud.infrastructure;
 
 import io.browsercloud.persistence.ExclusiveOperationEntity;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -23,4 +25,16 @@ public interface ExclusiveOperationJpaRepository
   long nextOperationEpoch(String sessionId);
 
   long countBySessionIdAndModeAndCreatedAtAfter(String sessionId, String mode, Instant createdAt);
+
+  @Query(
+      """
+      select operation
+        from ExclusiveOperationEntity operation
+       where operation.state = 'ACTIVE'
+         and operation.mode = 'RESOURCE_ADJUSTMENT'
+         and operation.workflowId is null
+         and operation.deadline <= :now
+       order by operation.deadline
+      """)
+  List<ExclusiveOperationEntity> findExpiredWithoutWorkflow(Instant now, Pageable pageable);
 }

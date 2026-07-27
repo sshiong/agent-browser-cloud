@@ -87,12 +87,21 @@ pub struct RuntimeMetrics {
     pub resident_memory_bytes: u64,
     pub virtual_memory_bytes: u64,
     pub cpu_usage_percent: f32,
+    pub cumulative_cpu_usage_micros: Option<u64>,
+    pub cpu_limit_millis: u32,
+    pub memory_psi_some_avg10: Option<f64>,
+    pub process_count: Option<u32>,
 }
 
 /// Runtime Supervisor trait。
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
     async fn start(&self, spec: RuntimeSpec) -> anyhow::Result<RuntimeHandle>;
+    async fn adjust_resources(
+        &self,
+        session_id: &str,
+        limits: RuntimeResourceLimits,
+    ) -> anyhow::Result<RuntimeResourceLimits>;
     async fn stop(&self, session_id: &str) -> anyhow::Result<()>;
     async fn health(&self, session_id: &str) -> anyhow::Result<RuntimeHealth>;
     async fn metrics(&self, session_id: &str) -> anyhow::Result<RuntimeMetrics>;
@@ -103,6 +112,7 @@ struct RunningRuntime {
     child: Child,
     desktop: Option<DesktopProcesses>,
     cgroup: Option<RuntimeCgroup>,
+    resource_limits: RuntimeResourceLimits,
 }
 
 struct DesktopProcesses {
@@ -210,6 +220,145 @@ impl RuntimeCgroup {
             .context("failed to attach runtime process to cgroup")
     }
 
+    fn memory_current_bytes(&self) -> Option<u64> {
+        fs::read_to_string(self.path.join("memory.current"))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    }
+
+    fn cumulative_cpu_usage_micros(&self) -> Option<u64> {
+        fs::read_to_string(self.path.join("cpu.stat"))
+            .ok()?
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("usage_usec ")
+                    .and_then(|value| value.trim().parse().ok())
+            })
+    }
+
+    fn memory_psi_some_avg10(&self) -> Option<f64> {
+        fs::read_to_string(self.path.join("memory.pressure"))
+            .ok()?
+            .lines()
+            .find(|line| line.starts_with("some "))?
+            .split_whitespace()
+            .find_map(|field| field.strip_prefix("avg10="))?
+            .parse()
+            .ok()
+    }
+
+    fn process_count(&self) -> Option<u32> {
+        fs::read_to_string(self.path.join("pids.current"))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    }
+
+    fn adjust(
+        &self,
+        previous: &RuntimeResourceLimits,
+        next: &RuntimeResourceLimits,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            next.cpu_millis > 0
+                && next.memory_request_mib > 0
+                && next.memory_limit_mib >= next.memory_request_mib
+                && next.pid_limit >= 32
+                && next.tab_budget > 0,
+            "runtime resource adjustment is invalid"
+        );
+        if next.memory_limit_mib < previous.memory_limit_mib {
+            let current_mib = self
+                .memory_current_bytes()
+                .unwrap_or_default()
+                .div_ceil(1024 * 1024);
+            anyhow::ensure!(
+                current_mib <= u64::from(next.memory_request_mib),
+                "runtime memory usage exceeds requested scale-down target"
+            );
+        }
+        if next.pid_limit < previous.pid_limit {
+            let current = self.process_count().unwrap_or_default();
+            anyhow::ensure!(
+                current <= next.pid_limit,
+                "runtime process count exceeds requested PID scale-down target"
+            );
+        }
+
+        let apply = || -> anyhow::Result<()> {
+            let cpu_quota = u64::from(next.cpu_millis)
+                .saturating_mul(Self::CPU_PERIOD_MICROS)
+                .div_ceil(1000);
+            Self::write(
+                &self.path,
+                "cpu.max",
+                format!("{cpu_quota} {}", Self::CPU_PERIOD_MICROS),
+            )?;
+            if next.memory_limit_mib >= previous.memory_limit_mib {
+                Self::write(
+                    &self.path,
+                    "memory.max",
+                    u64::from(next.memory_limit_mib)
+                        .saturating_mul(1024 * 1024)
+                        .to_string(),
+                )?;
+                Self::write(
+                    &self.path,
+                    "memory.high",
+                    u64::from(next.memory_request_mib)
+                        .saturating_mul(1024 * 1024)
+                        .to_string(),
+                )?;
+            } else {
+                Self::write(
+                    &self.path,
+                    "memory.high",
+                    u64::from(next.memory_request_mib)
+                        .saturating_mul(1024 * 1024)
+                        .to_string(),
+                )?;
+                Self::write(
+                    &self.path,
+                    "memory.max",
+                    u64::from(next.memory_limit_mib)
+                        .saturating_mul(1024 * 1024)
+                        .to_string(),
+                )?;
+            }
+            Self::write(&self.path, "pids.max", next.pid_limit.to_string())
+        };
+        if let Err(error) = apply() {
+            let old_quota = u64::from(previous.cpu_millis)
+                .saturating_mul(Self::CPU_PERIOD_MICROS)
+                .div_ceil(1000);
+            let _ = Self::write(
+                &self.path,
+                "cpu.max",
+                format!("{old_quota} {}", Self::CPU_PERIOD_MICROS),
+            );
+            let _ = Self::write(
+                &self.path,
+                "memory.max",
+                u64::from(previous.memory_limit_mib)
+                    .saturating_mul(1024 * 1024)
+                    .to_string(),
+            );
+            let _ = Self::write(
+                &self.path,
+                "memory.high",
+                u64::from(previous.memory_request_mib)
+                    .saturating_mul(1024 * 1024)
+                    .to_string(),
+            );
+            let _ = Self::write(&self.path, "pids.max", previous.pid_limit.to_string());
+            return Err(error.context("failed to adjust runtime cgroup; previous limits restored"));
+        }
+        Ok(())
+    }
+
     fn kill_all(&self) {
         let kill = self.path.join("cgroup.kill");
         if kill.exists() {
@@ -237,6 +386,7 @@ pub struct ChromiumRuntimeSupervisor {
     generations: Arc<Mutex<HashMap<String, u64>>>,
     desktop: Option<DesktopRuntimeConfig>,
     cgroup_v2: Option<CgroupV2Config>,
+    metric_system: Arc<Mutex<sysinfo::System>>,
 }
 
 impl ChromiumRuntimeSupervisor {
@@ -247,6 +397,7 @@ impl ChromiumRuntimeSupervisor {
             generations: Arc::new(Mutex::new(HashMap::new())),
             desktop: None,
             cgroup_v2: None,
+            metric_system: Arc::new(Mutex::new(sysinfo::System::new())),
         }
     }
 
@@ -686,6 +837,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 child,
                 desktop,
                 cgroup,
+                resource_limits: spec.resource_limits.clone(),
             },
         );
 
@@ -696,6 +848,32 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             "Chromium runtime started"
         );
         Ok(handle)
+    }
+
+    async fn adjust_resources(
+        &self,
+        session_id: &str,
+        limits: RuntimeResourceLimits,
+    ) -> anyhow::Result<RuntimeResourceLimits> {
+        let mut runtimes = self.runtimes.lock().await;
+        let runtime = runtimes
+            .get_mut(session_id)
+            .ok_or_else(|| anyhow::anyhow!("runtime not found"))?;
+        anyhow::ensure!(
+            limits.desktop_required == runtime.resource_limits.desktop_required
+                && limits.gpu_required == runtime.resource_limits.gpu_required
+                && limits.native_os_required == runtime.resource_limits.native_os_required
+                && limits.isolation_required == runtime.resource_limits.isolation_required,
+            "online adjustment cannot change execution environment capabilities"
+        );
+        let cgroup = runtime
+            .cgroup
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("runtime resource enforcement is unavailable"))?;
+        let previous = runtime.resource_limits.clone();
+        cgroup.adjust(&previous, &limits)?;
+        runtime.resource_limits = limits;
+        Ok(previous)
     }
 
     async fn stop(&self, session_id: &str) -> anyhow::Result<()> {
@@ -783,28 +961,41 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
     }
 
     async fn metrics(&self, session_id: &str) -> anyhow::Result<RuntimeMetrics> {
-        let pid = self
-            .runtimes
-            .lock()
-            .await
-            .get(session_id)
-            .map(|runtime| runtime.handle.pid)
-            .ok_or_else(|| anyhow::anyhow!("runtime not found"))?;
-        tokio::task::spawn_blocking(move || {
-            let process_id = sysinfo::Pid::from_u32(pid);
-            let mut system = sysinfo::System::new();
-            system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[process_id]), true);
-            let process = system
-                .process(process_id)
-                .ok_or_else(|| anyhow::anyhow!("runtime process is not visible"))?;
-            Ok(RuntimeMetrics {
-                pid,
-                resident_memory_bytes: process.memory(),
-                virtual_memory_bytes: process.virtual_memory(),
-                cpu_usage_percent: process.cpu_usage(),
-            })
+        let (pid, cgroup_path, cpu_limit_millis) = {
+            let runtimes = self.runtimes.lock().await;
+            let runtime = runtimes
+                .get(session_id)
+                .ok_or_else(|| anyhow::anyhow!("runtime not found"))?;
+            (
+                runtime.handle.pid,
+                runtime.cgroup.as_ref().map(|cgroup| cgroup.path.clone()),
+                runtime.resource_limits.cpu_millis,
+            )
+        };
+        let process_id = sysinfo::Pid::from_u32(pid);
+        let mut system = self.metric_system.lock().await;
+        system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[process_id]), true);
+        let process = system
+            .process(process_id)
+            .ok_or_else(|| anyhow::anyhow!("runtime process is not visible"))?;
+        let cgroup = cgroup_path.map(|path| RuntimeCgroup { path });
+        Ok(RuntimeMetrics {
+            pid,
+            resident_memory_bytes: cgroup
+                .as_ref()
+                .and_then(RuntimeCgroup::memory_current_bytes)
+                .unwrap_or_else(|| process.memory()),
+            virtual_memory_bytes: process.virtual_memory(),
+            cpu_usage_percent: process.cpu_usage(),
+            cumulative_cpu_usage_micros: cgroup
+                .as_ref()
+                .and_then(RuntimeCgroup::cumulative_cpu_usage_micros),
+            cpu_limit_millis,
+            memory_psi_some_avg10: cgroup
+                .as_ref()
+                .and_then(RuntimeCgroup::memory_psi_some_avg10),
+            process_count: cgroup.as_ref().and_then(RuntimeCgroup::process_count),
         })
-        .await?
     }
 }
 
@@ -889,6 +1080,37 @@ mod tests {
         assert_eq!(
             fs::read_to_string(cgroup.path.join("pids.max")).unwrap(),
             "256"
+        );
+        fs::write(cgroup.path.join("memory.current"), "805306368").unwrap();
+        fs::write(cgroup.path.join("pids.current"), "80").unwrap();
+        let adjusted = RuntimeResourceLimits {
+            resource_class: "L3".into(),
+            cpu_millis: 2_000,
+            memory_request_mib: 1_536,
+            memory_limit_mib: 3_072,
+            pid_limit: 384,
+            tab_budget: 20,
+            desktop_required: false,
+            gpu_required: false,
+            native_os_required: false,
+            isolation_required: false,
+        };
+        cgroup.adjust(&spec.resource_limits, &adjusted).unwrap();
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("cpu.max")).unwrap(),
+            "200000 100000"
+        );
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("memory.high")).unwrap(),
+            "1610612736"
+        );
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("memory.max")).unwrap(),
+            "3221225472"
+        );
+        assert_eq!(
+            fs::read_to_string(cgroup.path.join("pids.max")).unwrap(),
+            "384"
         );
         cgroup.attach(42).unwrap();
         assert_eq!(

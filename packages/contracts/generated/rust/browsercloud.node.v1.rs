@@ -123,6 +123,60 @@ pub struct ReportCapacityResponse {
     #[prost(string, tag="6")]
     pub error_message: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportSessionResourcesRequest {
+    #[prost(string, tag="1")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub context_epoch: i64,
+    #[prost(int64, tag="5")]
+    pub observed_at_ms: i64,
+    #[prost(double, optional, tag="10")]
+    pub cpu_percent: ::core::option::Option<f64>,
+    #[prost(uint64, optional, tag="11")]
+    pub memory_rss_mib: ::core::option::Option<u64>,
+    #[prost(double, optional, tag="12")]
+    pub memory_psi_some_avg10: ::core::option::Option<f64>,
+    #[prost(uint32, optional, tag="13")]
+    pub renderer_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="14")]
+    pub tab_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="15")]
+    pub main_thread_blocked_ms: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="16")]
+    pub agent_action_latency_ms: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="17")]
+    pub state_diff_queue_depth: ::core::option::Option<u32>,
+    #[prost(uint64, optional, tag="18")]
+    pub profile_io_bytes_per_second: ::core::option::Option<u64>,
+    #[prost(double, optional, tag="19")]
+    pub extension_cpu_percent: ::core::option::Option<f64>,
+    #[prost(uint64, optional, tag="20")]
+    pub extension_memory_mib: ::core::option::Option<u64>,
+    #[prost(uint32, optional, tag="21")]
+    pub remote_desktop_frame_age_ms: ::core::option::Option<u32>,
+    #[prost(double, optional, tag="22")]
+    pub media_encoder_percent: ::core::option::Option<f64>,
+    #[prost(string, tag="23")]
+    pub danger_event: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportSessionResourcesResponse {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(bool, tag="2")]
+    pub accepted: bool,
+    #[prost(string, tag="3")]
+    pub error_code: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub error_message: ::prost::alloc::string::String,
+}
 /// 命令信封
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -267,6 +321,72 @@ pub struct RuntimeStoppedEvent {
     pub checkpoint_file_count: u64,
     #[prost(string, tag="10")]
     pub restore_status: ::prost::alloc::string::String,
+}
+/// 对运行中的 Runtime 执行同节点资源调整。资源调整只由 Control Plane 发起。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AdjustRuntimeResourcesCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub resource_class: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub cpu_millis: u32,
+    #[prost(uint32, tag="4")]
+    pub memory_request_mib: u32,
+    #[prost(uint32, tag="5")]
+    pub memory_limit_mib: u32,
+    #[prost(uint32, tag="6")]
+    pub pid_limit: u32,
+    #[prost(uint32, tag="7")]
+    pub tab_budget: u32,
+    #[prost(string, tag="8")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(bool, tag="9")]
+    pub desktop_required: bool,
+    #[prost(bool, tag="10")]
+    pub gpu_required: bool,
+    #[prost(bool, tag="11")]
+    pub native_os_required: bool,
+    #[prost(bool, tag="12")]
+    pub isolation_required: bool,
+}
+/// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RuntimeResourcesAdjustedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub old_resource_class: ::prost::alloc::string::String,
+    #[prost(uint32, tag="4")]
+    pub old_cpu_millis: u32,
+    #[prost(uint32, tag="5")]
+    pub old_memory_request_mib: u32,
+    #[prost(uint32, tag="6")]
+    pub old_memory_limit_mib: u32,
+    #[prost(uint32, tag="7")]
+    pub old_pid_limit: u32,
+    #[prost(uint32, tag="8")]
+    pub old_tab_budget: u32,
+    #[prost(string, tag="9")]
+    pub new_resource_class: ::prost::alloc::string::String,
+    #[prost(uint32, tag="10")]
+    pub new_cpu_millis: u32,
+    #[prost(uint32, tag="11")]
+    pub new_memory_request_mib: u32,
+    #[prost(uint32, tag="12")]
+    pub new_memory_limit_mib: u32,
+    #[prost(uint32, tag="13")]
+    pub new_pid_limit: u32,
+    #[prost(uint32, tag="14")]
+    pub new_tab_budget: u32,
+    #[prost(string, tag="15")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(string, tag="16")]
+    pub operation_id: ::prost::alloc::string::String,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

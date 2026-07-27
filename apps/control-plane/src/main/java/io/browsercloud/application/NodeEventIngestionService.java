@@ -32,6 +32,7 @@ public class NodeEventIngestionService {
   private final AuditApplicationService auditService;
   private final DurableWorkflowApplicationService workflowService;
   private final BrowserCapacityApplicationService browserCapacityService;
+  private final SessionResourceApplicationService resourceService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -44,7 +45,8 @@ public class NodeEventIngestionService {
       AgentNavigationCompletionService agentNavigationCompletionService,
       AuditApplicationService auditService,
       DurableWorkflowApplicationService workflowService,
-      BrowserCapacityApplicationService browserCapacityService) {
+      BrowserCapacityApplicationService browserCapacityService,
+      SessionResourceApplicationService resourceService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -56,6 +58,7 @@ public class NodeEventIngestionService {
     this.auditService = auditService;
     this.workflowService = workflowService;
     this.browserCapacityService = browserCapacityService;
+    this.resourceService = resourceService;
   }
 
   @Transactional
@@ -101,6 +104,8 @@ public class NodeEventIngestionService {
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ready.state());
       case NodeEvent.HumanTakeoverEnded ended ->
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ended.state());
+      case NodeEvent.RuntimeResourcesAdjusted adjusted ->
+          resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
       default -> {}
     }
     if (command.event() instanceof NodeEvent.RuntimeStopped stopped

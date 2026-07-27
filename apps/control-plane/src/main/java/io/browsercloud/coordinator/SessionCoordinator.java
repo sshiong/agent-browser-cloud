@@ -332,7 +332,10 @@ public final class SessionCoordinator {
    * </ol>
    */
   private CoordinatorResult handleNodeEvent(NodeEventReceived command) {
-    log.info("Handling node event for session: {}", command.sessionId());
+    log.info(
+        "Handling node event {} for session: {}",
+        command.event().getClass().getSimpleName(),
+        command.sessionId());
 
     var session = sessionRepository.requireForUpdate(command.sessionId());
     var event = command.event();
@@ -408,6 +411,24 @@ public final class SessionCoordinator {
         outboxPublisher.append(
             new SessionStateChanged(session.sessionId(), SessionState.TERMINATED));
 
+        yield CoordinatorResult.completed();
+      }
+
+      case NodeEvent.RuntimeResourcesAdjusted adjusted -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+          yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
+        }
+        if (operation.isEmpty()
+            || operation.orElseThrow().mode() != OperationMode.RESOURCE_ADJUSTMENT
+            || !operation.orElseThrow().operationId().equals(adjusted.operationId())) {
+          yield CoordinatorResult.rejected("STALE_RESOURCE_OPERATION");
+        }
+        if (!session.nodeId().equals(adjusted.nodeId())) {
+          yield CoordinatorResult.rejected("RESOURCE_NODE_MISMATCH");
+        }
+        operationRepository.transition(
+            operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
         yield CoordinatorResult.completed();
       }
 
@@ -543,6 +564,7 @@ public final class SessionCoordinator {
     return switch (event) {
       case NodeEvent.RuntimeStarted started -> started.sessionId();
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
+      case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
       case NodeEvent.StateDiff diff -> diff.sessionId();

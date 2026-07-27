@@ -12,6 +12,7 @@ import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
+import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ public class NodeEventMapper {
 
   static final String RUNTIME_STARTED = "RuntimeStarted";
   static final String RUNTIME_STOPPED = "RuntimeStopped";
+  static final String RUNTIME_RESOURCES_ADJUSTED = "RuntimeResourcesAdjusted";
   static final String BROWSER_CRASHED = "BrowserCrashed";
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
   static final String BROWSER_STATE_DIFF = "BrowserStateDiff";
@@ -115,6 +117,43 @@ public class NodeEventMapper {
               payload.getCoreSizeBytes(),
               payload.getCheckpointFileCount(),
               payload.getRestoreStatus());
+        }
+        case RUNTIME_RESOURCES_ADJUSTED -> {
+          var payload = RuntimeResourcesAdjustedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getNodeId(), "node_id");
+          requireText(payload.getOldResourceClass(), "old_resource_class");
+          requireText(payload.getNewResourceClass(), "new_resource_class");
+          requireText(payload.getReason(), "reason");
+          requireText(payload.getOperationId(), "operation_id");
+          if (payload.getOldCpuMillis() <= 0
+              || payload.getNewCpuMillis() <= 0
+              || payload.getOldMemoryRequestMib() <= 0
+              || payload.getNewMemoryRequestMib() <= 0
+              || payload.getOldMemoryLimitMib() < payload.getOldMemoryRequestMib()
+              || payload.getNewMemoryLimitMib() < payload.getNewMemoryRequestMib()
+              || payload.getOldPidLimit() < 32
+              || payload.getNewPidLimit() < 32
+              || payload.getOldTabBudget() <= 0
+              || payload.getNewTabBudget() <= 0) {
+            throw new IllegalArgumentException("resource adjustment limits are invalid");
+          }
+          yield new NodeEvent.RuntimeResourcesAdjusted(
+              payload.getSessionId(),
+              payload.getNodeId(),
+              payload.getOldResourceClass(),
+              payload.getOldCpuMillis(),
+              payload.getOldMemoryRequestMib(),
+              payload.getOldMemoryLimitMib(),
+              payload.getOldPidLimit(),
+              payload.getOldTabBudget(),
+              payload.getNewResourceClass(),
+              payload.getNewCpuMillis(),
+              payload.getNewMemoryRequestMib(),
+              payload.getNewMemoryLimitMib(),
+              payload.getNewPidLimit(),
+              payload.getNewTabBudget(),
+              payload.getReason(),
+              payload.getOperationId());
         }
         case BROWSER_CRASHED -> {
           var payload = BrowserCrashEvent.parseFrom(envelope.getPayload());
@@ -242,6 +281,7 @@ public class NodeEventMapper {
     return switch (event) {
       case NodeEvent.RuntimeStarted started -> started.sessionId();
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
+      case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
       case NodeEvent.StateDiff diff -> diff.sessionId();

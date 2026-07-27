@@ -10,6 +10,7 @@ import java.util.List;
 public sealed interface NodeEvent
     permits NodeEvent.RuntimeStarted,
         NodeEvent.RuntimeStopped,
+        NodeEvent.RuntimeResourcesAdjusted,
         NodeEvent.RuntimeCrashed,
         NodeEvent.StateUpdated,
         NodeEvent.StateDiff,
@@ -45,6 +46,25 @@ public sealed interface NodeEvent
       long coreSizeBytes,
       long checkpointFileCount,
       String restoreStatus)
+      implements NodeEvent {}
+
+  record RuntimeResourcesAdjusted(
+      String sessionId,
+      String nodeId,
+      String oldResourceClass,
+      int oldCpuMillis,
+      int oldMemoryRequestMib,
+      int oldMemoryLimitMib,
+      int oldPidLimit,
+      int oldTabBudget,
+      String newResourceClass,
+      int newCpuMillis,
+      int newMemoryRequestMib,
+      int newMemoryLimitMib,
+      int newPidLimit,
+      int newTabBudget,
+      String reason,
+      String operationId)
       implements NodeEvent {}
 
   /** Runtime 崩溃事件。 */

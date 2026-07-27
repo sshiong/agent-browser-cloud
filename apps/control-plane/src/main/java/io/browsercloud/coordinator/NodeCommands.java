@@ -5,6 +5,7 @@ import io.browsercloud.domain.capacity.BrowserResourceBudget;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
@@ -80,6 +81,30 @@ public final class NodeCommands {
         budget.gpuRequired(),
         budget.nativeOsRequired(),
         false);
+  }
+
+  public static NodeCommand adjustRuntimeResources(
+      SessionContext session,
+      ExclusiveOperation operation,
+      RuntimeResourceLimits limits,
+      String reason) {
+    var payload =
+        AdjustRuntimeResourcesCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setResourceClass(limits.resourceClass().name())
+            .setCpuMillis(limits.cpuMillis())
+            .setMemoryRequestMib(limits.memoryRequestMib())
+            .setMemoryLimitMib(limits.memoryLimitMib())
+            .setPidLimit(limits.pidLimit())
+            .setTabBudget(limits.tabBudget())
+            .setDesktopRequired(limits.desktop())
+            .setGpuRequired(limits.gpu())
+            .setNativeOsRequired(limits.nativeOs())
+            .setIsolationRequired(limits.isolated())
+            .setReason(reason)
+            .build()
+            .toByteArray();
+    return command(session, operation, "AdjustRuntimeResources", payload);
   }
 
   /** 构建 StopRuntime 命令。 */

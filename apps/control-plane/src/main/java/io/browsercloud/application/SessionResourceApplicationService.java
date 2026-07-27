@@ -5,9 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.BrowserPlacementView;
 import io.browsercloud.api.ResourcePolicyRequest;
 import io.browsercloud.api.SessionResourceModels.*;
+import io.browsercloud.coordinator.NodeCommandGateway;
+import io.browsercloud.coordinator.NodeCommands;
+import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.OperationFactory;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.resource.*;
 import io.browsercloud.domain.session.ResourceClass;
@@ -31,6 +35,7 @@ public class SessionResourceApplicationService {
   private final SessionRepository sessions;
   private final OperationRepository operations;
   private final IdempotencyService idempotency;
+  private final NodeCommandGateway nodeCommandGateway;
   private final ObjectMapper mapper;
 
   public SessionResourceApplicationService(
@@ -42,6 +47,7 @@ public class SessionResourceApplicationService {
       SessionRepository sessions,
       OperationRepository operations,
       IdempotencyService idempotency,
+      NodeCommandGateway nodeCommandGateway,
       ObjectMapper mapper) {
     this.policies = policies;
     this.samples = samples;
@@ -51,6 +57,7 @@ public class SessionResourceApplicationService {
     this.sessions = sessions;
     this.operations = operations;
     this.idempotency = idempotency;
+    this.nodeCommandGateway = nodeCommandGateway;
     this.mapper = mapper;
   }
 
@@ -237,6 +244,16 @@ public class SessionResourceApplicationService {
     return get(sessionId, placement.getTenantId());
   }
 
+  @Transactional
+  public SessionResourceView recordSampleFromNode(
+      String sessionId, String tenantId, long contextEpoch, RecordResourceSampleRequest request) {
+    var session = requireTenant(sessionId, tenantId);
+    if (session.contextEpoch() != contextEpoch) {
+      throw new ResourceTelemetryRejectedException("STALE_RESOURCE_CONTEXT");
+    }
+    return recordSample(sessionId, request);
+  }
+
   /** Evaluate sustained windows only; a single spike never changes allocation. */
   @Transactional
   public void evaluatePolicy(String sessionId) {
@@ -245,7 +262,9 @@ public class SessionResourceApplicationService {
     var now = Instant.now();
     var window =
         samples.findBySessionIdAndObservedAtAfterOrderByObservedAtAsc(
-            sessionId, now.minusSeconds(Math.max(90, policy.getScaleUpWindowSeconds())));
+            sessionId,
+            now.minusSeconds(
+                Math.max(policy.getScaleDownWindowSeconds(), policy.getScaleUpWindowSeconds())));
     if (window.isEmpty()) {
       policy.evaluate(
           policy.status() == ResourcePolicyStatus.AGENT_PAUSED
@@ -264,6 +283,11 @@ public class SessionResourceApplicationService {
       return;
     }
     var placement = placements.findById(sessionId).orElse(null);
+    if (placement == null || !"ACTIVE".equals(placement.getState())) {
+      policy.evaluate(ResourcePolicyStatus.OBSERVING, "ACTIVE_PLACEMENT_REQUIRED", now);
+      policies.save(policy);
+      return;
+    }
     var sustainedCpu =
         sustained(window, policy.getScaleUpWindowSeconds(), s -> s.getCpuPercent(), 80d);
     var sustainedMemory =
@@ -276,47 +300,247 @@ public class SessionResourceApplicationService {
                         ? null
                         : s.getMemoryRssMib() * 100d / placement.getMemoryLimitMib(),
                 75d);
-    if (!sustainedCpu && !sustainedMemory) {
-      policy.evaluate(ResourcePolicyStatus.STABLE, "WINDOW_WITHIN_POLICY", now);
+    var cooldownActive =
+        policy.getLastAdjustedAt() != null
+            && policy
+                .getLastAdjustedAt()
+                .plusSeconds(policy.getAdjustmentCooldownSeconds())
+                .isAfter(now);
+    if (sustainedCpu || sustainedMemory) {
+      if (cooldownActive) {
+        policy.evaluate(ResourcePolicyStatus.OBSERVING, "ADJUSTMENT_COOLDOWN_ACTIVE", now);
+        policies.save(policy);
+        return;
+      }
+      var atMaximum =
+          placement.getCpuMillis() >= policy.getMaximumCpuMillis()
+              && placement.getMemoryLimitMib() >= policy.getMaximumMemoryMib();
+      if (atMaximum) {
+        handleMaximumReached(policy, sessionId, now);
+        policies.save(policy);
+        return;
+      }
+      requestAdjustment(
+          requireTenant(sessionId, policy.getTenantId()),
+          policy,
+          placement,
+          Math.min(
+              policy.getMaximumCpuMillis(),
+              Math.max(placement.getCpuMillis() + 250, placement.getCpuMillis() * 3 / 2)),
+          Math.min(
+              policy.getMaximumMemoryMib(),
+              Math.max(
+                  placement.getMemoryRequestMib() + 256, placement.getMemoryRequestMib() * 3 / 2)),
+          Math.min(
+              policy.getMaximumMemoryMib(),
+              Math.max(placement.getMemoryLimitMib() + 512, placement.getMemoryLimitMib() * 3 / 2)),
+          ResourcePolicyStatus.SCALING_UP,
+          sustainedMemory ? "SUSTAINED_MEMORY_PRESSURE" : "SUSTAINED_CPU_PRESSURE",
+          now);
+      return;
+    }
+
+    var sustainedLowCpu =
+        sustainedBelow(window, policy.getScaleDownWindowSeconds(), s -> s.getCpuPercent(), 25d);
+    var sustainedLowMemory =
+        sustainedBelow(
+            window,
+            policy.getScaleDownWindowSeconds(),
+            s ->
+                s.getMemoryRssMib() == null
+                    ? null
+                    : s.getMemoryRssMib() * 100d / placement.getMemoryLimitMib(),
+            40d);
+    var baselineCpu = 600;
+    var baselineRequest = 768;
+    var baselineLimit = 1280;
+    if (sustainedLowCpu
+        && sustainedLowMemory
+        && !cooldownActive
+        && (placement.getCpuMillis() > baselineCpu
+            || placement.getMemoryLimitMib() > baselineLimit)) {
+      requestAdjustment(
+          requireTenant(sessionId, policy.getTenantId()),
+          policy,
+          placement,
+          Math.max(baselineCpu, placement.getCpuMillis() * 3 / 4),
+          Math.max(baselineRequest, placement.getMemoryRequestMib() * 3 / 4),
+          Math.max(baselineLimit, placement.getMemoryLimitMib() * 3 / 4),
+          ResourcePolicyStatus.SCALING_DOWN,
+          "SUSTAINED_LOW_LOAD",
+          now);
+    } else {
+      policy.evaluate(
+          cooldownActive ? ResourcePolicyStatus.OBSERVING : ResourcePolicyStatus.STABLE,
+          cooldownActive ? "ADJUSTMENT_COOLDOWN_ACTIVE" : "WINDOW_WITHIN_POLICY",
+          now);
+      policies.save(policy);
+    }
+  }
+
+  private void handleMaximumReached(
+      SessionResourcePolicyEntity policy, String sessionId, Instant now) {
+    switch (policy.onMaximumReached()) {
+      case PAUSE_AGENT -> {
+        var newlyPaused = policy.status() != ResourcePolicyStatus.AGENT_PAUSED;
+        tasks
+            .findAllBySessionIdAndState(sessionId, "RUNNING")
+            .forEach(
+                task -> {
+                  task.pauseByResourcePolicy(now);
+                  tasks.save(task);
+                });
+        policy.evaluate(ResourcePolicyStatus.AGENT_PAUSED, "MAXIMUM_REACHED_AGENT_PAUSED", now);
+        if (newlyPaused) {
+          appendEvent(
+              sessionId,
+              policy.getTenantId(),
+              "MAXIMUM_REACHED",
+              "PAUSE_AGENT_PRESERVE_BROWSER",
+              null,
+              null,
+              "RESOURCE_DECISION_ENGINE",
+              null,
+              null,
+              "COMMITTED",
+              now);
+        }
+      }
+      case WAIT_SAFE_POINT_MIGRATE -> {
+        pauseAgentTasks(sessionId, now);
+        policy.evaluate(
+            ResourcePolicyStatus.WAITING_SAFE_POINT, "MAXIMUM_REACHED_WAIT_SAFE_POINT", now);
+      }
+      case HIBERNATE -> {
+        pauseAgentTasks(sessionId, now);
+        policy.evaluate(
+            ResourcePolicyStatus.HIBERNATING, "MAXIMUM_REACHED_HIBERNATE_REQUESTED", now);
+      }
+      case TERMINATE_STRICT ->
+          policy.evaluate(
+              ResourcePolicyStatus.CRITICAL, "MAXIMUM_REACHED_STRICT_TERMINATION_REQUIRED", now);
+    }
+  }
+
+  private void pauseAgentTasks(String sessionId, Instant now) {
+    tasks
+        .findAllBySessionIdAndState(sessionId, "RUNNING")
+        .forEach(
+            task -> {
+              task.pauseByResourcePolicy(now);
+              tasks.save(task);
+            });
+  }
+
+  private void requestAdjustment(
+      SessionContext session,
+      SessionResourcePolicyEntity policy,
+      BrowserPlacementEntity placement,
+      int cpuMillis,
+      int memoryRequestMib,
+      int memoryLimitMib,
+      ResourcePolicyStatus status,
+      String reason,
+      Instant now) {
+    if (operations.findActive(session.sessionId()).isPresent()) {
+      policy.evaluate(ResourcePolicyStatus.OBSERVING, "RESOURCE_ADJUSTMENT_OPERATION_BUSY", now);
       policies.save(policy);
       return;
     }
-    var atMaximum =
-        placement != null
-            && (placement.getCpuMillis() >= policy.getMaximumCpuMillis()
-                || placement.getMemoryLimitMib() >= policy.getMaximumMemoryMib());
-    if (atMaximum && policy.onMaximumReached() == MaximumReachedPolicy.PAUSE_AGENT) {
-      var newlyPaused = policy.status() != ResourcePolicyStatus.AGENT_PAUSED;
-      tasks
-          .findAllBySessionIdAndState(sessionId, "RUNNING")
-          .forEach(
-              task -> {
-                task.pauseByResourcePolicy(now);
-                tasks.save(task);
-              });
-      policy.evaluate(ResourcePolicyStatus.AGENT_PAUSED, "MAXIMUM_REACHED_AGENT_PAUSED", now);
-      if (newlyPaused) {
-        appendEvent(
-            sessionId,
-            policy.getTenantId(),
-            "MAXIMUM_REACHED",
-            "PAUSE_AGENT_PRESERVE_BROWSER",
-            null,
-            null,
-            "RESOURCE_DECISION_ENGINE",
-            null,
-            null,
-            "COMMITTED",
-            now);
-      }
-    } else {
-      // Allocation is unchanged until a real Node actuator acknowledges it.
-      policy.evaluate(
-          atMaximum ? ResourcePolicyStatus.AT_MAXIMUM : ResourcePolicyStatus.OBSERVING,
-          atMaximum ? "MAXIMUM_REACHED" : "SUSTAINED_PRESSURE_AWAITING_ACTUATOR",
-          now);
-    }
+    memoryRequestMib = Math.min(memoryRequestMib, memoryLimitMib);
+    var operationId = newId("op_");
+    var operation =
+        OperationFactory.resourceAdjustment(
+            session, operations.nextOperationEpoch(session.sessionId()), operationId);
+    var limits =
+        new RuntimeResourceLimits(
+            placement.effectiveResourceClass(),
+            cpuMillis,
+            memoryRequestMib,
+            memoryLimitMib,
+            placement.getPidLimit(),
+            placement.getTabBudget(),
+            placement.isRequiresDesktop(),
+            placement.isRequiresGpu(),
+            placement.isRequiresNativeOs(),
+            placement.isRequiresIsolation());
+    operations.insert(operation);
+    nodeCommandGateway.send(
+        NodeCommands.adjustRuntimeResources(session, operation, limits, reason));
+    policy.evaluate(status, reason + "_COMMAND_DISPATCHED", now);
     policies.save(policy);
+    appendEvent(
+        session.sessionId(),
+        session.tenantId(),
+        "ADJUSTMENT_REQUESTED",
+        reason,
+        allocationMap(placement),
+        allocationMap(placement, cpuMillis, memoryRequestMib, memoryLimitMib),
+        "RESOURCE_DECISION_ENGINE",
+        operationId,
+        null,
+        "PENDING_NODE_ACK",
+        now);
+  }
+
+  @Transactional
+  public void recordAdjustmentAcknowledged(
+      String tenantId, NodeEvent.RuntimeResourcesAdjusted adjusted) {
+    var session = requireTenant(adjusted.sessionId(), tenantId);
+    var placement =
+        placements
+            .findById(adjusted.sessionId())
+            .orElseThrow(() -> new ResourceTelemetryRejectedException("PLACEMENT_NOT_FOUND"));
+    if (!placement.getNodeId().equals(adjusted.nodeId())
+        || !placement.effectiveResourceClass().name().equals(adjusted.oldResourceClass())
+        || !placement.effectiveResourceClass().name().equals(adjusted.newResourceClass())
+        || placement.getCpuMillis() != adjusted.oldCpuMillis()
+        || placement.getMemoryRequestMib() != adjusted.oldMemoryRequestMib()
+        || placement.getMemoryLimitMib() != adjusted.oldMemoryLimitMib()
+        || placement.getPidLimit() != adjusted.oldPidLimit()
+        || placement.getTabBudget() != adjusted.oldTabBudget()
+        || placement.getPidLimit() != adjusted.newPidLimit()
+        || placement.getTabBudget() != adjusted.newTabBudget()) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
+    }
+    var policy = requirePolicy(adjusted.sessionId(), tenantId);
+    if (adjusted.newCpuMillis() <= 0
+        || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
+        || adjusted.newMemoryRequestMib() <= 0
+        || adjusted.newMemoryLimitMib() < adjusted.newMemoryRequestMib()
+        || adjusted.newMemoryLimitMib() > policy.getMaximumMemoryMib()) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
+    var old = allocationMap(placement);
+    placement.applyResourceAdjustment(
+        adjusted.newCpuMillis(),
+        adjusted.newMemoryRequestMib(),
+        adjusted.newMemoryLimitMib(),
+        adjusted.newPidLimit(),
+        adjusted.newTabBudget());
+    placements.save(placement);
+    var now = Instant.now();
+    var template =
+        adjusted.newMemoryLimitMib() > 2048 || adjusted.newCpuMillis() > 2000
+            ? "heavy-v1"
+            : adjusted.newMemoryLimitMib() > 1280 || adjusted.newCpuMillis() > 600
+                ? "interactive-v1"
+                : "standard-v1";
+    policy.adjustmentCommitted(
+        ResourcePolicyStatus.STABLE, "NODE_ACTUATOR_ACKNOWLEDGED", template, now);
+    policies.save(policy);
+    appendEvent(
+        session.sessionId(),
+        tenantId,
+        "ALLOCATION_ADJUSTED",
+        adjusted.reason(),
+        old,
+        allocationMap(placement),
+        "NODE_RESOURCE_ACTUATOR",
+        adjusted.operationId(),
+        null,
+        "COMMITTED",
+        now);
   }
 
   @Transactional
@@ -372,6 +596,21 @@ public class SessionResourceApplicationService {
             >= durationSeconds
         && percentile(qualifying.stream().map(metric).sorted().toList(), 0.95) > threshold
         && ewma(qualifying.stream().map(metric).toList(), 0.35) > threshold;
+  }
+
+  private boolean sustainedBelow(
+      List<SessionResourceSampleEntity> values,
+      int durationSeconds,
+      java.util.function.Function<SessionResourceSampleEntity, Double> metric,
+      double threshold) {
+    var qualifying = values.stream().filter(value -> metric.apply(value) != null).toList();
+    return qualifying.size() >= 2
+        && Duration.between(
+                    qualifying.getFirst().getObservedAt(), qualifying.getLast().getObservedAt())
+                .toSeconds()
+            >= durationSeconds
+        && percentile(qualifying.stream().map(metric).sorted().toList(), 0.95) < threshold
+        && ewma(qualifying.stream().map(metric).toList(), 0.35) < threshold;
   }
 
   private static double percentile(List<Double> values, double quantile) {
@@ -494,6 +733,24 @@ public class SessionResourceApplicationService {
         "cpuMillis", placement.cpuMillis(),
         "memoryLimitMib", placement.memoryLimitMib(),
         "nodeId", placement.nodeId());
+  }
+
+  private Map<String, Object> allocationMap(BrowserPlacementEntity placement) {
+    return allocationMap(
+        placement,
+        placement.getCpuMillis(),
+        placement.getMemoryRequestMib(),
+        placement.getMemoryLimitMib());
+  }
+
+  private Map<String, Object> allocationMap(
+      BrowserPlacementEntity placement, int cpuMillis, int memoryRequestMib, int memoryLimitMib) {
+    return Map.of(
+        "template", templateFor(placement.effectiveResourceClass()),
+        "cpuMillis", cpuMillis,
+        "memoryRequestMib", memoryRequestMib,
+        "memoryLimitMib", memoryLimitMib,
+        "nodeId", placement.getNodeId());
   }
 
   private String writeMap(Map<String, Object> value) {

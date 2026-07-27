@@ -1,7 +1,7 @@
 # Web Console AUTO 资源策略与详情面板
 
 > 日期：2026-07-27
-> 状态：AUTO 创建、策略持久化、真实状态/事件 API 和详情 UI 已完成；在线资源执行器与流式事件待完成
+> 状态：AUTO 创建、策略持久化、基础真实遥测、同节点在线资源执行器和详情 UI 已完成；完整指标、安全点迁移与流式事件待完成
 
 ## 本轮目标
 
@@ -103,24 +103,25 @@
 
 以下项目不能因为本轮 UI/API 已存在而计为完成：
 
-1. Browser Node 尚未按 5 秒周期自动上报完整 Session 级真实指标；当前只提供受校验的正式采样入口。
-2. 在线 Cgroup CPU/Memory 调整、State Collector 预算、Encoder Slot、
+1. Browser Node 已按 5 秒周期自动上报 CPU、RSS 和 Memory PSI；Renderer、Tab、主线程、
+   Agent Action、State Diff、Profile I/O、Extension、Remote Desktop 与 Media 指标尚未接入。
+2. 在线 Cgroup CPU/Memory/PID 调整已完成；State Collector 预算、Encoder Slot、
    Remote Desktop 码率和 Extension Weight 执行器尚未实现。
-3. 30 秒决策引擎能识别持续压力并保护 Session，但在真实 Node 执行器接入前不会把
-   “建议扩容”伪装成 `SCALING_UP` 或写入虚假分配。
+3. 30 秒决策引擎已通过真实 Operation、Outbox、Node ACK Event 和 PostgreSQL 提交完成
+   同节点快扩慢缩；Node ACK 前不会写入新分配。
 4. 安全点检测还没有覆盖拖拽/连续输入、上传下载、表单提交、支付、安全操作、
    Snapshot、Profile Flush 和业务事务。
 5. Checkpoint → Migrate → Restore → State Resync → Business Recovery Validation
    的跨 Node 自动迁移闭环尚未实现。
-6. 自动休眠和严格预算终止目前完成策略建模、权限与审计，尚未接入资源决策执行器。
+6. 自动休眠和严格预算终止目前完成策略建模、权限、状态和审计，尚未接入最终执行器。
 7. Resource Event 的 SSE/WebSocket 推送尚未实现；Web 当前以 5 秒/30 秒真实 API
    轮询更新。
 8. Tauri 2 容器、桌面安全存储与签名发布尚未创建；本轮只保证组件/API/权限逻辑可复用。
 
 ## 下一步建议
 
-1. 在 Browser Node 实现 5 秒 Session 级采集并通过 mTLS 内部通道上报。
-2. 建立独立 Resource Actuator 和 ACK/Operation 状态机，先完成同 Node 在线扩容。
-3. 增加 Safe Point Aggregator，再实现跨 Node 迁移和 Business Recovery Validation。
+1. 补齐 Browser/Agent/State/Extension/Remote Desktop/Media 的真实指标采集。
+2. 增加 Safe Point Aggregator，再实现跨 Node 迁移和 Business Recovery Validation。
+3. 接入自动休眠、严格预算终止和危险事件即时保护执行链。
 4. 增加 SSE Resource Event 流和断线恢复游标。
-5. 在上述闭环完成后执行压力、冷却、抖动、HumanTakeover 与危险事件集成矩阵。
+5. 执行压力、冷却、抖动、HumanTakeover 与危险事件集成矩阵。

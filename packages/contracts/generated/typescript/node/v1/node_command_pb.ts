@@ -550,6 +550,206 @@ export class ReportCapacityResponse extends Message<ReportCapacityResponse> {
 }
 
 /**
+ * @generated from message browsercloud.node.v1.ReportSessionResourcesRequest
+ */
+export class ReportSessionResourcesRequest extends Message<ReportSessionResourcesRequest> {
+  /**
+   * @generated from field: string node_id = 1;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string session_id = 3;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: int64 context_epoch = 4;
+   */
+  contextEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: int64 observed_at_ms = 5;
+   */
+  observedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: optional double cpu_percent = 10;
+   */
+  cpuPercent?: number;
+
+  /**
+   * @generated from field: optional uint64 memory_rss_mib = 11;
+   */
+  memoryRssMib?: bigint;
+
+  /**
+   * @generated from field: optional double memory_psi_some_avg10 = 12;
+   */
+  memoryPsiSomeAvg10?: number;
+
+  /**
+   * @generated from field: optional uint32 renderer_count = 13;
+   */
+  rendererCount?: number;
+
+  /**
+   * @generated from field: optional uint32 tab_count = 14;
+   */
+  tabCount?: number;
+
+  /**
+   * @generated from field: optional uint32 main_thread_blocked_ms = 15;
+   */
+  mainThreadBlockedMs?: number;
+
+  /**
+   * @generated from field: optional uint32 agent_action_latency_ms = 16;
+   */
+  agentActionLatencyMs?: number;
+
+  /**
+   * @generated from field: optional uint32 state_diff_queue_depth = 17;
+   */
+  stateDiffQueueDepth?: number;
+
+  /**
+   * @generated from field: optional uint64 profile_io_bytes_per_second = 18;
+   */
+  profileIoBytesPerSecond?: bigint;
+
+  /**
+   * @generated from field: optional double extension_cpu_percent = 19;
+   */
+  extensionCpuPercent?: number;
+
+  /**
+   * @generated from field: optional uint64 extension_memory_mib = 20;
+   */
+  extensionMemoryMib?: bigint;
+
+  /**
+   * @generated from field: optional uint32 remote_desktop_frame_age_ms = 21;
+   */
+  remoteDesktopFrameAgeMs?: number;
+
+  /**
+   * @generated from field: optional double media_encoder_percent = 22;
+   */
+  mediaEncoderPercent?: number;
+
+  /**
+   * @generated from field: string danger_event = 23;
+   */
+  dangerEvent = "";
+
+  constructor(data?: PartialMessage<ReportSessionResourcesRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ReportSessionResourcesRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "context_epoch", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "observed_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 10, name: "cpu_percent", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
+    { no: 11, name: "memory_rss_mib", kind: "scalar", T: 4 /* ScalarType.UINT64 */, opt: true },
+    { no: 12, name: "memory_psi_some_avg10", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
+    { no: 13, name: "renderer_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 14, name: "tab_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 15, name: "main_thread_blocked_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 16, name: "agent_action_latency_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 17, name: "state_diff_queue_depth", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 18, name: "profile_io_bytes_per_second", kind: "scalar", T: 4 /* ScalarType.UINT64 */, opt: true },
+    { no: 19, name: "extension_cpu_percent", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
+    { no: 20, name: "extension_memory_mib", kind: "scalar", T: 4 /* ScalarType.UINT64 */, opt: true },
+    { no: 21, name: "remote_desktop_frame_age_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 22, name: "media_encoder_percent", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
+    { no: 23, name: "danger_event", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportSessionResourcesRequest {
+    return new ReportSessionResourcesRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReportSessionResourcesRequest {
+    return new ReportSessionResourcesRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReportSessionResourcesRequest {
+    return new ReportSessionResourcesRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ReportSessionResourcesRequest | PlainMessage<ReportSessionResourcesRequest> | undefined, b: ReportSessionResourcesRequest | PlainMessage<ReportSessionResourcesRequest> | undefined): boolean {
+    return proto3.util.equals(ReportSessionResourcesRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.ReportSessionResourcesResponse
+ */
+export class ReportSessionResourcesResponse extends Message<ReportSessionResourcesResponse> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: bool accepted = 2;
+   */
+  accepted = false;
+
+  /**
+   * @generated from field: string error_code = 3;
+   */
+  errorCode = "";
+
+  /**
+   * @generated from field: string error_message = 4;
+   */
+  errorMessage = "";
+
+  constructor(data?: PartialMessage<ReportSessionResourcesResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ReportSessionResourcesResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "accepted", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "error_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportSessionResourcesResponse {
+    return new ReportSessionResourcesResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReportSessionResourcesResponse {
+    return new ReportSessionResourcesResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReportSessionResourcesResponse {
+    return new ReportSessionResourcesResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ReportSessionResourcesResponse | PlainMessage<ReportSessionResourcesResponse> | undefined, b: ReportSessionResourcesResponse | PlainMessage<ReportSessionResourcesResponse> | undefined): boolean {
+    return proto3.util.equals(ReportSessionResourcesResponse, a, b);
+  }
+}
+
+/**
  * 命令信封
  *
  * @generated from message browsercloud.node.v1.CommandEnvelope
@@ -1086,6 +1286,240 @@ export class RuntimeStoppedEvent extends Message<RuntimeStoppedEvent> {
 
   static equals(a: RuntimeStoppedEvent | PlainMessage<RuntimeStoppedEvent> | undefined, b: RuntimeStoppedEvent | PlainMessage<RuntimeStoppedEvent> | undefined): boolean {
     return proto3.util.equals(RuntimeStoppedEvent, a, b);
+  }
+}
+
+/**
+ * 对运行中的 Runtime 执行同节点资源调整。资源调整只由 Control Plane 发起。
+ *
+ * @generated from message browsercloud.node.v1.AdjustRuntimeResourcesCommand
+ */
+export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResourcesCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string resource_class = 2;
+   */
+  resourceClass = "";
+
+  /**
+   * @generated from field: uint32 cpu_millis = 3;
+   */
+  cpuMillis = 0;
+
+  /**
+   * @generated from field: uint32 memory_request_mib = 4;
+   */
+  memoryRequestMib = 0;
+
+  /**
+   * @generated from field: uint32 memory_limit_mib = 5;
+   */
+  memoryLimitMib = 0;
+
+  /**
+   * @generated from field: uint32 pid_limit = 6;
+   */
+  pidLimit = 0;
+
+  /**
+   * @generated from field: uint32 tab_budget = 7;
+   */
+  tabBudget = 0;
+
+  /**
+   * @generated from field: string reason = 8;
+   */
+  reason = "";
+
+  /**
+   * @generated from field: bool desktop_required = 9;
+   */
+  desktopRequired = false;
+
+  /**
+   * @generated from field: bool gpu_required = 10;
+   */
+  gpuRequired = false;
+
+  /**
+   * @generated from field: bool native_os_required = 11;
+   */
+  nativeOsRequired = false;
+
+  /**
+   * @generated from field: bool isolation_required = 12;
+   */
+  isolationRequired = false;
+
+  constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.AdjustRuntimeResourcesCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 4, name: "memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 5, name: "memory_limit_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 6, name: "pid_limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 7, name: "tab_budget", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 8, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "desktop_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 10, name: "gpu_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 11, name: "native_os_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 12, name: "isolation_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
+    return new AdjustRuntimeResourcesCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AdjustRuntimeResourcesCommand {
+    return new AdjustRuntimeResourcesCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AdjustRuntimeResourcesCommand {
+    return new AdjustRuntimeResourcesCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AdjustRuntimeResourcesCommand | PlainMessage<AdjustRuntimeResourcesCommand> | undefined, b: AdjustRuntimeResourcesCommand | PlainMessage<AdjustRuntimeResourcesCommand> | undefined): boolean {
+    return proto3.util.equals(AdjustRuntimeResourcesCommand, a, b);
+  }
+}
+
+/**
+ * Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
+ *
+ * @generated from message browsercloud.node.v1.RuntimeResourcesAdjustedEvent
+ */
+export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjustedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string node_id = 2;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string old_resource_class = 3;
+   */
+  oldResourceClass = "";
+
+  /**
+   * @generated from field: uint32 old_cpu_millis = 4;
+   */
+  oldCpuMillis = 0;
+
+  /**
+   * @generated from field: uint32 old_memory_request_mib = 5;
+   */
+  oldMemoryRequestMib = 0;
+
+  /**
+   * @generated from field: uint32 old_memory_limit_mib = 6;
+   */
+  oldMemoryLimitMib = 0;
+
+  /**
+   * @generated from field: uint32 old_pid_limit = 7;
+   */
+  oldPidLimit = 0;
+
+  /**
+   * @generated from field: uint32 old_tab_budget = 8;
+   */
+  oldTabBudget = 0;
+
+  /**
+   * @generated from field: string new_resource_class = 9;
+   */
+  newResourceClass = "";
+
+  /**
+   * @generated from field: uint32 new_cpu_millis = 10;
+   */
+  newCpuMillis = 0;
+
+  /**
+   * @generated from field: uint32 new_memory_request_mib = 11;
+   */
+  newMemoryRequestMib = 0;
+
+  /**
+   * @generated from field: uint32 new_memory_limit_mib = 12;
+   */
+  newMemoryLimitMib = 0;
+
+  /**
+   * @generated from field: uint32 new_pid_limit = 13;
+   */
+  newPidLimit = 0;
+
+  /**
+   * @generated from field: uint32 new_tab_budget = 14;
+   */
+  newTabBudget = 0;
+
+  /**
+   * @generated from field: string reason = 15;
+   */
+  reason = "";
+
+  /**
+   * @generated from field: string operation_id = 16;
+   */
+  operationId = "";
+
+  constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.RuntimeResourcesAdjustedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "old_resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "old_cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 5, name: "old_memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 6, name: "old_memory_limit_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 7, name: "old_pid_limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 8, name: "old_tab_budget", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 9, name: "new_resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "new_cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 11, name: "new_memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 12, name: "new_memory_limit_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 13, name: "new_pid_limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 14, name: "new_tab_budget", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 15, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 16, name: "operation_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {
+    return new RuntimeResourcesAdjustedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RuntimeResourcesAdjustedEvent {
+    return new RuntimeResourcesAdjustedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RuntimeResourcesAdjustedEvent {
+    return new RuntimeResourcesAdjustedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RuntimeResourcesAdjustedEvent | PlainMessage<RuntimeResourcesAdjustedEvent> | undefined, b: RuntimeResourcesAdjustedEvent | PlainMessage<RuntimeResourcesAdjustedEvent> | undefined): boolean {
+    return proto3.util.equals(RuntimeResourcesAdjustedEvent, a, b);
   }
 }
 

@@ -181,6 +181,29 @@ public class BrowserPlacementEntity {
     }
   }
 
+  public void applyResourceAdjustment(
+      int nextCpuMillis,
+      int nextMemoryRequestMib,
+      int nextMemoryLimitMib,
+      int nextPidLimit,
+      int nextTabBudget) {
+    if (!state.equals("ACTIVE")) {
+      throw new IllegalStateException("only an active placement can be adjusted");
+    }
+    if (nextCpuMillis <= 0
+        || nextMemoryRequestMib <= 0
+        || nextMemoryLimitMib < nextMemoryRequestMib
+        || nextPidLimit < 32
+        || nextTabBudget <= 0) {
+      throw new IllegalArgumentException("resource adjustment is invalid");
+    }
+    cpuMillis = nextCpuMillis;
+    memoryRequestMib = nextMemoryRequestMib;
+    memoryLimitMib = nextMemoryLimitMib;
+    pidLimit = nextPidLimit;
+    tabBudget = nextTabBudget;
+  }
+
   public String getSessionId() {
     return sessionId;
   }

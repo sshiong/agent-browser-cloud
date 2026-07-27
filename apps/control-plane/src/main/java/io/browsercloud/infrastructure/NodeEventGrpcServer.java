@@ -2,15 +2,20 @@ package io.browsercloud.infrastructure;
 
 import io.browsercloud.api.RecordNodePressureRequest;
 import io.browsercloud.api.RegisterBrowserNodeRequest;
+import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
 import io.browsercloud.application.NodeEventIngestionService.NodeEventRejectedException;
+import io.browsercloud.application.SessionResourceApplicationService;
+import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
 import io.browsercloud.coordinator.exceptions.StaleCoordinatorTermException;
 import io.browsercloud.proto.node.v1.NodeEventServiceGrpc;
 import io.browsercloud.proto.node.v1.PublishRequest;
 import io.browsercloud.proto.node.v1.PublishResponse;
 import io.browsercloud.proto.node.v1.ReportCapacityRequest;
 import io.browsercloud.proto.node.v1.ReportCapacityResponse;
+import io.browsercloud.proto.node.v1.ReportSessionResourcesRequest;
+import io.browsercloud.proto.node.v1.ReportSessionResourcesResponse;
 import io.grpc.Server;
 import io.grpc.stub.StreamObserver;
 import jakarta.validation.ConstraintViolation;
@@ -33,6 +38,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
   private final int port;
   private final NodeEventIngestionService ingestionService;
   private final BrowserCapacityApplicationService capacityService;
+  private final SessionResourceApplicationService resourceService;
   private final NodeEventMapper mapper;
   private final Validator validator;
   private final GrpcTransportFactory transportFactory;
@@ -43,12 +49,14 @@ public class NodeEventGrpcServer implements SmartLifecycle {
       @Value("${control-plane.node-event-port:9091}") int port,
       NodeEventIngestionService ingestionService,
       BrowserCapacityApplicationService capacityService,
+      SessionResourceApplicationService resourceService,
       NodeEventMapper mapper,
       Validator validator,
       GrpcTransportFactory transportFactory) {
     this.port = port;
     this.ingestionService = ingestionService;
     this.capacityService = capacityService;
+    this.resourceService = resourceService;
     this.mapper = mapper;
     this.validator = validator;
     this.transportFactory = transportFactory;
@@ -64,7 +72,9 @@ public class NodeEventGrpcServer implements SmartLifecycle {
           transportFactory
               .nodeEventServer(port)
               .maxInboundMessageSize(128 * 1024)
-              .addService(new Endpoint(ingestionService, capacityService, mapper, validator))
+              .addService(
+                  new Endpoint(
+                      ingestionService, capacityService, resourceService, mapper, validator))
               .build()
               .start();
       running = true;
@@ -100,16 +110,19 @@ public class NodeEventGrpcServer implements SmartLifecycle {
 
     private final NodeEventIngestionService ingestionService;
     private final BrowserCapacityApplicationService capacityService;
+    private final SessionResourceApplicationService resourceService;
     private final NodeEventMapper mapper;
     private final Validator validator;
 
     Endpoint(
         NodeEventIngestionService ingestionService,
         BrowserCapacityApplicationService capacityService,
+        SessionResourceApplicationService resourceService,
         NodeEventMapper mapper,
         Validator validator) {
       this.ingestionService = ingestionService;
       this.capacityService = capacityService;
+      this.resourceService = resourceService;
       this.mapper = mapper;
       this.validator = validator;
     }
@@ -169,6 +182,65 @@ public class NodeEventGrpcServer implements SmartLifecycle {
       }
     }
 
+    @Override
+    public void reportSessionResources(
+        ReportSessionResourcesRequest request,
+        StreamObserver<ReportSessionResourcesResponse> responseObserver) {
+      try {
+        var sample =
+            new RecordResourceSampleRequest(
+                request.getNodeId(),
+                request.hasCpuPercent() ? request.getCpuPercent() : null,
+                request.hasMemoryRssMib() ? Math.toIntExact(request.getMemoryRssMib()) : null,
+                request.hasMemoryPsiSomeAvg10() ? request.getMemoryPsiSomeAvg10() : null,
+                request.hasRendererCount() ? request.getRendererCount() : null,
+                request.hasTabCount() ? request.getTabCount() : null,
+                request.hasMainThreadBlockedMs() ? request.getMainThreadBlockedMs() : null,
+                request.hasAgentActionLatencyMs() ? request.getAgentActionLatencyMs() : null,
+                request.hasStateDiffQueueDepth() ? request.getStateDiffQueueDepth() : null,
+                request.hasProfileIoBytesPerSecond() ? request.getProfileIoBytesPerSecond() : null,
+                request.hasExtensionCpuPercent() ? request.getExtensionCpuPercent() : null,
+                request.hasExtensionMemoryMib()
+                    ? Math.toIntExact(request.getExtensionMemoryMib())
+                    : null,
+                request.hasRemoteDesktopFrameAgeMs() ? request.getRemoteDesktopFrameAgeMs() : null,
+                request.hasMediaEncoderPercent() ? request.getMediaEncoderPercent() : null,
+                request.getDangerEvent(),
+                Instant.ofEpochMilli(request.getObservedAtMs()));
+        validate(sample);
+        resourceService.recordSampleFromNode(
+            request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
+        respond(
+            responseObserver,
+            ReportSessionResourcesResponse.newBuilder()
+                .setSessionId(request.getSessionId())
+                .setAccepted(true)
+                .build());
+      } catch (IllegalArgumentException | ArithmeticException exception) {
+        respond(
+            responseObserver,
+            resourceRejected(
+                request.getSessionId(), "INVALID_RESOURCE_SAMPLE", exception.getMessage()));
+      } catch (ResourceTelemetryRejectedException exception) {
+        respond(
+            responseObserver,
+            resourceRejected(
+                request.getSessionId(), exception.getMessage(), "resource sample rejected"));
+      } catch (RuntimeException exception) {
+        log.warn(
+            "Browser Node {} Session {} resource report failed",
+            request.getNodeId(),
+            request.getSessionId(),
+            exception);
+        respond(
+            responseObserver,
+            resourceRejected(
+                request.getSessionId(),
+                "RESOURCE_SAMPLE_PROCESSING_FAILED",
+                "resource sample processing failed"));
+      }
+    }
+
     private static BigDecimal decimal(double value) {
       if (!Double.isFinite(value)) {
         throw new IllegalArgumentException("PSI value must be finite");
@@ -195,6 +267,16 @@ public class NodeEventGrpcServer implements SmartLifecycle {
           .setAccepted(false)
           .setErrorCode(code)
           .setErrorMessage(message == null ? code : message)
+          .build();
+    }
+
+    private ReportSessionResourcesResponse resourceRejected(
+        String sessionId, String code, String message) {
+      return ReportSessionResourcesResponse.newBuilder()
+          .setSessionId(sessionId)
+          .setAccepted(false)
+          .setErrorCode(code == null ? "RESOURCE_SAMPLE_REJECTED" : code)
+          .setErrorMessage(message == null ? "resource sample rejected" : message)
           .build();
     }
 

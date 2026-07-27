@@ -78,8 +78,10 @@ cleanup() {
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   if [[ "$exit_code" -ne 0 ]]; then
-    tail -n 120 "$temp_dir/control-plane.log" 2>/dev/null || true
-    tail -n 80 "$temp_dir/browser-node.log" 2>/dev/null || true
+    grep -E 'Runtime health|Chromium runtime|orphan Runtime|Node reconciliation|Browser crash' \
+      "$temp_dir/browser-node.log" 2>/dev/null || true
+    tail -n 240 "$temp_dir/control-plane.log" 2>/dev/null || true
+    tail -n 240 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
   fi
@@ -152,6 +154,7 @@ start_browser_node() {
   GRPC_TLS_CERT="$node_certificate_path" \
   GRPC_TLS_KEY="$node_private_key_path" \
   CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
+  NODE_PRESSURE_ROOT="$temp_dir/pressure" \
   REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
   RUNTIME_ROOT="$temp_dir/runtime" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
@@ -162,6 +165,8 @@ start_browser_node() {
   FAKE_CHROMIUM_DELAY_PROFILE_FRAGMENT=profile-recovering-failover \
   FAKE_CHROMIUM_DELAY_START_NUMBER=2 \
   FAKE_CHROMIUM_STARTUP_DELAY_SECONDS=30 \
+  SESSION_RESOURCE_REPORT_INTERVAL_SECONDS=300 \
+  RUST_LOG=info \
   NODE_CERTIFIED_MEDIA_SLOTS=2 \
   NODE_SUPPORTS_MEDIA=true \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
@@ -175,6 +180,12 @@ done
 for _ in $(seq 1 40); do
   docker exec "$redis_name" redis-cli ping 2>/dev/null | grep -q PONG && break
   sleep 0.25
+done
+
+mkdir -p "$temp_dir/pressure"
+for pressure_resource in memory cpu io; do
+  printf 'some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n' \
+    >"$temp_dir/pressure/$pressure_resource"
 done
 
 start_storage_helper
@@ -1323,7 +1334,13 @@ for _ in $(seq 1 40); do
   if [[ "$reconciled_state_epoch" = "5" ]]; then break; fi
   sleep 0.25
 done
-test "$reconciled_state_epoch" = "5"
+if [[ "$reconciled_state_epoch" != "5" ]]; then
+  echo "reconciled Browser State did not reach context epoch 5: ${reconciled_browser_state}" >&2
+  docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select mode || ':' || state || ':term=' || coordinator_term || ':ctx=' || context_epoch || ':epoch=' || operation_epoch from exclusive_operations where session_id='${session_one}' order by operation_epoch" \
+    >&2
+  false
+fi
 
 takeover_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
@@ -1394,7 +1411,10 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "8"
+test "$committed_operations" = "9"
+resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
+test "$resource_policy_operations" = "1"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"

@@ -156,4 +156,29 @@ public final class OperationFactory {
         now,
         now);
   }
+
+  /** 创建等待 Browser Node cgroup ACK 的在线资源调整 Operation。 */
+  public static ExclusiveOperation resourceAdjustment(
+      SessionContext session, long operationEpoch, String operationId) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        operationId,
+        session.sessionId(),
+        OwnerType.SYSTEM,
+        "resource-decision-engine",
+        OperationMode.RESOURCE_ADJUSTMENT,
+        20,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.EXECUTING,
+        OperationState.ACTIVE,
+        Set.of("resource.adjust"),
+        now.plusSeconds(90),
+        now,
+        null);
+  }
 }

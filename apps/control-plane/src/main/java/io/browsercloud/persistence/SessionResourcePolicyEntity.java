@@ -147,6 +147,16 @@ public class SessionResourcePolicyEntity {
     updatedAt = now;
   }
 
+  public void adjustmentCommitted(
+      ResourcePolicyStatus next, String reason, String resolvedTemplate, Instant now) {
+    status = next.name();
+    statusReason = reason;
+    this.resolvedTemplate = resolvedTemplate;
+    lastEvaluatedAt = now;
+    lastAdjustedAt = now;
+    updatedAt = now;
+  }
+
   public String getSessionId() {
     return sessionId;
   }

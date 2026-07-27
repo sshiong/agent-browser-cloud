@@ -18,6 +18,10 @@ service NodeEventService {
   rpc Publish(PublishRequest) returns (PublishResponse);
   // mTLS-authenticated Browser Node registration and live PSI heartbeat.
   rpc ReportCapacity(ReportCapacityRequest) returns (ReportCapacityResponse);
+  // Five-second, Session-scoped runtime telemetry. Values are measured by the
+  // owning Browser Node and are rejected if the current Placement does not match.
+  rpc ReportSessionResources(ReportSessionResourcesRequest)
+      returns (ReportSessionResourcesResponse);
 }
 
 message PingRequest {
@@ -89,6 +93,36 @@ message ReportCapacityResponse {
   string pressure_state = 4;
   string error_code = 5;
   string error_message = 6;
+}
+
+message ReportSessionResourcesRequest {
+  string node_id = 1;
+  string tenant_id = 2;
+  string session_id = 3;
+  int64 context_epoch = 4;
+  int64 observed_at_ms = 5;
+
+  optional double cpu_percent = 10;
+  optional uint64 memory_rss_mib = 11;
+  optional double memory_psi_some_avg10 = 12;
+  optional uint32 renderer_count = 13;
+  optional uint32 tab_count = 14;
+  optional uint32 main_thread_blocked_ms = 15;
+  optional uint32 agent_action_latency_ms = 16;
+  optional uint32 state_diff_queue_depth = 17;
+  optional uint64 profile_io_bytes_per_second = 18;
+  optional double extension_cpu_percent = 19;
+  optional uint64 extension_memory_mib = 20;
+  optional uint32 remote_desktop_frame_age_ms = 21;
+  optional double media_encoder_percent = 22;
+  string danger_event = 23;
+}
+
+message ReportSessionResourcesResponse {
+  string session_id = 1;
+  bool accepted = 2;
+  string error_code = 3;
+  string error_message = 4;
 }
 
 // 命令信封
@@ -176,6 +210,42 @@ message RuntimeStoppedEvent {
   uint64 core_size_bytes = 8;
   uint64 checkpoint_file_count = 9;
   string restore_status = 10;
+}
+
+// 对运行中的 Runtime 执行同节点资源调整。资源调整只由 Control Plane 发起。
+message AdjustRuntimeResourcesCommand {
+  string session_id = 1;
+  string resource_class = 2;
+  uint32 cpu_millis = 3;
+  uint32 memory_request_mib = 4;
+  uint32 memory_limit_mib = 5;
+  uint32 pid_limit = 6;
+  uint32 tab_budget = 7;
+  string reason = 8;
+  bool desktop_required = 9;
+  bool gpu_required = 10;
+  bool native_os_required = 11;
+  bool isolation_required = 12;
+}
+
+// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
+message RuntimeResourcesAdjustedEvent {
+  string session_id = 1;
+  string node_id = 2;
+  string old_resource_class = 3;
+  uint32 old_cpu_millis = 4;
+  uint32 old_memory_request_mib = 5;
+  uint32 old_memory_limit_mib = 6;
+  uint32 old_pid_limit = 7;
+  uint32 old_tab_budget = 8;
+  string new_resource_class = 9;
+  uint32 new_cpu_millis = 10;
+  uint32 new_memory_request_mib = 11;
+  uint32 new_memory_limit_mib = 12;
+  uint32 new_pid_limit = 13;
+  uint32 new_tab_budget = 14;
+  string reason = 15;
+  string operation_id = 16;
 }
 
 // Browser Crash 事件

@@ -178,6 +178,7 @@ export interface SessionResourceView {
     tabCount?: number;
     agentActionLatencyMs?: number;
     stateDiffQueueDepth?: number;
+    profileIoBytesPerSecond?: number;
     remoteDesktopFrameAgeMs?: number;
     mediaEncoderPercent?: number;
     observedAt: string;

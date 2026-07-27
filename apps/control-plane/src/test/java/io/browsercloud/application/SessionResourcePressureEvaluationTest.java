@@ -64,6 +64,21 @@ class SessionResourcePressureEvaluationTest {
   }
 
   @Test
+  void sustainedProfileIoTriggersScaleUpFromRealNodeRate() {
+    var now = Instant.parse("2026-07-28T00:00:00Z");
+    var policy = policy(now, 30, 1_200);
+    var placement = placement(now);
+    var sustainedRate = 60L * 1024 * 1024;
+    var samples =
+        List.of(
+            sampleWithProfileIo(now.minusSeconds(30), sustainedRate),
+            sampleWithProfileIo(now, sustainedRate));
+
+    assertThat(service.scaleUpPressureReason(samples, policy, placement))
+        .isEqualTo("SUSTAINED_PROFILE_IO_PRESSURE");
+  }
+
+  @Test
   void safetyOnlySampleDoesNotDiluteSustainedCpuPressure() {
     var now = Instant.parse("2026-07-28T00:00:00Z");
     var policy = policy(now, 60, 1_200);
@@ -188,6 +203,32 @@ class SessionResourcePressureEvaluationTest {
             remoteDesktopFrameAgeMs,
             0.0,
             dangerEvent,
+            observedAt),
+        observedAt);
+  }
+
+  private static SessionResourceSampleEntity sampleWithProfileIo(
+      Instant observedAt, long profileIoBytesPerSecond) {
+    return new SessionResourceSampleEntity(
+        "rs_io_" + observedAt.toEpochMilli(),
+        "ses_pressure",
+        "tenant-test",
+        new RecordResourceSampleRequest(
+            "node_test",
+            10.0,
+            500,
+            0.0,
+            2,
+            1,
+            100,
+            100,
+            0,
+            profileIoBytesPerSecond,
+            null,
+            null,
+            null,
+            null,
+            "",
             observedAt),
         observedAt);
   }

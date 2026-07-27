@@ -1000,6 +1000,7 @@ public class SessionResourceApplicationService {
         sample.getTabCount(),
         sample.getAgentActionLatencyMs(),
         sample.getStateDiffQueueDepth(),
+        sample.getProfileIoBytesPerSecond(),
         sample.getRemoteDesktopFrameAgeMs(),
         sample.getMediaEncoderPercent(),
         sample.getObservedAt());

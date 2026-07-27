@@ -4,8 +4,8 @@
 > 状态：CPU/内存/Memory PSI/Input Ledger、Renderer/Tab、CDP 主线程执行压力、
 > Agent Action 延迟、持久 State Diff 深度和 Remote Desktop Frame Age 的 5 秒真实
 > 遥测，同节点 Cgroup、State Collector Budget、Remote Desktop Bitrate 在线调整、
-> Safe Point、休眠、持久跨 Node 迁移和可恢复资源 SSE 已完成；Profile/Extension/Media
-> 指标、Extension/Media 执行器与目标双 Node E2E 待完成
+> Safe Point、休眠、持久跨 Node 迁移、可恢复资源 SSE 和 Browser/Profile I/O
+> 指标已完成；Extension/Media 指标、对应执行器与目标双 Node E2E 待完成
 
 ## 本轮完成
 
@@ -30,8 +30,9 @@
   重建深度，超过扫描上限时告警而不是伪造精确值。
 - Remote Desktop Gateway 只在真实客户端连接期间记录最近 VNC Server Frame 时间，
   无活跃客户端时保持为空，避免空闲 Session 被误判为帧延迟。
-- Profile I/O、Extension CPU/内存和 Media Encoder 尚无真实生产者，继续保持为空，
-  不使用定时器、随机曲线或前端 Mock。
+- Browser/Profile I/O 的后续真实生产者已通过 Linux Cgroup v2 `io.stat` 完成，详见
+  [进度 49](49-Browser-ProfileIO真实遥测闭环.md)。Extension CPU/内存和 Media
+  Encoder 尚无真实生产者，继续保持为空，不使用定时器、随机曲线或前端 Mock。
 
 ### Resource Actuator 与 Operation
 
@@ -89,9 +90,9 @@
 
 ## 尚未完成
 
-1. Profile I/O、Extension CPU/内存和 Media Encoder 的真实指标生产者；Renderer、
-   Tab、CDP `TaskDuration` 差值、Agent Action、State Diff 和 Remote Desktop Frame
-   Age 已完成。
+1. Browser/Profile I/O、Renderer、Tab、CDP `TaskDuration` 差值、Agent Action、
+   State Diff 和 Remote Desktop Frame Age 已完成；仍缺 Extension CPU/内存和
+   Media Encoder 的真实指标生产者。
 2. State Collector Budget 和 Remote Desktop Bitrate 在线执行器已完成；仍缺
    Media Encoder Slot 与 Extension Resource Weight 执行器。
 3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；

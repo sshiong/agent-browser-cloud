@@ -97,6 +97,7 @@ pub struct RuntimeMetrics {
     pub cpu_limit_millis: u32,
     pub memory_psi_some_avg10: Option<f64>,
     pub process_count: Option<u32>,
+    pub cumulative_browser_io_bytes: Option<u64>,
 }
 
 /// Runtime Supervisor trait。
@@ -144,9 +145,11 @@ pub struct CgroupV2Config {
     pub root: PathBuf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct RuntimeCgroup {
     path: PathBuf,
+    browser_path: Option<PathBuf>,
+    desktop_path: Option<PathBuf>,
 }
 
 impl RuntimeCgroup {
@@ -171,9 +174,17 @@ impl RuntimeCgroup {
                 "delegated cgroup does not expose the {required} controller"
             );
         }
+        let io_available = controllers.split_whitespace().any(|value| value == "io");
         let subtree_control = config.root.join("cgroup.subtree_control");
-        fs::write(&subtree_control, "+cpu +memory +pids")
-            .context("failed to enable delegated cgroup controllers")?;
+        fs::write(
+            &subtree_control,
+            if io_available {
+                "+cpu +memory +pids +io"
+            } else {
+                "+cpu +memory +pids"
+            },
+        )
+        .context("failed to enable delegated cgroup controllers")?;
 
         let path = config.root.join(&spec.session_id);
         fs::create_dir(&path).context("failed to create runtime cgroup")?;
@@ -206,13 +217,27 @@ impl RuntimeCgroup {
                 fs::write(&swap_max, "0").context("failed to disable runtime swap")?;
             }
             Self::write(&path, "pids.max", limits.pid_limit.to_string())?;
+            if io_available {
+                Self::write(&path, "cgroup.subtree_control", "+io".to_owned())
+                    .context("failed to enable Browser I/O accounting subtree")?;
+                fs::create_dir(path.join("browser"))
+                    .context("failed to create Browser I/O accounting cgroup")?;
+                fs::create_dir(path.join("desktop"))
+                    .context("failed to create desktop process cgroup")?;
+            }
             Ok::<(), anyhow::Error>(())
         })();
         if let Err(error) = result {
+            let _ = fs::remove_dir(path.join("browser"));
+            let _ = fs::remove_dir(path.join("desktop"));
             let _ = fs::remove_dir(&path);
             return Err(error);
         }
-        Ok(Self { path })
+        Ok(Self {
+            browser_path: io_available.then(|| path.join("browser")),
+            desktop_path: io_available.then(|| path.join("desktop")),
+            path,
+        })
     }
 
     fn write(path: &Path, setting: &str, value: String) -> anyhow::Result<()> {
@@ -220,10 +245,18 @@ impl RuntimeCgroup {
             .with_context(|| format!("failed to enforce cgroup setting {setting}"))
     }
 
-    fn attach(&self, pid: u32) -> anyhow::Result<()> {
+    fn attach_to(path: &Path, pid: u32) -> anyhow::Result<()> {
         anyhow::ensure!(pid > 0, "cannot attach an invalid process to cgroup");
-        Self::write(&self.path, "cgroup.procs", pid.to_string())
+        Self::write(path, "cgroup.procs", pid.to_string())
             .context("failed to attach runtime process to cgroup")
+    }
+
+    fn attach_browser(&self, pid: u32) -> anyhow::Result<()> {
+        Self::attach_to(self.browser_path.as_deref().unwrap_or(&self.path), pid)
+    }
+
+    fn attach_desktop(&self, pid: u32) -> anyhow::Result<()> {
+        Self::attach_to(self.desktop_path.as_deref().unwrap_or(&self.path), pid)
     }
 
     fn memory_current_bytes(&self) -> Option<u64> {
@@ -261,6 +294,24 @@ impl RuntimeCgroup {
             .trim()
             .parse()
             .ok()
+    }
+
+    fn cumulative_browser_io_bytes(&self) -> Option<u64> {
+        let contents = fs::read_to_string(self.browser_path.as_ref()?.join("io.stat")).ok()?;
+        let mut total = 0_u64;
+        let mut saw_counter = false;
+        for field in contents.split_whitespace() {
+            let Some(value) = field
+                .strip_prefix("rbytes=")
+                .or_else(|| field.strip_prefix("wbytes="))
+            else {
+                continue;
+            };
+            let value = value.parse::<u64>().ok()?;
+            total = total.saturating_add(value);
+            saw_counter = true;
+        }
+        (saw_counter || contents.trim().is_empty()).then_some(total)
     }
 
     fn adjust(
@@ -375,6 +426,18 @@ impl RuntimeCgroup {
     }
 
     fn cleanup(&self) {
+        for child in [&self.browser_path, &self.desktop_path]
+            .into_iter()
+            .flatten()
+        {
+            match fs::remove_dir(child) {
+                Ok(()) => {}
+                Err(error) if error.kind() == ErrorKind::NotFound => {}
+                Err(error) => {
+                    tracing::warn!(cgroup = %child.display(), error = %error, "Runtime child cgroup cleanup deferred")
+                }
+            }
+        }
         match fs::remove_dir(&self.path) {
             Ok(()) => {}
             Err(error) if error.kind() == ErrorKind::NotFound => {}
@@ -531,7 +594,7 @@ impl ChromiumRuntimeSupervisor {
             if let Err(error) = xvfb
                 .id()
                 .ok_or_else(|| anyhow::anyhow!("missing Xvfb pid"))
-                .and_then(|pid| cgroup.attach(pid))
+                .and_then(|pid| cgroup.attach_desktop(pid))
             {
                 let _ = xvfb.start_kill();
                 return Err(error);
@@ -571,7 +634,7 @@ impl ChromiumRuntimeSupervisor {
             if let Err(error) = vnc
                 .id()
                 .ok_or_else(|| anyhow::anyhow!("missing x11vnc pid"))
-                .and_then(|pid| cgroup.attach(pid))
+                .and_then(|pid| cgroup.attach_desktop(pid))
             {
                 let _ = vnc.start_kill();
                 let _ = xvfb.start_kill();
@@ -787,7 +850,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             .id()
             .ok_or_else(|| anyhow::anyhow!("missing Chromium pid"))?;
         if let Some(cgroup) = cgroup.as_ref() {
-            if let Err(error) = cgroup.attach(pid) {
+            if let Err(error) = cgroup.attach_browser(pid) {
                 let _ = child.start_kill();
                 if let Some(desktop) = desktop.as_mut() {
                     Self::stop_child(&mut desktop.vnc, Duration::from_secs(2)).await;
@@ -980,14 +1043,14 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
     }
 
     async fn metrics(&self, session_id: &str) -> anyhow::Result<RuntimeMetrics> {
-        let (pid, cgroup_path, cpu_limit_millis) = {
+        let (pid, cgroup, cpu_limit_millis) = {
             let runtimes = self.runtimes.lock().await;
             let runtime = runtimes
                 .get(session_id)
                 .ok_or_else(|| anyhow::anyhow!("runtime not found"))?;
             (
                 runtime.handle.pid,
-                runtime.cgroup.as_ref().map(|cgroup| cgroup.path.clone()),
+                runtime.cgroup.clone(),
                 runtime.resource_limits.cpu_millis,
             )
         };
@@ -997,7 +1060,6 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
         let process = system
             .process(process_id)
             .ok_or_else(|| anyhow::anyhow!("runtime process is not visible"))?;
-        let cgroup = cgroup_path.map(|path| RuntimeCgroup { path });
         Ok(RuntimeMetrics {
             pid,
             resident_memory_bytes: cgroup
@@ -1014,6 +1076,9 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 .as_ref()
                 .and_then(RuntimeCgroup::memory_psi_some_avg10),
             process_count: cgroup.as_ref().and_then(RuntimeCgroup::process_count),
+            cumulative_browser_io_bytes: cgroup
+                .as_ref()
+                .and_then(RuntimeCgroup::cumulative_browser_io_bytes),
         })
     }
 }
@@ -1131,10 +1196,27 @@ mod tests {
             fs::read_to_string(cgroup.path.join("pids.max")).unwrap(),
             "384"
         );
-        cgroup.attach(42).unwrap();
         assert_eq!(
-            fs::read_to_string(cgroup.path.join("cgroup.procs")).unwrap(),
+            fs::read_to_string(root.join("cgroup.subtree_control")).unwrap(),
+            "+cpu +memory +pids +io"
+        );
+        let browser_path = cgroup.browser_path.as_ref().unwrap();
+        let desktop_path = cgroup.desktop_path.as_ref().unwrap();
+        fs::write(
+            browser_path.join("io.stat"),
+            "8:0 rbytes=1024 wbytes=2048 rios=2 wios=3\n8:16 rbytes=4096 wbytes=8192",
+        )
+        .unwrap();
+        assert_eq!(cgroup.cumulative_browser_io_bytes(), Some(15_360));
+        cgroup.attach_browser(42).unwrap();
+        assert_eq!(
+            fs::read_to_string(browser_path.join("cgroup.procs")).unwrap(),
             "42"
+        );
+        cgroup.attach_desktop(43).unwrap();
+        assert_eq!(
+            fs::read_to_string(desktop_path.join("cgroup.procs")).unwrap(),
+            "43"
         );
         fs::remove_dir_all(root).unwrap();
     }

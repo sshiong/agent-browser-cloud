@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import io.browsercloud.api.BrowserNodeView;
 import io.browsercloud.api.SafePointModels.NodeSafetyObservation;
+import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
 import io.browsercloud.application.SafePointApplicationService;
@@ -133,6 +134,7 @@ class NodeCapacityGrpcEndpointTest {
               .setCpuPercent(64.5)
               .setMemoryRssMib(1536)
               .setMemoryPsiSomeAvg10(2.75)
+              .setProfileIoBytesPerSecond(52_428_800)
               .setInputActive(true)
               .setActiveDrag(false)
               .setPressedKeyCount(1)
@@ -147,7 +149,11 @@ class NodeCapacityGrpcEndpointTest {
                 assertThat(response.getSessionId()).isEqualTo("ses_test_1");
                 assertThat(response.getAccepted()).isTrue();
               });
-      verify(resources).recordSampleFromNode(eq("ses_test_1"), eq("tenant-test"), eq(7L), any());
+      var resourceSample = ArgumentCaptor.forClass(RecordResourceSampleRequest.class);
+      verify(resources)
+          .recordSampleFromNode(
+              eq("ses_test_1"), eq("tenant-test"), eq(7L), resourceSample.capture());
+      assertThat(resourceSample.getValue().profileIoBytesPerSecond()).isEqualTo(52_428_800);
       verify(safePoints)
           .recordNodeObservation(
               eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), eq(7L), any());

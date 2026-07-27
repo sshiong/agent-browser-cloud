@@ -2,8 +2,8 @@
 
 > 日期：2026-07-28
 > 状态：首批六类细粒度真实信号、多指标决策迟滞、State Collector Budget 和
-> Remote Desktop Bitrate 执行器已完成；Profile/Extension/Media 指标生产者与
-> Extension/Media 执行器待完成
+> Remote Desktop Bitrate 执行器和 Browser/Profile I/O 真实生产者已完成；
+> Extension/Media 指标生产者与执行器待完成
 
 ## 本轮目标
 
@@ -79,7 +79,8 @@ make test-integration
 
 ## 尚未完成
 
-1. Profile I/O、Extension CPU/内存和 Media Encoder 的真实指标生产者。
+1. Browser/Profile I/O 已由 Linux Cgroup v2 Browser 子组真实生产者补齐；仍缺
+   Extension CPU/内存和 Media Encoder 的真实指标生产者。
 2. State Collector Budget、Remote Desktop Bitrate、回滚和 Node ACK 语义已完成；
    仍缺 Extension Resource Weight 与 Media Encoder Slot 在线执行器。
 3. Long Tasks/页面主线程阻塞的更精确采集；当前使用 CDP `TaskDuration` 差值。

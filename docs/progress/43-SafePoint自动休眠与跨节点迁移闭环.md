@@ -89,8 +89,8 @@
 
 ## 仍未完成
 
-1. Renderer、Tab、主线程、Agent 延迟、State Diff 和 Remote Desktop 的真实细分指标
-   已完成；仍缺 Profile I/O、Extension 和 Media 指标生产者。
+1. Renderer、Tab、主线程、Agent 延迟、State Diff、Remote Desktop 和 Browser/Profile
+   I/O 的真实细分指标已完成；仍缺 Extension 和 Media 指标生产者。
 2. State Collector 预算和 Remote Desktop 码率在线执行器已完成；仍缺 Encoder Slot
    和 Extension Weight 在线执行器。
 3. File Upload/Download 和导航级 Form Submission 的 CDP Signal Producer 已完成；

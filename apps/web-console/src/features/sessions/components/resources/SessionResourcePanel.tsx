@@ -168,7 +168,7 @@ export function SessionResourcePanel({
 
           <ResourceUsageChart resource={resource} />
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <ResourceLimitProgress
               label="CPU 压力"
               value={resource.usage?.cpuPercent}
@@ -178,6 +178,21 @@ export function SessionResourcePanel({
               label="内存上限"
               value={resource.usage?.memoryPercentOfLimit}
               detail={`${formatMemory(resource.usage?.memoryRssMib)} RSS`}
+            />
+            <ResourceLimitProgress
+              label="Profile I/O"
+              value={
+                resource.usage?.profileIoBytesPerSecond == null
+                  ? undefined
+                  : (resource.usage.profileIoBytesPerSecond /
+                      (50 * 1024 * 1024)) *
+                    100
+              }
+              detail={
+                resource.usage?.profileIoBytesPerSecond == null
+                  ? '等待 Linux Browser Cgroup I/O 遥测'
+                  : `${formatRate(resource.usage.profileIoBytesPerSecond)} · 50 MiB/s 压力线`
+              }
             />
           </div>
 
@@ -876,6 +891,17 @@ function formatMemory(value?: number) {
   return value >= 1024
     ? `${Number((value / 1024).toFixed(2))} GB`
     : `${value} MiB`;
+}
+
+function formatRate(value?: number) {
+  if (value == null) return '—';
+  if (value >= 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MiB/s`;
+  }
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(1)} KiB/s`;
+  }
+  return `${Math.round(value)} B/s`;
 }
 
 function formatPercent(value?: number) {

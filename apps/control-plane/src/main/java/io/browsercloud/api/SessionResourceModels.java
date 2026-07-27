@@ -53,6 +53,7 @@ public final class SessionResourceModels {
       Integer tabCount,
       Integer agentActionLatencyMs,
       Integer stateDiffQueueDepth,
+      Long profileIoBytesPerSecond,
       Integer remoteDesktopFrameAgeMs,
       Double mediaEncoderPercent,
       Instant observedAt) {}

@@ -64,6 +64,7 @@ struct NodeControlService {
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_browser_baselines: Arc<Mutex<HashMap<String, (f64, Instant)>>>,
+    resource_io_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
     pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
     resource_report_interval_probes: u64,
@@ -89,6 +90,28 @@ impl AgentLatencyWindow {
     fn maximum(self) -> Option<u32> {
         (self.samples > 0).then_some(self.maximum_ms)
     }
+}
+
+fn cumulative_rate_per_second(
+    current: u64,
+    previous: Option<(u64, Instant)>,
+    now: Instant,
+) -> Option<u64> {
+    let (previous_value, previous_at) = previous?;
+    if current < previous_value || now <= previous_at {
+        return None;
+    }
+    let elapsed_nanos = now.duration_since(previous_at).as_nanos();
+    if elapsed_nanos == 0 {
+        return None;
+    }
+    let bytes = u128::from(current - previous_value);
+    Some(
+        bytes
+            .saturating_mul(1_000_000_000)
+            .div_ceil(elapsed_nanos)
+            .min(u128::from(u64::MAX)) as u64,
+    )
 }
 
 #[derive(Clone)]
@@ -122,6 +145,12 @@ struct NodeCapacityReporter {
     pressure_root: PathBuf,
 }
 
+#[derive(Clone, Copy)]
+struct RuntimeCgroupCapabilities {
+    enforcement: bool,
+    io_telemetry: bool,
+}
+
 impl NodeCapacityReporter {
     fn from_environment(
         environment: &str,
@@ -130,7 +159,7 @@ impl NodeCapacityReporter {
         control_plane_event_target: String,
         grpc_tls: Option<Arc<GrpcTlsMaterial>>,
         supports_desktop: bool,
-        cgroup_enabled: bool,
+        cgroup_capabilities: RuntimeCgroupCapabilities,
     ) -> Result<Self> {
         let production = environment.eq_ignore_ascii_case("production");
         let region = std::env::var("NODE_REGION").unwrap_or_else(|_| "local".to_owned());
@@ -164,7 +193,7 @@ impl NodeCapacityReporter {
             "NODE_SUPPORTS_MEDIA requires NODE_CERTIFIED_MEDIA_SLOTS"
         );
         anyhow::ensure!(
-            !production || cgroup_enabled,
+            !production || cgroup_capabilities.enforcement,
             "production capacity reporting requires cgroup enforcement"
         );
         let pressure_root = std::env::var("NODE_PRESSURE_ROOT")
@@ -182,7 +211,21 @@ impl NodeCapacityReporter {
         labels.insert("runtime".to_owned(), "chromium".to_owned());
         labels.insert(
             "resourceEnforcement".to_owned(),
-            if cgroup_enabled { "cgroup-v2" } else { "none" }.to_owned(),
+            if cgroup_capabilities.enforcement {
+                "cgroup-v2"
+            } else {
+                "none"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "profileIoTelemetry".to_owned(),
+            if cgroup_capabilities.io_telemetry {
+                "browser-cgroup-io-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
         );
         labels.insert("environment".to_owned(), environment.to_owned());
         labels.insert(
@@ -206,7 +249,7 @@ impl NodeCapacityReporter {
             supports_gpu,
             supports_media,
             supports_native_os,
-            isolation_capable: cgroup_enabled,
+            isolation_capable: cgroup_capabilities.enforcement,
             labels,
             pressure_root,
         })
@@ -769,6 +812,18 @@ impl NodeControlService {
         } else {
             None
         };
+        let profile_io_bytes_per_second =
+            if let Some(current_io_bytes) = metrics.cumulative_browser_io_bytes {
+                let now = Instant::now();
+                let previous = self
+                    .resource_io_baselines
+                    .lock()
+                    .await
+                    .insert(session_id.to_owned(), (current_io_bytes, now));
+                cumulative_rate_per_second(current_io_bytes, previous, now)
+            } else {
+                None
+            };
         let agent_action_latency_ms = if include_resource_metrics {
             self.agent_action_latencies
                 .lock()
@@ -852,7 +907,9 @@ impl NodeControlService {
                     .then_some(agent_action_latency_ms)
                     .flatten(),
                 state_diff_queue_depth: include_resource_metrics.then_some(state_diff_queue_depth),
-                profile_io_bytes_per_second: None,
+                profile_io_bytes_per_second: include_resource_metrics
+                    .then_some(profile_io_bytes_per_second)
+                    .flatten(),
                 extension_cpu_percent: None,
                 extension_memory_mib: None,
                 remote_desktop_frame_age_ms: include_resource_metrics
@@ -2645,6 +2702,11 @@ impl NodeControlService {
                             .await
                             .remove(&session_id);
                         service
+                            .resource_io_baselines
+                            .lock()
+                            .await
+                            .remove(&session_id);
+                        service
                             .agent_action_latencies
                             .lock()
                             .await
@@ -3031,6 +3093,10 @@ impl NodeControlServiceRpc for NodeControlService {
                 .lock()
                 .await
                 .remove(&command.session_id);
+            self.resource_io_baselines
+                .lock()
+                .await
+                .remove(&command.session_id);
             self.agent_action_latencies
                 .lock()
                 .await
@@ -3195,6 +3261,10 @@ async fn main() -> Result<()> {
         .trim()
         .to_owned();
     let cgroup_enabled = !runtime_cgroup_root.is_empty();
+    let cgroup_io_enabled = cgroup_enabled
+        && std::fs::read_to_string(Path::new(&runtime_cgroup_root).join("cgroup.controllers"))
+            .map(|controllers| controllers.split_whitespace().any(|value| value == "io"))
+            .unwrap_or(false);
     if environment.eq_ignore_ascii_case("production") {
         anyhow::ensure!(
             !runtime_cgroup_root.is_empty(),
@@ -3241,7 +3311,10 @@ async fn main() -> Result<()> {
         control_plane_event_target.clone(),
         grpc_tls.clone(),
         desktop_enabled,
-        cgroup_enabled,
+        RuntimeCgroupCapabilities {
+            enforcement: cgroup_enabled,
+            io_telemetry: cgroup_io_enabled,
+        },
     )?;
     let allow_direct_network = std::env::var("ALLOW_DIRECT_NETWORK")
         .map(|value| value.eq_ignore_ascii_case("true"))
@@ -3444,6 +3517,7 @@ async fn main() -> Result<()> {
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
         pending_state_events: Arc::new(Mutex::new(HashMap::new())),
         resource_report_interval_probes,
@@ -3496,6 +3570,7 @@ async fn main() -> Result<()> {
     service.monitored_sessions.lock().await.clear();
     service.resource_cpu_baselines.lock().await.clear();
     service.resource_browser_baselines.lock().await.clear();
+    service.resource_io_baselines.lock().await.clear();
     service.agent_action_latencies.lock().await.clear();
     service.pending_state_events.lock().await.clear();
     runtime_supervisor.stop_all().await;
@@ -3615,6 +3690,21 @@ mod tests {
         assert_eq!(window.maximum(), Some(42));
     }
 
+    #[test]
+    fn derives_browser_io_rate_from_a_monotonic_cgroup_counter() {
+        let now = Instant::now();
+        assert_eq!(
+            cumulative_rate_per_second(16_000, Some((1_000, now - Duration::from_secs(5))), now),
+            Some(3_000)
+        );
+        assert_eq!(
+            cumulative_rate_per_second(999, Some((1_000, now - Duration::from_secs(5))), now),
+            None,
+            "a reset Runtime generation must establish a new baseline"
+        );
+        assert_eq!(cumulative_rate_per_second(1_000, None, now), None);
+    }
+
     #[tokio::test]
     async fn redelivers_persisted_event_after_journal_reopen() {
         let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -3696,6 +3786,7 @@ mod tests {
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
             pending_state_events: Arc::new(Mutex::new(HashMap::new())),
             resource_report_interval_probes: 5,

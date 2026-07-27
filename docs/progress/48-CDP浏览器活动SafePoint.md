@@ -69,5 +69,6 @@
 2. 真实双 Browser Node + S3-compatible Object Storage + Chromium 的迁移/休眠故障
    注入和长期稳定性证书。
 3. Tenant/Application-aware Business Recovery Validator 与业务规则 DSL。
-4. Profile I/O、Extension、Media 的真实指标生产者，以及 Extension Weight、Media
-   Encoder Slot 在线执行器。
+4. Browser/Profile I/O 已由 Linux Cgroup v2 Browser 子组真实生产者补齐；仍缺
+   Extension、Media 的真实指标生产者，以及 Extension Weight、Media Encoder Slot
+   在线执行器。

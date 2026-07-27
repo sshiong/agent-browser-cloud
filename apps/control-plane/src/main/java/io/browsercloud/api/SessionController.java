@@ -159,6 +159,7 @@ public class SessionController {
    * 列出 Sessions。
    *
    * @param state 状态过滤
+   * @param query 租户内名称、Session、Profile、区域或资源搜索
    * @param limit 每页数量
    * @param offset 偏移量
    * @return Session 列表
@@ -166,8 +167,9 @@ public class SessionController {
   @GetMapping
   public SessionListResponse list(
       @RequestParam(required = false) SessionState state,
+      @RequestParam(required = false, name = "q") @Size(max = 128) String query,
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
-    return service.list(identity.current().tenantId(), state, limit, offset);
+    return service.list(identity.current().tenantId(), state, query, limit, offset);
   }
 }

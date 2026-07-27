@@ -74,7 +74,7 @@ try {
   const sidebarWidth = await page
     .getByRole("complementary", { name: "主导航" })
     .evaluate((element) => element.getBoundingClientRect().width);
-  if (sidebarWidth > 65) {
+  if (sidebarWidth > 69) {
     throw new Error(`mobile sidebar is too wide: ${sidebarWidth}px`);
   }
   await expect(page.getByRole("link", { name: "环境管理" })).toBeVisible();

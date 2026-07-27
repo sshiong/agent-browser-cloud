@@ -23,10 +23,14 @@ describe('session API', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await listSessions({ tenantId: 'tenant-test', limit: 10 });
+    await listSessions({
+      tenantId: 'tenant-test',
+      query: '  crm singapore  ',
+      limit: 10,
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/sessions?limit=10',
+      '/api/v1/sessions?q=crm+singapore&limit=10',
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',

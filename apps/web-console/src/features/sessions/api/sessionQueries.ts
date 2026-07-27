@@ -18,8 +18,12 @@ import type {
 
 export const sessionKeys = {
   all: ['sessions'] as const,
-  list: (params: { state?: SessionState; limit: number; offset: number }) =>
-    [...sessionKeys.all, 'list', params] as const,
+  list: (params: {
+    state?: SessionState;
+    query?: string;
+    limit: number;
+    offset: number;
+  }) => [...sessionKeys.all, 'list', params] as const,
   detail: (sessionId: string) =>
     [...sessionKeys.all, 'detail', sessionId] as const,
   browserState: (sessionId: string) =>
@@ -28,15 +32,27 @@ export const sessionKeys = {
 
 export function useSessions(params: {
   state?: SessionState;
+  query?: string;
   limit?: number;
   offset?: number;
 }) {
   const limit = params.limit ?? 20;
   const offset = params.offset ?? 0;
   return useQuery({
-    queryKey: sessionKeys.list({ state: params.state, limit, offset }),
+    queryKey: sessionKeys.list({
+      state: params.state,
+      query: params.query,
+      limit,
+      offset,
+    }),
     queryFn: ({ signal }) =>
-      listSessions({ state: params.state, limit, offset, signal }),
+      listSessions({
+        state: params.state,
+        query: params.query,
+        limit,
+        offset,
+        signal,
+      }),
   });
 }
 

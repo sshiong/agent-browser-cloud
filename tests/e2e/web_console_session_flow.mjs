@@ -97,21 +97,45 @@ try {
   const startName = `E2E Start ${runSuffix}`;
   const nameInput = page.getByLabel("环境名称");
   await nameInput.fill(startName);
-  await page.getByLabel("Profile ID").fill("profile-e2e-start");
-  await page.getByLabel("部署区域").fill("local");
   await expect(nameInput).toHaveValue(startName);
   await page.getByRole("button", { name: "下一步" }).click();
-  await page.getByLabel("请求标签页").fill("3");
-  await page.getByLabel("Agent 动作/分钟").fill("90");
-  await page.getByLabel("Extension IDs").fill("extension.e2e");
+  await expect(page.getByText("Runtime & State", { exact: false })).toBeVisible();
+  await expect(page.getByRole("radio").first()).toBeVisible();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page.getByLabel("部署区域")).toHaveValue("local");
+  await page.getByRole("button", { name: "下一步" }).click();
+  await page.getByLabel("标签页预算").fill("3");
+  await page.getByLabel("Agent 动作 / 分钟").fill("90");
+  await page.getByRole("button", { name: "下一步" }).click();
+  await page
+    .locator("label")
+    .filter({ hasText: "E2E Accessibility Helper" })
+    .getByRole("checkbox")
+    .check();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("button", { name: "确认创建" })).toBeVisible();
   await page.getByRole("button", { name: "确认创建" }).click();
-  await page.waitForURL("**/environments/ses_*");
-  const startSessionId = new URL(page.url()).pathname.split("/").at(-1);
+  await expect(page.getByText("Session CREATED", { exact: true })).toBeVisible();
+  const sessionIdText = await page
+    .locator("p")
+    .filter({ hasText: /^ses_/ })
+    .first()
+    .textContent();
+  const startSessionId = sessionIdText?.trim();
   if (!startSessionId?.startsWith("ses_")) {
-    throw new Error("created Session ID is missing from the detail URL");
+    throw new Error("created Session ID is missing from the success state");
   }
+  const createdSessionResponse = await page.request.get(
+    `${baseUrl}/api/v1/sessions/${startSessionId}`,
+    { headers: { "X-Tenant-Id": "tenant-local" } },
+  );
+  const createdSession = await createdSessionResponse.json();
+  const startProfileId = createdSession.profileId;
+  if (!startProfileId?.startsWith("profile-e2e-start-")) {
+    throw new Error(`generated Profile ID is invalid: ${startProfileId}`);
+  }
+  await page.getByRole("button", { name: "查看环境详情" }).click();
+  await page.waitForURL(`**/environments/${startSessionId}`);
   await expect(
     page.getByRole("heading", { name: "Session 详情" }),
   ).toBeVisible();
@@ -679,7 +703,7 @@ try {
     page.getByRole("heading", { name: "Profile 存储" }),
   ).toBeVisible();
   await expect(
-    page.locator("table").getByText("profile-e2e-start", { exact: true }).first(),
+    page.locator("table").getByText(startProfileId, { exact: true }).first(),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.locator("table").getByText("epoch 1", { exact: true }),
@@ -712,13 +736,18 @@ try {
   const terminateName = `E2E Terminate ${runSuffix}`;
   const terminateNameInput = page.getByLabel("环境名称");
   await terminateNameInput.fill(terminateName);
-  await page.getByLabel("Profile ID").fill("profile-e2e-terminate");
-  await page.getByLabel("部署区域").fill("local");
   await expect(terminateNameInput).toHaveValue(terminateName);
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page.getByRole("radio").first()).toBeVisible();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page.getByLabel("部署区域")).toHaveValue("local");
+  await page.getByRole("button", { name: "下一步" }).click();
   await page.getByRole("button", { name: "下一步" }).click();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("button", { name: "确认创建" })).toBeVisible();
   await page.getByRole("button", { name: "确认创建" }).click();
+  await expect(page.getByText("Session CREATED", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "查看环境详情" }).click();
   await page.waitForURL("**/environments/ses_*");
   await expect(
     page
@@ -738,6 +767,13 @@ try {
     page.locator("main").getByText("已终止", { exact: true }).last(),
   ).toBeVisible({ timeout: 15_000 });
 
+  await page.goto(
+    `${baseUrl}/environments?q=${encodeURIComponent(terminateName)}`,
+  );
+  await expect(page.getByText(terminateName, { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText("服务端筛选与分页", { exact: false })).toBeVisible();
   await page.screenshot({ path: screenshotPath, fullPage: true });
 } catch (error) {
   console.error(

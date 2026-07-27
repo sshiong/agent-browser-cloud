@@ -47,6 +47,12 @@ paths:
           in: query
           schema:
             $ref: "#/components/schemas/SessionState"
+        - name: q
+          in: query
+          description: Tenant-scoped search across Session ID, display name, Profile, region, resource class, and governed metadata.
+          schema:
+            type: string
+            maxLength: 128
         - name: limit
           in: query
           schema:

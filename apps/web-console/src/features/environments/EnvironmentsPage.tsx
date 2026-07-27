@@ -1,20 +1,26 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
+  Bookmark,
+  Box,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
+  Columns3,
   ExternalLink,
+  Filter,
+  Layers3,
   LoaderCircle,
+  MoreHorizontal,
+  Network,
   Play,
   Plus,
+  RotateCw,
   Search,
+  ShieldCheck,
 } from 'lucide-react';
 import { TopContextBar } from '@/components/layout/TopContextBar';
-import {
-  EmptyState,
-  ErrorState,
-  LoadingRows,
-} from '@/components/feedback/AsyncStates';
+import { ErrorState, LoadingRows } from '@/components/feedback/AsyncStates';
 import { CreateSessionDialog } from '@/features/sessions/components/CreateSessionDialog';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
 import {
@@ -26,261 +32,532 @@ import type { SessionState, SessionView } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
 
 const PAGE_SIZE = 20;
-
-const filters: { label: string; value?: SessionState }[] = [
-  { label: '全部' },
-  { label: '已创建', value: 'CREATED' },
-  { label: '启动中', value: 'STARTING' },
-  { label: '运行中', value: 'RUNNING' },
-  { label: '降级', value: 'DEGRADED' },
-  { label: '已终止', value: 'TERMINATED' },
-  { label: '失败', value: 'FAILED' },
+const primaryViews = [
+  { value: 'all', label: '全部', state: undefined },
+  { value: 'running', label: '运行中', state: 'RUNNING' },
+  { value: 'stopped', label: '已停止', state: 'TERMINATED' },
+  { value: 'abnormal', label: '异常', state: 'DEGRADED' },
+] as const;
+const exactStates: { value: SessionState; label: string }[] = [
+  { value: 'CREATED', label: '已创建' },
+  { value: 'STARTING', label: '启动中' },
+  { value: 'RUNNING', label: '运行中' },
+  { value: 'DEGRADED', label: '降级' },
+  { value: 'HIBERNATING', label: '休眠中' },
+  { value: 'HIBERNATED', label: '已休眠' },
+  { value: 'RECOVERING', label: '恢复中' },
+  { value: 'TERMINATING', label: '终止中' },
+  { value: 'TERMINATED', label: '已终止' },
+  { value: 'FAILED', label: '失败' },
 ];
+
+type View = (typeof primaryViews)[number]['value'];
+type OptionalColumn = 'runtime' | 'context' | 'operation';
 
 export function EnvironmentsPage() {
   const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [state, setState] = useState<SessionState | undefined>();
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
+  const rawView = searchParams.get('view');
+  const view: View = primaryViews.some((item) => item.value === rawView)
+    ? (rawView as View)
+    : 'all';
+  const rawState = searchParams.get('state');
+  const exactState = exactStates.some((item) => item.value === rawState)
+    ? (rawState as SessionState)
+    : undefined;
+  const page = Math.max(0, Number(searchParams.get('page') ?? 1) - 1 || 0);
+  const search = searchParams.get('q') ?? '';
+  const deferredSearch = useDeferredValue(search);
+  const activeView = primaryViews.find((item) => item.value === view)!;
+  const state = exactState ?? activeView.state;
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showColumns, setShowColumns] = useState(false);
+  const [optionalColumns, setOptionalColumns] = useState<
+    Record<OptionalColumn, boolean>
+  >({
+    runtime: true,
+    context: true,
+    operation: true,
+  });
+
   const query = useSessions({
     state,
+    query: deferredSearch,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
   const createOpen = auth.canOperate && searchParams.get('create') === '1';
+  const total = query.data?.total ?? 0;
+  const items = query.data?.items ?? [];
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const runningOnPage = items.filter((item) => item.state === 'RUNNING').length;
+  const abnormalOnPage = items.filter((item) =>
+    ['DEGRADED', 'FAILED'].includes(item.state)
+  ).length;
 
-  const visibleItems = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return query.data?.items ?? [];
-    return (query.data?.items ?? []).filter((session) =>
-      [
-        session.displayName,
-        session.sessionId,
-        session.tenantId,
-        session.profileId,
-        session.region,
-        session.resourceClass,
-        session.nodeId,
-        session.runtimeBuildId,
-        session.currentOperation?.operationId,
-      ]
-        .filter(Boolean)
-        .some((value) => value?.toLowerCase().includes(needle))
-    );
-  }, [query.data?.items, search]);
-
-  const setCreateOpen = (open: boolean) => {
-    if (open && !auth.canOperate) return;
+  const updateParams = (updates: Record<string, string | undefined>) => {
     const next = new URLSearchParams(searchParams);
-    if (open) next.set('create', '1');
-    else next.delete('create');
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
     setSearchParams(next, { replace: true });
   };
 
-  const selectFilter = (nextState?: SessionState) => {
-    setState(nextState);
-    setPage(0);
+  const setCreateOpen = (open: boolean) => {
+    if (open && !auth.canOperate) return;
+    updateParams({ create: open ? '1' : undefined });
   };
 
-  const total = query.data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const selectView = (nextView: View) => {
+    updateParams({
+      view: nextView === 'all' ? undefined : nextView,
+      state: undefined,
+      page: undefined,
+    });
+  };
+
+  const setPage = (nextPage: number) => {
+    updateParams({
+      page: nextPage <= 0 ? undefined : String(nextPage + 1),
+    });
+  };
 
   return (
-    <div>
+    <div className="min-h-full">
       <TopContextBar
-        title="环境管理"
-        subtitle="来自 Control Plane 的真实 Session、Operation 与 Runtime 状态"
+        title={auth.identity?.tenantId ?? '当前租户'}
+        subtitle="Agent Browser Cloud / Runtime Console"
+        globalOnly
       />
 
-      <div className="p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div
-            className="flex flex-wrap items-center gap-1"
-            role="group"
-            aria-label="Session 状态筛选"
-          >
-            {filters.map((filter) => (
-              <button
-                key={filter.label}
-                type="button"
-                onClick={() => selectFilter(filter.value)}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors',
-                  state === filter.value
-                    ? 'bg-accent-soft text-accent'
-                    : 'text-text-muted hover:bg-surface-2 hover:text-text-secondary'
-                )}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="relative">
-              <span className="sr-only">搜索当前页 Session</span>
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-              />
-              <input
-                type="search"
-                placeholder="搜索名称、Session、Profile 或 Node"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="h-8 w-[300px] rounded-md border border-border-subtle bg-surface-2 pl-9 pr-3 text-[12px] text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-              />
-            </label>
-
-            {auth.canOperate && (
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas transition-colors hover:bg-accent/90"
-              >
-                <Plus size={14} />
-                新建环境
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1">
-          <div className="flex min-h-11 items-center justify-between border-b border-border-subtle bg-surface-2 px-4">
-            <p className="text-[11px] text-text-muted">
-              {query.data ? (
-                <>
-                  共{' '}
-                  <span className="font-mono text-text-secondary">
-                    {query.data.total}
-                  </span>{' '}
-                  个 Session
-                  {search && ' · 搜索仅作用于当前页'}
-                </>
-              ) : (
-                '正在连接 Control Plane'
-              )}
-            </p>
-            {query.isFetching && !query.isLoading && (
-              <span className="inline-flex items-center gap-1.5 text-[10px] text-text-muted">
-                <LoaderCircle size={11} className="animate-spin text-accent" />
-                同步中
-              </span>
-            )}
-          </div>
-
-          {query.isLoading ? (
-            <LoadingRows />
-          ) : query.error ? (
-            <ErrorState error={query.error} onRetry={() => query.refetch()} />
-          ) : query.data?.items.length === 0 ? (
-            <EmptyState
-              title={state ? '当前状态下没有 Session' : '还没有浏览器环境'}
-              description={
-                state
-                  ? '清除状态筛选查看其他 Session，或创建一个新的隔离环境。'
-                  : '创建第一个真实 Session，配置 Profile、区域与资源等级。'
-              }
-              action={
-                auth.canOperate ? (
-                  <button
-                    type="button"
-                    onClick={() => setCreateOpen(true)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas"
-                  >
-                    <Plus size={13} />
-                    新建环境
-                  </button>
-                ) : null
-              }
-            />
-          ) : visibleItems.length === 0 ? (
-            <EmptyState
-              title="当前页没有匹配结果"
-              description="调整搜索条件，或切换到其他分页继续查找。"
-              action={
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="text-[12px] text-accent hover:underline"
-                >
-                  清除搜索
-                </button>
-              }
-            />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1160px]">
-                <thead>
-                  <tr className="border-b border-border-subtle bg-surface-2">
-                    {[
-                      '环境',
-                      'Profile / 租户',
-                      '部署',
-                      'Runtime / Node',
-                      'Context',
-                      '当前 Operation',
-                      '状态',
-                      '最近更新',
-                      '操作',
-                    ].map((label) => (
-                      <th
-                        key={label}
-                        className="px-4 py-3 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted"
-                      >
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleItems.map((session) => (
-                    <SessionRow key={session.sessionId} session={session} />
-                  ))}
-                </tbody>
-              </table>
+      <section className="border-b border-border-subtle bg-canvas/80 px-4 py-5 sm:px-6">
+        <div className="mx-auto flex max-w-[1760px] flex-wrap items-start justify-between gap-5">
+          <div>
+            <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
+              <span>Control Plane</span>
+              <span>/</span>
+              <span className="text-accent">Environments</span>
             </div>
+            <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-text-primary">
+              环境管理
+            </h1>
+            <p className="mt-1.5 max-w-[720px] text-[13px] text-text-secondary">
+              管理真实 Session、Runtime、Profile、网络绑定与当前 Operation。
+            </p>
+          </div>
+          {auth.canOperate && (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas transition-colors hover:bg-accent/90"
+            >
+              <Plus size={16} />
+              新建环境
+            </button>
           )}
+        </div>
+      </section>
 
-          {query.data && query.data.total > 0 && (
-            <div className="flex h-12 items-center justify-between border-t border-border-subtle px-4">
-              <span className="text-[11px] text-text-muted">
-                第 {page + 1} / {pageCount} 页 · 每页 {PAGE_SIZE} 条
-              </span>
-              <div className="flex items-center gap-1">
+      <div className="border-b border-border-subtle bg-surface-1 px-4 sm:px-6">
+        <div className="mx-auto max-w-[1760px]">
+          <div className="flex min-h-[58px] flex-wrap items-center justify-between gap-3 py-2">
+            <div
+              className="flex items-center gap-1"
+              role="tablist"
+              aria-label="环境状态视图"
+            >
+              {primaryViews.map((item) => (
                 <button
+                  key={item.value}
                   type="button"
-                  onClick={() => setPage((current) => Math.max(0, current - 1))}
-                  disabled={page === 0}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
-                  aria-label="上一页"
+                  role="tab"
+                  aria-selected={view === item.value && !exactState}
+                  onClick={() => selectView(item.value)}
+                  className={cn(
+                    'relative h-9 px-3 text-[13px] font-medium transition-colors',
+                    view === item.value && !exactState
+                      ? 'text-text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-accent'
+                      : 'text-text-muted hover:text-text-secondary'
+                  )}
                 >
-                  <ChevronLeft size={14} />
+                  {item.label}
                 </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPage((current) => Math.min(pageCount - 1, current + 1))
+              ))}
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+              <label className="relative min-w-[220px] flex-1 sm:max-w-[380px]">
+                <span className="sr-only">搜索环境</span>
+                <Search
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                />
+                <input
+                  type="search"
+                  placeholder="搜索名称、Session、Profile、区域…"
+                  value={search}
+                  onChange={(event) =>
+                    updateParams({
+                      q: event.target.value || undefined,
+                      page: undefined,
+                    })
                   }
-                  disabled={page + 1 >= pageCount}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
-                  aria-label="下一页"
-                >
-                  <ChevronRight size={14} />
-                </button>
+                  className="h-10 w-full rounded-[7px] border border-border-subtle bg-surface-2 pl-9 pr-3 text-[13px] text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+                />
+              </label>
+              <ToolbarButton
+                icon={Filter}
+                label="高级筛选"
+                active={showAdvanced || Boolean(exactState)}
+                onClick={() => setShowAdvanced((current) => !current)}
+              />
+              <div className="relative">
+                <ToolbarButton
+                  icon={Columns3}
+                  label="列"
+                  active={showColumns}
+                  onClick={() => setShowColumns((current) => !current)}
+                />
+                {showColumns && (
+                  <div className="absolute right-0 top-11 z-20 w-52 border border-border-default bg-surface-2 p-2 shadow-2xl">
+                    <p className="px-2 pb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                      Column visibility
+                    </p>
+                    {(
+                      [
+                        ['runtime', 'Runtime / Node'],
+                        ['context', 'Context'],
+                        ['operation', '当前 Operation'],
+                      ] as const
+                    ).map(([column, label]) => (
+                      <label
+                        key={column}
+                        className="flex cursor-pointer items-center gap-2 px-2 py-2 text-[12px] text-text-secondary hover:bg-surface-3"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={optionalColumns[column]}
+                          onChange={(event) =>
+                            setOptionalColumns((current) => ({
+                              ...current,
+                              [column]: event.target.checked,
+                            }))
+                          }
+                          className="h-4 w-4 accent-accent"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
+              <button
+                type="button"
+                disabled
+                title="等待 Saved View API 接入"
+                className="hidden h-10 items-center gap-2 rounded-[7px] border border-border-subtle px-3 text-[12px] text-text-muted opacity-45 lg:inline-flex"
+              >
+                <Bookmark size={14} />
+                保存视图
+              </button>
+            </div>
+          </div>
+
+          {showAdvanced && (
+            <div className="flex flex-wrap items-end gap-4 border-t border-border-subtle py-4">
+              <label className="block min-w-[220px]">
+                <span className="mb-1.5 block text-[11px] text-text-muted">
+                  精确状态
+                </span>
+                <select
+                  value={exactState ?? ''}
+                  onChange={(event) =>
+                    updateParams({
+                      state: event.target.value || undefined,
+                      page: undefined,
+                    })
+                  }
+                  className="field-input"
+                >
+                  <option value="">继承当前主视图</option>
+                  {exactStates.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label} · {item.value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  updateParams({
+                    state: undefined,
+                    q: undefined,
+                    page: undefined,
+                  })
+                }
+                className="h-10 px-2 text-[12px] text-accent hover:underline"
+              >
+                清除筛选
+              </button>
+              <p className="ml-auto hidden text-[10px] text-text-muted lg:block">
+                筛选、搜索和分页已同步到 URL，可复制链接共享当前视图。
+              </p>
             </div>
           )}
         </div>
       </div>
 
-      <CreateSessionDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <main className="mx-auto max-w-[1760px] p-4 sm:p-6">
+        <section className="mb-4 grid border border-border-subtle bg-border-subtle sm:grid-cols-3">
+          <Readout
+            label="当前结果"
+            value={query.data ? String(query.data.total) : '—'}
+            detail={state ?? 'ALL STATES'}
+          />
+          <Readout
+            label="本页运行中"
+            value={query.data ? String(runningOnPage) : '—'}
+            detail="RUNNING"
+            tone="success"
+          />
+          <Readout
+            label="本页异常"
+            value={query.data ? String(abnormalOnPage) : '—'}
+            detail="DEGRADED / FAILED"
+            tone={abnormalOnPage > 0 ? 'danger' : 'muted'}
+          />
+        </section>
+
+        {query.isLoading ? (
+          <div className="border border-border-subtle bg-surface-1">
+            <LoadingRows />
+          </div>
+        ) : query.error ? (
+          <div className="border border-border-subtle bg-surface-1">
+            <ErrorState error={query.error} onRetry={() => query.refetch()} />
+          </div>
+        ) : items.length === 0 && !search && !state ? (
+          <EnvironmentEmptyState
+            canCreate={auth.canOperate}
+            onCreate={() => setCreateOpen(true)}
+          />
+        ) : items.length === 0 ? (
+          <FilteredEmptyState
+            onClear={() =>
+              updateParams({
+                view: undefined,
+                state: undefined,
+                q: undefined,
+                page: undefined,
+              })
+            }
+          />
+        ) : (
+          <section className="overflow-hidden border border-border-subtle bg-surface-1">
+            <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border-subtle bg-surface-2 px-4">
+              <p className="text-[11px] text-text-muted">
+                共{' '}
+                <span className="font-mono text-text-secondary">{total}</span>{' '}
+                个环境 · 服务端筛选与分页
+              </p>
+              <button
+                type="button"
+                onClick={() => query.refetch()}
+                disabled={query.isFetching}
+                className="inline-flex h-8 items-center gap-1.5 px-2 text-[11px] text-text-muted hover:text-accent disabled:opacity-50"
+              >
+                <RotateCw
+                  size={12}
+                  className={query.isFetching ? 'animate-spin' : undefined}
+                />
+                {query.isFetching ? '同步中' : '刷新'}
+              </button>
+            </div>
+            <div className="max-h-[calc(100vh-340px)] overflow-auto">
+              <table className="w-full min-w-[1080px]">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-border-subtle bg-surface-2">
+                    <TableHead>环境</TableHead>
+                    <TableHead>Profile / 租户</TableHead>
+                    <TableHead>区域 / 资源</TableHead>
+                    {optionalColumns.runtime && (
+                      <TableHead>Runtime / Node</TableHead>
+                    )}
+                    {optionalColumns.context && <TableHead>Context</TableHead>}
+                    {optionalColumns.operation && (
+                      <TableHead>当前 Operation</TableHead>
+                    )}
+                    <TableHead>状态</TableHead>
+                    <TableHead>最近活动</TableHead>
+                    <TableHead>
+                      <span className="sr-only">操作</span>
+                    </TableHead>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((session) => (
+                    <SessionRow
+                      key={session.sessionId}
+                      session={session}
+                      columns={optionalColumns}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex min-h-12 items-center justify-between border-t border-border-subtle px-4">
+              <span className="text-[11px] text-text-muted">
+                第 {page + 1} / {pageCount} 页 · 每页 {PAGE_SIZE} 条
+              </span>
+              <div className="flex items-center gap-1">
+                <PageButton
+                  label="上一页"
+                  disabled={page === 0}
+                  onClick={() => setPage(Math.max(0, page - 1))}
+                >
+                  <ChevronLeft size={14} />
+                </PageButton>
+                <PageButton
+                  label="下一页"
+                  disabled={page + 1 >= pageCount}
+                  onClick={() => setPage(Math.min(pageCount - 1, page + 1))}
+                >
+                  <ChevronRight size={14} />
+                </PageButton>
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {auth.canOperate && (
+        <CreateSessionDialog open={createOpen} onOpenChange={setCreateOpen} />
+      )}
     </div>
   );
 }
 
-function SessionRow({ session }: { session: SessionView }) {
+function EnvironmentEmptyState({
+  canCreate,
+  onCreate,
+}: {
+  canCreate: boolean;
+  onCreate: () => void;
+}) {
+  const flow = [
+    { icon: Box, label: 'Runtime', detail: '已签名的稳定 Build' },
+    { icon: Layers3, label: 'Profile', detail: '空状态、现有或 Checkpoint' },
+    { icon: Network, label: 'Proxy', detail: '托管出口与区域策略' },
+    { icon: ShieldCheck, label: 'Workload', detail: '资源、隔离与 Agent 能力' },
+  ];
+  return (
+    <section className="grid min-h-[430px] overflow-hidden border border-border-subtle bg-surface-1 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="flex items-center px-6 py-12 sm:px-10 lg:px-14">
+        <div className="max-w-[540px]">
+          <span className="flex h-11 w-11 items-center justify-center rounded-[10px] border border-accent/25 bg-accent-soft text-accent">
+            <Box size={20} />
+          </span>
+          <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+            No environments provisioned
+          </p>
+          <h2 className="mt-2 text-[21px] font-semibold tracking-[-0.02em] text-text-primary">
+            创建第一个受治理的浏览器环境
+          </h2>
+          <p className="mt-3 max-w-[500px] text-[13px] leading-6 text-text-secondary">
+            向导会从真实 Registry、Profile Store、Proxy 和 Region API
+            读取可用项，并把工作负载声明提交给 Control Plane。
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            {canCreate && (
+              <button
+                type="button"
+                onClick={onCreate}
+                className="inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas"
+              >
+                <Plus size={15} />
+                新建环境
+              </button>
+            )}
+            <button
+              type="button"
+              disabled
+              title="等待 Environment Import API 接入"
+              className="inline-flex h-10 cursor-not-allowed items-center rounded-[7px] border border-border-default px-4 text-[13px] text-text-muted opacity-50"
+            >
+              导入配置
+            </button>
+          </div>
+          {!canCreate && (
+            <p className="mt-5 text-[11px] text-warning">
+              当前角色为只读，请联系租户管理员创建环境。
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="border-t border-border-subtle bg-surface-2/65 p-7 lg:border-l lg:border-t-0 lg:p-10">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
+          Provisioning path
+        </p>
+        <ol className="mt-6 space-y-1">
+          {flow.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.label} className="relative flex gap-4 pb-6">
+                {index < flow.length - 1 && (
+                  <span className="absolute left-[17px] top-9 h-[calc(100%-28px)] w-px bg-border-default" />
+                )}
+                <span className="z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-surface-2 text-accent">
+                  <Icon size={15} />
+                </span>
+                <span className="pt-0.5">
+                  <span className="block text-[13px] font-medium text-text-primary">
+                    {index + 1}. {item.label}
+                  </span>
+                  <span className="mt-1 block text-[11px] text-text-muted">
+                    {item.detail}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function FilteredEmptyState({ onClear }: { onClear: () => void }) {
+  return (
+    <section className="flex min-h-[340px] items-center justify-center border border-border-subtle bg-surface-1 px-6 py-12 text-center">
+      <div className="max-w-[440px]">
+        <CircleAlert size={25} className="mx-auto text-text-muted" />
+        <h2 className="mt-4 text-[16px] font-semibold text-text-primary">
+          没有匹配当前视图的环境
+        </h2>
+        <p className="mt-2 text-[12px] leading-5 text-text-muted">
+          搜索与状态筛选已在服务端执行。调整条件或清除筛选后再试。
+        </p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-5 h-9 px-3 text-[12px] font-medium text-accent hover:underline"
+        >
+          清除全部筛选
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SessionRow({
+  session,
+  columns,
+}: {
+  session: SessionView;
+  columns: Record<OptionalColumn, boolean>;
+}) {
   const auth = useAuth();
   const navigate = useNavigate();
   const startMutation = useStartSession(session.sessionId);
@@ -303,19 +580,19 @@ function SessionRow({ session }: { session: SessionView }) {
           onClick={() => navigate(`/environments/${session.sessionId}`)}
           className="text-left"
         >
-          <span className="block max-w-[220px] truncate text-[12px] font-medium text-text-primary hover:text-accent">
+          <span className="block max-w-[230px] truncate text-[13px] font-medium text-text-primary hover:text-accent">
             {session.displayName}
           </span>
-          <span className="block font-mono text-[10px] text-text-muted">
+          <span className="block max-w-[230px] truncate font-mono text-[10px] text-text-muted">
             {session.sessionId}
           </span>
         </button>
       </td>
       <td className="px-4 py-3">
-        <span className="block font-mono text-[11px] text-text-secondary">
+        <span className="block max-w-[190px] truncate font-mono text-[11px] text-text-secondary">
           {session.profileId}
         </span>
-        <span className="block font-mono text-[10px] text-text-muted">
+        <span className="block max-w-[190px] truncate font-mono text-[10px] text-text-muted">
           {session.tenantId}
         </span>
       </td>
@@ -327,50 +604,56 @@ function SessionRow({ session }: { session: SessionView }) {
           {session.resourceClass}
         </span>
       </td>
-      <td className="px-4 py-3">
-        <span className="block max-w-[180px] truncate font-mono text-[11px] text-text-secondary">
-          {session.runtimeBuildId || 'Runtime 未绑定'}
-        </span>
-        <span className="block max-w-[180px] truncate font-mono text-[10px] text-text-muted">
-          {session.nodeId || 'Node 未分配'}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        <span className="font-mono text-[11px] text-text-primary">
-          e{session.contextEpoch}
-        </span>
-        <span className="ml-2 font-mono text-[10px] text-text-muted">
-          gen {session.browserGeneration}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        {session.currentOperation ? (
-          <div>
-            <p className="text-[11px] text-text-primary">
-              {session.currentOperation.mode}
-            </p>
-            <p className="font-mono text-[10px] text-text-muted">
-              {session.currentOperation.operationId}
-            </p>
-          </div>
-        ) : (
-          <span className="text-[11px] text-text-muted">无活跃操作</span>
-        )}
-      </td>
+      {columns.runtime && (
+        <td className="px-4 py-3">
+          <span className="block max-w-[190px] truncate font-mono text-[11px] text-text-secondary">
+            {session.runtimeBuildId || 'Runtime 未绑定'}
+          </span>
+          <span className="block max-w-[190px] truncate font-mono text-[10px] text-text-muted">
+            {session.nodeId || 'Node 未分配'}
+          </span>
+        </td>
+      )}
+      {columns.context && (
+        <td className="px-4 py-3">
+          <span className="font-mono text-[11px] text-text-primary">
+            e{session.contextEpoch}
+          </span>
+          <span className="ml-2 font-mono text-[10px] text-text-muted">
+            gen {session.browserGeneration}
+          </span>
+        </td>
+      )}
+      {columns.operation && (
+        <td className="px-4 py-3">
+          {session.currentOperation ? (
+            <div>
+              <p className="text-[11px] text-text-primary">
+                {session.currentOperation.mode}
+              </p>
+              <p className="max-w-[150px] truncate font-mono text-[10px] text-text-muted">
+                {session.currentOperation.operationId}
+              </p>
+            </div>
+          ) : (
+            <span className="text-[11px] text-text-muted">无活跃操作</span>
+          )}
+        </td>
+      )}
       <td className="px-4 py-3">
         <ApiSessionStateChip state={session.state} />
       </td>
-      <td className="px-4 py-3 text-[11px] text-text-muted">
+      <td className="whitespace-nowrap px-4 py-3 text-[11px] text-text-muted">
         {formatDate(session.updatedAt)}
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-end gap-1">
           {auth.canOperate && canStart && (
             <button
               type="button"
               onClick={() => startMutation.mutate()}
               disabled={startMutation.isPending}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-success/12 hover:text-success disabled:opacity-50"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-success/12 hover:text-success disabled:opacity-50"
               aria-label={`启动 ${session.sessionId}`}
               title="启动"
             >
@@ -384,15 +667,117 @@ function SessionRow({ session }: { session: SessionView }) {
           <button
             type="button"
             onClick={() => navigate(`/environments/${session.sessionId}`)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted hover:bg-accent-soft hover:text-accent"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-accent-soft hover:text-accent"
             aria-label={`查看 ${session.sessionId} 详情`}
             title="查看详情"
           >
             <ExternalLink size={13} />
           </button>
+          <button
+            type="button"
+            disabled
+            title="更多操作菜单待接入"
+            className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-text-muted opacity-40"
+            aria-label="更多操作（尚未接入）"
+          >
+            <MoreHorizontal size={14} />
+          </button>
         </div>
       </td>
     </tr>
+  );
+}
+
+function ToolbarButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: typeof Filter;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-10 items-center gap-2 rounded-[7px] border px-3 text-[12px] transition-colors',
+        active
+          ? 'border-accent/40 bg-accent-soft text-accent'
+          : 'border-border-subtle text-text-secondary hover:border-border-default hover:bg-surface-2'
+      )}
+    >
+      <Icon size={14} />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
+function Readout({
+  label,
+  value,
+  detail,
+  tone = 'muted',
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: 'muted' | 'success' | 'danger';
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 bg-surface-1 px-4 py-3">
+      <span>
+        <span className="block text-[11px] text-text-muted">{label}</span>
+        <span className="mt-0.5 block font-mono text-[9px] text-text-muted">
+          {detail}
+        </span>
+      </span>
+      <span
+        className={cn(
+          'font-mono text-[18px] font-semibold',
+          tone === 'success' && 'text-success',
+          tone === 'danger' && 'text-danger',
+          tone === 'muted' && 'text-text-primary'
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TableHead({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="whitespace-nowrap px-4 py-3 text-left text-[10px] font-medium uppercase tracking-[0.12em] text-text-muted">
+      {children}
+    </th>
+  );
+}
+
+function PageButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -402,7 +787,6 @@ function formatDate(value: string) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: false,
   }).format(new Date(value));
 }

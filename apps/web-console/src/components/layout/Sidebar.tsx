@@ -143,8 +143,8 @@ export function Sidebar() {
     <aside
       aria-label="主导航"
       className={cn(
-        'flex flex-col border-r border-border-subtle bg-sidebar transition-all duration-200',
-        collapsed ? 'w-[64px] sm:w-[72px]' : 'w-[64px] sm:w-[240px]'
+        'flex w-[68px] shrink-0 flex-col border-r border-border-subtle bg-sidebar transition-[width] duration-200',
+        !collapsed && 'min-[1281px]:w-[236px]'
       )}
     >
       {/* Logo */}
@@ -153,7 +153,7 @@ export function Sidebar() {
           <Boxes size={18} />
         </div>
         {!collapsed && (
-          <div className="hidden flex-col sm:flex">
+          <div className="hidden flex-col min-[1281px]:flex">
             <span className="text-sm font-semibold text-text-primary">
               Agent Browser
             </span>
@@ -170,13 +170,14 @@ export function Sidebar() {
             onClick={() => navigate('/environments?create=1')}
             aria-label="新建浏览器环境"
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-[7px] bg-accent px-3 py-2 text-sm font-medium text-canvas transition-colors hover:bg-accent/90',
-              collapsed && 'px-0'
+              'flex h-9 w-full items-center justify-center gap-2 rounded-[7px] border border-accent/35 bg-accent-soft px-3 text-[13px] font-medium text-accent transition-colors hover:border-accent/55 hover:bg-accent/20',
+              collapsed && 'px-0',
+              !collapsed && 'min-[1281px]:justify-start'
             )}
           >
             <Plus size={16} />
             {!collapsed && (
-              <span className="hidden sm:inline">新建浏览器环境</span>
+              <span className="hidden min-[1281px]:inline">新建环境</span>
             )}
           </button>
         </div>
@@ -187,7 +188,7 @@ export function Sidebar() {
         {navGroups.map((group) => (
           <div key={group.title} className="mb-4">
             {!collapsed && (
-              <div className="mb-1 hidden px-2 text-[11px] font-medium uppercase tracking-wider text-text-muted sm:block">
+              <div className="mb-1 hidden px-2 text-[10px] font-medium uppercase tracking-[0.14em] text-text-muted min-[1281px]:block">
                 {group.title}
               </div>
             )}
@@ -207,20 +208,22 @@ export function Sidebar() {
                   aria-label={item.label}
                   title={item.label}
                   className={cn(
-                    'group relative mb-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 text-[13px] transition-colors',
+                    'group relative mb-0.5 flex h-9 items-center gap-3 rounded-md px-2 text-[13px] transition-colors',
                     isActive
                       ? 'bg-accent-soft text-accent'
                       : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
                   )}
                 >
                   {isActive && (
-                    <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-accent" />
+                    <div className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r bg-accent" />
                   )}
                   <span className={cn('shrink-0', isActive && 'text-accent')}>
                     {item.icon}
                   </span>
                   {!collapsed && (
-                    <span className="hidden sm:inline">{item.label}</span>
+                    <span className="hidden min-[1281px]:inline">
+                      {item.label}
+                    </span>
                   )}
                 </NavLink>
               );
@@ -230,7 +233,7 @@ export function Sidebar() {
       </nav>
 
       {/* Collapse Toggle */}
-      <div className="hidden border-t border-border-subtle p-3 sm:block">
+      <div className="hidden border-t border-border-subtle p-3 min-[1281px]:block">
         <button
           type="button"
           onClick={toggle}

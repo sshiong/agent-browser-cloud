@@ -276,6 +276,7 @@ export async function createRemoteDesktopConnection(
  */
 export async function listSessions(params?: {
   state?: string;
+  query?: string;
   limit?: number;
   offset?: number;
   tenantId?: string;
@@ -283,6 +284,7 @@ export async function listSessions(params?: {
 }): Promise<SessionListResponse> {
   const searchParams = new URLSearchParams();
   if (params?.state) searchParams.set('state', params.state);
+  if (params?.query?.trim()) searchParams.set('q', params.query.trim());
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
 

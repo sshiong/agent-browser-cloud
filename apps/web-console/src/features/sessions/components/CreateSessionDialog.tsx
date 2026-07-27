@@ -1,71 +1,190 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, ArrowRight, Check, LoaderCircle, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Cpu,
+  Database,
+  LoaderCircle,
+  Network,
+  Puzzle,
+  Rocket,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
-import { currentTenantId } from '@/api/session';
-import { isSessionApiError } from '@/api/session';
+import { currentTenantId, isSessionApiError } from '@/api/session';
+import { useEnterpriseOverview } from '@/features/enterprise/enterpriseQueries';
+import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
+import { useProfiles } from '@/features/profiles/profileQueries';
+import { useProxyOverview } from '@/features/proxies/proxyQueries';
+import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import { useCreateSession } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
+import type { ResourceClass } from '@/types/session';
 
 const schema = z
   .object({
-    name: z
+    name: z.string().trim().min(1, '请输入环境名称').max(128),
+    group: z.string().trim().max(64),
+    tags: z
       .string()
-      .trim()
-      .min(1, '请输入环境名称')
-      .max(128, '环境名称不能超过 128 个字符'),
-    profileId: z.string().trim().min(1, '请输入 Profile ID').max(128),
-    region: z
-      .string()
-      .trim()
-      .regex(/^[a-z0-9-]{1,32}$/, '仅支持小写字母、数字和连字符'),
-    resourceClass: z.enum(['L0', 'L1', 'L2', 'L3', 'L4', 'L5']),
-    requestedTabs: z.coerce.number().int().min(1).max(64),
-    agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
-    remoteDesktop: z.boolean(),
-    web3Workload: z.boolean(),
-    mediaWorkload: z.boolean(),
-    requestedMediaStreams: z.coerce.number().int().min(0).max(32),
-    mediaBitrateKbps: z.coerce.number().int().min(0).max(1_000_000),
-    extensionIds: z
-      .string()
-      .max(2048)
+      .max(256)
       .refine(
         (value) =>
           value
             .split(',')
             .map((item) => item.trim())
             .filter(Boolean)
-            .every((item) => /^[a-zA-Z0-9_.-]{1,128}$/.test(item)),
-        '扩展 ID 仅支持字母、数字、点、下划线和连字符'
+            .every((item) => /^[\p{L}\p{N}_.-]{1,32}$/u.test(item)),
+        '标签仅支持文字、数字、点、下划线和连字符'
       ),
+    description: z.string().trim().max(500),
+    accent: z.enum(['teal', 'blue', 'amber', 'violet']),
+    runtimeBuildId: z.string().trim().min(1, '请选择 Runtime Build'),
+    profileMode: z.enum(['empty', 'existing', 'checkpoint']),
+    profileId: z.string().trim().max(128),
+    networkMode: z.enum(['managed', 'direct']),
+    region: z.string().trim().min(1, '请选择部署区域').max(32),
+    resourceClass: z.enum(['L1', 'L2', 'L3', 'L4']),
+    resourceTemplateId: z.string().trim().min(1),
+    executionEnvironment: z.enum([
+      'system',
+      'container',
+      'enhanced-sandbox',
+      'microvm',
+      'native-os',
+    ]),
+    requestedTabs: z.coerce.number().int().min(1).max(64),
+    agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
+    remoteDesktop: z.boolean(),
+    mediaClass: z.enum(['M0', 'M1', 'M2', 'M3', 'M4']),
+    extensionIds: z.array(z.string().max(128)).max(32),
+    agentEnabled: z.boolean(),
+    agentPolicy: z.enum(['balanced', 'restricted', 'interactive']),
+    humanTakeover: z.boolean(),
+    idleTimeoutMinutes: z.coerce.number().int().min(5).max(1440),
+    snapshotPolicy: z.enum(['on-stop', 'periodic', 'manual']),
+    web3Workload: z.boolean(),
   })
   .superRefine((value, context) => {
-    const hasMediaBudget =
-      value.requestedMediaStreams > 0 && value.mediaBitrateKbps > 0;
-    if (value.mediaWorkload !== hasMediaBudget) {
+    if (value.profileMode !== 'empty' && !value.profileId) {
       context.addIssue({
         code: 'custom',
-        path: ['requestedMediaStreams'],
-        message: value.mediaWorkload
-          ? '媒体任务需要正数流数量和聚合码率'
-          : '未启用媒体任务时媒体预算必须为 0',
+        path: ['profileId'],
+        message: '请选择 Profile',
       });
     }
   });
 
 type FormValues = z.infer<typeof schema>;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
-const resourceOptions = [
-  { value: 'L1', label: 'L1 · Lite', description: '轻量只读与低频任务' },
-  { value: 'L2', label: 'L2 · Standard', description: '标准 Agent 自动化' },
-  { value: 'L3', label: 'L3 · Interactive', description: '远程桌面与人工接管' },
-  { value: 'L4', label: 'L4 · Heavy', description: '高并发标签页与重型扩展' },
-  { value: 'L5', label: 'L5 · Native', description: '原生系统隔离专用节点' },
+const steps = [
+  { number: 1, short: '基础', label: '基本信息', icon: Sparkles },
+  { number: 2, short: 'Runtime', label: 'Runtime 与 Profile', icon: Cpu },
+  { number: 3, short: '网络', label: '网络与区域', icon: Network },
+  {
+    number: 4,
+    short: '资源',
+    label: '工作负载与资源',
+    icon: SlidersHorizontal,
+  },
+  { number: 5, short: '能力', label: '扩展与 Agent', icon: Puzzle },
+  { number: 6, short: '确认', label: '检查并创建', icon: Rocket },
 ] as const;
+
+const resourceOptions: {
+  value: Exclude<ResourceClass, 'L0' | 'L5'>;
+  template: string;
+  label: string;
+  description: string;
+  tabs: number;
+  actions: number;
+}[] = [
+  {
+    value: 'L1',
+    template: 'lite-v1',
+    label: 'Lite',
+    description: '轻量采集、单页与低频自动化',
+    tabs: 1,
+    actions: 30,
+  },
+  {
+    value: 'L2',
+    template: 'standard-v1',
+    label: 'Standard',
+    description: '标准 Agent 自动化与多页工作流',
+    tabs: 4,
+    actions: 60,
+  },
+  {
+    value: 'L3',
+    template: 'interactive-v1',
+    label: 'Interactive',
+    description: '人工接管、远程桌面与高交互',
+    tabs: 8,
+    actions: 120,
+  },
+  {
+    value: 'L4',
+    template: 'heavy-v1',
+    label: 'Heavy',
+    description: '高并发标签页与重型扩展',
+    tabs: 16,
+    actions: 240,
+  },
+];
+
+const mediaOptions = [
+  { value: 'M0', label: 'M0 · 无媒体', detail: '0 streams' },
+  { value: 'M1', label: 'M1 · 基础音频', detail: '1 / 1.5 Mbps' },
+  { value: 'M2', label: 'M2 · 交互视频', detail: '1 / 4 Mbps' },
+  { value: 'M3', label: 'M3 · 高清媒体', detail: '1 / 8 Mbps' },
+  { value: 'M4', label: 'M4 · 多流编码', detail: '2 / 12 Mbps' },
+] as const;
+
+const mediaBudgets = {
+  M0: { mediaWorkload: false, streams: 0, bitrate: 0 },
+  M1: { mediaWorkload: true, streams: 1, bitrate: 1500 },
+  M2: { mediaWorkload: true, streams: 1, bitrate: 4000 },
+  M3: { mediaWorkload: true, streams: 1, bitrate: 8000 },
+  M4: { mediaWorkload: true, streams: 2, bitrate: 12000 },
+} as const;
+
+const stepFields: Record<Step, (keyof FormValues)[]> = {
+  1: ['name', 'group', 'tags', 'description', 'accent'],
+  2: ['runtimeBuildId', 'profileMode', 'profileId'],
+  3: ['networkMode', 'region'],
+  4: [
+    'resourceClass',
+    'resourceTemplateId',
+    'executionEnvironment',
+    'requestedTabs',
+    'agentActionsPerMinute',
+    'remoteDesktop',
+    'mediaClass',
+  ],
+  5: [
+    'extensionIds',
+    'agentEnabled',
+    'agentPolicy',
+    'humanTakeover',
+    'idleTimeoutMinutes',
+    'snapshotPolicy',
+    'web3Workload',
+  ],
+  6: [],
+};
 
 export function CreateSessionDialog({
   open,
@@ -76,7 +195,13 @@ export function CreateSessionDialog({
 }) {
   const navigate = useNavigate();
   const createMutation = useCreateSession();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const runtimeQuery = useRuntimeBuilds();
+  const profilesQuery = useProfiles();
+  const proxyQuery = useProxyOverview();
+  const enterpriseQuery = useEnterpriseOverview();
+  const extensionsQuery = useExtensionProfiles();
+  const [step, setStep] = useState<Step>(1);
+  const [createdSessionId, setCreatedSessionId] = useState<string>();
   const {
     register,
     handleSubmit,
@@ -89,31 +214,64 @@ export function CreateSessionDialog({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
-      profileId: 'profile-local-default',
-      region: 'local',
+      group: '',
+      tags: '',
+      description: '',
+      accent: 'teal',
+      runtimeBuildId: '',
+      profileMode: 'empty',
+      profileId: '',
+      networkMode: 'managed',
+      region: '',
       resourceClass: 'L2',
-      requestedTabs: 2,
+      resourceTemplateId: 'standard-v1',
+      requestedTabs: 4,
       agentActionsPerMinute: 60,
+      executionEnvironment: 'system',
       remoteDesktop: false,
+      mediaClass: 'M0',
+      extensionIds: [],
+      agentEnabled: true,
+      agentPolicy: 'balanced',
+      humanTakeover: true,
+      idleTimeoutMinutes: 30,
+      snapshotPolicy: 'on-stop',
       web3Workload: false,
-      mediaWorkload: false,
-      requestedMediaStreams: 0,
-      mediaBitrateKbps: 0,
-      extensionIds: '',
     },
   });
-
   const values = watch();
 
+  const approvedRuntimes = useMemo(
+    () =>
+      (runtimeQuery.data?.items ?? []).filter(
+        (runtime) =>
+          runtime.releaseChannel === 'STABLE' && runtime.signatureVerified
+      ),
+    [runtimeQuery.data?.items]
+  );
+  const regions = useMemo(
+    () =>
+      (enterpriseQuery.data?.regions ?? []).filter(
+        (region) => region.admissionState === 'OPEN'
+      ),
+    [enterpriseQuery.data?.regions]
+  );
+
   useEffect(() => {
-    if (!values.mediaWorkload) {
-      setValue('requestedMediaStreams', 0);
-      setValue('mediaBitrateKbps', 0);
+    if (!values.runtimeBuildId && approvedRuntimes[0]) {
+      setValue('runtimeBuildId', approvedRuntimes[0].buildId);
     }
-  }, [setValue, values.mediaWorkload]);
+  }, [approvedRuntimes, setValue, values.runtimeBuildId]);
+
+  useEffect(() => {
+    if (!values.region && regions[0]) {
+      setValue('region', regions[0].regionId);
+    }
+  }, [regions, setValue, values.region]);
 
   const resetFlow = () => {
     setStep(1);
+    setCreatedSessionId(undefined);
     createMutation.reset();
     reset();
   };
@@ -124,46 +282,84 @@ export function CreateSessionDialog({
   };
 
   const advance = async () => {
-    const fields =
-      step === 1
-        ? (['name', 'profileId', 'region', 'resourceClass'] as const)
-        : ([
-            'requestedTabs',
-            'agentActionsPerMinute',
-            'remoteDesktop',
-            'web3Workload',
-            'mediaWorkload',
-            'requestedMediaStreams',
-            'mediaBitrateKbps',
-            'extensionIds',
-          ] as const);
-    if (await trigger(fields)) setStep((current) => (current + 1) as 2 | 3);
+    if (step >= 6) return;
+    if (await trigger(stepFields[step])) {
+      setStep((step + 1) as Step);
+    }
+  };
+
+  const chooseResource = (resource: (typeof resourceOptions)[number]) => {
+    setValue('resourceClass', resource.value, { shouldValidate: true });
+    setValue('resourceTemplateId', resource.template);
+    setValue('requestedTabs', resource.tabs);
+    setValue('agentActionsPerMinute', resource.actions);
+  };
+
+  const chooseRemoteDesktop = (checked: boolean) => {
+    setValue('remoteDesktop', checked);
+    if (checked && ['L1', 'L2'].includes(values.resourceClass)) {
+      chooseResource(resourceOptions[2]!);
+    }
+    if (checked && values.mediaClass === 'M0') {
+      setValue('mediaClass', 'M2');
+    }
   };
 
   const submit = handleSubmit(async (form) => {
+    const budget = mediaBudgets[form.mediaClass];
+    const safeName = form.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 32);
+    const generatedProfileId = `profile-${safeName || 'environment'}-${crypto.randomUUID().slice(0, 8)}`;
+    const profileId =
+      form.profileMode === 'empty' ? generatedProfileId : form.profileId;
+    const tags = form.tags
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
     const result = await createMutation.mutateAsync({
       idempotencyKey: crypto.randomUUID(),
       request: {
         tenantId: currentTenantId(),
-        profileId: form.profileId,
+        profileId,
         region: form.region,
         resourceClass: form.resourceClass,
         requestedTabs: form.requestedTabs,
         agentActionsPerMinute: form.agentActionsPerMinute,
         remoteDesktop: form.remoteDesktop,
         web3Workload: form.web3Workload,
-        mediaWorkload: form.mediaWorkload,
-        requestedMediaStreams: form.requestedMediaStreams,
-        mediaBitrateKbps: form.mediaBitrateKbps,
-        extensionIds: form.extensionIds
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean),
-        metadata: { displayName: form.name },
+        mediaWorkload: budget.mediaWorkload,
+        requestedMediaStreams: budget.streams,
+        mediaBitrateKbps: budget.bitrate,
+        extensionIds: form.extensionIds,
+        metadata: {
+          displayName: form.name,
+          group: form.group,
+          tags: tags.join(','),
+          description: form.description,
+          visualAccent: form.accent,
+          requestedRuntimeBuildId: form.runtimeBuildId,
+          profileMode: form.profileMode,
+          networkMode: form.networkMode,
+          proxyProviderId:
+            form.networkMode === 'managed'
+              ? (proxyQuery.data?.provider.providerId ?? '')
+              : '',
+          resourceTemplateId: form.resourceTemplateId,
+          executionEnvironment: form.executionEnvironment,
+          mediaClass: form.mediaClass,
+          agentEnabled: String(form.agentEnabled),
+          agentPolicy: form.agentPolicy,
+          humanTakeover: String(form.humanTakeover),
+          idleTimeoutMinutes: String(form.idleTimeoutMinutes),
+          snapshotPolicy: form.snapshotPolicy,
+        },
       },
     });
-    resetFlow();
-    navigate(`/environments/${result.sessionId}`, { replace: true });
+    setCreatedSessionId(result.sessionId);
   });
 
   const requestId = isSessionApiError(createMutation.error)
@@ -173,62 +369,84 @@ export function CreateSessionDialog({
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-canvas/75 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-canvas/80 backdrop-blur-[2px]" />
         <Dialog.Content
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[520px] flex-col border-l border-border-default bg-surface-1 shadow-2xl focus:outline-none"
+          className="fixed inset-0 z-50 flex w-full flex-col bg-surface-1 shadow-2xl focus:outline-none min-[1281px]:inset-y-0 min-[1281px]:left-auto min-[1281px]:right-0 min-[1281px]:w-[clamp(620px,48vw,760px)] min-[1281px]:border-l min-[1281px]:border-border-default"
           aria-describedby="create-session-description"
         >
-          <div className="flex h-16 items-center justify-between border-b border-border-subtle px-6">
-            <div>
-              <Dialog.Title className="text-[15px] font-semibold text-text-primary">
+          <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-4 border-b border-border-subtle px-5 sm:px-7">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
+                  Environment Provisioning
+                </span>
+                <span className="text-[10px] text-text-muted">
+                  {step} / {steps.length}
+                </span>
+              </div>
+              <Dialog.Title className="truncate text-[18px] font-semibold text-text-primary">
                 新建浏览器环境
               </Dialog.Title>
               <Dialog.Description
                 id="create-session-description"
-                className="mt-0.5 text-[11px] text-text-muted"
+                className="mt-0.5 hidden text-[12px] text-text-muted sm:block"
               >
-                创建真实 Session，并将工作负载、扩展和隔离需求提交给 Placement。
+                逐步声明运行需求，由 Control Plane 与 Placement 做最终裁决。
               </Dialog.Description>
             </div>
             <Dialog.Close
-              className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-primary"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text-primary"
               aria-label="关闭创建环境面板"
             >
-              <X size={16} />
+              <X size={17} />
             </Dialog.Close>
           </div>
 
-          <div className="border-b border-border-subtle px-6 py-4">
-            <ol className="grid grid-cols-3 gap-3" aria-label="创建步骤">
-              {[
-                { number: 1, label: '基础配置' },
-                { number: 2, label: '工作负载' },
-                { number: 3, label: '确认创建' },
-              ].map((item) => (
-                <li
-                  key={item.number}
-                  className={cn(
-                    'flex items-center gap-2 border-t-2 pt-2 text-[11px]',
-                    step >= item.number
-                      ? 'border-accent text-text-primary'
-                      : 'border-border-subtle text-text-muted'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'flex h-5 w-5 items-center justify-center rounded-full',
-                      step > item.number
-                        ? 'bg-accent text-canvas'
-                        : step === item.number
-                          ? 'bg-accent-soft text-accent'
-                          : 'bg-surface-3'
-                    )}
-                  >
-                    {step > item.number ? <Check size={11} /> : item.number}
-                  </span>
-                  {item.label}
-                </li>
-              ))}
+          <div className="shrink-0 border-b border-border-subtle px-4 py-3 sm:px-7">
+            <ol className="grid grid-cols-6 gap-1" aria-label="创建步骤">
+              {steps.map((item) => {
+                const Icon = item.icon;
+                const active = step === item.number;
+                const complete = step > item.number;
+                return (
+                  <li key={item.number}>
+                    <button
+                      type="button"
+                      disabled={item.number > step || createdSessionId != null}
+                      onClick={() => setStep(item.number)}
+                      aria-current={active ? 'step' : undefined}
+                      className={cn(
+                        'group flex w-full flex-col items-center gap-1.5 border-t-2 px-1 pt-2 text-center transition-colors',
+                        active || complete
+                          ? 'border-accent'
+                          : 'border-border-subtle',
+                        item.number <= step
+                          ? 'text-text-secondary'
+                          : 'cursor-not-allowed text-text-muted'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex h-6 w-6 items-center justify-center rounded-full',
+                          complete
+                            ? 'bg-accent text-canvas'
+                            : active
+                              ? 'bg-accent-soft text-accent'
+                              : 'bg-surface-2'
+                        )}
+                      >
+                        {complete ? <Check size={12} /> : <Icon size={12} />}
+                      </span>
+                      <span className="text-[10px] sm:hidden">
+                        {item.short}
+                      </span>
+                      <span className="hidden truncate text-[10px] sm:block">
+                        {item.label}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ol>
           </div>
 
@@ -236,48 +454,153 @@ export function CreateSessionDialog({
             onSubmit={(event) => event.preventDefault()}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="flex-1 overflow-y-auto p-6">
-              {step === 1 ? (
-                <div className="space-y-5">
-                  <Field
-                    label="环境名称"
-                    error={errors.name?.message}
-                    hint="作为 Session metadata 保存，不影响服务端生成的 Session ID。"
-                  >
+            <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+              {step === 1 && (
+                <WizardStep
+                  eyebrow="01 · Identity"
+                  title="先让团队识别这个环境"
+                  description="这些字段用于环境列表与治理视图，不会替代服务端生成的 Session ID。"
+                >
+                  <Field label="环境名称" error={errors.name?.message} required>
                     <input
                       {...register('name')}
                       autoFocus
-                      placeholder="例如：CRM Singapore"
+                      placeholder="例如：CRM 新加坡生产验证"
                       className="field-input"
                     />
                   </Field>
-
-                  <Field label="Profile ID" error={errors.profileId?.message}>
-                    <input
-                      {...register('profileId')}
-                      spellCheck={false}
-                      className="field-input font-mono"
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="分组" error={errors.group?.message}>
+                      <input
+                        {...register('group')}
+                        placeholder="例如：Growth / APAC"
+                        className="field-input"
+                      />
+                    </Field>
+                    <Field
+                      label="标签"
+                      hint="使用逗号分隔，最多 32 个字符/标签"
+                      error={errors.tags?.message}
+                    >
+                      <input
+                        {...register('tags')}
+                        placeholder="production, crm"
+                        className="field-input"
+                      />
+                    </Field>
+                  </div>
+                  <Field
+                    label="用途说明"
+                    hint="说明为什么需要它，便于审计与交接。"
+                    error={errors.description?.message}
+                  >
+                    <textarea
+                      {...register('description')}
+                      rows={4}
+                      className="field-input min-h-24 resize-y py-2.5"
+                      placeholder="用于 CRM 回归验证和受控 Agent 工作流。"
                     />
                   </Field>
+                  <fieldset>
+                    <legend className="mb-2 text-[13px] font-medium text-text-primary">
+                      识别色
+                    </legend>
+                    <div className="flex gap-3">
+                      {(['teal', 'blue', 'amber', 'violet'] as const).map(
+                        (accent) => (
+                          <label
+                            key={accent}
+                            className="flex cursor-pointer items-center gap-2 text-[12px] capitalize text-text-secondary"
+                          >
+                            <input
+                              type="radio"
+                              value={accent}
+                              {...register('accent')}
+                              className="sr-only"
+                            />
+                            <span
+                              className={cn(
+                                'h-8 w-8 rounded-full border-2 border-surface-1 ring-1 transition',
+                                accent === 'teal' && 'bg-accent',
+                                accent === 'blue' && 'bg-accent-secondary',
+                                accent === 'amber' && 'bg-warning',
+                                accent === 'violet' && 'bg-purple',
+                                values.accent === accent
+                                  ? 'ring-text-primary'
+                                  : 'ring-border-default'
+                              )}
+                            />
+                            <span className="sr-only">{accent}</span>
+                          </label>
+                        )
+                      )}
+                    </div>
+                  </fieldset>
+                </WizardStep>
+              )}
 
+              {step === 2 && (
+                <WizardStep
+                  eyebrow="02 · Runtime & State"
+                  title="选择已验证的运行时与状态来源"
+                  description="Runtime 是调度偏好，平台策略与签名校验拥有最终裁决权；Profile 来自真实存储。"
+                >
                   <Field
-                    label="部署区域"
-                    error={errors.region?.message}
-                    hint="当前本地 Control Plane 默认使用 local。"
+                    label="Runtime Build"
+                    error={errors.runtimeBuildId?.message}
+                    hint="仅显示 STABLE 且签名已验证的 Build。"
+                    required
                   >
-                    <input
-                      {...register('region')}
-                      spellCheck={false}
-                      className="field-input font-mono"
-                    />
+                    {runtimeQuery.isLoading ? (
+                      <LoadingBlock label="正在读取 Runtime Registry" />
+                    ) : runtimeQuery.isError ? (
+                      <QueryError label="无法读取 Runtime Registry" />
+                    ) : approvedRuntimes.length === 0 ? (
+                      <QueryError label="没有可用的已签名稳定 Runtime" />
+                    ) : (
+                      <div className="space-y-2">
+                        {approvedRuntimes.map((runtime) => (
+                          <ChoiceCard
+                            key={runtime.buildId}
+                            name="runtime-build"
+                            checked={values.runtimeBuildId === runtime.buildId}
+                            onChange={() =>
+                              setValue('runtimeBuildId', runtime.buildId, {
+                                shouldValidate: true,
+                              })
+                            }
+                            title={`${runtime.engine} ${runtime.version}`}
+                            badge={runtime.releaseChannel}
+                            description={`${runtime.platform} · ${runtime.securityTier} · ${runtime.regressionStatus}`}
+                            meta={runtime.buildId}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </Field>
 
                   <fieldset>
-                    <legend className="mb-2 text-[12px] font-medium text-text-primary">
-                      资源等级
+                    <legend className="mb-2 text-[13px] font-medium text-text-primary">
+                      Profile 来源
                     </legend>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {resourceOptions.map((option) => (
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {[
+                        {
+                          value: 'empty',
+                          title: '全新 Profile',
+                          detail: '创建隔离的空状态',
+                        },
+                        {
+                          value: 'existing',
+                          title: '现有 Profile',
+                          detail: '继续使用持久状态',
+                        },
+                        {
+                          value: 'checkpoint',
+                          title: 'Checkpoint',
+                          detail: '从最近检查点恢复',
+                        },
+                      ].map((option) => (
                         <label
                           key={option.value}
                           className="cursor-pointer rounded-[8px] border border-border-subtle bg-surface-2 p-3 transition-colors has-[:checked]:border-accent/60 has-[:checked]:bg-accent-soft"
@@ -285,28 +608,175 @@ export function CreateSessionDialog({
                           <input
                             type="radio"
                             value={option.value}
-                            {...register('resourceClass')}
+                            {...register('profileMode')}
+                            onChange={(event) => {
+                              const mode = event.target
+                                .value as FormValues['profileMode'];
+                              setValue('profileMode', mode, {
+                                shouldValidate: true,
+                              });
+                              if (mode === 'empty') {
+                                setValue('profileId', '');
+                              }
+                            }}
                             className="sr-only"
                           />
-                          <span className="block text-[12px] font-medium text-text-primary">
-                            {option.label}
+                          <Database size={15} className="mb-2 text-accent" />
+                          <span className="block text-[13px] font-medium text-text-primary">
+                            {option.title}
                           </span>
-                          <span className="mt-1 block text-[10px] leading-4 text-text-muted">
-                            {option.description}
+                          <span className="mt-1 block text-[11px] text-text-muted">
+                            {option.detail}
                           </span>
                         </label>
                       ))}
                     </div>
                   </fieldset>
-                </div>
-              ) : step === 2 ? (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
+
+                  {values.profileMode !== 'empty' && (
                     <Field
-                      label="请求标签页"
-                      error={errors.requestedTabs?.message}
-                      hint="Placement 会同时受 Resource Class 的 Tab Budget 限制。"
+                      label={
+                        values.profileMode === 'checkpoint'
+                          ? '可恢复的 Profile'
+                          : '现有 Profile'
+                      }
+                      error={errors.profileId?.message}
+                      required
                     >
+                      <select
+                        {...register('profileId')}
+                        className="field-input"
+                      >
+                        <option value="">请选择 Profile</option>
+                        {(profilesQuery.data?.items ?? [])
+                          .filter(
+                            (profile) =>
+                              values.profileMode !== 'checkpoint' ||
+                              profile.latestCheckpointId
+                          )
+                          .map((profile) => (
+                            <option
+                              key={profile.profileId}
+                              value={profile.profileId}
+                            >
+                              {profile.name} · {profile.restoreStatus}
+                            </option>
+                          ))}
+                      </select>
+                    </Field>
+                  )}
+
+                  <UnavailableOption
+                    title="从文件导入 Profile"
+                    detail="等待 Profile Import API 和上传审计链路接入后开放。"
+                  />
+                </WizardStep>
+              )}
+
+              {step === 3 && (
+                <WizardStep
+                  eyebrow="03 · Network"
+                  title="声明出口策略与部署区域"
+                  description="区域来自 Enterprise API；网络策略不会在前端伪造绑定，最终由 Control Plane 处理。"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ChoiceCard
+                      name="network-mode"
+                      checked={values.networkMode === 'managed'}
+                      onChange={() => setValue('networkMode', 'managed')}
+                      title="平台托管出口"
+                      badge={proxyQuery.data?.provider.state ?? '正在读取'}
+                      description="由平台代理提供商分配、验证并记录出口。"
+                      meta={
+                        proxyQuery.data?.provider.providerId ?? 'Proxy provider'
+                      }
+                    />
+                    <ChoiceCard
+                      name="network-mode"
+                      checked={values.networkMode === 'direct'}
+                      disabled={!import.meta.env.DEV}
+                      onChange={() => setValue('networkMode', 'direct')}
+                      title="直接网络"
+                      badge={import.meta.env.DEV ? 'DEV ONLY' : '不可用'}
+                      description="仅开发环境允许；生产策略不会回退到直连。"
+                      meta="No managed proxy request"
+                    />
+                  </div>
+
+                  <UnavailableOption
+                    title="复用现有 Proxy Binding"
+                    detail="现有 allocation 与 Session 绑定，不允许在 UI 中跨 Session 复用。"
+                  />
+
+                  <Field
+                    label="部署区域"
+                    error={errors.region?.message}
+                    hint="只显示 admissionState=OPEN 的真实区域。"
+                    required
+                  >
+                    {enterpriseQuery.isLoading ? (
+                      <LoadingBlock label="正在读取 Region Admission" />
+                    ) : enterpriseQuery.isError ? (
+                      <QueryError label="无法读取区域清单" />
+                    ) : regions.length === 0 ? (
+                      <QueryError label="当前没有开放接入的区域" />
+                    ) : (
+                      <select {...register('region')} className="field-input">
+                        {regions.map((region) => (
+                          <option key={region.regionId} value={region.regionId}>
+                            {region.regionId} · {region.role} · lag{' '}
+                            {region.replicationLagSeconds}s
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+
+                  <div className="border border-border-subtle bg-surface-2 p-4">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck
+                        size={17}
+                        className="mt-0.5 shrink-0 text-success"
+                      />
+                      <div>
+                        <p className="text-[13px] font-medium text-text-primary">
+                          安全边界保持明确
+                        </p>
+                        <p className="mt-1 text-[11px] leading-5 text-text-muted">
+                          出口分配、IP 校验和 direct fallback
+                          规则均由服务端执行；向导仅提交已选择的策略声明。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </WizardStep>
+              )}
+
+              {step === 4 && (
+                <WizardStep
+                  eyebrow="04 · Placement"
+                  title="按工作负载选择资源模板"
+                  description="L2 Standard 为默认推荐。模板会提交为治理元数据，Resource Class 与容量预算仍由服务端校验。"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {resourceOptions.map((resource) => (
+                      <ChoiceCard
+                        key={resource.value}
+                        name="resource-class"
+                        checked={values.resourceClass === resource.value}
+                        onChange={() => chooseResource(resource)}
+                        title={`${resource.value} · ${resource.label}`}
+                        badge={
+                          resource.value === 'L2' ? '推荐' : resource.template
+                        }
+                        description={resource.description}
+                        meta={`${resource.tabs} tabs · ${resource.actions} actions/min`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="标签页预算">
                       <input
                         type="number"
                         min={1}
@@ -315,11 +785,7 @@ export function CreateSessionDialog({
                         className="field-input font-mono"
                       />
                     </Field>
-                    <Field
-                      label="Agent 动作/分钟"
-                      error={errors.agentActionsPerMinute?.message}
-                      hint="用于估算 CPU、网络和 Planner 压力。"
-                    >
+                    <Field label="Agent 动作 / 分钟">
                       <input
                         type="number"
                         min={0}
@@ -331,201 +797,367 @@ export function CreateSessionDialog({
                   </div>
 
                   <Field
-                    label="Extension IDs"
-                    error={errors.extensionIds?.message}
-                    hint="逗号分隔。未知扩展自动进入 Probation，并提升资源等级。"
+                    label="执行环境"
+                    hint="“系统推荐”优先；高级选择是策略请求，不会绕过节点安全能力。"
                   >
-                    <textarea
-                      {...register('extensionIds')}
-                      rows={3}
-                      spellCheck={false}
-                      placeholder="wallet.example, accessibility.helper"
-                      className="field-input min-h-20 resize-y font-mono"
-                    />
+                    <select
+                      {...register('executionEnvironment')}
+                      className="field-input"
+                    >
+                      <option value="system">系统推荐</option>
+                      <option value="container">Container</option>
+                      <option value="enhanced-sandbox">Enhanced Sandbox</option>
+                      <option value="microvm">MicroVM</option>
+                      <option value="native-os">Native OS</option>
+                    </select>
                   </Field>
 
-                  <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
-                    <input
-                      type="checkbox"
-                      {...register('remoteDesktop')}
-                      className="mt-0.5 h-4 w-4 accent-accent"
-                    />
-                    <span>
-                      <span className="block text-[12px] font-medium text-text-primary">
-                        需要远程桌面
-                      </span>
-                      <span className="mt-1 block text-[10px] text-text-muted">
-                        自动要求支持 Xvfb/x11vnc 的 Node，并至少提升到 L3。
-                      </span>
-                    </span>
-                  </label>
+                  <SwitchRow
+                    checked={values.remoteDesktop}
+                    onChange={chooseRemoteDesktop}
+                    title="需要远程桌面 / 人工交互"
+                    detail="启用后自动推荐 L3 Interactive 与 M2；Placement 仍会验证 Node 能力。"
+                  />
 
-                  <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
-                    <input
-                      type="checkbox"
-                      {...register('mediaWorkload')}
-                      className="mt-0.5 h-4 w-4 accent-accent"
-                    />
-                    <span>
-                      <span className="block text-[12px] font-medium text-text-primary">
-                        Media / Encoder 工作负载
-                      </span>
-                      <span className="mt-1 block text-[10px] text-text-muted">
-                        使用独立媒体槽位、租户并发流和聚合码率配额，并至少提升到
-                        L4。
-                      </span>
-                    </span>
-                  </label>
-
-                  {values.mediaWorkload ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field
-                        label="并发媒体流"
-                        error={errors.requestedMediaStreams?.message}
-                      >
-                        <input
-                          type="number"
-                          min={1}
-                          max={32}
-                          {...register('requestedMediaStreams')}
-                          className="field-input font-mono"
-                        />
-                      </Field>
-                      <Field
-                        label="聚合码率 (kbps)"
-                        error={errors.mediaBitrateKbps?.message}
-                      >
-                        <input
-                          type="number"
-                          min={1}
-                          max={1_000_000}
-                          {...register('mediaBitrateKbps')}
-                          className="field-input font-mono"
-                        />
-                      </Field>
+                  <fieldset>
+                    <legend className="mb-2 text-[13px] font-medium text-text-primary">
+                      媒体等级
+                    </legend>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {mediaOptions.map((media) => (
+                        <label
+                          key={media.value}
+                          className="flex cursor-pointer items-center justify-between rounded-[7px] border border-border-subtle bg-surface-2 px-3 py-2.5 has-[:checked]:border-accent/60 has-[:checked]:bg-accent-soft"
+                        >
+                          <input
+                            type="radio"
+                            value={media.value}
+                            {...register('mediaClass')}
+                            className="sr-only"
+                          />
+                          <span className="text-[12px] text-text-primary">
+                            {media.label}
+                          </span>
+                          <span className="font-mono text-[10px] text-text-muted">
+                            {media.detail}
+                          </span>
+                        </label>
+                      ))}
                     </div>
-                  ) : null}
+                  </fieldset>
+                </WizardStep>
+              )}
 
-                  <label className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3">
-                    <input
-                      type="checkbox"
-                      {...register('web3Workload')}
-                      className="mt-0.5 h-4 w-4 accent-accent"
-                    />
-                    <span>
-                      <span className="block text-[12px] font-medium text-text-primary">
-                        Web3 / Crypto 工作负载
-                      </span>
-                      <span className="mt-1 block text-[10px] text-text-muted">
-                        强制高风险隔离策略；不会为了容量降低安全等级。
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              ) : (
-                <div>
-                  <h3 className="text-[13px] font-semibold text-text-primary">
-                    确认 Session 配置
-                  </h3>
-                  <p className="mt-1 text-[11px] text-text-muted">
-                    提交后由 Control Plane
-                    创建权威记录；启动操作需要在详情页单独发起。
-                  </p>
-                  <dl className="mt-5 divide-y divide-border-subtle rounded-[10px] border border-border-subtle bg-surface-2 px-4">
-                    <ReviewItem label="名称" value={values.name} />
-                    <ReviewItem label="租户" value={currentTenantId()} mono />
-                    <ReviewItem label="Profile" value={values.profileId} mono />
-                    <ReviewItem label="区域" value={values.region} mono />
-                    <ReviewItem
-                      label="资源等级"
-                      value={values.resourceClass}
-                      mono
-                    />
-                    <ReviewItem
-                      label="标签页 / Agent 速率"
-                      value={`${values.requestedTabs} / ${values.agentActionsPerMinute} min⁻¹`}
-                      mono
-                    />
-                    <ReviewItem
-                      label="远程桌面 / Web3"
-                      value={`${values.remoteDesktop ? 'YES' : 'NO'} / ${values.web3Workload ? 'YES' : 'NO'}`}
-                      mono
-                    />
-                    <ReviewItem
-                      label="Media streams / bitrate"
-                      value={
-                        values.mediaWorkload
-                          ? `${values.requestedMediaStreams} / ${values.mediaBitrateKbps} kbps`
-                          : 'NONE'
-                      }
-                      mono
-                    />
-                    <ReviewItem
-                      label="扩展"
-                      value={values.extensionIds || 'NONE'}
-                      mono
-                    />
-                    <ReviewItem label="初始状态" value="CREATED" mono />
-                  </dl>
+              {step === 5 && (
+                <WizardStep
+                  eyebrow="05 · Capabilities"
+                  title="添加扩展与 Agent 运行策略"
+                  description="扩展来自真实资源画像；未知或高风险扩展会由后端提升隔离与资源要求。"
+                >
+                  <fieldset>
+                    <legend className="mb-2 text-[13px] font-medium text-text-primary">
+                      扩展
+                    </legend>
+                    {extensionsQuery.isLoading ? (
+                      <LoadingBlock label="正在读取 Extension Profiles" />
+                    ) : extensionsQuery.isError ? (
+                      <QueryError label="无法读取 Extension Profiles" />
+                    ) : extensionsQuery.data?.items.length ? (
+                      <div className="space-y-2">
+                        {extensionsQuery.data.items.map((extension) => (
+                          <label
+                            key={extension.extensionId}
+                            className="flex cursor-pointer items-start gap-3 rounded-[7px] border border-border-subtle bg-surface-2 p-3 has-[:checked]:border-accent/60 has-[:checked]:bg-accent-soft"
+                          >
+                            <input
+                              type="checkbox"
+                              value={extension.extensionId}
+                              {...register('extensionIds')}
+                              className="mt-0.5 h-4 w-4 accent-accent"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center justify-between gap-3">
+                                <span className="truncate text-[13px] font-medium text-text-primary">
+                                  {extension.displayName}
+                                </span>
+                                <span className="font-mono text-[9px] text-text-muted">
+                                  {extension.profileState}
+                                </span>
+                              </span>
+                              <span className="mt-1 block font-mono text-[10px] text-text-muted">
+                                {extension.extensionId} · weight{' '}
+                                {extension.observedMultiplier.toFixed(2)}×
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="border border-dashed border-border-default p-4 text-[12px] text-text-muted">
+                        当前没有已登记的扩展画像。环境仍可不带扩展创建。
+                      </div>
+                    )}
+                  </fieldset>
 
-                  {createMutation.error && (
-                    <div
-                      className="mt-4 rounded-[8px] border border-danger/25 bg-danger/8 p-3 text-[11px] text-danger"
-                      role="alert"
-                    >
-                      <p>
-                        {createMutation.error instanceof Error
-                          ? createMutation.error.message
-                          : '创建失败，请稍后重试。'}
-                      </p>
-                      {requestId && (
-                        <p className="mt-1 font-mono">
-                          Request ID: {requestId}
-                        </p>
-                      )}
+                  <SwitchRow
+                    checked={values.agentEnabled}
+                    onChange={(checked) => setValue('agentEnabled', checked)}
+                    title="启用 Agent 运行能力"
+                    detail="这里只选择策略边界；完整工作流在 Agent 任务中编排。"
+                  />
+
+                  {values.agentEnabled && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Agent 策略">
+                        <select
+                          {...register('agentPolicy')}
+                          className="field-input"
+                        >
+                          <option value="balanced">Balanced</option>
+                          <option value="restricted">Restricted</option>
+                          <option value="interactive">Interactive</option>
+                        </select>
+                      </Field>
+                      <Field label="空闲回收（分钟）">
+                        <input
+                          type="number"
+                          min={5}
+                          max={1440}
+                          {...register('idleTimeoutMinutes')}
+                          className="field-input font-mono"
+                        />
+                      </Field>
+                      <Field label="快照策略">
+                        <select
+                          {...register('snapshotPolicy')}
+                          className="field-input"
+                        >
+                          <option value="on-stop">停止时保存</option>
+                          <option value="periodic">周期保存</option>
+                          <option value="manual">仅手动</option>
+                        </select>
+                      </Field>
                     </div>
                   )}
-                </div>
+
+                  <SwitchRow
+                    checked={values.humanTakeover}
+                    onChange={(checked) => setValue('humanTakeover', checked)}
+                    title="允许 Human Takeover"
+                    detail="接管仍需要服务端操作所有权、角色与审计检查。"
+                  />
+                  <SwitchRow
+                    checked={values.web3Workload}
+                    onChange={(checked) => setValue('web3Workload', checked)}
+                    title="Web3 / Crypto 工作负载"
+                    detail="标记高风险能力，后端不会为了容量而降低隔离等级。"
+                    tone="warning"
+                  />
+                </WizardStep>
+              )}
+
+              {step === 6 && (
+                <WizardStep
+                  eyebrow="06 · Review"
+                  title={
+                    createdSessionId
+                      ? '环境记录已被 Control Plane 接受'
+                      : '检查配置并创建权威记录'
+                  }
+                  description={
+                    createdSessionId
+                      ? 'Session 已进入 CREATED，启动和调度将在详情页单独发起。'
+                      : '提交是真实写操作。创建成功不代表 Runtime 已启动。'
+                  }
+                >
+                  {createdSessionId ? (
+                    <div className="border border-success/30 bg-success/8 p-5">
+                      <div className="flex items-start gap-4">
+                        <CheckCircle2
+                          size={24}
+                          className="shrink-0 text-success"
+                        />
+                        <div className="min-w-0">
+                          <h3 className="text-[15px] font-semibold text-text-primary">
+                            Session CREATED
+                          </h3>
+                          <p className="mt-1 text-[12px] text-text-muted">
+                            环境配置已持久化，尚未自动启动。
+                          </p>
+                          <p className="mt-3 break-all font-mono text-[11px] text-success">
+                            {createdSessionId}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleOpenChange(false);
+                              navigate(`/environments/${createdSessionId}`);
+                            }}
+                            className="mt-5 inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas"
+                          >
+                            查看环境详情
+                            <ChevronRight size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <dl className="divide-y divide-border-subtle border border-border-subtle bg-surface-2 px-4">
+                        <ReviewItem
+                          label="环境"
+                          value={values.name}
+                          detail={[values.group, values.tags]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        />
+                        <ReviewItem
+                          label="Runtime 偏好"
+                          value={values.runtimeBuildId}
+                          mono
+                          detail="平台策略最终裁决"
+                        />
+                        <ReviewItem
+                          label="Profile"
+                          value={
+                            values.profileMode === 'empty'
+                              ? '创建全新 Profile'
+                              : values.profileId
+                          }
+                          mono={values.profileMode !== 'empty'}
+                        />
+                        <ReviewItem
+                          label="网络 / 区域"
+                          value={`${values.networkMode} · ${values.region}`}
+                          mono
+                        />
+                        <ReviewItem
+                          label="资源模板"
+                          value={`${values.resourceClass} · ${values.resourceTemplateId}`}
+                          mono
+                          detail={`${values.requestedTabs} tabs · ${values.agentActionsPerMinute} actions/min`}
+                        />
+                        <ReviewItem
+                          label="执行环境"
+                          value={values.executionEnvironment}
+                          detail="策略请求，Node 能力最终裁决"
+                        />
+                        <ReviewItem
+                          label="交互 / 媒体"
+                          value={`${values.remoteDesktop ? 'Remote Desktop' : 'No Desktop'} · ${values.mediaClass}`}
+                        />
+                        <ReviewItem
+                          label="Agent"
+                          value={
+                            values.agentEnabled
+                              ? `${values.agentPolicy} · takeover ${values.humanTakeover ? 'on' : 'off'}`
+                              : 'disabled'
+                          }
+                          mono
+                        />
+                        <ReviewItem
+                          label="扩展"
+                          value={
+                            values.extensionIds.length
+                              ? `${values.extensionIds.length} selected`
+                              : 'none'
+                          }
+                          mono
+                        />
+                        <ReviewItem
+                          label="初始状态"
+                          value="CREATED"
+                          mono
+                          detail="不会在前端伪造启动成功"
+                        />
+                      </dl>
+
+                      <div className="flex items-start gap-3 border border-warning/25 bg-warning/8 p-4">
+                        <CircleAlert
+                          size={17}
+                          className="mt-0.5 shrink-0 text-warning"
+                        />
+                        <p className="text-[11px] leading-5 text-text-secondary">
+                          Runtime
+                          Build、执行环境、资源模板和网络模式中的部分字段目前作为治理元数据提交；
+                          服务端已实际执行的权威字段包括 Profile、区域、Resource
+                          Class、容量预算、桌面、媒体、扩展与 Web3 声明。
+                        </p>
+                      </div>
+
+                      {createMutation.error && (
+                        <div
+                          className="border border-danger/25 bg-danger/8 p-4 text-[12px] text-danger"
+                          role="alert"
+                        >
+                          <p>
+                            {createMutation.error instanceof Error
+                              ? createMutation.error.message
+                              : '创建失败，请稍后重试。'}
+                          </p>
+                          {requestId && (
+                            <p className="mt-2 font-mono">
+                              Request ID: {requestId}
+                            </p>
+                          )}
+                          <p className="mt-2 text-text-muted">
+                            表单内容已保留，可修改后重试。
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </WizardStep>
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-border-subtle px-6 py-4">
-              <p className="text-[10px] text-text-muted">
-                所有写操作均等待后端真实响应，不进行前端伪成功。
+            <div className="flex min-h-[68px] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-surface-1 px-5 py-3 sm:px-7">
+              <p className="hidden max-w-[300px] text-[10px] leading-4 text-text-muted sm:block">
+                写操作等待后端真实响应；关闭向导会清除尚未提交的内容。
               </p>
-              <div className="flex items-center gap-2">
-                {step > 1 && (
+              <div className="ml-auto flex items-center gap-2">
+                {step > 1 && !createdSessionId && (
                   <button
                     type="button"
-                    onClick={() => setStep((current) => (current - 1) as 1 | 2)}
+                    onClick={() => setStep((step - 1) as Step)}
                     disabled={createMutation.isPending}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-border-default px-3 text-[12px] text-text-secondary hover:bg-surface-2 disabled:opacity-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-[7px] border border-border-default px-4 text-[13px] text-text-secondary hover:bg-surface-2 disabled:opacity-50"
                   >
-                    <ArrowLeft size={13} />
+                    <ArrowLeft size={14} />
                     上一步
                   </button>
                 )}
-                {step < 3 ? (
+                {step < 6 ? (
                   <button
                     type="button"
-                    onClick={advance}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas hover:bg-accent/90"
+                    onClick={() => void advance()}
+                    className="inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas hover:bg-accent/90"
                   >
                     下一步
-                    <ArrowRight size={13} />
+                    <ArrowRight size={14} />
                   </button>
-                ) : (
+                ) : !createdSessionId ? (
                   <button
                     type="button"
                     onClick={() => void submit()}
-                    disabled={createMutation.isPending}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-accent px-3 text-[12px] font-medium text-canvas hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={
+                      createMutation.isPending ||
+                      runtimeQuery.isError ||
+                      enterpriseQuery.isError
+                    }
+                    className="inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {createMutation.isPending && (
-                      <LoaderCircle size={13} className="animate-spin" />
+                    {createMutation.isPending ? (
+                      <LoaderCircle size={14} className="animate-spin" />
+                    ) : (
+                      <Rocket size={14} />
                     )}
                     {createMutation.isPending ? '正在创建' : '确认创建'}
                   </button>
+                ) : (
+                  <Dialog.Close className="inline-flex h-10 items-center rounded-[7px] border border-border-default px-4 text-[13px] text-text-secondary hover:bg-surface-2">
+                    完成
+                  </Dialog.Close>
                 )}
               </div>
             </div>
@@ -536,51 +1168,229 @@ export function CreateSessionDialog({
   );
 }
 
+function WizardStep({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mx-auto w-full max-w-[650px]">
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
+        {eyebrow}
+      </p>
+      <h2 className="mt-2 text-[19px] font-semibold tracking-[-0.01em] text-text-primary">
+        {title}
+      </h2>
+      <p className="mt-1 max-w-[600px] text-[12px] leading-5 text-text-muted">
+        {description}
+      </p>
+      <div className="mt-6 space-y-5">{children}</div>
+    </section>
+  );
+}
+
 function Field({
   label,
   hint,
   error,
+  required,
   children,
 }: {
   label: string;
   hint?: string;
   error?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[12px] font-medium text-text-primary">
+      <span className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-text-primary">
         {label}
+        {required && <span className="text-danger">*</span>}
       </span>
       {children}
       {error ? (
-        <span className="mt-1 block text-[10px] text-danger">{error}</span>
+        <span className="mt-1.5 block text-[11px] text-danger">{error}</span>
       ) : hint ? (
-        <span className="mt-1 block text-[10px] text-text-muted">{hint}</span>
+        <span className="mt-1.5 block text-[11px] leading-4 text-text-muted">
+          {hint}
+        </span>
       ) : null}
     </label>
+  );
+}
+
+function ChoiceCard({
+  checked,
+  disabled,
+  onChange,
+  title,
+  badge,
+  description,
+  meta,
+}: {
+  name: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+  title: string;
+  badge?: string;
+  description: string;
+  meta?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onChange}
+      className={cn(
+        'w-full rounded-[8px] border p-4 text-left transition-colors',
+        checked
+          ? 'border-accent/60 bg-accent-soft'
+          : 'border-border-subtle bg-surface-2 hover:border-border-default',
+        disabled && 'cursor-not-allowed opacity-45'
+      )}
+    >
+      <span className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-semibold text-text-primary">
+          {title}
+        </span>
+        {badge && (
+          <span
+            className={cn(
+              'shrink-0 border px-2 py-0.5 font-mono text-[9px] uppercase',
+              checked
+                ? 'border-accent/30 text-accent'
+                : 'border-border-default text-text-muted'
+            )}
+          >
+            {badge}
+          </span>
+        )}
+      </span>
+      <span className="mt-2 block text-[11px] leading-4 text-text-muted">
+        {description}
+      </span>
+      {meta && (
+        <span className="mt-3 block truncate font-mono text-[10px] text-text-secondary">
+          {meta}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function SwitchRow({
+  checked,
+  onChange,
+  title,
+  detail,
+  tone = 'accent',
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  title: string;
+  detail: string;
+  tone?: 'accent' | 'warning';
+}) {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-[8px] border border-border-subtle bg-surface-2 p-4">
+      <span>
+        <span className="block text-[13px] font-medium text-text-primary">
+          {title}
+        </span>
+        <span className="mt-1 block text-[11px] leading-4 text-text-muted">
+          {detail}
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className={cn(
+          'mt-0.5 h-4 w-4 shrink-0',
+          tone === 'warning' ? 'accent-warning' : 'accent-accent'
+        )}
+      />
+    </label>
+  );
+}
+
+function UnavailableOption({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 rounded-[7px] border border-dashed border-border-subtle p-3 opacity-65"
+      aria-disabled="true"
+    >
+      <CircleAlert size={15} className="mt-0.5 shrink-0 text-text-muted" />
+      <div>
+        <p className="text-[12px] font-medium text-text-secondary">{title}</p>
+        <p className="mt-0.5 text-[10px] leading-4 text-text-muted">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function LoadingBlock({ label }: { label: string }) {
+  return (
+    <div className="flex h-20 items-center justify-center gap-2 border border-border-subtle bg-surface-2 text-[12px] text-text-muted">
+      <LoaderCircle size={14} className="animate-spin text-accent" />
+      {label}
+    </div>
+  );
+}
+
+function QueryError({ label }: { label: string }) {
+  return (
+    <div className="flex h-20 items-center justify-center gap-2 border border-danger/25 bg-danger/8 text-[12px] text-danger">
+      <CircleAlert size={14} />
+      {label}
+    </div>
   );
 }
 
 function ReviewItem({
   label,
   value,
+  detail,
   mono,
 }: {
   label: string;
   value?: string;
+  detail?: string;
   mono?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-3">
+    <div className="grid gap-1 py-3 sm:grid-cols-[150px_1fr] sm:gap-4">
       <dt className="text-[11px] text-text-muted">{label}</dt>
-      <dd
-        className={cn(
-          'truncate text-[12px] text-text-primary',
-          mono && 'font-mono'
+      <dd className="min-w-0 text-left sm:text-right">
+        <span
+          className={cn(
+            'block break-words text-[12px] text-text-primary',
+            mono && 'font-mono'
+          )}
+        >
+          {value || '—'}
+        </span>
+        {detail && (
+          <span className="mt-0.5 block text-[10px] text-text-muted">
+            {detail}
+          </span>
         )}
-      >
-        {value || '—'}
       </dd>
     </div>
   );

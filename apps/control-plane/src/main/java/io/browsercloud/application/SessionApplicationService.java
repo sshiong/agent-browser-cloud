@@ -301,12 +301,13 @@ public class SessionApplicationService {
   }
 
   /** 列出 Sessions。 */
-  public SessionListResponse list(String tenantId, SessionState state, int limit, int offset) {
+  public SessionListResponse list(
+      String tenantId, SessionState state, String query, int limit, int offset) {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
-    var descriptors = sessionRepository.listByTenant(tenantId, state, safeLimit, safeOffset);
+    var descriptors = sessionRepository.listByTenant(tenantId, state, query, safeLimit, safeOffset);
     var items = descriptors.stream().map(this::toView).toList();
-    long count = sessionRepository.countByTenant(tenantId, state);
+    long count = sessionRepository.countByTenant(tenantId, state, query);
     return new SessionListResponse(
         items, Math.toIntExact(Math.min(count, Integer.MAX_VALUE)), safeLimit, safeOffset);
   }

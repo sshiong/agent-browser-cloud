@@ -160,15 +160,22 @@ public class JpaSessionRepository implements SessionRepository {
 
   @Override
   public List<SessionDescriptor> listByTenant(
-      String tenantId, SessionState state, int limit, int offset) {
+      String tenantId, SessionState state, String query, int limit, int offset) {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
     var pageable =
         new OffsetPageRequest(safeOffset, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
+    var searchPageable = new OffsetPageRequest(safeOffset, safeLimit, Sort.unsorted());
+    var normalizedQuery = query == null ? "" : query.trim();
     var page =
-        state == null
-            ? sessionJpa.findAllByTenantId(tenantId, pageable)
-            : sessionJpa.findAllByTenantIdAndState(tenantId, state.name(), pageable);
+        normalizedQuery.isEmpty()
+            ? state == null
+                ? sessionJpa.findAllByTenantId(tenantId, pageable)
+                : sessionJpa.findAllByTenantIdAndState(tenantId, state.name(), pageable)
+            : state == null
+                ? sessionJpa.searchAllByTenantId(tenantId, normalizedQuery, searchPageable)
+                : sessionJpa.searchAllByTenantIdAndState(
+                    tenantId, state.name(), normalizedQuery, searchPageable);
     return page.getContent().stream()
         .map(
             entity ->
@@ -178,7 +185,16 @@ public class JpaSessionRepository implements SessionRepository {
   }
 
   @Override
-  public long countByTenant(String tenantId, SessionState state) {
+  public long countByTenant(String tenantId, SessionState state, String query) {
+    var normalizedQuery = query == null ? "" : query.trim();
+    if (!normalizedQuery.isEmpty()) {
+      var pageable = new OffsetPageRequest(0, 1, Sort.unsorted());
+      return state == null
+          ? sessionJpa.searchAllByTenantId(tenantId, normalizedQuery, pageable).getTotalElements()
+          : sessionJpa
+              .searchAllByTenantIdAndState(tenantId, state.name(), normalizedQuery, pageable)
+              .getTotalElements();
+    }
     return state == null
         ? sessionJpa.countByTenantId(tenantId)
         : sessionJpa.countByTenantIdAndState(tenantId, state.name());

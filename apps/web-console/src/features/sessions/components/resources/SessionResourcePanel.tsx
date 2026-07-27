@@ -1,0 +1,744 @@
+import * as Dialog from '@radix-ui/react-dialog';
+import {
+  Activity,
+  CircleAlert,
+  Clock3,
+  Cpu,
+  Database,
+  Gauge,
+  LoaderCircle,
+  MoveRight,
+  Settings2,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { cn } from '@/shared/lib/utils';
+import { isSessionApiError } from '@/api/session';
+import type {
+  MaximumReachedPolicy,
+  ResourceEventView,
+  ResourcePolicyRequest,
+  ResourcePolicyStatus,
+  SessionResourceView,
+} from '@/types/session';
+
+const statusLabels: Record<ResourcePolicyStatus, string> = {
+  STABLE: '稳定',
+  OBSERVING: '观察中',
+  SCALING_UP: '扩容中',
+  SCALING_DOWN: '缩容中',
+  AT_MAXIMUM: '已达上限',
+  WAITING_SAFE_POINT: '等待安全点',
+  MIGRATING: '迁移中',
+  AGENT_PAUSED: 'Agent 已暂停',
+  HIBERNATING: '休眠中',
+  CRITICAL: '严重',
+};
+
+export function SessionResourcePanel({
+  resource,
+  events,
+  loading,
+  error,
+  canAdminister,
+  platformAdmin,
+  humanTakeover,
+  updating,
+  updateError,
+  onRetry,
+  onUpdate,
+}: {
+  resource?: SessionResourceView;
+  events: ResourceEventView[];
+  loading: boolean;
+  error: unknown;
+  canAdminister: boolean;
+  platformAdmin: boolean;
+  humanTakeover: boolean;
+  updating: boolean;
+  updateError: unknown;
+  onRetry: () => unknown;
+  onUpdate: (policy: ResourcePolicyRequest) => Promise<unknown>;
+}) {
+  if (loading) {
+    return (
+      <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">
+        <div className="flex items-center gap-2 text-[11px] text-text-muted">
+          <LoaderCircle size={14} className="animate-spin" />
+          正在读取资源策略与真实用量
+        </div>
+      </section>
+    );
+  }
+
+  if (error || !resource) {
+    return (
+      <section className="rounded-[10px] border border-danger/25 bg-surface-1 p-5">
+        <p className="text-[12px] text-danger">资源状态读取失败。</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-3 border border-border-default px-3 py-1.5 text-[11px] text-text-secondary"
+        >
+          重试
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1"
+      aria-labelledby="session-resource-title"
+    >
+      <ResourcePolicyCard
+        resource={resource}
+        canAdminister={canAdminister}
+        platformAdmin={platformAdmin}
+        humanTakeover={humanTakeover}
+        updating={updating}
+        updateError={updateError}
+        onUpdate={onUpdate}
+      />
+
+      <div className="grid border-t border-border-subtle xl:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
+        <div className="space-y-5 p-5">
+          <div className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-3">
+            <Metric
+              icon={Cpu}
+              label="当前分配"
+              value={
+                resource.allocation
+                  ? `${formatCpu(resource.allocation.cpuMillis)} / ${formatMemory(resource.allocation.memoryLimitMib)}`
+                  : '尚未分配'
+              }
+              detail={resource.allocation?.template ?? '等待 Placement'}
+            />
+            <Metric
+              icon={Gauge}
+              label="当前使用"
+              value={
+                resource.usage
+                  ? `CPU ${formatPercent(resource.usage.cpuPercent)} / MEM ${formatPercent(resource.usage.memoryPercentOfLimit)}`
+                  : '等待 Node 遥测'
+              }
+              detail={
+                resource.usage?.observedAt
+                  ? formatDate(resource.usage.observedAt)
+                  : '不生成模拟指标'
+              }
+            />
+            <Metric
+              icon={Database}
+              label="允许上限"
+              value={`${formatCpu(resource.policy.maximumCpuMillis)} / ${formatMemory(resource.policy.maximumMemoryMib)}`}
+              detail="Tenant / Workspace / Node 共同裁决"
+            />
+          </div>
+
+          <ResourceUsageChart resource={resource} />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ResourceLimitProgress
+              label="CPU 压力"
+              value={resource.usage?.cpuPercent}
+              detail={`${formatCpu(resource.allocation?.cpuMillis)} allocated`}
+            />
+            <ResourceLimitProgress
+              label="内存上限"
+              value={resource.usage?.memoryPercentOfLimit}
+              detail={`${formatMemory(resource.usage?.memoryRssMib)} RSS`}
+            />
+          </div>
+
+          <CapacityWarning resource={resource} />
+        </div>
+
+        <div className="border-t border-border-subtle p-5 xl:border-l xl:border-t-0">
+          <MigrationStatusCard resource={resource} />
+          <ResourceAdjustmentTimeline events={events} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function ResourcePolicyCard({
+  resource,
+  canAdminister,
+  platformAdmin,
+  humanTakeover,
+  updating,
+  updateError,
+  onUpdate,
+}: {
+  resource: SessionResourceView;
+  canAdminister: boolean;
+  platformAdmin: boolean;
+  humanTakeover: boolean;
+  updating: boolean;
+  updateError: unknown;
+  onUpdate: (policy: ResourcePolicyRequest) => Promise<unknown>;
+}) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4 p-5">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2
+            id="session-resource-title"
+            className="text-[13px] font-semibold text-text-primary"
+          >
+            自动资源策略
+          </h2>
+          <ResourcePressureBadge
+            status={resource.status}
+            freshness={resource.dataFreshness}
+          />
+        </div>
+        <p className="mt-1 text-[11px] text-text-muted">
+          当前模板{' '}
+          <span className="font-mono text-text-secondary">
+            {resource.policy.resolvedTemplate}
+          </span>{' '}
+          · 运行环境 {resource.policy.executionEnvironment}
+        </p>
+        <p className="mt-1 text-[10px] text-text-muted">
+          {humanTakeover
+            ? 'HumanTakeover 正在进行，自动迁移保持禁止。'
+            : translateReason(resource.statusReason)}
+        </p>
+      </div>
+      {canAdminister && (
+        <ResourcePolicyDrawer
+          resource={resource}
+          platformAdmin={platformAdmin}
+          humanTakeover={humanTakeover}
+          updating={updating}
+          updateError={updateError}
+          onUpdate={onUpdate}
+        />
+      )}
+    </header>
+  );
+}
+
+export function ResourcePressureBadge({
+  status,
+  freshness,
+}: {
+  status: ResourcePolicyStatus;
+  freshness: SessionResourceView['dataFreshness'];
+}) {
+  const critical = ['CRITICAL', 'AT_MAXIMUM', 'AGENT_PAUSED'].includes(status);
+  const active = [
+    'SCALING_UP',
+    'SCALING_DOWN',
+    'MIGRATING',
+    'WAITING_SAFE_POINT',
+  ].includes(status);
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em]',
+        critical
+          ? 'border-danger/35 bg-danger/10 text-danger'
+          : active
+            ? 'border-warning/35 bg-warning/10 text-warning'
+            : 'border-accent/30 bg-accent-soft text-accent'
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {statusLabels[status]} ·{' '}
+      {freshness === 'LIVE'
+        ? '实时'
+        : freshness === 'STALE'
+          ? '数据过期'
+          : '等待遥测'}
+    </span>
+  );
+}
+
+export function ResourceUsageChart({
+  resource,
+}: {
+  resource: SessionResourceView;
+}) {
+  if (resource.usageSamples.length < 2) {
+    return (
+      <div className="flex min-h-36 items-center justify-center border border-dashed border-border-default bg-surface-2 p-5 text-center">
+        <div>
+          <Activity size={18} className="mx-auto text-text-muted" />
+          <p className="mt-2 text-[11px] text-text-secondary">
+            尚无足够的 Session 级遥测样本
+          </p>
+          <p className="mt-1 text-[10px] text-text-muted">
+            Browser Node 每 5 秒上报后才绘制真实曲线。
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const data = resource.usageSamples.map((point) => ({
+    ...point,
+    time: new Date(point.observedAt).toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }),
+  }));
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] font-medium text-text-secondary">
+          真实资源用量
+        </p>
+        <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-muted">
+          CPU / Memory limit %
+        </p>
+      </div>
+      <div className="h-44 border border-border-subtle bg-surface-2 p-2">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid stroke="rgba(126, 151, 163, .10)" vertical={false} />
+            <XAxis
+              dataKey="time"
+              tick={{ fill: '#78909c', fontSize: 9 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fill: '#78909c', fontSize: 9 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                background: '#101a22',
+                border: '1px solid rgba(126,151,163,.25)',
+                fontSize: 11,
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="cpuPercent"
+              name="CPU %"
+              stroke="#54d6c3"
+              dot={false}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="memoryPercentOfLimit"
+              name="Memory %"
+              stroke="#77a8ff"
+              dot={false}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+export function ResourceLimitProgress({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value?: number;
+  detail: string;
+}) {
+  const safe = Math.min(100, Math.max(0, value ?? 0));
+  return (
+    <div className="border border-border-subtle bg-surface-2 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-text-muted">{label}</span>
+        <span className="font-mono text-[10px] text-text-secondary">
+          {value == null ? '—' : `${Math.round(value)}%`}
+        </span>
+      </div>
+      <div className="mt-2 h-1 bg-surface-3">
+        <div
+          className={cn(
+            'h-full',
+            safe >= 90 ? 'bg-danger' : safe >= 75 ? 'bg-warning' : 'bg-accent'
+          )}
+          style={{ width: `${safe}%` }}
+        />
+      </div>
+      <p className="mt-2 text-[9px] text-text-muted">{detail}</p>
+    </div>
+  );
+}
+
+export function MigrationStatusCard({
+  resource,
+}: {
+  resource: SessionResourceView;
+}) {
+  return (
+    <div className="border-b border-border-subtle pb-5">
+      <p className="text-[10px] uppercase tracking-[0.12em] text-text-muted">
+        Migration State
+      </p>
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-text-secondary">
+        <ShieldCheck size={14} className="text-accent" />
+        {resource.status === 'WAITING_SAFE_POINT'
+          ? '等待安全点，Browser 保持运行'
+          : resource.status === 'MIGRATING'
+            ? 'Checkpoint 与恢复链路执行中'
+            : '未进行迁移'}
+      </div>
+      <p className="mt-2 text-[10px] leading-4 text-text-muted">
+        允许迁移：{resource.policy.allowMigration ? '是' : '否'} · HumanTakeover
+        屏障：
+        {resource.policy.blockMigrationDuringHumanTakeover ? '开启' : '关闭'}
+      </p>
+    </div>
+  );
+}
+
+export function ResourceAdjustmentTimeline({
+  events,
+}: {
+  events: ResourceEventView[];
+}) {
+  return (
+    <div className="pt-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[11px] font-medium text-text-secondary">
+          调整时间线
+        </h3>
+        <span className="font-mono text-[9px] text-text-muted">
+          {events.length} events
+        </span>
+      </div>
+      {events.length ? (
+        <ol className="mt-4 space-y-4 border-l border-border-default pl-4">
+          {events.slice(0, 8).map((event) => (
+            <li key={event.eventId} className="relative">
+              <span className="absolute -left-[19px] top-1 h-2 w-2 rounded-full border border-accent bg-surface-1" />
+              <p className="text-[10px] text-text-secondary">
+                {translateReason(event.reason)}
+              </p>
+              <p className="mt-1 font-mono text-[9px] text-text-muted">
+                {formatDate(event.occurredAt)} · {event.decisionSource}
+              </p>
+              {(event.operationId || event.requestId) && (
+                <p className="mt-1 truncate font-mono text-[9px] text-text-muted">
+                  {event.operationId ?? event.requestId}
+                </p>
+              )}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="mt-4 border border-dashed border-border-default p-4 text-center">
+          <Clock3 size={14} className="mx-auto text-text-muted" />
+          <p className="mt-2 text-[10px] text-text-muted">暂无资源事件</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CapacityWarning({
+  resource,
+}: {
+  resource: SessionResourceView;
+}) {
+  if (resource.status === 'STABLE' && resource.dataFreshness === 'LIVE') {
+    return null;
+  }
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-3 border p-3',
+        resource.status === 'CRITICAL'
+          ? 'border-danger/30 bg-danger/8'
+          : 'border-warning/25 bg-warning/8'
+      )}
+    >
+      <CircleAlert
+        size={15}
+        className={
+          resource.status === 'CRITICAL' ? 'text-danger' : 'text-warning'
+        }
+      />
+      <div>
+        <p className="text-[11px] text-text-secondary">
+          {resource.dataFreshness === 'STALE'
+            ? '连接中断，资源数据可能已过期'
+            : resource.dataFreshness === 'AWAITING_TELEMETRY'
+              ? '等待 Browser Node 上报 Session 级指标'
+              : translateReason(resource.statusReason)}
+        </p>
+        <p className="mt-1 text-[9px] text-text-muted">
+          策略写操作由后端 Operation 提交，前端不会直接修改 cgroup。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function ResourcePolicyDrawer({
+  resource,
+  platformAdmin,
+  humanTakeover,
+  updating,
+  updateError,
+  onUpdate,
+}: {
+  resource: SessionResourceView;
+  platformAdmin: boolean;
+  humanTakeover: boolean;
+  updating: boolean;
+  updateError: unknown;
+  onUpdate: (policy: ResourcePolicyRequest) => Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [maximum, setMaximum] = useState<MaximumReachedPolicy>(
+    resource.policy.onMaximumReached
+  );
+  const [allowMigration, setAllowMigration] = useState(
+    resource.policy.allowMigration
+  );
+  const [allowHibernate, setAllowHibernate] = useState(
+    resource.policy.allowHibernate
+  );
+  const [strictConfirmed, setStrictConfirmed] = useState(false);
+
+  useEffect(() => {
+    setMaximum(resource.policy.onMaximumReached);
+    setAllowMigration(resource.policy.allowMigration);
+    setAllowHibernate(resource.policy.allowHibernate);
+    setStrictConfirmed(false);
+  }, [resource.policy]);
+
+  const submit = async () => {
+    await onUpdate({
+      mode: 'AUTO',
+      onMaximumReached: maximum,
+      allowMigration,
+      allowHibernate,
+      blockMigrationDuringHumanTakeover:
+        resource.policy.blockMigrationDuringHumanTakeover,
+      executionEnvironment: resource.policy.executionEnvironment,
+      minimumTemplate: resource.policy.minimumTemplate,
+      maximumCpuMillis: resource.policy.maximumCpuMillis,
+      maximumMemoryMib: resource.policy.maximumMemoryMib,
+      scaleUpWindowSeconds: resource.policy.scaleUpWindowSeconds,
+      scaleDownWindowSeconds: resource.policy.scaleDownWindowSeconds,
+      adjustmentCooldownSeconds: resource.policy.adjustmentCooldownSeconds,
+    });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 items-center gap-1.5 border border-border-default px-3 text-[10px] text-text-secondary hover:bg-surface-2"
+        >
+          <Settings2 size={12} />
+          策略设置
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-canvas/75" />
+        <Dialog.Content className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-border-default bg-surface-1 p-6 shadow-2xl">
+          <div className="flex items-start justify-between">
+            <div>
+              <Dialog.Title className="text-[15px] font-semibold text-text-primary">
+                自动资源策略
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-[10px] text-text-muted">
+                提交后等待真实后端 Operation；不会直接修改 Node cgroup。
+              </Dialog.Description>
+            </div>
+            <Dialog.Close className="text-text-muted" aria-label="关闭">
+              <X size={17} />
+            </Dialog.Close>
+          </div>
+
+          <fieldset className="mt-6">
+            <legend className="text-[11px] font-medium text-text-secondary">
+              达到上限时
+            </legend>
+            <div className="mt-3 space-y-2">
+              {[
+                ['PAUSE_AGENT', '暂停 Agent，保留浏览器'],
+                ['WAIT_SAFE_POINT_MIGRATE', '等待安全点并迁移'],
+                ['HIBERNATE', '自动休眠'],
+                ...(platformAdmin
+                  ? [['TERMINATE_STRICT', '严格预算，终止环境']]
+                  : []),
+              ].map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex items-center gap-2 border border-border-subtle p-3 text-[11px] text-text-secondary has-[:checked]:border-accent/50"
+                >
+                  <input
+                    type="radio"
+                    checked={maximum === value}
+                    onChange={() => {
+                      setMaximum(value as MaximumReachedPolicy);
+                      setStrictConfirmed(false);
+                    }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="mt-5 flex items-start justify-between gap-4 border-t border-border-subtle pt-4">
+            <span>
+              <span className="block text-[11px] text-text-secondary">
+                允许自动迁移
+              </span>
+              <span className="mt-1 block text-[9px] text-text-muted">
+                {humanTakeover
+                  ? 'HumanTakeover 期间强制禁用'
+                  : '迁移仍需等待安全点'}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={allowMigration && !humanTakeover}
+              disabled={humanTakeover}
+              onChange={(event) => setAllowMigration(event.target.checked)}
+            />
+          </label>
+          <label className="mt-4 flex items-center justify-between border-t border-border-subtle pt-4 text-[11px] text-text-secondary">
+            允许自动休眠
+            <input
+              type="checkbox"
+              checked={allowHibernate}
+              onChange={(event) => setAllowHibernate(event.target.checked)}
+            />
+          </label>
+
+          {maximum === 'TERMINATE_STRICT' && (
+            <label className="mt-5 flex items-start gap-3 border border-danger/30 bg-danger/8 p-3 text-[10px] leading-4 text-danger">
+              <input
+                type="checkbox"
+                checked={strictConfirmed}
+                onChange={(event) => setStrictConfirmed(event.target.checked)}
+                className="mt-0.5"
+              />
+              我确认：严格预算可能终止 Browser Session 并中断登录状态。
+            </label>
+          )}
+
+          {Boolean(updateError) && (
+            <p className="mt-4 text-[10px] text-danger">
+              {updateError instanceof Error
+                ? updateError.message
+                : '策略更新失败'}
+              {isSessionApiError(updateError) && updateError.body.requestId && (
+                <span className="mt-1 block font-mono">
+                  Request ID: {updateError.body.requestId}
+                </span>
+              )}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={
+              updating || (maximum === 'TERMINATE_STRICT' && !strictConfirmed)
+            }
+            className="mt-6 inline-flex h-9 w-full items-center justify-center gap-2 bg-accent text-[11px] font-semibold text-canvas disabled:opacity-50"
+          >
+            {updating ? (
+              <LoaderCircle size={13} className="animate-spin" />
+            ) : (
+              <MoveRight size={13} />
+            )}
+            提交 Resource Operation
+          </button>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: typeof Cpu;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="bg-surface-2 p-3">
+      <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.1em] text-text-muted">
+        <Icon size={11} />
+        {label}
+      </div>
+      <p className="mt-2 font-mono text-[11px] text-text-primary">{value}</p>
+      <p className="mt-1 truncate text-[9px] text-text-muted">{detail}</p>
+    </div>
+  );
+}
+
+function formatCpu(value?: number) {
+  if (value == null) return '—';
+  return `${Number((value / 1000).toFixed(2))} vCPU`;
+}
+
+function formatMemory(value?: number) {
+  if (value == null) return '—';
+  return value >= 1024
+    ? `${Number((value / 1024).toFixed(2))} GB`
+    : `${value} MiB`;
+}
+
+function formatPercent(value?: number) {
+  return value == null ? '—' : `${Math.round(value)}%`;
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function translateReason(reason?: string) {
+  const labels: Record<string, string> = {
+    AWAITING_RUNTIME_TELEMETRY: '等待 Runtime 遥测',
+    PLACEMENT_RESOLVED_AWAITING_TELEMETRY: 'Placement 已解析，等待遥测',
+    WINDOW_WITHIN_POLICY: '滑动窗口处于策略范围内',
+    MAXIMUM_REACHED: '资源已达到允许上限',
+    MAXIMUM_REACHED_AGENT_PAUSED: '达到上限，Agent 已暂停',
+    SUSTAINED_PRESSURE_AWAITING_ACTUATOR: '检测到持续压力，等待 Node 执行器',
+    AUTO_POLICY_ACCEPTED: '自动资源策略已接受',
+    RESOURCE_POLICY_CHANGED: '资源策略已更新',
+    PAUSE_AGENT_PRESERVE_BROWSER: '暂停 Agent，保留浏览器',
+  };
+  return reason ? (labels[reason] ?? reason.replaceAll('_', ' ')) : '无异常';
+}

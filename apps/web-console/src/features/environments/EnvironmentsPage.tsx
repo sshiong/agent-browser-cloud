@@ -601,7 +601,7 @@ function SessionRow({
           {session.region}
         </span>
         <span className="block font-mono text-[10px] text-text-muted">
-          {session.resourceClass}
+          AUTO
         </span>
       </td>
       {columns.runtime && (

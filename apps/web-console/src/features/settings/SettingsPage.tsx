@@ -69,14 +69,17 @@ export function SettingsPage() {
             </SettingGroup>
 
             <SettingGroup
-              label="默认资源等级"
-              description="新建环境时默认的资源分配等级"
+              label="默认资源策略"
+              description="新建环境统一使用自动资源分配；内部模板由 Control Plane 解析"
             >
-              <select className="h-9 w-full max-w-[400px] rounded-md border border-border-subtle bg-surface-2 px-3 text-[13px] text-text-primary focus:border-accent focus:outline-none">
-                <option>L2 — Standard Agent</option>
-                <option>L1 — Lite Production</option>
-                <option>L3 — Desktop Interactive</option>
-              </select>
+              <div className="w-full max-w-[400px] border border-accent/30 bg-accent-soft px-3 py-2.5">
+                <p className="font-mono text-[11px] text-accent">
+                  AUTO · 自动分配
+                </p>
+                <p className="mt-1 text-[10px] text-text-muted">
+                  达到上限时默认暂停 Agent，保留 Browser。
+                </p>
+              </div>
             </SettingGroup>
 
             <SettingGroup

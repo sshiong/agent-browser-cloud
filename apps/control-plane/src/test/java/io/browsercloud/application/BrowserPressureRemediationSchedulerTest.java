@@ -15,30 +15,30 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BrowserPressureRemediationSchedulerTest {
 
   @Mock private BrowserCapacityApplicationService capacityService;
-  @Mock private SessionApplicationService sessionService;
+  @Mock private SessionResourceApplicationService resourceService;
 
   @Test
-  void requestsOneFencedTerminationForTheClaimedPlacement() {
+  void protectsBrowserAndWaitsForASafePointForTheClaimedPlacement() {
     var candidate =
         new NodePressureEvictionCandidate("ses_1234567890abcdef", "tenant-a", "node_critical");
     when(capacityService.claimPressureEviction()).thenReturn(Optional.of(candidate));
-    var scheduler = new BrowserPressureRemediationScheduler(capacityService, sessionService);
+    var scheduler = new BrowserPressureRemediationScheduler(capacityService, resourceService);
 
     scheduler.remediateOne();
 
-    verify(sessionService)
-        .terminateForNodePressure("ses_1234567890abcdef", "tenant-a", "node_critical");
+    verify(resourceService)
+        .protectFromNodePressure("ses_1234567890abcdef", "tenant-a", "node_critical");
   }
 
   @Test
-  void returnsTheClaimWhenCoordinatorCannotSafelyTerminateYet() {
+  void returnsTheClaimWhenPressureProtectionCannotBeCommittedYet() {
     var candidate =
         new NodePressureEvictionCandidate("ses_1234567890abcdef", "tenant-a", "node_critical");
     when(capacityService.claimPressureEviction()).thenReturn(Optional.of(candidate));
     doThrow(new IllegalStateException("active operation"))
-        .when(sessionService)
-        .terminateForNodePressure("ses_1234567890abcdef", "tenant-a", "node_critical");
-    var scheduler = new BrowserPressureRemediationScheduler(capacityService, sessionService);
+        .when(resourceService)
+        .protectFromNodePressure("ses_1234567890abcdef", "tenant-a", "node_critical");
+    var scheduler = new BrowserPressureRemediationScheduler(capacityService, resourceService);
 
     scheduler.remediateOne();
 

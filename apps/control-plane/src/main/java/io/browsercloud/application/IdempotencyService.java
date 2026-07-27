@@ -82,6 +82,20 @@ public class IdempotencyService {
         candidateOperationId);
   }
 
+  String claimResourcePolicy(
+      String tenantId,
+      String sessionId,
+      String idempotencyKey,
+      Object request,
+      String candidateOperationId) {
+    return claim(
+        tenantId,
+        "UPDATE_RESOURCE_POLICY:" + sessionId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateOperationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

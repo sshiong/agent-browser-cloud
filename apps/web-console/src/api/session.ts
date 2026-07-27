@@ -9,6 +9,10 @@ import type {
   RemoteDesktopConnection,
   StateResyncRequest,
   StateResyncResponse,
+  SessionResourceView,
+  ResourceEventListResponse,
+  ResourcePolicyRequest,
+  ResourcePolicyOperationResponse,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
@@ -139,6 +143,49 @@ export async function getBrowserState(
   return requestOptional<BrowserStateView>(
     `/sessions/${sessionId}/state`,
     { signal },
+    tenantId
+  );
+}
+
+export async function getSessionResources(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionResourceView> {
+  return request<SessionResourceView>(
+    `/sessions/${sessionId}/resources`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getSessionResourceEvents(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ResourceEventListResponse> {
+  return request<ResourceEventListResponse>(
+    `/sessions/${sessionId}/resource-events?limit=50`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function updateSessionResourcePolicy(
+  sessionId: string,
+  policy: ResourcePolicyRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ResourcePolicyOperationResponse> {
+  return request<ResourcePolicyOperationResponse>(
+    `/sessions/${sessionId}/resource-policy`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(policy),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
     tenantId
   );
 }

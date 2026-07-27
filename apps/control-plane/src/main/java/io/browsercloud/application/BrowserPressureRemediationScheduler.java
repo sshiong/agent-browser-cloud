@@ -23,12 +23,13 @@ public class BrowserPressureRemediationScheduler {
       LoggerFactory.getLogger(BrowserPressureRemediationScheduler.class);
 
   private final BrowserCapacityApplicationService capacityService;
-  private final SessionApplicationService sessionService;
+  private final SessionResourceApplicationService resourceService;
 
   public BrowserPressureRemediationScheduler(
-      BrowserCapacityApplicationService capacityService, SessionApplicationService sessionService) {
+      BrowserCapacityApplicationService capacityService,
+      SessionResourceApplicationService resourceService) {
     this.capacityService = capacityService;
-    this.sessionService = sessionService;
+    this.resourceService = resourceService;
   }
 
   @Scheduled(fixedDelayString = "${browser-density.pressure-remediation.interval-ms:1000}")
@@ -38,10 +39,10 @@ public class BrowserPressureRemediationScheduler {
         .ifPresent(
             candidate -> {
               try {
-                sessionService.terminateForNodePressure(
+                resourceService.protectFromNodePressure(
                     candidate.sessionId(), candidate.tenantId(), candidate.nodeId());
                 log.warn(
-                    "Pressure eviction requested for session {} on node {}",
+                    "Pressure protection requested for session {} on node {}",
                     candidate.sessionId(),
                     candidate.nodeId());
               } catch (RuntimeException exception) {

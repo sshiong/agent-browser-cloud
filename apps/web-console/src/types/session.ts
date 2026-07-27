@@ -40,6 +40,47 @@ export type SessionState =
  */
 export type ResourceClass = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
 
+export type ExecutionEnvironment =
+  'SYSTEM_MANAGED' | 'CONTAINER' | 'ENHANCED_SANDBOX' | 'MICROVM' | 'NATIVE_OS';
+
+export type MaximumReachedPolicy =
+  'PAUSE_AGENT' | 'WAIT_SAFE_POINT_MIGRATE' | 'HIBERNATE' | 'TERMINATE_STRICT';
+
+export type ResourcePolicyStatus =
+  | 'STABLE'
+  | 'OBSERVING'
+  | 'SCALING_UP'
+  | 'SCALING_DOWN'
+  | 'AT_MAXIMUM'
+  | 'WAITING_SAFE_POINT'
+  | 'MIGRATING'
+  | 'AGENT_PAUSED'
+  | 'HIBERNATING'
+  | 'CRITICAL';
+
+export interface ResourcePolicyRequest {
+  mode: 'AUTO';
+  onMaximumReached?: MaximumReachedPolicy;
+  allowMigration?: boolean;
+  allowHibernate?: boolean;
+  blockMigrationDuringHumanTakeover?: boolean;
+  executionEnvironment?: ExecutionEnvironment;
+  minimumTemplate?: string;
+  maximumCpuMillis?: number;
+  maximumMemoryMib?: number;
+  maximumCostPerHour?: number;
+  scaleUpWindowSeconds?: number;
+  scaleDownWindowSeconds?: number;
+  adjustmentCooldownSeconds?: number;
+}
+
+export interface ResourcePolicyView extends Required<
+  Omit<ResourcePolicyRequest, 'maximumCostPerHour'>
+> {
+  resolvedTemplate: string;
+  maximumCostPerHour?: number;
+}
+
 /**
  * Session 视图。
  */
@@ -89,6 +130,8 @@ export interface CreateSessionRequest {
   tenantId: string;
   profileId: string;
   region?: string;
+  resourcePolicy?: ResourcePolicyRequest;
+  /** @deprecated Legacy SDK compatibility. Web UI must use resourcePolicy=AUTO. */
   resourceClass?: ResourceClass;
   requestedTabs?: number;
   agentActionsPerMinute?: number;
@@ -106,7 +149,73 @@ export interface CreateSessionRequest {
  */
 export interface CreateSessionResponse {
   sessionId: string;
+  operationId?: string;
+  state: 'CREATED';
+  resourcePolicy: ResourcePolicyView;
   context: SessionContext;
+}
+
+export interface SessionResourceView {
+  sessionId: string;
+  policy: ResourcePolicyView;
+  allocation?: {
+    nodeId: string;
+    template: string;
+    cpuMillis?: number;
+    memoryRequestMib?: number;
+    memoryLimitMib?: number;
+    tabBudget?: number;
+    placementState: string;
+  };
+  usage?: {
+    cpuPercent?: number;
+    memoryRssMib?: number;
+    memoryPercentOfLimit?: number;
+    memoryPsiSomeAvg10?: number;
+    rendererCount?: number;
+    tabCount?: number;
+    agentActionLatencyMs?: number;
+    stateDiffQueueDepth?: number;
+    remoteDesktopFrameAgeMs?: number;
+    mediaEncoderPercent?: number;
+    observedAt: string;
+  };
+  usageSamples: {
+    observedAt: string;
+    cpuPercent?: number;
+    memoryRssMib?: number;
+    memoryPercentOfLimit?: number;
+  }[];
+  status: ResourcePolicyStatus;
+  statusReason?: string;
+  dataFreshness: 'LIVE' | 'STALE' | 'AWAITING_TELEMETRY';
+  lastEvaluatedAt?: string;
+  lastAdjustedAt?: string;
+}
+
+export interface ResourceEventView {
+  eventId: string;
+  occurredAt: string;
+  eventType: string;
+  reason: string;
+  oldResources?: Record<string, unknown>;
+  newResources?: Record<string, unknown>;
+  decisionSource: string;
+  operationId?: string;
+  requestId?: string;
+  result: string;
+}
+
+export interface ResourceEventListResponse {
+  items: ResourceEventView[];
+  limit: number;
+  offset: number;
+}
+
+export interface ResourcePolicyOperationResponse {
+  operationId: string;
+  state: string;
+  resourcePolicy: ResourcePolicyView;
 }
 
 /**

@@ -33,6 +33,9 @@ public enum OperationMode {
   /** 扩展维护 */
   EXTENSION_MAINTENANCE,
 
+  /** 资源策略或资源调整 */
+  RESOURCE_ADJUSTMENT,
+
   /** 终止 */
   TERMINATION
 }

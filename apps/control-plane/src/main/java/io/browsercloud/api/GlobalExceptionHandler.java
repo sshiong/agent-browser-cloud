@@ -23,6 +23,9 @@ import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeRelea
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotFoundException;
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
+import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
+import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
+import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
@@ -84,6 +87,39 @@ public class GlobalExceptionHandler {
       SessionNotFoundException exception, HttpServletRequest request) {
     return response(
         HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(ResourcePolicyNotFoundException.class)
+  ResponseEntity<ApiError> resourcePolicyNotFound(
+      ResourcePolicyNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "RESOURCE_POLICY_NOT_FOUND",
+        "Session resource policy not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ResourcePolicyPermissionException.class)
+  ResponseEntity<ApiError> resourcePolicyPermission(
+      ResourcePolicyPermissionException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.FORBIDDEN,
+        "STRICT_RESOURCE_POLICY_REQUIRES_PLATFORM_ADMIN",
+        "Strict termination policy requires Platform Admin",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ResourceTelemetryRejectedException.class)
+  ResponseEntity<ApiError> resourceTelemetryRejected(
+      ResourceTelemetryRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RESOURCE_TELEMETRY_REJECTED",
+        "Resource sample does not match the active Browser placement",
+        Map.of("reason", exception.getMessage()),
+        request);
   }
 
   @ExceptionHandler(ProfileNotFoundException.class)

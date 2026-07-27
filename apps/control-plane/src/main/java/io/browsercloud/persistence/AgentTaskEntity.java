@@ -385,6 +385,15 @@ public class AgentTaskEntity {
     this.updatedAt = now;
   }
 
+  public void pauseByResourcePolicy(Instant now) {
+    if (!"RUNNING".equals(state)) return;
+    state = "PAUSED_BY_RESOURCE_POLICY";
+    blockedReason = "RESOURCE_POLICY_MAXIMUM_REACHED";
+    clearPendingStep();
+    clearLease();
+    updatedAt = now;
+  }
+
   public void awaitConfirmation(String id, Instant expiresAt, Instant now) {
     this.state = "AWAITING_CONFIRMATION";
     this.confirmationId = id;

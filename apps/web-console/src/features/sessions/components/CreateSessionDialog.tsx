@@ -23,6 +23,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
 import { currentTenantId, isSessionApiError } from '@/api/session';
+import { useAuth } from '@/auth/AuthProvider';
 import { useEnterpriseOverview } from '@/features/enterprise/enterpriseQueries';
 import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
 import { useProfiles } from '@/features/profiles/profileQueries';
@@ -30,7 +31,6 @@ import { useProxyOverview } from '@/features/proxies/proxyQueries';
 import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import { useCreateSession } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
-import type { ResourceClass } from '@/types/session';
 
 const schema = z
   .object({
@@ -55,15 +55,33 @@ const schema = z
     profileId: z.string().trim().max(128),
     networkMode: z.enum(['managed', 'direct']),
     region: z.string().trim().min(1, '请选择部署区域').max(32),
-    resourceClass: z.enum(['L1', 'L2', 'L3', 'L4']),
-    resourceTemplateId: z.string().trim().min(1),
     executionEnvironment: z.enum([
-      'system',
-      'container',
-      'enhanced-sandbox',
-      'microvm',
-      'native-os',
+      'SYSTEM_MANAGED',
+      'CONTAINER',
+      'ENHANCED_SANDBOX',
+      'MICROVM',
+      'NATIVE_OS',
     ]),
+    onMaximumReached: z.enum([
+      'PAUSE_AGENT',
+      'WAIT_SAFE_POINT_MIGRATE',
+      'HIBERNATE',
+      'TERMINATE_STRICT',
+    ]),
+    strictBudgetConfirmed: z.boolean(),
+    minimumTemplate: z.enum([
+      'standard-v1',
+      'interactive-v1',
+      'heavy-v1',
+      'native-standard-v1',
+    ]),
+    maximumCpuMillis: z.coerce.number().int().min(500).max(32000),
+    maximumMemoryMib: z.coerce.number().int().min(512).max(131072),
+    allowMigration: z.boolean(),
+    allowHibernate: z.boolean(),
+    blockMigrationDuringHumanTakeover: z.boolean(),
+    adjustmentCooldownSeconds: z.coerce.number().int().min(60).max(3600),
+    scaleDownWindowSeconds: z.coerce.number().int().min(300).max(86400),
     requestedTabs: z.coerce.number().int().min(1).max(64),
     agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
     remoteDesktop: z.boolean(),
@@ -84,6 +102,16 @@ const schema = z
         message: '请选择 Profile',
       });
     }
+    if (
+      value.onMaximumReached === 'TERMINATE_STRICT' &&
+      !value.strictBudgetConfirmed
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['strictBudgetConfirmed'],
+        message: '请确认严格预算可能终止环境并中断登录状态',
+      });
+    }
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -102,48 +130,6 @@ const steps = [
   { number: 5, short: '能力', label: '扩展与 Agent', icon: Puzzle },
   { number: 6, short: '确认', label: '检查并创建', icon: Rocket },
 ] as const;
-
-const resourceOptions: {
-  value: Exclude<ResourceClass, 'L0' | 'L5'>;
-  template: string;
-  label: string;
-  description: string;
-  tabs: number;
-  actions: number;
-}[] = [
-  {
-    value: 'L1',
-    template: 'lite-v1',
-    label: 'Lite',
-    description: '轻量采集、单页与低频自动化',
-    tabs: 1,
-    actions: 30,
-  },
-  {
-    value: 'L2',
-    template: 'standard-v1',
-    label: 'Standard',
-    description: '标准 Agent 自动化与多页工作流',
-    tabs: 4,
-    actions: 60,
-  },
-  {
-    value: 'L3',
-    template: 'interactive-v1',
-    label: 'Interactive',
-    description: '人工接管、远程桌面与高交互',
-    tabs: 8,
-    actions: 120,
-  },
-  {
-    value: 'L4',
-    template: 'heavy-v1',
-    label: 'Heavy',
-    description: '高并发标签页与重型扩展',
-    tabs: 16,
-    actions: 240,
-  },
-];
 
 const mediaOptions = [
   { value: 'M0', label: 'M0 · 无媒体', detail: '0 streams' },
@@ -166,9 +152,12 @@ const stepFields: Record<Step, (keyof FormValues)[]> = {
   2: ['runtimeBuildId', 'profileMode', 'profileId'],
   3: ['networkMode', 'region'],
   4: [
-    'resourceClass',
-    'resourceTemplateId',
     'executionEnvironment',
+    'onMaximumReached',
+    'strictBudgetConfirmed',
+    'minimumTemplate',
+    'maximumCpuMillis',
+    'maximumMemoryMib',
     'requestedTabs',
     'agentActionsPerMinute',
     'remoteDesktop',
@@ -194,6 +183,7 @@ export function CreateSessionDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const auth = useAuth();
   const createMutation = useCreateSession();
   const runtimeQuery = useRuntimeBuilds();
   const profilesQuery = useProfiles();
@@ -202,6 +192,13 @@ export function CreateSessionDialog({
   const extensionsQuery = useExtensionProfiles();
   const [step, setStep] = useState<Step>(1);
   const [createdSessionId, setCreatedSessionId] = useState<string>();
+  const [advancedResourcesOpen, setAdvancedResourcesOpen] = useState(false);
+  const canAdministerResources = auth.hasAnyRole([
+    'TENANT_ADMIN',
+    'SECURITY_ADMIN',
+    'PLATFORM_ADMIN',
+  ]);
+  const canUseStrictBudget = auth.hasAnyRole(['PLATFORM_ADMIN']);
   const {
     register,
     handleSubmit,
@@ -223,11 +220,19 @@ export function CreateSessionDialog({
       profileId: '',
       networkMode: 'managed',
       region: '',
-      resourceClass: 'L2',
-      resourceTemplateId: 'standard-v1',
       requestedTabs: 4,
       agentActionsPerMinute: 60,
-      executionEnvironment: 'system',
+      executionEnvironment: 'SYSTEM_MANAGED',
+      onMaximumReached: 'PAUSE_AGENT',
+      strictBudgetConfirmed: false,
+      minimumTemplate: 'standard-v1',
+      maximumCpuMillis: 4000,
+      maximumMemoryMib: 4096,
+      allowMigration: true,
+      allowHibernate: true,
+      blockMigrationDuringHumanTakeover: true,
+      adjustmentCooldownSeconds: 300,
+      scaleDownWindowSeconds: 1200,
       remoteDesktop: false,
       mediaClass: 'M0',
       extensionIds: [],
@@ -288,18 +293,8 @@ export function CreateSessionDialog({
     }
   };
 
-  const chooseResource = (resource: (typeof resourceOptions)[number]) => {
-    setValue('resourceClass', resource.value, { shouldValidate: true });
-    setValue('resourceTemplateId', resource.template);
-    setValue('requestedTabs', resource.tabs);
-    setValue('agentActionsPerMinute', resource.actions);
-  };
-
   const chooseRemoteDesktop = (checked: boolean) => {
     setValue('remoteDesktop', checked);
-    if (checked && ['L1', 'L2'].includes(values.resourceClass)) {
-      chooseResource(resourceOptions[2]!);
-    }
     if (checked && values.mediaClass === 'M0') {
       setValue('mediaClass', 'M2');
     }
@@ -326,7 +321,28 @@ export function CreateSessionDialog({
         tenantId: currentTenantId(),
         profileId,
         region: form.region,
-        resourceClass: form.resourceClass,
+        resourcePolicy: {
+          mode: 'AUTO',
+          onMaximumReached: form.onMaximumReached,
+          allowMigration: form.allowMigration,
+          allowHibernate: form.allowHibernate,
+          blockMigrationDuringHumanTakeover:
+            form.blockMigrationDuringHumanTakeover,
+          executionEnvironment: form.executionEnvironment,
+          ...(auth.hasAnyRole([
+            'TENANT_ADMIN',
+            'SECURITY_ADMIN',
+            'PLATFORM_ADMIN',
+          ])
+            ? {
+                minimumTemplate: form.minimumTemplate,
+                maximumCpuMillis: form.maximumCpuMillis,
+                maximumMemoryMib: form.maximumMemoryMib,
+                adjustmentCooldownSeconds: form.adjustmentCooldownSeconds,
+                scaleDownWindowSeconds: form.scaleDownWindowSeconds,
+              }
+            : {}),
+        },
         requestedTabs: form.requestedTabs,
         agentActionsPerMinute: form.agentActionsPerMinute,
         remoteDesktop: form.remoteDesktop,
@@ -348,8 +364,6 @@ export function CreateSessionDialog({
             form.networkMode === 'managed'
               ? (proxyQuery.data?.provider.providerId ?? '')
               : '',
-          resourceTemplateId: form.resourceTemplateId,
-          executionEnvironment: form.executionEnvironment,
           mediaClass: form.mediaClass,
           agentEnabled: String(form.agentEnabled),
           agentPolicy: form.agentPolicy,
@@ -754,70 +768,234 @@ export function CreateSessionDialog({
 
               {step === 4 && (
                 <WizardStep
-                  eyebrow="04 · Placement"
-                  title="按工作负载选择资源模板"
-                  description="L2 Standard 为默认推荐。模板会提交为治理元数据，Resource Class 与容量预算仍由服务端校验。"
+                  eyebrow="04 · Automatic Resources"
+                  title="由平台持续管理运行资源"
+                  description="普通用户无需判断 CPU、内存或节点类型。Control Plane 会根据真实负载和 Workspace 策略解析内部资源模板。"
                 >
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {resourceOptions.map((resource) => (
-                      <ChoiceCard
-                        key={resource.value}
-                        name="resource-class"
-                        checked={values.resourceClass === resource.value}
-                        onChange={() => chooseResource(resource)}
-                        title={`${resource.value} · ${resource.label}`}
-                        badge={
-                          resource.value === 'L2' ? '推荐' : resource.template
-                        }
-                        description={resource.description}
-                        meta={`${resource.tabs} tabs · ${resource.actions} actions/min`}
-                      />
-                    ))}
+                  <div className="border border-accent/35 bg-accent-soft p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-accent">
+                        <span className="h-2 w-2 rounded-full bg-accent" />
+                      </span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[13px] font-semibold text-text-primary">
+                            自动分配
+                          </p>
+                          <span className="border border-accent/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-accent">
+                            推荐 · AUTO
+                          </span>
+                        </div>
+                        <p className="mt-1.5 max-w-xl text-[11px] leading-5 text-text-secondary">
+                          平台会根据页面复杂度、Agent
+                          任务、标签页、扩展、远程桌面和实际运行负载动态调整资源。
+                          单次尖峰不会触发扩容。
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="标签页预算">
-                      <input
-                        type="number"
-                        min={1}
-                        max={64}
-                        {...register('requestedTabs')}
-                        className="field-input font-mono"
-                      />
-                    </Field>
-                    <Field label="Agent 动作 / 分钟">
-                      <input
-                        type="number"
-                        min={0}
-                        max={600}
-                        {...register('agentActionsPerMinute')}
-                        className="field-input font-mono"
-                      />
-                    </Field>
+                  <div className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-2">
+                    <div className="bg-surface-2 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-text-muted">
+                        最低基线
+                      </p>
+                      <p className="mt-1 text-[12px] text-text-primary">
+                        标准运行基线
+                      </p>
+                    </div>
+                    <div className="bg-surface-2 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-text-muted">
+                        允许上限
+                      </p>
+                      <p className="mt-1 text-[12px] text-text-primary">
+                        由 Workspace 策略共同裁决
+                      </p>
+                    </div>
                   </div>
 
-                  <Field
-                    label="执行环境"
-                    hint="“系统推荐”优先；高级选择是策略请求，不会绕过节点安全能力。"
-                  >
-                    <select
-                      {...register('executionEnvironment')}
-                      className="field-input"
-                    >
-                      <option value="system">系统推荐</option>
-                      <option value="container">Container</option>
-                      <option value="enhanced-sandbox">Enhanced Sandbox</option>
-                      <option value="microvm">MicroVM</option>
-                      <option value="native-os">Native OS</option>
-                    </select>
-                  </Field>
+                  <fieldset>
+                    <legend className="mb-2 text-[13px] font-medium text-text-primary">
+                      达到资源上限时
+                    </legend>
+                    <div className="space-y-2">
+                      {[
+                        {
+                          value: 'PAUSE_AGENT',
+                          title: '暂停 Agent，保留浏览器',
+                          detail:
+                            '默认策略。登录状态保留，HumanTakeover 仍可用。',
+                        },
+                        {
+                          value: 'WAIT_SAFE_POINT_MIGRATE',
+                          title: '等待安全点并迁移',
+                          detail:
+                            '不会在接管、传输、表单提交或关键事务中迁移。',
+                        },
+                        {
+                          value: 'HIBERNATE',
+                          title: '自动休眠',
+                          detail: '创建 Checkpoint 后释放 Browser 资源。',
+                        },
+                        ...(canUseStrictBudget
+                          ? [
+                              {
+                                value: 'TERMINATE_STRICT',
+                                title: '严格预算，终止环境',
+                                detail:
+                                  '高风险策略，仅 Platform Admin 可配置。',
+                              },
+                            ]
+                          : []),
+                      ].map((option) => (
+                        <label
+                          key={option.value}
+                          className="flex cursor-pointer items-start gap-3 border border-border-subtle bg-surface-2 p-3 has-[:checked]:border-accent/55 has-[:checked]:bg-accent-soft"
+                        >
+                          <input
+                            type="radio"
+                            value={option.value}
+                            {...register('onMaximumReached')}
+                            className="mt-0.5 accent-[var(--color-accent)]"
+                          />
+                          <span>
+                            <span className="block text-[12px] font-medium text-text-primary">
+                              {option.title}
+                            </span>
+                            <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">
+                              {option.detail}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  {values.onMaximumReached === 'TERMINATE_STRICT' && (
+                    <label className="flex items-start gap-3 border border-danger/35 bg-danger/8 p-3 text-[10px] leading-4 text-danger">
+                      <input
+                        type="checkbox"
+                        {...register('strictBudgetConfirmed')}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        我确认：达到严格预算上限后，平台可能终止 Browser
+                        Session，并中断当前登录状态。
+                        {errors.strictBudgetConfirmed && (
+                          <span className="mt-1 block font-medium">
+                            {errors.strictBudgetConfirmed.message}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  )}
 
                   <SwitchRow
                     checked={values.remoteDesktop}
                     onChange={chooseRemoteDesktop}
                     title="需要远程桌面 / 人工交互"
-                    detail="启用后自动推荐 L3 Interactive 与 M2；Placement 仍会验证 Node 能力。"
+                    detail="该需求会参与自动解析，但不会成为用户可见的资源等级。"
                   />
+
+                  {canAdministerResources && (
+                    <div className="border-t border-border-subtle pt-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAdvancedResourcesOpen((current) => !current)
+                        }
+                        className="flex w-full items-center justify-between text-left text-[12px] font-medium text-text-secondary hover:text-text-primary"
+                        aria-expanded={advancedResourcesOpen}
+                      >
+                        管理员高级资源设置
+                        <ChevronRight
+                          size={14}
+                          className={cn(
+                            'transition-transform',
+                            advancedResourcesOpen && 'rotate-90'
+                          )}
+                        />
+                      </button>
+                      {advancedResourcesOpen && (
+                        <div className="mt-4 space-y-4 border-l border-border-default pl-4">
+                          <Field
+                            label="运行环境"
+                            hint="与资源策略分离。SYSTEM_MANAGED 为默认。"
+                          >
+                            <select
+                              {...register('executionEnvironment')}
+                              className="field-input"
+                            >
+                              <option value="SYSTEM_MANAGED">系统推荐</option>
+                              <option value="CONTAINER">Container</option>
+                              <option value="ENHANCED_SANDBOX">
+                                Enhanced Sandbox
+                              </option>
+                              <option value="MICROVM">MicroVM</option>
+                              <option value="NATIVE_OS">Native OS</option>
+                            </select>
+                          </Field>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label="最大 CPU (millicores)">
+                              <input
+                                type="number"
+                                {...register('maximumCpuMillis')}
+                                className="field-input font-mono"
+                              />
+                            </Field>
+                            <Field label="最大内存 (MiB)">
+                              <input
+                                type="number"
+                                {...register('maximumMemoryMib')}
+                                className="field-input font-mono"
+                              />
+                            </Field>
+                            <Field label="调整冷却 (秒)">
+                              <input
+                                type="number"
+                                {...register('adjustmentCooldownSeconds')}
+                                className="field-input font-mono"
+                              />
+                            </Field>
+                            <Field label="缩容稳定窗口 (秒)">
+                              <input
+                                type="number"
+                                {...register('scaleDownWindowSeconds')}
+                                className="field-input font-mono"
+                              />
+                            </Field>
+                          </div>
+                          <SwitchRow
+                            checked={values.allowMigration}
+                            onChange={(checked) =>
+                              setValue('allowMigration', checked)
+                            }
+                            title="允许自动迁移"
+                            detail="仍需等待安全点并完成 State Resync 与业务恢复验证。"
+                          />
+                          <SwitchRow
+                            checked={values.allowHibernate}
+                            onChange={(checked) =>
+                              setValue('allowHibernate', checked)
+                            }
+                            title="允许自动休眠"
+                            detail="只在 Workspace 策略与空闲条件允许时执行。"
+                          />
+                          <SwitchRow
+                            checked={values.blockMigrationDuringHumanTakeover}
+                            onChange={(checked) =>
+                              setValue(
+                                'blockMigrationDuringHumanTakeover',
+                                checked
+                              )
+                            }
+                            title="HumanTakeover 时禁止迁移"
+                            detail="建议保持开启，避免中断连续输入。"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <fieldset>
                     <legend className="mb-2 text-[13px] font-medium text-text-primary">
@@ -1032,15 +1210,15 @@ export function CreateSessionDialog({
                           mono
                         />
                         <ReviewItem
-                          label="资源模板"
-                          value={`${values.resourceClass} · ${values.resourceTemplateId}`}
+                          label="资源策略"
+                          value="AUTO · 自动分配"
                           mono
-                          detail={`${values.requestedTabs} tabs · ${values.agentActionsPerMinute} actions/min`}
+                          detail={`达到上限：${values.onMaximumReached}`}
                         />
                         <ReviewItem
                           label="执行环境"
                           value={values.executionEnvironment}
-                          detail="策略请求，Node 能力最终裁决"
+                          detail="与资源策略独立，Node 能力最终裁决"
                         />
                         <ReviewItem
                           label="交互 / 媒体"
@@ -1078,10 +1256,10 @@ export function CreateSessionDialog({
                           className="mt-0.5 shrink-0 text-warning"
                         />
                         <p className="text-[11px] leading-5 text-text-secondary">
-                          Runtime
-                          Build、执行环境、资源模板和网络模式中的部分字段目前作为治理元数据提交；
-                          服务端已实际执行的权威字段包括 Profile、区域、Resource
-                          Class、容量预算、桌面、媒体、扩展与 Web3 声明。
+                          资源策略、运行环境、上限行为和工作负载声明都会进入真实
+                          PostgreSQL 与 Placement 链路。内部 Resource Template
+                          只由后端解析；前端不会提交固定
+                          CPU、内存或伪造调整结果。
                         </p>
                       </div>
 

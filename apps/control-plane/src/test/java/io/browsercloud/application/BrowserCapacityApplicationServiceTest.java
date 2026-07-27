@@ -44,6 +44,7 @@ class BrowserCapacityApplicationServiceTest {
   @Mock private BrowserPlacementJpaRepository placementRepository;
   @Mock private SessionRepository sessionRepository;
   @Mock private EnterpriseOperationsApplicationService enterpriseOperationsService;
+  @Mock private SessionResourceApplicationService sessionResourceService;
 
   private BrowserCapacityApplicationService service;
   private ObjectMapper objectMapper;
@@ -60,6 +61,7 @@ class BrowserCapacityApplicationServiceTest {
             placementRepository,
             sessionRepository,
             enterpriseOperationsService,
+            sessionResourceService,
             objectMapper);
   }
 
@@ -309,7 +311,7 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   @Test
-  void criticalPressureClaimsOnlyOneActivePlacementForBoundedEviction() {
+  void criticalPressureClaimsOnlyOneActivePlacementAndWaitsForSafePoint() {
     var now = Instant.now();
     var placement =
         new BrowserPlacementEntity(
@@ -343,7 +345,7 @@ class BrowserCapacityApplicationServiceTest {
 
     assertThat(candidate.sessionId()).isEqualTo("ses_1234567890abcdef");
     assertThat(candidate.nodeId()).isEqualTo("node_local");
-    assertThat(placement.getState()).isEqualTo("EVICTING");
+    assertThat(placement.getState()).isEqualTo("WAITING_SAFE_POINT");
     assertThat(placement.getReasonCodes()).contains("NODE_PRESSURE_EVICTION");
   }
 

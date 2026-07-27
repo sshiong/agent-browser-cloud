@@ -131,4 +131,29 @@ public final class OperationFactory {
         Instant.now(),
         null);
   }
+
+  /** 创建已同步提交的资源策略 Operation。策略写入 PostgreSQL 后即完成。 */
+  public static ExclusiveOperation committedResourceAdjustment(
+      SessionContext session, String actorId, long operationEpoch, String operationId) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        operationId,
+        session.sessionId(),
+        OwnerType.SYSTEM,
+        actorId,
+        OperationMode.RESOURCE_ADJUSTMENT,
+        20,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.COMPLETING,
+        OperationState.COMMITTED,
+        Set.of("resource.policy"),
+        now.plusSeconds(60),
+        now,
+        now);
+  }
 }

@@ -1,6 +1,9 @@
 package io.browsercloud.api;
 
+import static io.browsercloud.api.SessionResourceModels.*;
+
 import io.browsercloud.application.SessionApplicationService;
+import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.StateGatewayApplicationService;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.session.SessionState;
@@ -31,14 +34,17 @@ public class SessionController {
   private final SessionApplicationService service;
   private final StateGatewayApplicationService stateGateway;
   private final PlatformIdentity identity;
+  private final SessionResourceApplicationService resourceService;
 
   public SessionController(
       SessionApplicationService service,
       StateGatewayApplicationService stateGateway,
-      PlatformIdentity identity) {
+      PlatformIdentity identity,
+      SessionResourceApplicationService resourceService) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
+    this.resourceService = resourceService;
   }
 
   /**
@@ -140,6 +146,46 @@ public class SessionController {
         .getState(sessionId, identity.current().tenantId())
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
+  @GetMapping("/{sessionId}/resources")
+  public SessionResourceView getResources(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+    return resourceService.get(sessionId, identity.current().tenantId());
+  }
+
+  @GetMapping("/{sessionId}/resource-events")
+  public ResourceEventListResponse getResourceEvents(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
+      @RequestParam(defaultValue = "0") @Min(0) int offset) {
+    return resourceService.events(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  @PatchMapping("/{sessionId}/resource-policy")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public ResponseEntity<ResourcePolicyOperationResponse> updateResourcePolicy(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody ResourcePolicyRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.accepted()
+        .body(
+            resourceService.update(
+                sessionId,
+                principal.tenantId(),
+                request,
+                idempotencyKey,
+                principal.actorId(),
+                principal.roles().contains("PLATFORM_ADMIN")));
+  }
+
+  @PostMapping("/{sessionId}/resource-samples")
+  @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
+  public ResponseEntity<SessionResourceView> recordResourceSample(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @Valid @RequestBody RecordResourceSampleRequest request) {
+    return ResponseEntity.accepted().body(resourceService.recordSample(sessionId, request));
   }
 
   /** 请求 Full 或 Region State Resync；结果由后续 BrowserStateUpdated 事件提交。 */

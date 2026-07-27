@@ -7,6 +7,7 @@ import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
+import io.browsercloud.domain.resource.ExecutionEnvironment;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
@@ -37,6 +38,7 @@ public class SessionApplicationService {
   private final RuntimeBuildPolicy runtimeBuildPolicy;
   private final CapacityAdmissionService capacityAdmissionService;
   private final BrowserCapacityApplicationService browserCapacityService;
+  private final SessionResourceApplicationService sessionResourceService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -53,6 +55,7 @@ public class SessionApplicationService {
       RuntimeBuildPolicy runtimeBuildPolicy,
       CapacityAdmissionService capacityAdmissionService,
       BrowserCapacityApplicationService browserCapacityService,
+      SessionResourceApplicationService sessionResourceService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -68,6 +71,7 @@ public class SessionApplicationService {
     this.runtimeBuildPolicy = runtimeBuildPolicy;
     this.capacityAdmissionService = capacityAdmissionService;
     this.browserCapacityService = browserCapacityService;
+    this.sessionResourceService = sessionResourceService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -85,7 +89,13 @@ public class SessionApplicationService {
             request.tenantId(), idempotencyKey, request, candidateSessionId);
     if (!claimedSessionId.equals(candidateSessionId)) {
       var existing = sessionRepository.require(claimedSessionId);
-      return new CreateSessionResponse(existing.sessionId(), toContextView(existing));
+      var policy = sessionResourceService.get(existing.sessionId(), existing.tenantId()).policy();
+      return new CreateSessionResponse(
+          existing.sessionId(),
+          sessionResourceService.creationOperationId(existing.sessionId(), existing.tenantId()),
+          "CREATED",
+          policy,
+          toContextView(existing));
     }
 
     Instant now = Instant.now();
@@ -104,9 +114,7 @@ public class SessionApplicationService {
             0,
             0,
             0,
-            request.resourceClass() != null
-                ? request.resourceClass()
-                : io.browsercloud.domain.session.ResourceClass.L2,
+            initialResourceClass(request),
             SessionState.CREATED,
             "",
             now,
@@ -129,6 +137,9 @@ public class SessionApplicationService {
         request.mediaBitrateKbps(),
         request.extensionIds() == null ? java.util.List.of() : request.extensionIds(),
         now);
+    var resourceOperation =
+        sessionResourceService.initialize(
+            context, request.resourcePolicy(), actorId, idempotencyKey);
     appendAudit(
         context,
         "SESSION_LIFECYCLE",
@@ -138,7 +149,31 @@ public class SessionApplicationService {
         Map.of("profileId", request.profileId(), "resourceClass", context.resourceClass().name()),
         idempotencyKey);
 
-    return new CreateSessionResponse(candidateSessionId, toContextView(context));
+    return new CreateSessionResponse(
+        candidateSessionId,
+        resourceOperation.operationId(),
+        "CREATED",
+        resourceOperation.resourcePolicy(),
+        toContextView(context));
+  }
+
+  private io.browsercloud.domain.session.ResourceClass initialResourceClass(
+      CreateSessionRequest request) {
+    if (request.resourcePolicy() != null) {
+      if (request.resourcePolicy().executionEnvironment() == ExecutionEnvironment.NATIVE_OS) {
+        return io.browsercloud.domain.session.ResourceClass.L5;
+      }
+      var minimum = request.resourcePolicy().minimumTemplate();
+      if ("interactive-v1".equals(minimum)) return io.browsercloud.domain.session.ResourceClass.L3;
+      if ("heavy-v1".equals(minimum)) return io.browsercloud.domain.session.ResourceClass.L4;
+      if ("native-standard-v1".equals(minimum))
+        return io.browsercloud.domain.session.ResourceClass.L5;
+      return io.browsercloud.domain.session.ResourceClass.L2;
+    }
+    // Backward-compatible legacy clients; the Web console never submits a fixed class.
+    return request.resourceClass() == null
+        ? io.browsercloud.domain.session.ResourceClass.L2
+        : request.resourceClass();
   }
 
   /** 启动 Session。 */

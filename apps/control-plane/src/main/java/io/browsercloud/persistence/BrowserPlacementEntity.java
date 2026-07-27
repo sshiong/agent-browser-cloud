@@ -167,7 +167,7 @@ public class BrowserPlacementEntity {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be pressure-evicted");
     }
-    state = "EVICTING";
+    state = "WAITING_SAFE_POINT";
     reasonCodes =
         reasonCodes.equals("[]")
             ? "[\"NODE_PRESSURE_EVICTION\"]"
@@ -176,7 +176,7 @@ public class BrowserPlacementEntity {
   }
 
   public void cancelEviction() {
-    if (state.equals("EVICTING")) {
+    if (state.equals("WAITING_SAFE_POINT")) {
       state = "ACTIVE";
     }
   }

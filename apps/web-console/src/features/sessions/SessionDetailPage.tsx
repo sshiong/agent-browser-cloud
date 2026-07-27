@@ -24,8 +24,11 @@ import {
   useBrowserState,
   useRequestHumanTakeover,
   useResyncBrowserState,
+  useSessionResourceEvents,
+  useSessionResources,
   useStartSession,
   useTerminateSession,
+  useUpdateResourcePolicy,
 } from '@/features/sessions/api/sessionQueries';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
 import { currentActorId, isSessionApiError } from '@/api/session';
@@ -36,6 +39,7 @@ import type {
   SessionState,
 } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
+import { SessionResourcePanel } from '@/features/sessions/components/resources/SessionResourcePanel';
 
 export function SessionDetailPage() {
   const auth = useAuth();
@@ -50,6 +54,12 @@ export function SessionDetailPage() {
   const terminateMutation = useTerminateSession(id);
   const takeoverMutation = useRequestHumanTakeover(id);
   const resyncMutation = useResyncBrowserState(id);
+  const resourceQuery = useSessionResources(
+    id,
+    ['RUNNING', 'DEGRADED'].includes(sessionQuery.data?.state ?? '')
+  );
+  const resourceEventsQuery = useSessionResourceEvents(id);
+  const resourcePolicyMutation = useUpdateResourcePolicy(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
 
   const session = sessionQuery.data;
@@ -158,7 +168,7 @@ export function SessionDetailPage() {
                     <span>
                       Resource{' '}
                       <strong className="font-mono font-normal text-text-secondary">
-                        {session.resourceClass}
+                        AUTO
                       </strong>
                     </span>
                   </div>
@@ -171,6 +181,8 @@ export function SessionDetailPage() {
                       void Promise.all([
                         sessionQuery.refetch(),
                         browserStateQuery.refetch(),
+                        resourceQuery.refetch(),
+                        resourceEventsQuery.refetch(),
                       ])
                     }
                     disabled={
@@ -243,6 +255,26 @@ export function SessionDetailPage() {
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
               <div className="space-y-4">
+                <SessionResourcePanel
+                  resource={resourceQuery.data}
+                  events={resourceEventsQuery.data?.items ?? []}
+                  loading={resourceQuery.isLoading}
+                  error={resourceQuery.error}
+                  canAdminister={auth.hasAnyRole([
+                    'TENANT_ADMIN',
+                    'SECURITY_ADMIN',
+                    'PLATFORM_ADMIN',
+                  ])}
+                  platformAdmin={auth.hasAnyRole(['PLATFORM_ADMIN'])}
+                  humanTakeover={Boolean(takeoverActive)}
+                  updating={resourcePolicyMutation.isPending}
+                  updateError={resourcePolicyMutation.error}
+                  onRetry={() => resourceQuery.refetch()}
+                  onUpdate={(policy) =>
+                    resourcePolicyMutation.mutateAsync(policy)
+                  }
+                />
+
                 <BrowserStatePanel
                   state={browserStateQuery.data}
                   running={session.state === 'RUNNING'}

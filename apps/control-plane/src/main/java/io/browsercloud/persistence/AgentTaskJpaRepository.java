@@ -58,4 +58,6 @@ public interface AgentTaskJpaRepository extends JpaRepository<AgentTaskEntity, S
   List<AgentTaskEntity> findAllByTenantIdOrderByCreatedAtDesc(String tenantId, Pageable pageable);
 
   long countByTenantId(String tenantId);
+
+  List<AgentTaskEntity> findAllBySessionIdAndState(String sessionId, String state);
 }

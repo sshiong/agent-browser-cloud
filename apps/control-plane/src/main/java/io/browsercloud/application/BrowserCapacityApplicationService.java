@@ -50,7 +50,7 @@ public class BrowserCapacityApplicationService {
   private static final int UNKNOWN_EXTENSION_MEMORY_MIB = 256;
   private static final int UNKNOWN_EXTENSION_PER_NODE_LIMIT = 2;
   private static final Set<String> ACTIVE_PLACEMENT_STATES =
-      Set.of("RESERVED", "ACTIVE", "EVICTING");
+      Set.of("RESERVED", "ACTIVE", "WAITING_SAFE_POINT");
 
   private final BrowserNodeJpaRepository nodeRepository;
   private final ExtensionProfileJpaRepository extensionRepository;
@@ -59,6 +59,7 @@ public class BrowserCapacityApplicationService {
   private final BrowserPlacementJpaRepository placementRepository;
   private final SessionRepository sessionRepository;
   private final EnterpriseOperationsApplicationService enterpriseOperationsService;
+  private final SessionResourceApplicationService sessionResourceService;
   private final ObjectMapper objectMapper;
 
   public BrowserCapacityApplicationService(
@@ -69,6 +70,7 @@ public class BrowserCapacityApplicationService {
       BrowserPlacementJpaRepository placementRepository,
       SessionRepository sessionRepository,
       EnterpriseOperationsApplicationService enterpriseOperationsService,
+      SessionResourceApplicationService sessionResourceService,
       ObjectMapper objectMapper) {
     this.nodeRepository = nodeRepository;
     this.extensionRepository = extensionRepository;
@@ -77,6 +79,7 @@ public class BrowserCapacityApplicationService {
     this.placementRepository = placementRepository;
     this.sessionRepository = sessionRepository;
     this.enterpriseOperationsService = enterpriseOperationsService;
+    this.sessionResourceService = sessionResourceService;
     this.objectMapper = objectMapper;
   }
 
@@ -369,7 +372,9 @@ public class BrowserCapacityApplicationService {
         session.withPlacement(
             node.getNodeId(), calculated.effectiveClass(), session.contextEpoch() + 1);
     sessionRepository.updateWithExpectedEpoch(placedSession, session.contextEpoch());
-    return toPlacementView(placement);
+    var placementView = toPlacementView(placement);
+    sessionResourceService.placementResolved(placementView);
+    return placementView;
   }
 
   @Transactional

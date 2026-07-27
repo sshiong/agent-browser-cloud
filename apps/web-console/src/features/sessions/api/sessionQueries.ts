@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createSession,
   getBrowserState,
+  getSessionResourceEvents,
+  getSessionResources,
   getSession,
   listSessions,
   releaseHumanTakeover,
@@ -9,11 +11,13 @@ import {
   resyncBrowserState,
   startSession,
   terminateSession,
+  updateSessionResourcePolicy,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
   SessionState,
   StateResyncRequest,
+  ResourcePolicyRequest,
 } from '@/types/session';
 
 export const sessionKeys = {
@@ -28,6 +32,10 @@ export const sessionKeys = {
     [...sessionKeys.all, 'detail', sessionId] as const,
   browserState: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'browser-state'] as const,
+  resources: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'resources'] as const,
+  resourceEvents: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'resource-events'] as const,
 };
 
 export function useSessions(params: {
@@ -84,6 +92,47 @@ export function useBrowserState(sessionId: string, enabled: boolean) {
     queryFn: ({ signal }) => getBrowserState(sessionId, undefined, signal),
     enabled: Boolean(sessionId) && enabled,
     refetchInterval: enabled ? 2_000 : false,
+  });
+}
+
+export function useSessionResources(sessionId: string, live: boolean) {
+  return useQuery({
+    queryKey: sessionKeys.resources(sessionId),
+    queryFn: ({ signal }) => getSessionResources(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+    refetchInterval: live ? 5_000 : 30_000,
+  });
+}
+
+export function useSessionResourceEvents(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.resourceEvents(sessionId),
+    queryFn: ({ signal }) =>
+      getSessionResourceEvents(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useUpdateResourcePolicy(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (policy: ResourcePolicyRequest) =>
+      updateSessionResourcePolicy(
+        sessionId,
+        policy,
+        `resource-policy-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.resources(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.resourceEvents(sessionId),
+        }),
+      ]);
+    },
   });
 }
 

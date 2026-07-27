@@ -115,6 +115,79 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/resources:
+    get:
+      operationId: getSessionResources
+      summary: Get the authoritative Session resource policy, allocation and real telemetry
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Resource state. Usage is null until Browser Node telemetry exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/resource-events:
+    get:
+      operationId: listSessionResourceEvents
+      summary: List the PostgreSQL-backed resource adjustment timeline
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Resource policy and adjustment events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceEventList"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/resource-policy:
+    patch:
+      operationId: updateSessionResourcePolicy
+      summary: Update AUTO resource policy through an idempotent backend Operation
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResourcePolicyRequest"
+      responses:
+        "202":
+          description: Resource policy Operation committed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourcePolicyOperation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}:start:
     post:
       operationId: startSession
@@ -3091,7 +3164,7 @@ components:
     CreateSessionRequest:
       type: object
       additionalProperties: false
-      required: [tenantId, profileId]
+      required: [tenantId, profileId, resourcePolicy]
       properties:
         tenantId:
           type: string
@@ -3106,8 +3179,12 @@ components:
         region:
           type: string
           pattern: "^[a-z0-9-]{1,32}$"
+        resourcePolicy:
+          $ref: "#/components/schemas/ResourcePolicyRequest"
         resourceClass:
           $ref: "#/components/schemas/ResourceClass"
+          deprecated: true
+          description: Legacy SDK field. New clients submit resourcePolicy.mode=AUTO.
         requestedTabs:
           type: integer
           minimum: 0
@@ -3156,12 +3233,139 @@ components:
     CreateSessionResponse:
       type: object
       additionalProperties: false
-      required: [sessionId, context]
+      required: [sessionId, state, resourcePolicy, context]
       properties:
         sessionId:
           type: string
+        operationId:
+          type: [string, "null"]
+        state:
+          type: string
+          const: CREATED
+        resourcePolicy:
+          $ref: "#/components/schemas/ResourcePolicy"
         context:
           $ref: "#/components/schemas/SessionContext"
+    ResourcePolicyRequest:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          const: AUTO
+        onMaximumReached:
+          $ref: "#/components/schemas/MaximumReachedPolicy"
+        allowMigration:
+          type: boolean
+          default: true
+        allowHibernate:
+          type: boolean
+          default: true
+        blockMigrationDuringHumanTakeover:
+          type: boolean
+          default: true
+        executionEnvironment:
+          $ref: "#/components/schemas/ExecutionEnvironment"
+        minimumTemplate:
+          type: string
+          enum: [standard-v1, interactive-v1, heavy-v1, native-standard-v1]
+        maximumCpuMillis:
+          type: integer
+          minimum: 500
+          maximum: 32000
+          default: 4000
+        maximumMemoryMib:
+          type: integer
+          minimum: 512
+          maximum: 131072
+          default: 4096
+        maximumCostPerHour:
+          type: number
+          minimum: 0
+        scaleUpWindowSeconds:
+          type: integer
+          default: 60
+        scaleDownWindowSeconds:
+          type: integer
+          default: 1200
+        adjustmentCooldownSeconds:
+          type: integer
+          default: 300
+    ResourcePolicy:
+      allOf:
+        - $ref: "#/components/schemas/ResourcePolicyRequest"
+        - type: object
+          required: [minimumTemplate, resolvedTemplate, maximumCpuMillis, maximumMemoryMib]
+          properties:
+            resolvedTemplate:
+              type: string
+    ExecutionEnvironment:
+      type: string
+      enum: [SYSTEM_MANAGED, CONTAINER, ENHANCED_SANDBOX, MICROVM, NATIVE_OS]
+    MaximumReachedPolicy:
+      type: string
+      enum: [PAUSE_AGENT, WAIT_SAFE_POINT_MIGRATE, HIBERNATE, TERMINATE_STRICT]
+    ResourcePolicyStatus:
+      type: string
+      enum:
+        [STABLE, OBSERVING, SCALING_UP, SCALING_DOWN, AT_MAXIMUM,
+         WAITING_SAFE_POINT, MIGRATING, AGENT_PAUSED, HIBERNATING, CRITICAL]
+    SessionResource:
+      type: object
+      required: [sessionId, policy, usageSamples, status, dataFreshness]
+      properties:
+        sessionId:
+          type: string
+        policy:
+          $ref: "#/components/schemas/ResourcePolicy"
+        allocation:
+          type: [object, "null"]
+          additionalProperties: true
+        usage:
+          type: [object, "null"]
+          additionalProperties: true
+        usageSamples:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        status:
+          $ref: "#/components/schemas/ResourcePolicyStatus"
+        statusReason:
+          type: [string, "null"]
+        dataFreshness:
+          type: string
+          enum: [LIVE, STALE, AWAITING_TELEMETRY]
+        lastEvaluatedAt:
+          type: [string, "null"]
+          format: date-time
+        lastAdjustedAt:
+          type: [string, "null"]
+          format: date-time
+    ResourceEventList:
+      type: object
+      required: [items, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        limit:
+          type: integer
+        offset:
+          type: integer
+    ResourcePolicyOperation:
+      type: object
+      required: [operationId, state, resourcePolicy]
+      properties:
+        operationId:
+          type: string
+        state:
+          type: string
+        resourcePolicy:
+          $ref: "#/components/schemas/ResourcePolicy"
     SessionContext:
       type: object
       additionalProperties: false

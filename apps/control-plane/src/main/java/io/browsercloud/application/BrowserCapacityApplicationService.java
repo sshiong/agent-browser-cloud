@@ -304,6 +304,13 @@ public class BrowserCapacityApplicationService {
   /** 在同一事务内锁定候选 Node、执行反亲和打分、预留资源并提交 Session Context。 */
   @Transactional
   public BrowserPlacementView reserve(SessionContext session, String region) {
+    return reserveExcluding(session, region, null);
+  }
+
+  /** Migration placement must not silently select the source Node again. */
+  @Transactional
+  public BrowserPlacementView reserveExcluding(
+      SessionContext session, String region, String excludedNodeId) {
     var existing = placementRepository.findForUpdate(session.sessionId());
     if (existing.isPresent() && !existing.orElseThrow().getState().equals("RELEASED")) {
       return toPlacementView(existing.orElseThrow());
@@ -322,6 +329,7 @@ public class BrowserCapacityApplicationService {
     var now = Instant.now();
     var candidates =
         nodeRepository.lockPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL)).stream()
+            .filter(node -> excludedNodeId == null || !excludedNodeId.equals(node.getNodeId()))
             .map(node -> scoreCandidate(node, session.tenantId(), calculated))
             .filter(Candidate::eligible)
             .sorted(Comparator.comparingInt(Candidate::score))

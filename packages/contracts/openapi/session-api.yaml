@@ -162,6 +162,43 @@ paths:
                 $ref: "#/components/schemas/ResourceEventList"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/safe-point:
+    get:
+      operationId: getSessionSafePoint
+      summary: Assess whether a Session is at a migration-safe point
+      description: Fail-closed aggregation of fresh Browser Node input observations and durable control-plane blockers.
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped safe-point assessment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSafePoint"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/migration:
+    get:
+      operationId: getLatestSessionMigration
+      summary: Get the latest durable cross-node migration workflow
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Latest migration phase and recovery result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionMigration"
+        "204":
+          description: The Session has no migration history.
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/resource-policy:
     patch:
       operationId: updateSessionResourcePolicy
@@ -3356,6 +3393,100 @@ components:
           type: integer
         offset:
           type: integer
+    SessionSafePoint:
+      type: object
+      additionalProperties: false
+      required:
+        [sessionId, safe, state, dataFreshness, contextEpoch, evaluatedAt, blockers]
+      properties:
+        sessionId:
+          type: string
+        safe:
+          type: boolean
+        state:
+          type: string
+          enum: [SAFE, BLOCKED, UNKNOWN]
+        dataFreshness:
+          type: string
+          enum: [LIVE, STALE, MISSING, NOT_REQUIRED]
+        nodeId:
+          type: [string, "null"]
+        contextEpoch:
+          type: integer
+          format: int64
+        evaluatedAt:
+          type: string
+          format: date-time
+        lastNodeObservationAt:
+          type: [string, "null"]
+          format: date-time
+        blockers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafePointBlocker"
+    SafePointBlocker:
+      type: object
+      additionalProperties: false
+      required: [code, source, detail]
+      properties:
+        code:
+          type: string
+        source:
+          type: string
+        detail:
+          type: string
+        observedAt:
+          type: [string, "null"]
+          format: date-time
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+    SessionMigration:
+      type: object
+      additionalProperties: false
+      required:
+        [migrationId, sessionId, sourceNodeId, sourceContextEpoch, phase, createdAt, updatedAt]
+      properties:
+        migrationId:
+          type: string
+        sessionId:
+          type: string
+        sourceNodeId:
+          type: string
+        targetNodeId:
+          type: [string, "null"]
+        sourceContextEpoch:
+          type: integer
+          format: int64
+        targetContextEpoch:
+          type: [integer, "null"]
+          format: int64
+        checkpointId:
+          type: [string, "null"]
+        hibernateOperationId:
+          type: [string, "null"]
+        restoreOperationId:
+          type: [string, "null"]
+        resyncRequestId:
+          type: [string, "null"]
+        phase:
+          type: string
+          enum:
+            [CHECKPOINTING, PLACING_TARGET, RESTORING, STATE_RESYNC,
+             BUSINESS_VALIDATION, COMPLETED, DEGRADED, FAILED]
+        recoveryResult:
+          type: [string, "null"]
+        failureReason:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
     ResourcePolicyOperation:
       type: object
       required: [operationId, state, resourcePolicy]

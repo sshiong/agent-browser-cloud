@@ -394,6 +394,14 @@ public class AgentTaskEntity {
     updatedAt = now;
   }
 
+  public void resumeAfterResourceRecovery(Instant now) {
+    if (!"PAUSED_BY_RESOURCE_POLICY".equals(state)) return;
+    state = "PLANNED";
+    blockedReason = null;
+    lastError = null;
+    updatedAt = now;
+  }
+
   public void awaitConfirmation(String id, Instant expiresAt, Instant now) {
     this.state = "AWAITING_CONFIRMATION";
     this.confirmationId = id;

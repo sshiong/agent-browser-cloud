@@ -16,6 +16,9 @@ public interface DurableWorkflowJpaRepository extends JpaRepository<DurableWorkf
       findFirstByTenantIdAndSessionIdAndOperationEpochOrderByAttemptDesc(
           String tenantId, String sessionId, long operationEpoch);
 
+  List<DurableWorkflowEntity> findAllBySessionIdAndStateIn(
+      String sessionId, java.util.Collection<String> states);
+
   @Query(
       """
       select workflow from DurableWorkflowEntity workflow

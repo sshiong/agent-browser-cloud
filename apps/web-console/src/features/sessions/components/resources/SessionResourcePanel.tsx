@@ -29,6 +29,8 @@ import type {
   ResourceEventView,
   ResourcePolicyRequest,
   ResourcePolicyStatus,
+  SessionSafePointView,
+  SessionMigrationView,
   SessionResourceView,
 } from '@/types/session';
 
@@ -48,6 +50,9 @@ const statusLabels: Record<ResourcePolicyStatus, string> = {
 export function SessionResourcePanel({
   resource,
   events,
+  safePoint,
+  safePointError,
+  migration,
   loading,
   error,
   canAdminister,
@@ -60,6 +65,9 @@ export function SessionResourcePanel({
 }: {
   resource?: SessionResourceView;
   events: ResourceEventView[];
+  safePoint?: SessionSafePointView;
+  safePointError: unknown;
+  migration?: SessionMigrationView;
   loading: boolean;
   error: unknown;
   canAdminister: boolean;
@@ -165,7 +173,12 @@ export function SessionResourcePanel({
         </div>
 
         <div className="border-t border-border-subtle p-5 xl:border-l xl:border-t-0">
-          <MigrationStatusCard resource={resource} />
+          <MigrationStatusCard
+            resource={resource}
+            safePoint={safePoint}
+            safePointError={safePointError}
+            migration={migration}
+          />
           <ResourceAdjustmentTimeline events={events} />
         </div>
       </div>
@@ -386,9 +399,24 @@ export function ResourceLimitProgress({
 
 export function MigrationStatusCard({
   resource,
+  safePoint,
+  safePointError,
+  migration,
 }: {
   resource: SessionResourceView;
+  safePoint?: SessionSafePointView;
+  safePointError: unknown;
+  migration?: SessionMigrationView;
 }) {
+  const safePointText = safePointError
+    ? '安全点判定暂不可用，迁移保持禁止'
+    : !safePoint
+      ? '正在读取安全点判定'
+      : safePoint.safe
+        ? '安全点已满足'
+        : safePoint.state === 'UNKNOWN'
+          ? '安全信号缺失或过期，迁移保持禁止'
+          : `存在 ${safePoint.blockers.length} 个迁移阻塞项`;
   return (
     <div className="border-b border-border-subtle pb-5">
       <p className="text-[10px] uppercase tracking-[0.12em] text-text-muted">
@@ -407,8 +435,90 @@ export function MigrationStatusCard({
         屏障：
         {resource.policy.blockMigrationDuringHumanTakeover ? '开启' : '关闭'}
       </p>
+      {migration && (
+        <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden border border-border-subtle bg-border-subtle text-[9px]">
+          <div className="bg-surface-2 p-2">
+            <span className="text-text-muted">阶段</span>
+            <p className="mt-1 font-mono text-text-secondary">
+              {migration.phase}
+            </p>
+          </div>
+          <div className="bg-surface-2 p-2">
+            <span className="text-text-muted">节点</span>
+            <p className="mt-1 truncate font-mono text-text-secondary">
+              {migration.sourceNodeId} → {migration.targetNodeId ?? '待分配'}
+            </p>
+          </div>
+          <div className="bg-surface-2 p-2">
+            <span className="text-text-muted">Checkpoint</span>
+            <p className="mt-1 truncate font-mono text-text-secondary">
+              {migration.checkpointId ?? '提交中'}
+            </p>
+          </div>
+          <div className="bg-surface-2 p-2">
+            <span className="text-text-muted">恢复验证</span>
+            <p className="mt-1 truncate font-mono text-text-secondary">
+              {migration.recoveryResult ??
+                migration.failureReason ??
+                '等待验证'}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="mt-3 border border-border-subtle bg-surface-2 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] text-text-secondary">
+            {safePointText}
+          </span>
+          {safePoint && (
+            <span className="font-mono text-[9px] text-text-muted">
+              {safePoint.dataFreshness}
+            </span>
+          )}
+        </div>
+        {safePoint && safePoint.blockers.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {safePoint.blockers.slice(0, 4).map((blocker, index) => (
+              <li
+                key={`${blocker.code}-${blocker.source}-${index}`}
+                className="flex items-start gap-1.5 text-[9px] leading-4 text-text-muted"
+              >
+                <CircleAlert
+                  size={11}
+                  className="mt-0.5 shrink-0 text-warning"
+                />
+                <span>
+                  {translateSafePointBlocker(blocker.code)} · {blocker.source}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
+}
+
+function translateSafePointBlocker(code: string) {
+  const labels: Record<string, string> = {
+    ACTIVE_INPUT: '仍有按键或鼠标输入',
+    ACTIVE_DRAG: '拖拽操作尚未结束',
+    HUMAN_TAKEOVER_ACTIVE: '人工接管正在进行',
+    HUMAN_HANDOFF_PENDING: '人工接管交接待处理',
+    AGENT_TASK_ACTIVE: 'Agent 步骤仍在执行',
+    EXCLUSIVE_OPERATION_ACTIVE: '排他操作仍在执行',
+    SNAPSHOT_IN_PROGRESS: 'Snapshot 正在提交',
+    PROFILE_FLUSH_IN_PROGRESS: 'Profile 正在写回',
+    DURABLE_WORKFLOW_ACTIVE: '持久工作流尚未完成',
+    FILE_TRANSFER: '文件传输尚未完成',
+    FORM_SUBMISSION: '表单正在提交',
+    PAYMENT_OR_SECURITY: '支付或账号安全操作进行中',
+    CRITICAL_TRANSACTION: '关键业务事务尚未完成',
+    BUSINESS_RECOVERY_UNKNOWN: '业务恢复状态未知',
+    NODE_SAFETY_SIGNAL_MISSING: '节点安全信号尚未上报',
+    NODE_SAFETY_SIGNAL_STALE: '节点安全信号已过期',
+  };
+  return labels[code] ?? code;
 }
 
 export function ResourceAdjustmentTimeline({

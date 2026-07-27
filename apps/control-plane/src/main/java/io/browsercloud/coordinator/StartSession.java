@@ -14,11 +14,20 @@ public record StartSession(
     String sessionId,
     String requestedRuntimeBuildId,
     String idempotencyKey,
-    RuntimeResourceLimits resourceLimits)
+    RuntimeResourceLimits resourceLimits,
+    String profileCheckpointId)
     implements SessionCommand {
 
   /** 兼容领域单测；生产 Application Service 必须传入已提交 Placement 的 limits。 */
   public StartSession(String sessionId, String requestedRuntimeBuildId, String idempotencyKey) {
-    this(sessionId, requestedRuntimeBuildId, idempotencyKey, null);
+    this(sessionId, requestedRuntimeBuildId, idempotencyKey, null, null);
+  }
+
+  public StartSession(
+      String sessionId,
+      String requestedRuntimeBuildId,
+      String idempotencyKey,
+      RuntimeResourceLimits resourceLimits) {
+    this(sessionId, requestedRuntimeBuildId, idempotencyKey, resourceLimits, null);
   }
 }

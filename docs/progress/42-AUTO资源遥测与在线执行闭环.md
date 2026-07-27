@@ -1,7 +1,7 @@
 # AUTO 资源遥测与在线执行闭环
 
 > 日期：2026-07-27
-> 状态：CPU/内存/Memory PSI 的 5 秒真实遥测、同节点 Cgroup 在线扩缩容和 Node ACK/Operation 闭环已完成；安全点迁移与完整指标仍待完成
+> 状态：CPU/内存/Memory PSI/Input Ledger 的 5 秒真实遥测、同节点 Cgroup 在线扩缩容、Safe Point、休眠和持久跨 Node 迁移核心链已完成；完整指标与目标双 Node E2E 待完成
 
 ## 本轮完成
 
@@ -68,11 +68,10 @@
    Remote Desktop Frame Age 和 Media Encoder 的真实采集器。
 2. State Collector 预算、Media Encoder Slot、Remote Desktop 码率和 Extension Weight
    的独立在线执行器。
-3. Safe Point Aggregator 以及 HumanTakeover、拖拽/连续输入、上传下载、表单、支付、
-   Snapshot、Profile Flush 和业务事务阻断。
-4. 跨 Node 的 Checkpoint → Migrate → Restore → State Resync →
-   Business Recovery Validation。
-5. `WAIT_SAFE_POINT_MIGRATE`、`HIBERNATE` 和 `TERMINATE_STRICT` 的最终执行链路；当前已
-   建模状态并暂停 Agent，但不会把未执行动作写成成功。
+3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；
+   上传下载、表单、支付、安全和应用关键事务仍缺真实信号生产者。
+4. 跨 Node 核心链已实现；仍缺双真实 Browser Node + S3 + Chromium 的故障注入和长稳证书。
+5. `WAIT_SAFE_POINT_MIGRATE`、`HIBERNATE` 和 `TERMINATE_STRICT` 已进入真实执行链；
+   业务恢复非 READY 时继续保持 Agent 暂停。
 6. Resource Event SSE/WebSocket、断线游标与 Web 轮询替换。
 7. 目标 Linux 多 Session 长稳、缩容抖动、OOM/磁盘满即时保护和多 Node 容量验收。

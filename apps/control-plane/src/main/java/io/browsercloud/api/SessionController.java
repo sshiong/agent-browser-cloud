@@ -2,7 +2,9 @@ package io.browsercloud.api;
 
 import static io.browsercloud.api.SessionResourceModels.*;
 
+import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SessionApplicationService;
+import io.browsercloud.application.SessionMigrationApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.StateGatewayApplicationService;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
@@ -35,16 +37,22 @@ public class SessionController {
   private final StateGatewayApplicationService stateGateway;
   private final PlatformIdentity identity;
   private final SessionResourceApplicationService resourceService;
+  private final SafePointApplicationService safePointService;
+  private final SessionMigrationApplicationService migrationService;
 
   public SessionController(
       SessionApplicationService service,
       StateGatewayApplicationService stateGateway,
       PlatformIdentity identity,
-      SessionResourceApplicationService resourceService) {
+      SessionResourceApplicationService resourceService,
+      SafePointApplicationService safePointService,
+      SessionMigrationApplicationService migrationService) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
     this.resourceService = resourceService;
+    this.safePointService = safePointService;
+    this.migrationService = migrationService;
   }
 
   /**
@@ -160,6 +168,21 @@ public class SessionController {
       @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return resourceService.events(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  @GetMapping("/{sessionId}/safe-point")
+  public SafePointModels.SessionSafePointView getSafePoint(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+    return safePointService.assess(sessionId, identity.current().tenantId());
+  }
+
+  @GetMapping("/{sessionId}/migration")
+  public ResponseEntity<SessionMigrationView> getLatestMigration(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+    return migrationService
+        .latest(sessionId, identity.current().tenantId())
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.noContent().build());
   }
 
   @PatchMapping("/{sessionId}/resource-policy")

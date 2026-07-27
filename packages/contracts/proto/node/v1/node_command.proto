@@ -116,6 +116,10 @@ message ReportSessionResourcesRequest {
   optional uint32 remote_desktop_frame_age_ms = 21;
   optional double media_encoder_percent = 22;
   string danger_event = 23;
+  optional bool input_active = 24;
+  optional bool active_drag = 25;
+  optional uint32 pressed_key_count = 26;
+  optional uint32 pressed_button_count = 27;
 }
 
 message ReportSessionResourcesResponse {
@@ -176,6 +180,7 @@ message StartRuntimeCommand {
   bool gpu_required = 14;
   bool native_os_required = 15;
   bool isolation_required = 16;
+  string profile_checkpoint_id = 17;
 }
 
 // Runtime 启动事件

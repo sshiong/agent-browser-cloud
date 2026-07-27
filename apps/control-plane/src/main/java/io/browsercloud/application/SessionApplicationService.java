@@ -201,7 +201,8 @@ public class SessionApplicationService {
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),
-                    placement.requiresIsolation())));
+                    placement.requiresIsolation()),
+                profileApplicationService.get(tenantId, session.profileId()).latestCheckpointId()));
     var operation = operationRepository.findActive(sessionId).orElseThrow();
     boolean failoverCleanup = operation.mode() == OperationMode.TERMINATION;
     var workflowId =
@@ -251,6 +252,40 @@ public class SessionApplicationService {
   public OperationResponse terminateForNodePressure(
       String sessionId, String tenantId, String nodeId) {
     return terminate(sessionId, tenantId, "system:node-pressure", "node_pressure:" + nodeId);
+  }
+
+  /** Strict-cost policy termination. The policy update itself requires Platform Admin. */
+  @Transactional
+  public OperationResponse terminateForResourcePolicy(String sessionId, String tenantId) {
+    return terminate(
+        sessionId, tenantId, "system:resource-policy", "resource_policy_strict_maximum_reached");
+  }
+
+  /** Resource-policy hibernation after the Safe Point Aggregator has returned SAFE. */
+  @Transactional
+  public OperationResponse hibernateForResourcePolicy(String sessionId, String tenantId) {
+    var session = requireTenant(sessionId, tenantId);
+    var result =
+        coordinator.handle(new HibernateSession(sessionId, "resource_policy_maximum_reached"));
+    var operation = operationRepository.findActive(sessionId).orElseThrow();
+    var workflowId =
+        workflowService.start(
+            tenantId,
+            operation,
+            "HIBERNATE_RUNTIME",
+            result.operationId(),
+            "RESTORE_RUNNING_SESSION");
+    operationRepository.attachWorkflow(result.operationId(), workflowId);
+    appendAudit(
+        session,
+        "SESSION_OPERATION_TRANSITION",
+        "system:resource-policy",
+        "HIBERNATE_RUNTIME",
+        "ACCEPTED",
+        Map.of("operationId", result.operationId(), "reason", "maximum_reached"),
+        result.operationId());
+    return new OperationResponse(
+        result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
 
   private OperationResponse terminate(

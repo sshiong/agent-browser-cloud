@@ -13,6 +13,8 @@ import type {
   ResourceEventListResponse,
   ResourcePolicyRequest,
   ResourcePolicyOperationResponse,
+  SessionSafePointView,
+  SessionMigrationView,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
@@ -166,6 +168,30 @@ export async function getSessionResourceEvents(
 ): Promise<ResourceEventListResponse> {
   return request<ResourceEventListResponse>(
     `/sessions/${sessionId}/resource-events?limit=50`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getSessionSafePoint(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionSafePointView> {
+  return request<SessionSafePointView>(
+    `/sessions/${sessionId}/safe-point`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getSessionMigration(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionMigrationView | null> {
+  return requestOptional<SessionMigrationView>(
+    `/sessions/${sessionId}/migration`,
     { signal },
     tenantId
   );

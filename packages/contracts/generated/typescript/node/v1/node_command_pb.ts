@@ -648,6 +648,26 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
    */
   dangerEvent = "";
 
+  /**
+   * @generated from field: optional bool input_active = 24;
+   */
+  inputActive?: boolean;
+
+  /**
+   * @generated from field: optional bool active_drag = 25;
+   */
+  activeDrag?: boolean;
+
+  /**
+   * @generated from field: optional uint32 pressed_key_count = 26;
+   */
+  pressedKeyCount?: number;
+
+  /**
+   * @generated from field: optional uint32 pressed_button_count = 27;
+   */
+  pressedButtonCount?: number;
+
   constructor(data?: PartialMessage<ReportSessionResourcesRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -675,6 +695,10 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
     { no: 21, name: "remote_desktop_frame_age_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 22, name: "media_encoder_percent", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
     { no: 23, name: "danger_event", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 24, name: "input_active", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 25, name: "active_drag", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 26, name: "pressed_key_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 27, name: "pressed_button_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportSessionResourcesRequest {
@@ -1015,6 +1039,11 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   isolationRequired = false;
 
+  /**
+   * @generated from field: string profile_checkpoint_id = 17;
+   */
+  profileCheckpointId = "";
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1039,6 +1068,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 14, name: "gpu_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 15, name: "native_os_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 16, name: "isolation_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 17, name: "profile_checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {

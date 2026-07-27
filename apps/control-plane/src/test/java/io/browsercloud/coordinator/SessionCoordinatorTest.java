@@ -356,6 +356,55 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void shouldCheckpointAndHibernateRunningSession() {
+    var running = createSession("ses-1", SessionState.RUNNING);
+    var hibernating = createSession("ses-1", SessionState.HIBERNATING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(running, hibernating);
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(1L);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(
+            Optional.of(
+                createActiveOperation(
+                    "ses-1",
+                    OperationMode.HIBERNATE,
+                    OperationPhase.PREPARING,
+                    "resource-decision-engine")));
+
+    var accepted = coordinator.handle(new HibernateSession("ses-1", "resource_policy"));
+    var completed =
+        coordinator.handle(
+            nodeEvent(
+                new NodeEvent.RuntimeStopped(
+                    "ses-1",
+                    "resource_policy",
+                    0,
+                    "profile-test",
+                    "chk-test",
+                    1,
+                    1,
+                    1024,
+                    4,
+                    "COMMITTED"),
+                0,
+                1));
+
+    assertThat(accepted.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    assertThat(completed.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(operationRepository).insert(argThat(op -> op.mode() == OperationMode.HIBERNATE));
+    verify(nodeCommandGateway)
+        .send(argThat(command -> command.commandType().equals("StopRuntime")));
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.HIBERNATED), eq(0L));
+    verify(outboxPublisher)
+        .append(
+            argThat(
+                event ->
+                    event instanceof SessionStateChanged changed
+                        && changed.newState() == SessionState.HIBERNATED));
+  }
+
+  @Test
   void shouldRejectStaleContextEpochBeforeApplyingNodeEvent() {
     var session = createSession("ses-1", SessionState.STARTING);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);

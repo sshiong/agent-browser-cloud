@@ -36,6 +36,7 @@ public class SessionResourceApplicationService {
   private final OperationRepository operations;
   private final IdempotencyService idempotency;
   private final NodeCommandGateway nodeCommandGateway;
+  private final SafePointApplicationService safePointService;
   private final ObjectMapper mapper;
 
   public SessionResourceApplicationService(
@@ -48,6 +49,7 @@ public class SessionResourceApplicationService {
       OperationRepository operations,
       IdempotencyService idempotency,
       NodeCommandGateway nodeCommandGateway,
+      SafePointApplicationService safePointService,
       ObjectMapper mapper) {
     this.policies = policies;
     this.samples = samples;
@@ -58,6 +60,7 @@ public class SessionResourceApplicationService {
     this.operations = operations;
     this.idempotency = idempotency;
     this.nodeCommandGateway = nodeCommandGateway;
+    this.safePointService = safePointService;
     this.mapper = mapper;
   }
 
@@ -408,13 +411,66 @@ public class SessionResourceApplicationService {
       }
       case WAIT_SAFE_POINT_MIGRATE -> {
         pauseAgentTasks(sessionId, now);
-        policy.evaluate(
-            ResourcePolicyStatus.WAITING_SAFE_POINT, "MAXIMUM_REACHED_WAIT_SAFE_POINT", now);
+        if (!policy.isAllowMigration()) {
+          policy.evaluate(
+              ResourcePolicyStatus.AGENT_PAUSED, "MAXIMUM_REACHED_MIGRATION_DISABLED", now);
+          break;
+        }
+        var safePoint = safePointService.assess(sessionId, policy.getTenantId());
+        var reason =
+            safePoint.safe()
+                ? "SAFE_POINT_READY_MIGRATION_DISPATCH_PENDING"
+                : "MAXIMUM_REACHED_WAIT_SAFE_POINT:" + safePoint.blockers().getFirst().code();
+        var changed = !reason.equals(policy.getStatusReason());
+        policy.evaluate(ResourcePolicyStatus.WAITING_SAFE_POINT, reason, now);
+        if (changed) {
+          appendEvent(
+              sessionId,
+              policy.getTenantId(),
+              safePoint.safe() ? "SAFE_POINT_READY" : "SAFE_POINT_BLOCKED",
+              reason,
+              null,
+              null,
+              "SAFE_POINT_AGGREGATOR",
+              null,
+              null,
+              safePoint.safe() ? "MIGRATION_PENDING" : "BROWSER_PRESERVED",
+              now);
+        }
       }
       case HIBERNATE -> {
         pauseAgentTasks(sessionId, now);
-        policy.evaluate(
-            ResourcePolicyStatus.HIBERNATING, "MAXIMUM_REACHED_HIBERNATE_REQUESTED", now);
+        if (!policy.isAllowHibernate()) {
+          policy.evaluate(
+              ResourcePolicyStatus.AGENT_PAUSED, "MAXIMUM_REACHED_HIBERNATE_DISABLED", now);
+          break;
+        }
+        var safePoint = safePointService.assess(sessionId, policy.getTenantId());
+        var status =
+            safePoint.safe()
+                ? ResourcePolicyStatus.HIBERNATING
+                : ResourcePolicyStatus.WAITING_SAFE_POINT;
+        var reason =
+            safePoint.safe()
+                ? "SAFE_POINT_READY_HIBERNATE_DISPATCH_PENDING"
+                : "MAXIMUM_REACHED_HIBERNATE_WAIT_SAFE_POINT:"
+                    + safePoint.blockers().getFirst().code();
+        var changed = status != policy.status() || !reason.equals(policy.getStatusReason());
+        policy.evaluate(status, reason, now);
+        if (changed) {
+          appendEvent(
+              sessionId,
+              policy.getTenantId(),
+              safePoint.safe() ? "SAFE_POINT_READY" : "SAFE_POINT_BLOCKED",
+              reason,
+              null,
+              null,
+              "SAFE_POINT_AGGREGATOR",
+              null,
+              null,
+              safePoint.safe() ? "HIBERNATE_PENDING" : "BROWSER_PRESERVED",
+              now);
+        }
       }
       case TERMINATE_STRICT ->
           policy.evaluate(
@@ -430,6 +486,72 @@ public class SessionResourceApplicationService {
               task.pauseByResourcePolicy(now);
               tasks.save(task);
             });
+  }
+
+  @Transactional
+  public void maximumActionDispatched(
+      String sessionId, String action, String operationId, String result) {
+    var policy = policies.findById(sessionId).orElseThrow(ResourcePolicyNotFoundException::new);
+    var now = Instant.now();
+    policy.evaluate(
+        "HIBERNATE".equals(action)
+            ? ResourcePolicyStatus.HIBERNATING
+            : ResourcePolicyStatus.CRITICAL,
+        action + "_OPERATION_DISPATCHED:" + operationId,
+        now);
+    policies.save(policy);
+    appendEvent(
+        sessionId,
+        policy.getTenantId(),
+        "MAXIMUM_ACTION_DISPATCHED",
+        action,
+        null,
+        null,
+        "RESOURCE_DECISION_ENGINE",
+        operationId,
+        null,
+        result,
+        now);
+  }
+
+  @Transactional
+  public void recordMigrationPhase(
+      String sessionId,
+      String migrationId,
+      String phase,
+      String result,
+      boolean completed,
+      boolean ready) {
+    var policy = policies.findById(sessionId).orElseThrow(ResourcePolicyNotFoundException::new);
+    var now = Instant.now();
+    policy.evaluate(
+        completed
+            ? (ready ? ResourcePolicyStatus.STABLE : ResourcePolicyStatus.CRITICAL)
+            : ResourcePolicyStatus.MIGRATING,
+        "MIGRATION_" + phase + ":" + result,
+        now);
+    policies.save(policy);
+    if (completed && ready) {
+      tasks
+          .findAllBySessionIdAndState(sessionId, "PAUSED_BY_RESOURCE_POLICY")
+          .forEach(
+              task -> {
+                task.resumeAfterResourceRecovery(now);
+                tasks.save(task);
+              });
+    }
+    appendEvent(
+        sessionId,
+        policy.getTenantId(),
+        "MIGRATION_" + phase,
+        result,
+        null,
+        null,
+        "SESSION_MIGRATION_WORKFLOW",
+        migrationId,
+        null,
+        completed ? (ready ? "COMMITTED" : "DEGRADED") : "IN_PROGRESS",
+        now);
   }
 
   private void requestAdjustment(

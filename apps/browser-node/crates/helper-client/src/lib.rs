@@ -151,11 +151,23 @@ impl StorageHelperClient {
         profile_id: &str,
         session_id: &str,
     ) -> anyhow::Result<StorageWorkspace> {
+        self.acquire_workspace_at_checkpoint(tenant_id, profile_id, session_id, None)
+            .await
+    }
+
+    pub async fn acquire_workspace_at_checkpoint(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        checkpoint_id: Option<&str>,
+    ) -> anyhow::Result<StorageWorkspace> {
         let workspace = self
             .call(StorageCommand::Acquire {
                 tenant_id: tenant_id.to_owned(),
                 profile_id: profile_id.to_owned(),
                 session_id: session_id.to_owned(),
+                checkpoint_id: checkpoint_id.map(str::to_owned),
             })
             .await?
             .workspace

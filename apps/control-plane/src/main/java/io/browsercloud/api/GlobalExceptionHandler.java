@@ -20,6 +20,7 @@ import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundExce
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
+import io.browsercloud.application.SafePointApplicationService.SafePointNotFoundException;
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotFoundException;
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
@@ -96,6 +97,17 @@ public class GlobalExceptionHandler {
         HttpStatus.NOT_FOUND,
         "RESOURCE_POLICY_NOT_FOUND",
         "Session resource policy not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(SafePointNotFoundException.class)
+  ResponseEntity<ApiError> safePointNotFound(
+      SafePointNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "SAFE_POINT_NOT_FOUND",
+        "Session safe-point state not found",
         Map.of(),
         request);
   }

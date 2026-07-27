@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import io.browsercloud.api.BrowserNodeView;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
+import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.proto.node.v1.ReportCapacityRequest;
 import io.browsercloud.proto.node.v1.ReportCapacityResponse;
@@ -70,6 +71,7 @@ class NodeCapacityGrpcEndpointTest {
               mock(NodeEventIngestionService.class),
               capacity,
               mock(SessionResourceApplicationService.class),
+              mock(SafePointApplicationService.class),
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportCapacityResponse>();
@@ -107,12 +109,14 @@ class NodeCapacityGrpcEndpointTest {
   @Test
   void authenticNodeResourceReportRecordsRealSessionSample() {
     var resources = mock(SessionResourceApplicationService.class);
+    var safePoints = mock(SafePointApplicationService.class);
     try (var factory = Validation.buildDefaultValidatorFactory()) {
       var endpoint =
           new NodeEventGrpcServer.Endpoint(
               mock(NodeEventIngestionService.class),
               mock(BrowserCapacityApplicationService.class),
               resources,
+              safePoints,
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportSessionResourcesResponse>();
@@ -126,6 +130,10 @@ class NodeCapacityGrpcEndpointTest {
               .setCpuPercent(64.5)
               .setMemoryRssMib(1536)
               .setMemoryPsiSomeAvg10(2.75)
+              .setInputActive(true)
+              .setActiveDrag(false)
+              .setPressedKeyCount(1)
+              .setPressedButtonCount(0)
               .build(),
           observer(responses));
 
@@ -137,6 +145,9 @@ class NodeCapacityGrpcEndpointTest {
                 assertThat(response.getAccepted()).isTrue();
               });
       verify(resources).recordSampleFromNode(eq("ses_test_1"), eq("tenant-test"), eq(7L), any());
+      verify(safePoints)
+          .recordNodeObservation(
+              eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), eq(7L), any());
     }
   }
 

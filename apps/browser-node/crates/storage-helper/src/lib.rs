@@ -20,6 +20,7 @@ const MANIFEST_FILE: &str = "manifest.json";
 const COMMIT_MARKER_FILE: &str = "COMMITTED";
 const LATEST_FILE: &str = "LATEST";
 const WRITER_LOCK_FILE: &str = "WRITER";
+const MAX_CHECKPOINT_ARCHIVE_BYTES: usize = 1024 * 1024 * 1024;
 
 /// Profile 检查点清单。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -151,6 +152,55 @@ impl LocalProfileStore {
         .await?
     }
 
+    pub async fn install_checkpoint_archive(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+        archive: Vec<u8>,
+    ) -> anyhow::Result<ProfileCheckpointManifest> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("checkpoint_id", checkpoint_id)?;
+        anyhow::ensure!(
+            archive.len() <= MAX_CHECKPOINT_ARCHIVE_BYTES,
+            "checkpoint archive exceeds the bounded restore size"
+        );
+        let root = self.root.clone();
+        let tenant_id = tenant_id.to_owned();
+        let profile_id = profile_id.to_owned();
+        let checkpoint_id = checkpoint_id.to_owned();
+        tokio::task::spawn_blocking(move || {
+            install_checkpoint_archive_blocking(
+                &root,
+                &tenant_id,
+                &profile_id,
+                &checkpoint_id,
+                &archive,
+            )
+        })
+        .await?
+    }
+
+    pub async fn activate_local_checkpoint(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+    ) -> anyhow::Result<bool> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("checkpoint_id", checkpoint_id)?;
+        let root = self.root.clone();
+        let tenant_id = tenant_id.to_owned();
+        let profile_id = profile_id.to_owned();
+        let checkpoint_id = checkpoint_id.to_owned();
+        tokio::task::spawn_blocking(move || {
+            activate_local_checkpoint_blocking(&root, &tenant_id, &profile_id, &checkpoint_id)
+        })
+        .await?
+    }
+
     pub async fn resume_workspace(
         &self,
         tenant_id: &str,
@@ -268,6 +318,115 @@ fn acquire_workspace_blocking(
         let _ = fs::remove_file(profile_root.join(WRITER_LOCK_FILE));
     }
     result
+}
+
+fn install_checkpoint_archive_blocking(
+    root: &Path,
+    tenant_id: &str,
+    profile_id: &str,
+    checkpoint_id: &str,
+    archive_bytes: &[u8],
+) -> anyhow::Result<ProfileCheckpointManifest> {
+    let profile_root = profile_root(root, tenant_id, profile_id);
+    let checkpoints = profile_root.join("checkpoints");
+    secure_create_dir_all(&checkpoints)?;
+    let committed = checkpoints.join(checkpoint_id);
+    if committed.is_dir() {
+        let manifest = validate_committed_checkpoint(&profile_root, checkpoint_id)?;
+        anyhow::ensure!(
+            manifest.tenant_id == tenant_id && manifest.profile_id == profile_id,
+            "local checkpoint identity mismatch"
+        );
+        atomic_write(&profile_root.join(LATEST_FILE), checkpoint_id.as_bytes())?;
+        return Ok(manifest);
+    }
+
+    let staging = checkpoints.join(format!(
+        ".restore-{checkpoint_id}-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    secure_create_dir_all(&staging)?;
+    let result = (|| {
+        let decoder = zstd::Decoder::new(archive_bytes)?;
+        let mut archive = tar::Archive::new(decoder);
+        let mut file_count = 0usize;
+        let mut entry_count = 0usize;
+        for entry in archive.entries()? {
+            let mut entry = entry?;
+            entry_count = entry_count.saturating_add(1);
+            anyhow::ensure!(
+                entry_count <= MAX_PROFILE_FILES + 3,
+                "checkpoint archive contains too many entries"
+            );
+            let entry_type = entry.header().entry_type();
+            anyhow::ensure!(
+                entry_type.is_file() || entry_type.is_dir(),
+                "checkpoint archive contains a non-regular entry"
+            );
+            let path = entry.path()?.into_owned();
+            let safe = safe_relative_path(&path.to_string_lossy())?;
+            let permitted = safe == Path::new(MANIFEST_FILE)
+                || safe == Path::new(COMMIT_MARKER_FILE)
+                || safe.starts_with("core");
+            anyhow::ensure!(permitted, "checkpoint archive contains an unexpected path");
+            if entry_type.is_file() {
+                file_count = file_count.saturating_add(1);
+                anyhow::ensure!(
+                    file_count <= MAX_PROFILE_FILES + 2,
+                    "checkpoint archive contains too many files"
+                );
+                anyhow::ensure!(
+                    entry.header().size()? <= MAX_PROFILE_FILE_BYTES,
+                    "checkpoint archive file exceeds size limit"
+                );
+            }
+            let target = staging.join(&safe);
+            if let Some(parent) = target.parent() {
+                secure_create_dir_all(parent)?;
+            }
+            entry.unpack(&target)?;
+            if entry_type.is_file() {
+                secure_file_permissions(&target)?;
+            }
+        }
+        let manifest: ProfileCheckpointManifest =
+            serde_json::from_slice(&fs::read(staging.join(MANIFEST_FILE))?)?;
+        anyhow::ensure!(manifest.committed, "restored checkpoint is not committed");
+        anyhow::ensure!(
+            manifest.checkpoint_id == checkpoint_id
+                && manifest.tenant_id == tenant_id
+                && manifest.profile_id == profile_id,
+            "restored checkpoint identity mismatch"
+        );
+        fs::rename(&staging, &committed)?;
+        sync_directory(&checkpoints)?;
+        atomic_write(&profile_root.join(LATEST_FILE), checkpoint_id.as_bytes())?;
+        validate_committed_checkpoint(&profile_root, checkpoint_id)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    result
+}
+
+fn activate_local_checkpoint_blocking(
+    root: &Path,
+    tenant_id: &str,
+    profile_id: &str,
+    checkpoint_id: &str,
+) -> anyhow::Result<bool> {
+    let profile_root = profile_root(root, tenant_id, profile_id);
+    let committed = profile_root.join("checkpoints").join(checkpoint_id);
+    if !committed.is_dir() {
+        return Ok(false);
+    }
+    let manifest = validate_committed_checkpoint(&profile_root, checkpoint_id)?;
+    anyhow::ensure!(
+        manifest.tenant_id == tenant_id && manifest.profile_id == profile_id,
+        "local checkpoint identity mismatch"
+    );
+    atomic_write(&profile_root.join(LATEST_FILE), checkpoint_id.as_bytes())?;
+    Ok(true)
 }
 
 fn checkpoint_blocking(
@@ -940,6 +1099,87 @@ mod tests {
         assert!(!root
             .join("tenants/tenant-test/profiles/profile-test/WRITER")
             .exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn installs_verified_archive_for_cross_node_restore() {
+        let source_root = temp_root();
+        let source = LocalProfileStore::open(source_root.clone()).await.unwrap();
+        let workspace = source
+            .acquire_workspace("tenant-test", "profile-test", "session-source")
+            .await
+            .unwrap();
+        fs::write(workspace.core_dir.join("Cookies"), b"portable-state").unwrap();
+        let manifest = source.checkpoint(&workspace, "runtime-test").await.unwrap();
+        let packed = source.pack_checkpoint(&manifest).await.unwrap();
+        source.release_writer(&workspace).await.unwrap();
+
+        let target_root = temp_root();
+        let target = LocalProfileStore::open(target_root.clone()).await.unwrap();
+        let restored_manifest = target
+            .install_checkpoint_archive(
+                "tenant-test",
+                "profile-test",
+                &manifest.checkpoint_id,
+                packed,
+            )
+            .await
+            .unwrap();
+        let restored = target
+            .acquire_workspace("tenant-test", "profile-test", "session-target")
+            .await
+            .unwrap();
+
+        assert_eq!(restored_manifest, manifest);
+        assert_eq!(
+            fs::read(restored.core_dir.join("Cookies")).unwrap(),
+            b"portable-state"
+        );
+        assert_eq!(
+            restored.restored_checkpoint_id.as_deref(),
+            Some(manifest.checkpoint_id.as_str())
+        );
+        target.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(source_root).unwrap();
+        fs::remove_dir_all(target_root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn activates_verified_local_checkpoint_without_object_archive() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "session-source")
+            .await
+            .unwrap();
+        fs::write(workspace.core_dir.join("Cookies"), b"local-state").unwrap();
+        let manifest = store.checkpoint(&workspace, "runtime-test").await.unwrap();
+        store.release_writer(&workspace).await.unwrap();
+        fs::remove_file(
+            root.join("tenants/tenant-test/profiles/profile-test")
+                .join(LATEST_FILE),
+        )
+        .unwrap();
+
+        assert!(store
+            .activate_local_checkpoint("tenant-test", "profile-test", &manifest.checkpoint_id,)
+            .await
+            .unwrap());
+        let restored = store
+            .acquire_workspace("tenant-test", "profile-test", "session-target")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            fs::read(restored.core_dir.join("Cookies")).unwrap(),
+            b"local-state"
+        );
+        assert_eq!(
+            restored.restored_checkpoint_id.as_deref(),
+            Some(manifest.checkpoint_id.as_str())
+        );
+        store.release_writer(&restored).await.unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 }

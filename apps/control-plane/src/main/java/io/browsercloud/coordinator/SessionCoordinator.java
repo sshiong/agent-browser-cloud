@@ -80,6 +80,7 @@ public final class SessionCoordinator {
     return switch (command) {
       case StartSession start -> handleStart(start);
       case TerminateSession terminate -> handleTerminate(terminate);
+      case HibernateSession hibernate -> handleHibernate(hibernate);
       case RequestHumanTakeover takeover -> handleHumanTakeover(takeover);
       case ReleaseHumanTakeover release -> handleReleaseHumanTakeover(release);
       case ReconcileAgentExecution ignored -> CoordinatorResult.completed();
@@ -218,7 +219,11 @@ public final class SessionCoordinator {
     // 发送 Node Command
     nodeCommandGateway.send(
         NodeCommands.startRuntime(
-            session, operation, command.requestedRuntimeBuildId(), command.resourceLimits()));
+            session,
+            operation,
+            command.requestedRuntimeBuildId(),
+            command.resourceLimits(),
+            command.profileCheckpointId()));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.STARTING));
 
     log.info(
@@ -268,6 +273,23 @@ public final class SessionCoordinator {
     nodeCommandGateway.send(NodeCommands.stopRuntime(session, operation, command.reason()));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.TERMINATING));
 
+    return CoordinatorResult.accepted(operation.operationId());
+  }
+
+  private CoordinatorResult handleHibernate(HibernateSession command) {
+    var session = sessionRepository.requireForUpdate(command.sessionId());
+    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+      throw new InvalidSessionStateException(session.sessionId(), session.state(), "hibernate");
+    }
+    operationRepository.ensureNoActiveOperation(session.sessionId());
+    var operation =
+        OperationFactory.hibernate(
+            session, operationRepository.nextOperationEpoch(session.sessionId()));
+    operationRepository.insert(operation);
+    sessionRepository.updateWithExpectedEpoch(
+        session.withState(SessionState.HIBERNATING), session.contextEpoch());
+    nodeCommandGateway.send(NodeCommands.stopRuntime(session, operation, command.reason()));
+    outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.HIBERNATING));
     return CoordinatorResult.accepted(operation.operationId());
   }
 
@@ -394,22 +416,27 @@ public final class SessionCoordinator {
 
       case NodeEvent.RuntimeStopped stopped -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
-        if (session.state() != SessionState.TERMINATING) {
+        if (session.state() != SessionState.TERMINATING
+            && session.state() != SessionState.HIBERNATING) {
           yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
         }
         if (operation.isEmpty()) {
           yield CoordinatorResult.rejected("STALE_OPERATION_EPOCH");
         }
+        var hibernating = session.state() == SessionState.HIBERNATING;
+        if (hibernating && operation.orElseThrow().mode() != OperationMode.HIBERNATE) {
+          yield CoordinatorResult.rejected("INVALID_HIBERNATE_OPERATION");
+        }
 
         // 更新 Session 状态
-        var newContext = session.withState(SessionState.TERMINATED);
+        var nextState = hibernating ? SessionState.HIBERNATED : SessionState.TERMINATED;
+        var newContext = session.withState(nextState);
         sessionRepository.updateWithExpectedEpoch(newContext, session.contextEpoch());
 
         // 提交 Operation
         operationRepository.transition(
             operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
-        outboxPublisher.append(
-            new SessionStateChanged(session.sessionId(), SessionState.TERMINATED));
+        outboxPublisher.append(new SessionStateChanged(session.sessionId(), nextState));
 
         yield CoordinatorResult.completed();
       }

@@ -67,6 +67,8 @@ pub enum StorageCommand {
         tenant_id: String,
         profile_id: String,
         session_id: String,
+        #[serde(default)]
+        checkpoint_id: Option<String>,
     },
     Checkpoint {
         tenant_id: String,

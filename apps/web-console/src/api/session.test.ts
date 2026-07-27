@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createSession,
   getBrowserState,
+  getSessionSafePoint,
   listSessions,
   requestHumanTakeover,
   resyncBrowserState,
@@ -117,6 +118,35 @@ describe('session API', () => {
     ).resolves.toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/sessions/ses_1234567890abcdef/state',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('reads the tenant-scoped persistent safe-point assessment', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          sessionId: 'ses_1234567890abcdef',
+          safe: false,
+          state: 'UNKNOWN',
+          dataFreshness: 'MISSING',
+          contextEpoch: 7,
+          evaluatedAt: new Date().toISOString(),
+          blockers: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getSessionSafePoint('ses_1234567890abcdef', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef/safe-point',
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',

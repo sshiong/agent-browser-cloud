@@ -715,6 +715,10 @@ impl NodeControlService {
             .as_millis()
             .try_into()
             .context("resource sample timestamp exceeds i64")?;
+        let input_ledger = match self.input_brokers.lock().await.get(session_id).cloned() {
+            Some(input) => Some(input.ledger_snapshot().await),
+            None => None,
+        };
         let secure = self.grpc_tls.is_some();
         let target = if self.control_plane_event_target.starts_with("http://")
             || self.control_plane_event_target.starts_with("https://")
@@ -756,6 +760,14 @@ impl NodeControlService {
                 remote_desktop_frame_age_ms: None,
                 media_encoder_percent: None,
                 danger_event: String::new(),
+                input_active: input_ledger.as_ref().map(|ledger| ledger.has_any_input()),
+                active_drag: input_ledger.as_ref().map(|ledger| ledger.active_drag),
+                pressed_key_count: input_ledger
+                    .as_ref()
+                    .map(|ledger| ledger.pressed_keys.len().try_into().unwrap_or(u32::MAX)),
+                pressed_button_count: input_ledger
+                    .as_ref()
+                    .map(|ledger| ledger.pressed_buttons.len().try_into().unwrap_or(u32::MAX)),
             })
             .await?
             .into_inner();
@@ -1171,10 +1183,12 @@ impl NodeControlService {
                             );
                         };
                         let workspace = match storage_helper
-                            .acquire_workspace(
+                            .acquire_workspace_at_checkpoint(
                                 &command.tenant_id,
                                 &payload.profile_id,
                                 &command.session_id,
+                                (!payload.profile_checkpoint_id.is_empty())
+                                    .then_some(payload.profile_checkpoint_id.as_str()),
                             )
                             .await
                         {

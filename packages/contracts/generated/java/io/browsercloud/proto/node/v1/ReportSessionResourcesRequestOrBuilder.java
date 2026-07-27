@@ -210,4 +210,48 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDangerEventBytes();
+
+  /**
+   * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   * @return Whether the inputActive field is set.
+   */
+  boolean hasInputActive();
+  /**
+   * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   * @return The inputActive.
+   */
+  boolean getInputActive();
+
+  /**
+   * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   * @return Whether the activeDrag field is set.
+   */
+  boolean hasActiveDrag();
+  /**
+   * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   * @return The activeDrag.
+   */
+  boolean getActiveDrag();
+
+  /**
+   * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   * @return Whether the pressedKeyCount field is set.
+   */
+  boolean hasPressedKeyCount();
+  /**
+   * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   * @return The pressedKeyCount.
+   */
+  int getPressedKeyCount();
+
+  /**
+   * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   * @return Whether the pressedButtonCount field is set.
+   */
+  boolean hasPressedButtonCount();
+  /**
+   * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   * @return The pressedButtonCount.
+   */
+  int getPressedButtonCount();
 }

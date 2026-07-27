@@ -131,7 +131,23 @@ async fn execute_storage_operation(
             tenant_id,
             profile_id,
             session_id,
+            checkpoint_id,
         } => {
+            if let Some(checkpoint_id) = checkpoint_id.as_deref() {
+                let local_checkpoint_ready = store
+                    .activate_local_checkpoint(tenant_id, profile_id, checkpoint_id)
+                    .await?;
+                if !local_checkpoint_ready {
+                    let archive = archive.ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "checkpoint is unavailable locally and object archive is not configured"
+                        )
+                    })?;
+                    archive
+                        .restore_checkpoint(store, tenant_id, profile_id, checkpoint_id)
+                        .await?;
+                }
+            }
             let workspace = store
                 .acquire_workspace(tenant_id, profile_id, session_id)
                 .await?;

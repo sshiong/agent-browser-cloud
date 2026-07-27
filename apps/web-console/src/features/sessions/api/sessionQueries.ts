@@ -4,6 +4,8 @@ import {
   getBrowserState,
   getSessionResourceEvents,
   getSessionResources,
+  getSessionSafePoint,
+  getSessionMigration,
   getSession,
   listSessions,
   releaseHumanTakeover,
@@ -36,6 +38,10 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'resources'] as const,
   resourceEvents: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'resource-events'] as const,
+  safePoint: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'safe-point'] as const,
+  migration: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'migration'] as const,
 };
 
 export function useSessions(params: {
@@ -111,6 +117,24 @@ export function useSessionResourceEvents(sessionId: string) {
       getSessionResourceEvents(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
     refetchInterval: 30_000,
+  });
+}
+
+export function useSessionSafePoint(sessionId: string, live: boolean) {
+  return useQuery({
+    queryKey: sessionKeys.safePoint(sessionId),
+    queryFn: ({ signal }) => getSessionSafePoint(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+    refetchInterval: live ? 5_000 : 30_000,
+  });
+}
+
+export function useSessionMigration(sessionId: string, live: boolean) {
+  return useQuery({
+    queryKey: sessionKeys.migration(sessionId),
+    queryFn: ({ signal }) => getSessionMigration(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+    refetchInterval: live ? 2_000 : 30_000,
   });
 }
 

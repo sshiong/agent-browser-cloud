@@ -61,6 +61,30 @@ public final class OperationFactory {
         null);
   }
 
+  /** Create a checkpoint-backed hibernation operation. */
+  public static ExclusiveOperation hibernate(SessionContext session, long operationEpoch) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.SYSTEM,
+        "resource-decision-engine",
+        OperationMode.HIBERNATE,
+        80,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.PREPARING,
+        OperationState.ACTIVE,
+        Set.of("profile.checkpoint", "runtime.stop"),
+        now.plusSeconds(180),
+        now,
+        null);
+  }
+
   /** 创建 Browser Crash Recovery Operation。 */
   public static ExclusiveOperation recovery(SessionContext session, long operationEpoch) {
     return new ExclusiveOperation(

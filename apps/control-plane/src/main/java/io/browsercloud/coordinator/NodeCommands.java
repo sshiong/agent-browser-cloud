@@ -31,6 +31,15 @@ public final class NodeCommands {
       ExclusiveOperation operation,
       String requestedRuntimeBuildId,
       RuntimeResourceLimits requestedLimits) {
+    return startRuntime(session, operation, requestedRuntimeBuildId, requestedLimits, null);
+  }
+
+  public static NodeCommand startRuntime(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String requestedRuntimeBuildId,
+      RuntimeResourceLimits requestedLimits,
+      String profileCheckpointId) {
     var limits = requestedLimits == null ? defaultLimits(session) : requestedLimits;
     if (limits.resourceClass() != session.resourceClass()) {
       throw new IllegalArgumentException("Runtime limits do not match committed Resource Class");
@@ -53,6 +62,7 @@ public final class NodeCommands {
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
             .setIsolationRequired(limits.isolated())
+            .setProfileCheckpointId(profileCheckpointId == null ? "" : profileCheckpointId)
             .build()
             .toByteArray();
     return new NodeCommand(

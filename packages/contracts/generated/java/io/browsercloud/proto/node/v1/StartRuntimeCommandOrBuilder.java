@@ -139,4 +139,16 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The isolationRequired.
    */
   boolean getIsolationRequired();
+
+  /**
+   * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+   * @return The profileCheckpointId.
+   */
+  java.lang.String getProfileCheckpointId();
+  /**
+   * <code>string profile_checkpoint_id = 17 [json_name = "profileCheckpointId"];</code>
+   * @return The bytes for profileCheckpointId.
+   */
+  com.google.protobuf.ByteString
+      getProfileCheckpointIdBytes();
 }

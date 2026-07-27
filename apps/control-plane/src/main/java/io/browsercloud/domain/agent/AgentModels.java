@@ -48,6 +48,7 @@ public final class AgentModels {
     AWAITING_CONFIRMATION,
     BLOCKED,
     RUNNING,
+    PAUSED_BY_RESOURCE_POLICY,
     WAITING_FOR_HUMAN,
     COMPLETED,
     FAILED

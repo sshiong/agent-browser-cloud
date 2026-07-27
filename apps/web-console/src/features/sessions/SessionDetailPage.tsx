@@ -26,6 +26,8 @@ import {
   useResyncBrowserState,
   useSessionResourceEvents,
   useSessionResources,
+  useSessionSafePoint,
+  useSessionMigration,
   useStartSession,
   useTerminateSession,
   useUpdateResourcePolicy,
@@ -59,6 +61,18 @@ export function SessionDetailPage() {
     ['RUNNING', 'DEGRADED'].includes(sessionQuery.data?.state ?? '')
   );
   const resourceEventsQuery = useSessionResourceEvents(id);
+  const safePointQuery = useSessionSafePoint(
+    id,
+    ['RUNNING', 'DEGRADED', 'HIBERNATING', 'RECOVERING'].includes(
+      sessionQuery.data?.state ?? ''
+    )
+  );
+  const migrationQuery = useSessionMigration(
+    id,
+    ['HIBERNATING', 'HIBERNATED', 'STARTING', 'RECOVERING', 'RUNNING'].includes(
+      sessionQuery.data?.state ?? ''
+    )
+  );
   const resourcePolicyMutation = useUpdateResourcePolicy(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
 
@@ -183,6 +197,8 @@ export function SessionDetailPage() {
                         browserStateQuery.refetch(),
                         resourceQuery.refetch(),
                         resourceEventsQuery.refetch(),
+                        safePointQuery.refetch(),
+                        migrationQuery.refetch(),
                       ])
                     }
                     disabled={
@@ -258,6 +274,9 @@ export function SessionDetailPage() {
                 <SessionResourcePanel
                   resource={resourceQuery.data}
                   events={resourceEventsQuery.data?.items ?? []}
+                  safePoint={safePointQuery.data}
+                  safePointError={safePointQuery.error}
+                  migration={migrationQuery.data ?? undefined}
                   loading={resourceQuery.isLoading}
                   error={resourceQuery.error}
                   canAdminister={auth.hasAnyRole([

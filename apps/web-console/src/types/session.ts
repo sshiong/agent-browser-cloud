@@ -212,6 +212,53 @@ export interface ResourceEventListResponse {
   offset: number;
 }
 
+export interface SafePointBlockerView {
+  code: string;
+  source: string;
+  detail: string;
+  observedAt?: string;
+  expiresAt?: string;
+}
+
+export interface SessionSafePointView {
+  sessionId: string;
+  safe: boolean;
+  state: 'SAFE' | 'BLOCKED' | 'UNKNOWN';
+  dataFreshness: 'LIVE' | 'STALE' | 'MISSING' | 'NOT_REQUIRED';
+  nodeId?: string;
+  contextEpoch: number;
+  evaluatedAt: string;
+  lastNodeObservationAt?: string;
+  blockers: SafePointBlockerView[];
+}
+
+export interface SessionMigrationView {
+  migrationId: string;
+  sessionId: string;
+  sourceNodeId: string;
+  targetNodeId?: string;
+  sourceContextEpoch: number;
+  targetContextEpoch?: number;
+  checkpointId?: string;
+  hibernateOperationId?: string;
+  restoreOperationId?: string;
+  resyncRequestId?: string;
+  phase:
+    | 'CHECKPOINTING'
+    | 'PLACING_TARGET'
+    | 'RESTORING'
+    | 'STATE_RESYNC'
+    | 'BUSINESS_VALIDATION'
+    | 'COMPLETED'
+    | 'DEGRADED'
+    | 'FAILED';
+  recoveryResult?: string;
+  failureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
 export interface ResourcePolicyOperationResponse {
   operationId: string;
   state: string;

@@ -1,7 +1,7 @@
 # Web Console AUTO 资源策略与详情面板
 
 > 日期：2026-07-27
-> 状态：AUTO 创建、策略持久化、基础真实遥测、同节点在线资源执行器和详情 UI 已完成；完整指标、安全点迁移与流式事件待完成
+> 状态：AUTO 创建、策略持久化、基础真实遥测、同节点在线资源执行器、安全点/迁移详情 UI 已完成；完整指标、真实双 Node E2E 与流式事件待完成
 
 ## 本轮目标
 
@@ -109,11 +109,11 @@
    Remote Desktop 码率和 Extension Weight 执行器尚未实现。
 3. 30 秒决策引擎已通过真实 Operation、Outbox、Node ACK Event 和 PostgreSQL 提交完成
    同节点快扩慢缩；Node ACK 前不会写入新分配。
-4. 安全点检测还没有覆盖拖拽/连续输入、上传下载、表单提交、支付、安全操作、
-   Snapshot、Profile Flush 和业务事务。
-5. Checkpoint → Migrate → Restore → State Resync → Business Recovery Validation
-   的跨 Node 自动迁移闭环尚未实现。
-6. 自动休眠和严格预算终止目前完成策略建模、权限、状态和审计，尚未接入最终执行器。
+4. Safe Point 已覆盖真实 Input Ledger/Drag、HumanTakeover、Agent Task、Snapshot/Profile
+   Durable Workflow；上传下载、表单、支付、安全和应用关键事务仍缺对应业务 Producer。
+5. Checkpoint → 排除源 Node Placement → S3 Restore → State Resync → 默认 Business
+   Recovery Validation 已实现；真实双 Node + S3 + Chromium 故障矩阵仍待验收。
+6. 自动休眠和严格预算终止已接入真实 Operation/Node 执行链。
 7. Resource Event 的 SSE/WebSocket 推送尚未实现；Web 当前以 5 秒/30 秒真实 API
    轮询更新。
 8. Tauri 2 容器、桌面安全存储与签名发布尚未创建；本轮只保证组件/API/权限逻辑可复用。

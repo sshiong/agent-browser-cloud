@@ -8,6 +8,7 @@ package io.browsercloud.coordinator;
 public sealed interface SessionCommand
     permits StartSession,
         TerminateSession,
+        HibernateSession,
         SubmitAgentAction,
         ReconcileAgentExecution,
         RequestHumanTakeover,

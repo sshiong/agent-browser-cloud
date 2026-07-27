@@ -469,6 +469,82 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int INPUT_ACTIVE_FIELD_NUMBER = 24;
+  private boolean inputActive_ = false;
+  /**
+   * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   * @return Whether the inputActive field is set.
+   */
+  @java.lang.Override
+  public boolean hasInputActive() {
+    return ((bitField0_ & 0x00002000) != 0);
+  }
+  /**
+   * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+   * @return The inputActive.
+   */
+  @java.lang.Override
+  public boolean getInputActive() {
+    return inputActive_;
+  }
+
+  public static final int ACTIVE_DRAG_FIELD_NUMBER = 25;
+  private boolean activeDrag_ = false;
+  /**
+   * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   * @return Whether the activeDrag field is set.
+   */
+  @java.lang.Override
+  public boolean hasActiveDrag() {
+    return ((bitField0_ & 0x00004000) != 0);
+  }
+  /**
+   * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+   * @return The activeDrag.
+   */
+  @java.lang.Override
+  public boolean getActiveDrag() {
+    return activeDrag_;
+  }
+
+  public static final int PRESSED_KEY_COUNT_FIELD_NUMBER = 26;
+  private int pressedKeyCount_ = 0;
+  /**
+   * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   * @return Whether the pressedKeyCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasPressedKeyCount() {
+    return ((bitField0_ & 0x00008000) != 0);
+  }
+  /**
+   * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+   * @return The pressedKeyCount.
+   */
+  @java.lang.Override
+  public int getPressedKeyCount() {
+    return pressedKeyCount_;
+  }
+
+  public static final int PRESSED_BUTTON_COUNT_FIELD_NUMBER = 27;
+  private int pressedButtonCount_ = 0;
+  /**
+   * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   * @return Whether the pressedButtonCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasPressedButtonCount() {
+    return ((bitField0_ & 0x00010000) != 0);
+  }
+  /**
+   * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+   * @return The pressedButtonCount.
+   */
+  @java.lang.Override
+  public int getPressedButtonCount() {
+    return pressedButtonCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -539,6 +615,18 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dangerEvent_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 23, dangerEvent_);
+    }
+    if (((bitField0_ & 0x00002000) != 0)) {
+      output.writeBool(24, inputActive_);
+    }
+    if (((bitField0_ & 0x00004000) != 0)) {
+      output.writeBool(25, activeDrag_);
+    }
+    if (((bitField0_ & 0x00008000) != 0)) {
+      output.writeUInt32(26, pressedKeyCount_);
+    }
+    if (((bitField0_ & 0x00010000) != 0)) {
+      output.writeUInt32(27, pressedButtonCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -620,6 +708,22 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(dangerEvent_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(23, dangerEvent_);
+    }
+    if (((bitField0_ & 0x00002000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(24, inputActive_);
+    }
+    if (((bitField0_ & 0x00004000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(25, activeDrag_);
+    }
+    if (((bitField0_ & 0x00008000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(26, pressedKeyCount_);
+    }
+    if (((bitField0_ & 0x00010000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(27, pressedButtonCount_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -717,6 +821,26 @@ private static final long serialVersionUID = 0L;
     }
     if (!getDangerEvent()
         .equals(other.getDangerEvent())) return false;
+    if (hasInputActive() != other.hasInputActive()) return false;
+    if (hasInputActive()) {
+      if (getInputActive()
+          != other.getInputActive()) return false;
+    }
+    if (hasActiveDrag() != other.hasActiveDrag()) return false;
+    if (hasActiveDrag()) {
+      if (getActiveDrag()
+          != other.getActiveDrag()) return false;
+    }
+    if (hasPressedKeyCount() != other.hasPressedKeyCount()) return false;
+    if (hasPressedKeyCount()) {
+      if (getPressedKeyCount()
+          != other.getPressedKeyCount()) return false;
+    }
+    if (hasPressedButtonCount() != other.hasPressedButtonCount()) return false;
+    if (hasPressedButtonCount()) {
+      if (getPressedButtonCount()
+          != other.getPressedButtonCount()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -801,6 +925,24 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + DANGER_EVENT_FIELD_NUMBER;
     hash = (53 * hash) + getDangerEvent().hashCode();
+    if (hasInputActive()) {
+      hash = (37 * hash) + INPUT_ACTIVE_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getInputActive());
+    }
+    if (hasActiveDrag()) {
+      hash = (37 * hash) + ACTIVE_DRAG_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getActiveDrag());
+    }
+    if (hasPressedKeyCount()) {
+      hash = (37 * hash) + PRESSED_KEY_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getPressedKeyCount();
+    }
+    if (hasPressedButtonCount()) {
+      hash = (37 * hash) + PRESSED_BUTTON_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getPressedButtonCount();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -951,6 +1093,10 @@ private static final long serialVersionUID = 0L;
       remoteDesktopFrameAgeMs_ = 0;
       mediaEncoderPercent_ = 0D;
       dangerEvent_ = "";
+      inputActive_ = false;
+      activeDrag_ = false;
+      pressedKeyCount_ = 0;
+      pressedButtonCount_ = 0;
       return this;
     }
 
@@ -1054,6 +1200,22 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00040000) != 0)) {
         result.dangerEvent_ = dangerEvent_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.inputActive_ = inputActive_;
+        to_bitField0_ |= 0x00002000;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.activeDrag_ = activeDrag_;
+        to_bitField0_ |= 0x00004000;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.pressedKeyCount_ = pressedKeyCount_;
+        to_bitField0_ |= 0x00008000;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.pressedButtonCount_ = pressedButtonCount_;
+        to_bitField0_ |= 0x00010000;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1166,6 +1328,18 @@ private static final long serialVersionUID = 0L;
         dangerEvent_ = other.dangerEvent_;
         bitField0_ |= 0x00040000;
         onChanged();
+      }
+      if (other.hasInputActive()) {
+        setInputActive(other.getInputActive());
+      }
+      if (other.hasActiveDrag()) {
+        setActiveDrag(other.getActiveDrag());
+      }
+      if (other.hasPressedKeyCount()) {
+        setPressedKeyCount(other.getPressedKeyCount());
+      }
+      if (other.hasPressedButtonCount()) {
+        setPressedButtonCount(other.getPressedButtonCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1288,6 +1462,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00040000;
               break;
             } // case 186
+            case 192: {
+              inputActive_ = input.readBool();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 192
+            case 200: {
+              activeDrag_ = input.readBool();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 200
+            case 208: {
+              pressedKeyCount_ = input.readUInt32();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 208
+            case 216: {
+              pressedButtonCount_ = input.readUInt32();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 216
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2173,6 +2367,166 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       dangerEvent_ = value;
       bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    private boolean inputActive_ ;
+    /**
+     * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     * @return Whether the inputActive field is set.
+     */
+    @java.lang.Override
+    public boolean hasInputActive() {
+      return ((bitField0_ & 0x00080000) != 0);
+    }
+    /**
+     * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     * @return The inputActive.
+     */
+    @java.lang.Override
+    public boolean getInputActive() {
+      return inputActive_;
+    }
+    /**
+     * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     * @param value The inputActive to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInputActive(boolean value) {
+
+      inputActive_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool input_active = 24 [json_name = "inputActive"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearInputActive() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      inputActive_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean activeDrag_ ;
+    /**
+     * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     * @return Whether the activeDrag field is set.
+     */
+    @java.lang.Override
+    public boolean hasActiveDrag() {
+      return ((bitField0_ & 0x00100000) != 0);
+    }
+    /**
+     * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     * @return The activeDrag.
+     */
+    @java.lang.Override
+    public boolean getActiveDrag() {
+      return activeDrag_;
+    }
+    /**
+     * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     * @param value The activeDrag to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveDrag(boolean value) {
+
+      activeDrag_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool active_drag = 25 [json_name = "activeDrag"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveDrag() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      activeDrag_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int pressedKeyCount_ ;
+    /**
+     * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     * @return Whether the pressedKeyCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasPressedKeyCount() {
+      return ((bitField0_ & 0x00200000) != 0);
+    }
+    /**
+     * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     * @return The pressedKeyCount.
+     */
+    @java.lang.Override
+    public int getPressedKeyCount() {
+      return pressedKeyCount_;
+    }
+    /**
+     * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     * @param value The pressedKeyCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPressedKeyCount(int value) {
+
+      pressedKeyCount_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 pressed_key_count = 26 [json_name = "pressedKeyCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPressedKeyCount() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      pressedKeyCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int pressedButtonCount_ ;
+    /**
+     * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     * @return Whether the pressedButtonCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasPressedButtonCount() {
+      return ((bitField0_ & 0x00400000) != 0);
+    }
+    /**
+     * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     * @return The pressedButtonCount.
+     */
+    @java.lang.Override
+    public int getPressedButtonCount() {
+      return pressedButtonCount_;
+    }
+    /**
+     * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     * @param value The pressedButtonCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPressedButtonCount(int value) {
+
+      pressedButtonCount_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 pressed_button_count = 27 [json_name = "pressedButtonCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPressedButtonCount() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      pressedButtonCount_ = 0;
       onChanged();
       return this;
     }

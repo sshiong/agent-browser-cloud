@@ -4,7 +4,7 @@ use bytes::Bytes;
 use object_store::aws::AmazonS3Builder;
 use object_store::path::Path;
 use object_store::{ClientOptions, ObjectStore, ObjectStoreExt, PutPayload};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,6 +23,14 @@ struct ArchiveCommitMarker<'a> {
     checkpoint_epoch: u64,
     profile_write_epoch: u64,
     content_hash: &'a str,
+    archive_sha256: String,
+    archive_bytes: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredArchiveCommitMarker {
+    checkpoint_id: String,
     archive_sha256: String,
     archive_bytes: usize,
 }
@@ -87,6 +95,30 @@ impl ObjectArchive {
         .await
     }
 
+    pub async fn restore_checkpoint(
+        &self,
+        local: &LocalProfileStore,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+    ) -> anyhow::Result<ProfileCheckpointManifest> {
+        let base = self.object_key_for(tenant_id, profile_id, checkpoint_id);
+        let marker_bytes = self.get(&format!("{base}/COMMITTED")).await?;
+        let marker: StoredArchiveCommitMarker = serde_json::from_slice(&marker_bytes)?;
+        anyhow::ensure!(
+            marker.checkpoint_id == checkpoint_id,
+            "archive commit marker checkpoint mismatch"
+        );
+        let archive = self.get(&format!("{base}/checkpoint.tar.zst")).await?;
+        anyhow::ensure!(
+            archive.len() == marker.archive_bytes && hex_sha256(&archive) == marker.archive_sha256,
+            "checkpoint archive integrity verification failed"
+        );
+        local
+            .install_checkpoint_archive(tenant_id, profile_id, checkpoint_id, archive.to_vec())
+            .await
+    }
+
     async fn put(&self, key: &str, payload: Bytes) -> anyhow::Result<()> {
         tokio::time::timeout(
             self.operation_timeout,
@@ -99,11 +131,30 @@ impl ObjectArchive {
         Ok(())
     }
 
+    async fn get(&self, key: &str) -> anyhow::Result<Bytes> {
+        tokio::time::timeout(self.operation_timeout, async {
+            self.store
+                .get(&Path::from(key))
+                .await?
+                .bytes()
+                .await
+                .with_context(|| format!("Object Storage GET failed for {key}"))
+        })
+        .await
+        .context("Object Storage operation timed out")?
+    }
+
     fn object_key(&self, manifest: &ProfileCheckpointManifest) -> String {
-        let suffix = format!(
-            "tenants/{}/profiles/{}/checkpoints/{}",
-            manifest.tenant_id, manifest.profile_id, manifest.checkpoint_id
-        );
+        self.object_key_for(
+            &manifest.tenant_id,
+            &manifest.profile_id,
+            &manifest.checkpoint_id,
+        )
+    }
+
+    fn object_key_for(&self, tenant_id: &str, profile_id: &str, checkpoint_id: &str) -> String {
+        let suffix =
+            format!("tenants/{tenant_id}/profiles/{profile_id}/checkpoints/{checkpoint_id}");
         if self.prefix.is_empty() {
             suffix
         } else {

@@ -164,6 +164,14 @@ pub struct ReportSessionResourcesRequest {
     pub media_encoder_percent: ::core::option::Option<f64>,
     #[prost(string, tag="23")]
     pub danger_event: ::prost::alloc::string::String,
+    #[prost(bool, optional, tag="24")]
+    pub input_active: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="25")]
+    pub active_drag: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag="26")]
+    pub pressed_key_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="27")]
+    pub pressed_button_count: ::core::option::Option<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -262,6 +270,8 @@ pub struct StartRuntimeCommand {
     pub native_os_required: bool,
     #[prost(bool, tag="16")]
     pub isolation_required: bool,
+    #[prost(string, tag="17")]
+    pub profile_checkpoint_id: ::prost::alloc::string::String,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]

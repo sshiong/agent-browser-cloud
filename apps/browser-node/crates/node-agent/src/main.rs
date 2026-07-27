@@ -63,11 +63,32 @@ struct NodeControlService {
     inflight: Arc<Mutex<HashSet<String>>>,
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
+    resource_browser_baselines: Arc<Mutex<HashMap<String, (f64, Instant)>>>,
+    agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
+    pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
     resource_report_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
     remote_desktop_gateway: Option<RemoteDesktopGateway>,
     desktop_enabled: bool,
+}
+
+#[derive(Debug, Default)]
+struct AgentLatencyWindow {
+    maximum_ms: u32,
+    samples: u32,
+}
+
+impl AgentLatencyWindow {
+    fn record(&mut self, elapsed: Duration) {
+        let elapsed_ms = elapsed.as_millis().try_into().unwrap_or(u32::MAX);
+        self.maximum_ms = self.maximum_ms.max(elapsed_ms);
+        self.samples = self.samples.saturating_add(1);
+    }
+
+    fn maximum(self) -> Option<u32> {
+        (self.samples > 0).then_some(self.maximum_ms)
+    }
 }
 
 #[derive(Clone)]
@@ -687,6 +708,13 @@ impl NodeControlService {
         context_epoch: i64,
     ) -> anyhow::Result<()> {
         let metrics = self.runtime_supervisor.metrics(session_id).await?;
+        let browser_metrics = tokio::time::timeout(
+            Duration::from_secs(2),
+            self.state_collector.collect_resource_metrics(session_id),
+        )
+        .await
+        .ok()
+        .and_then(Result::ok);
         let cpu_percent = if let Some(current_usage_micros) = metrics.cumulative_cpu_usage_micros {
             let now = Instant::now();
             let previous = self
@@ -710,6 +738,49 @@ impl NodeControlService {
         } else {
             f64::from(metrics.cpu_usage_percent).clamp(0.0, 100.0)
         };
+        let main_thread_blocked_ms = if let Some(current_duration_ms) = browser_metrics
+            .as_ref()
+            .and_then(|metrics| metrics.main_thread_task_duration_ms)
+        {
+            let now = Instant::now();
+            let previous = self
+                .resource_browser_baselines
+                .lock()
+                .await
+                .insert(session_id.to_owned(), (current_duration_ms, now));
+            previous.and_then(|(previous_duration_ms, previous_at)| {
+                if !current_duration_ms.is_finite()
+                    || current_duration_ms < previous_duration_ms
+                    || now <= previous_at
+                {
+                    return None;
+                }
+                Some(
+                    (current_duration_ms - previous_duration_ms)
+                        .round()
+                        .clamp(0.0, f64::from(u32::MAX)) as u32,
+                )
+            })
+        } else {
+            None
+        };
+        let agent_action_latency_ms = self
+            .agent_action_latencies
+            .lock()
+            .await
+            .remove(session_id)
+            .and_then(AgentLatencyWindow::maximum);
+        let state_diff_queue_depth = self
+            .pending_state_events
+            .lock()
+            .await
+            .get(session_id)
+            .copied()
+            .unwrap_or_default();
+        let remote_desktop_frame_age_ms = self
+            .remote_desktop_gateway
+            .as_ref()
+            .and_then(|gateway| gateway.frame_age_ms(session_id));
         let observed_at_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)?
             .as_millis()
@@ -749,15 +820,17 @@ impl NodeControlService {
                 cpu_percent: Some(cpu_percent),
                 memory_rss_mib: Some(metrics.resident_memory_bytes.div_ceil(1024 * 1024)),
                 memory_psi_some_avg10: metrics.memory_psi_some_avg10,
-                renderer_count: None,
-                tab_count: None,
-                main_thread_blocked_ms: None,
-                agent_action_latency_ms: None,
-                state_diff_queue_depth: None,
+                renderer_count: browser_metrics
+                    .as_ref()
+                    .and_then(|metrics| metrics.renderer_count),
+                tab_count: browser_metrics.as_ref().map(|metrics| metrics.tab_count),
+                main_thread_blocked_ms,
+                agent_action_latency_ms,
+                state_diff_queue_depth: Some(state_diff_queue_depth),
                 profile_io_bytes_per_second: None,
                 extension_cpu_percent: None,
                 extension_memory_mib: None,
-                remote_desktop_frame_age_ms: None,
+                remote_desktop_frame_age_ms,
                 media_encoder_percent: None,
                 danger_event: String::new(),
                 input_active: input_ledger.as_ref().map(|ledger| ledger.has_any_input()),
@@ -781,6 +854,8 @@ impl NodeControlService {
 
     async fn publish_and_mark(&self, event: EventEnvelope) -> anyhow::Result<()> {
         let event_id = event.event_id.clone();
+        let backlog_session =
+            Self::is_state_backlog_event(&event).then(|| event.session_id.clone());
         let acknowledgement = self.publish_event_receipt(event).await?;
         anyhow::ensure!(
             acknowledgement.accepted
@@ -791,7 +866,66 @@ impl NodeControlService {
             "Control Plane rejected Node Event: {}",
             acknowledgement.error_code
         );
-        self.journal.mark_event_delivered(&event_id).await
+        self.journal.mark_event_delivered(&event_id).await?;
+        if let Some(session_id) = backlog_session {
+            self.decrement_pending_state_event(&session_id).await;
+        }
+        Ok(())
+    }
+
+    fn is_state_backlog_event(event: &EventEnvelope) -> bool {
+        matches!(
+            event.event_type.as_str(),
+            "BrowserStateDiff" | "DiffTruncated"
+        )
+    }
+
+    async fn increment_pending_state_event(&self, session_id: &str) {
+        let mut depths = self.pending_state_events.lock().await;
+        let depth = depths.entry(session_id.to_owned()).or_default();
+        *depth = depth.saturating_add(1);
+    }
+
+    async fn decrement_pending_state_event(&self, session_id: &str) {
+        let mut depths = self.pending_state_events.lock().await;
+        if let Some(depth) = depths.get_mut(session_id) {
+            *depth = depth.saturating_sub(1);
+            if *depth == 0 {
+                depths.remove(session_id);
+            }
+        }
+    }
+
+    async fn rebuild_pending_state_event_depths(&self) {
+        const STARTUP_SCAN_LIMIT: usize = 10_000;
+        let pending = match self.journal.pending_events(STARTUP_SCAN_LIMIT).await {
+            Ok(pending) => pending,
+            Err(error) => {
+                tracing::error!(error = %error, "Failed to rebuild State Diff queue depth");
+                return;
+            }
+        };
+        let capped = pending.len() == STARTUP_SCAN_LIMIT;
+        let mut rebuilt = HashMap::<String, u32>::new();
+        for result in pending {
+            let Some(payload) = result.event_payload else {
+                continue;
+            };
+            let Ok(event) = EventEnvelope::decode(payload.as_slice()) else {
+                continue;
+            };
+            if Self::is_state_backlog_event(&event) {
+                let depth = rebuilt.entry(event.session_id).or_default();
+                *depth = depth.saturating_add(1);
+            }
+        }
+        *self.pending_state_events.lock().await = rebuilt;
+        if capped {
+            tracing::warn!(
+                limit = STARTUP_SCAN_LIMIT,
+                "State Diff queue depth startup scan reached its safety cap"
+            );
+        }
     }
 
     fn persisted(result: &CommandResult) -> PersistedCommandResult {
@@ -1871,7 +2005,15 @@ impl NodeControlService {
                         return self
                             .failed(command, anyhow::anyhow!("agent action payload is invalid"));
                     }
-                    let state = match self.execute_agent_action(&payload).await {
+                    let action_started = Instant::now();
+                    let action_result = self.execute_agent_action(&payload).await;
+                    self.agent_action_latencies
+                        .lock()
+                        .await
+                        .entry(command.session_id.clone())
+                        .or_default()
+                        .record(action_started.elapsed());
+                    let state = match action_result {
                         Ok(state) => state,
                         Err(error) => {
                             tracing::warn!(
@@ -2241,6 +2383,21 @@ impl NodeControlService {
                             .lock()
                             .await
                             .remove(&session_id);
+                        service
+                            .resource_browser_baselines
+                            .lock()
+                            .await
+                            .remove(&session_id);
+                        service
+                            .agent_action_latencies
+                            .lock()
+                            .await
+                            .remove(&session_id);
+                        service
+                            .pending_state_events
+                            .lock()
+                            .await
+                            .remove(&session_id);
                         if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
                             gateway.unregister_session(&session_id);
                         }
@@ -2398,7 +2555,11 @@ impl NodeControlService {
             event_payload: Some(event.encode_to_vec()),
             event_delivered: false,
         };
-        self.journal.record_command_result(&persisted).await?;
+        self.increment_pending_state_event(session_id).await;
+        if let Err(error) = self.journal.record_command_result(&persisted).await {
+            self.decrement_pending_state_event(session_id).await;
+            return Err(error);
+        }
         if let Err(error) = self.publish_and_mark(event).await {
             tracing::debug!(
                 session_id,
@@ -2603,6 +2764,22 @@ impl NodeControlServiceRpc for NodeControlService {
 
         if command.command_type == "StopRuntime" {
             self.monitored_sessions
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.resource_cpu_baselines
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.resource_browser_baselines
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.agent_action_latencies
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.pending_state_events
                 .lock()
                 .await
                 .remove(&command.session_id);
@@ -3010,6 +3187,9 @@ async fn main() -> Result<()> {
         inflight: Arc::new(Mutex::new(HashSet::new())),
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
+        agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
+        pending_state_events: Arc::new(Mutex::new(HashMap::new())),
         resource_report_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
@@ -3037,6 +3217,9 @@ async fn main() -> Result<()> {
     let redelivery_service = service.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
+        redelivery_service
+            .rebuild_pending_state_event_depths()
+            .await;
         redelivery_service.redeliver_pending_events().await;
         redelivery_service.reconcile_runtime_leases().await;
         loop {
@@ -3056,6 +3239,9 @@ async fn main() -> Result<()> {
     // their Runtime children so they cannot enqueue a second recovery while the Node is exiting.
     service.monitored_sessions.lock().await.clear();
     service.resource_cpu_baselines.lock().await.clear();
+    service.resource_browser_baselines.lock().await.clear();
+    service.agent_action_latencies.lock().await.clear();
+    service.pending_state_events.lock().await.clear();
     runtime_supervisor.stop_all().await;
     Ok(())
 }
@@ -3164,6 +3350,15 @@ mod tests {
         std::env::temp_dir().join(format!("browsercloud-node-agent-{name}-{nonce}"))
     }
 
+    #[test]
+    fn agent_latency_window_reports_interval_maximum_once() {
+        let mut window = AgentLatencyWindow::default();
+        assert_eq!(window.maximum_ms, 0);
+        window.record(Duration::from_millis(17));
+        window.record(Duration::from_millis(42));
+        assert_eq!(window.maximum(), Some(42));
+    }
+
     #[tokio::test]
     async fn redelivers_persisted_event_after_journal_reopen() {
         let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -3185,7 +3380,7 @@ mod tests {
         let original = SqliteNodeJournal::open(&database).await.unwrap();
         let event = EventEnvelope {
             event_id: "evt_restart_1".into(),
-            event_type: "RuntimeStopped".into(),
+            event_type: "BrowserStateDiff".into(),
             tenant_id: "tenant-test".into(),
             session_id: "ses_restart".into(),
             coordinator_term: 3,
@@ -3244,6 +3439,9 @@ mod tests {
             inflight: Arc::new(Mutex::new(HashSet::new())),
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
+            agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
+            pending_state_events: Arc::new(Mutex::new(HashMap::new())),
             resource_report_interval_probes: 5,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),
@@ -3253,6 +3451,16 @@ mod tests {
 
         // Give the local gRPC listener one scheduler turn before redelivery.
         tokio::time::sleep(Duration::from_millis(50)).await;
+        service.rebuild_pending_state_event_depths().await;
+        assert_eq!(
+            service
+                .pending_state_events
+                .lock()
+                .await
+                .get("ses_restart")
+                .copied(),
+            Some(1)
+        );
         service.redeliver_pending_events().await;
         let received = tokio::time::timeout(Duration::from_secs(2), receiver.recv())
             .await
@@ -3260,6 +3468,7 @@ mod tests {
             .unwrap();
         assert_eq!(received.event_id, "evt_restart_1");
         assert!(reopened.pending_events(10).await.unwrap().is_empty());
+        assert!(service.pending_state_events.lock().await.is_empty());
 
         server.abort();
         let _ = tokio::fs::remove_dir_all(root).await;

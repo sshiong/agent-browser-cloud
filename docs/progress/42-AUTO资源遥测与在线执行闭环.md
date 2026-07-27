@@ -1,9 +1,10 @@
 # AUTO 资源遥测与在线执行闭环
 
 > 日期：2026-07-27
-> 状态：CPU/内存/Memory PSI/Input Ledger 的 5 秒真实遥测、同节点 Cgroup 在线扩缩容、
-> Safe Point、休眠、持久跨 Node 迁移和可恢复资源 SSE 已完成；完整指标与目标双 Node
-> E2E 待完成
+> 状态：CPU/内存/Memory PSI/Input Ledger、Renderer/Tab、CDP 主线程执行压力、
+> Agent Action 延迟、持久 State Diff 深度和 Remote Desktop Frame Age 的 5 秒真实
+> 遥测，同节点 Cgroup 在线扩缩容、Safe Point、休眠、持久跨 Node 迁移和可恢复资源
+> SSE 已完成；Profile/Extension/Media 指标、非 Cgroup 执行器与目标双 Node E2E 待完成
 
 ## 本轮完成
 
@@ -18,18 +19,30 @@
   `NodeEventService.ReportSessionResources` 上报。
 - 上报绑定 `node_id`、`tenant_id`、`session_id` 和当前 `context_epoch`；Control Plane
   拒绝旧 Context、错误 Tenant 和非当前 Placement Node。
-- 未能从 Runtime/Cgroup 取得的 Renderer、Tab、主线程阻塞、Agent Action、State Diff、
-  Profile I/O、Extension、Remote Desktop 与 Media 指标保持为空，不使用模拟值。
+- State Collector 通过轻量 CDP 采集 Page Target 数、Browser Process 中 Renderer 数，
+  并读取 Page `Performance.getMetrics` 的累计 `TaskDuration`；Node Agent 使用相邻
+  采样差值上报主线程执行压力，不把该值误述为 Long Tasks 精确计数。
+- Agent Executor 记录两次资源报告间真实 Action 执行延迟的最大值；报告后清空窗口，
+  避免旧 Action 反复触发压力判断。
+- State Diff/Truncated Event 写入 Node Journal 后增加待交付深度，只有 Control Plane
+  接受并持久标记 Delivered 后才递减；Node 重启会从最多 10,000 条未交付 Journal Event
+  重建深度，超过扫描上限时告警而不是伪造精确值。
+- Remote Desktop Gateway 只在真实客户端连接期间记录最近 VNC Server Frame 时间，
+  无活跃客户端时保持为空，避免空闲 Session 被误判为帧延迟。
+- Profile I/O、Extension CPU/内存和 Media Encoder 尚无真实生产者，继续保持为空，
+  不使用定时器、随机曲线或前端 Mock。
 
 ### Resource Actuator 与 Operation
 
 - 新增 `AdjustRuntimeResources` Node Command 和
   `RuntimeResourcesAdjusted` Node Event。
 - Control Plane 的 30 秒决策循环新增：
-  - P95 + EWMA + 最小持续时间扩容；
+  - CPU、内存、Memory PSI、Renderer、Tab、主线程、Agent Action、State Diff、
+    Profile I/O、Extension、Remote Desktop 和 Media 的 P95 + EWMA + 最小持续时间扩容；
   - 20 分钟低负载窗口缩容；
   - 5 分钟调整冷却期；
   - 扩容步长快于缩容步长；
+  - 任一次级指标仍高于缩容迟滞阈值时保持 `OBSERVING`，不因 CPU/内存短时低位缩容；
   - 已有 Active Operation 时等待，不重复提交调整。
 - 调整请求先创建真实 `RESOURCE_ADJUSTMENT` Active Operation 并写入 Outbox。
 - Runtime Supervisor 只在委派 Cgroup v2 可用时执行 `cpu.max`、`memory.high`、
@@ -59,15 +72,21 @@
 - `make contracts-check`
 - `./gradlew -p apps/control-plane test`
 - `cargo test --locked --manifest-path apps/browser-node/Cargo.toml --workspace`
+- `cargo clippy --locked --manifest-path apps/browser-node/Cargo.toml --workspace --all-targets -- -D warnings`
+- `./gradlew -p apps/control-plane check`
 - `make test-integration`
 - `make ci`
 - Runtime Cgroup 单测验证初始限制和在线调整后的精确文件值。
 - gRPC 单测验证 Node Session Resource Sample 进入正式资源服务。
+- Fake CDP 单测验证 Target/Process/Performance 指标来自真实协议响应。
+- Journal 重启测试验证 State Diff 深度恢复并在 ACK 后归零。
+- 资源决策测试验证持续 Agent 延迟触发扩容、Remote Desktop 压力阻止缩容。
 
 ## 尚未完成
 
-1. Renderer、Tab、主线程阻塞、Agent Action、State Diff、Profile I/O、Extension、
-   Remote Desktop Frame Age 和 Media Encoder 的真实采集器。
+1. Profile I/O、Extension CPU/内存和 Media Encoder 的真实指标生产者；Renderer、
+   Tab、CDP `TaskDuration` 差值、Agent Action、State Diff 和 Remote Desktop Frame
+   Age 已完成。
 2. State Collector 预算、Media Encoder Slot、Remote Desktop 码率和 Extension Weight
    的独立在线执行器。
 3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；

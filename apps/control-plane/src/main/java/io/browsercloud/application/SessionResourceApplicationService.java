@@ -27,6 +27,16 @@ import org.springframework.transaction.annotation.Transactional;
 /** PostgreSQL-authoritative Session resource policy, real telemetry and event timeline. */
 @Service
 public class SessionResourceApplicationService {
+  private static final double MEMORY_PSI_SCALE_UP = 5.0;
+  private static final double MAIN_THREAD_BLOCKED_SCALE_UP_MS = 1_000.0;
+  private static final double AGENT_ACTION_LATENCY_SCALE_UP_MS = 1_500.0;
+  private static final double STATE_DIFF_QUEUE_SCALE_UP = 100.0;
+  private static final double PROFILE_IO_SCALE_UP_BYTES_PER_SECOND = 50.0 * 1024 * 1024;
+  private static final double EXTENSION_CPU_SCALE_UP = 70.0;
+  private static final double EXTENSION_MEMORY_SCALE_UP_MIB = 512.0;
+  private static final double REMOTE_DESKTOP_FRAME_AGE_SCALE_UP_MS = 1_000.0;
+  private static final double MEDIA_ENCODER_SCALE_UP = 85.0;
+
   private final SessionResourcePolicyJpaRepository policies;
   private final SessionResourceSampleJpaRepository samples;
   private final SessionResourceEventJpaRepository events;
@@ -291,25 +301,14 @@ public class SessionResourceApplicationService {
       policies.save(policy);
       return;
     }
-    var sustainedCpu =
-        sustained(window, policy.getScaleUpWindowSeconds(), s -> s.getCpuPercent(), 80d);
-    var sustainedMemory =
-        placement != null
-            && sustained(
-                window,
-                Math.max(90, policy.getScaleUpWindowSeconds()),
-                s ->
-                    s.getMemoryRssMib() == null
-                        ? null
-                        : s.getMemoryRssMib() * 100d / placement.getMemoryLimitMib(),
-                75d);
+    var pressureReason = scaleUpPressureReason(window, policy, placement);
     var cooldownActive =
         policy.getLastAdjustedAt() != null
             && policy
                 .getLastAdjustedAt()
                 .plusSeconds(policy.getAdjustmentCooldownSeconds())
                 .isAfter(now);
-    if (sustainedCpu || sustainedMemory) {
+    if (pressureReason != null) {
       if (cooldownActive) {
         policy.evaluate(ResourcePolicyStatus.OBSERVING, "ADJUSTMENT_COOLDOWN_ACTIVE", now);
         policies.save(policy);
@@ -338,7 +337,7 @@ public class SessionResourceApplicationService {
               policy.getMaximumMemoryMib(),
               Math.max(placement.getMemoryLimitMib() + 512, placement.getMemoryLimitMib() * 3 / 2)),
           ResourcePolicyStatus.SCALING_UP,
-          sustainedMemory ? "SUSTAINED_MEMORY_PRESSURE" : "SUSTAINED_CPU_PRESSURE",
+          pressureReason,
           now);
       return;
     }
@@ -357,9 +356,11 @@ public class SessionResourceApplicationService {
     var baselineCpu = 600;
     var baselineRequest = 768;
     var baselineLimit = 1280;
+    var secondaryLoadPresent = hasSecondaryLoadInScaleDownWindow(window, policy, placement, now);
     if (sustainedLowCpu
         && sustainedLowMemory
         && !cooldownActive
+        && !secondaryLoadPresent
         && (placement.getCpuMillis() > baselineCpu
             || placement.getMemoryLimitMib() > baselineLimit)) {
       requestAdjustment(
@@ -373,9 +374,17 @@ public class SessionResourceApplicationService {
           "SUSTAINED_LOW_LOAD",
           now);
     } else {
+      var reason =
+          cooldownActive
+              ? "ADJUSTMENT_COOLDOWN_ACTIVE"
+              : secondaryLoadPresent
+                  ? "SECONDARY_LOAD_WITHIN_SCALE_DOWN_WINDOW"
+                  : "WINDOW_WITHIN_POLICY";
       policy.evaluate(
-          cooldownActive ? ResourcePolicyStatus.OBSERVING : ResourcePolicyStatus.STABLE,
-          cooldownActive ? "ADJUSTMENT_COOLDOWN_ACTIVE" : "WINDOW_WITHIN_POLICY",
+          cooldownActive || secondaryLoadPresent
+              ? ResourcePolicyStatus.OBSERVING
+              : ResourcePolicyStatus.STABLE,
+          reason,
           now);
       policies.save(policy);
     }
@@ -705,6 +714,142 @@ public class SessionResourceApplicationService {
         .orElseThrow(ResourcePolicyNotFoundException::new);
   }
 
+  String scaleUpPressureReason(
+      List<SessionResourceSampleEntity> window,
+      SessionResourcePolicyEntity policy,
+      BrowserPlacementEntity placement) {
+    var scaleUpWindow = policy.getScaleUpWindowSeconds();
+    if (sustained(window, scaleUpWindow, SessionResourceSampleEntity::getCpuPercent, 80d)) {
+      return "SUSTAINED_CPU_PRESSURE";
+    }
+    if (sustained(
+        window,
+        Math.max(90, scaleUpWindow),
+        sample ->
+            sample.getMemoryRssMib() == null
+                ? null
+                : sample.getMemoryRssMib() * 100d / placement.getMemoryLimitMib(),
+        75d)) {
+      return "SUSTAINED_MEMORY_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        SessionResourceSampleEntity::getMemoryPsiSomeAvg10,
+        MEMORY_PSI_SCALE_UP)) {
+      return "SUSTAINED_MEMORY_PSI_PRESSURE";
+    }
+    if (sustained(
+        window, scaleUpWindow, sample -> number(sample.getTabCount()), placement.getTabBudget())) {
+      return "SUSTAINED_TAB_BUDGET_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getRendererCount()),
+        Math.max(8d, placement.getTabBudget() * 3d))) {
+      return "SUSTAINED_RENDERER_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getMainThreadBlockedMs()),
+        MAIN_THREAD_BLOCKED_SCALE_UP_MS)) {
+      return "SUSTAINED_MAIN_THREAD_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getAgentActionLatencyMs()),
+        AGENT_ACTION_LATENCY_SCALE_UP_MS)) {
+      return "SUSTAINED_AGENT_ACTION_LATENCY";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getStateDiffQueueDepth()),
+        STATE_DIFF_QUEUE_SCALE_UP)) {
+      return "SUSTAINED_STATE_DIFF_BACKLOG";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getProfileIoBytesPerSecond()),
+        PROFILE_IO_SCALE_UP_BYTES_PER_SECOND)) {
+      return "SUSTAINED_PROFILE_IO_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        SessionResourceSampleEntity::getExtensionCpuPercent,
+        EXTENSION_CPU_SCALE_UP)) {
+      return "SUSTAINED_EXTENSION_CPU_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getExtensionMemoryMib()),
+        EXTENSION_MEMORY_SCALE_UP_MIB)) {
+      return "SUSTAINED_EXTENSION_MEMORY_PRESSURE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        sample -> number(sample.getRemoteDesktopFrameAgeMs()),
+        REMOTE_DESKTOP_FRAME_AGE_SCALE_UP_MS)) {
+      return "SUSTAINED_REMOTE_DESKTOP_FRAME_AGE";
+    }
+    if (sustained(
+        window,
+        scaleUpWindow,
+        SessionResourceSampleEntity::getMediaEncoderPercent,
+        MEDIA_ENCODER_SCALE_UP)) {
+      return "SUSTAINED_MEDIA_ENCODER_PRESSURE";
+    }
+    return null;
+  }
+
+  private static Double number(Number value) {
+    return value == null ? null : value.doubleValue();
+  }
+
+  boolean hasSecondaryLoadInScaleDownWindow(
+      List<SessionResourceSampleEntity> window,
+      SessionResourcePolicyEntity policy,
+      BrowserPlacementEntity placement,
+      Instant now) {
+    var duration = policy.getScaleDownWindowSeconds();
+    return recentAbove(
+            window, duration, now, SessionResourceSampleEntity::getMemoryPsiSomeAvg10, 1.0)
+        || recentAbove(window, duration, now, sample -> number(sample.getTabCount()), 4.0)
+        || recentAbove(
+            window,
+            duration,
+            now,
+            sample -> number(sample.getRendererCount()),
+            Math.max(6d, placement.getTabBudget() * 2d))
+        || recentAbove(
+            window, duration, now, sample -> number(sample.getMainThreadBlockedMs()), 500.0)
+        || recentAbove(
+            window, duration, now, sample -> number(sample.getAgentActionLatencyMs()), 750.0)
+        || recentAbove(
+            window, duration, now, sample -> number(sample.getStateDiffQueueDepth()), 20.0)
+        || recentAbove(
+            window,
+            duration,
+            now,
+            sample -> number(sample.getProfileIoBytesPerSecond()),
+            20.0 * 1024 * 1024)
+        || recentAbove(
+            window, duration, now, SessionResourceSampleEntity::getExtensionCpuPercent, 35.0)
+        || recentAbove(
+            window, duration, now, sample -> number(sample.getExtensionMemoryMib()), 256.0)
+        || recentAbove(
+            window, duration, now, sample -> number(sample.getRemoteDesktopFrameAgeMs()), 500.0)
+        || recentAbove(
+            window, duration, now, SessionResourceSampleEntity::getMediaEncoderPercent, 60.0);
+  }
+
   private boolean sustained(
       List<SessionResourceSampleEntity> values,
       int durationSeconds,
@@ -733,6 +878,20 @@ public class SessionResourceApplicationService {
             >= durationSeconds
         && percentile(qualifying.stream().map(metric).sorted().toList(), 0.95) < threshold
         && ewma(qualifying.stream().map(metric).toList(), 0.35) < threshold;
+  }
+
+  private boolean recentAbove(
+      List<SessionResourceSampleEntity> values,
+      int durationSeconds,
+      Instant now,
+      java.util.function.Function<SessionResourceSampleEntity, Double> metric,
+      double threshold) {
+    var cutoff = now.minusSeconds(durationSeconds);
+    return values.stream()
+        .filter(value -> !value.getObservedAt().isBefore(cutoff))
+        .map(metric)
+        .filter(Objects::nonNull)
+        .anyMatch(value -> value > threshold);
   }
 
   private static double percentile(List<Double> values, double quantile) {

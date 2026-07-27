@@ -14,7 +14,7 @@ use sha2::Sha256;
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
@@ -63,6 +63,7 @@ struct GatewayState {
     vnc_endpoints: RwLock<HashMap<String, SocketAddr>>,
     active_sessions: Mutex<HashSet<String>>,
     connection_generations: Mutex<HashMap<String, u64>>,
+    last_server_frame_at: Mutex<HashMap<String, Instant>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
@@ -160,6 +161,7 @@ impl RemoteDesktopGateway {
                 vnc_endpoints: RwLock::new(HashMap::new()),
                 active_sessions: Mutex::new(HashSet::new()),
                 connection_generations: Mutex::new(HashMap::new()),
+                last_server_frame_at: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -193,6 +195,38 @@ impl RemoteDesktopGateway {
             .write()
             .expect("VNC endpoint lock poisoned")
             .remove(session_id);
+        self.state
+            .last_server_frame_at
+            .lock()
+            .expect("frame timestamp lock poisoned")
+            .remove(session_id);
+    }
+
+    /// 返回当前活跃远程桌面连接距离最近一批 VNC Server 数据的年龄。
+    ///
+    /// 没有活跃客户端时返回 `None`，避免把未使用远程桌面的 Session 误判为帧阻塞。
+    pub fn frame_age_ms(&self, session_id: &str) -> Option<u32> {
+        if !self
+            .state
+            .active_sessions
+            .lock()
+            .expect("active session lock poisoned")
+            .contains(session_id)
+        {
+            return None;
+        }
+        self.state
+            .last_server_frame_at
+            .lock()
+            .expect("frame timestamp lock poisoned")
+            .get(session_id)
+            .map(|observed| {
+                observed
+                    .elapsed()
+                    .as_millis()
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
     }
 
     pub async fn serve(self, listener: TcpListener) -> anyhow::Result<()> {
@@ -289,6 +323,11 @@ impl RemoteDesktopGateway {
         let mut vnc = TcpStream::connect(authorized.vnc_endpoint)
             .await
             .context("registered VNC endpoint is unavailable")?;
+        self.state
+            .last_server_frame_at
+            .lock()
+            .expect("frame timestamp lock poisoned")
+            .insert(authorized.claims.session_id.clone(), Instant::now());
         let mut buffer = vec![0_u8; 64 * 1024];
         let mut heartbeat = tokio::time::interval_at(
             tokio::time::Instant::now() + self.state.heartbeat_interval,
@@ -310,6 +349,11 @@ impl RemoteDesktopGateway {
                     if read == 0 {
                         break;
                     }
+                    self.state
+                        .last_server_frame_at
+                        .lock()
+                        .expect("frame timestamp lock poisoned")
+                        .insert(authorized.claims.session_id.clone(), Instant::now());
                     websocket
                         .send(Message::Binary(buffer[..read].to_vec()))
                         .await?;
@@ -550,6 +594,7 @@ mod tests {
             let mut buffer = [0_u8; 64];
             let read = stream.read(&mut buffer).await.unwrap();
             stream.write_all(&buffer[..read]).await.unwrap();
+            while stream.read(&mut buffer).await.unwrap_or_default() != 0 {}
         });
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
@@ -565,7 +610,7 @@ mod tests {
             .unwrap();
         let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let gateway_endpoint = gateway_listener.local_addr().unwrap();
-        tokio::spawn(gateway.serve(gateway_listener));
+        tokio::spawn(gateway.clone().serve(gateway_listener));
 
         let nonce = uuid::Uuid::new_v4().simple().to_string();
         let mut request = format!(
@@ -603,6 +648,12 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(echo, b"rfb");
+        assert!(
+            gateway
+                .frame_age_ms("ses_test1234567890")
+                .is_some_and(|age| age < 1_000),
+            "active VNC traffic must expose a recent server-frame timestamp"
+        );
         websocket.close(None).await.unwrap();
 
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
@@ -612,6 +663,7 @@ mod tests {
         })
         .await
         .unwrap();
+        assert_eq!(gateway.frame_age_ms("ses_test1234567890"), None);
     }
 
     #[tokio::test]

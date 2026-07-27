@@ -93,12 +93,28 @@ public class SessionResourceSampleEntity {
     return tabCount;
   }
 
+  public Integer getMainThreadBlockedMs() {
+    return mainThreadBlockedMs;
+  }
+
   public Integer getAgentActionLatencyMs() {
     return agentActionLatencyMs;
   }
 
   public Integer getStateDiffQueueDepth() {
     return stateDiffQueueDepth;
+  }
+
+  public Long getProfileIoBytesPerSecond() {
+    return profileIoBytesPerSecond;
+  }
+
+  public Double getExtensionCpuPercent() {
+    return number(extensionCpuPercent);
+  }
+
+  public Integer getExtensionMemoryMib() {
+    return extensionMemoryMib;
   }
 
   public Integer getRemoteDesktopFrameAgeMs() {

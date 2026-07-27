@@ -183,7 +183,25 @@ pub trait BrowserStateCollector: Send + Sync {
 struct CdpTarget {
     #[serde(rename = "type")]
     target_type: String,
+    #[serde(default)]
+    web_socket_debugger_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CdpVersion {
     web_socket_debugger_url: String,
+}
+
+/// 从 Chromium CDP 权威接口读取的轻量 Session 资源指标。
+///
+/// `main_thread_task_duration_ms` 是当前所有 Page Target 的累计 TaskDuration。
+/// 调用方必须对连续样本做差值，不能把累计值直接解释成单个窗口的阻塞时长。
+#[derive(Debug, Clone, PartialEq)]
+pub struct BrowserResourceMetrics {
+    pub renderer_count: Option<u32>,
+    pub tab_count: u32,
+    pub main_thread_task_duration_ms: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,28 +286,166 @@ impl CdpStateCollector {
     }
 
     async fn target_websocket(&self, session_id: &str) -> anyhow::Result<String> {
-        let endpoint = self
-            .endpoints
+        let endpoint = self.endpoint(session_id).await?;
+        let targets = Self::list_targets(&endpoint).await?;
+        targets
+            .into_iter()
+            .find(|target| target.target_type == "page")
+            .and_then(|target| target.web_socket_debugger_url)
+            .ok_or_else(|| anyhow::anyhow!("CDP has no page target"))
+    }
+
+    async fn endpoint(&self, session_id: &str) -> anyhow::Result<String> {
+        self.endpoints
             .read()
             .await
             .get(session_id)
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("runtime CDP endpoint is not registered"))?;
-        let response = reqwest::Client::builder()
+            .ok_or_else(|| anyhow::anyhow!("runtime CDP endpoint is not registered"))
+    }
+
+    fn http_client() -> anyhow::Result<reqwest::Client> {
+        Ok(reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(1))
             .timeout(Duration::from_secs(2))
             .no_proxy()
-            .build()?
+            .build()?)
+    }
+
+    async fn list_targets(endpoint: &str) -> anyhow::Result<Vec<CdpTarget>> {
+        Ok(Self::http_client()?
             .get(format!("{endpoint}/json/list"))
             .send()
             .await?
-            .error_for_status()?;
-        let targets: Vec<CdpTarget> = response.json().await?;
-        targets
-            .into_iter()
-            .find(|target| target.target_type == "page")
-            .map(|target| target.web_socket_debugger_url)
-            .ok_or_else(|| anyhow::anyhow!("CDP has no page target"))
+            .error_for_status()?
+            .json()
+            .await?)
+    }
+
+    async fn browser_websocket(endpoint: &str) -> anyhow::Result<String> {
+        let version: CdpVersion = Self::http_client()?
+            .get(format!("{endpoint}/json/version"))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        Ok(version.web_socket_debugger_url)
+    }
+
+    async fn cdp_command(
+        websocket_url: &str,
+        method: &str,
+        id: i64,
+    ) -> anyhow::Result<serde_json::Value> {
+        let (mut socket, _) = timeout(
+            Duration::from_secs(2),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP resource websocket connection timed out"))??;
+        socket
+            .send(Message::Text(
+                serde_json::json!({"id": id, "method": method}).to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(Duration::from_secs(2), socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP {method} timed out"))?
+        {
+            let Message::Text(text) = message? else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(id) {
+                continue;
+            }
+            if let Some(error) = response.get("error") {
+                anyhow::bail!("CDP {method} failed: {error}");
+            }
+            return response
+                .get("result")
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("CDP {method} response has no result"));
+        }
+        anyhow::bail!("CDP websocket closed before {method} completed")
+    }
+
+    /// 读取轻量 Browser/Page 指标。单项 CDP 能力不可用时只令该项为空；
+    /// `/json/list` 不可用则整体失败，调用方仍应继续上报进程/Cgroup 指标。
+    pub async fn collect_resource_metrics(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<BrowserResourceMetrics> {
+        const MAX_PAGE_METRIC_TARGETS: usize = 32;
+
+        let endpoint = self.endpoint(session_id).await?;
+        let targets = Self::list_targets(&endpoint).await?;
+        let page_websockets = targets
+            .iter()
+            .filter(|target| target.target_type == "page")
+            .filter_map(|target| target.web_socket_debugger_url.as_deref())
+            .take(MAX_PAGE_METRIC_TARGETS)
+            .collect::<Vec<_>>();
+        let tab_count = targets
+            .iter()
+            .filter(|target| target.target_type == "page")
+            .count()
+            .try_into()
+            .unwrap_or(u32::MAX);
+
+        let renderer_count = match Self::browser_websocket(&endpoint).await {
+            Ok(websocket) => Self::cdp_command(&websocket, "SystemInfo.getProcessInfo", 41)
+                .await
+                .ok()
+                .and_then(|result| {
+                    result
+                        .get("processInfo")
+                        .and_then(serde_json::Value::as_array)
+                        .map(|processes| {
+                            processes
+                                .iter()
+                                .filter(|process| {
+                                    process.get("type").and_then(serde_json::Value::as_str)
+                                        == Some("renderer")
+                                })
+                                .count()
+                                .try_into()
+                                .unwrap_or(u32::MAX)
+                        })
+                }),
+            Err(_) => None,
+        };
+
+        let mut task_duration_ms = 0.0_f64;
+        let mut measured_pages = 0_u32;
+        for (index, websocket) in page_websockets.into_iter().enumerate() {
+            let Ok(result) =
+                Self::cdp_command(websocket, "Performance.getMetrics", 100 + index as i64).await
+            else {
+                continue;
+            };
+            let Some(metrics) = result.get("metrics").and_then(serde_json::Value::as_array) else {
+                continue;
+            };
+            let Some(task_duration_seconds) = metrics.iter().find_map(|metric| {
+                (metric.get("name").and_then(serde_json::Value::as_str) == Some("TaskDuration"))
+                    .then(|| metric.get("value").and_then(serde_json::Value::as_f64))
+                    .flatten()
+            }) else {
+                continue;
+            };
+            if task_duration_seconds.is_finite() && task_duration_seconds >= 0.0 {
+                task_duration_ms += task_duration_seconds * 1000.0;
+                measured_pages = measured_pages.saturating_add(1);
+            }
+        }
+
+        Ok(BrowserResourceMetrics {
+            renderer_count,
+            tab_count,
+            main_thread_task_duration_ms: (measured_pages > 0).then_some(task_duration_ms),
+        })
     }
 
     async fn evaluate_page(&self, websocket_url: &str) -> anyhow::Result<EvaluatedPageState> {
@@ -771,6 +927,126 @@ mod tests {
         assert_eq!(repeated.content_hash, state.content_hash);
 
         websocket_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn collects_lightweight_browser_resource_metrics_over_cdp() {
+        let browser_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let browser_address = browser_listener.local_addr().unwrap();
+        let browser_task = tokio::spawn(async move {
+            let (stream, _) = browser_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected browser CDP request");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "SystemInfo.getProcessInfo");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "id": request["id"],
+                        "result": {
+                            "processInfo": [
+                                {"type": "browser", "id": 1},
+                                {"type": "renderer", "id": 2},
+                                {"type": "renderer", "id": 3},
+                                {"type": "gpu-process", "id": 4}
+                            ]
+                        }
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let page_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let page_address = page_listener.local_addr().unwrap();
+        let page_task = tokio::spawn(async move {
+            let (stream, _) = page_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected page CDP request");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Performance.getMetrics");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "id": request["id"],
+                        "result": {
+                            "metrics": [
+                                {"name": "Timestamp", "value": 10.0},
+                                {"name": "TaskDuration", "value": 0.125}
+                            ]
+                        }
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                let request = String::from_utf8_lossy(&request[..count]);
+                let (path, body) = if request.starts_with("GET /json/list ") {
+                    (
+                        "/json/list",
+                        serde_json::json!([
+                            {
+                                "id": "page-1",
+                                "type": "page",
+                                "webSocketDebuggerUrl": format!(
+                                    "ws://{page_address}/devtools/page/1"
+                                )
+                            },
+                            {"id": "worker-1", "type": "service_worker"}
+                        ])
+                        .to_string(),
+                    )
+                } else {
+                    assert!(request.starts_with("GET /json/version "));
+                    (
+                        "/json/version",
+                        serde_json::json!({
+                            "webSocketDebuggerUrl": format!(
+                                "ws://{browser_address}/devtools/browser/1"
+                            )
+                        })
+                        .to_string(),
+                    )
+                };
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nX-Test-Path: {path}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_metrics", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        let metrics = collector
+            .collect_resource_metrics("ses_metrics")
+            .await
+            .unwrap();
+        assert_eq!(metrics.renderer_count, Some(2));
+        assert_eq!(metrics.tab_count, 1);
+        assert_eq!(metrics.main_thread_task_duration_ms, Some(125.0));
+
+        browser_task.await.unwrap();
+        page_task.await.unwrap();
         http_task.await.unwrap();
     }
 

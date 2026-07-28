@@ -26,6 +26,7 @@ public record BrowserPlacementView(
     boolean requiresIsolation,
     boolean requiresMedia,
     int mediaSlots,
+    int mediaEncoderSlots,
     int mediaBitrateKbps,
     int placementScore,
     String state,

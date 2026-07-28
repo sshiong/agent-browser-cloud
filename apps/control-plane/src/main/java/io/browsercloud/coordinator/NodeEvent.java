@@ -69,6 +69,8 @@ public sealed interface NodeEvent
       Integer newRemoteDesktopBitrateKbps,
       Integer oldExtensionCpuWeight,
       Integer newExtensionCpuWeight,
+      Integer oldMediaEncoderSlots,
+      Integer newMediaEncoderSlots,
       String reason,
       String operationId)
       implements NodeEvent {}

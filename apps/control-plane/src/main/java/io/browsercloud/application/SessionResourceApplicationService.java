@@ -607,6 +607,12 @@ public class SessionResourceApplicationService {
                         placement.getExtensionCpuWeight() + 50,
                         placement.getExtensionCpuWeight() * 3 / 2))
                 : Math.max(25, placement.getExtensionCpuWeight() * 3 / 4);
+    var mediaEncoderSlots =
+        !placement.isRequiresMedia()
+            ? 0
+            : scalingUp
+                ? Math.min(placement.getMediaSlots(), placement.getMediaEncoderSlots() + 1)
+                : Math.max(1, placement.getMediaEncoderSlots() - 1);
     var operationId = newId("op_");
     var operation =
         OperationFactory.resourceAdjustment(
@@ -623,6 +629,7 @@ public class SessionResourceApplicationService {
             remoteDesktopBitrateKbps,
             extensionIds,
             extensionCpuWeight,
+            mediaEncoderSlots,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
@@ -645,7 +652,8 @@ public class SessionResourceApplicationService {
             memoryLimitMib,
             stateCollectorBudgetPercent,
             remoteDesktopBitrateKbps,
-            extensionCpuWeight),
+            extensionCpuWeight,
+            mediaEncoderSlots),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -677,7 +685,9 @@ public class SessionResourceApplicationService {
         || (adjusted.oldRemoteDesktopBitrateKbps() != null
             && placement.getRemoteDesktopBitrateKbps() != adjusted.oldRemoteDesktopBitrateKbps())
         || (adjusted.oldExtensionCpuWeight() != null
-            && placement.getExtensionCpuWeight() != adjusted.oldExtensionCpuWeight())) {
+            && placement.getExtensionCpuWeight() != adjusted.oldExtensionCpuWeight())
+        || (adjusted.oldMediaEncoderSlots() != null
+            && placement.getMediaEncoderSlots() != adjusted.oldMediaEncoderSlots())) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
     var nextStateCollectorBudgetPercent =
@@ -692,6 +702,10 @@ public class SessionResourceApplicationService {
         adjusted.newExtensionCpuWeight() == null
             ? placement.getExtensionCpuWeight()
             : adjusted.newExtensionCpuWeight();
+    var nextMediaEncoderSlots =
+        adjusted.newMediaEncoderSlots() == null
+            ? placement.getMediaEncoderSlots()
+            : adjusted.newMediaEncoderSlots();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
@@ -709,6 +723,11 @@ public class SessionResourceApplicationService {
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
+    if ((!placement.isRequiresMedia() && nextMediaEncoderSlots != 0)
+        || (placement.isRequiresMedia()
+            && (nextMediaEncoderSlots < 1 || nextMediaEncoderSlots > placement.getMediaSlots()))) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
     var old = allocationMap(placement);
     placement.applyResourceAdjustment(
         adjusted.newCpuMillis(),
@@ -718,7 +737,8 @@ public class SessionResourceApplicationService {
         adjusted.newTabBudget(),
         nextStateCollectorBudgetPercent,
         nextRemoteDesktopBitrateKbps,
-        nextExtensionCpuWeight);
+        nextExtensionCpuWeight,
+        nextMediaEncoderSlots);
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -1010,6 +1030,8 @@ public class SessionResourceApplicationService {
         placement.getStateCollectorBudgetPercent(),
         placement.getRemoteDesktopBitrateKbps(),
         placement.getExtensionCpuWeight(),
+        placement.getMediaEncoderSlots(),
+        placement.getMediaSlots(),
         placement.getState());
   }
 
@@ -1097,6 +1119,8 @@ public class SessionResourceApplicationService {
         "stateCollectorBudgetPercent", placement.stateCollectorBudgetPercent(),
         "remoteDesktopBitrateKbps", placement.remoteDesktopBitrateKbps(),
         "extensionCpuWeight", placement.extensionCpuWeight(),
+        "mediaEncoderSlots", placement.mediaEncoderSlots(),
+        "mediaEncoderSlotLimit", placement.mediaSlots(),
         "nodeId", placement.nodeId());
   }
 
@@ -1108,7 +1132,8 @@ public class SessionResourceApplicationService {
         placement.getMemoryLimitMib(),
         placement.getStateCollectorBudgetPercent(),
         placement.getRemoteDesktopBitrateKbps(),
-        placement.getExtensionCpuWeight());
+        placement.getExtensionCpuWeight(),
+        placement.getMediaEncoderSlots());
   }
 
   private Map<String, Object> allocationMap(
@@ -1118,7 +1143,8 @@ public class SessionResourceApplicationService {
       int memoryLimitMib,
       int stateCollectorBudgetPercent,
       int remoteDesktopBitrateKbps,
-      int extensionCpuWeight) {
+      int extensionCpuWeight,
+      int mediaEncoderSlots) {
     return Map.of(
         "template", templateFor(placement.effectiveResourceClass()),
         "cpuMillis", cpuMillis,
@@ -1127,6 +1153,8 @@ public class SessionResourceApplicationService {
         "stateCollectorBudgetPercent", stateCollectorBudgetPercent,
         "remoteDesktopBitrateKbps", remoteDesktopBitrateKbps,
         "extensionCpuWeight", extensionCpuWeight,
+        "mediaEncoderSlots", mediaEncoderSlots,
+        "mediaEncoderSlotLimit", placement.getMediaSlots(),
         "nodeId", placement.getNodeId());
   }
 

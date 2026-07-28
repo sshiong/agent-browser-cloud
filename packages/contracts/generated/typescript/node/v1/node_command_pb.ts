@@ -1091,6 +1091,13 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   extensionCpuWeight?: number;
 
+  /**
+   * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+   *
+   * @generated from field: optional uint32 media_encoder_slots = 22;
+   */
+  mediaEncoderSlots?: number;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1120,6 +1127,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 19, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 21, name: "extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 22, name: "media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1455,6 +1463,13 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   extensionCpuWeight?: number;
 
+  /**
+   * 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
+   *
+   * @generated from field: optional uint32 media_encoder_slots = 16;
+   */
+  mediaEncoderSlots?: number;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1478,6 +1493,7 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 13, name: "state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 14, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 15, name: "extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 16, name: "media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1615,6 +1631,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newExtensionCpuWeight?: number;
 
+  /**
+   * @generated from field: optional uint32 old_media_encoder_slots = 23;
+   */
+  oldMediaEncoderSlots?: number;
+
+  /**
+   * @generated from field: optional uint32 new_media_encoder_slots = 24;
+   */
+  newMediaEncoderSlots?: number;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1645,6 +1671,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 20, name: "new_remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 21, name: "old_extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 22, name: "new_extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 23, name: "old_media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 24, name: "new_media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

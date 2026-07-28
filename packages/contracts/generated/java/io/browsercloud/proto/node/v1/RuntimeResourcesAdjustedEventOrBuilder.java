@@ -213,4 +213,26 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newExtensionCpuWeight.
    */
   int getNewExtensionCpuWeight();
+
+  /**
+   * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   * @return Whether the oldMediaEncoderSlots field is set.
+   */
+  boolean hasOldMediaEncoderSlots();
+  /**
+   * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   * @return The oldMediaEncoderSlots.
+   */
+  int getOldMediaEncoderSlots();
+
+  /**
+   * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   * @return Whether the newMediaEncoderSlots field is set.
+   */
+  boolean hasNewMediaEncoderSlots();
+  /**
+   * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   * @return The newMediaEncoderSlots.
+   */
+  int getNewMediaEncoderSlots();
 }

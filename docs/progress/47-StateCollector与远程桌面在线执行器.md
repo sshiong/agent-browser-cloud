@@ -2,7 +2,7 @@
 
 > 日期：2026-07-28
 > 状态：State Collector Budget 与 Remote Desktop Bitrate 已形成真实决策、执行、
-> 回滚、ACK、持久化和 UI 展示闭环；Extension Weight 已完成，Media Encoder Slot 待实现
+> 回滚、ACK、持久化和 UI 展示闭环；Extension Weight 与 x11vnc Media Encoder Slot 已完成
 
 ## 已完成
 
@@ -56,9 +56,11 @@
 
 ## 尚未完成
 
-1. Media Encoder Slot 的独立 Helper/执行器与真实编码负载生产者。
+1. x11vnc Media Encoder CPU 与 Slot 执行器已在进度 54 完成；仍缺硬件 Codec/GPU
+   Helper、编码器级动态码率和目标 Linux 长稳。
 2. Extension Resource Weight 和进程级 CPU/内存生产者已在进度 52 完成，仍需目标
    Linux 真实企业扩展长稳。
 3. 双真实桌面 Browser Node + Chromium + S3 下的码率调整、迁移与故障注入 E2E。
 4. 目标 Linux 多 Session 的 5 秒采集、扩缩容抖动、OOM/磁盘满即时保护和长稳证书。
-5. 当前 Remote Desktop 能力控制网关传输速率；编码器级动态码率仍属于 Media 缺口。
+5. 当前 Remote Desktop 能力控制网关传输速率，Media Slot 控制独立 Cgroup CPU 权重；
+   编码器级动态码率仍属于 Media 深度缺口。

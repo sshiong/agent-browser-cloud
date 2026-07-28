@@ -193,6 +193,8 @@ message StartRuntimeCommand {
   repeated string extension_ids = 20;
   // cgroup v2 cpu.weight，N-1 Node 会安全忽略。
   optional uint32 extension_cpu_weight = 21;
+  // 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+  optional uint32 media_encoder_slots = 22;
 }
 
 // Runtime 启动事件
@@ -248,6 +250,8 @@ message AdjustRuntimeResourcesCommand {
   optional uint32 remote_desktop_bitrate_kbps = 14;
   // 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
   optional uint32 extension_cpu_weight = 15;
+  // 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
+  optional uint32 media_encoder_slots = 16;
 }
 
 // Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
@@ -275,6 +279,8 @@ message RuntimeResourcesAdjustedEvent {
   optional uint32 new_remote_desktop_bitrate_kbps = 20;
   optional uint32 old_extension_cpu_weight = 21;
   optional uint32 new_extension_cpu_weight = 22;
+  optional uint32 old_media_encoder_slots = 23;
+  optional uint32 new_media_encoder_slots = 24;
 }
 
 // Browser Crash 事件

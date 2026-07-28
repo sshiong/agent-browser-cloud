@@ -157,9 +157,14 @@ public class NodeEventMapper {
               payload.hasOldExtensionCpuWeight() ? payload.getOldExtensionCpuWeight() : null;
           var newExtensionCpuWeight =
               payload.hasNewExtensionCpuWeight() ? payload.getNewExtensionCpuWeight() : null;
+          var oldMediaEncoderSlots =
+              payload.hasOldMediaEncoderSlots() ? payload.getOldMediaEncoderSlots() : null;
+          var newMediaEncoderSlots =
+              payload.hasNewMediaEncoderSlots() ? payload.getNewMediaEncoderSlots() : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
+              || (oldMediaEncoderSlots == null) != (newMediaEncoderSlots == null)
               || (oldStateCollectorBudget != null
                   && (oldStateCollectorBudget < 10
                       || oldStateCollectorBudget > 100
@@ -174,7 +179,12 @@ public class NodeEventMapper {
                   && (oldExtensionCpuWeight < 1
                       || oldExtensionCpuWeight > 10_000
                       || newExtensionCpuWeight < 1
-                      || newExtensionCpuWeight > 10_000))) {
+                      || newExtensionCpuWeight > 10_000))
+              || (oldMediaEncoderSlots != null
+                  && (oldMediaEncoderSlots < 0
+                      || oldMediaEncoderSlots > 32
+                      || newMediaEncoderSlots < 0
+                      || newMediaEncoderSlots > 32))) {
             throw new IllegalArgumentException("non-cgroup resource adjustment limits are invalid");
           }
           yield new NodeEvent.RuntimeResourcesAdjusted(
@@ -198,6 +208,8 @@ public class NodeEventMapper {
               newRemoteDesktopBitrate,
               oldExtensionCpuWeight,
               newExtensionCpuWeight,
+              oldMediaEncoderSlots,
+              newMediaEncoderSlots,
               payload.getReason(),
               payload.getOperationId());
         }

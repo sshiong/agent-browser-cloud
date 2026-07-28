@@ -15,6 +15,7 @@ public record RuntimeResourceLimits(
     int remoteDesktopBitrateKbps,
     List<String> extensionIds,
     int extensionCpuWeight,
+    int mediaEncoderSlots,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,
@@ -37,6 +38,8 @@ public record RuntimeResourceLimits(
     }
     if (extensionCpuWeight < 1
         || extensionCpuWeight > 10_000
+        || mediaEncoderSlots < 0
+        || mediaEncoderSlots > 32
         || extensionIds.stream()
             .anyMatch(
                 id ->

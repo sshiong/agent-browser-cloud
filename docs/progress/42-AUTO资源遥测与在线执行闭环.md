@@ -5,7 +5,8 @@
 > Agent Action 延迟、持久 State Diff 深度和 Remote Desktop Frame Age 的 5 秒真实
 > 遥测，同节点 Cgroup、State Collector Budget、Remote Desktop Bitrate 在线调整、
 > Safe Point、休眠、持久跨 Node 迁移、可恢复资源 SSE 和 Browser/Profile I/O
-> 指标已完成；Extension 进程级指标与 Weight 执行器已完成，Media 与目标双 Node E2E 待完成
+> 指标已完成；Extension 进程级指标/Weight 与 x11vnc Media 编码指标/Slot 执行器已完成，
+> 目标 Linux 长稳、硬件编码 Helper 和双 Node E2E 待完成
 
 ## 本轮完成
 
@@ -32,7 +33,8 @@
   无活跃客户端时保持为空，避免空闲 Session 被误判为帧延迟。
 - Browser/Profile I/O 的后续真实生产者已通过 Linux Cgroup v2 `io.stat` 完成，详见
   [进度 49](49-Browser-ProfileIO真实遥测闭环.md)。Extension CPU/内存和 Weight 已在
-  [进度 52](52-Extension真实加载遥测与资源权重.md)闭环；Media Encoder 仍保持为空。
+  [进度 52](52-Extension真实加载遥测与资源权重.md)闭环；x11vnc Media 编码 CPU 和
+  Slot 已在[进度 54](54-Media编码遥测与Slot执行闭环.md)闭环。
 
 ### Resource Actuator 与 Operation
 
@@ -91,10 +93,10 @@
 ## 尚未完成
 
 1. Browser/Profile I/O、Renderer、Tab、CDP `TaskDuration` 差值、Agent Action、
-   State Diff、Remote Desktop Frame Age 和 Extension CPU/内存已完成；仍缺
-   Media Encoder 的真实指标生产者。
-2. State Collector Budget 和 Remote Desktop Bitrate 在线执行器已完成；仍缺
-   Media Encoder Slot 执行器；Extension Resource Weight 已在进度 52 完成。
+   State Diff、Remote Desktop Frame Age、Extension CPU/内存和 x11vnc Media CPU
+   已完成；仍缺硬件 Codec/GPU 编码 Helper 和目标 Linux 长稳证书。
+2. State Collector Budget、Remote Desktop Bitrate、Extension Resource Weight 和
+   Media Encoder Slot 在线执行器已完成；编码器级动态码率与录制队列仍未完成。
 3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；
    上传下载、表单、支付、安全和应用关键事务仍缺真实信号生产者。
 4. 跨 Node 核心链已实现；仍缺双真实 Browser Node + S3 + Chromium 的故障注入和长稳证书。

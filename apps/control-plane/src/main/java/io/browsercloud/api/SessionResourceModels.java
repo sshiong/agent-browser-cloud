@@ -43,6 +43,8 @@ public final class SessionResourceModels {
       Integer stateCollectorBudgetPercent,
       Integer remoteDesktopBitrateKbps,
       Integer extensionCpuWeight,
+      Integer mediaEncoderSlots,
+      Integer mediaEncoderSlotLimit,
       String placementState) {}
 
   public record UsageView(

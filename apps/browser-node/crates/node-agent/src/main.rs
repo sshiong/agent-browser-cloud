@@ -65,6 +65,7 @@ struct NodeControlService {
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_extension_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
+    resource_media_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_browser_baselines: Arc<Mutex<HashMap<String, (f64, Instant)>>>,
     resource_io_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
@@ -251,8 +252,8 @@ impl NodeCapacityReporter {
             "NODE_SUPPORTS_GPU requires NODE_CERTIFIED_GPU_SLOTS"
         );
         anyhow::ensure!(
-            !supports_media || certified_media_slots > 0,
-            "NODE_SUPPORTS_MEDIA requires NODE_CERTIFIED_MEDIA_SLOTS"
+            !supports_media || (certified_media_slots > 0 && supports_desktop),
+            "NODE_SUPPORTS_MEDIA requires certified Slots and the x11vnc desktop encoder runtime"
         );
         anyhow::ensure!(
             !production || cgroup_capabilities.enforcement,
@@ -297,6 +298,15 @@ impl NodeCapacityReporter {
                     .unwrap_or(false)
             {
                 "extension-cgroup-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "mediaTelemetry".to_owned(),
+            if cgroup_capabilities.enforcement && supports_media {
+                "x11vnc-cgroup-v1"
             } else {
                 "unavailable"
             }
@@ -925,6 +935,28 @@ impl NodeControlService {
             } else {
                 None
             };
+        let media_encoder_percent =
+            if let Some(current_usage_micros) = metrics.cumulative_media_cpu_usage_micros {
+                let now = Instant::now();
+                let previous = self
+                    .resource_media_cpu_baselines
+                    .lock()
+                    .await
+                    .insert(session_id.to_owned(), (current_usage_micros, now));
+                previous.and_then(|(previous_usage_micros, previous_at)| {
+                    let elapsed_micros = now.duration_since(previous_at).as_micros() as f64;
+                    let allocated_cores = f64::from(metrics.media_encoder_slots);
+                    (elapsed_micros > 0.0 && allocated_cores > 0.0).then(|| {
+                        (current_usage_micros.saturating_sub(previous_usage_micros) as f64
+                            / elapsed_micros
+                            / allocated_cores
+                            * 100.0)
+                            .clamp(0.0, 100.0)
+                    })
+                })
+            } else {
+                None
+            };
         let agent_action_latency_ms = if include_resource_metrics {
             self.agent_action_latencies
                 .lock()
@@ -1024,7 +1056,9 @@ impl NodeControlService {
                 remote_desktop_frame_age_ms: include_resource_metrics
                     .then_some(remote_desktop_frame_age_ms)
                     .flatten(),
-                media_encoder_percent: None,
+                media_encoder_percent: include_resource_metrics
+                    .then_some(media_encoder_percent)
+                    .flatten(),
                 danger_event: String::new(),
                 input_active: input_ledger.as_ref().map(|ledger| ledger.has_any_input()),
                 active_drag: input_ledger.as_ref().map(|ledger| ledger.active_drag),
@@ -1535,6 +1569,7 @@ impl NodeControlService {
                         let remote_desktop_bitrate_kbps =
                             payload.remote_desktop_bitrate_kbps.unwrap_or(0);
                         let extension_cpu_weight = payload.extension_cpu_weight.unwrap_or(100);
+                        let media_encoder_slots = payload.media_encoder_slots.unwrap_or(0);
                         if payload.resource_class == "L0"
                             || payload.cpu_millis == 0
                             || payload.memory_request_mib == 0
@@ -1547,6 +1582,7 @@ impl NodeControlService {
                                 && !(250..=100_000).contains(&remote_desktop_bitrate_kbps))
                             || (!payload.desktop_required && remote_desktop_bitrate_kbps != 0)
                             || !(1..=10_000).contains(&extension_cpu_weight)
+                            || media_encoder_slots > 32
                         {
                             return self.failed(
                                 command,
@@ -1563,6 +1599,14 @@ impl NodeControlService {
                                 command,
                                 anyhow::anyhow!(
                                     "desktop-required placement reached a headless node"
+                                ),
+                            );
+                        }
+                        if media_encoder_slots > 0 && !self.desktop_enabled {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "Media Encoder placement reached a Node without the encoder runtime"
                                 ),
                             );
                         }
@@ -1642,7 +1686,11 @@ impl NodeControlService {
                             }
                         };
                         let runtime_build_id = payload.runtime_build_id;
-                        let (display, vnc_port) = if self.desktop_enabled {
+                        let desktop_processes_required =
+                            payload.desktop_required || media_encoder_slots > 0;
+                        let (display, vnc_port) = if self.desktop_enabled
+                            && desktop_processes_required
+                        {
                             let vnc_port = match Self::allocate_loopback_port() {
                                 Ok(port) => port,
                                 Err(error) => {
@@ -1675,6 +1723,7 @@ impl NodeControlService {
                                     pid_limit: payload.pid_limit,
                                     tab_budget: payload.tab_budget,
                                     extension_cpu_weight,
+                                    media_encoder_slots,
                                     desktop_required: payload.desktop_required,
                                     gpu_required: payload.gpu_required,
                                     native_os_required: payload.native_os_required,
@@ -2042,6 +2091,9 @@ impl NodeControlService {
                             extension_cpu_weight: payload
                                 .extension_cpu_weight
                                 .unwrap_or(current_limits.extension_cpu_weight),
+                            media_encoder_slots: payload
+                                .media_encoder_slots
+                                .unwrap_or(current_limits.media_encoder_slots),
                             desktop_required: payload.desktop_required,
                             gpu_required: payload.gpu_required,
                             native_os_required: payload.native_os_required,
@@ -2101,6 +2153,8 @@ impl NodeControlService {
                         let applied = runtime_adjustment.applied;
                         let previous_extension_cpu_weight = previous.extension_cpu_weight;
                         let applied_extension_cpu_weight = applied.extension_cpu_weight;
+                        let previous_media_encoder_slots = previous.media_encoder_slots;
+                        let applied_media_encoder_slots = applied.media_encoder_slots;
                         if let Err(error) = self
                             .state_collector
                             .set_resource_budget(
@@ -2185,6 +2239,8 @@ impl NodeControlService {
                                 ),
                                 old_extension_cpu_weight: Some(previous_extension_cpu_weight),
                                 new_extension_cpu_weight: Some(applied_extension_cpu_weight),
+                                old_media_encoder_slots: Some(previous_media_encoder_slots),
+                                new_media_encoder_slots: Some(applied_media_encoder_slots),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -2835,6 +2891,11 @@ impl NodeControlService {
                             .await
                             .remove(&session_id);
                         service
+                            .resource_media_cpu_baselines
+                            .lock()
+                            .await
+                            .remove(&session_id);
+                        service
                             .resource_browser_baselines
                             .lock()
                             .await
@@ -3228,6 +3289,10 @@ impl NodeControlServiceRpc for NodeControlService {
                 .await
                 .remove(&command.session_id);
             self.resource_extension_cpu_baselines
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.resource_media_cpu_baselines
                 .lock()
                 .await
                 .remove(&command.session_id);
@@ -3671,6 +3736,7 @@ async fn main() -> Result<()> {
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
@@ -3729,6 +3795,7 @@ async fn main() -> Result<()> {
         .lock()
         .await
         .clear();
+    service.resource_media_cpu_baselines.lock().await.clear();
     service.resource_browser_baselines.lock().await.clear();
     service.resource_io_baselines.lock().await.clear();
     service.agent_action_latencies.lock().await.clear();
@@ -3974,6 +4041,7 @@ mod tests {
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),

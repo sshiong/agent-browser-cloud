@@ -79,6 +79,9 @@ public class BrowserPlacementEntity {
   @Column(name = "media_slots", nullable = false)
   private int mediaSlots;
 
+  @Column(name = "media_encoder_slots", nullable = false)
+  private int mediaEncoderSlots;
+
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
@@ -151,6 +154,7 @@ public class BrowserPlacementEntity {
     this.requiresIsolation = requiresIsolation;
     this.requiresMedia = requiresMedia;
     this.mediaSlots = mediaSlots;
+    this.mediaEncoderSlots = requiresMedia ? mediaSlots : 0;
     this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
@@ -201,7 +205,8 @@ public class BrowserPlacementEntity {
       int nextTabBudget,
       int nextStateCollectorBudgetPercent,
       int nextRemoteDesktopBitrateKbps,
-      int nextExtensionCpuWeight) {
+      int nextExtensionCpuWeight,
+      int nextMediaEncoderSlots) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -221,6 +226,10 @@ public class BrowserPlacementEntity {
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
       throw new IllegalArgumentException("extension CPU weight is invalid");
     }
+    if ((!requiresMedia && nextMediaEncoderSlots != 0)
+        || (requiresMedia && (nextMediaEncoderSlots < 1 || nextMediaEncoderSlots > mediaSlots))) {
+      throw new IllegalArgumentException("Media Encoder Slot allocation is invalid");
+    }
     cpuMillis = nextCpuMillis;
     memoryRequestMib = nextMemoryRequestMib;
     memoryLimitMib = nextMemoryLimitMib;
@@ -229,6 +238,7 @@ public class BrowserPlacementEntity {
     stateCollectorBudgetPercent = nextStateCollectorBudgetPercent;
     remoteDesktopBitrateKbps = nextRemoteDesktopBitrateKbps;
     extensionCpuWeight = nextExtensionCpuWeight;
+    mediaEncoderSlots = nextMediaEncoderSlots;
   }
 
   public String getSessionId() {
@@ -313,6 +323,10 @@ public class BrowserPlacementEntity {
 
   public int getMediaSlots() {
     return mediaSlots;
+  }
+
+  public int getMediaEncoderSlots() {
+    return mediaEncoderSlots;
   }
 
   public int getMediaBitrateKbps() {

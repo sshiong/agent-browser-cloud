@@ -516,6 +516,44 @@ private static final long serialVersionUID = 0L;
     return newExtensionCpuWeight_;
   }
 
+  public static final int OLD_MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 23;
+  private int oldMediaEncoderSlots_ = 0;
+  /**
+   * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   * @return Whether the oldMediaEncoderSlots field is set.
+   */
+  @java.lang.Override
+  public boolean hasOldMediaEncoderSlots() {
+    return ((bitField0_ & 0x00000040) != 0);
+  }
+  /**
+   * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+   * @return The oldMediaEncoderSlots.
+   */
+  @java.lang.Override
+  public int getOldMediaEncoderSlots() {
+    return oldMediaEncoderSlots_;
+  }
+
+  public static final int NEW_MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 24;
+  private int newMediaEncoderSlots_ = 0;
+  /**
+   * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   * @return Whether the newMediaEncoderSlots field is set.
+   */
+  @java.lang.Override
+  public boolean hasNewMediaEncoderSlots() {
+    return ((bitField0_ & 0x00000080) != 0);
+  }
+  /**
+   * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+   * @return The newMediaEncoderSlots.
+   */
+  @java.lang.Override
+  public int getNewMediaEncoderSlots() {
+    return newMediaEncoderSlots_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -595,6 +633,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000020) != 0)) {
       output.writeUInt32(22, newExtensionCpuWeight_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      output.writeUInt32(23, oldMediaEncoderSlots_);
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      output.writeUInt32(24, newMediaEncoderSlots_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -687,6 +731,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(22, newExtensionCpuWeight_);
     }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(23, oldMediaEncoderSlots_);
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(24, newMediaEncoderSlots_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -764,6 +816,16 @@ private static final long serialVersionUID = 0L;
       if (getNewExtensionCpuWeight()
           != other.getNewExtensionCpuWeight()) return false;
     }
+    if (hasOldMediaEncoderSlots() != other.hasOldMediaEncoderSlots()) return false;
+    if (hasOldMediaEncoderSlots()) {
+      if (getOldMediaEncoderSlots()
+          != other.getOldMediaEncoderSlots()) return false;
+    }
+    if (hasNewMediaEncoderSlots() != other.hasNewMediaEncoderSlots()) return false;
+    if (hasNewMediaEncoderSlots()) {
+      if (getNewMediaEncoderSlots()
+          != other.getNewMediaEncoderSlots()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -830,6 +892,14 @@ private static final long serialVersionUID = 0L;
     if (hasNewExtensionCpuWeight()) {
       hash = (37 * hash) + NEW_EXTENSION_CPU_WEIGHT_FIELD_NUMBER;
       hash = (53 * hash) + getNewExtensionCpuWeight();
+    }
+    if (hasOldMediaEncoderSlots()) {
+      hash = (37 * hash) + OLD_MEDIA_ENCODER_SLOTS_FIELD_NUMBER;
+      hash = (53 * hash) + getOldMediaEncoderSlots();
+    }
+    if (hasNewMediaEncoderSlots()) {
+      hash = (37 * hash) + NEW_MEDIA_ENCODER_SLOTS_FIELD_NUMBER;
+      hash = (53 * hash) + getNewMediaEncoderSlots();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -988,6 +1058,8 @@ private static final long serialVersionUID = 0L;
       newRemoteDesktopBitrateKbps_ = 0;
       oldExtensionCpuWeight_ = 0;
       newExtensionCpuWeight_ = 0;
+      oldMediaEncoderSlots_ = 0;
+      newMediaEncoderSlots_ = 0;
       return this;
     }
 
@@ -1093,6 +1165,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00200000) != 0)) {
         result.newExtensionCpuWeight_ = newExtensionCpuWeight_;
         to_bitField0_ |= 0x00000020;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.oldMediaEncoderSlots_ = oldMediaEncoderSlots_;
+        to_bitField0_ |= 0x00000040;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.newMediaEncoderSlots_ = newMediaEncoderSlots_;
+        to_bitField0_ |= 0x00000080;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1218,6 +1298,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasNewExtensionCpuWeight()) {
         setNewExtensionCpuWeight(other.getNewExtensionCpuWeight());
+      }
+      if (other.hasOldMediaEncoderSlots()) {
+        setOldMediaEncoderSlots(other.getOldMediaEncoderSlots());
+      }
+      if (other.hasNewMediaEncoderSlots()) {
+        setNewMediaEncoderSlots(other.getNewMediaEncoderSlots());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1355,6 +1441,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00200000;
               break;
             } // case 176
+            case 184: {
+              oldMediaEncoderSlots_ = input.readUInt32();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 184
+            case 192: {
+              newMediaEncoderSlots_ = input.readUInt32();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 192
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2376,6 +2472,86 @@ private static final long serialVersionUID = 0L;
     public Builder clearNewExtensionCpuWeight() {
       bitField0_ = (bitField0_ & ~0x00200000);
       newExtensionCpuWeight_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int oldMediaEncoderSlots_ ;
+    /**
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * @return Whether the oldMediaEncoderSlots field is set.
+     */
+    @java.lang.Override
+    public boolean hasOldMediaEncoderSlots() {
+      return ((bitField0_ & 0x00400000) != 0);
+    }
+    /**
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * @return The oldMediaEncoderSlots.
+     */
+    @java.lang.Override
+    public int getOldMediaEncoderSlots() {
+      return oldMediaEncoderSlots_;
+    }
+    /**
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * @param value The oldMediaEncoderSlots to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOldMediaEncoderSlots(int value) {
+
+      oldMediaEncoderSlots_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 old_media_encoder_slots = 23 [json_name = "oldMediaEncoderSlots"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOldMediaEncoderSlots() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      oldMediaEncoderSlots_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int newMediaEncoderSlots_ ;
+    /**
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * @return Whether the newMediaEncoderSlots field is set.
+     */
+    @java.lang.Override
+    public boolean hasNewMediaEncoderSlots() {
+      return ((bitField0_ & 0x00800000) != 0);
+    }
+    /**
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * @return The newMediaEncoderSlots.
+     */
+    @java.lang.Override
+    public int getNewMediaEncoderSlots() {
+      return newMediaEncoderSlots_;
+    }
+    /**
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * @param value The newMediaEncoderSlots to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNewMediaEncoderSlots(int value) {
+
+      newMediaEncoderSlots_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 new_media_encoder_slots = 24 [json_name = "newMediaEncoderSlots"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNewMediaEncoderSlots() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      newMediaEncoderSlots_ = 0;
       onChanged();
       return this;
     }

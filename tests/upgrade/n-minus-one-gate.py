@@ -150,6 +150,20 @@ for invariant in (
 ):
     assert invariant in extension_resources_upper
 
+media_encoder_slots_migration = read(
+    "database/migrations/V032__media_encoder_runtime_slots.sql"
+)
+media_encoder_slots_upper = media_encoder_slots_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in media_encoder_slots_upper
+for invariant in (
+    "ADD COLUMN MEDIA_ENCODER_SLOTS INTEGER NOT NULL DEFAULT 0",
+    "CHECK (",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_BROWSER_PLACEMENTS_MEDIA_ENCODER_SLOTS",
+):
+    assert invariant in media_encoder_slots_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -192,14 +206,23 @@ for name, expected_tag in (
 for message_name, fields in (
     (
         "StartRuntimeCommand",
-        (("extension_ids", 20, False), ("extension_cpu_weight", 21, True)),
+        (
+            ("extension_ids", 20, False),
+            ("extension_cpu_weight", 21, True),
+            ("media_encoder_slots", 22, True),
+        ),
     ),
-    ("AdjustRuntimeResourcesCommand", (("extension_cpu_weight", 15, True),)),
+    (
+        "AdjustRuntimeResourcesCommand",
+        (("extension_cpu_weight", 15, True), ("media_encoder_slots", 16, True)),
+    ),
     (
         "RuntimeResourcesAdjustedEvent",
         (
             ("old_extension_cpu_weight", 21, True),
             ("new_extension_cpu_weight", 22, True),
+            ("old_media_encoder_slots", 23, True),
+            ("new_media_encoder_slots", 24, True),
         ),
     ),
 ):
@@ -246,8 +269,8 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V031 additive",
-    "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22",
+    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V032 additive",
+    "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24",
     "json": "new-media-and-application-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

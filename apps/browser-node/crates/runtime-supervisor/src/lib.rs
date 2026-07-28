@@ -40,6 +40,7 @@ pub struct RuntimeResourceLimits {
     pub pid_limit: u32,
     pub tab_budget: u32,
     pub extension_cpu_weight: u32,
+    pub media_encoder_slots: u32,
     pub desktop_required: bool,
     pub gpu_required: bool,
     pub native_os_required: bool,
@@ -62,6 +63,7 @@ impl RuntimeResourceLimits {
             pid_limit: 192,
             tab_budget: 8,
             extension_cpu_weight: 100,
+            media_encoder_slots: 0,
             desktop_required: false,
             gpu_required: false,
             native_os_required: false,
@@ -103,6 +105,8 @@ pub struct RuntimeMetrics {
     pub cumulative_browser_io_bytes: Option<u64>,
     pub cumulative_extension_cpu_usage_micros: Option<u64>,
     pub extension_memory_bytes: Option<u64>,
+    pub cumulative_media_cpu_usage_micros: Option<u64>,
+    pub media_encoder_slots: u32,
 }
 
 /// Runtime Supervisor trait。
@@ -156,6 +160,7 @@ struct RuntimeCgroup {
     browser_path: Option<PathBuf>,
     desktop_path: Option<PathBuf>,
     extension_path: Option<PathBuf>,
+    media_path: Option<PathBuf>,
 }
 
 impl RuntimeCgroup {
@@ -239,10 +244,17 @@ impl RuntimeCgroup {
                 .context("failed to create desktop process cgroup")?;
             fs::create_dir(path.join("extension"))
                 .context("failed to create Extension process cgroup")?;
+            fs::create_dir(path.join("media"))
+                .context("failed to create Media Encoder process cgroup")?;
             Self::write(
                 &path.join("extension"),
                 "cpu.weight",
                 limits.extension_cpu_weight.to_string(),
+            )?;
+            Self::write(
+                &path.join("media"),
+                "cpu.weight",
+                Self::media_cpu_weight(limits.media_encoder_slots).to_string(),
             )?;
             Ok::<(), anyhow::Error>(())
         })();
@@ -250,6 +262,7 @@ impl RuntimeCgroup {
             let _ = fs::remove_dir(path.join("browser"));
             let _ = fs::remove_dir(path.join("desktop"));
             let _ = fs::remove_dir(path.join("extension"));
+            let _ = fs::remove_dir(path.join("media"));
             let _ = fs::remove_dir(&path);
             return Err(error);
         }
@@ -257,8 +270,13 @@ impl RuntimeCgroup {
             browser_path: Some(path.join("browser")),
             desktop_path: Some(path.join("desktop")),
             extension_path: Some(path.join("extension")),
+            media_path: Some(path.join("media")),
             path,
         })
+    }
+
+    fn media_cpu_weight(slots: u32) -> u32 {
+        slots.saturating_mul(100).clamp(1, 10_000)
     }
 
     fn write(path: &Path, setting: &str, value: String) -> anyhow::Result<()> {
@@ -278,6 +296,10 @@ impl RuntimeCgroup {
 
     fn attach_desktop(&self, pid: u32) -> anyhow::Result<()> {
         Self::attach_to(self.desktop_path.as_deref().unwrap_or(&self.path), pid)
+    }
+
+    fn attach_media(&self, pid: u32) -> anyhow::Result<()> {
+        Self::attach_to(self.media_path.as_deref().unwrap_or(&self.path), pid)
     }
 
     fn memory_current_bytes(&self) -> Option<u64> {
@@ -353,6 +375,16 @@ impl RuntimeCgroup {
             })
     }
 
+    fn cumulative_media_cpu_usage_micros(&self) -> Option<u64> {
+        fs::read_to_string(self.media_path.as_ref()?.join("cpu.stat"))
+            .ok()?
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("usage_usec ")
+                    .and_then(|value| value.trim().parse().ok())
+            })
+    }
+
     fn classify_extension_processes(&self, proc_root: &Path) -> anyhow::Result<u32> {
         let Some(browser_path) = self.browser_path.as_ref() else {
             return Ok(0);
@@ -394,7 +426,8 @@ impl RuntimeCgroup {
                 && next.memory_limit_mib >= next.memory_request_mib
                 && next.pid_limit >= 32
                 && next.tab_budget > 0
-                && (1..=10_000).contains(&next.extension_cpu_weight),
+                && (1..=10_000).contains(&next.extension_cpu_weight)
+                && next.media_encoder_slots <= 32,
             "runtime resource adjustment is invalid"
         );
         if next.memory_limit_mib < previous.memory_limit_mib {
@@ -462,6 +495,13 @@ impl RuntimeCgroup {
                     .ok_or_else(|| anyhow::anyhow!("Extension cgroup is unavailable"))?,
                 "cpu.weight",
                 next.extension_cpu_weight.to_string(),
+            )?;
+            Self::write(
+                self.media_path
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("Media Encoder cgroup is unavailable"))?,
+                "cpu.weight",
+                Self::media_cpu_weight(next.media_encoder_slots).to_string(),
             )
         };
         if let Err(error) = apply() {
@@ -495,6 +535,13 @@ impl RuntimeCgroup {
                     previous.extension_cpu_weight.to_string(),
                 );
             }
+            if let Some(path) = self.media_path.as_deref() {
+                let _ = Self::write(
+                    path,
+                    "cpu.weight",
+                    Self::media_cpu_weight(previous.media_encoder_slots).to_string(),
+                );
+            }
             return Err(error.context("failed to adjust runtime cgroup; previous limits restored"));
         }
         Ok(())
@@ -510,9 +557,14 @@ impl RuntimeCgroup {
     }
 
     fn cleanup(&self) {
-        for child in [&self.browser_path, &self.desktop_path, &self.extension_path]
-            .into_iter()
-            .flatten()
+        for child in [
+            &self.browser_path,
+            &self.desktop_path,
+            &self.extension_path,
+            &self.media_path,
+        ]
+        .into_iter()
+        .flatten()
         {
             match fs::remove_dir(child) {
                 Ok(()) => {}
@@ -618,6 +670,10 @@ impl ChromiumRuntimeSupervisor {
         anyhow::ensure!(
             (1..=10_000).contains(&limits.extension_cpu_weight),
             "Extension CPU weight is invalid"
+        );
+        anyhow::ensure!(
+            limits.media_encoder_slots <= 32,
+            "Media Encoder Slot count is invalid"
         );
         for directory in &spec.extension_dirs {
             anyhow::ensure!(
@@ -744,7 +800,13 @@ impl ChromiumRuntimeSupervisor {
             if let Err(error) = vnc
                 .id()
                 .ok_or_else(|| anyhow::anyhow!("missing x11vnc pid"))
-                .and_then(|pid| cgroup.attach_desktop(pid))
+                .and_then(|pid| {
+                    if spec.resource_limits.media_encoder_slots > 0 {
+                        cgroup.attach_media(pid)
+                    } else {
+                        cgroup.attach_desktop(pid)
+                    }
+                })
             {
                 let _ = vnc.start_kill();
                 let _ = xvfb.start_kill();
@@ -1166,7 +1228,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
     }
 
     async fn metrics(&self, session_id: &str) -> anyhow::Result<RuntimeMetrics> {
-        let (pid, cgroup, cpu_limit_millis) = {
+        let (pid, cgroup, cpu_limit_millis, media_encoder_slots) = {
             let runtimes = self.runtimes.lock().await;
             let runtime = runtimes
                 .get(session_id)
@@ -1175,6 +1237,7 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                 runtime.handle.pid,
                 runtime.cgroup.clone(),
                 runtime.resource_limits.cpu_millis,
+                runtime.resource_limits.media_encoder_slots,
             )
         };
         let process_id = sysinfo::Pid::from_u32(pid);
@@ -1213,6 +1276,14 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             extension_memory_bytes: cgroup
                 .as_ref()
                 .and_then(RuntimeCgroup::extension_memory_bytes),
+            cumulative_media_cpu_usage_micros: (media_encoder_slots > 0)
+                .then(|| {
+                    cgroup
+                        .as_ref()
+                        .and_then(RuntimeCgroup::cumulative_media_cpu_usage_micros)
+                })
+                .flatten(),
+            media_encoder_slots,
         })
     }
 }
@@ -1279,6 +1350,7 @@ mod tests {
                 pid_limit: 256,
                 tab_budget: 16,
                 extension_cpu_weight: 100,
+                media_encoder_slots: 2,
                 desktop_required: false,
                 gpu_required: false,
                 native_os_required: false,
@@ -1312,6 +1384,7 @@ mod tests {
             pid_limit: 384,
             tab_budget: 20,
             extension_cpu_weight: 150,
+            media_encoder_slots: 1,
             desktop_required: false,
             gpu_required: false,
             native_os_required: false,
@@ -1341,9 +1414,14 @@ mod tests {
         let browser_path = cgroup.browser_path.as_ref().unwrap();
         let desktop_path = cgroup.desktop_path.as_ref().unwrap();
         let extension_path = cgroup.extension_path.as_ref().unwrap();
+        let media_path = cgroup.media_path.as_ref().unwrap();
         assert_eq!(
             fs::read_to_string(extension_path.join("cpu.weight")).unwrap(),
             "150"
+        );
+        assert_eq!(
+            fs::read_to_string(media_path.join("cpu.weight")).unwrap(),
+            "100"
         );
         fs::write(
             browser_path.join("io.stat"),
@@ -1360,6 +1438,11 @@ mod tests {
         assert_eq!(
             fs::read_to_string(desktop_path.join("cgroup.procs")).unwrap(),
             "43"
+        );
+        cgroup.attach_media(46).unwrap();
+        assert_eq!(
+            fs::read_to_string(media_path.join("cgroup.procs")).unwrap(),
+            "46"
         );
         let proc_root = root.join("proc");
         fs::create_dir_all(proc_root.join("44")).unwrap();
@@ -1384,6 +1467,8 @@ mod tests {
         fs::write(extension_path.join("memory.current"), "10485760").unwrap();
         assert_eq!(cgroup.cumulative_extension_cpu_usage_micros(), Some(12_345));
         assert_eq!(cgroup.extension_memory_bytes(), Some(10 * 1024 * 1024));
+        fs::write(media_path.join("cpu.stat"), "usage_usec 67890\n").unwrap();
+        assert_eq!(cgroup.cumulative_media_cpu_usage_micros(), Some(67_890));
         fs::remove_dir_all(root).unwrap();
     }
 

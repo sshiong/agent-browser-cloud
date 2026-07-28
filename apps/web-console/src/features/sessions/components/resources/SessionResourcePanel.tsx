@@ -140,7 +140,7 @@ export function SessionResourcePanel({
                       resource.allocation.remoteDesktopBitrateKbps
                         ? `${resource.allocation.remoteDesktopBitrateKbps} Kbps`
                         : '未启用'
-                    } · Extension weight ${resource.allocation.extensionCpuWeight ?? '—'}`
+                    } · Extension weight ${resource.allocation.extensionCpuWeight ?? '—'} · Media ${resource.allocation.mediaEncoderSlots ?? 0}/${resource.allocation.mediaEncoderSlotLimit ?? 0} slots`
                   : '等待 Placement'
               }
             />
@@ -168,7 +168,7 @@ export function SessionResourcePanel({
 
           <ResourceUsageChart resource={resource} />
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <ResourceLimitProgress
               label="CPU 压力"
               value={resource.usage?.cpuPercent}
@@ -183,6 +183,15 @@ export function SessionResourcePanel({
               label="Extension 压力"
               value={resource.usage?.extensionCpuPercent}
               detail={`${formatMemory(resource.usage?.extensionMemoryMib)} Extension RSS`}
+            />
+            <ResourceLimitProgress
+              label="Media Encoder"
+              value={resource.usage?.mediaEncoderPercent}
+              detail={
+                resource.allocation?.mediaEncoderSlotLimit
+                  ? `${resource.allocation.mediaEncoderSlots ?? 0}/${resource.allocation.mediaEncoderSlotLimit} slots`
+                  : '当前 Session 未预留编码 Slot'
+              }
             />
             <ResourceLimitProgress
               label="Profile I/O"

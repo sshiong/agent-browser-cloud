@@ -57,5 +57,5 @@ make test-integration
    Content Script 若与页面 Renderer 共享进程，也不会被误报为 Extension 子组专属 CPU。
 2. 仍需在目标 Linux 委派 Cgroup v2 节点上使用真实 Chromium/真实企业扩展完成多 Session
    长稳、进程重分类竞态、OOM/PSI 和资源权重效果证书。
-3. Media Encoder 仍没有独立 Helper、真实负载生产者和 Slot 在线执行器；Remote Desktop
-   网关码率不能替代 Media Encoder Slot。
+3. x11vnc Media Encoder 的真实 CPU 生产者与 Slot 在线执行器已在进度 54 完成；
+   独立硬件 Codec/GPU Helper、编码器动态码率和目标 Linux 长稳仍未完成。

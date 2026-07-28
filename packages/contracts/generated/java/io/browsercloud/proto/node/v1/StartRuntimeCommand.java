@@ -562,6 +562,33 @@ private static final long serialVersionUID = 0L;
     return extensionCpuWeight_;
   }
 
+  public static final int MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 22;
+  private int mediaEncoderSlots_ = 0;
+  /**
+   * <pre>
+   * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+   * </pre>
+   *
+   * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   * @return Whether the mediaEncoderSlots field is set.
+   */
+  @java.lang.Override
+  public boolean hasMediaEncoderSlots() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+  /**
+   * <pre>
+   * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+   * </pre>
+   *
+   * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   * @return The mediaEncoderSlots.
+   */
+  @java.lang.Override
+  public int getMediaEncoderSlots() {
+    return mediaEncoderSlots_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -638,6 +665,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000004) != 0)) {
       output.writeUInt32(21, extensionCpuWeight_);
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      output.writeUInt32(22, mediaEncoderSlots_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -729,6 +759,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(21, extensionCpuWeight_);
     }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(22, mediaEncoderSlots_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -795,6 +829,11 @@ private static final long serialVersionUID = 0L;
       if (getExtensionCpuWeight()
           != other.getExtensionCpuWeight()) return false;
     }
+    if (hasMediaEncoderSlots() != other.hasMediaEncoderSlots()) return false;
+    if (hasMediaEncoderSlots()) {
+      if (getMediaEncoderSlots()
+          != other.getMediaEncoderSlots()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -859,6 +898,10 @@ private static final long serialVersionUID = 0L;
     if (hasExtensionCpuWeight()) {
       hash = (37 * hash) + EXTENSION_CPU_WEIGHT_FIELD_NUMBER;
       hash = (53 * hash) + getExtensionCpuWeight();
+    }
+    if (hasMediaEncoderSlots()) {
+      hash = (37 * hash) + MEDIA_ENCODER_SLOTS_FIELD_NUMBER;
+      hash = (53 * hash) + getMediaEncoderSlots();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1017,6 +1060,7 @@ private static final long serialVersionUID = 0L;
       extensionIds_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
       extensionCpuWeight_ = 0;
+      mediaEncoderSlots_ = 0;
       return this;
     }
 
@@ -1117,6 +1161,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00100000) != 0)) {
         result.extensionCpuWeight_ = extensionCpuWeight_;
         to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.mediaEncoderSlots_ = mediaEncoderSlots_;
+        to_bitField0_ |= 0x00000008;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1248,6 +1296,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasExtensionCpuWeight()) {
         setExtensionCpuWeight(other.getExtensionCpuWeight());
+      }
+      if (other.hasMediaEncoderSlots()) {
+        setMediaEncoderSlots(other.getMediaEncoderSlots());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1381,6 +1432,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00100000;
               break;
             } // case 168
+            case 176: {
+              mediaEncoderSlots_ = input.readUInt32();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 176
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2517,6 +2573,62 @@ private static final long serialVersionUID = 0L;
     public Builder clearExtensionCpuWeight() {
       bitField0_ = (bitField0_ & ~0x00100000);
       extensionCpuWeight_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int mediaEncoderSlots_ ;
+    /**
+     * <pre>
+     * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+     * </pre>
+     *
+     * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     * @return Whether the mediaEncoderSlots field is set.
+     */
+    @java.lang.Override
+    public boolean hasMediaEncoderSlots() {
+      return ((bitField0_ & 0x00200000) != 0);
+    }
+    /**
+     * <pre>
+     * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+     * </pre>
+     *
+     * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     * @return The mediaEncoderSlots.
+     */
+    @java.lang.Override
+    public int getMediaEncoderSlots() {
+      return mediaEncoderSlots_;
+    }
+    /**
+     * <pre>
+     * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+     * </pre>
+     *
+     * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     * @param value The mediaEncoderSlots to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMediaEncoderSlots(int value) {
+
+      mediaEncoderSlots_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+     * </pre>
+     *
+     * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMediaEncoderSlots() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      mediaEncoderSlots_ = 0;
       onChanged();
       return this;
     }

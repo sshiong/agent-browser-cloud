@@ -3,7 +3,7 @@
 > 日期：2026-07-28
 > 状态：首批六类细粒度真实信号、多指标决策迟滞、State Collector Budget 和
 > Remote Desktop Bitrate 执行器和 Browser/Profile I/O 真实生产者已完成；
-> Extension 指标生产者与 Weight 执行器已完成；Media 待完成
+> Extension 指标/Weight 与 x11vnc Media 编码指标/Slot 执行器已完成
 
 ## 本轮目标
 
@@ -79,10 +79,10 @@ make test-integration
 
 ## 尚未完成
 
-1. Browser/Profile I/O 已由 Linux Cgroup v2 Browser 子组真实生产者补齐；仍缺
-   Media Encoder 的真实指标生产者；Extension 进程级聚合生产者见进度 52。
-2. State Collector Budget、Remote Desktop Bitrate、回滚和 Node ACK 语义已完成；
-   仍缺 Media Encoder Slot 在线执行器；Extension Resource Weight 见进度 52。
+1. Browser/Profile I/O、Extension 聚合和 x11vnc Media Encoder CPU 已由 Linux
+   Cgroup v2 子组真实生产者补齐；硬件 Codec/GPU 指标仍缺目标实现。
+2. State Collector Budget、Remote Desktop Bitrate、Extension Weight、Media Slot、
+   回滚和 Node ACK 语义已完成；编码器动态码率与录制队列仍未完成。
 3. Long Tasks/页面主线程阻塞的更精确采集；当前使用 CDP `TaskDuration` 差值。
 4. 目标 Linux 的多 Session 5 秒遥测长稳、缩容抖动和 OOM/磁盘满即时保护证书。
 5. 双真实 Browser Node + S3 + Chromium 的迁移故障注入与长稳证书。
@@ -90,5 +90,6 @@ make test-integration
 
 ## 下一步
 
-优先补 Media 的隔离执行器和真实指标生产者；随后在双真实桌面 Browser Node
-上验证 Remote Desktop Bitrate、迁移和业务恢复的故障矩阵。
+下一步在目标 Linux 和双真实桌面 Browser Node 上验证 Media Cgroup/Slot、
+Remote Desktop Bitrate、迁移和业务恢复的故障矩阵；如产品需要 WebRTC/录制，再引入
+独立硬件编码 Helper。

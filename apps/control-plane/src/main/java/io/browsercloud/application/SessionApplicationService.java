@@ -207,6 +207,7 @@ public class SessionApplicationService {
                     placement.remoteDesktopBitrateKbps(),
                     placement.extensionIds(),
                     placement.extensionCpuWeight(),
+                    placement.mediaEncoderSlots(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

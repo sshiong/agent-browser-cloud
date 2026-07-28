@@ -175,6 +175,8 @@ start_browser_node() {
   CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
   NODE_PRESSURE_ROOT="$temp_dir/pressure" \
   REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
+  XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
+  X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
   RUNTIME_ROOT="$temp_dir/runtime" \
   NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
@@ -352,7 +354,7 @@ media_placement="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/browser-placements/${media_one_id}" \
   -H 'X-Tenant-Id: tenant-media-integration')"
 printf '%s' "$media_placement" | python3 -c \
-  'import json,sys; placement=json.load(sys.stdin); assert placement["effectiveResourceClass"] == "L4"; assert placement["requiresMedia"] is True; assert placement["mediaSlots"] == 1; assert placement["mediaBitrateKbps"] == 4000; assert "MEDIA_PROMOTION" in placement["reasonCodes"]'
+  'import json,sys; placement=json.load(sys.stdin); assert placement["effectiveResourceClass"] == "L4"; assert placement["requiresMedia"] is True; assert placement["mediaSlots"] == 1; assert placement["mediaEncoderSlots"] == 1; assert placement["mediaBitrateKbps"] == 4000; assert "MEDIA_PROMOTION" in placement["reasonCodes"]'
 media_cost="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/enterprise/sessions/${media_one_id}/cost-explanation" \
   -H 'X-Tenant-Id: tenant-media-integration')"
@@ -820,12 +822,12 @@ done
 non_cgroup_resource_limits=""
 for _ in $(seq 1 160); do
   non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-    "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight
+    "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots
      from browser_placements where session_id='${session_one}'")"
-  if [[ "$non_cgroup_resource_limits" = "75:0:100" ]]; then break; fi
+  if [[ "$non_cgroup_resource_limits" = "75:0:100:0" ]]; then break; fi
   sleep 0.25
 done
-test "$non_cgroup_resource_limits" = "75:0:100"
+test "$non_cgroup_resource_limits" = "75:0:100:0"
 non_cgroup_adjustment_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from session_resource_events
    where session_id='${session_one}'
@@ -1725,9 +1727,9 @@ resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud 
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "2"
 non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight
+  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots
    from browser_placements where session_id='${session_one}'")"
-test "$non_cgroup_resource_limits" = "75:0:100"
+test "$non_cgroup_resource_limits" = "75:0:100:0"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"

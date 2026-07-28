@@ -223,6 +223,8 @@ export interface SessionResourceView {
     stateCollectorBudgetPercent?: number;
     remoteDesktopBitrateKbps?: number;
     extensionCpuWeight?: number;
+    mediaEncoderSlots?: number;
+    mediaEncoderSlotLimit?: number;
     placementState: string;
   };
   usage?: {

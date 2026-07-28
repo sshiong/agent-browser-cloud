@@ -700,6 +700,7 @@ public class BrowserCapacityApplicationService {
         placement.isRequiresIsolation(),
         placement.isRequiresMedia(),
         placement.getMediaSlots(),
+        placement.getMediaEncoderSlots(),
         placement.getMediaBitrateKbps(),
         placement.getPlacementScore(),
         placement.getState(),

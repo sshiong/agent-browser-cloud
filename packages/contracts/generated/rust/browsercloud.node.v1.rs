@@ -291,6 +291,9 @@ pub struct StartRuntimeCommand {
     /// cgroup v2 cpu.weight，N-1 Node 会安全忽略。
     #[prost(uint32, optional, tag="21")]
     pub extension_cpu_weight: ::core::option::Option<u32>,
+    /// 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+    #[prost(uint32, optional, tag="22")]
+    pub media_encoder_slots: ::core::option::Option<u32>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -387,6 +390,9 @@ pub struct AdjustRuntimeResourcesCommand {
     /// 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
     #[prost(uint32, optional, tag="15")]
     pub extension_cpu_weight: ::core::option::Option<u32>,
+    /// 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
+    #[prost(uint32, optional, tag="16")]
+    pub media_encoder_slots: ::core::option::Option<u32>,
 }
 /// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -437,6 +443,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_extension_cpu_weight: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="22")]
     pub new_extension_cpu_weight: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="23")]
+    pub old_media_encoder_slots: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="24")]
+    pub new_media_encoder_slots: ::core::option::Option<u32>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

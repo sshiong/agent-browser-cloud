@@ -241,4 +241,23 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The extensionCpuWeight.
    */
   int getExtensionCpuWeight();
+
+  /**
+   * <pre>
+   * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+   * </pre>
+   *
+   * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   * @return Whether the mediaEncoderSlots field is set.
+   */
+  boolean hasMediaEncoderSlots();
+  /**
+   * <pre>
+   * 当前可用的编码并发 Slot；与 Placement 预留上限分离。
+   * </pre>
+   *
+   * <code>optional uint32 media_encoder_slots = 22 [json_name = "mediaEncoderSlots"];</code>
+   * @return The mediaEncoderSlots.
+   */
+  int getMediaEncoderSlots();
 }

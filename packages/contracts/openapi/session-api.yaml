@@ -3281,6 +3281,7 @@ components:
         - requiresIsolation
         - requiresMedia
         - mediaSlots
+        - mediaEncoderSlots
         - mediaBitrateKbps
         - placementScore
         - state
@@ -3336,6 +3337,10 @@ components:
         requiresMedia:
           type: boolean
         mediaSlots:
+          type: integer
+          minimum: 0
+          maximum: 32
+        mediaEncoderSlots:
           type: integer
           minimum: 0
           maximum: 32

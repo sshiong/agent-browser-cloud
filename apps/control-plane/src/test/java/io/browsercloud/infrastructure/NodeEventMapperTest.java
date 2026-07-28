@@ -117,6 +117,8 @@ class NodeEventMapperTest {
             .setNewRemoteDesktopBitrateKbps(6000)
             .setOldExtensionCpuWeight(100)
             .setNewExtensionCpuWeight(150)
+            .setOldMediaEncoderSlots(1)
+            .setNewMediaEncoderSlots(2)
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -138,6 +140,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newRemoteDesktopBitrateKbps()).isEqualTo(6000);
               assertThat(adjusted.oldExtensionCpuWeight()).isEqualTo(100);
               assertThat(adjusted.newExtensionCpuWeight()).isEqualTo(150);
+              assertThat(adjusted.oldMediaEncoderSlots()).isEqualTo(1);
+              assertThat(adjusted.newMediaEncoderSlots()).isEqualTo(2);
             });
   }
 

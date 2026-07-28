@@ -146,4 +146,23 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The extensionCpuWeight.
    */
   int getExtensionCpuWeight();
+
+  /**
+   * <pre>
+   * 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
+   * </pre>
+   *
+   * <code>optional uint32 media_encoder_slots = 16 [json_name = "mediaEncoderSlots"];</code>
+   * @return Whether the mediaEncoderSlots field is set.
+   */
+  boolean hasMediaEncoderSlots();
+  /**
+   * <pre>
+   * 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
+   * </pre>
+   *
+   * <code>optional uint32 media_encoder_slots = 16 [json_name = "mediaEncoderSlots"];</code>
+   * @return The mediaEncoderSlots.
+   */
+  int getMediaEncoderSlots();
 }

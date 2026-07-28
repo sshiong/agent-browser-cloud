@@ -31,6 +31,7 @@ import { useWorkspaceGroups } from '@/features/groups/groupQueries';
 import { useWorkspaceTags } from '@/features/groups/tagQueries';
 import { useProxyOverview } from '@/features/proxies/proxyQueries';
 import { useRuntimeBuilds } from '@/features/security/platformQueries';
+import { useWorkspaceSettings } from '@/features/settings/settingsQueries';
 import {
   useCreateSession,
   useRecoveryContracts,
@@ -188,6 +189,7 @@ export function CreateSessionDialog({
   const recoveryContractsQuery = useRecoveryContracts();
   const groupsQuery = useWorkspaceGroups();
   const tagsQuery = useWorkspaceTags();
+  const settingsQuery = useWorkspaceSettings();
   const [step, setStep] = useState<Step>(1);
   const [createdSessionId, setCreatedSessionId] = useState<string>();
   const [advancedResourcesOpen, setAdvancedResourcesOpen] = useState(false);
@@ -200,7 +202,7 @@ export function CreateSessionDialog({
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, dirtyFields },
     reset,
     setValue,
     trigger,
@@ -249,7 +251,9 @@ export function CreateSessionDialog({
     () =>
       (runtimeQuery.data?.items ?? []).filter(
         (runtime) =>
-          runtime.releaseChannel === 'STABLE' && runtime.signatureVerified
+          runtime.releaseChannel === 'STABLE' &&
+          runtime.regressionStatus === 'STABLE' &&
+          runtime.signatureVerified
       ),
     [runtimeQuery.data?.items]
   );
@@ -262,16 +266,45 @@ export function CreateSessionDialog({
   );
 
   useEffect(() => {
-    if (!values.runtimeBuildId && approvedRuntimes[0]) {
-      setValue('runtimeBuildId', approvedRuntimes[0].buildId);
+    const preferred =
+      approvedRuntimes.find(
+        (runtime) =>
+          runtime.buildId === settingsQuery.data?.defaultRuntimeBuildId
+      ) ?? approvedRuntimes[0];
+    if (!values.runtimeBuildId && preferred) {
+      setValue('runtimeBuildId', preferred.buildId);
     }
-  }, [approvedRuntimes, setValue, values.runtimeBuildId]);
+  }, [
+    approvedRuntimes,
+    setValue,
+    settingsQuery.data?.defaultRuntimeBuildId,
+    values.runtimeBuildId,
+  ]);
 
   useEffect(() => {
-    if (!values.region && regions[0]) {
-      setValue('region', regions[0].regionId);
+    const preferred =
+      regions.find(
+        (region) => region.regionId === settingsQuery.data?.defaultRegion
+      ) ?? regions[0];
+    if (!values.region && preferred) {
+      setValue('region', preferred.regionId);
     }
-  }, [regions, setValue, values.region]);
+  }, [regions, setValue, settingsQuery.data?.defaultRegion, values.region]);
+
+  useEffect(() => {
+    if (
+      settingsQuery.data &&
+      !dirtyFields.humanTakeover &&
+      values.humanTakeover !== settingsQuery.data.defaultHumanTakeoverEnabled
+    ) {
+      setValue('humanTakeover', settingsQuery.data.defaultHumanTakeoverEnabled);
+    }
+  }, [
+    dirtyFields.humanTakeover,
+    setValue,
+    settingsQuery.data,
+    values.humanTakeover,
+  ]);
 
   useEffect(() => {
     const group = groupsQuery.data?.items.find(
@@ -324,6 +357,7 @@ export function CreateSessionDialog({
       request: {
         tenantId: currentTenantId(),
         profileId,
+        runtimeBuildId: form.runtimeBuildId,
         applicationId: form.applicationId || undefined,
         groupId: form.groupId || undefined,
         tagIds: form.tagIds,
@@ -353,6 +387,7 @@ export function CreateSessionDialog({
         requestedTabs: form.requestedTabs,
         agentActionsPerMinute: form.agentActionsPerMinute,
         remoteDesktop: form.remoteDesktop,
+        humanTakeoverEnabled: form.humanTakeover,
         web3Workload: form.web3Workload,
         mediaWorkload: budget.mediaWorkload,
         requestedMediaStreams: budget.streams,
@@ -362,7 +397,6 @@ export function CreateSessionDialog({
           displayName: form.name,
           description: form.description,
           visualAccent: form.accent,
-          requestedRuntimeBuildId: form.runtimeBuildId,
           profileMode: form.profileMode,
           networkMode: form.networkMode,
           proxyProviderId:
@@ -372,7 +406,6 @@ export function CreateSessionDialog({
           mediaClass: form.mediaClass,
           agentEnabled: String(form.agentEnabled),
           agentPolicy: form.agentPolicy,
-          humanTakeover: String(form.humanTakeover),
           idleTimeoutMinutes: String(form.idleTimeoutMinutes),
           snapshotPolicy: form.snapshotPolicy,
         },

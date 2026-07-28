@@ -222,6 +222,21 @@ for invariant in (
 ):
     assert invariant in workspace_tags_upper
 
+workspace_settings_migration = read(
+    "database/migrations/V036__workspace_settings.sql"
+)
+workspace_settings_upper = workspace_settings_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in workspace_settings_upper
+for invariant in (
+    "CREATE TABLE WORKSPACE_SETTINGS",
+    "TENANT_ID TEXT PRIMARY KEY",
+    "FOREIGN KEY (DEFAULT_RUNTIME_BUILD_ID)",
+    "REFERENCES RUNTIME_BUILDS(BUILD_ID)",
+    "ADD COLUMN HUMAN_TAKEOVER_ENABLED BOOLEAN NOT NULL DEFAULT TRUE",
+):
+    assert invariant in workspace_settings_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -312,6 +327,8 @@ create = openapi.split("    CreateSessionRequest:", 1)[1].split(
 create_required = create.split("      properties:", 1)[0]
 for optional in (
     "applicationId",
+    "runtimeBuildId",
+    "humanTakeoverEnabled",
     "mediaWorkload",
     "requestedMediaStreams",
     "mediaBitrateKbps",
@@ -347,7 +364,7 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034 expand-validate-contract,V029-V033,V035 additive",
+    "schema": "V019-V021 additive,V028,V034 expand-validate-contract,V029-V033,V035-V036 additive",
     "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24",
     "json": "new-media-and-application-recovery-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

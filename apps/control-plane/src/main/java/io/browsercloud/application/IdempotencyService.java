@@ -183,6 +183,16 @@ public class IdempotencyService {
         candidateMutationId);
   }
 
+  String claimWorkspaceSettingsUpdate(
+      String tenantId, String idempotencyKey, Object request, String candidateMutationId) {
+    return claim(
+        tenantId,
+        "UPDATE_WORKSPACE_SETTINGS",
+        idempotencyKey,
+        hashRequest(request),
+        candidateMutationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

@@ -2307,6 +2307,51 @@ paths:
                 $ref: "#/components/schemas/WorkspaceTag"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/workspace-settings:
+    get:
+      operationId: getWorkspaceSettings
+      summary: Read effective tenant Workspace defaults
+      description: >
+        Returns a PostgreSQL Workspace override when one exists, otherwise the
+        declared Control Plane system default with source=SYSTEM_DEFAULT.
+      tags: [Settings]
+      responses:
+        "200":
+          description: Effective Workspace Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceSettings"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: updateWorkspaceSettings
+      summary: Persist audited defaults for future Sessions
+      description: >
+        Updates affect only future Session creation. Runtime, region and
+        HumanTakeover values are bound at creation and existing Sessions are not rewritten.
+      tags: [Settings]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceSettingsRequest"
+      responses:
+        "200":
+          description: Persisted Workspace Settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -3973,9 +4018,6 @@ components:
       type: object
       additionalProperties: false
       required: [tenantId, profileId]
-      anyOf:
-        - required: [resourcePolicy]
-        - required: [groupId]
       properties:
         tenantId:
           type: string
@@ -3987,6 +4029,10 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+        runtimeBuildId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,128}$"
+          description: Optional approved Runtime Build. Workspace default is bound when omitted.
         applicationId:
           type: string
           pattern: "^[a-zA-Z0-9_.-]{1,128}$"
@@ -4025,6 +4071,9 @@ components:
         remoteDesktop:
           type: boolean
           default: false
+        humanTakeoverEnabled:
+          type: boolean
+          description: Optional create-time override. Workspace default is bound when omitted.
         web3Workload:
           type: boolean
           default: false
@@ -4519,6 +4568,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkspaceTagSummary"
+        humanTakeoverEnabled:
+          type: boolean
+          description: Immutable create-time capability binding. Old Control Planes may omit it during rolling upgrades.
         region:
           type: string
         resourceClass:
@@ -4743,6 +4795,68 @@ components:
             $ref: "#/components/schemas/WorkspaceTagSession"
         total:
           type: integer
+          minimum: 0
+    WorkspaceSettingsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - workspaceName
+        - defaultRuntimeBuildId
+        - defaultRegion
+        - defaultHumanTakeoverEnabled
+      properties:
+        workspaceName:
+          type: string
+          minLength: 1
+          maxLength: 96
+        defaultRuntimeBuildId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,128}$"
+        defaultRegion:
+          type: string
+          pattern: "^[a-z0-9-]{1,32}$"
+        defaultHumanTakeoverEnabled:
+          type: boolean
+    WorkspaceSettings:
+      type: object
+      additionalProperties: false
+      required:
+        - workspaceName
+        - defaultRuntimeBuildId
+        - defaultRegion
+        - defaultHumanTakeoverEnabled
+        - resourcePolicyMode
+        - onMaximumReached
+        - source
+        - version
+      properties:
+        workspaceName:
+          type: string
+          minLength: 1
+          maxLength: 96
+        defaultRuntimeBuildId:
+          type: string
+        defaultRegion:
+          type: string
+        defaultHumanTakeoverEnabled:
+          type: boolean
+        resourcePolicyMode:
+          type: string
+          const: AUTO
+        onMaximumReached:
+          type: string
+          const: PAUSE_AGENT
+        source:
+          type: string
+          enum: [SYSTEM_DEFAULT, WORKSPACE_OVERRIDE]
+        updatedBy:
+          type: [string, "null"]
+        updatedAt:
+          type: [string, "null"]
+          format: date-time
+        version:
+          type: integer
+          format: int64
           minimum: 0
     SessionListResponse:
       type: object

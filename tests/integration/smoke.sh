@@ -289,6 +289,79 @@ runtime_builds="$(curl -fsS \
 printf '%s' "$runtime_builds" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["artifactDigest"] == "sha256:" + "0"*64; assert build["signingKeyId"] == "local-development"; assert build["sbomUrl"]'
 
+system_workspace_settings="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/workspace-settings" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$system_workspace_settings" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["source"] == "SYSTEM_DEFAULT"; assert item["workspaceName"] == "Default Workspace"; assert item["defaultRuntimeBuildId"] == "runtime_local_chromium"; assert item["resourcePolicyMode"] == "AUTO"; assert item["onMaximumReached"] == "PAUSE_AGENT"'
+workspace_settings_body='{"workspaceName":"Integration Workspace","defaultRuntimeBuildId":"runtime_local_chromium","defaultRegion":"local","defaultHumanTakeoverEnabled":true}'
+workspace_settings="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/workspace-settings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: settings-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-settings-update-001' \
+  -d "$workspace_settings_body")"
+printf '%s' "$workspace_settings" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["source"] == "WORKSPACE_OVERRIDE"; assert item["workspaceName"] == "Integration Workspace"; assert item["defaultHumanTakeoverEnabled"] is True; assert item["version"] == 0'
+workspace_settings_replay="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/workspace-settings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: settings-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-settings-update-001' \
+  -d "$workspace_settings_body")"
+printf '%s' "$workspace_settings_replay" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 0; assert item["workspaceName"] == "Integration Workspace"'
+settings_viewer_write_status="$(curl -sS \
+  -o "$temp_dir/settings-viewer-write.json" -w '%{http_code}' \
+  -X PUT "http://localhost:${control_port}/api/v1/workspace-settings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -H 'Idempotency-Key: smoke-settings-viewer-001' \
+  -d "$workspace_settings_body")"
+test "$settings_viewer_write_status" = "403"
+
+disabled_settings_body='{"workspaceName":"Restricted Workspace","defaultRuntimeBuildId":"runtime_local_chromium","defaultRegion":"local","defaultHumanTakeoverEnabled":false}'
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/workspace-settings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'X-Actor-Id: settings-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-settings-disabled-001' \
+  -d "$disabled_settings_body" >"$temp_dir/disabled-settings.json"
+settings_default_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'Idempotency-Key: smoke-settings-session-001' \
+  -d '{"tenantId":"tenant-settings-integration","profileId":"profile-settings-default","metadata":{"displayName":"Settings default browser"}}')"
+settings_default_session_id="$(printf '%s' "$settings_default_session" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["context"]["runtimeBuildId"] == "runtime_local_chromium"; print(item["sessionId"])')"
+settings_default_detail="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${settings_default_session_id}" \
+  -H 'X-Tenant-Id: tenant-settings-integration')"
+printf '%s' "$settings_default_detail" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["region"] == "local"; assert item["runtimeBuildId"] == "runtime_local_chromium"; assert item["humanTakeoverEnabled"] is False'
+disabled_takeover_status="$(curl -sS \
+  -o "$temp_dir/disabled-takeover.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${settings_default_session_id}:takeover" \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+test "$disabled_takeover_status" = "409"
+python3 - "$temp_dir/disabled-takeover.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    error = json.load(handle)
+assert error["code"] == "HUMAN_TAKEOVER_DISABLED"
+PY
+
 extension_profile="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/extensions/acceptance.extension" \
   -H 'Content-Type: application/json' \
@@ -537,7 +610,7 @@ temporary_tag="$(curl -fsS -X POST \
 temporary_tag_id="$(printf '%s' "$temporary_tag" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["tagId"])')"
 
-request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -568,7 +641,7 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
 workspace_group_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -665,7 +738,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -1569,14 +1642,17 @@ sleep 1
 kill -STOP "$control_pid"
 kill -CONT "$node_pid"
 side_effect_event_delivered=""
-for _ in $(seq 1 80); do
+for _ in $(seq 1 200); do
   side_effect_event_delivered="$(sqlite3 "$temp_dir/runtime/node-journal.sqlite3" \
     "select event_delivered from command_results where message_id='${side_effect_command_id}'" \
     2>/dev/null || true)"
   if [[ "$side_effect_event_delivered" = "0" ]]; then break; fi
   sleep 0.1
 done
-test "$side_effect_event_delivered" = "0"
+if [[ "$side_effect_event_delivered" != "0" ]]; then
+  echo "side-effect command did not reach the executed-but-uncommitted journal state: ${side_effect_event_delivered:-missing}" >&2
+  exit 1
+fi
 kill -KILL "$control_pid"
 wait "$control_pid" 2>/dev/null || true
 control_pid=""

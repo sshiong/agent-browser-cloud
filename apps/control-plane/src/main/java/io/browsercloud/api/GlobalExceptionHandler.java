@@ -29,6 +29,7 @@ import io.browsercloud.application.SafePointApplicationService.SafePointNotFound
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotFoundException;
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
+import io.browsercloud.application.SessionApplicationService.HumanTakeoverDisabledException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
@@ -146,6 +147,17 @@ public class GlobalExceptionHandler {
       SessionNotFoundException exception, HttpServletRequest request) {
     return response(
         HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(HumanTakeoverDisabledException.class)
+  ResponseEntity<ApiError> humanTakeoverDisabled(
+      HumanTakeoverDisabledException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "HUMAN_TAKEOVER_DISABLED",
+        "HumanTakeover is disabled for this Session",
+        Map.of(),
+        request);
   }
 
   @ExceptionHandler(ResourcePolicyNotFoundException.class)

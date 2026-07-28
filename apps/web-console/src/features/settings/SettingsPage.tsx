@@ -6,112 +6,304 @@ import {
   LoaderCircle,
   MonitorCog,
   RefreshCw,
+  Save,
   ShieldCheck,
 } from 'lucide-react';
+import { isSessionApiError } from '@/api/session';
 import { TopContextBar } from '@/components/layout/TopContextBar';
+import { ErrorState, LoadingRows } from '@/components/feedback/AsyncStates';
+import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import { usePlatform } from '@/platform/PlatformProvider';
 import type { DesktopUpdateStatus, LocalRuntimeStatus } from '@/platform/types';
 import { cn } from '@/shared/lib/utils';
-
-const sections = [
-  { label: '通用', active: true },
-  { label: '外观', active: false },
-  { label: 'Runtime 路径', active: false },
-  { label: '存储', active: false },
-  { label: '代理', active: false },
-  { label: 'API', active: false },
-  { label: '更新', active: false },
-  { label: '诊断', active: false },
-];
+import {
+  useUpdateWorkspaceSettings,
+  useWorkspaceSettings,
+} from './settingsQueries';
+import type { WorkspaceSettingsRequest } from '@/types/settings';
 
 export function SettingsPage() {
+  const query = useWorkspaceSettings();
+  const runtimes = useRuntimeBuilds();
+  const update = useUpdateWorkspaceSettings();
+  const [draft, setDraft] = useState<WorkspaceSettingsRequest>();
+  const approvedRuntimes = (runtimes.data?.items ?? []).filter(
+    (runtime) =>
+      runtime.releaseChannel === 'STABLE' &&
+      runtime.regressionStatus === 'STABLE' &&
+      runtime.signatureVerified
+  );
+
+  useEffect(() => {
+    if (!query.data) return;
+    setDraft({
+      workspaceName: query.data.workspaceName,
+      defaultRuntimeBuildId: query.data.defaultRuntimeBuildId,
+      defaultRegion: query.data.defaultRegion,
+      defaultHumanTakeoverEnabled: query.data.defaultHumanTakeoverEnabled,
+    });
+  }, [query.data]);
+
+  const dirty =
+    draft != null &&
+    query.data != null &&
+    (draft.workspaceName !== query.data.workspaceName ||
+      draft.defaultRuntimeBuildId !== query.data.defaultRuntimeBuildId ||
+      draft.defaultRegion !== query.data.defaultRegion ||
+      draft.defaultHumanTakeoverEnabled !==
+        query.data.defaultHumanTakeoverEnabled);
+  const requestId = isSessionApiError(update.error)
+    ? update.error.body.requestId
+    : undefined;
+
   return (
     <div>
       <TopContextBar
         title="设置"
-        subtitle="配置工作区、Runtime、存储与系统偏好"
+        subtitle="Workspace 权威默认值与桌面客户端状态"
       />
 
-      <div className="flex p-6">
-        {/* Settings Nav */}
-        <div className="w-[200px] shrink-0">
-          <nav className="space-y-0.5">
-            {sections.map((s) => (
-              <button
-                key={s.label}
-                className={cn(
-                  'w-full rounded-md px-3 py-2 text-left text-[13px] transition-colors',
-                  s.active
-                    ? 'bg-accent-soft text-accent'
-                    : 'text-text-secondary hover:bg-surface-2'
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
+      <div className="flex flex-col gap-4 p-4 sm:p-6 lg:flex-row">
+        <div className="shrink-0 lg:w-[200px]">
+          <nav
+            aria-label="设置分区"
+            className="flex gap-1 overflow-x-auto lg:block lg:space-y-0.5"
+          >
+            <a
+              href="#workspace-settings"
+              className="block shrink-0 bg-accent-soft px-3 py-2 text-[12px] font-medium text-accent lg:w-full"
+            >
+              工作区默认值
+            </a>
+            <a
+              href="#desktop-settings"
+              className="block shrink-0 px-3 py-2 text-[12px] text-text-secondary hover:bg-surface-2 lg:w-full"
+            >
+              桌面客户端
+            </a>
           </nav>
         </div>
 
-        {/* Settings Content */}
-        <div className="min-w-0 flex-1 rounded-[10px] border border-border-subtle bg-surface-1 p-6">
-          <h3 className="mb-6 text-[16px] font-medium text-text-primary">
-            通用设置
-          </h3>
-
-          <div className="space-y-6">
-            <DesktopStatusSection />
-
-            <SettingGroup
-              label="工作区名称"
-              description="显示在侧边栏顶部的工作区名称"
-            >
-              <input
-                type="text"
-                defaultValue="Default Workspace"
-                className="h-9 w-full max-w-[400px] rounded-md border border-border-subtle bg-surface-2 px-3 text-[13px] text-text-primary focus:border-accent focus:outline-none"
-              />
-            </SettingGroup>
-
-            <SettingGroup
-              label="默认 Runtime"
-              description="新建环境时默认使用的 Runtime 构建"
-            >
-              <select className="h-9 w-full max-w-[400px] rounded-md border border-border-subtle bg-surface-2 px-3 text-[13px] text-text-primary focus:border-accent focus:outline-none">
-                <option>Platform Stable (v126.0.6478.126)</option>
-                <option>Certified Runtime (v127.0.6533.88)</option>
-              </select>
-            </SettingGroup>
-
-            <SettingGroup
-              label="默认资源策略"
-              description="新建环境统一使用自动资源分配；内部模板由 Control Plane 解析"
-            >
-              <div className="w-full max-w-[400px] border border-accent/30 bg-accent-soft px-3 py-2.5">
-                <p className="font-mono text-[11px] text-accent">
-                  AUTO · 自动分配
-                </p>
-                <p className="mt-1 text-[10px] text-text-muted">
-                  达到上限时默认暂停 Agent，保留 Browser。
+        <div className="min-w-0 flex-1 space-y-4">
+          <section
+            id="workspace-settings"
+            aria-labelledby="workspace-settings-heading"
+            className="border border-border-subtle bg-surface-1 p-4 sm:p-6"
+          >
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2
+                  id="workspace-settings-heading"
+                  className="text-[15px] font-semibold text-text-primary"
+                >
+                  工作区默认值
+                </h2>
+                <p className="mt-1 text-[11px] leading-5 text-text-muted">
+                  只影响后续新建环境；创建时会固化 Runtime、区域和
+                  HumanTakeover，不会重写存量 Session。
                 </p>
               </div>
-            </SettingGroup>
-
-            <SettingGroup
-              label="HumanTakeover"
-              description="是否默认启用人工接管能力"
-            >
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="h-4 w-4 rounded border-border-default accent-accent"
-                />
-                <span className="text-[13px] text-text-secondary">
-                  默认启用
+              {query.data && (
+                <span className="border border-border-subtle bg-surface-2 px-2 py-1 font-mono text-[9px] text-text-muted">
+                  {query.data.source === 'WORKSPACE_OVERRIDE'
+                    ? `WORKSPACE · v${query.data.version}`
+                    : 'SYSTEM DEFAULT'}
                 </span>
-              </label>
-            </SettingGroup>
-          </div>
+              )}
+            </div>
+
+            {query.isLoading ? (
+              <LoadingRows rows={4} />
+            ) : query.isError || !draft ? (
+              <ErrorState
+                title="无法读取 Workspace Settings"
+                error={query.error}
+                onRetry={() => query.refetch()}
+              />
+            ) : (
+              <form
+                className="space-y-6"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  update.mutate(draft);
+                }}
+              >
+                <SettingGroup
+                  label="工作区名称"
+                  description="显示在侧边栏品牌区域；1—96 个字符。"
+                  htmlFor="workspace-name"
+                >
+                  <input
+                    id="workspace-name"
+                    value={draft.workspaceName}
+                    maxLength={96}
+                    required
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        workspaceName: event.target.value,
+                      })
+                    }
+                    className="field-input w-full max-w-[520px]"
+                  />
+                </SettingGroup>
+
+                <SettingGroup
+                  label="默认 Runtime"
+                  description="只允许选择已发布、验证稳定且签名通过的 Runtime Build。"
+                  htmlFor="default-runtime"
+                >
+                  {runtimes.isLoading ? (
+                    <p className="text-[11px] text-text-muted">
+                      正在读取 Runtime Registry…
+                    </p>
+                  ) : runtimes.isError ? (
+                    <p role="alert" className="text-[11px] text-danger">
+                      无法读取 Runtime Registry，暂不能保存设置。
+                    </p>
+                  ) : (
+                    <select
+                      id="default-runtime"
+                      value={draft.defaultRuntimeBuildId}
+                      required
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          defaultRuntimeBuildId: event.target.value,
+                        })
+                      }
+                      className="field-input w-full max-w-[520px]"
+                    >
+                      {!approvedRuntimes.some(
+                        (runtime) =>
+                          runtime.buildId === draft.defaultRuntimeBuildId
+                      ) && (
+                        <option value={draft.defaultRuntimeBuildId} disabled>
+                          {draft.defaultRuntimeBuildId} · 当前不可用于新建
+                        </option>
+                      )}
+                      {approvedRuntimes.map((runtime) => (
+                        <option key={runtime.buildId} value={runtime.buildId}>
+                          {runtime.engine} {runtime.version} · {runtime.buildId}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </SettingGroup>
+
+                <SettingGroup
+                  label="默认区域"
+                  description="客户端未显式选择区域时使用；服务端仍执行 Residency 与容量准入。"
+                  htmlFor="default-region"
+                >
+                  <input
+                    id="default-region"
+                    value={draft.defaultRegion}
+                    required
+                    maxLength={32}
+                    pattern="[a-z0-9-]{1,32}"
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        defaultRegion: event.target.value.toLowerCase(),
+                      })
+                    }
+                    className="field-input w-full max-w-[520px] font-mono"
+                  />
+                </SettingGroup>
+
+                <SettingGroup
+                  label="HumanTakeover 默认值"
+                  description="关闭后，新建 Session 默认拒绝人工接管；创建向导仍可显式覆盖。"
+                  htmlFor="default-human-takeover"
+                >
+                  <label className="inline-flex min-h-11 items-center gap-3 border border-border-subtle bg-surface-2 px-3">
+                    <input
+                      id="default-human-takeover"
+                      type="checkbox"
+                      checked={draft.defaultHumanTakeoverEnabled}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          defaultHumanTakeoverEnabled: event.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 accent-accent"
+                    />
+                    <span className="text-[12px] text-text-secondary">
+                      新建环境默认允许 HumanTakeover
+                    </span>
+                  </label>
+                </SettingGroup>
+
+                <SettingGroup
+                  label="默认资源策略"
+                  description="普通用户不选择资源等级；内部模板由 Control Plane 解析。"
+                >
+                  <div className="w-full max-w-[520px] border border-accent/30 bg-accent-soft px-3 py-2.5">
+                    <p className="font-mono text-[11px] text-accent">
+                      AUTO · PAUSE_AGENT
+                    </p>
+                    <p className="mt-1 text-[10px] text-text-muted">
+                      达到上限时暂停 Agent、保留 Browser；Group
+                      或创建时显式策略优先。
+                    </p>
+                  </div>
+                </SettingGroup>
+
+                {update.error && (
+                  <p role="alert" className="text-[11px] text-danger">
+                    {update.error.message}
+                    {requestId ? ` · Request ${requestId}` : ''}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p aria-live="polite" className="text-[10px] text-text-muted">
+                    {update.isSuccess && !dirty
+                      ? '设置已写入 PostgreSQL，并记录权限审计。'
+                      : query.data?.updatedAt
+                        ? `最近更新：${new Date(query.data.updatedAt).toLocaleString()} · ${query.data.updatedBy}`
+                        : '尚未创建工作区覆盖；当前来自服务端系统默认值。'}
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={
+                      !dirty ||
+                      update.isPending ||
+                      runtimes.isError ||
+                      approvedRuntimes.length === 0
+                    }
+                    className="inline-flex h-10 items-center gap-2 bg-accent px-4 text-[12px] font-semibold text-canvas disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {update.isPending ? (
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className="h-4 w-4 animate-spin"
+                      />
+                    ) : (
+                      <Save aria-hidden="true" className="h-4 w-4" />
+                    )}
+                    保存工作区设置
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+
+          <section
+            id="desktop-settings"
+            aria-labelledby="desktop-settings-heading"
+            className="border border-border-subtle bg-surface-1 p-4 sm:p-6"
+          >
+            <h2
+              id="desktop-settings-heading"
+              className="mb-6 text-[15px] font-semibold text-text-primary"
+            >
+              桌面客户端
+            </h2>
+            <DesktopStatusSection />
+          </section>
         </div>
       </div>
     </div>
@@ -338,17 +530,26 @@ function errorMessage(cause: unknown, fallback: string) {
 function SettingGroup({
   label,
   description,
+  htmlFor,
   children,
 }: {
   label: string;
   description: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="border-b border-border-subtle pb-6">
-      <label className="text-[13px] font-medium text-text-primary">
-        {label}
-      </label>
+      {htmlFor ? (
+        <label
+          htmlFor={htmlFor}
+          className="text-[13px] font-medium text-text-primary"
+        >
+          {label}
+        </label>
+      ) : (
+        <div className="text-[13px] font-medium text-text-primary">{label}</div>
+      )}
       <p className="mb-2 text-[12px] text-text-muted">{description}</p>
       {children}
     </div>

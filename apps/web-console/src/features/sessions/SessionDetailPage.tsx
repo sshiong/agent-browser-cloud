@@ -88,6 +88,7 @@ export function SessionDetailPage() {
   const canTakeover =
     auth.canOperate &&
     session &&
+    session.humanTakeoverEnabled !== false &&
     ['RUNNING', 'DEGRADED'].includes(session.state) &&
     (!session.currentOperation || takeoverOwned);
 
@@ -246,7 +247,9 @@ export function SessionDetailPage() {
                       ? '他人接管中'
                       : takeoverOwned
                         ? '打开接管'
-                        : '人工接管'}
+                        : session.humanTakeoverEnabled === false
+                          ? '接管已禁用'
+                          : '人工接管'}
                   </button>
                   {canStart && (
                     <button
@@ -419,8 +422,12 @@ export function SessionDetailPage() {
                     <CapabilityRow
                       icon={Hand}
                       title="HumanTakeover"
-                      detail="排他 Operation、输入屏障与结束 State Resync 已接入"
-                      ready
+                      detail={
+                        session.humanTakeoverEnabled === false
+                          ? '创建时已禁用；服务端拒绝获取接管 Operation'
+                          : '排他 Operation、输入屏障与结束 State Resync 已接入'
+                      }
+                      ready={session.humanTakeoverEnabled !== false}
                     />
                     <CapabilityRow
                       icon={ShieldAlert}

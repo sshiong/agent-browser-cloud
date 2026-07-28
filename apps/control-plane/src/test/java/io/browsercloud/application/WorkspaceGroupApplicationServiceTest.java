@@ -118,6 +118,7 @@ class WorkspaceGroupApplicationServiceTest {
             "CREATED",
             "",
             "{\"displayName\":\"CRM\"}",
+            true,
             Instant.parse("2026-07-28T00:00:00Z"));
     when(groups.findByGroupIdAndTenantId(group.getGroupId(), "tenant-test"))
         .thenReturn(Optional.of(group));

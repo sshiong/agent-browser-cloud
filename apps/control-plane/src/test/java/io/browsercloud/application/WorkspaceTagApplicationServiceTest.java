@@ -89,6 +89,7 @@ class WorkspaceTagApplicationServiceTest {
             "CREATED",
             "",
             "{\"displayName\":\"CRM\"}",
+            true,
             now);
     var first =
         new WorkspaceTagEntity(
@@ -140,7 +141,7 @@ class WorkspaceTagApplicationServiceTest {
     var now = Instant.parse("2026-07-28T10:00:00Z");
     var session =
         new SessionEntity(
-            SESSION_ID, TENANT_ID, "profile-a", "local", "L2", "CREATED", "", "{}", now);
+            SESSION_ID, TENANT_ID, "profile-a", "local", "L2", "CREATED", "", "{}", true, now);
     when(sessions.findById(SESSION_ID)).thenReturn(Optional.of(session));
     when(tags.findAllByTenantIdAndTagIdInOrderByNameAsc(TENANT_ID, List.of("tag_cross1234567890")))
         .thenReturn(List.of());

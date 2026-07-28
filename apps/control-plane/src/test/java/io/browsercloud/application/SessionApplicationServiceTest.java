@@ -1,6 +1,8 @@
 package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.browsercloud.coordinator.BrowserStateRepository;
@@ -39,6 +41,7 @@ class SessionApplicationServiceTest {
   @Mock private ApplicationBusinessRecoveryService businessRecoveryService;
   @Mock private WorkspaceGroupApplicationService workspaceGroupService;
   @Mock private WorkspaceTagApplicationService workspaceTagService;
+  @Mock private WorkspaceSettingsApplicationService workspaceSettingsService;
 
   private SessionApplicationService service;
 
@@ -63,7 +66,7 @@ class SessionApplicationServiceTest {
             businessRecoveryService,
             workspaceGroupService,
             workspaceTagService,
-            "runtime-test");
+            workspaceSettingsService);
   }
 
   @Test
@@ -88,7 +91,8 @@ class SessionApplicationServiceTest {
             now,
             now);
     when(sessionRepository.describe("ses_test"))
-        .thenReturn(new SessionDescriptor(context, "local", "Integration browser", "grp_test"));
+        .thenReturn(
+            new SessionDescriptor(context, "local", "Integration browser", "grp_test", true));
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
     when(workspaceTagService.summariesForSession("tenant-test", "ses_test"))
         .thenReturn(java.util.List.of());
@@ -99,7 +103,38 @@ class SessionApplicationServiceTest {
     assertThat(view.profileId()).isEqualTo("profile-test");
     assertThat(view.groupId()).isEqualTo("grp_test");
     assertThat(view.tags()).isEmpty();
+    assertThat(view.humanTakeoverEnabled()).isTrue();
     assertThat(view.region()).isEqualTo("local");
     assertThat(view.resourceClass()).isEqualTo(ResourceClass.L2);
+  }
+
+  @Test
+  void rejectsHumanTakeoverWhenItWasDisabledAtCreation() {
+    var now = Instant.parse("2026-07-23T00:00:00Z");
+    var context =
+        new SessionContext(
+            "ses_test",
+            "tenant-test",
+            "profile-test",
+            null,
+            "runtime-test",
+            null,
+            null,
+            0,
+            0,
+            0,
+            0,
+            ResourceClass.L2,
+            SessionState.RUNNING,
+            "",
+            now,
+            now);
+    when(sessionRepository.require("ses_test")).thenReturn(context);
+    when(sessionRepository.describe("ses_test"))
+        .thenReturn(new SessionDescriptor(context, "local", "Browser", null, false));
+
+    assertThatThrownBy(() -> service.requestTakeover("ses_test", "tenant-test", "operator-test"))
+        .isInstanceOf(SessionApplicationService.HumanTakeoverDisabledException.class);
+    verifyNoInteractions(coordinator);
   }
 }

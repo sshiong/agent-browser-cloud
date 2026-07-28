@@ -72,7 +72,11 @@ public class JpaSessionRepository implements SessionRepository {
   @Override
   @Transactional
   public void insert(
-      SessionContext context, String region, Map<String, String> metadata, String groupId) {
+      SessionContext context,
+      String region,
+      Map<String, String> metadata,
+      String groupId,
+      boolean humanTakeoverEnabled) {
     var entity =
         new SessionEntity(
             context.sessionId(),
@@ -83,6 +87,7 @@ public class JpaSessionRepository implements SessionRepository {
             context.state().name(),
             context.policyHash(),
             serializeMetadata(metadata),
+            humanTakeoverEnabled,
             context.updatedAt());
     entity.setGroupId(groupId);
     sessionJpa.save(entity);
@@ -252,7 +257,8 @@ public class JpaSessionRepository implements SessionRepository {
         context,
         entity.getRegion(),
         readDisplayName(entity.getMetadata(), entity.getId()),
-        entity.getGroupId());
+        entity.getGroupId(),
+        entity.isHumanTakeoverEnabled());
   }
 
   private String readDisplayName(String metadata, String fallback) {

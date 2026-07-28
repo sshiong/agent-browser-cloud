@@ -13,6 +13,7 @@ public record SessionView(
     String profileId,
     String groupId,
     List<WorkspaceTagModels.WorkspaceTagSummary> tags,
+    boolean humanTakeoverEnabled,
     String region,
     ResourceClass resourceClass,
     SessionState state,

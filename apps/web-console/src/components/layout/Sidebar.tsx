@@ -21,6 +21,7 @@ import { useUIStore } from '@/stores/ui';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/auth/AuthProvider';
 import type { PlatformRole } from '@/auth/runtimeIdentity';
+import { useWorkspaceSettings } from '@/features/settings/settingsQueries';
 
 interface NavItem {
   label: string;
@@ -123,7 +124,7 @@ const navGroups: NavGroup[] = [
         label: '设置',
         icon: <Settings size={18} />,
         path: '/settings',
-        requiredRoles: ['PLATFORM_ADMIN'],
+        requiredRoles: ['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN'],
       },
     ],
   },
@@ -135,6 +136,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
+  const settings = useWorkspaceSettings();
 
   return (
     <aside
@@ -152,7 +154,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="hidden flex-col min-[1281px]:flex">
             <span className="text-sm font-semibold text-text-primary">
-              Agent Browser
+              {settings.data?.workspaceName ?? 'Agent Browser'}
             </span>
             <span className="text-[11px] text-text-muted">Runtime Console</span>
           </div>

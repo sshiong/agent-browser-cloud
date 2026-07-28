@@ -35,6 +35,9 @@ public class SessionEntity {
   @Column(name = "group_id")
   private String groupId;
 
+  @Column(name = "human_takeover_enabled", nullable = false)
+  private boolean humanTakeoverEnabled;
+
   @Column(name = "metadata", columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String metadata;
@@ -59,6 +62,7 @@ public class SessionEntity {
       String state,
       String policyHash,
       String metadata,
+      boolean humanTakeoverEnabled,
       Instant createdAt) {
     this.id = id;
     this.tenantId = tenantId;
@@ -68,6 +72,7 @@ public class SessionEntity {
     this.state = state;
     this.policyHash = policyHash;
     this.metadata = metadata;
+    this.humanTakeoverEnabled = humanTakeoverEnabled;
     this.createdAt = createdAt;
     this.updatedAt = createdAt;
   }
@@ -131,6 +136,10 @@ public class SessionEntity {
 
   public void setGroupId(String groupId) {
     this.groupId = groupId;
+  }
+
+  public boolean isHumanTakeoverEnabled() {
+    return humanTakeoverEnabled;
   }
 
   public void setPolicyHash(String policyHash) {

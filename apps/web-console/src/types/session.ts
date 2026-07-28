@@ -97,6 +97,7 @@ export interface SessionView {
   profileId: string;
   groupId?: string;
   tags?: WorkspaceTagSummary[];
+  humanTakeoverEnabled?: boolean;
   region: string;
   resourceClass: ResourceClass;
   state: SessionState;
@@ -137,6 +138,7 @@ export interface OperationView {
 export interface CreateSessionRequest {
   tenantId: string;
   profileId: string;
+  runtimeBuildId?: string;
   applicationId?: string;
   groupId?: string;
   tagIds?: string[];
@@ -147,6 +149,7 @@ export interface CreateSessionRequest {
   requestedTabs?: number;
   agentActionsPerMinute?: number;
   remoteDesktop?: boolean;
+  humanTakeoverEnabled?: boolean;
   web3Workload?: boolean;
   mediaWorkload?: boolean;
   requestedMediaStreams?: number;

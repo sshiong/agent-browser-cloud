@@ -166,7 +166,9 @@ export function App() {
             <Route
               path="/settings"
               element={
-                <RequireRoles roles={['PLATFORM_ADMIN']}>
+                <RequireRoles
+                  roles={['TENANT_ADMIN', 'SECURITY_ADMIN', 'PLATFORM_ADMIN']}
+                >
                   <SettingsPage />
                 </RequireRoles>
               }

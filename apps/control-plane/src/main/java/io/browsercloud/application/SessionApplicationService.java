@@ -13,7 +13,6 @@ import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +41,7 @@ public class SessionApplicationService {
   private final ApplicationBusinessRecoveryService businessRecoveryService;
   private final WorkspaceGroupApplicationService workspaceGroupService;
   private final WorkspaceTagApplicationService workspaceTagService;
-  private final String defaultRuntimeBuildId;
+  private final WorkspaceSettingsApplicationService workspaceSettingsService;
 
   public SessionApplicationService(
       SessionCoordinator coordinator,
@@ -62,8 +61,7 @@ public class SessionApplicationService {
       ApplicationBusinessRecoveryService businessRecoveryService,
       WorkspaceGroupApplicationService workspaceGroupService,
       WorkspaceTagApplicationService workspaceTagService,
-      @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
-          String defaultRuntimeBuildId) {
+      WorkspaceSettingsApplicationService workspaceSettingsService) {
     this.coordinator = coordinator;
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
@@ -81,7 +79,7 @@ public class SessionApplicationService {
     this.businessRecoveryService = businessRecoveryService;
     this.workspaceGroupService = workspaceGroupService;
     this.workspaceTagService = workspaceTagService;
-    this.defaultRuntimeBuildId = defaultRuntimeBuildId;
+    this.workspaceSettingsService = workspaceSettingsService;
   }
 
   /** 创建 Session。 */
@@ -110,6 +108,16 @@ public class SessionApplicationService {
     Instant now = Instant.now();
     profileApplicationService.ensureExists(request.tenantId(), request.profileId());
     workspaceGroupService.requireExists(request.tenantId(), request.groupId());
+    var workspaceDefaults = workspaceSettingsService.resolve(request.tenantId());
+    var runtimeBuildId =
+        request.runtimeBuildId() == null
+            ? workspaceDefaults.defaultRuntimeBuildId()
+            : request.runtimeBuildId();
+    runtimeBuildPolicy.requireApproved(runtimeBuildId);
+    var humanTakeoverEnabled =
+        request.humanTakeoverEnabled() == null
+            ? workspaceDefaults.defaultHumanTakeoverEnabled()
+            : request.humanTakeoverEnabled();
     var effectiveResourcePolicy =
         workspaceGroupService.resolvePolicy(
             request.tenantId(), request.groupId(), request.resourcePolicy());
@@ -120,7 +128,7 @@ public class SessionApplicationService {
             request.tenantId(),
             request.profileId(),
             null,
-            null,
+            runtimeBuildId,
             null,
             null,
             0,
@@ -135,9 +143,10 @@ public class SessionApplicationService {
 
     sessionRepository.insert(
         context,
-        request.region() == null ? "local" : request.region(),
+        request.region() == null ? workspaceDefaults.defaultRegion() : request.region(),
         request.metadata() == null ? java.util.Map.of() : request.metadata(),
-        request.groupId());
+        request.groupId(),
+        humanTakeoverEnabled);
     workspaceTagService.assignInitial(
         context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);
     businessRecoveryService.bind(
@@ -164,7 +173,15 @@ public class SessionApplicationService {
         actorId,
         "CREATE",
         "COMMITTED",
-        Map.of("profileId", request.profileId(), "resourceClass", context.resourceClass().name()),
+        Map.of(
+            "profileId",
+            request.profileId(),
+            "runtimeBuildId",
+            runtimeBuildId,
+            "humanTakeoverEnabled",
+            humanTakeoverEnabled,
+            "resourceClass",
+            context.resourceClass().name()),
         idempotencyKey);
 
     return new CreateSessionResponse(
@@ -198,7 +215,11 @@ public class SessionApplicationService {
   @Transactional
   public OperationResponse start(String sessionId, String tenantId, String actorId) {
     var session = requireTenant(sessionId, tenantId);
-    runtimeBuildPolicy.requireApproved(defaultRuntimeBuildId);
+    var runtimeBuildId =
+        session.runtimeBuildId() == null || session.runtimeBuildId().isBlank()
+            ? workspaceSettingsService.resolve(tenantId).defaultRuntimeBuildId()
+            : session.runtimeBuildId();
+    runtimeBuildPolicy.requireApproved(runtimeBuildId);
     var descriptor = sessionRepository.describe(sessionId);
     var placement = browserCapacityService.reserve(session, descriptor.region());
     session = sessionRepository.require(sessionId);
@@ -207,7 +228,7 @@ public class SessionApplicationService {
         coordinator.handle(
             new StartSession(
                 sessionId,
-                defaultRuntimeBuildId,
+                runtimeBuildId,
                 UUID.randomUUID().toString(),
                 new RuntimeResourceLimits(
                     placement.effectiveResourceClass(),
@@ -254,7 +275,7 @@ public class SessionApplicationService {
                 "operationId",
                 result.operationId(),
                 "runtimeBuildId",
-                defaultRuntimeBuildId,
+                runtimeBuildId,
                 "nodeId",
                 placement.nodeId(),
                 "effectiveResourceClass",
@@ -336,6 +357,9 @@ public class SessionApplicationService {
   @Transactional
   public OperationResponse requestTakeover(String sessionId, String tenantId, String userId) {
     requireTenant(sessionId, tenantId);
+    if (!sessionRepository.describe(sessionId).humanTakeoverEnabled()) {
+      throw new HumanTakeoverDisabledException();
+    }
     var result = coordinator.handle(new RequestHumanTakeover(sessionId, userId));
     appendAudit(
         sessionRepository.require(sessionId),
@@ -477,6 +501,7 @@ public class SessionApplicationService {
         context.profileId(),
         descriptor.groupId(),
         workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
+        descriptor.humanTakeoverEnabled(),
         descriptor.region(),
         context.resourceClass(),
         context.state(),
@@ -546,4 +571,6 @@ public class SessionApplicationService {
   }
 
   public static final class CapacityUnavailableException extends RuntimeException {}
+
+  public static final class HumanTakeoverDisabledException extends RuntimeException {}
 }

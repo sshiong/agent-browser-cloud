@@ -108,10 +108,12 @@
 > 逐步关闭；五分钟成本趋势、成本上限执行和上限前一次性非核心降载已由
 > [进度 65](65-AUTO成本趋势与上限前降载闭环.md)关闭。以下以各条最新说明为准。
 
-1. Browser Node 已按 5 秒周期自动上报 CPU、RSS 和 Memory PSI；Renderer、Tab、主线程、
-   Agent Action、State Diff、Profile I/O、Extension、Remote Desktop 与 Media 指标尚未接入。
-2. 在线 Cgroup CPU/Memory/PID 调整已完成；State Collector 预算、Encoder Slot、
-   Remote Desktop 码率和 Extension Weight 执行器尚未实现。
+1. Browser Node 已按 5 秒周期自动上报 CPU、RSS、Memory PSI、Renderer、Tab、主线程、
+   Agent Action、State Diff、Profile I/O、Extension、Remote Desktop 与 Media 指标；
+   目标 Linux 多 Session 长稳仍是生产 Gate。
+2. 在线 Cgroup CPU/Memory/PID、State Collector 预算、Encoder Slot、Remote Desktop
+   码率、Extension Weight、后台 Tab、新建 Tab 阻断和非特权 Extension 后台暂停均已
+   进入 Node ACK 链。
 3. 30 秒决策引擎已通过真实 Operation、Outbox、Node ACK Event 和 PostgreSQL 提交完成
    同节点快扩慢缩；Node ACK 前不会写入新分配。
 4. Safe Point 已覆盖真实 Input Ledger/Drag、HumanTakeover、Agent Task、Snapshot/Profile
@@ -120,8 +122,8 @@
    Recovery Validation 已实现；真实双 Node + S3 + Chromium 故障矩阵仍待验收。
 6. 自动休眠和严格预算终止已接入真实 Operation/Node 执行链。
    V042 已使 `maximumCostPerHour` 进入真实五分钟成本决策；V043 已补齐后台 Tab
-   冻结、新建 Tab 阻断、Node ACK 和详情状态；Trace、录制/Observer 帧率、截图和逐
-   Extension 后台任务等 Level 1 Node Actuator 仍待实现。
+   冻结、新建 Tab 阻断、Node ACK 和详情状态；V044/进度 67 已补齐非特权 Extension
+   后台暂停。Trace、录制/Observer 帧率和截图等 Level 1 Node Actuator 仍待实现。
 7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
    Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
    层仍未实现。
@@ -130,9 +132,9 @@
 
 ## 下一步建议
 
-1. 补齐 Trace、录制/Observer 帧率、截图和逐 Extension 后台任务等 Level 1 Node
-   Actuator 与 ACK；后台 Tab/新建 Tab 已由
-   [进度 66](66-AUTO后台标签冻结与新建标签阻断闭环.md)关闭。
+1. 补齐 Trace、录制/Observer 帧率和截图等 Level 1 Node Actuator 与 ACK；后台
+   Tab/新建 Tab 已由进度 66 关闭，非特权 Extension 后台暂停已由
+   [进度 67](67-AUTO非特权扩展后台暂停闭环.md)关闭。
 2. 接入目标站点支付/账号安全/关键事务 Adapter 和 Provider 级恢复证明。
 3. 增加 State/Audit 统一事件流和跨 Region Event Bus。
 4. 完成 Session Coordinator HTTP/Timer/Workflow 的物理 Shard Pod 路由。

@@ -75,9 +75,18 @@ public sealed interface NodeEvent
       Boolean newFreezeBackgroundTabs,
       Boolean oldBlockNewTabs,
       Boolean newBlockNewTabs,
+      List<String> oldPausedExtensionIds,
+      List<String> newPausedExtensionIds,
       String reason,
       String operationId)
-      implements NodeEvent {}
+      implements NodeEvent {
+    public RuntimeResourcesAdjusted {
+      oldPausedExtensionIds =
+          oldPausedExtensionIds == null ? null : List.copyOf(oldPausedExtensionIds);
+      newPausedExtensionIds =
+          newPausedExtensionIds == null ? null : List.copyOf(newPausedExtensionIds);
+    }
+  }
 
   /** Runtime 崩溃事件。 */
   record RuntimeCrashed(String sessionId, String crashType, String reason) implements NodeEvent {}

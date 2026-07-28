@@ -200,6 +200,8 @@ message StartRuntimeCommand {
   optional uint32 media_encoder_slots = 22;
   optional bool freeze_background_tabs = 23;
   optional bool block_new_tabs = 24;
+  // 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+  ExtensionBackgroundPolicy extension_background_policy = 25;
 }
 
 // Runtime 启动事件
@@ -261,6 +263,15 @@ message AdjustRuntimeResourcesCommand {
   optional bool freeze_background_tabs = 17;
   // 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
   optional bool block_new_tabs = 18;
+  ExtensionBackgroundPolicy extension_background_policy = 19;
+  // 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+  repeated string extension_ids = 20;
+}
+
+// Browser Node 通过各 Extension background/service-worker Target 的 Debugger
+// pause/resume 执行，避免直接卸载扩展或修改扩展集合。
+message ExtensionBackgroundPolicy {
+  repeated string paused_extension_ids = 1;
 }
 
 // Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
@@ -294,6 +305,8 @@ message RuntimeResourcesAdjustedEvent {
   optional bool new_freeze_background_tabs = 26;
   optional bool old_block_new_tabs = 27;
   optional bool new_block_new_tabs = 28;
+  ExtensionBackgroundPolicy old_extension_background_policy = 29;
+  ExtensionBackgroundPolicy new_extension_background_policy = 30;
 }
 
 // Browser Crash 事件

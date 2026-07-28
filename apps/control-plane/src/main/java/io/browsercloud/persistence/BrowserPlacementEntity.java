@@ -88,6 +88,10 @@ public class BrowserPlacementEntity {
   @Column(name = "new_tabs_blocked", nullable = false)
   private boolean newTabsBlocked;
 
+  @Column(name = "paused_extension_ids", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String pausedExtensionIds;
+
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
@@ -163,6 +167,7 @@ public class BrowserPlacementEntity {
     this.mediaEncoderSlots = requiresMedia ? mediaSlots : 0;
     this.backgroundTabsFrozen = false;
     this.newTabsBlocked = false;
+    this.pausedExtensionIds = "[]";
     this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
@@ -216,7 +221,8 @@ public class BrowserPlacementEntity {
       int nextExtensionCpuWeight,
       int nextMediaEncoderSlots,
       boolean nextBackgroundTabsFrozen,
-      boolean nextNewTabsBlocked) {
+      boolean nextNewTabsBlocked,
+      String nextPausedExtensionIds) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -236,6 +242,9 @@ public class BrowserPlacementEntity {
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
       throw new IllegalArgumentException("extension CPU weight is invalid");
     }
+    if (nextPausedExtensionIds == null || nextPausedExtensionIds.isBlank()) {
+      throw new IllegalArgumentException("paused extension IDs are invalid");
+    }
     if ((!requiresMedia && nextMediaEncoderSlots != 0)
         || (requiresMedia && (nextMediaEncoderSlots < 1 || nextMediaEncoderSlots > mediaSlots))) {
       throw new IllegalArgumentException("Media Encoder Slot allocation is invalid");
@@ -251,6 +260,7 @@ public class BrowserPlacementEntity {
     mediaEncoderSlots = nextMediaEncoderSlots;
     backgroundTabsFrozen = nextBackgroundTabsFrozen;
     newTabsBlocked = nextNewTabsBlocked;
+    pausedExtensionIds = nextPausedExtensionIds;
   }
 
   public String getSessionId() {
@@ -347,6 +357,10 @@ public class BrowserPlacementEntity {
 
   public boolean isNewTabsBlocked() {
     return newTabsBlocked;
+  }
+
+  public String getPausedExtensionIds() {
+    return pausedExtensionIds;
   }
 
   public int getMediaBitrateKbps() {

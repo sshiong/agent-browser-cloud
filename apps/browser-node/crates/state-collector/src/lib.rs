@@ -182,7 +182,7 @@ pub trait BrowserStateCollector: Send + Sync {
         -> anyhow::Result<CurrentState>;
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CdpTarget {
     #[serde(default)]
@@ -222,6 +222,7 @@ pub struct TabResourcePolicy {
     pub tab_budget: u32,
     pub freeze_background_tabs: bool,
     pub block_new_tabs: bool,
+    pub paused_extension_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -229,6 +230,7 @@ struct TabResourcePolicyState {
     policy: TabResourcePolicy,
     allowed_target_ids: HashSet<String>,
     frozen_targets: HashMap<String, std::time::Instant>,
+    paused_extension_targets: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -433,6 +435,7 @@ impl CdpStateCollector {
                 tab_budget: policy.tab_budget,
                 freeze_background_tabs: false,
                 block_new_tabs: false,
+                paused_extension_ids: Vec::new(),
             });
 
         if let Some(monitor) = self.tab_policy_monitors.lock().await.remove(session_id) {
@@ -440,12 +443,14 @@ impl CdpStateCollector {
         }
         if let Some(state) = previous_state.as_ref() {
             self.restore_frozen_tabs(&endpoint, state).await?;
+            self.resume_paused_extensions(&endpoint, state).await?;
         }
 
         let targets = Self::list_targets(&endpoint).await?;
         let page_targets = targets
-            .into_iter()
+            .iter()
             .filter(|target| target.target_type == "page")
+            .cloned()
             .collect::<Vec<_>>();
         anyhow::ensure!(
             !policy.block_new_tabs || !page_targets.is_empty(),
@@ -467,6 +472,24 @@ impl CdpStateCollector {
                 }
             }
         }
+        let mut paused_extension_targets = HashMap::new();
+        for target in targets.iter().filter(|target| {
+            Self::extension_id(target).is_some_and(|extension_id| {
+                policy
+                    .paused_extension_ids
+                    .iter()
+                    .any(|paused| paused == extension_id)
+            })
+        }) {
+            self.pause_extension_target(target).await?;
+            paused_extension_targets.insert(
+                target.id.clone(),
+                target
+                    .web_socket_debugger_url
+                    .clone()
+                    .expect("pause_extension_target requires a websocket"),
+            );
+        }
 
         self.tab_resource_policies.write().await.insert(
             session_id.to_owned(),
@@ -474,9 +497,13 @@ impl CdpStateCollector {
                 policy: policy.clone(),
                 allowed_target_ids,
                 frozen_targets,
+                paused_extension_targets,
             },
         );
-        if policy.freeze_background_tabs || policy.block_new_tabs {
+        if policy.freeze_background_tabs
+            || policy.block_new_tabs
+            || !policy.paused_extension_ids.is_empty()
+        {
             let collector = self.clone();
             let monitored_session_id = session_id.to_owned();
             let handle = tokio::spawn(async move {
@@ -725,6 +752,58 @@ impl CdpStateCollector {
         Ok(())
     }
 
+    fn extension_id(target: &CdpTarget) -> Option<&str> {
+        if !matches!(
+            target.target_type.as_str(),
+            "background_page" | "service_worker" | "worker" | "shared_worker"
+        ) {
+            return None;
+        }
+        target
+            .url
+            .strip_prefix("chrome-extension://")
+            .and_then(|value| value.split('/').next())
+            .filter(|value| !value.is_empty())
+    }
+
+    async fn pause_extension_target(&self, target: &CdpTarget) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !target.id.is_empty(),
+            "CDP Extension Target ID is unavailable"
+        );
+        let websocket = target
+            .web_socket_debugger_url
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("CDP Extension websocket is unavailable"))?;
+        Self::cdp_command(websocket, "Debugger.enable", 601).await?;
+        Self::cdp_command(websocket, "Debugger.pause", 602).await?;
+        Ok(())
+    }
+
+    async fn resume_paused_extensions(
+        &self,
+        endpoint: &str,
+        state: &TabResourcePolicyState,
+    ) -> anyhow::Result<()> {
+        if state.paused_extension_targets.is_empty() {
+            return Ok(());
+        }
+        let targets = Self::list_targets(endpoint).await?;
+        for target in targets.into_iter().filter(|target| {
+            state
+                .paused_extension_targets
+                .contains_key(target.id.as_str())
+        }) {
+            let websocket = target
+                .web_socket_debugger_url
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("CDP Extension websocket is unavailable"))?;
+            Self::cdp_command(websocket, "Debugger.resume", 603).await?;
+            Self::cdp_command(websocket, "Debugger.disable", 604).await?;
+        }
+        Ok(())
+    }
+
     async fn enforce_tab_resource_policy_once(&self, session_id: &str) -> anyhow::Result<()> {
         let Some(state) = self
             .tab_resource_policies
@@ -737,6 +816,26 @@ impl CdpStateCollector {
         };
         let endpoint = self.endpoint(session_id).await?;
         let targets = Self::list_targets(&endpoint).await?;
+        let mut paused_extension_targets = state.paused_extension_targets.clone();
+        for target in targets.iter().filter(|target| {
+            !state.paused_extension_targets.contains_key(&target.id)
+                && Self::extension_id(target).is_some_and(|extension_id| {
+                    state
+                        .policy
+                        .paused_extension_ids
+                        .iter()
+                        .any(|paused| paused == extension_id)
+                })
+        }) {
+            self.pause_extension_target(target).await?;
+            paused_extension_targets.insert(
+                target.id.clone(),
+                target
+                    .web_socket_debugger_url
+                    .clone()
+                    .expect("pause_extension_target requires a websocket"),
+            );
+        }
         let page_targets = targets
             .into_iter()
             .filter(|target| target.target_type == "page")
@@ -795,6 +894,7 @@ impl CdpStateCollector {
         }
         if let Some(current) = self.tab_resource_policies.write().await.get_mut(session_id) {
             current.frozen_targets = frozen_targets;
+            current.paused_extension_targets = paused_extension_targets;
         }
         Ok(())
     }
@@ -1723,6 +1823,7 @@ mod tests {
                     tab_budget: 8,
                     freeze_background_tabs: true,
                     block_new_tabs: true,
+                    paused_extension_ids: Vec::new(),
                 },
             )
             .await
@@ -1734,7 +1835,8 @@ mod tests {
             Some(TabResourcePolicy {
                 tab_budget: 8,
                 freeze_background_tabs: true,
-                block_new_tabs: true
+                block_new_tabs: true,
+                paused_extension_ids: Vec::new(),
             })
         );
         collector.unregister_runtime("ses_tabs").await;
@@ -1825,6 +1927,7 @@ mod tests {
                     tab_budget: 8,
                     freeze_background_tabs: false,
                     block_new_tabs: true,
+                    paused_extension_ids: Vec::new(),
                 },
             )
             .await
@@ -1835,6 +1938,201 @@ mod tests {
             .unwrap();
         collector.unregister_runtime("ses_block_tabs").await;
         browser_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn pauses_and_resumes_only_configured_extension_background_targets() {
+        let paused_extension_id = "abcdefghijklmnopabcdefghijklmnop";
+        let privileged_extension_id = "ponmlkjihgfedcbaponmlkjihgfedcba";
+        let extension_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let extension_address = extension_listener.local_addr().unwrap();
+        let extension_task = tokio::spawn(async move {
+            for expected_method in [
+                "Debugger.enable",
+                "Debugger.pause",
+                "Debugger.resume",
+                "Debugger.disable",
+            ] {
+                let (stream, _) = extension_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected extension CDP request");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], expected_method);
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": request["id"], "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            for _ in 0..3 {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+                let body = serde_json::json!([
+                    {
+                        "id": "extension-paused",
+                        "type": "service_worker",
+                        "url": format!("chrome-extension://{paused_extension_id}/background.js"),
+                        "webSocketDebuggerUrl": format!(
+                            "ws://{extension_address}/devtools/page/extension-paused"
+                        )
+                    },
+                    {
+                        "id": "extension-privileged",
+                        "type": "background_page",
+                        "url": format!("chrome-extension://{privileged_extension_id}/background.html"),
+                        "webSocketDebuggerUrl": format!(
+                            "ws://{extension_address}/devtools/page/extension-privileged"
+                        )
+                    },
+                    {
+                        "id": "page-current",
+                        "type": "page",
+                        "url": "https://example.test/current"
+                    }
+                ])
+                .to_string();
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_extension_policy", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        collector
+            .set_tab_resource_policy(
+                "ses_extension_policy",
+                TabResourcePolicy {
+                    tab_budget: 8,
+                    freeze_background_tabs: false,
+                    block_new_tabs: false,
+                    paused_extension_ids: vec![paused_extension_id.to_owned()],
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            collector
+                .tab_resource_policy("ses_extension_policy")
+                .await
+                .unwrap()
+                .paused_extension_ids,
+            vec![paused_extension_id]
+        );
+
+        collector
+            .set_tab_resource_policy(
+                "ses_extension_policy",
+                TabResourcePolicy {
+                    tab_budget: 8,
+                    freeze_background_tabs: false,
+                    block_new_tabs: false,
+                    paused_extension_ids: Vec::new(),
+                },
+            )
+            .await
+            .unwrap();
+        collector.unregister_runtime("ses_extension_policy").await;
+        extension_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn pauses_matching_extension_target_created_after_policy_commit() {
+        let extension_id = "abcdefghijklmnopabcdefghijklmnop";
+        let extension_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let extension_address = extension_listener.local_addr().unwrap();
+        let extension_task = tokio::spawn(async move {
+            for expected_method in ["Debugger.enable", "Debugger.pause"] {
+                let (stream, _) = extension_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected extension CDP request");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], expected_method);
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": request["id"], "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            for request_number in 0..2 {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+                let mut targets = vec![serde_json::json!({
+                    "id": "page-current",
+                    "type": "page",
+                    "url": "https://example.test/current"
+                })];
+                if request_number == 1 {
+                    targets.push(serde_json::json!({
+                        "id": "extension-restarted",
+                        "type": "service_worker",
+                        "url": format!("chrome-extension://{extension_id}/background.js"),
+                        "webSocketDebuggerUrl": format!(
+                            "ws://{extension_address}/devtools/page/extension-restarted"
+                        )
+                    }));
+                }
+                let body = serde_json::Value::Array(targets).to_string();
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_extension_monitor", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        collector
+            .set_tab_resource_policy(
+                "ses_extension_monitor",
+                TabResourcePolicy {
+                    tab_budget: 8,
+                    freeze_background_tabs: false,
+                    block_new_tabs: false,
+                    paused_extension_ids: vec![extension_id.to_owned()],
+                },
+            )
+            .await
+            .unwrap();
+        collector
+            .enforce_tab_resource_policy_once("ses_extension_monitor")
+            .await
+            .unwrap();
+        collector.unregister_runtime("ses_extension_monitor").await;
+        extension_task.await.unwrap();
         http_task.await.unwrap();
     }
 

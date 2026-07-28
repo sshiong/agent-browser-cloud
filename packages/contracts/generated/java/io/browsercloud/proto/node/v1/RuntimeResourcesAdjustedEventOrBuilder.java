@@ -279,4 +279,34 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newBlockNewTabs.
    */
   boolean getNewBlockNewTabs();
+
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * @return Whether the oldExtensionBackgroundPolicy field is set.
+   */
+  boolean hasOldExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * @return The oldExtensionBackgroundPolicy.
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getOldExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getOldExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * @return Whether the newExtensionBackgroundPolicy field is set.
+   */
+  boolean hasNewExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * @return The newExtensionBackgroundPolicy.
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getNewExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder();
 }

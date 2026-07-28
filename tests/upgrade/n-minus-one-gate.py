@@ -356,6 +356,21 @@ for invariant in (
         f"tab resource migration lacks rolling invariant: {invariant}"
     )
 
+extension_background_migration = read(
+    "database/migrations/V044__browser_placement_paused_extensions.sql"
+)
+extension_background_upper = extension_background_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in extension_background_upper
+for invariant in (
+    "ADD COLUMN PAUSED_EXTENSION_IDS JSONB NOT NULL DEFAULT '[]'::JSONB",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_BROWSER_PLACEMENTS_PAUSED_EXTENSION_IDS_ARRAY",
+):
+    assert invariant in extension_background_upper, (
+        f"extension background migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -419,6 +434,7 @@ for message_name, fields in (
             ("media_encoder_slots", 22, True),
             ("freeze_background_tabs", 23, True),
             ("block_new_tabs", 24, True),
+            ("extension_background_policy", 25, False),
         ),
     ),
     (
@@ -428,6 +444,8 @@ for message_name, fields in (
             ("media_encoder_slots", 16, True),
             ("freeze_background_tabs", 17, True),
             ("block_new_tabs", 18, True),
+            ("extension_background_policy", 19, False),
+            ("extension_ids", 20, False),
         ),
     ),
     (
@@ -441,6 +459,8 @@ for message_name, fields in (
             ("new_freeze_background_tabs", 26, True),
             ("old_block_new_tabs", 27, True),
             ("new_block_new_tabs", 28, True),
+            ("old_extension_background_policy", 29, False),
+            ("new_extension_background_policy", 30, False),
         ),
     ),
 ):
@@ -448,7 +468,7 @@ for message_name, fields in (
     message_tags = {
         name: (qualifier or "", int(tag))
         for qualifier, name, tag in re.findall(
-            r"^\s*((?:optional|repeated)\s+)?[a-z0-9_]+\s+([a-z0-9_]+)\s*=\s*(\d+);",
+            r"^\s*((?:optional|repeated)\s+)?[A-Za-z0-9_.]+\s+([a-z0-9_]+)\s*=\s*(\d+);",
             message,
             flags=re.MULTILINE,
         )
@@ -515,8 +535,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,recovery-extension-tag-6",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V044 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

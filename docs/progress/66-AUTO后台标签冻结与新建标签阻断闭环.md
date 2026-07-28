@@ -1,8 +1,8 @@
 # AUTO 后台标签冻结与新建标签阻断闭环
 
 > 完成日期：2026-07-29  
-> 状态：仓库内实现、真实 CDP、Node ACK、PostgreSQL、Web 与完整集成通过；Trace、录制和
-> 截图执行器仍待后续关闭
+> 状态：仓库内实现、真实 CDP、Node ACK、PostgreSQL、Web 与完整集成通过；逐扩展后台
+> 暂停已由进度 67 关闭，Trace、录制和截图执行器仍待后续关闭
 
 ## 本轮关闭的缺口
 
@@ -106,6 +106,7 @@ Session Resource Panel 直接显示“已由 Node 冻结/阻断”或正常状�
 1. 成功 Trace 动态采样执行器；
 2. 视频/Observer 录制停止与帧率执行器；
 3. Agent/Observer 截图频率执行器；
-4. 非关键 Extension 后台任务的逐扩展暂停；当前只有 Extension Cgroup Weight；
+4. 非关键 Extension 后台任务的逐扩展暂停已由
+   [进度 67](67-AUTO非特权扩展后台暂停闭环.md)关闭；
 5. 目标 Linux 多 Browser 长稳和真实用户切换标签矩阵；
 6. 将企业费率公开契约中的 Legacy L1−L5 迁移为内部 Template/容量维度。

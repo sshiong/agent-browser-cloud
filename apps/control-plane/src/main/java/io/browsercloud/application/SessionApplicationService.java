@@ -261,6 +261,7 @@ public class SessionApplicationService {
                     placement.mediaEncoderSlots(),
                     placement.backgroundTabsFrozen(),
                     placement.newTabsBlocked(),
+                    placement.pausedExtensionIds(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

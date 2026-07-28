@@ -203,4 +203,60 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The blockNewTabs.
    */
   boolean getBlockNewTabs();
+
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return Whether the extensionBackgroundPolicy field is set.
+   */
+  boolean hasExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return The extensionBackgroundPolicy.
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @return A list containing the extensionIds.
+   */
+  java.util.List<java.lang.String>
+      getExtensionIdsList();
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @return The count of extensionIds.
+   */
+  int getExtensionIdsCount();
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @param index The index of the element to return.
+   * @return The extensionIds at the given index.
+   */
+  java.lang.String getExtensionIds(int index);
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the extensionIds at the given index.
+   */
+  com.google.protobuf.ByteString
+      getExtensionIdsBytes(int index);
 }

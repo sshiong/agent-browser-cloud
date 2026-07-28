@@ -11,6 +11,7 @@ import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
+import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
 import io.browsercloud.proto.node.v1.ReleaseAllInputCommand;
 import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
 import io.browsercloud.proto.node.v1.StartRuntimeCommand;
@@ -66,6 +67,9 @@ public final class NodeCommands {
             .setMediaEncoderSlots(limits.mediaEncoderSlots())
             .setFreezeBackgroundTabs(limits.freezeBackgroundTabs())
             .setBlockNewTabs(limits.blockNewTabs())
+            .setExtensionBackgroundPolicy(
+                ExtensionBackgroundPolicy.newBuilder()
+                    .addAllPausedExtensionIds(limits.pausedExtensionIds()))
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
@@ -102,6 +106,7 @@ public final class NodeCommands {
         0,
         false,
         false,
+        java.util.List.of(),
         budget.desktopAllowed(),
         budget.gpuRequired(),
         budget.nativeOsRequired(),
@@ -138,6 +143,10 @@ public final class NodeCommands {
             .setMediaEncoderSlots(limits.mediaEncoderSlots())
             .setFreezeBackgroundTabs(freezeBackgroundTabs)
             .setBlockNewTabs(blockNewTabs)
+            .addAllExtensionIds(limits.extensionIds())
+            .setExtensionBackgroundPolicy(
+                ExtensionBackgroundPolicy.newBuilder()
+                    .addAllPausedExtensionIds(limits.pausedExtensionIds()))
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

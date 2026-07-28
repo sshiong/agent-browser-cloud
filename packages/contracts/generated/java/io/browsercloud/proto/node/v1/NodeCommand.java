@@ -17,12 +17,12 @@ public final class NodeCommand {
   }
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_PingRequest_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_PingRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_PingResponse_descriptor;
-  static final 
+  static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_PingResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
@@ -110,6 +110,11 @@ public final class NodeCommand {
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_AdjustRuntimeResourcesCommand_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor;
   static final 
@@ -346,7 +351,7 @@ public final class NodeCommand {
       "rm\030\n \001(\003R\017coordinatorTerm\022#\n\rcontext_epo" +
       "ch\030\013 \001(\003R\014contextEpoch\022\'\n\017operation_epoc" +
       "h\030\014 \001(\003R\016operationEpoch\022\032\n\010sequence\030\r \001(" +
-      "\003R\010sequence\022\030\n\007payload\030\024 \001(\014R\007payload\"\274\t" +
+      "\003R\010sequence\022\030\n\007payload\030\024 \001(\014R\007payload\"\255\n" +
       "\n\023StartRuntimeCommand\022\035\n\nsession_id\030\001 \001(" +
       "\tR\tsessionId\022(\n\020runtime_build_id\030\002 \001(\tR\016" +
       "runtimeBuildId\022\035\n\nprofile_id\030\003 \001(\tR\tprof" +
@@ -373,217 +378,231 @@ public final class NodeCommand {
       " \001(\rH\003R\021mediaEncoderSlots\210\001\001\0229\n\026freeze_b" +
       "ackground_tabs\030\027 \001(\010H\004R\024freezeBackground" +
       "Tabs\210\001\001\022)\n\016block_new_tabs\030\030 \001(\010H\005R\014block" +
-      "NewTabs\210\001\001B!\n\037_state_collector_budget_pe" +
-      "rcentB\036\n\034_remote_desktop_bitrate_kbpsB\027\n" +
-      "\025_extension_cpu_weightB\026\n\024_media_encoder" +
-      "_slotsB\031\n\027_freeze_background_tabsB\021\n\017_bl" +
-      "ock_new_tabs\"\334\002\n\023RuntimeStartedEvent\022\035\n\n" +
-      "session_id\030\001 \001(\tR\tsessionId\022\020\n\003pid\030\002 \001(\r" +
-      "R\003pid\022-\n\022browser_generation\030\003 \001(\004R\021brows" +
-      "erGeneration\022!\n\014cdp_endpoint\030\004 \001(\tR\013cdpE" +
-      "ndpoint\022\027\n\007node_id\030\005 \001(\tR\006nodeId\022(\n\020runt" +
-      "ime_build_id\030\006 \001(\tR\016runtimeBuildId\022(\n\020pr" +
-      "oxy_binding_id\030\007 \001(\tR\016proxyBindingId\022\027\n\007" +
-      "exit_ip\030\010 \001(\tR\006exitIp\022!\n\014exit_country\030\t " +
-      "\001(\tR\013exitCountry\022\031\n\010exit_asn\030\n \001(\tR\007exit" +
-      "Asn\"K\n\022StopRuntimeCommand\022\035\n\nsession_id\030" +
-      "\001 \001(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR\006reason" +
-      "\"\213\003\n\023RuntimeStoppedEvent\022\035\n\nsession_id\030\001" +
-      " \001(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR\006reason\022" +
-      "\033\n\texit_code\030\003 \001(\005R\010exitCode\022\035\n\nprofile_" +
-      "id\030\004 \001(\tR\tprofileId\022#\n\rcheckpoint_id\030\005 \001" +
-      "(\tR\014checkpointId\022)\n\020checkpoint_epoch\030\006 \001" +
-      "(\004R\017checkpointEpoch\022.\n\023profile_write_epo" +
-      "ch\030\007 \001(\004R\021profileWriteEpoch\022&\n\017core_size" +
-      "_bytes\030\010 \001(\004R\rcoreSizeBytes\0222\n\025checkpoin" +
-      "t_file_count\030\t \001(\004R\023checkpointFileCount\022" +
-      "%\n\016restore_status\030\n \001(\tR\rrestoreStatus\"\335" +
-      "\007\n\035AdjustRuntimeResourcesCommand\022\035\n\nsess" +
-      "ion_id\030\001 \001(\tR\tsessionId\022%\n\016resource_clas" +
-      "s\030\002 \001(\tR\rresourceClass\022\035\n\ncpu_millis\030\003 \001" +
-      "(\rR\tcpuMillis\022,\n\022memory_request_mib\030\004 \001(" +
-      "\rR\020memoryRequestMib\022(\n\020memory_limit_mib\030" +
-      "\005 \001(\rR\016memoryLimitMib\022\033\n\tpid_limit\030\006 \001(\r" +
-      "R\010pidLimit\022\035\n\ntab_budget\030\007 \001(\rR\ttabBudge" +
-      "t\022\026\n\006reason\030\010 \001(\tR\006reason\022)\n\020desktop_req" +
-      "uired\030\t \001(\010R\017desktopRequired\022!\n\014gpu_requ" +
-      "ired\030\n \001(\010R\013gpuRequired\022,\n\022native_os_req" +
-      "uired\030\013 \001(\010R\020nativeOsRequired\022-\n\022isolati" +
-      "on_required\030\014 \001(\010R\021isolationRequired\022H\n\036" +
-      "state_collector_budget_percent\030\r \001(\rH\000R\033" +
-      "stateCollectorBudgetPercent\210\001\001\022B\n\033remote" +
-      "_desktop_bitrate_kbps\030\016 \001(\rH\001R\030remoteDes" +
-      "ktopBitrateKbps\210\001\001\0225\n\024extension_cpu_weig" +
-      "ht\030\017 \001(\rH\002R\022extensionCpuWeight\210\001\001\0223\n\023med" +
-      "ia_encoder_slots\030\020 \001(\rH\003R\021mediaEncoderSl" +
-      "ots\210\001\001\0229\n\026freeze_background_tabs\030\021 \001(\010H\004" +
-      "R\024freezeBackgroundTabs\210\001\001\022)\n\016block_new_t" +
-      "abs\030\022 \001(\010H\005R\014blockNewTabs\210\001\001B!\n\037_state_c" +
-      "ollector_budget_percentB\036\n\034_remote_deskt" +
-      "op_bitrate_kbpsB\027\n\025_extension_cpu_weight" +
-      "B\026\n\024_media_encoder_slotsB\031\n\027_freeze_back" +
-      "ground_tabsB\021\n\017_block_new_tabs\"\242\016\n\035Runti" +
-      "meResourcesAdjustedEvent\022\035\n\nsession_id\030\001" +
-      " \001(\tR\tsessionId\022\027\n\007node_id\030\002 \001(\tR\006nodeId" +
-      "\022,\n\022old_resource_class\030\003 \001(\tR\020oldResourc" +
-      "eClass\022$\n\016old_cpu_millis\030\004 \001(\rR\014oldCpuMi" +
-      "llis\0223\n\026old_memory_request_mib\030\005 \001(\rR\023ol" +
-      "dMemoryRequestMib\022/\n\024old_memory_limit_mi" +
-      "b\030\006 \001(\rR\021oldMemoryLimitMib\022\"\n\rold_pid_li" +
-      "mit\030\007 \001(\rR\013oldPidLimit\022$\n\016old_tab_budget" +
-      "\030\010 \001(\rR\014oldTabBudget\022,\n\022new_resource_cla" +
-      "ss\030\t \001(\tR\020newResourceClass\022$\n\016new_cpu_mi" +
-      "llis\030\n \001(\rR\014newCpuMillis\0223\n\026new_memory_r" +
-      "equest_mib\030\013 \001(\rR\023newMemoryRequestMib\022/\n" +
-      "\024new_memory_limit_mib\030\014 \001(\rR\021newMemoryLi" +
-      "mitMib\022\"\n\rnew_pid_limit\030\r \001(\rR\013newPidLim" +
-      "it\022$\n\016new_tab_budget\030\016 \001(\rR\014newTabBudget" +
-      "\022\026\n\006reason\030\017 \001(\tR\006reason\022!\n\014operation_id" +
-      "\030\020 \001(\tR\013operationId\022O\n\"old_state_collect" +
-      "or_budget_percent\030\021 \001(\rH\000R\036oldStateColle" +
-      "ctorBudgetPercent\210\001\001\022I\n\037old_remote_deskt" +
-      "op_bitrate_kbps\030\022 \001(\rH\001R\033oldRemoteDeskto" +
-      "pBitrateKbps\210\001\001\022O\n\"new_state_collector_b" +
-      "udget_percent\030\023 \001(\rH\002R\036newStateCollector" +
-      "BudgetPercent\210\001\001\022I\n\037new_remote_desktop_b" +
-      "itrate_kbps\030\024 \001(\rH\003R\033newRemoteDesktopBit" +
-      "rateKbps\210\001\001\022<\n\030old_extension_cpu_weight\030" +
-      "\025 \001(\rH\004R\025oldExtensionCpuWeight\210\001\001\022<\n\030new" +
-      "_extension_cpu_weight\030\026 \001(\rH\005R\025newExtens" +
-      "ionCpuWeight\210\001\001\022:\n\027old_media_encoder_slo" +
-      "ts\030\027 \001(\rH\006R\024oldMediaEncoderSlots\210\001\001\022:\n\027n" +
-      "ew_media_encoder_slots\030\030 \001(\rH\007R\024newMedia" +
-      "EncoderSlots\210\001\001\022@\n\032old_freeze_background" +
-      "_tabs\030\031 \001(\010H\010R\027oldFreezeBackgroundTabs\210\001" +
-      "\001\022@\n\032new_freeze_background_tabs\030\032 \001(\010H\tR" +
-      "\027newFreezeBackgroundTabs\210\001\001\0220\n\022old_block" +
-      "_new_tabs\030\033 \001(\010H\nR\017oldBlockNewTabs\210\001\001\0220\n" +
-      "\022new_block_new_tabs\030\034 \001(\010H\013R\017newBlockNew" +
-      "Tabs\210\001\001B%\n#_old_state_collector_budget_p" +
-      "ercentB\"\n _old_remote_desktop_bitrate_kb" +
-      "psB%\n#_new_state_collector_budget_percen" +
-      "tB\"\n _new_remote_desktop_bitrate_kbpsB\033\n" +
-      "\031_old_extension_cpu_weightB\033\n\031_new_exten" +
-      "sion_cpu_weightB\032\n\030_old_media_encoder_sl" +
-      "otsB\032\n\030_new_media_encoder_slotsB\035\n\033_old_" +
-      "freeze_background_tabsB\035\n\033_new_freeze_ba" +
-      "ckground_tabsB\025\n\023_old_block_new_tabsB\025\n\023" +
-      "_new_block_new_tabs\"\217\001\n\021BrowserCrashEven" +
-      "t\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\035\n\ncras" +
-      "h_type\030\002 \001(\tR\tcrashType\022\026\n\006reason\030\003 \001(\tR" +
-      "\006reason\022$\n\016detected_at_ms\030\004 \001(\003R\014detecte" +
-      "dAtMs\"O\n\026ReleaseAllInputCommand\022\035\n\nsessi" +
-      "on_id\030\001 \001(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR\006" +
-      "reason\"S\n\031BeginHumanTakeoverCommand\022\035\n\ns" +
-      "ession_id\030\001 \001(\tR\tsessionId\022\027\n\007user_id\030\002 " +
-      "\001(\tR\006userId\"Q\n\027EndHumanTakeoverCommand\022\035" +
-      "\n\nsession_id\030\001 \001(\tR\tsessionId\022\027\n\007user_id" +
-      "\030\002 \001(\tR\006userId\"\220\001\n\027HumanTakeoverReadyEve" +
-      "nt\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\027\n\007use" +
-      "r_id\030\002 \001(\tR\006userId\022=\n\005state\030\003 \001(\0132\'.brow" +
-      "sercloud.node.v1.BrowserStateEventR\005stat" +
-      "e\"\250\001\n\027HumanTakeoverEndedEvent\022\035\n\nsession" +
-      "_id\030\001 \001(\tR\tsessionId\022\027\n\007user_id\030\002 \001(\tR\006u" +
-      "serId\022=\n\005state\030\003 \001(\0132\'.browsercloud.node" +
-      ".v1.BrowserStateEventR\005state\022\026\n\006reason\030\004" +
-      " \001(\tR\006reason\"\245\003\n\023ExecuteInputCommand\022\035\n\n" +
-      "session_id\030\001 \001(\tR\tsessionId\022\032\n\010sequence\030" +
-      "\002 \001(\004R\010sequence\022E\n\nmouse_move\030\n \001(\0132$.br" +
-      "owsercloud.node.v1.MouseMoveInputH\000R\tmou" +
-      "seMove\022G\n\nmouse_down\030\013 \001(\0132&.browserclou" +
-      "d.node.v1.MouseButtonInputH\000R\tmouseDown\022" +
-      "C\n\010mouse_up\030\014 \001(\0132&.browsercloud.node.v1" +
-      ".MouseButtonInputH\000R\007mouseUp\022;\n\010key_down" +
-      "\030\r \001(\0132\036.browsercloud.node.v1.KeyInputH\000" +
-      "R\007keyDown\0227\n\006key_up\030\016 \001(\0132\036.browsercloud" +
-      ".node.v1.KeyInputH\000R\005keyUpB\010\n\006action\",\n\016" +
-      "MouseMoveInput\022\014\n\001x\030\001 \001(\005R\001x\022\014\n\001y\030\002 \001(\005R" +
-      "\001y\"*\n\020MouseButtonInput\022\026\n\006button\030\001 \001(\rR\006" +
-      "button\"\034\n\010KeyInput\022\020\n\003key\030\001 \001(\tR\003key\"\213\003\n" +
-      "\021BrowserStateEvent\022\035\n\nsession_id\030\001 \001(\tR\t" +
-      "sessionId\022#\n\rstate_version\030\002 \001(\004R\014stateV" +
-      "ersion\022\'\n\017target_revision\030\003 \001(\004R\016targetR" +
-      "evision\022\020\n\003url\030\004 \001(\tR\003url\022\024\n\005title\030\005 \001(\t" +
-      "R\005title\022#\n\rstate_quality\030\006 \001(\tR\014stateQua" +
-      "lity\022!\n\014content_hash\030\007 \001(\tR\013contentHash\022" +
-      "F\n\007targets\030\010 \003(\0132,.browsercloud.node.v1." +
-      "InteractiveTargetStateR\007targets\022#\n\rsnaps" +
-      "hot_kind\030\t \001(\tR\014snapshotKind\022,\n\022requeste" +
-      "d_root_ref\030\n \001(\tR\020requestedRootRef\"\201\001\n\031R" +
-      "equestStateResyncCommand\022\035\n\nsession_id\030\001" +
-      " \001(\tR\tsessionId\022\022\n\004mode\030\002 \001(\tR\004mode\022\031\n\010r" +
-      "oot_ref\030\003 \001(\tR\007rootRef\022\026\n\006reason\030\004 \001(\tR\006" +
-      "reason\"\247\001\n\024AgentNavigateCommand\022\035\n\nsessi" +
-      "on_id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001(\tR" +
-      "\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\020\n\003url\030" +
-      "\004 \001(\tR\003url\022,\n\022base_state_version\030\005 \001(\004R\020" +
-      "baseStateVersion\"\343\001\n\035BusinessRecoveryAct" +
-      "ionCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessionI" +
-      "d\022\033\n\taction_id\030\002 \001(\tR\010actionId\022\026\n\006action" +
-      "\030\003 \001(\tR\006action\022\035\n\ntarget_url\030\004 \001(\tR\ttarg" +
-      "etUrl\022,\n\022base_state_version\030\005 \001(\004R\020baseS" +
-      "tateVersion\022!\n\014extension_id\030\006 \001(\tR\013exten" +
-      "sionId\"\214\001\n\032AgentNavigationFailedEvent\022\035\n" +
-      "\nsession_id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030" +
-      "\002 \001(\tR\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\035" +
-      "\n\nerror_code\030\004 \001(\tR\terrorCode\"\301\003\n\022AgentA" +
-      "ctionCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessio" +
-      "nId\022\027\n\007task_id\030\002 \001(\tR\006taskId\022\027\n\007step_id\030" +
-      "\003 \001(\tR\006stepId\022\027\n\007tool_id\030\004 \001(\tR\006toolId\022\035" +
-      "\n\ntarget_ref\030\005 \001(\tR\ttargetRef\022\'\n\017target_" +
-      "revision\030\006 \001(\004R\016targetRevision\022\037\n\013sealed" +
-      "_text\030\007 \001(\tR\nsealedText\022\022\n\004text\030\010 \001(\tR\004t" +
-      "ext\022$\n\016scroll_delta_y\030\t \001(\005R\014scrollDelta" +
-      "Y\022%\n\016wait_condition\030\n \001(\tR\rwaitCondition" +
-      "\022\035\n\ntimeout_ms\030\013 \001(\rR\ttimeoutMs\022,\n\022base_" +
-      "state_version\030\014 \001(\004R\020baseStateVersion\022*\n" +
-      "\021base_content_hash\030\r \001(\tR\017baseContentHas" +
-      "h\"\241\001\n\026AgentActionFailedEvent\022\035\n\nsession_" +
-      "id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001(\tR\006ta" +
-      "skId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\027\n\007tool_id" +
-      "\030\004 \001(\tR\006toolId\022\035\n\nerror_code\030\005 \001(\tR\terro" +
-      "rCode\"\253\003\n\025BrowserStateDiffEvent\022\035\n\nsessi" +
-      "on_id\030\001 \001(\tR\tsessionId\022,\n\022base_state_ver" +
-      "sion\030\002 \001(\004R\020baseStateVersion\022#\n\rstate_ve" +
-      "rsion\030\003 \001(\004R\014stateVersion\022\'\n\017target_revi" +
-      "sion\030\004 \001(\004R\016targetRevision\022\020\n\003url\030\005 \001(\tR" +
-      "\003url\022\024\n\005title\030\006 \001(\tR\005title\022#\n\rstate_qual" +
-      "ity\030\007 \001(\tR\014stateQuality\022!\n\014content_hash\030" +
-      "\010 \001(\tR\013contentHash\022W\n\020upserted_targets\030\t" +
-      " \003(\0132,.browsercloud.node.v1.InteractiveT" +
-      "argetStateR\017upsertedTargets\022.\n\023removed_t" +
-      "arget_refs\030\n \003(\tR\021removedTargetRefs\"\210\002\n\022" +
-      "DiffTruncatedEvent\022\035\n\nsession_id\030\001 \001(\tR\t" +
-      "sessionId\022\026\n\006reason\030\002 \001(\tR\006reason\0225\n\027las" +
-      "t_good_state_version\030\003 \001(\004R\024lastGoodStat" +
-      "eVersion\0222\n\025current_state_version\030\004 \001(\004R" +
-      "\023currentStateVersion\022#\n\raffected_root\030\005 " +
-      "\001(\tR\014affectedRoot\022+\n\021estimated_targets\030\006" +
-      " \001(\004R\020estimatedTargets\"\213\002\n\026InteractiveTa" +
-      "rgetState\022\035\n\ntarget_ref\030\001 \001(\tR\ttargetRef" +
-      "\022\022\n\004role\030\002 \001(\tR\004role\022\027\n\004name\030\003 \001(\tH\000R\004na" +
-      "me\210\001\001\022?\n\006bounds\030\004 \001(\0132\".browsercloud.nod" +
-      "e.v1.TargetBoundsH\001R\006bounds\210\001\001\022\030\n\007enable" +
-      "d\030\005 \001(\010R\007enabled\022\030\n\007visible\030\006 \001(\010R\007visib" +
-      "le\022\034\n\tsensitive\030\007 \001(\010R\tsensitiveB\007\n\005_nam" +
-      "eB\t\n\007_bounds\"X\n\014TargetBounds\022\014\n\001x\030\001 \001(\001R" +
-      "\001x\022\014\n\001y\030\002 \001(\001R\001y\022\024\n\005width\030\003 \001(\001R\005width\022\026" +
-      "\n\006height\030\004 \001(\001R\006height2\276\001\n\022NodeControlSe" +
-      "rvice\022M\n\004Ping\022!.browsercloud.node.v1.Pin" +
-      "gRequest\032\".browsercloud.node.v1.PingResp" +
-      "onse\022Y\n\010Dispatch\022%.browsercloud.node.v1." +
-      "DispatchRequest\032&.browsercloud.node.v1.D" +
-      "ispatchResponse2\335\002\n\020NodeEventService\022V\n\007" +
-      "Publish\022$.browsercloud.node.v1.PublishRe" +
-      "quest\032%.browsercloud.node.v1.PublishResp" +
-      "onse\022k\n\016ReportCapacity\022+.browsercloud.no" +
-      "de.v1.ReportCapacityRequest\032,.browserclo" +
-      "ud.node.v1.ReportCapacityResponse\022\203\001\n\026Re" +
-      "portSessionResources\0223.browsercloud.node" +
-      ".v1.ReportSessionResourcesRequest\0324.brow" +
-      "sercloud.node.v1.ReportSessionResourcesR" +
-      "esponseB!\n\035io.browsercloud.proto.node.v1" +
-      "P\001b\006proto3"
+      "NewTabs\210\001\001\022o\n\033extension_background_polic" +
+      "y\030\031 \001(\0132/.browsercloud.node.v1.Extension" +
+      "BackgroundPolicyR\031extensionBackgroundPol" +
+      "icyB!\n\037_state_collector_budget_percentB\036" +
+      "\n\034_remote_desktop_bitrate_kbpsB\027\n\025_exten" +
+      "sion_cpu_weightB\026\n\024_media_encoder_slotsB" +
+      "\031\n\027_freeze_background_tabsB\021\n\017_block_new" +
+      "_tabs\"\334\002\n\023RuntimeStartedEvent\022\035\n\nsession" +
+      "_id\030\001 \001(\tR\tsessionId\022\020\n\003pid\030\002 \001(\rR\003pid\022-" +
+      "\n\022browser_generation\030\003 \001(\004R\021browserGener" +
+      "ation\022!\n\014cdp_endpoint\030\004 \001(\tR\013cdpEndpoint" +
+      "\022\027\n\007node_id\030\005 \001(\tR\006nodeId\022(\n\020runtime_bui" +
+      "ld_id\030\006 \001(\tR\016runtimeBuildId\022(\n\020proxy_bin" +
+      "ding_id\030\007 \001(\tR\016proxyBindingId\022\027\n\007exit_ip" +
+      "\030\010 \001(\tR\006exitIp\022!\n\014exit_country\030\t \001(\tR\013ex" +
+      "itCountry\022\031\n\010exit_asn\030\n \001(\tR\007exitAsn\"K\n\022" +
+      "StopRuntimeCommand\022\035\n\nsession_id\030\001 \001(\tR\t" +
+      "sessionId\022\026\n\006reason\030\002 \001(\tR\006reason\"\213\003\n\023Ru" +
+      "ntimeStoppedEvent\022\035\n\nsession_id\030\001 \001(\tR\ts" +
+      "essionId\022\026\n\006reason\030\002 \001(\tR\006reason\022\033\n\texit" +
+      "_code\030\003 \001(\005R\010exitCode\022\035\n\nprofile_id\030\004 \001(" +
+      "\tR\tprofileId\022#\n\rcheckpoint_id\030\005 \001(\tR\014che" +
+      "ckpointId\022)\n\020checkpoint_epoch\030\006 \001(\004R\017che" +
+      "ckpointEpoch\022.\n\023profile_write_epoch\030\007 \001(" +
+      "\004R\021profileWriteEpoch\022&\n\017core_size_bytes\030" +
+      "\010 \001(\004R\rcoreSizeBytes\0222\n\025checkpoint_file_" +
+      "count\030\t \001(\004R\023checkpointFileCount\022%\n\016rest" +
+      "ore_status\030\n \001(\tR\rrestoreStatus\"\363\010\n\035Adju" +
+      "stRuntimeResourcesCommand\022\035\n\nsession_id\030" +
+      "\001 \001(\tR\tsessionId\022%\n\016resource_class\030\002 \001(\t" +
+      "R\rresourceClass\022\035\n\ncpu_millis\030\003 \001(\rR\tcpu" +
+      "Millis\022,\n\022memory_request_mib\030\004 \001(\rR\020memo" +
+      "ryRequestMib\022(\n\020memory_limit_mib\030\005 \001(\rR\016" +
+      "memoryLimitMib\022\033\n\tpid_limit\030\006 \001(\rR\010pidLi" +
+      "mit\022\035\n\ntab_budget\030\007 \001(\rR\ttabBudget\022\026\n\006re" +
+      "ason\030\010 \001(\tR\006reason\022)\n\020desktop_required\030\t" +
+      " \001(\010R\017desktopRequired\022!\n\014gpu_required\030\n " +
+      "\001(\010R\013gpuRequired\022,\n\022native_os_required\030\013" +
+      " \001(\010R\020nativeOsRequired\022-\n\022isolation_requ" +
+      "ired\030\014 \001(\010R\021isolationRequired\022H\n\036state_c" +
+      "ollector_budget_percent\030\r \001(\rH\000R\033stateCo" +
+      "llectorBudgetPercent\210\001\001\022B\n\033remote_deskto" +
+      "p_bitrate_kbps\030\016 \001(\rH\001R\030remoteDesktopBit" +
+      "rateKbps\210\001\001\0225\n\024extension_cpu_weight\030\017 \001(" +
+      "\rH\002R\022extensionCpuWeight\210\001\001\0223\n\023media_enco" +
+      "der_slots\030\020 \001(\rH\003R\021mediaEncoderSlots\210\001\001\022" +
+      "9\n\026freeze_background_tabs\030\021 \001(\010H\004R\024freez" +
+      "eBackgroundTabs\210\001\001\022)\n\016block_new_tabs\030\022 \001" +
+      "(\010H\005R\014blockNewTabs\210\001\001\022o\n\033extension_backg" +
+      "round_policy\030\023 \001(\0132/.browsercloud.node.v" +
+      "1.ExtensionBackgroundPolicyR\031extensionBa" +
+      "ckgroundPolicy\022#\n\rextension_ids\030\024 \003(\tR\014e" +
+      "xtensionIdsB!\n\037_state_collector_budget_p" +
+      "ercentB\036\n\034_remote_desktop_bitrate_kbpsB\027" +
+      "\n\025_extension_cpu_weightB\026\n\024_media_encode" +
+      "r_slotsB\031\n\027_freeze_background_tabsB\021\n\017_b" +
+      "lock_new_tabs\"M\n\031ExtensionBackgroundPoli" +
+      "cy\0220\n\024paused_extension_ids\030\001 \003(\tR\022paused" +
+      "ExtensionIds\"\222\020\n\035RuntimeResourcesAdjuste" +
+      "dEvent\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\027\n" +
+      "\007node_id\030\002 \001(\tR\006nodeId\022,\n\022old_resource_c" +
+      "lass\030\003 \001(\tR\020oldResourceClass\022$\n\016old_cpu_" +
+      "millis\030\004 \001(\rR\014oldCpuMillis\0223\n\026old_memory" +
+      "_request_mib\030\005 \001(\rR\023oldMemoryRequestMib\022" +
+      "/\n\024old_memory_limit_mib\030\006 \001(\rR\021oldMemory" +
+      "LimitMib\022\"\n\rold_pid_limit\030\007 \001(\rR\013oldPidL" +
+      "imit\022$\n\016old_tab_budget\030\010 \001(\rR\014oldTabBudg" +
+      "et\022,\n\022new_resource_class\030\t \001(\tR\020newResou" +
+      "rceClass\022$\n\016new_cpu_millis\030\n \001(\rR\014newCpu" +
+      "Millis\0223\n\026new_memory_request_mib\030\013 \001(\rR\023" +
+      "newMemoryRequestMib\022/\n\024new_memory_limit_" +
+      "mib\030\014 \001(\rR\021newMemoryLimitMib\022\"\n\rnew_pid_" +
+      "limit\030\r \001(\rR\013newPidLimit\022$\n\016new_tab_budg" +
+      "et\030\016 \001(\rR\014newTabBudget\022\026\n\006reason\030\017 \001(\tR\006" +
+      "reason\022!\n\014operation_id\030\020 \001(\tR\013operationI" +
+      "d\022O\n\"old_state_collector_budget_percent\030" +
+      "\021 \001(\rH\000R\036oldStateCollectorBudgetPercent\210" +
+      "\001\001\022I\n\037old_remote_desktop_bitrate_kbps\030\022 " +
+      "\001(\rH\001R\033oldRemoteDesktopBitrateKbps\210\001\001\022O\n" +
+      "\"new_state_collector_budget_percent\030\023 \001(" +
+      "\rH\002R\036newStateCollectorBudgetPercent\210\001\001\022I" +
+      "\n\037new_remote_desktop_bitrate_kbps\030\024 \001(\rH" +
+      "\003R\033newRemoteDesktopBitrateKbps\210\001\001\022<\n\030old" +
+      "_extension_cpu_weight\030\025 \001(\rH\004R\025oldExtens" +
+      "ionCpuWeight\210\001\001\022<\n\030new_extension_cpu_wei" +
+      "ght\030\026 \001(\rH\005R\025newExtensionCpuWeight\210\001\001\022:\n" +
+      "\027old_media_encoder_slots\030\027 \001(\rH\006R\024oldMed" +
+      "iaEncoderSlots\210\001\001\022:\n\027new_media_encoder_s" +
+      "lots\030\030 \001(\rH\007R\024newMediaEncoderSlots\210\001\001\022@\n" +
+      "\032old_freeze_background_tabs\030\031 \001(\010H\010R\027old" +
+      "FreezeBackgroundTabs\210\001\001\022@\n\032new_freeze_ba" +
+      "ckground_tabs\030\032 \001(\010H\tR\027newFreezeBackgrou" +
+      "ndTabs\210\001\001\0220\n\022old_block_new_tabs\030\033 \001(\010H\nR" +
+      "\017oldBlockNewTabs\210\001\001\0220\n\022new_block_new_tab" +
+      "s\030\034 \001(\010H\013R\017newBlockNewTabs\210\001\001\022v\n\037old_ext" +
+      "ension_background_policy\030\035 \001(\0132/.browser" +
+      "cloud.node.v1.ExtensionBackgroundPolicyR" +
+      "\034oldExtensionBackgroundPolicy\022v\n\037new_ext" +
+      "ension_background_policy\030\036 \001(\0132/.browser" +
+      "cloud.node.v1.ExtensionBackgroundPolicyR" +
+      "\034newExtensionBackgroundPolicyB%\n#_old_st" +
+      "ate_collector_budget_percentB\"\n _old_rem" +
+      "ote_desktop_bitrate_kbpsB%\n#_new_state_c" +
+      "ollector_budget_percentB\"\n _new_remote_d" +
+      "esktop_bitrate_kbpsB\033\n\031_old_extension_cp" +
+      "u_weightB\033\n\031_new_extension_cpu_weightB\032\n" +
+      "\030_old_media_encoder_slotsB\032\n\030_new_media_" +
+      "encoder_slotsB\035\n\033_old_freeze_background_" +
+      "tabsB\035\n\033_new_freeze_background_tabsB\025\n\023_" +
+      "old_block_new_tabsB\025\n\023_new_block_new_tab" +
+      "s\"\217\001\n\021BrowserCrashEvent\022\035\n\nsession_id\030\001 " +
+      "\001(\tR\tsessionId\022\035\n\ncrash_type\030\002 \001(\tR\tcras" +
+      "hType\022\026\n\006reason\030\003 \001(\tR\006reason\022$\n\016detecte" +
+      "d_at_ms\030\004 \001(\003R\014detectedAtMs\"O\n\026ReleaseAl" +
+      "lInputCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessi" +
+      "onId\022\026\n\006reason\030\002 \001(\tR\006reason\"S\n\031BeginHum" +
+      "anTakeoverCommand\022\035\n\nsession_id\030\001 \001(\tR\ts" +
+      "essionId\022\027\n\007user_id\030\002 \001(\tR\006userId\"Q\n\027End" +
+      "HumanTakeoverCommand\022\035\n\nsession_id\030\001 \001(\t" +
+      "R\tsessionId\022\027\n\007user_id\030\002 \001(\tR\006userId\"\220\001\n" +
+      "\027HumanTakeoverReadyEvent\022\035\n\nsession_id\030\001" +
+      " \001(\tR\tsessionId\022\027\n\007user_id\030\002 \001(\tR\006userId" +
+      "\022=\n\005state\030\003 \001(\0132\'.browsercloud.node.v1.B" +
+      "rowserStateEventR\005state\"\250\001\n\027HumanTakeove" +
+      "rEndedEvent\022\035\n\nsession_id\030\001 \001(\tR\tsession" +
+      "Id\022\027\n\007user_id\030\002 \001(\tR\006userId\022=\n\005state\030\003 \001" +
+      "(\0132\'.browsercloud.node.v1.BrowserStateEv" +
+      "entR\005state\022\026\n\006reason\030\004 \001(\tR\006reason\"\245\003\n\023E" +
+      "xecuteInputCommand\022\035\n\nsession_id\030\001 \001(\tR\t" +
+      "sessionId\022\032\n\010sequence\030\002 \001(\004R\010sequence\022E\n" +
+      "\nmouse_move\030\n \001(\0132$.browsercloud.node.v1" +
+      ".MouseMoveInputH\000R\tmouseMove\022G\n\nmouse_do" +
+      "wn\030\013 \001(\0132&.browsercloud.node.v1.MouseBut" +
+      "tonInputH\000R\tmouseDown\022C\n\010mouse_up\030\014 \001(\0132" +
+      "&.browsercloud.node.v1.MouseButtonInputH" +
+      "\000R\007mouseUp\022;\n\010key_down\030\r \001(\0132\036.browsercl" +
+      "oud.node.v1.KeyInputH\000R\007keyDown\0227\n\006key_u" +
+      "p\030\016 \001(\0132\036.browsercloud.node.v1.KeyInputH" +
+      "\000R\005keyUpB\010\n\006action\",\n\016MouseMoveInput\022\014\n\001" +
+      "x\030\001 \001(\005R\001x\022\014\n\001y\030\002 \001(\005R\001y\"*\n\020MouseButtonI" +
+      "nput\022\026\n\006button\030\001 \001(\rR\006button\"\034\n\010KeyInput" +
+      "\022\020\n\003key\030\001 \001(\tR\003key\"\213\003\n\021BrowserStateEvent" +
+      "\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022#\n\rstate" +
+      "_version\030\002 \001(\004R\014stateVersion\022\'\n\017target_r" +
+      "evision\030\003 \001(\004R\016targetRevision\022\020\n\003url\030\004 \001" +
+      "(\tR\003url\022\024\n\005title\030\005 \001(\tR\005title\022#\n\rstate_q" +
+      "uality\030\006 \001(\tR\014stateQuality\022!\n\014content_ha" +
+      "sh\030\007 \001(\tR\013contentHash\022F\n\007targets\030\010 \003(\0132," +
+      ".browsercloud.node.v1.InteractiveTargetS" +
+      "tateR\007targets\022#\n\rsnapshot_kind\030\t \001(\tR\014sn" +
+      "apshotKind\022,\n\022requested_root_ref\030\n \001(\tR\020" +
+      "requestedRootRef\"\201\001\n\031RequestStateResyncC" +
+      "ommand\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\022\n" +
+      "\004mode\030\002 \001(\tR\004mode\022\031\n\010root_ref\030\003 \001(\tR\007roo" +
+      "tRef\022\026\n\006reason\030\004 \001(\tR\006reason\"\247\001\n\024AgentNa" +
+      "vigateCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessi" +
+      "onId\022\027\n\007task_id\030\002 \001(\tR\006taskId\022\027\n\007step_id" +
+      "\030\003 \001(\tR\006stepId\022\020\n\003url\030\004 \001(\tR\003url\022,\n\022base" +
+      "_state_version\030\005 \001(\004R\020baseStateVersion\"\343" +
+      "\001\n\035BusinessRecoveryActionCommand\022\035\n\nsess" +
+      "ion_id\030\001 \001(\tR\tsessionId\022\033\n\taction_id\030\002 \001" +
+      "(\tR\010actionId\022\026\n\006action\030\003 \001(\tR\006action\022\035\n\n" +
+      "target_url\030\004 \001(\tR\ttargetUrl\022,\n\022base_stat" +
+      "e_version\030\005 \001(\004R\020baseStateVersion\022!\n\014ext" +
+      "ension_id\030\006 \001(\tR\013extensionId\"\214\001\n\032AgentNa" +
+      "vigationFailedEvent\022\035\n\nsession_id\030\001 \001(\tR" +
+      "\tsessionId\022\027\n\007task_id\030\002 \001(\tR\006taskId\022\027\n\007s" +
+      "tep_id\030\003 \001(\tR\006stepId\022\035\n\nerror_code\030\004 \001(\t" +
+      "R\terrorCode\"\301\003\n\022AgentActionCommand\022\035\n\nse" +
+      "ssion_id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001" +
+      "(\tR\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\027\n\007t" +
+      "ool_id\030\004 \001(\tR\006toolId\022\035\n\ntarget_ref\030\005 \001(\t" +
+      "R\ttargetRef\022\'\n\017target_revision\030\006 \001(\004R\016ta" +
+      "rgetRevision\022\037\n\013sealed_text\030\007 \001(\tR\nseale" +
+      "dText\022\022\n\004text\030\010 \001(\tR\004text\022$\n\016scroll_delt" +
+      "a_y\030\t \001(\005R\014scrollDeltaY\022%\n\016wait_conditio" +
+      "n\030\n \001(\tR\rwaitCondition\022\035\n\ntimeout_ms\030\013 \001" +
+      "(\rR\ttimeoutMs\022,\n\022base_state_version\030\014 \001(" +
+      "\004R\020baseStateVersion\022*\n\021base_content_hash" +
+      "\030\r \001(\tR\017baseContentHash\"\241\001\n\026AgentActionF" +
+      "ailedEvent\022\035\n\nsession_id\030\001 \001(\tR\tsessionI" +
+      "d\022\027\n\007task_id\030\002 \001(\tR\006taskId\022\027\n\007step_id\030\003 " +
+      "\001(\tR\006stepId\022\027\n\007tool_id\030\004 \001(\tR\006toolId\022\035\n\n" +
+      "error_code\030\005 \001(\tR\terrorCode\"\253\003\n\025BrowserS" +
+      "tateDiffEvent\022\035\n\nsession_id\030\001 \001(\tR\tsessi" +
+      "onId\022,\n\022base_state_version\030\002 \001(\004R\020baseSt" +
+      "ateVersion\022#\n\rstate_version\030\003 \001(\004R\014state" +
+      "Version\022\'\n\017target_revision\030\004 \001(\004R\016target" +
+      "Revision\022\020\n\003url\030\005 \001(\tR\003url\022\024\n\005title\030\006 \001(" +
+      "\tR\005title\022#\n\rstate_quality\030\007 \001(\tR\014stateQu" +
+      "ality\022!\n\014content_hash\030\010 \001(\tR\013contentHash" +
+      "\022W\n\020upserted_targets\030\t \003(\0132,.browserclou" +
+      "d.node.v1.InteractiveTargetStateR\017upsert" +
+      "edTargets\022.\n\023removed_target_refs\030\n \003(\tR\021" +
+      "removedTargetRefs\"\210\002\n\022DiffTruncatedEvent" +
+      "\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\026\n\006reaso" +
+      "n\030\002 \001(\tR\006reason\0225\n\027last_good_state_versi" +
+      "on\030\003 \001(\004R\024lastGoodStateVersion\0222\n\025curren" +
+      "t_state_version\030\004 \001(\004R\023currentStateVersi" +
+      "on\022#\n\raffected_root\030\005 \001(\tR\014affectedRoot\022" +
+      "+\n\021estimated_targets\030\006 \001(\004R\020estimatedTar" +
+      "gets\"\213\002\n\026InteractiveTargetState\022\035\n\ntarge" +
+      "t_ref\030\001 \001(\tR\ttargetRef\022\022\n\004role\030\002 \001(\tR\004ro" +
+      "le\022\027\n\004name\030\003 \001(\tH\000R\004name\210\001\001\022?\n\006bounds\030\004 " +
+      "\001(\0132\".browsercloud.node.v1.TargetBoundsH" +
+      "\001R\006bounds\210\001\001\022\030\n\007enabled\030\005 \001(\010R\007enabled\022\030" +
+      "\n\007visible\030\006 \001(\010R\007visible\022\034\n\tsensitive\030\007 " +
+      "\001(\010R\tsensitiveB\007\n\005_nameB\t\n\007_bounds\"X\n\014Ta" +
+      "rgetBounds\022\014\n\001x\030\001 \001(\001R\001x\022\014\n\001y\030\002 \001(\001R\001y\022\024" +
+      "\n\005width\030\003 \001(\001R\005width\022\026\n\006height\030\004 \001(\001R\006he" +
+      "ight2\276\001\n\022NodeControlService\022M\n\004Ping\022!.br" +
+      "owsercloud.node.v1.PingRequest\032\".browser" +
+      "cloud.node.v1.PingResponse\022Y\n\010Dispatch\022%" +
+      ".browsercloud.node.v1.DispatchRequest\032&." +
+      "browsercloud.node.v1.DispatchResponse2\335\002" +
+      "\n\020NodeEventService\022V\n\007Publish\022$.browserc" +
+      "loud.node.v1.PublishRequest\032%.browserclo" +
+      "ud.node.v1.PublishResponse\022k\n\016ReportCapa" +
+      "city\022+.browsercloud.node.v1.ReportCapaci" +
+      "tyRequest\032,.browsercloud.node.v1.ReportC" +
+      "apacityResponse\022\203\001\n\026ReportSessionResourc" +
+      "es\0223.browsercloud.node.v1.ReportSessionR" +
+      "esourcesRequest\0324.browsercloud.node.v1.R" +
+      "eportSessionResourcesResponseB!\n\035io.brow" +
+      "sercloud.proto.node.v1P\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -678,7 +697,7 @@ public final class NodeCommand {
     internal_static_browsercloud_node_v1_StartRuntimeCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_StartRuntimeCommand_descriptor,
-        new java.lang.String[] { "SessionId", "RuntimeBuildId", "ProfileId", "Display", "CdpPort", "ProxyBindingId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "ProfileCheckpointId", "StateCollectorBudgetPercent", "RemoteDesktopBitrateKbps", "ExtensionIds", "ExtensionCpuWeight", "MediaEncoderSlots", "FreezeBackgroundTabs", "BlockNewTabs", });
+        new java.lang.String[] { "SessionId", "RuntimeBuildId", "ProfileId", "Display", "CdpPort", "ProxyBindingId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "ProfileCheckpointId", "StateCollectorBudgetPercent", "RemoteDesktopBitrateKbps", "ExtensionIds", "ExtensionCpuWeight", "MediaEncoderSlots", "FreezeBackgroundTabs", "BlockNewTabs", "ExtensionBackgroundPolicy", });
     internal_static_browsercloud_node_v1_RuntimeStartedEvent_descriptor =
       getDescriptor().getMessageTypes().get(14);
     internal_static_browsercloud_node_v1_RuntimeStartedEvent_fieldAccessorTable = new
@@ -702,135 +721,141 @@ public final class NodeCommand {
     internal_static_browsercloud_node_v1_AdjustRuntimeResourcesCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AdjustRuntimeResourcesCommand_descriptor,
-        new java.lang.String[] { "SessionId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "Reason", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "StateCollectorBudgetPercent", "RemoteDesktopBitrateKbps", "ExtensionCpuWeight", "MediaEncoderSlots", "FreezeBackgroundTabs", "BlockNewTabs", });
-    internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor =
+        new java.lang.String[] { "SessionId", "ResourceClass", "CpuMillis", "MemoryRequestMib", "MemoryLimitMib", "PidLimit", "TabBudget", "Reason", "DesktopRequired", "GpuRequired", "NativeOsRequired", "IsolationRequired", "StateCollectorBudgetPercent", "RemoteDesktopBitrateKbps", "ExtensionCpuWeight", "MediaEncoderSlots", "FreezeBackgroundTabs", "BlockNewTabs", "ExtensionBackgroundPolicy", "ExtensionIds", });
+    internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor =
       getDescriptor().getMessageTypes().get(18);
+    internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_ExtensionBackgroundPolicy_descriptor,
+        new java.lang.String[] { "PausedExtensionIds", });
+    internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor =
+      getDescriptor().getMessageTypes().get(19);
     internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_RuntimeResourcesAdjustedEvent_descriptor,
-        new java.lang.String[] { "SessionId", "NodeId", "OldResourceClass", "OldCpuMillis", "OldMemoryRequestMib", "OldMemoryLimitMib", "OldPidLimit", "OldTabBudget", "NewResourceClass", "NewCpuMillis", "NewMemoryRequestMib", "NewMemoryLimitMib", "NewPidLimit", "NewTabBudget", "Reason", "OperationId", "OldStateCollectorBudgetPercent", "OldRemoteDesktopBitrateKbps", "NewStateCollectorBudgetPercent", "NewRemoteDesktopBitrateKbps", "OldExtensionCpuWeight", "NewExtensionCpuWeight", "OldMediaEncoderSlots", "NewMediaEncoderSlots", "OldFreezeBackgroundTabs", "NewFreezeBackgroundTabs", "OldBlockNewTabs", "NewBlockNewTabs", });
+        new java.lang.String[] { "SessionId", "NodeId", "OldResourceClass", "OldCpuMillis", "OldMemoryRequestMib", "OldMemoryLimitMib", "OldPidLimit", "OldTabBudget", "NewResourceClass", "NewCpuMillis", "NewMemoryRequestMib", "NewMemoryLimitMib", "NewPidLimit", "NewTabBudget", "Reason", "OperationId", "OldStateCollectorBudgetPercent", "OldRemoteDesktopBitrateKbps", "NewStateCollectorBudgetPercent", "NewRemoteDesktopBitrateKbps", "OldExtensionCpuWeight", "NewExtensionCpuWeight", "OldMediaEncoderSlots", "NewMediaEncoderSlots", "OldFreezeBackgroundTabs", "NewFreezeBackgroundTabs", "OldBlockNewTabs", "NewBlockNewTabs", "OldExtensionBackgroundPolicy", "NewExtensionBackgroundPolicy", });
     internal_static_browsercloud_node_v1_BrowserCrashEvent_descriptor =
-      getDescriptor().getMessageTypes().get(19);
+      getDescriptor().getMessageTypes().get(20);
     internal_static_browsercloud_node_v1_BrowserCrashEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BrowserCrashEvent_descriptor,
         new java.lang.String[] { "SessionId", "CrashType", "Reason", "DetectedAtMs", });
     internal_static_browsercloud_node_v1_ReleaseAllInputCommand_descriptor =
-      getDescriptor().getMessageTypes().get(20);
+      getDescriptor().getMessageTypes().get(21);
     internal_static_browsercloud_node_v1_ReleaseAllInputCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_ReleaseAllInputCommand_descriptor,
         new java.lang.String[] { "SessionId", "Reason", });
     internal_static_browsercloud_node_v1_BeginHumanTakeoverCommand_descriptor =
-      getDescriptor().getMessageTypes().get(21);
+      getDescriptor().getMessageTypes().get(22);
     internal_static_browsercloud_node_v1_BeginHumanTakeoverCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BeginHumanTakeoverCommand_descriptor,
         new java.lang.String[] { "SessionId", "UserId", });
     internal_static_browsercloud_node_v1_EndHumanTakeoverCommand_descriptor =
-      getDescriptor().getMessageTypes().get(22);
+      getDescriptor().getMessageTypes().get(23);
     internal_static_browsercloud_node_v1_EndHumanTakeoverCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_EndHumanTakeoverCommand_descriptor,
         new java.lang.String[] { "SessionId", "UserId", });
     internal_static_browsercloud_node_v1_HumanTakeoverReadyEvent_descriptor =
-      getDescriptor().getMessageTypes().get(23);
+      getDescriptor().getMessageTypes().get(24);
     internal_static_browsercloud_node_v1_HumanTakeoverReadyEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_HumanTakeoverReadyEvent_descriptor,
         new java.lang.String[] { "SessionId", "UserId", "State", });
     internal_static_browsercloud_node_v1_HumanTakeoverEndedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(24);
+      getDescriptor().getMessageTypes().get(25);
     internal_static_browsercloud_node_v1_HumanTakeoverEndedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_HumanTakeoverEndedEvent_descriptor,
         new java.lang.String[] { "SessionId", "UserId", "State", "Reason", });
     internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor =
-      getDescriptor().getMessageTypes().get(25);
+      getDescriptor().getMessageTypes().get(26);
     internal_static_browsercloud_node_v1_ExecuteInputCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_ExecuteInputCommand_descriptor,
         new java.lang.String[] { "SessionId", "Sequence", "MouseMove", "MouseDown", "MouseUp", "KeyDown", "KeyUp", "Action", });
     internal_static_browsercloud_node_v1_MouseMoveInput_descriptor =
-      getDescriptor().getMessageTypes().get(26);
+      getDescriptor().getMessageTypes().get(27);
     internal_static_browsercloud_node_v1_MouseMoveInput_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_MouseMoveInput_descriptor,
         new java.lang.String[] { "X", "Y", });
     internal_static_browsercloud_node_v1_MouseButtonInput_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(28);
     internal_static_browsercloud_node_v1_MouseButtonInput_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_MouseButtonInput_descriptor,
         new java.lang.String[] { "Button", });
     internal_static_browsercloud_node_v1_KeyInput_descriptor =
-      getDescriptor().getMessageTypes().get(28);
+      getDescriptor().getMessageTypes().get(29);
     internal_static_browsercloud_node_v1_KeyInput_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_KeyInput_descriptor,
         new java.lang.String[] { "Key", });
     internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor =
-      getDescriptor().getMessageTypes().get(29);
+      getDescriptor().getMessageTypes().get(30);
     internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor,
         new java.lang.String[] { "SessionId", "StateVersion", "TargetRevision", "Url", "Title", "StateQuality", "ContentHash", "Targets", "SnapshotKind", "RequestedRootRef", });
     internal_static_browsercloud_node_v1_RequestStateResyncCommand_descriptor =
-      getDescriptor().getMessageTypes().get(30);
+      getDescriptor().getMessageTypes().get(31);
     internal_static_browsercloud_node_v1_RequestStateResyncCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_RequestStateResyncCommand_descriptor,
         new java.lang.String[] { "SessionId", "Mode", "RootRef", "Reason", });
     internal_static_browsercloud_node_v1_AgentNavigateCommand_descriptor =
-      getDescriptor().getMessageTypes().get(31);
+      getDescriptor().getMessageTypes().get(32);
     internal_static_browsercloud_node_v1_AgentNavigateCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentNavigateCommand_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "Url", "BaseStateVersion", });
     internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor =
-      getDescriptor().getMessageTypes().get(32);
+      getDescriptor().getMessageTypes().get(33);
     internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor,
         new java.lang.String[] { "SessionId", "ActionId", "Action", "TargetUrl", "BaseStateVersion", "ExtensionId", });
     internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(33);
+      getDescriptor().getMessageTypes().get(34);
     internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "ErrorCode", });
     internal_static_browsercloud_node_v1_AgentActionCommand_descriptor =
-      getDescriptor().getMessageTypes().get(34);
+      getDescriptor().getMessageTypes().get(35);
     internal_static_browsercloud_node_v1_AgentActionCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentActionCommand_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "ToolId", "TargetRef", "TargetRevision", "SealedText", "Text", "ScrollDeltaY", "WaitCondition", "TimeoutMs", "BaseStateVersion", "BaseContentHash", });
     internal_static_browsercloud_node_v1_AgentActionFailedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(35);
+      getDescriptor().getMessageTypes().get(36);
     internal_static_browsercloud_node_v1_AgentActionFailedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentActionFailedEvent_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "ToolId", "ErrorCode", });
     internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor =
-      getDescriptor().getMessageTypes().get(36);
+      getDescriptor().getMessageTypes().get(37);
     internal_static_browsercloud_node_v1_BrowserStateDiffEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor,
         new java.lang.String[] { "SessionId", "BaseStateVersion", "StateVersion", "TargetRevision", "Url", "Title", "StateQuality", "ContentHash", "UpsertedTargets", "RemovedTargetRefs", });
     internal_static_browsercloud_node_v1_DiffTruncatedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(37);
+      getDescriptor().getMessageTypes().get(38);
     internal_static_browsercloud_node_v1_DiffTruncatedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_DiffTruncatedEvent_descriptor,
         new java.lang.String[] { "SessionId", "Reason", "LastGoodStateVersion", "CurrentStateVersion", "AffectedRoot", "EstimatedTargets", });
     internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor =
-      getDescriptor().getMessageTypes().get(38);
+      getDescriptor().getMessageTypes().get(39);
     internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor,
         new java.lang.String[] { "TargetRef", "Role", "Name", "Bounds", "Enabled", "Visible", "Sensitive", });
     internal_static_browsercloud_node_v1_TargetBounds_descriptor =
-      getDescriptor().getMessageTypes().get(39);
+      getDescriptor().getMessageTypes().get(40);
     internal_static_browsercloud_node_v1_TargetBounds_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_TargetBounds_descriptor,

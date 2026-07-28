@@ -24,6 +24,8 @@ private static final long serialVersionUID = 0L;
     sessionId_ = "";
     resourceClass_ = "";
     reason_ = "";
+    extensionIds_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   @java.lang.Override
@@ -417,6 +419,85 @@ private static final long serialVersionUID = 0L;
     return blockNewTabs_;
   }
 
+  public static final int EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 19;
+  private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy extensionBackgroundPolicy_;
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return Whether the extensionBackgroundPolicy field is set.
+   */
+  @java.lang.Override
+  public boolean hasExtensionBackgroundPolicy() {
+    return ((bitField0_ & 0x00000040) != 0);
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return The extensionBackgroundPolicy.
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy() {
+    return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder() {
+    return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+  }
+
+  public static final int EXTENSION_IDS_FIELD_NUMBER = 20;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList extensionIds_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @return A list containing the extensionIds.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getExtensionIdsList() {
+    return extensionIds_;
+  }
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @return The count of extensionIds.
+   */
+  public int getExtensionIdsCount() {
+    return extensionIds_.size();
+  }
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @param index The index of the element to return.
+   * @return The extensionIds at the given index.
+   */
+  public java.lang.String getExtensionIds(int index) {
+    return extensionIds_.get(index);
+  }
+  /**
+   * <pre>
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the extensionIds at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getExtensionIdsBytes(int index) {
+    return extensionIds_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -484,6 +565,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000020) != 0)) {
       output.writeBool(18, blockNewTabs_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      output.writeMessage(19, getExtensionBackgroundPolicy());
+    }
+    for (int i = 0; i < extensionIds_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, extensionIds_.getRaw(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -563,6 +650,18 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(18, blockNewTabs_);
     }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(19, getExtensionBackgroundPolicy());
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < extensionIds_.size(); i++) {
+        dataSize += computeStringSizeNoTag(extensionIds_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getExtensionIdsList().size();
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -632,6 +731,13 @@ private static final long serialVersionUID = 0L;
       if (getBlockNewTabs()
           != other.getBlockNewTabs()) return false;
     }
+    if (hasExtensionBackgroundPolicy() != other.hasExtensionBackgroundPolicy()) return false;
+    if (hasExtensionBackgroundPolicy()) {
+      if (!getExtensionBackgroundPolicy()
+          .equals(other.getExtensionBackgroundPolicy())) return false;
+    }
+    if (!getExtensionIdsList()
+        .equals(other.getExtensionIdsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -696,6 +802,14 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + BLOCK_NEW_TABS_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getBlockNewTabs());
+    }
+    if (hasExtensionBackgroundPolicy()) {
+      hash = (37 * hash) + EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
+      hash = (53 * hash) + getExtensionBackgroundPolicy().hashCode();
+    }
+    if (getExtensionIdsCount() > 0) {
+      hash = (37 * hash) + EXTENSION_IDS_FIELD_NUMBER;
+      hash = (53 * hash) + getExtensionIdsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -820,13 +934,19 @@ private static final long serialVersionUID = 0L;
 
     // Construct using io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessageV3
+              .alwaysUseFieldBuilders) {
+        getExtensionBackgroundPolicyFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -850,6 +970,13 @@ private static final long serialVersionUID = 0L;
       mediaEncoderSlots_ = 0;
       freezeBackgroundTabs_ = false;
       blockNewTabs_ = false;
+      extensionBackgroundPolicy_ = null;
+      if (extensionBackgroundPolicyBuilder_ != null) {
+        extensionBackgroundPolicyBuilder_.dispose();
+        extensionBackgroundPolicyBuilder_ = null;
+      }
+      extensionIds_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -943,6 +1070,16 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00020000) != 0)) {
         result.blockNewTabs_ = blockNewTabs_;
         to_bitField0_ |= 0x00000020;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.extensionBackgroundPolicy_ = extensionBackgroundPolicyBuilder_ == null
+            ? extensionBackgroundPolicy_
+            : extensionBackgroundPolicyBuilder_.build();
+        to_bitField0_ |= 0x00000040;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        extensionIds_.makeImmutable();
+        result.extensionIds_ = extensionIds_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1050,6 +1187,19 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasBlockNewTabs()) {
         setBlockNewTabs(other.getBlockNewTabs());
+      }
+      if (other.hasExtensionBackgroundPolicy()) {
+        mergeExtensionBackgroundPolicy(other.getExtensionBackgroundPolicy());
+      }
+      if (!other.extensionIds_.isEmpty()) {
+        if (extensionIds_.isEmpty()) {
+          extensionIds_ = other.extensionIds_;
+          bitField0_ |= 0x00080000;
+        } else {
+          ensureExtensionIdsIsMutable();
+          extensionIds_.addAll(other.extensionIds_);
+        }
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1167,6 +1317,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00020000;
               break;
             } // case 144
+            case 154: {
+              input.readMessage(
+                  getExtensionBackgroundPolicyFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 154
+            case 162: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureExtensionIdsIsMutable();
+              extensionIds_.add(s);
+              break;
+            } // case 162
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2007,6 +2170,274 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy extensionBackgroundPolicy_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> extensionBackgroundPolicyBuilder_;
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     * @return Whether the extensionBackgroundPolicy field is set.
+     */
+    public boolean hasExtensionBackgroundPolicy() {
+      return ((bitField0_ & 0x00040000) != 0);
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     * @return The extensionBackgroundPolicy.
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy() {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+      } else {
+        return extensionBackgroundPolicyBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder setExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        extensionBackgroundPolicy_ = value;
+      } else {
+        extensionBackgroundPolicyBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder setExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        extensionBackgroundPolicy_ = builderForValue.build();
+      } else {
+        extensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder mergeExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        if (((bitField0_ & 0x00040000) != 0) &&
+          extensionBackgroundPolicy_ != null &&
+          extensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+          getExtensionBackgroundPolicyBuilder().mergeFrom(value);
+        } else {
+          extensionBackgroundPolicy_ = value;
+        }
+      } else {
+        extensionBackgroundPolicyBuilder_.mergeFrom(value);
+      }
+      if (extensionBackgroundPolicy_ != null) {
+        bitField0_ |= 0x00040000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder clearExtensionBackgroundPolicy() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      extensionBackgroundPolicy_ = null;
+      if (extensionBackgroundPolicyBuilder_ != null) {
+        extensionBackgroundPolicyBuilder_.dispose();
+        extensionBackgroundPolicyBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getExtensionBackgroundPolicyBuilder() {
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return getExtensionBackgroundPolicyFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder() {
+      if (extensionBackgroundPolicyBuilder_ != null) {
+        return extensionBackgroundPolicyBuilder_.getMessageOrBuilder();
+      } else {
+        return extensionBackgroundPolicy_ == null ?
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        getExtensionBackgroundPolicyFieldBuilder() {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        extensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getExtensionBackgroundPolicy(),
+                getParentForChildren(),
+                isClean());
+        extensionBackgroundPolicy_ = null;
+      }
+      return extensionBackgroundPolicyBuilder_;
+    }
+
+    private com.google.protobuf.LazyStringArrayList extensionIds_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureExtensionIdsIsMutable() {
+      if (!extensionIds_.isModifiable()) {
+        extensionIds_ = new com.google.protobuf.LazyStringArrayList(extensionIds_);
+      }
+      bitField0_ |= 0x00080000;
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @return A list containing the extensionIds.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getExtensionIdsList() {
+      extensionIds_.makeImmutable();
+      return extensionIds_;
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @return The count of extensionIds.
+     */
+    public int getExtensionIdsCount() {
+      return extensionIds_.size();
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param index The index of the element to return.
+     * @return The extensionIds at the given index.
+     */
+    public java.lang.String getExtensionIds(int index) {
+      return extensionIds_.get(index);
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the extensionIds at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getExtensionIdsBytes(int index) {
+      return extensionIds_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param index The index to set the value at.
+     * @param value The extensionIds to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExtensionIds(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureExtensionIdsIsMutable();
+      extensionIds_.set(index, value);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param value The extensionIds to add.
+     * @return This builder for chaining.
+     */
+    public Builder addExtensionIds(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureExtensionIdsIsMutable();
+      extensionIds_.add(value);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param values The extensionIds to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllExtensionIds(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureExtensionIdsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, extensionIds_);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExtensionIds() {
+      extensionIds_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00080000);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param value The bytes of the extensionIds to add.
+     * @return This builder for chaining.
+     */
+    public Builder addExtensionIdsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureExtensionIdsIsMutable();
+      extensionIds_.add(value);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2070,4 +2501,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

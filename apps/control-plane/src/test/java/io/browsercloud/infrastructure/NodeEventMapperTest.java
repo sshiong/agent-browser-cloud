@@ -9,6 +9,7 @@ import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
+import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
@@ -119,6 +120,10 @@ class NodeEventMapperTest {
             .setNewExtensionCpuWeight(150)
             .setOldMediaEncoderSlots(1)
             .setNewMediaEncoderSlots(2)
+            .setOldExtensionBackgroundPolicy(
+                ExtensionBackgroundPolicy.newBuilder().addPausedExtensionIds("extension.old"))
+            .setNewExtensionBackgroundPolicy(
+                ExtensionBackgroundPolicy.newBuilder().addPausedExtensionIds("extension.new"))
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -142,6 +147,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newExtensionCpuWeight()).isEqualTo(150);
               assertThat(adjusted.oldMediaEncoderSlots()).isEqualTo(1);
               assertThat(adjusted.newMediaEncoderSlots()).isEqualTo(2);
+              assertThat(adjusted.oldPausedExtensionIds()).containsExactly("extension.old");
+              assertThat(adjusted.newPausedExtensionIds()).containsExactly("extension.new");
             });
   }
 
@@ -183,6 +190,7 @@ class NodeEventMapperTest {
               assertThat(adjusted.oldStateCollectorBudgetPercent()).isNull();
               assertThat(adjusted.newRemoteDesktopBitrateKbps()).isNull();
               assertThat(adjusted.oldExtensionCpuWeight()).isNull();
+              assertThat(adjusted.newPausedExtensionIds()).isNull();
             });
   }
 

@@ -43,6 +43,7 @@ public class SessionResourceApplicationService {
   private final SessionResourceEventJpaRepository events;
   private final SessionResourceCostSnapshotJpaRepository costSnapshots;
   private final BrowserPlacementJpaRepository placements;
+  private final ExtensionProfileJpaRepository extensionProfiles;
   private final AgentTaskJpaRepository tasks;
   private final SessionRepository sessions;
   private final OperationRepository operations;
@@ -58,6 +59,7 @@ public class SessionResourceApplicationService {
       SessionResourceEventJpaRepository events,
       SessionResourceCostSnapshotJpaRepository costSnapshots,
       BrowserPlacementJpaRepository placements,
+      ExtensionProfileJpaRepository extensionProfiles,
       AgentTaskJpaRepository tasks,
       SessionRepository sessions,
       OperationRepository operations,
@@ -71,6 +73,7 @@ public class SessionResourceApplicationService {
     this.events = events;
     this.costSnapshots = costSnapshots;
     this.placements = placements;
+    this.extensionProfiles = extensionProfiles;
     this.tasks = tasks;
     this.sessions = sessions;
     this.operations = operations;
@@ -773,6 +776,15 @@ public class SessionResourceApplicationService {
                 : Math.max(1, placement.getMediaEncoderSlots() - 1);
     var operationId = newId("op_");
     var maximumMitigation = "MAXIMUM_NON_CORE_MITIGATION".equals(reason);
+    var pausedExtensionIds =
+        maximumMitigation
+            ? extensionProfiles.findAllById(extensionIds).stream()
+                .filter(profile -> !profile.isPrivileged())
+                .map(ExtensionProfileEntity::getExtensionId)
+                .distinct()
+                .sorted()
+                .toList()
+            : List.<String>of();
     if (!maximumMitigation) {
       policy.clearMaximumMitigation();
     }
@@ -794,6 +806,7 @@ public class SessionResourceApplicationService {
             mediaEncoderSlots,
             maximumMitigation,
             maximumMitigation,
+            pausedExtensionIds,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
@@ -820,7 +833,8 @@ public class SessionResourceApplicationService {
             extensionCpuWeight,
             mediaEncoderSlots,
             maximumMitigation,
-            maximumMitigation),
+            maximumMitigation,
+            pausedExtensionIds),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -859,7 +873,10 @@ public class SessionResourceApplicationService {
         || (adjusted.oldFreezeBackgroundTabs() != null
             && placement.isBackgroundTabsFrozen() != adjusted.oldFreezeBackgroundTabs())
         || (adjusted.oldBlockNewTabs() != null
-            && placement.isNewTabsBlocked() != adjusted.oldBlockNewTabs())) {
+            && placement.isNewTabsBlocked() != adjusted.oldBlockNewTabs())
+        || (adjusted.oldPausedExtensionIds() != null
+            && !readExtensionIds(placement.getPausedExtensionIds())
+                .equals(adjusted.oldPausedExtensionIds()))) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
     var nextStateCollectorBudgetPercent =
@@ -886,6 +903,10 @@ public class SessionResourceApplicationService {
         adjusted.newBlockNewTabs() == null
             ? placement.isNewTabsBlocked()
             : adjusted.newBlockNewTabs();
+    var nextPausedExtensionIds =
+        adjusted.newPausedExtensionIds() == null
+            ? readExtensionIds(placement.getPausedExtensionIds())
+            : adjusted.newPausedExtensionIds();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
@@ -901,6 +922,9 @@ public class SessionResourceApplicationService {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
+    if (!readExtensionIds(placement.getExtensionIds()).containsAll(nextPausedExtensionIds)) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
     if ((!placement.isRequiresMedia() && nextMediaEncoderSlots != 0)
@@ -920,7 +944,8 @@ public class SessionResourceApplicationService {
         nextExtensionCpuWeight,
         nextMediaEncoderSlots,
         nextBackgroundTabsFrozen,
-        nextNewTabsBlocked);
+        nextNewTabsBlocked,
+        writeStringList(nextPausedExtensionIds));
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -1236,6 +1261,7 @@ public class SessionResourceApplicationService {
         placement.getMediaSlots(),
         placement.isBackgroundTabsFrozen(),
         placement.isNewTabsBlocked(),
+        readExtensionIds(placement.getPausedExtensionIds()),
         placement.getState());
   }
 
@@ -1327,6 +1353,7 @@ public class SessionResourceApplicationService {
         Map.entry("mediaEncoderSlotLimit", placement.mediaSlots()),
         Map.entry("backgroundTabsFrozen", placement.backgroundTabsFrozen()),
         Map.entry("newTabsBlocked", placement.newTabsBlocked()),
+        Map.entry("pausedExtensionIds", placement.pausedExtensionIds()),
         Map.entry("nodeId", placement.nodeId()));
   }
 
@@ -1341,7 +1368,8 @@ public class SessionResourceApplicationService {
         placement.getExtensionCpuWeight(),
         placement.getMediaEncoderSlots(),
         placement.isBackgroundTabsFrozen(),
-        placement.isNewTabsBlocked());
+        placement.isNewTabsBlocked(),
+        readExtensionIds(placement.getPausedExtensionIds()));
   }
 
   private Map<String, Object> allocationMap(
@@ -1354,7 +1382,8 @@ public class SessionResourceApplicationService {
       int extensionCpuWeight,
       int mediaEncoderSlots,
       boolean backgroundTabsFrozen,
-      boolean newTabsBlocked) {
+      boolean newTabsBlocked,
+      List<String> pausedExtensionIds) {
     return Map.ofEntries(
         Map.entry("template", templateFor(placement.effectiveResourceClass())),
         Map.entry("cpuMillis", cpuMillis),
@@ -1367,6 +1396,7 @@ public class SessionResourceApplicationService {
         Map.entry("mediaEncoderSlotLimit", placement.getMediaSlots()),
         Map.entry("backgroundTabsFrozen", backgroundTabsFrozen),
         Map.entry("newTabsBlocked", newTabsBlocked),
+        Map.entry("pausedExtensionIds", pausedExtensionIds),
         Map.entry("nodeId", placement.getNodeId()));
   }
 
@@ -1384,6 +1414,14 @@ public class SessionResourceApplicationService {
       return mapper.writeValueAsString(value);
     } catch (Exception exception) {
       throw new IllegalStateException(exception);
+    }
+  }
+
+  private String writeStringList(List<String> value) {
+    try {
+      return mapper.writeValueAsString(value == null ? List.of() : value);
+    } catch (Exception exception) {
+      throw new IllegalStateException("Extension IDs are invalid", exception);
     }
   }
 

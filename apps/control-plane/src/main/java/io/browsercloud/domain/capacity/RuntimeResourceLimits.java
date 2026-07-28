@@ -18,6 +18,7 @@ public record RuntimeResourceLimits(
     int mediaEncoderSlots,
     boolean freezeBackgroundTabs,
     boolean blockNewTabs,
+    List<String> pausedExtensionIds,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,
@@ -25,6 +26,10 @@ public record RuntimeResourceLimits(
 
   public RuntimeResourceLimits {
     extensionIds = extensionIds == null ? List.of() : List.copyOf(extensionIds);
+    pausedExtensionIds =
+        pausedExtensionIds == null
+            ? List.of()
+            : pausedExtensionIds.stream().distinct().sorted().toList();
     if (cpuMillis < 0
         || memoryRequestMib < 0
         || memoryLimitMib < memoryRequestMib
@@ -42,6 +47,7 @@ public record RuntimeResourceLimits(
         || extensionCpuWeight > 10_000
         || mediaEncoderSlots < 0
         || mediaEncoderSlots > 32
+        || !extensionIds.containsAll(pausedExtensionIds)
         || extensionIds.stream()
             .anyMatch(
                 id ->

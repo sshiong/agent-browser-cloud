@@ -3746,6 +3746,7 @@ components:
         - mediaEncoderSlots
         - backgroundTabsFrozen
         - newTabsBlocked
+        - pausedExtensionIds
         - mediaBitrateKbps
         - placementScore
         - state
@@ -3812,6 +3813,13 @@ components:
           type: boolean
         newTabsBlocked:
           type: boolean
+        pausedExtensionIds:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^[a-zA-Z0-9_.-]{1,128}$"
         mediaBitrateKbps:
           type: integer
           minimum: 0
@@ -4405,6 +4413,7 @@ components:
             - mediaEncoderSlotLimit
             - backgroundTabsFrozen
             - newTabsBlocked
+            - pausedExtensionIds
             - placementState
           properties:
             nodeId:
@@ -4447,6 +4456,13 @@ components:
               type: boolean
             newTabsBlocked:
               type: boolean
+            pausedExtensionIds:
+              type: array
+              maxItems: 32
+              uniqueItems: true
+              items:
+                type: string
+                pattern: "^[a-zA-Z0-9_.-]{1,128}$"
             placementState:
               type: string
         usage:

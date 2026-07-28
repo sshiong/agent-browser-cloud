@@ -273,6 +273,7 @@ export interface SessionResourceView {
     mediaEncoderSlotLimit?: number;
     backgroundTabsFrozen: boolean;
     newTabsBlocked: boolean;
+    pausedExtensionIds?: string[];
     placementState: string;
   };
   usage?: {

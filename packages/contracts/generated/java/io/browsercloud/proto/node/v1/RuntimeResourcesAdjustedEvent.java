@@ -630,6 +630,58 @@ private static final long serialVersionUID = 0L;
     return newBlockNewTabs_;
   }
 
+  public static final int OLD_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 29;
+  private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy oldExtensionBackgroundPolicy_;
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * @return Whether the oldExtensionBackgroundPolicy field is set.
+   */
+  @java.lang.Override
+  public boolean hasOldExtensionBackgroundPolicy() {
+    return ((bitField0_ & 0x00001000) != 0);
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   * @return The oldExtensionBackgroundPolicy.
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getOldExtensionBackgroundPolicy() {
+    return oldExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getOldExtensionBackgroundPolicyOrBuilder() {
+    return oldExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+  }
+
+  public static final int NEW_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 30;
+  private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy newExtensionBackgroundPolicy_;
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * @return Whether the newExtensionBackgroundPolicy field is set.
+   */
+  @java.lang.Override
+  public boolean hasNewExtensionBackgroundPolicy() {
+    return ((bitField0_ & 0x00002000) != 0);
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   * @return The newExtensionBackgroundPolicy.
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getNewExtensionBackgroundPolicy() {
+    return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder() {
+    return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -727,6 +779,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000800) != 0)) {
       output.writeBool(28, newBlockNewTabs_);
+    }
+    if (((bitField0_ & 0x00001000) != 0)) {
+      output.writeMessage(29, getOldExtensionBackgroundPolicy());
+    }
+    if (((bitField0_ & 0x00002000) != 0)) {
+      output.writeMessage(30, getNewExtensionBackgroundPolicy());
     }
     getUnknownFields().writeTo(output);
   }
@@ -843,6 +901,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(28, newBlockNewTabs_);
     }
+    if (((bitField0_ & 0x00001000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(29, getOldExtensionBackgroundPolicy());
+    }
+    if (((bitField0_ & 0x00002000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(30, getNewExtensionBackgroundPolicy());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -950,6 +1016,16 @@ private static final long serialVersionUID = 0L;
       if (getNewBlockNewTabs()
           != other.getNewBlockNewTabs()) return false;
     }
+    if (hasOldExtensionBackgroundPolicy() != other.hasOldExtensionBackgroundPolicy()) return false;
+    if (hasOldExtensionBackgroundPolicy()) {
+      if (!getOldExtensionBackgroundPolicy()
+          .equals(other.getOldExtensionBackgroundPolicy())) return false;
+    }
+    if (hasNewExtensionBackgroundPolicy() != other.hasNewExtensionBackgroundPolicy()) return false;
+    if (hasNewExtensionBackgroundPolicy()) {
+      if (!getNewExtensionBackgroundPolicy()
+          .equals(other.getNewExtensionBackgroundPolicy())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1044,6 +1120,14 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + NEW_BLOCK_NEW_TABS_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getNewBlockNewTabs());
+    }
+    if (hasOldExtensionBackgroundPolicy()) {
+      hash = (37 * hash) + OLD_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
+      hash = (53 * hash) + getOldExtensionBackgroundPolicy().hashCode();
+    }
+    if (hasNewExtensionBackgroundPolicy()) {
+      hash = (37 * hash) + NEW_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
+      hash = (53 * hash) + getNewExtensionBackgroundPolicy().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1168,13 +1252,20 @@ private static final long serialVersionUID = 0L;
 
     // Construct using io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessageV3
+              .alwaysUseFieldBuilders) {
+        getOldExtensionBackgroundPolicyFieldBuilder();
+        getNewExtensionBackgroundPolicyFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -1208,6 +1299,16 @@ private static final long serialVersionUID = 0L;
       newFreezeBackgroundTabs_ = false;
       oldBlockNewTabs_ = false;
       newBlockNewTabs_ = false;
+      oldExtensionBackgroundPolicy_ = null;
+      if (oldExtensionBackgroundPolicyBuilder_ != null) {
+        oldExtensionBackgroundPolicyBuilder_.dispose();
+        oldExtensionBackgroundPolicyBuilder_ = null;
+      }
+      newExtensionBackgroundPolicy_ = null;
+      if (newExtensionBackgroundPolicyBuilder_ != null) {
+        newExtensionBackgroundPolicyBuilder_.dispose();
+        newExtensionBackgroundPolicyBuilder_ = null;
+      }
       return this;
     }
 
@@ -1337,6 +1438,18 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x08000000) != 0)) {
         result.newBlockNewTabs_ = newBlockNewTabs_;
         to_bitField0_ |= 0x00000800;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.oldExtensionBackgroundPolicy_ = oldExtensionBackgroundPolicyBuilder_ == null
+            ? oldExtensionBackgroundPolicy_
+            : oldExtensionBackgroundPolicyBuilder_.build();
+        to_bitField0_ |= 0x00001000;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.newExtensionBackgroundPolicy_ = newExtensionBackgroundPolicyBuilder_ == null
+            ? newExtensionBackgroundPolicy_
+            : newExtensionBackgroundPolicyBuilder_.build();
+        to_bitField0_ |= 0x00002000;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1480,6 +1593,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasNewBlockNewTabs()) {
         setNewBlockNewTabs(other.getNewBlockNewTabs());
+      }
+      if (other.hasOldExtensionBackgroundPolicy()) {
+        mergeOldExtensionBackgroundPolicy(other.getOldExtensionBackgroundPolicy());
+      }
+      if (other.hasNewExtensionBackgroundPolicy()) {
+        mergeNewExtensionBackgroundPolicy(other.getNewExtensionBackgroundPolicy());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1647,6 +1766,20 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x08000000;
               break;
             } // case 224
+            case 234: {
+              input.readMessage(
+                  getOldExtensionBackgroundPolicyFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 234
+            case 242: {
+              input.readMessage(
+                  getNewExtensionBackgroundPolicyFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 242
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2911,6 +3044,248 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy oldExtensionBackgroundPolicy_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> oldExtensionBackgroundPolicyBuilder_;
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * @return Whether the oldExtensionBackgroundPolicy field is set.
+     */
+    public boolean hasOldExtensionBackgroundPolicy() {
+      return ((bitField0_ & 0x10000000) != 0);
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     * @return The oldExtensionBackgroundPolicy.
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getOldExtensionBackgroundPolicy() {
+      if (oldExtensionBackgroundPolicyBuilder_ == null) {
+        return oldExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+      } else {
+        return oldExtensionBackgroundPolicyBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    public Builder setOldExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (oldExtensionBackgroundPolicyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        oldExtensionBackgroundPolicy_ = value;
+      } else {
+        oldExtensionBackgroundPolicyBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    public Builder setOldExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
+      if (oldExtensionBackgroundPolicyBuilder_ == null) {
+        oldExtensionBackgroundPolicy_ = builderForValue.build();
+      } else {
+        oldExtensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    public Builder mergeOldExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (oldExtensionBackgroundPolicyBuilder_ == null) {
+        if (((bitField0_ & 0x10000000) != 0) &&
+          oldExtensionBackgroundPolicy_ != null &&
+          oldExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+          getOldExtensionBackgroundPolicyBuilder().mergeFrom(value);
+        } else {
+          oldExtensionBackgroundPolicy_ = value;
+        }
+      } else {
+        oldExtensionBackgroundPolicyBuilder_.mergeFrom(value);
+      }
+      if (oldExtensionBackgroundPolicy_ != null) {
+        bitField0_ |= 0x10000000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    public Builder clearOldExtensionBackgroundPolicy() {
+      bitField0_ = (bitField0_ & ~0x10000000);
+      oldExtensionBackgroundPolicy_ = null;
+      if (oldExtensionBackgroundPolicyBuilder_ != null) {
+        oldExtensionBackgroundPolicyBuilder_.dispose();
+        oldExtensionBackgroundPolicyBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getOldExtensionBackgroundPolicyBuilder() {
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return getOldExtensionBackgroundPolicyFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getOldExtensionBackgroundPolicyOrBuilder() {
+      if (oldExtensionBackgroundPolicyBuilder_ != null) {
+        return oldExtensionBackgroundPolicyBuilder_.getMessageOrBuilder();
+      } else {
+        return oldExtensionBackgroundPolicy_ == null ?
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : oldExtensionBackgroundPolicy_;
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29 [json_name = "oldExtensionBackgroundPolicy"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        getOldExtensionBackgroundPolicyFieldBuilder() {
+      if (oldExtensionBackgroundPolicyBuilder_ == null) {
+        oldExtensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getOldExtensionBackgroundPolicy(),
+                getParentForChildren(),
+                isClean());
+        oldExtensionBackgroundPolicy_ = null;
+      }
+      return oldExtensionBackgroundPolicyBuilder_;
+    }
+
+    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy newExtensionBackgroundPolicy_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> newExtensionBackgroundPolicyBuilder_;
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * @return Whether the newExtensionBackgroundPolicy field is set.
+     */
+    public boolean hasNewExtensionBackgroundPolicy() {
+      return ((bitField0_ & 0x20000000) != 0);
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     * @return The newExtensionBackgroundPolicy.
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getNewExtensionBackgroundPolicy() {
+      if (newExtensionBackgroundPolicyBuilder_ == null) {
+        return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+      } else {
+        return newExtensionBackgroundPolicyBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    public Builder setNewExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (newExtensionBackgroundPolicyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        newExtensionBackgroundPolicy_ = value;
+      } else {
+        newExtensionBackgroundPolicyBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    public Builder setNewExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
+      if (newExtensionBackgroundPolicyBuilder_ == null) {
+        newExtensionBackgroundPolicy_ = builderForValue.build();
+      } else {
+        newExtensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    public Builder mergeNewExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (newExtensionBackgroundPolicyBuilder_ == null) {
+        if (((bitField0_ & 0x20000000) != 0) &&
+          newExtensionBackgroundPolicy_ != null &&
+          newExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+          getNewExtensionBackgroundPolicyBuilder().mergeFrom(value);
+        } else {
+          newExtensionBackgroundPolicy_ = value;
+        }
+      } else {
+        newExtensionBackgroundPolicyBuilder_.mergeFrom(value);
+      }
+      if (newExtensionBackgroundPolicy_ != null) {
+        bitField0_ |= 0x20000000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    public Builder clearNewExtensionBackgroundPolicy() {
+      bitField0_ = (bitField0_ & ~0x20000000);
+      newExtensionBackgroundPolicy_ = null;
+      if (newExtensionBackgroundPolicyBuilder_ != null) {
+        newExtensionBackgroundPolicyBuilder_.dispose();
+        newExtensionBackgroundPolicyBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getNewExtensionBackgroundPolicyBuilder() {
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return getNewExtensionBackgroundPolicyFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder() {
+      if (newExtensionBackgroundPolicyBuilder_ != null) {
+        return newExtensionBackgroundPolicyBuilder_.getMessageOrBuilder();
+      } else {
+        return newExtensionBackgroundPolicy_ == null ?
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        getNewExtensionBackgroundPolicyFieldBuilder() {
+      if (newExtensionBackgroundPolicyBuilder_ == null) {
+        newExtensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getNewExtensionBackgroundPolicy(),
+                getParentForChildren(),
+                isClean());
+        newExtensionBackgroundPolicy_ = null;
+      }
+      return newExtensionBackgroundPolicyBuilder_;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2974,4 +3349,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

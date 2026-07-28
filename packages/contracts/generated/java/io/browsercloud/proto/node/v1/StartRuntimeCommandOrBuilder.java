@@ -282,4 +282,31 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The blockNewTabs.
    */
   boolean getBlockNewTabs();
+
+  /**
+   * <pre>
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   * </pre>
+   *
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return Whether the extensionBackgroundPolicy field is set.
+   */
+  boolean hasExtensionBackgroundPolicy();
+  /**
+   * <pre>
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   * </pre>
+   *
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return The extensionBackgroundPolicy.
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy();
+  /**
+   * <pre>
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   * </pre>
+   *
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder();
 }

@@ -14,11 +14,12 @@ use node_contracts::proto::{
     AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
     BrowserStateDiffEvent, BrowserStateEvent, BusinessRecoveryActionCommand, CommandAck,
     CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
-    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
-    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
-    PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest, ReportSessionResourcesRequest,
-    RequestStateResyncCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
-    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
+    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
+    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
+    ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
+    RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
+    TargetBounds,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -1595,6 +1596,11 @@ impl NodeControlService {
                         let freeze_background_tabs =
                             payload.freeze_background_tabs.unwrap_or(false);
                         let block_new_tabs = payload.block_new_tabs.unwrap_or(false);
+                        let paused_extension_ids = payload
+                            .extension_background_policy
+                            .as_ref()
+                            .map(|policy| policy.paused_extension_ids.clone())
+                            .unwrap_or_default();
                         if payload.resource_class == "L0"
                             || payload.cpu_millis == 0
                             || payload.memory_request_mib == 0
@@ -1608,6 +1614,13 @@ impl NodeControlService {
                             || (!payload.desktop_required && remote_desktop_bitrate_kbps != 0)
                             || !(1..=10_000).contains(&extension_cpu_weight)
                             || media_encoder_slots > 32
+                            || paused_extension_ids.len()
+                                != paused_extension_ids.iter().collect::<HashSet<_>>().len()
+                            || !payload
+                                .extension_ids
+                                .iter()
+                                .collect::<HashSet<_>>()
+                                .is_superset(&paused_extension_ids.iter().collect::<HashSet<_>>())
                         {
                             return self.failed(
                                 command,
@@ -1844,6 +1857,7 @@ impl NodeControlService {
                                             tab_budget: payload.tab_budget,
                                             freeze_background_tabs,
                                             block_new_tabs,
+                                            paused_extension_ids,
                                         },
                                     )
                                     .await
@@ -2159,6 +2173,7 @@ impl NodeControlService {
                                 tab_budget: current_limits.tab_budget,
                                 freeze_background_tabs: false,
                                 block_new_tabs: false,
+                                paused_extension_ids: Vec::new(),
                             });
                         let next_state_collector_budget_percent = payload
                             .state_collector_budget_percent
@@ -2188,7 +2203,39 @@ impl NodeControlService {
                             block_new_tabs: payload
                                 .block_new_tabs
                                 .unwrap_or(previous_tab_resource_policy.block_new_tabs),
+                            paused_extension_ids: payload
+                                .extension_background_policy
+                                .as_ref()
+                                .map(|policy| policy.paused_extension_ids.clone())
+                                .unwrap_or_else(|| {
+                                    previous_tab_resource_policy.paused_extension_ids.clone()
+                                }),
                         };
+                        if next_tab_resource_policy.paused_extension_ids.len()
+                            != next_tab_resource_policy
+                                .paused_extension_ids
+                                .iter()
+                                .collect::<HashSet<_>>()
+                                .len()
+                            || (payload.extension_background_policy.is_some()
+                                && !payload
+                                    .extension_ids
+                                    .iter()
+                                    .collect::<HashSet<_>>()
+                                    .is_superset(
+                                        &next_tab_resource_policy
+                                            .paused_extension_ids
+                                            .iter()
+                                            .collect::<HashSet<_>>(),
+                                    ))
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "Extension background policy is invalid for this Runtime"
+                                ),
+                            );
+                        }
                         if next_remote_desktop_bitrate_kbps != 0
                             && !(250..=100_000).contains(&next_remote_desktop_bitrate_kbps)
                         {
@@ -2338,6 +2385,14 @@ impl NodeControlService {
                                     previous_tab_resource_policy.block_new_tabs,
                                 ),
                                 new_block_new_tabs: Some(next_tab_resource_policy.block_new_tabs),
+                                old_extension_background_policy: Some(ExtensionBackgroundPolicy {
+                                    paused_extension_ids: previous_tab_resource_policy
+                                        .paused_extension_ids,
+                                }),
+                                new_extension_background_policy: Some(ExtensionBackgroundPolicy {
+                                    paused_extension_ids: next_tab_resource_policy
+                                        .paused_extension_ids,
+                                }),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))

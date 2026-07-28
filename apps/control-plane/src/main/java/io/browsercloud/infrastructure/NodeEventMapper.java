@@ -15,6 +15,7 @@ import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 /** 将正式 Protobuf EventEnvelope 映射为 Coordinator 命令。 */
@@ -167,12 +168,25 @@ public class NodeEventMapper {
               payload.hasNewFreezeBackgroundTabs() ? payload.getNewFreezeBackgroundTabs() : null;
           var oldBlockNewTabs = payload.hasOldBlockNewTabs() ? payload.getOldBlockNewTabs() : null;
           var newBlockNewTabs = payload.hasNewBlockNewTabs() ? payload.getNewBlockNewTabs() : null;
+          var oldPausedExtensionIds =
+              payload.hasOldExtensionBackgroundPolicy()
+                  ? List.copyOf(
+                      payload.getOldExtensionBackgroundPolicy().getPausedExtensionIdsList())
+                  : null;
+          var newPausedExtensionIds =
+              payload.hasNewExtensionBackgroundPolicy()
+                  ? List.copyOf(
+                      payload.getNewExtensionBackgroundPolicy().getPausedExtensionIdsList())
+                  : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
               || (oldMediaEncoderSlots == null) != (newMediaEncoderSlots == null)
               || (oldFreezeBackgroundTabs == null) != (newFreezeBackgroundTabs == null)
               || (oldBlockNewTabs == null) != (newBlockNewTabs == null)
+              || (oldPausedExtensionIds == null) != (newPausedExtensionIds == null)
+              || !validExtensionPolicy(oldPausedExtensionIds)
+              || !validExtensionPolicy(newPausedExtensionIds)
               || (oldStateCollectorBudget != null
                   && (oldStateCollectorBudget < 10
                       || oldStateCollectorBudget > 100
@@ -222,6 +236,8 @@ public class NodeEventMapper {
               newFreezeBackgroundTabs,
               oldBlockNewTabs,
               newBlockNewTabs,
+              oldPausedExtensionIds,
+              newPausedExtensionIds,
               payload.getReason(),
               payload.getOperationId());
         }
@@ -435,5 +451,13 @@ public class NodeEventMapper {
     if (value == null || value.isBlank() || value.length() > 128) {
       throw new IllegalArgumentException(field + " must contain 1 to 128 characters");
     }
+  }
+
+  private boolean validExtensionPolicy(List<String> extensionIds) {
+    return extensionIds == null
+        || (extensionIds.size() <= 32
+            && extensionIds.size() == extensionIds.stream().distinct().count()
+            && extensionIds.stream()
+                .allMatch(id -> id != null && id.matches("[A-Za-z0-9._-]{1,128}")));
   }
 }

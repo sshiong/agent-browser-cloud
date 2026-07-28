@@ -303,6 +303,9 @@ pub struct StartRuntimeCommand {
     pub freeze_background_tabs: ::core::option::Option<bool>,
     #[prost(bool, optional, tag="24")]
     pub block_new_tabs: ::core::option::Option<bool>,
+    /// 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+    #[prost(message, optional, tag="25")]
+    pub extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -408,6 +411,19 @@ pub struct AdjustRuntimeResourcesCommand {
     /// 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
     #[prost(bool, optional, tag="18")]
     pub block_new_tabs: ::core::option::Option<bool>,
+    #[prost(message, optional, tag="19")]
+    pub extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
+    /// 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+    #[prost(string, repeated, tag="20")]
+    pub extension_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Browser Node 通过各 Extension background/service-worker Target 的 Debugger
+/// pause/resume 执行，避免直接卸载扩展或修改扩展集合。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExtensionBackgroundPolicy {
+    #[prost(string, repeated, tag="1")]
+    pub paused_extension_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -470,6 +486,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_block_new_tabs: ::core::option::Option<bool>,
     #[prost(bool, optional, tag="28")]
     pub new_block_new_tabs: ::core::option::Option<bool>,
+    #[prost(message, optional, tag="29")]
+    pub old_extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
+    #[prost(message, optional, tag="30")]
+    pub new_extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

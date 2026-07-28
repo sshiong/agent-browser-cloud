@@ -25,6 +25,8 @@ import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
 import io.browsercloud.persistence.BrowserPlacementEntity;
 import io.browsercloud.persistence.BrowserPlacementJpaRepository;
+import io.browsercloud.persistence.ExtensionProfileEntity;
+import io.browsercloud.persistence.ExtensionProfileJpaRepository;
 import io.browsercloud.persistence.SessionResourceCostSnapshotJpaRepository;
 import io.browsercloud.persistence.SessionResourceEventJpaRepository;
 import io.browsercloud.persistence.SessionResourcePolicyEntity;
@@ -51,6 +53,8 @@ class SessionResourceCostAndMaximumPolicyTest {
       mock(SessionResourceCostSnapshotJpaRepository.class);
   private final BrowserPlacementJpaRepository placements =
       mock(BrowserPlacementJpaRepository.class);
+  private final ExtensionProfileJpaRepository extensionProfiles =
+      mock(ExtensionProfileJpaRepository.class);
   private final AgentTaskJpaRepository tasks = mock(AgentTaskJpaRepository.class);
   private final SessionRepository sessions = mock(SessionRepository.class);
   private final OperationRepository operations = mock(OperationRepository.class);
@@ -68,6 +72,7 @@ class SessionResourceCostAndMaximumPolicyTest {
             events,
             costSnapshots,
             placements,
+            extensionProfiles,
             tasks,
             sessions,
             operations,
@@ -166,6 +171,13 @@ class SessionResourceCostAndMaximumPolicyTest {
     when(operations.findActive("ses_cost")).thenReturn(Optional.empty());
     when(operations.nextOperationEpoch("ses_cost")).thenReturn(7L);
     when(sessions.require("ses_cost")).thenReturn(session(now));
+    var noncritical = mock(ExtensionProfileEntity.class);
+    when(noncritical.getExtensionId()).thenReturn("extension.noncritical");
+    when(noncritical.isPrivileged()).thenReturn(false);
+    var privileged = mock(ExtensionProfileEntity.class);
+    when(privileged.getExtensionId()).thenReturn("extension.privileged");
+    when(privileged.isPrivileged()).thenReturn(true);
+    when(extensionProfiles.findAllById(any())).thenReturn(List.of(noncritical, privileged));
 
     service.evaluatePolicy("ses_cost");
 
@@ -179,6 +191,10 @@ class SessionResourceCostAndMaximumPolicyTest {
     var payload = AdjustRuntimeResourcesCommand.parseFrom(command.getValue().payload());
     assertThat(payload.getFreezeBackgroundTabs()).isTrue();
     assertThat(payload.getBlockNewTabs()).isTrue();
+    assertThat(payload.getExtensionIdsList())
+        .containsExactly("extension.noncritical", "extension.privileged", "extension.unknown");
+    assertThat(payload.getExtensionBackgroundPolicy().getPausedExtensionIdsList())
+        .containsExactly("extension.noncritical");
   }
 
   private static SessionResourcePolicyEntity policy(
@@ -213,7 +229,7 @@ class SessionResourceCostAndMaximumPolicyTest {
             "node_test",
             ResourceClass.L4,
             ResourceClass.L4,
-            "[]",
+            "[\"extension.noncritical\",\"extension.privileged\",\"extension.unknown\"]",
             0,
             4_000,
             3_500,

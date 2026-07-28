@@ -627,6 +627,44 @@ private static final long serialVersionUID = 0L;
     return blockNewTabs_;
   }
 
+  public static final int EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 25;
+  private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy extensionBackgroundPolicy_;
+  /**
+   * <pre>
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   * </pre>
+   *
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return Whether the extensionBackgroundPolicy field is set.
+   */
+  @java.lang.Override
+  public boolean hasExtensionBackgroundPolicy() {
+    return ((bitField0_ & 0x00000040) != 0);
+  }
+  /**
+   * <pre>
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   * </pre>
+   *
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   * @return The extensionBackgroundPolicy.
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy() {
+    return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+  }
+  /**
+   * <pre>
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   * </pre>
+   *
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder() {
+    return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -712,6 +750,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000020) != 0)) {
       output.writeBool(24, blockNewTabs_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      output.writeMessage(25, getExtensionBackgroundPolicy());
     }
     getUnknownFields().writeTo(output);
   }
@@ -815,6 +856,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(24, blockNewTabs_);
     }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(25, getExtensionBackgroundPolicy());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -896,6 +941,11 @@ private static final long serialVersionUID = 0L;
       if (getBlockNewTabs()
           != other.getBlockNewTabs()) return false;
     }
+    if (hasExtensionBackgroundPolicy() != other.hasExtensionBackgroundPolicy()) return false;
+    if (hasExtensionBackgroundPolicy()) {
+      if (!getExtensionBackgroundPolicy()
+          .equals(other.getExtensionBackgroundPolicy())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -974,6 +1024,10 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + BLOCK_NEW_TABS_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getBlockNewTabs());
+    }
+    if (hasExtensionBackgroundPolicy()) {
+      hash = (37 * hash) + EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
+      hash = (53 * hash) + getExtensionBackgroundPolicy().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1098,13 +1152,19 @@ private static final long serialVersionUID = 0L;
 
     // Construct using io.browsercloud.proto.node.v1.StartRuntimeCommand.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessageV3
+              .alwaysUseFieldBuilders) {
+        getExtensionBackgroundPolicyFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -1135,6 +1195,11 @@ private static final long serialVersionUID = 0L;
       mediaEncoderSlots_ = 0;
       freezeBackgroundTabs_ = false;
       blockNewTabs_ = false;
+      extensionBackgroundPolicy_ = null;
+      if (extensionBackgroundPolicyBuilder_ != null) {
+        extensionBackgroundPolicyBuilder_.dispose();
+        extensionBackgroundPolicyBuilder_ = null;
+      }
       return this;
     }
 
@@ -1247,6 +1312,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00800000) != 0)) {
         result.blockNewTabs_ = blockNewTabs_;
         to_bitField0_ |= 0x00000020;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.extensionBackgroundPolicy_ = extensionBackgroundPolicyBuilder_ == null
+            ? extensionBackgroundPolicy_
+            : extensionBackgroundPolicyBuilder_.build();
+        to_bitField0_ |= 0x00000040;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1387,6 +1458,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasBlockNewTabs()) {
         setBlockNewTabs(other.getBlockNewTabs());
+      }
+      if (other.hasExtensionBackgroundPolicy()) {
+        mergeExtensionBackgroundPolicy(other.getExtensionBackgroundPolicy());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1535,6 +1609,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00800000;
               break;
             } // case 192
+            case 202: {
+              input.readMessage(
+                  getExtensionBackgroundPolicyFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 202
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2810,6 +2891,163 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy extensionBackgroundPolicy_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> extensionBackgroundPolicyBuilder_;
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * @return Whether the extensionBackgroundPolicy field is set.
+     */
+    public boolean hasExtensionBackgroundPolicy() {
+      return ((bitField0_ & 0x01000000) != 0);
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     * @return The extensionBackgroundPolicy.
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getExtensionBackgroundPolicy() {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        return extensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+      } else {
+        return extensionBackgroundPolicyBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder setExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        extensionBackgroundPolicy_ = value;
+      } else {
+        extensionBackgroundPolicyBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder setExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        extensionBackgroundPolicy_ = builderForValue.build();
+      } else {
+        extensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder mergeExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        if (((bitField0_ & 0x01000000) != 0) &&
+          extensionBackgroundPolicy_ != null &&
+          extensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+          getExtensionBackgroundPolicyBuilder().mergeFrom(value);
+        } else {
+          extensionBackgroundPolicy_ = value;
+        }
+      } else {
+        extensionBackgroundPolicyBuilder_.mergeFrom(value);
+      }
+      if (extensionBackgroundPolicy_ != null) {
+        bitField0_ |= 0x01000000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public Builder clearExtensionBackgroundPolicy() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      extensionBackgroundPolicy_ = null;
+      if (extensionBackgroundPolicyBuilder_ != null) {
+        extensionBackgroundPolicyBuilder_.dispose();
+        extensionBackgroundPolicyBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getExtensionBackgroundPolicyBuilder() {
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return getExtensionBackgroundPolicyFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder() {
+      if (extensionBackgroundPolicyBuilder_ != null) {
+        return extensionBackgroundPolicyBuilder_.getMessageOrBuilder();
+      } else {
+        return extensionBackgroundPolicy_ == null ?
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : extensionBackgroundPolicy_;
+      }
+    }
+    /**
+     * <pre>
+     * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+     * </pre>
+     *
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        getExtensionBackgroundPolicyFieldBuilder() {
+      if (extensionBackgroundPolicyBuilder_ == null) {
+        extensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getExtensionBackgroundPolicy(),
+                getParentForChildren(),
+                isClean());
+        extensionBackgroundPolicy_ = null;
+      }
+      return extensionBackgroundPolicyBuilder_;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2873,4 +3111,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

@@ -14,7 +14,8 @@ class BrowserPlacementEntityTest {
     var placement = mediaPlacement(2);
     placement.activate(Instant.parse("2026-07-28T00:00:01Z"));
 
-    placement.applyResourceAdjustment(2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 1, true, true);
+    placement.applyResourceAdjustment(
+        2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 1, true, true, "[]");
 
     assertThat(placement.getMediaSlots()).isEqualTo(2);
     assertThat(placement.getMediaEncoderSlots()).isEqualTo(1);
@@ -23,7 +24,7 @@ class BrowserPlacementEntityTest {
     assertThatThrownBy(
             () ->
                 placement.applyResourceAdjustment(
-                    2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 3, true, true))
+                    2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 3, true, true, "[]"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Media Encoder Slot");
   }

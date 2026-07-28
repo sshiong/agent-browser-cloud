@@ -1122,6 +1122,13 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   blockNewTabs?: boolean;
 
+  /**
+   * 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
+   *
+   * @generated from field: browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25;
+   */
+  extensionBackgroundPolicy?: ExtensionBackgroundPolicy;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1154,6 +1161,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 22, name: "media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 23, name: "freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 24, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 25, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1510,6 +1518,18 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   blockNewTabs?: boolean;
 
+  /**
+   * @generated from field: browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 19;
+   */
+  extensionBackgroundPolicy?: ExtensionBackgroundPolicy;
+
+  /**
+   * 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
+   *
+   * @generated from field: repeated string extension_ids = 20;
+   */
+  extensionIds: string[] = [];
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1536,6 +1556,8 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 16, name: "media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 17, name: "freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 18, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 19, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
+    { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1552,6 +1574,46 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
 
   static equals(a: AdjustRuntimeResourcesCommand | PlainMessage<AdjustRuntimeResourcesCommand> | undefined, b: AdjustRuntimeResourcesCommand | PlainMessage<AdjustRuntimeResourcesCommand> | undefined): boolean {
     return proto3.util.equals(AdjustRuntimeResourcesCommand, a, b);
+  }
+}
+
+/**
+ * Browser Node 通过各 Extension background/service-worker Target 的 Debugger
+ * pause/resume 执行，避免直接卸载扩展或修改扩展集合。
+ *
+ * @generated from message browsercloud.node.v1.ExtensionBackgroundPolicy
+ */
+export class ExtensionBackgroundPolicy extends Message<ExtensionBackgroundPolicy> {
+  /**
+   * @generated from field: repeated string paused_extension_ids = 1;
+   */
+  pausedExtensionIds: string[] = [];
+
+  constructor(data?: PartialMessage<ExtensionBackgroundPolicy>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ExtensionBackgroundPolicy";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "paused_extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ExtensionBackgroundPolicy {
+    return new ExtensionBackgroundPolicy().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ExtensionBackgroundPolicy {
+    return new ExtensionBackgroundPolicy().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ExtensionBackgroundPolicy {
+    return new ExtensionBackgroundPolicy().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ExtensionBackgroundPolicy | PlainMessage<ExtensionBackgroundPolicy> | undefined, b: ExtensionBackgroundPolicy | PlainMessage<ExtensionBackgroundPolicy> | undefined): boolean {
+    return proto3.util.equals(ExtensionBackgroundPolicy, a, b);
   }
 }
 
@@ -1703,6 +1765,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newBlockNewTabs?: boolean;
 
+  /**
+   * @generated from field: browsercloud.node.v1.ExtensionBackgroundPolicy old_extension_background_policy = 29;
+   */
+  oldExtensionBackgroundPolicy?: ExtensionBackgroundPolicy;
+
+  /**
+   * @generated from field: browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30;
+   */
+  newExtensionBackgroundPolicy?: ExtensionBackgroundPolicy;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1739,6 +1811,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 26, name: "new_freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 27, name: "old_block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 28, name: "new_block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 29, name: "old_extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
+    { no: 30, name: "new_extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

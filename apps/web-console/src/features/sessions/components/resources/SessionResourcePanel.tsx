@@ -107,6 +107,8 @@ export function SessionResourcePanel({
     );
   }
 
+  const pausedExtensionIds = resource.allocation?.pausedExtensionIds ?? [];
+
   return (
     <section
       className="overflow-hidden rounded-[10px] border border-border-subtle bg-surface-1"
@@ -168,8 +170,8 @@ export function SessionResourcePanel({
 
           {resource.allocation ? (
             <div
-              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-2"
-              aria-label="标签页资源保护状态"
+              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-3"
+              aria-label="非核心资源保护状态"
             >
               <div className="bg-surface-2 px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
@@ -190,6 +192,24 @@ export function SessionResourcePanel({
                     ? '已由 Node 阻断'
                     : `允许，预算 ${resource.allocation.tabBudget ?? '—'}`}
                 </p>
+              </div>
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  扩展后台任务
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  {pausedExtensionIds.length > 0
+                    ? `Node 已暂停 ${pausedExtensionIds.length} 个非特权扩展`
+                    : '正常运行'}
+                </p>
+                {pausedExtensionIds.length > 0 && (
+                  <p
+                    className="mt-1 truncate font-mono text-[9px] text-text-muted"
+                    title={pausedExtensionIds.join(', ')}
+                  >
+                    {pausedExtensionIds.join(', ')}
+                  </p>
+                )}
               </div>
             </div>
           ) : null}

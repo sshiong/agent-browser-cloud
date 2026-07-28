@@ -73,6 +73,14 @@ public class JpaSessionRepository implements SessionRepository {
 
   @Override
   @Transactional
+  public void lockForUpdate(String sessionId) {
+    sessionJpa
+        .findWithLockById(sessionId)
+        .orElseThrow(() -> new SessionNotFoundException(sessionId));
+  }
+
+  @Override
+  @Transactional
   public void insert(
       SessionContext context,
       String region,

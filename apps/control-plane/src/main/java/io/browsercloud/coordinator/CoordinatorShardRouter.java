@@ -4,9 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,8 +14,6 @@ import org.springframework.stereotype.Component;
 public class CoordinatorShardRouter {
 
   private final int shardCount;
-  private final Map<String, Integer> tenantPartitions = new ConcurrentHashMap<>();
-  private final AtomicLong routeEpoch = new AtomicLong(1);
 
   public CoordinatorShardRouter(@Value("${coordinator.shard-count:16}") int shardCount) {
     if (shardCount < 1 || shardCount > 4096) {
@@ -27,23 +22,24 @@ public class CoordinatorShardRouter {
     this.shardCount = shardCount;
   }
 
+  /** Default route used before a tenant has an explicit PostgreSQL route row. */
   public Route route(String tenantId, String sessionId) {
-    var partitions = tenantPartitions.getOrDefault(tenantId, 1);
-    var virtualPartition = positiveHash(sessionId) % partitions;
-    var shard = positiveHash(tenantId + "\u0000" + virtualPartition) % shardCount;
-    return new Route(shard, virtualPartition, routeEpoch.get());
+    return route(tenantId, sessionId, 1, 1);
   }
 
-  /** Changes routing only at an externally verified safe point; epoch fences old owners. */
-  public long repartitionTenant(String tenantId, int partitions, boolean safePoint) {
-    if (!safePoint) {
-      throw new IllegalStateException("Hot tenant repartition requires a coordinator safe point");
-    }
+  /**
+   * Pure deterministic calculation; partition count and epoch always come from persistent state.
+   */
+  public Route route(String tenantId, String sessionId, int partitions, long routeEpoch) {
     if (partitions < 1 || partitions > 256) {
       throw new IllegalArgumentException("virtual partitions must be between 1 and 256");
     }
-    tenantPartitions.put(tenantId, partitions);
-    return routeEpoch.incrementAndGet();
+    if (routeEpoch < 1) {
+      throw new IllegalArgumentException("route epoch must be positive");
+    }
+    var virtualPartition = positiveHash(sessionId) % partitions;
+    var shard = positiveHash(tenantId + "\u0000" + virtualPartition) % shardCount;
+    return new Route(shard, virtualPartition, routeEpoch);
   }
 
   private static int positiveHash(String value) {

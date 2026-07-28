@@ -97,6 +97,38 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
 
   long countByTenantIdAndState(String tenantId, String state);
 
+  @Query(
+      value =
+          """
+          SELECT s.id
+            FROM sessions s
+           WHERE s.tenant_id = :tenantId
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM coordinator_session_routes route
+                WHERE route.session_id = s.id
+             )
+           ORDER BY s.id
+          """,
+      nativeQuery = true)
+  List<String> findIdsMissingCoordinatorRoute(
+      @Param("tenantId") String tenantId, Pageable pageable);
+
+  @Query(
+      value =
+          """
+          SELECT count(*)
+            FROM sessions s
+           WHERE s.tenant_id = :tenantId
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM coordinator_session_routes route
+                WHERE route.session_id = s.id
+             )
+          """,
+      nativeQuery = true)
+  long countMissingCoordinatorRoute(@Param("tenantId") String tenantId);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<SessionEntity> findWithLockById(String id);
 }

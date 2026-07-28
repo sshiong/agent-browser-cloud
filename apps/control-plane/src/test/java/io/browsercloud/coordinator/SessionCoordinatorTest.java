@@ -35,6 +35,7 @@ class SessionCoordinatorTest {
   @Mock private CoordinatorOwnershipService ownershipService;
 
   @Mock private RuntimeResourceLimitsRepository resourceLimitsRepository;
+  @Mock private CoordinatorRouteAuthority routeAuthority;
 
   private SessionCoordinator coordinator;
   private SimpleMeterRegistry meterRegistry;
@@ -50,7 +51,14 @@ class SessionCoordinatorTest {
             outboxPublisher,
             ownershipService,
             new CoordinatorReconciliationMetrics(meterRegistry),
-            resourceLimitsRepository);
+            resourceLimitsRepository,
+            routeAuthority);
+    lenient()
+        .when(routeAuthority.resolve(anyString()))
+        .thenAnswer(
+            invocation ->
+                new CoordinatorRouteAuthority.SessionRoute(
+                    invocation.getArgument(0), "tenant-test", 1, 0, 0));
   }
 
   @Test
@@ -67,6 +75,22 @@ class SessionCoordinatorTest {
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
     verify(operationRepository).insert(any(ExclusiveOperation.class));
     verify(nodeCommandGateway).send(any(NodeCommand.class));
+  }
+
+  @Test
+  void locksSessionBeforeCoordinatorOwnershipToMatchMigrationLockOrder() {
+    when(ownershipService.acquireSession("ses-1", 1)).thenReturn(1L);
+    when(sessionRepository.requireForUpdate("ses-1"))
+        .thenReturn(createSession("ses-1", SessionState.RUNNING));
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.empty());
+
+    var result = coordinator.handle(new ReconcileAgentExecution("ses-1", "task-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    var ordered = inOrder(routeAuthority, sessionRepository, ownershipService);
+    ordered.verify(routeAuthority).resolve("ses-1");
+    ordered.verify(sessionRepository).lockForUpdate("ses-1");
+    ordered.verify(ownershipService).acquireSession("ses-1", 1);
   }
 
   @Test
@@ -457,7 +481,7 @@ class SessionCoordinatorTest {
     var stale =
         createActiveOperation(
             "ses-1", OperationMode.AGENT_INTERACTIVE, OperationPhase.PREPARING, "control-plane", 1);
-    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(ownershipService.acquireSession("ses-1", 1)).thenReturn(2L);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
     when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale));
     when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
@@ -504,7 +528,7 @@ class SessionCoordinatorTest {
     var stale =
         createActiveOperation(
             "ses-1", OperationMode.RECOVERY, OperationPhase.EXECUTING, "control-plane", 1);
-    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(ownershipService.acquireSession("ses-1", 1)).thenReturn(2L);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
     when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale));
     when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
@@ -534,7 +558,7 @@ class SessionCoordinatorTest {
     var stale =
         createActiveOperation(
             "ses-1", OperationMode.HUMAN_TAKEOVER, OperationPhase.EXECUTING, "user-1", 1);
-    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(ownershipService.acquireSession("ses-1", 1)).thenReturn(2L);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
     when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale));
     when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(5L);
@@ -565,7 +589,7 @@ class SessionCoordinatorTest {
     var stale =
         createActiveOperation(
             "ses-1", OperationMode.AGENT_INTERACTIVE, OperationPhase.EXECUTING, "task-1", 1);
-    when(ownershipService.acquireSession("ses-1")).thenReturn(2L);
+    when(ownershipService.acquireSession("ses-1", 1)).thenReturn(2L);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
     when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(stale), Optional.empty());
     when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(6L);

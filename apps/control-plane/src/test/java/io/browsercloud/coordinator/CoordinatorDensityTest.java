@@ -10,18 +10,17 @@ import org.junit.jupiter.api.Test;
 class CoordinatorDensityTest {
 
   @Test
-  void hotTenantRepartitionChangesRouteEpochOnlyAtSafePoint() {
+  void hotTenantRouteUsesAuthoritativePartitionCountAndEpoch() {
     var router = new CoordinatorShardRouter(16);
     var before = router.route("tenant-hot", "ses_1");
+    var after = router.route("tenant-hot", "ses_1", 8, 2);
 
-    assertThatThrownBy(() -> router.repartitionTenant("tenant-hot", 8, false))
-        .isInstanceOf(IllegalStateException.class);
-    var epoch = router.repartitionTenant("tenant-hot", 8, true);
-    var after = router.route("tenant-hot", "ses_1");
-
-    assertThat(epoch).isGreaterThan(before.routeEpoch());
-    assertThat(after.routeEpoch()).isEqualTo(epoch);
+    assertThat(before.routeEpoch()).isEqualTo(1);
+    assertThat(after.routeEpoch()).isEqualTo(2);
     assertThat(after.virtualPartition()).isBetween(0, 7);
+    assertThat(router.route("tenant-hot", "ses_1", 8, 2)).isEqualTo(after);
+    assertThatThrownBy(() -> router.route("tenant-hot", "ses_1", 0, 2))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

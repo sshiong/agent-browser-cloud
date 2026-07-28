@@ -42,6 +42,7 @@ public final class SessionCoordinator {
   private final CoordinatorOwnershipService ownershipService;
   private final CoordinatorReconciliationMetrics reconciliationMetrics;
   private final RuntimeResourceLimitsRepository resourceLimitsRepository;
+  private final CoordinatorRouteAuthority routeAuthority;
 
   public SessionCoordinator(
       SessionRepository sessionRepository,
@@ -50,7 +51,8 @@ public final class SessionCoordinator {
       OutboxPublisher outboxPublisher,
       CoordinatorOwnershipService ownershipService,
       CoordinatorReconciliationMetrics reconciliationMetrics,
-      RuntimeResourceLimitsRepository resourceLimitsRepository) {
+      RuntimeResourceLimitsRepository resourceLimitsRepository,
+      CoordinatorRouteAuthority routeAuthority) {
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.nodeCommandGateway = nodeCommandGateway;
@@ -58,6 +60,7 @@ public final class SessionCoordinator {
     this.ownershipService = ownershipService;
     this.reconciliationMetrics = reconciliationMetrics;
     this.resourceLimitsRepository = resourceLimitsRepository;
+    this.routeAuthority = routeAuthority;
   }
 
   /**
@@ -67,10 +70,15 @@ public final class SessionCoordinator {
    * @return 处理结果
    */
   public CoordinatorResult handle(SessionCommand command) {
+    var route = routeAuthority.resolve(command.sessionId());
+    // Keep the global lock order aligned with route migration:
+    // Session row -> Coordinator ownership. Handler-specific lookups reuse this row lock.
+    sessionRepository.lockForUpdate(command.sessionId());
     if (command instanceof NodeEventReceived event) {
-      ownershipService.assertCurrentOwner(event.sessionId(), event.coordinatorTerm());
+      ownershipService.assertCurrentOwner(
+          event.sessionId(), event.coordinatorTerm(), route.routeEpoch());
     } else {
-      long currentTerm = ownershipService.acquireSession(command.sessionId());
+      long currentTerm = ownershipService.acquireSession(command.sessionId(), route.routeEpoch());
       var reconciliation =
           reconciliationMetrics.record(() -> reconcileStaleOperation(command, currentTerm));
       if (reconciliation.isPresent()) {

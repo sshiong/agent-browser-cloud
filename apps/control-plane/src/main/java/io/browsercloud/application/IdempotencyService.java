@@ -193,6 +193,16 @@ public class IdempotencyService {
         candidateMutationId);
   }
 
+  String claimTenantRouteMigration(
+      String tenantId, String idempotencyKey, Object request, String candidateMigrationId) {
+    return claim(
+        tenantId,
+        "MIGRATE_TENANT_COORDINATOR_ROUTE",
+        idempotencyKey,
+        hashRequest(request),
+        candidateMigrationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

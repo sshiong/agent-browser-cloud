@@ -308,6 +308,31 @@ docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
   -U browsercloud -d browsercloud \
   -c 'DROP SCHEMA trusted_extension_recovery_upgrade_test CASCADE;' >/dev/null
 
+{
+  printf '%s\n' \
+    'CREATE SCHEMA coordinator_route_upgrade_test;' \
+    'SET search_path TO coordinator_route_upgrade_test;' \
+    'CREATE TABLE sessions (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL);' \
+    'CREATE UNIQUE INDEX uq_sessions_id_tenant ON sessions(id, tenant_id);' \
+    'CREATE TABLE coordinator_ownership (session_id TEXT PRIMARY KEY, coordinator_owner TEXT NOT NULL, coordinator_term BIGINT NOT NULL, owner_heartbeat_at TIMESTAMPTZ NOT NULL, claimed_at TIMESTAMPTZ NOT NULL);' \
+    "INSERT INTO sessions VALUES ('ses_legacy1234567890', 'tenant-legacy');" \
+    "INSERT INTO coordinator_ownership VALUES ('ses_legacy1234567890', 'coordinator-n-minus-one', 7, now(), now());"
+  sed -n '1,$p' database/migrations/V040__authoritative_tenant_shard_routes.sql
+  printf '%s\n' \
+    "BEGIN;" \
+    "INSERT INTO coordinator_tenant_routes(tenant_id, state, active_virtual_partitions, active_route_epoch, pending_virtual_partitions, pending_route_epoch, active_migration_id) VALUES ('tenant-legacy', 'MIGRATING', 1, 1, 8, 2, 'crm_upgrade');" \
+    "INSERT INTO coordinator_route_migrations(migration_id, tenant_id, source_route_epoch, target_route_epoch, source_virtual_partitions, target_virtual_partitions, state, requested_by, request_id) VALUES ('crm_upgrade', 'tenant-legacy', 1, 2, 1, 8, 'MIGRATING', 'upgrade-test', 'request-upgrade');" \
+    "COMMIT;" \
+    "INSERT INTO coordinator_session_routes(session_id, tenant_id, route_epoch, virtual_partition, shard_id) VALUES ('ses_legacy1234567890', 'tenant-legacy', 1, 0, 0);" \
+    "INSERT INTO coordinator_ownership(session_id, coordinator_owner, coordinator_term, owner_heartbeat_at, claimed_at) VALUES ('ses_nminusone123456', 'coordinator-n-minus-one', 1, now(), now());" \
+    "SELECT (SELECT route_epoch FROM coordinator_ownership WHERE session_id='ses_legacy1234567890') || ':' || (SELECT route_epoch FROM coordinator_ownership WHERE session_id='ses_nminusone123456') || ':' || (SELECT count(*) FROM coordinator_session_routes) || ':' || (SELECT pending_route_epoch FROM coordinator_tenant_routes WHERE tenant_id='tenant-legacy');"
+} | docker exec -i "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud >"$temp_dir/coordinator-route-upgrade.txt"
+test "$(<"$temp_dir/coordinator-route-upgrade.txt")" = "1:1:1:2"
+docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c 'DROP SCHEMA coordinator_route_upgrade_test CASCADE;' >/dev/null
+
 mkdir -p "$temp_dir/pressure"
 for pressure_resource in memory cpu io; do
   printf 'some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n' \
@@ -871,6 +896,57 @@ forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: different-tenant')"
 test "$forbidden_status" = "403"
+
+tenant_route_migration="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/coordinator/tenant-route/migrations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: platform-route-admin' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -H 'Idempotency-Key: smoke-tenant-route-001' \
+  -d '{"expectedRouteEpoch":1,"targetVirtualPartitions":8}')"
+tenant_route_migration_id="$(printf '%s' "$tenant_route_migration" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "MIGRATING"; assert item["sourceRouteEpoch"] == 1; assert item["targetRouteEpoch"] == 2; print(item["migrationId"])')"
+tenant_route_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/coordinator/tenant-route/migrations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: platform-route-admin' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -H 'Idempotency-Key: smoke-tenant-route-001' \
+  -d '{"expectedRouteEpoch":1,"targetVirtualPartitions":8}')"
+printf '%s' "$tenant_route_replay" | python3 -c \
+  "import json,sys; assert json.load(sys.stdin)['migrationId'] == '${tenant_route_migration_id}'"
+tenant_route_state=""
+for _ in $(seq 1 40); do
+  tenant_route_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/coordinator/tenant-route/migration" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_ADMIN')"
+  if printf '%s' "$tenant_route_state" | python3 -c \
+    'import json,sys; raise SystemExit(0 if json.load(sys.stdin)["state"] == "COMMITTED" else 1)'; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$tenant_route_state" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "COMMITTED"; assert item["totalSessions"] == 1; assert item["migratedSessions"] == 1; assert item["blockedSessions"] == 0'
+tenant_route="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/coordinator/tenant-route" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$tenant_route" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "STABLE"; assert item["activeVirtualPartitions"] == 8; assert item["activeRouteEpoch"] == 2; assert item["pendingRouteEpoch"] is None'
+tenant_route_db="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select route_epoch || ':' || virtual_partition || ':' || shard_id
+     from coordinator_session_routes where session_id='${session_one}'")"
+IFS=: read -r tenant_route_epoch tenant_virtual_partition tenant_shard_id \
+  <<<"$tenant_route_db"
+test "$tenant_route_epoch" = "2"
+test "$tenant_virtual_partition" -ge 0
+test "$tenant_virtual_partition" -lt 8
+test "$tenant_shard_id" -ge 0
+test "$tenant_shard_id" -lt 16
 
 start_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:start" \
@@ -2696,6 +2772,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\ntenant_route_migration=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

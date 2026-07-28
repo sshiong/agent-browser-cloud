@@ -43,6 +43,7 @@ class SessionApplicationServiceTest {
   @Mock private WorkspaceGroupApplicationService workspaceGroupService;
   @Mock private WorkspaceTagApplicationService workspaceTagService;
   @Mock private WorkspaceSettingsApplicationService workspaceSettingsService;
+  @Mock private TenantRouteApplicationService tenantRouteService;
 
   private SessionApplicationService service;
 
@@ -67,7 +68,8 @@ class SessionApplicationServiceTest {
             businessRecoveryService,
             workspaceGroupService,
             workspaceTagService,
-            workspaceSettingsService);
+            workspaceSettingsService,
+            tenantRouteService);
   }
 
   @Test

@@ -18,6 +18,9 @@ public class CoordinatorOwnershipEntity {
   @Column(name = "coordinator_term", nullable = false)
   private long coordinatorTerm;
 
+  @Column(name = "route_epoch", nullable = false)
+  private long routeEpoch;
+
   @Column(name = "owner_heartbeat_at", nullable = false)
   private Instant ownerHeartbeatAt;
 
@@ -49,6 +52,14 @@ public class CoordinatorOwnershipEntity {
 
   public void setCoordinatorTerm(long coordinatorTerm) {
     this.coordinatorTerm = coordinatorTerm;
+  }
+
+  public long getRouteEpoch() {
+    return routeEpoch;
+  }
+
+  public void setRouteEpoch(long routeEpoch) {
+    this.routeEpoch = routeEpoch;
   }
 
   public Instant getOwnerHeartbeatAt() {

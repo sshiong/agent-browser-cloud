@@ -39,6 +39,7 @@ import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLe
 import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseRejectedException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
+import io.browsercloud.application.TenantRouteApplicationService.TenantRouteRejectedException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupNotFoundException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupRejectedException;
 import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagNotFoundException;
@@ -75,6 +76,21 @@ import org.springframework.web.context.request.async.AsyncRequestTimeoutExceptio
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(TenantRouteRejectedException.class)
+  ResponseEntity<ApiError> tenantRouteRejected(
+      TenantRouteRejectedException exception, HttpServletRequest request) {
+    var status =
+        "TENANT_ROUTE_MIGRATION_NOT_FOUND".equals(exception.getMessage())
+            ? HttpStatus.NOT_FOUND
+            : HttpStatus.CONFLICT;
+    return response(
+        status,
+        "TENANT_ROUTE_REJECTED",
+        "Tenant Coordinator route operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(WorkspaceGroupNotFoundException.class)
   ResponseEntity<ApiError> workspaceGroupNotFound(

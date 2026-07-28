@@ -43,6 +43,7 @@ public class SessionApplicationService {
   private final WorkspaceGroupApplicationService workspaceGroupService;
   private final WorkspaceTagApplicationService workspaceTagService;
   private final WorkspaceSettingsApplicationService workspaceSettingsService;
+  private final TenantRouteApplicationService tenantRouteService;
 
   public SessionApplicationService(
       SessionCoordinator coordinator,
@@ -62,7 +63,8 @@ public class SessionApplicationService {
       ApplicationBusinessRecoveryService businessRecoveryService,
       WorkspaceGroupApplicationService workspaceGroupService,
       WorkspaceTagApplicationService workspaceTagService,
-      WorkspaceSettingsApplicationService workspaceSettingsService) {
+      WorkspaceSettingsApplicationService workspaceSettingsService,
+      TenantRouteApplicationService tenantRouteService) {
     this.coordinator = coordinator;
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
@@ -81,6 +83,7 @@ public class SessionApplicationService {
     this.workspaceGroupService = workspaceGroupService;
     this.workspaceTagService = workspaceTagService;
     this.workspaceSettingsService = workspaceSettingsService;
+    this.tenantRouteService = tenantRouteService;
   }
 
   /** 创建 Session。 */
@@ -152,6 +155,7 @@ public class SessionApplicationService {
         humanTakeoverEnabled,
         agentPolicy,
         extensionIds);
+    tenantRouteService.bindNewSession(context.sessionId(), context.tenantId());
     workspaceTagService.assignInitial(
         context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);
     businessRecoveryService.bind(

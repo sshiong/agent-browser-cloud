@@ -12,6 +12,58 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/v1/coordinator/tenant-route:
+    get:
+      operationId: getTenantCoordinatorRoute
+      summary: Get the authenticated tenant's authoritative Coordinator route
+      tags: [Coordinator]
+      responses:
+        "200":
+          description: Current active and pending tenant route epochs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRoute"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/coordinator/tenant-route/migration:
+    get:
+      operationId: getLatestTenantCoordinatorRouteMigration
+      summary: Get the latest durable tenant route migration
+      tags: [Coordinator]
+      responses:
+        "200":
+          description: Latest migration and safe-point reconciliation progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRouteMigration"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/coordinator/tenant-route/migrations:
+    post:
+      operationId: requestTenantCoordinatorRouteMigration
+      summary: Repartition a hot tenant using safe-point migration and Route Epoch fencing
+      tags: [Coordinator]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestTenantRouteMigration"
+      responses:
+        "200":
+          description: Durable migration accepted or idempotently replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRouteMigration"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions:
     post:
       operationId: createSession
@@ -2478,6 +2530,120 @@ components:
         type: string
         pattern: "^gameday_[A-Za-z0-9]{20}$"
   schemas:
+    TenantRoute:
+      type: object
+      additionalProperties: false
+      required:
+        [tenantId, state, activeVirtualPartitions, activeRouteEpoch, version, updatedAt]
+      properties:
+        tenantId:
+          type: string
+        state:
+          type: string
+          enum: [STABLE, MIGRATING]
+        activeVirtualPartitions:
+          type: integer
+          minimum: 1
+          maximum: 256
+        activeRouteEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        pendingVirtualPartitions:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 256
+        pendingRouteEpoch:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+        activeMigrationId:
+          type: [string, "null"]
+        version:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+    RequestTenantRouteMigration:
+      type: object
+      additionalProperties: false
+      required: [expectedRouteEpoch, targetVirtualPartitions]
+      properties:
+        expectedRouteEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        targetVirtualPartitions:
+          type: integer
+          minimum: 1
+          maximum: 256
+    TenantRouteMigration:
+      type: object
+      additionalProperties: false
+      required:
+        - migrationId
+        - tenantId
+        - sourceRouteEpoch
+        - targetRouteEpoch
+        - sourceVirtualPartitions
+        - targetVirtualPartitions
+        - state
+        - totalSessions
+        - migratedSessions
+        - blockedSessions
+        - requestedBy
+        - requestId
+        - createdAt
+        - updatedAt
+      properties:
+        migrationId:
+          type: string
+        tenantId:
+          type: string
+        sourceRouteEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        targetRouteEpoch:
+          type: integer
+          format: int64
+          minimum: 2
+        sourceVirtualPartitions:
+          type: integer
+          minimum: 1
+          maximum: 256
+        targetVirtualPartitions:
+          type: integer
+          minimum: 1
+          maximum: 256
+        state:
+          type: string
+          enum: [MIGRATING, COMMITTED, FAILED]
+        totalSessions:
+          type: integer
+          minimum: 0
+        migratedSessions:
+          type: integer
+          minimum: 0
+        blockedSessions:
+          type: integer
+          minimum: 0
+        requestedBy:
+          type: string
+        requestId:
+          type: string
+        failureCode:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
     CreateAgentTaskRequest:
       type: object
       additionalProperties: false

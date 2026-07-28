@@ -37,39 +37,45 @@ public class CoordinatorOwnershipService {
    * @return 当前实例持有的 Coordinator Term
    */
   @Transactional
-  public long acquireSession(String sessionId) {
+  public long acquireSession(String sessionId, long routeEpoch) {
     var now = Instant.now();
     var existing = ownershipJpa.findById(sessionId);
     if (existing
         .filter(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
+        .filter(ownership -> ownership.getRouteEpoch() == routeEpoch)
         .isPresent()) {
-      if (ownershipJpa.heartbeatIfOwner(sessionId, coordinatorId, now) == 1) {
+      if (ownershipJpa.heartbeatIfOwner(sessionId, coordinatorId, routeEpoch, now) == 1) {
         return existing.orElseThrow().getCoordinatorTerm();
       }
     }
 
-    ownershipJpa.claimIfAbsentOrExpired(sessionId, coordinatorId, now, now.minus(leaseDuration));
+    ownershipJpa.claimIfAbsentOrExpired(
+        sessionId, coordinatorId, routeEpoch, now, now.minus(leaseDuration));
     return ownershipJpa
         .findById(sessionId)
         .filter(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
+        .filter(ownership -> ownership.getRouteEpoch() == routeEpoch)
         .map(CoordinatorOwnershipEntity::getCoordinatorTerm)
         .orElseThrow(() -> new CoordinatorNotOwnerException(sessionId));
   }
 
   /** 仅允许当前实例确认并续租给定 Term。 */
   @Transactional
-  public void assertCurrentOwner(String sessionId, long coordinatorTerm) {
+  public void assertCurrentOwner(String sessionId, long coordinatorTerm, long routeEpoch) {
     var current =
         ownershipJpa
             .findById(sessionId)
             .filter(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
             .orElseThrow(() -> new CoordinatorNotOwnerException(sessionId));
+    if (current.getRouteEpoch() != routeEpoch) {
+      throw new CoordinatorNotOwnerException(sessionId);
+    }
     if (current.getCoordinatorTerm() != coordinatorTerm) {
       throw new StaleCoordinatorTermException(
           sessionId, coordinatorTerm, current.getCoordinatorTerm());
     }
     if (ownershipJpa.heartbeatIfOwner(
-            current.getSessionId(), current.getCoordinatorOwner(), Instant.now())
+            current.getSessionId(), current.getCoordinatorOwner(), routeEpoch, Instant.now())
         != 1) {
       throw new CoordinatorNotOwnerException(sessionId);
     }

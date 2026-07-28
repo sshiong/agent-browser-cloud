@@ -278,6 +278,23 @@ for invariant in (
 ):
     assert invariant in trusted_extension_recovery_upper
 
+tenant_route_migration = read(
+    "database/migrations/V040__authoritative_tenant_shard_routes.sql"
+)
+tenant_route_upper = tenant_route_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in tenant_route_upper
+for invariant in (
+    "CREATE TABLE COORDINATOR_TENANT_ROUTES",
+    "CREATE TABLE COORDINATOR_SESSION_ROUTES",
+    "CREATE TABLE COORDINATOR_ROUTE_MIGRATIONS",
+    "ADD COLUMN ROUTE_EPOCH BIGINT NOT NULL DEFAULT 1",
+    "DEFERRABLE INITIALLY DEFERRED",
+    "REFERENCES SESSIONS(ID, TENANT_ID)",
+    "VALIDATE CONSTRAINT CHK_COORDINATOR_OWNERSHIP_ROUTE_EPOCH",
+):
+    assert invariant in tenant_route_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -408,7 +425,7 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039 expand-validate-contract,V029-V033,V035-V038 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V040 expand-validate-contract,V029-V033,V035-V038 additive",
     "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

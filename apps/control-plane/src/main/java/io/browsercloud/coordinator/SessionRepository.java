@@ -28,6 +28,9 @@ public interface SessionRepository {
   /** 在当前事务中锁定 Session 主行，用于串行化写命令。 */
   SessionContext requireForUpdate(String sessionId);
 
+  /** 只获取 Session 主行锁；用于在读取 ownership 前统一全局锁顺序。 */
+  void lockForUpdate(String sessionId);
+
   /**
    * 插入新的 Session。
    *

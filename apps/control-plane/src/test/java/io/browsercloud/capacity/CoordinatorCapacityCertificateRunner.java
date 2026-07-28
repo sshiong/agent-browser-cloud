@@ -115,7 +115,6 @@ public final class CoordinatorCapacityCertificateRunner {
 
   private static RoutingResult runRouting(int actors) {
     var router = new CoordinatorShardRouter(SHARD_COUNT);
-    router.repartitionTenant("tenant-hot", 32, true);
     for (var index = 0; index < 20_000; index++) {
       router.route("tenant-" + (index % TENANT_COUNT), "ses-warm-" + index);
     }
@@ -129,7 +128,10 @@ public final class CoordinatorCapacityCertificateRunner {
       var session = "ses-capacity-" + actor;
       for (var route = 0; route < ROUTES_PER_ACTOR; route++) {
         var before = System.nanoTime();
-        var resolved = router.route(tenant, session);
+        var resolved =
+            "tenant-hot".equals(tenant)
+                ? router.route(tenant, session, 32, 2)
+                : router.route(tenant, session);
         samples[sample++] = System.nanoTime() - before;
         shardCounts[resolved.shardId()]++;
       }
@@ -148,7 +150,7 @@ public final class CoordinatorCapacityCertificateRunner {
         minimum,
         maximum,
         maximum * 10_000L / Math.max(1, average),
-        router.route("tenant-hot", "ses-capacity-0").routeEpoch());
+        router.route("tenant-hot", "ses-capacity-0", 32, 2).routeEpoch());
   }
 
   private static MailboxResult runMailboxes() {

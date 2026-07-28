@@ -1284,10 +1284,12 @@ side_effect_execute="$(curl -fsS -X POST \
   -H 'Idempotency-Key: smoke-agent-side-effect-execute-001')"
 side_effect_operation_id="$(printf '%s' "$side_effect_execute" | python3 -c \
   'import json,sys; task=json.load(sys.stdin); assert task["state"] == "RUNNING"; assert task["stepExecution"]["pendingToolId"] == "TYPE_TEXT"; print(task["operationId"])')"
+# A session can have older AgentAction rows. Bind the lookup to this execution
+# operation so failover verification never observes a previous command result.
 side_effect_command_id=""
 for _ in $(seq 1 40); do
   side_effect_command_id="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-    "select payload::jsonb->>'messageId' from outbox_events where aggregate_id='${session_one}' and payload::jsonb->>'commandType'='AgentAction' order by created_at desc limit 1")"
+    "select payload::jsonb->>'messageId' from outbox_events where aggregate_id='${session_one}' and payload::jsonb->>'commandType'='AgentAction' and payload::jsonb->>'idempotencyKey'='${side_effect_operation_id}' order by created_at desc limit 1")"
   if [[ -n "$side_effect_command_id" ]]; then break; fi
   sleep 0.1
 done

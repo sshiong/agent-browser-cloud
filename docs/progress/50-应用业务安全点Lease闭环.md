@@ -93,6 +93,10 @@ POST /api/v1/sessions/{id}/safety-leases/{leaseId}:release
   实际验证：
   Acquire 幂等重放、Owner 隔离、Renew、Safe Point BLOCKED、Release 后 SAFE、
   ACQUIRED/RENEWED/RELEASED 顺序、实时 SSE 和资源样本共用递增游标。
+- 远端 CI 复跑发现 Coordinator failover 的 Exactly-once 用例会按 Session 误取历史
+  `AgentAction` Outbox 行；现已改为使用本次 `operationId`（Outbox
+  `idempotencyKey`）定位命令，消除固定时间窗口下的偶发假失败，并由完整集成烟雾测试
+  再次验证。
 - V029 进入 N/N-1 Gate：只新增表、索引和 Trigger，不删除、重命名或修改旧列。
 
 ## 仍未完成

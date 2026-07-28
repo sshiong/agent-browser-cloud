@@ -1,7 +1,7 @@
 # 资源事件 SSE 与断点恢复
 
 > 日期：2026-07-28
-> 状态：资源样本、调整、安全点通知屏障和迁移状态的 PostgreSQL 持久事件流已完成；
+> 状态：资源样本、调整、应用安全 Lease、安全点通知屏障和迁移状态的 PostgreSQL 持久事件流已完成；
 > State/Audit 统一流和跨 Region 事件总线仍待完成
 
 ## 本轮完成
@@ -16,8 +16,9 @@
   资源事件共用同一分配函数，但不同 Session 不互相争用。
 - V026 对升级前已有 Sample/Event 按时间、类型和 ID 做确定性回填，并为旧版本应用的
   新写入安装兼容 Trigger。Session 删除时 Cursor 随外键级联清理。
-- `session_resource_samples` 和 `session_resource_events` 新增租户、Session、序列联合
-  索引；断点重放只读取正式 PostgreSQL 数据。
+- `session_resource_samples`、`session_resource_events` 和
+  `session_safety_lease_events` 使用同一 Session 事务游标；断点重放只读取正式
+  PostgreSQL 数据。
 
 ### SSE API
 
@@ -31,7 +32,7 @@
 
 - 连接先返回 `resource-stream-ready`；客户端游标超过服务器权威游标时返回
   `resource-stream-reset`，要求重新读取权威视图。
-- 新资源样本或资源时间线行返回 `session-resource-change`，包含：
+- 新资源样本、资源时间线或应用安全 Lease 事件返回 `session-resource-change`，包含：
   `sequence`、`changeType`、`entityId`、`occurredAt` 和 `replayed`。
 - 事件只作为“权威数据已变化”的通知。CPU、内存、Safe Point、Migration 和时间线
   详情仍由原正式 API 读取，不把 SSE Socket 内存当业务状态。
@@ -47,8 +48,8 @@
   开发身份继续复用同一个 API Client。
 - 浏览器保存最后处理的游标；断线后使用 `Last-Event-ID` 重放，指数退避上限为
   30 秒并加入抖动。
-- 收到 Resource Sample 时刷新资源与 Safe Point；收到 Resource Event 时同时刷新
-  Session、资源、时间线、Safe Point 和 Migration。
+- 收到 Resource Sample 时刷新资源与 Safe Point；收到 Resource Event 或
+  `SAFETY_LEASE_EVENT` 时同时刷新 Session、资源、时间线、Safe Point 和 Migration。
 - 页面显示 `LIVE / CONNECTING / RECONNECTING / OFFLINE`，断线时明确提示数据可能
   过期，不把旧数据描述为实时。
 - 未使用 `localStorage`、生产 Mock、固定定时器或前端模拟曲线。
@@ -67,6 +68,7 @@
   - 已连接 Client 收到随后提交的真实资源样本；
   - 断开后从旧游标收到 `replayed=true` 的同一持久事件；
   - 资源 API 返回相同 Sample；
+  - 应用 Lease Acquire/Release 会进入同一 SSE，并驱动 Safe Point 刷新；
   - 跨租户订阅返回 404。
 - 集成测试曾确定性发现并修复全局缓存 Sequence 的游标倒退：
   已连接游标为 `101`、后写 Sample 为 `6`。当前事务型每 Session 游标使后写 Sample

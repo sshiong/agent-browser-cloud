@@ -11,6 +11,7 @@ import io.browsercloud.persistence.AgentTaskJpaRepository;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.persistence.BrowserPlacementJpaRepository;
 import io.browsercloud.persistence.DurableWorkflowJpaRepository;
+import io.browsercloud.persistence.SessionSafetyLeaseJpaRepository;
 import io.browsercloud.persistence.SessionSafetySignalEntity;
 import io.browsercloud.persistence.SessionSafetySignalJpaRepository;
 import java.time.Duration;
@@ -58,6 +59,7 @@ public class SafePointApplicationService {
   private final ExclusiveOperationJpaRepository operations;
   private final AgentTaskJpaRepository tasks;
   private final DurableWorkflowJpaRepository workflows;
+  private final SessionSafetyLeaseJpaRepository applicationLeases;
   private final ObjectMapper objectMapper;
 
   public SafePointApplicationService(
@@ -68,6 +70,7 @@ public class SafePointApplicationService {
       ExclusiveOperationJpaRepository operations,
       AgentTaskJpaRepository tasks,
       DurableWorkflowJpaRepository workflows,
+      SessionSafetyLeaseJpaRepository applicationLeases,
       ObjectMapper objectMapper) {
     this.sessions = sessions;
     this.placements = placements;
@@ -76,6 +79,7 @@ public class SafePointApplicationService {
     this.operations = operations;
     this.tasks = tasks;
     this.workflows = workflows;
+    this.applicationLeases = applicationLeases;
     this.objectMapper = objectMapper;
   }
 
@@ -303,6 +307,20 @@ public class SafePointApplicationService {
                         workflow.getWorkflowType() + ":" + workflow.getPhase(),
                         null,
                         workflow.getPhaseDeadline())));
+
+    applicationLeases
+        .findAllBySessionIdAndContextEpochAndState(sessionId, session.contextEpoch(), "ACTIVE")
+        .stream()
+        .filter(lease -> lease.getExpiresAt().isAfter(now))
+        .forEach(
+            lease ->
+                blockers.add(
+                    blocker(
+                        lease.getSignalType(),
+                        SessionSafetyLeaseApplicationService.APPLICATION_LEASE_SOURCE,
+                        lease.getReasonCode() + ":" + lease.getLeaseId(),
+                        lease.getRenewedAt(),
+                        lease.getExpiresAt())));
 
     signals.findAllBySessionId(sessionId).stream()
         .filter(signal -> !NODE_SIGNALS.contains(signal.getSignalType()))

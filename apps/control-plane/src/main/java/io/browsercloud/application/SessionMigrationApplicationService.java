@@ -1,5 +1,6 @@
 package io.browsercloud.application;
 
+import io.browsercloud.api.OperationResponse;
 import io.browsercloud.api.SessionMigrationView;
 import io.browsercloud.api.StateResyncRequest;
 import io.browsercloud.coordinator.BrowserStateRepository;
@@ -56,12 +57,12 @@ public class SessionMigrationApplicationService {
 
   @Transactional
   public String request(String sessionId, String tenantId) {
+    var session = requireTenantForUpdate(sessionId, tenantId);
     var existing =
         migrations.findFirstBySessionIdAndPhaseInOrderByCreatedAtDesc(sessionId, ACTIVE_PHASES);
     if (existing.isPresent()) {
       return existing.orElseThrow().getMigrationId();
     }
-    var session = requireTenant(sessionId, tenantId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
       throw new MigrationRejectedException("MIGRATION_REQUIRES_RUNNING_SESSION");
     }
@@ -91,6 +92,23 @@ public class SessionMigrationApplicationService {
         false,
         false);
     return migration.getMigrationId();
+  }
+
+  /**
+   * Rechecks the Safe Point while holding the same Session row lock used by application lease
+   * acquisition. This closes the race between a SAFE assessment and dispatching the hibernate
+   * Operation.
+   */
+  @Transactional
+  public OperationResponse hibernateAtSafePoint(String sessionId, String tenantId) {
+    var session = requireTenantForUpdate(sessionId, tenantId);
+    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+      throw new MigrationRejectedException("HIBERNATE_REQUIRES_RUNNING_SESSION");
+    }
+    if (!safePoints.assess(sessionId, tenantId).safe()) {
+      throw new MigrationRejectedException("SAFE_POINT_NOT_REACHED");
+    }
+    return sessionService.hibernateForResourcePolicy(sessionId, tenantId);
   }
 
   @Transactional(readOnly = true)
@@ -224,6 +242,15 @@ public class SessionMigrationApplicationService {
   private io.browsercloud.domain.session.SessionContext requireTenant(
       String sessionId, String tenantId) {
     var session = sessions.require(sessionId);
+    if (!session.tenantId().equals(tenantId)) {
+      throw new MigrationRejectedException("MIGRATION_SESSION_NOT_FOUND");
+    }
+    return session;
+  }
+
+  private io.browsercloud.domain.session.SessionContext requireTenantForUpdate(
+      String sessionId, String tenantId) {
+    var session = sessions.requireForUpdate(sessionId);
     if (!session.tenantId().equals(tenantId)) {
       throw new MigrationRejectedException("MIGRATION_SESSION_NOT_FOUND");
     }

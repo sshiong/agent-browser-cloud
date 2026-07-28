@@ -217,7 +217,7 @@ export interface ResourceEventListResponse {
 
 export interface ResourceStreamEvent {
   sequence: number;
-  changeType: 'RESOURCE_SAMPLE' | 'RESOURCE_EVENT';
+  changeType: 'RESOURCE_SAMPLE' | 'RESOURCE_EVENT' | 'SAFETY_LEASE_EVENT';
   entityId: string;
   occurredAt: string;
   replayed: boolean;
@@ -250,6 +250,42 @@ export interface SessionSafePointView {
   evaluatedAt: string;
   lastNodeObservationAt?: string;
   blockers: SafePointBlockerView[];
+}
+
+export type ApplicationSafetySignalType =
+  | 'FILE_TRANSFER'
+  | 'FORM_SUBMISSION'
+  | 'PAYMENT_OR_SECURITY'
+  | 'CRITICAL_TRANSACTION'
+  | 'BUSINESS_RECOVERY_UNKNOWN';
+
+export interface CreateSafetyLeaseRequest {
+  signalType: ApplicationSafetySignalType;
+  reasonCode: string;
+  ttlSeconds: number;
+}
+
+export interface RenewSafetyLeaseRequest {
+  ttlSeconds: number;
+}
+
+export interface SafetyLeaseView {
+  leaseId: string;
+  sessionId: string;
+  contextEpoch: number;
+  signalType: ApplicationSafetySignalType;
+  reasonCode: string;
+  ownerActorId: string;
+  state: 'ACTIVE' | 'RELEASED' | 'EXPIRED';
+  acquiredAt: string;
+  renewedAt: string;
+  expiresAt: string;
+  releasedAt?: string;
+}
+
+export interface SafetyLeaseListResponse {
+  items: SafetyLeaseView[];
+  total: number;
 }
 
 export interface SessionMigrationView {

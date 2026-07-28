@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,8 @@ import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.persistence.BrowserPlacementEntity;
 import io.browsercloud.persistence.BrowserPlacementJpaRepository;
 import io.browsercloud.persistence.DurableWorkflowJpaRepository;
+import io.browsercloud.persistence.SessionSafetyLeaseEntity;
+import io.browsercloud.persistence.SessionSafetyLeaseJpaRepository;
 import io.browsercloud.persistence.SessionSafetySignalEntity;
 import io.browsercloud.persistence.SessionSafetySignalJpaRepository;
 import java.time.Instant;
@@ -40,6 +43,8 @@ class SafePointApplicationServiceTest {
       mock(ExclusiveOperationJpaRepository.class);
   private final AgentTaskJpaRepository tasks = mock(AgentTaskJpaRepository.class);
   private final DurableWorkflowJpaRepository workflows = mock(DurableWorkflowJpaRepository.class);
+  private final SessionSafetyLeaseJpaRepository applicationLeases =
+      mock(SessionSafetyLeaseJpaRepository.class);
   private final SafePointApplicationService service =
       new SafePointApplicationService(
           sessions,
@@ -49,6 +54,7 @@ class SafePointApplicationServiceTest {
           operations,
           tasks,
           workflows,
+          applicationLeases,
           new ObjectMapper());
 
   @BeforeEach
@@ -61,6 +67,8 @@ class SafePointApplicationServiceTest {
         .thenReturn(Optional.empty());
     when(tasks.findAllBySessionIdAndStateIn(any(), any())).thenReturn(List.of());
     when(workflows.findAllBySessionIdAndStateIn(any(), any())).thenReturn(List.of());
+    when(applicationLeases.findAllBySessionIdAndContextEpochAndState(any(), anyLong(), any()))
+        .thenReturn(List.of());
   }
 
   @Test
@@ -157,6 +165,39 @@ class SafePointApplicationServiceTest {
     assertThat(result.blockers())
         .extracting(blocker -> blocker.code())
         .containsExactly("FILE_UPLOAD_ACTIVE");
+  }
+
+  @Test
+  void activeApplicationPaymentLeaseBlocksMigration() {
+    var now = Instant.now();
+    when(signals.findAllBySessionId("ses_1234567890abcdef"))
+        .thenReturn(List.of(signal("ACTIVE_INPUT", false, now), signal("ACTIVE_DRAG", false, now)));
+    when(applicationLeases.findAllBySessionIdAndContextEpochAndState(
+            "ses_1234567890abcdef", 7, "ACTIVE"))
+        .thenReturn(
+            List.of(
+                new SessionSafetyLeaseEntity(
+                    "sfl_1234567890abcdef",
+                    "ses_1234567890abcdef",
+                    "tenant-a",
+                    7,
+                    "PAYMENT_OR_SECURITY",
+                    "CHECKOUT_COMMIT",
+                    "app-adapter",
+                    now,
+                    now.plusSeconds(30))));
+
+    var result = service.assess("ses_1234567890abcdef", "tenant-a");
+
+    assertThat(result.safe()).isFalse();
+    assertThat(result.state()).isEqualTo("BLOCKED");
+    assertThat(result.blockers())
+        .anySatisfy(
+            blocker -> {
+              assertThat(blocker.code()).isEqualTo("PAYMENT_OR_SECURITY");
+              assertThat(blocker.source()).isEqualTo("APPLICATION_SAFETY_LEASE");
+              assertThat(blocker.detail()).isEqualTo("CHECKOUT_COMMIT:sfl_1234567890abcdef");
+            });
   }
 
   @Test

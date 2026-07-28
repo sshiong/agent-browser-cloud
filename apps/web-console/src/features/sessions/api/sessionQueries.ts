@@ -126,6 +126,16 @@ export function useSessionSafePoint(sessionId: string) {
     queryKey: sessionKeys.safePoint(sessionId),
     queryFn: ({ signal }) => getSessionSafePoint(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
+    refetchInterval: (query) => {
+      const expirations =
+        query.state.data?.blockers
+          .map((blocker) => blocker.expiresAt)
+          .filter((value): value is string => Boolean(value))
+          .map((value) => Date.parse(value))
+          .filter(Number.isFinite) ?? [];
+      if (!expirations.length) return false;
+      return Math.max(250, Math.min(...expirations) - Date.now() + 100);
+    },
   });
 }
 

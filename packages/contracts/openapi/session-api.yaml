@@ -167,7 +167,8 @@ paths:
       operationId: streamSessionResourceChanges
       summary: Stream durable Session resource changes with resumable SSE
       description: >
-        Emits PostgreSQL-backed resource sample and adjustment change notifications.
+        Emits PostgreSQL-backed resource sample, adjustment and application safety lease
+        change notifications.
         Reconnect with Last-Event-ID to replay changes after the last processed monotonic
         sequence. The event data identifies the durable row; clients then refresh the
         authoritative resource, timeline, safe-point and migration views.
@@ -223,6 +224,105 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SessionSafePoint"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/safety-leases:
+    post:
+      operationId: acquireSessionSafetyLease
+      summary: Acquire an application business-activity Safe Point lease
+      description: >
+        Application adapters acquire a short owner-bound lease before file transfer,
+        SPA/form submission, payment/account-security work, critical transactions or while
+        business recovery is unknown. Active leases block migration and hibernation.
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSafetyLeaseRequest"
+      responses:
+        "201":
+          description: Lease acquired or an idempotent acquisition replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyLease"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    get:
+      operationId: listSessionSafetyLeases
+      summary: List the latest durable application Safe Point leases for a Session
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Bounded latest current and terminal lease records plus the authoritative total.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyLeaseList"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/safety-leases/{leaseId}:
+    put:
+      operationId: renewSessionSafetyLease
+      summary: Renew an owned active application Safe Point lease
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/LeaseId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewSafetyLeaseRequest"
+      responses:
+        "200":
+          description: Lease renewed or an idempotent renewal replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyLease"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/safety-leases/{leaseId}:release:
+    post:
+      operationId: releaseSessionSafetyLease
+      summary: Release an owned application Safe Point lease
+      tags: [Session, Resource]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/LeaseId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Terminal lease state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyLease"
         "404":
           $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/migration:
@@ -1885,6 +1985,13 @@ components:
       schema:
         type: string
         pattern: "^ses_[a-zA-Z0-9]{16,}$"
+    LeaseId:
+      name: leaseId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^sfl_[a-zA-Z0-9]{16,}$"
     ProfileId:
       name: profileId
       in: path
@@ -2097,6 +2204,7 @@ components:
             $ref: "#/components/schemas/AgentTask"
         total:
           type: integer
+          format: int64
           minimum: 0
         limit:
           type: integer
@@ -3496,6 +3604,98 @@ components:
         expiresAt:
           type: [string, "null"]
           format: date-time
+    CreateSafetyLeaseRequest:
+      type: object
+      additionalProperties: false
+      required: [signalType, reasonCode, ttlSeconds]
+      properties:
+        signalType:
+          type: string
+          enum:
+            - FILE_TRANSFER
+            - FORM_SUBMISSION
+            - PAYMENT_OR_SECURITY
+            - CRITICAL_TRANSACTION
+            - BUSINESS_RECOVERY_UNKNOWN
+        reasonCode:
+          type: string
+          pattern: "^[A-Z0-9_.-]{1,64}$"
+        ttlSeconds:
+          type: integer
+          minimum: 5
+          maximum: 300
+    RenewSafetyLeaseRequest:
+      type: object
+      additionalProperties: false
+      required: [ttlSeconds]
+      properties:
+        ttlSeconds:
+          type: integer
+          minimum: 5
+          maximum: 300
+    SafetyLease:
+      type: object
+      additionalProperties: false
+      required:
+        - leaseId
+        - sessionId
+        - contextEpoch
+        - signalType
+        - reasonCode
+        - ownerActorId
+        - state
+        - acquiredAt
+        - renewedAt
+        - expiresAt
+      properties:
+        leaseId:
+          type: string
+          pattern: "^sfl_[a-zA-Z0-9]{16,}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        contextEpoch:
+          type: integer
+          format: int64
+        signalType:
+          type: string
+          enum:
+            - FILE_TRANSFER
+            - FORM_SUBMISSION
+            - PAYMENT_OR_SECURITY
+            - CRITICAL_TRANSACTION
+            - BUSINESS_RECOVERY_UNKNOWN
+        reasonCode:
+          type: string
+        ownerActorId:
+          type: string
+        state:
+          type: string
+          enum: [ACTIVE, RELEASED, EXPIRED]
+        acquiredAt:
+          type: string
+          format: date-time
+        renewedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        releasedAt:
+          type: [string, "null"]
+          format: date-time
+    SafetyLeaseList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyLease"
+        total:
+          type: integer
+          minimum: 0
     SessionMigration:
       type: object
       additionalProperties: false

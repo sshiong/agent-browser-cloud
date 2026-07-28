@@ -1,7 +1,7 @@
 # CDP 浏览器活动 Safe Point
 
 > 日期：2026-07-28
-> 状态：文件上传、文件下载和导航级表单提交的仓库内真实信号闭环完成；应用业务语义和真实双 Node 长稳待完成
+> 状态：文件上传、文件下载和导航级表单提交的仓库内真实信号闭环完成；应用业务语义已有通用 Lease 协议，各业务 Adapter 与真实双 Node 长稳待完成
 
 ## 本轮完成
 
@@ -65,7 +65,8 @@
 ## 仍未完成
 
 1. CDP 只能可靠识别网络层上传、下载和导航级提交；客户端路由 SPA、Fetch/XHR 的业务
-   含义、支付/账号安全操作和关键业务事务需要应用侧 SDK/Adapter/Lease Producer。
+   含义、支付/账号安全操作和关键业务事务已有通用 Application Lease API，仍需目标
+   业务的 SDK/Adapter/自动埋点实际调用。
 2. 真实双 Browser Node + S3-compatible Object Storage + Chromium 的迁移/休眠故障
    注入和长期稳定性证书。
 3. Tenant/Application-aware Business Recovery Validator 与业务规则 DSL。

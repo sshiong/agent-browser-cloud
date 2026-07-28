@@ -23,8 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Cross-instance resumable SSE backed exclusively by PostgreSQL resource samples and resource
- * events. The in-memory registry only owns live sockets and is never a source of business state.
+ * Cross-instance resumable SSE backed exclusively by PostgreSQL resource samples, resource events
+ * and application safety lease events. The in-memory registry only owns live sockets and is never a
+ * source of business state.
  */
 @Service
 public class SessionResourceEventStreamService {

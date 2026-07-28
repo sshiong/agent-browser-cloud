@@ -93,6 +93,29 @@ for invariant in (
         f"browser activity migration lacks rolling invariant: {invariant}"
     )
 
+application_safety_migration = read(
+    "database/migrations/V029__application_safety_leases.sql"
+)
+application_safety_upper = application_safety_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in application_safety_upper, (
+        f"application safety migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "CREATE TABLE SESSION_SAFETY_LEASES",
+    "CREATE TABLE SESSION_SAFETY_LEASE_EVENTS",
+    "REFERENCES SESSIONS(ID) ON DELETE CASCADE",
+    "CREATE INDEX IDX_SESSION_SAFETY_LEASES_TIMELINE",
+    "EXECUTE FUNCTION ASSIGN_SESSION_RESOURCE_STREAM_SEQUENCE()",
+    "CREATE UNIQUE INDEX UQ_SESSION_SAFETY_LEASE_EVENTS_STREAM_SEQUENCE",
+    "'PAYMENT_OR_SECURITY'",
+    "'CRITICAL_TRANSACTION'",
+    "'BUSINESS_RECOVERY_UNKNOWN'",
+):
+    assert invariant in application_safety_upper, (
+        f"application safety migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -155,7 +178,7 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028 expand-validate-contract",
+    "schema": "V019-V021 additive,V028 expand-validate-contract,V029 additive-safety-stream",
     "protobuf": "unknown-fields-15-16,optional-28-30",
     "json": "new-media-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

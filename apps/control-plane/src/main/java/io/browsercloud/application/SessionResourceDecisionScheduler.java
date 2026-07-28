@@ -43,7 +43,7 @@ public class SessionResourceDecisionScheduler {
                         } else if ("SAFE_POINT_READY_HIBERNATE_DISPATCH_PENDING"
                             .equals(evaluated.getStatusReason())) {
                           var operation =
-                              sessionService.hibernateForResourcePolicy(
+                              migrationService.hibernateAtSafePoint(
                                   evaluated.getSessionId(), evaluated.getTenantId());
                           service.maximumActionDispatched(
                               evaluated.getSessionId(),

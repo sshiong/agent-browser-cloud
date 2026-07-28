@@ -29,6 +29,8 @@ import io.browsercloud.application.SessionResourceApplicationService.ResourcePol
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
 import io.browsercloud.application.SessionResourceEventStreamService.ResourceStreamCapacityException;
 import io.browsercloud.application.SessionResourceEventStreamService.ResourceStreamConnectionException;
+import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseNotFoundException;
+import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseRejectedException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
@@ -112,6 +114,28 @@ public class GlobalExceptionHandler {
         "SAFE_POINT_NOT_FOUND",
         "Session safe-point state not found",
         Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(SafetyLeaseNotFoundException.class)
+  ResponseEntity<ApiError> safetyLeaseNotFound(
+      SafetyLeaseNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "SAFETY_LEASE_NOT_FOUND",
+        "Session safety lease not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(SafetyLeaseRejectedException.class)
+  ResponseEntity<ApiError> safetyLeaseRejected(
+      SafetyLeaseRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "SAFETY_LEASE_REJECTED",
+        "Session safety lease cannot be acquired or renewed",
+        Map.of("reason", exception.getMessage()),
         request);
   }
 

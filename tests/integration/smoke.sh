@@ -529,10 +529,86 @@ safety_signal_summary="$(docker exec "$postgres_name" psql -U browsercloud -d br
      and context_epoch=3")"
 test "$safety_signal_summary" = "5:3:true"
 
+application_lease_body='{"signalType":"PAYMENT_OR_SECURITY","reasonCode":"CHECKOUT_COMMIT","ttlSeconds":30}'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: app-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-acquire-001' \
+  -d "$application_lease_body" >"$temp_dir/safety-lease-one.json"
+application_lease_id="$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1]))["leaseId"])' \
+  "$temp_dir/safety-lease-one.json")"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: app-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-acquire-001' \
+  -d "$application_lease_body" >"$temp_dir/safety-lease-replay.json"
+replayed_application_lease_id="$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1]))["leaseId"])' \
+  "$temp_dir/safety-lease-replay.json")"
+test "$application_lease_id" = "$replayed_application_lease_id"
+
+blocked_safe_point="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safe-point" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$blocked_safe_point" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["safe"] is False; assert item["state"] == "BLOCKED"; blocker=next(value for value in item["blockers"] if value["code"] == "PAYMENT_OR_SECURITY"); assert blocker["source"] == "APPLICATION_SAFETY_LEASE"; assert blocker["detail"].startswith("CHECKOUT_COMMIT:sfl_")'
+
+wrong_lease_owner_status="$(curl -sS -o "$temp_dir/safety-lease-wrong-owner.json" -w '%{http_code}' \
+  -X PUT \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases/${application_lease_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: different-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-wrong-owner-001' \
+  -d '{"ttlSeconds":30}')"
+test "$wrong_lease_owner_status" = "404"
+
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases/${application_lease_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: app-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-renew-001' \
+  -d '{"ttlSeconds":30}' >"$temp_dir/safety-lease-renewed.json"
+python3 -c \
+  'import json,sys; item=json.load(open(sys.argv[1])); assert item["state"] == "ACTIVE"; assert item["renewedAt"] > item["acquiredAt"]' \
+  "$temp_dir/safety-lease-renewed.json"
+
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases/${application_lease_id}:release" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: app-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-release-001' \
+  >"$temp_dir/safety-lease-released.json"
+python3 -c \
+  'import json,sys; assert json.load(open(sys.argv[1]))["state"] == "RELEASED"' \
+  "$temp_dir/safety-lease-released.json"
+safe_point_after_release="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safe-point" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$safe_point_after_release" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["safe"] is True; assert all(value["source"] != "APPLICATION_SAFETY_LEASE" for value in item["blockers"])'
+application_lease_event_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(event_type, ',' order by stream_sequence)
+   from session_safety_lease_events
+   where lease_id='${application_lease_id}'")"
+test "$application_lease_event_summary" = "ACQUIRED,RENEWED,RELEASED"
+
 resource_stream_cursor="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select greatest(
       coalesce((select max(stream_sequence) from session_resource_samples where session_id='${session_one}'), 0),
-      coalesce((select max(stream_sequence) from session_resource_events where session_id='${session_one}'), 0)
+      coalesce((select max(stream_sequence) from session_resource_events where session_id='${session_one}'), 0),
+      coalesce((select max(stream_sequence) from session_safety_lease_events where session_id='${session_one}'), 0)
    )")"
 test -n "$resource_stream_cursor"
 curl -fsS --no-buffer --max-time 8 \
@@ -549,6 +625,32 @@ for _ in $(seq 1 40); do
   sleep 0.1
 done
 grep -q 'event:resource-stream-ready' "$temp_dir/resource-stream-live.sse"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: form-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-live-001' \
+  -d '{"signalType":"FORM_SUBMISSION","reasonCode":"SPA_FORM_SUBMIT","ttlSeconds":30}' \
+  >"$temp_dir/safety-lease-live.json"
+live_application_lease_id="$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1]))["leaseId"])' \
+  "$temp_dir/safety-lease-live.json")"
+for _ in $(seq 1 50); do
+  if grep -q '"changeType":"SAFETY_LEASE_EVENT"' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q '"changeType":"SAFETY_LEASE_EVENT"' "$temp_dir/resource-stream-live.sse"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases/${live_application_lease_id}:release" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: form-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-safety-live-release-001' \
+  >/dev/null
 resource_observed_at="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-samples" \
@@ -558,7 +660,7 @@ curl -fsS -X POST \
   -d "{\"nodeId\":\"node_integration\",\"cpuPercent\":42.5,\"memoryRssMib\":640,\"memoryPsiSomeAvg10\":0.02,\"observedAt\":\"${resource_observed_at}\"}" \
   >"$temp_dir/resource-sample.json"
 for _ in $(seq 1 50); do
-  if grep -q 'event:session-resource-change' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
+  if grep -q '"changeType":"RESOURCE_SAMPLE"' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
     break
   fi
   sleep 0.1
@@ -2110,6 +2212,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nsafe_point_browser_activity=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

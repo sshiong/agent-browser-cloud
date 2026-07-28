@@ -17,6 +17,10 @@ import type {
   SessionMigrationView,
   ResourceStreamControl,
   ResourceStreamEvent,
+  CreateSafetyLeaseRequest,
+  RenewSafetyLeaseRequest,
+  SafetyLeaseView,
+  SafetyLeaseListResponse,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
@@ -187,6 +191,76 @@ export async function getSessionSafePoint(
   );
 }
 
+export async function acquireSessionSafetyLease(
+  sessionId: string,
+  data: CreateSafetyLeaseRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SafetyLeaseView> {
+  return request<SafetyLeaseView>(
+    `/sessions/${sessionId}/safety-leases`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export async function listSessionSafetyLeases(
+  sessionId: string,
+  limit = 50,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SafetyLeaseListResponse> {
+  return request<SafetyLeaseListResponse>(
+    `/sessions/${sessionId}/safety-leases?limit=${Math.max(1, Math.min(limit, 100))}`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function renewSessionSafetyLease(
+  sessionId: string,
+  leaseId: string,
+  data: RenewSafetyLeaseRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SafetyLeaseView> {
+  return request<SafetyLeaseView>(
+    `/sessions/${sessionId}/safety-leases/${leaseId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export async function releaseSessionSafetyLease(
+  sessionId: string,
+  leaseId: string,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SafetyLeaseView> {
+  return request<SafetyLeaseView>(
+    `/sessions/${sessionId}/safety-leases/${leaseId}:release`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
 export async function getSessionMigration(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,
@@ -336,7 +410,8 @@ function isResourceStreamEvent(value: unknown): value is ResourceStreamEvent {
     typeof change.sequence === 'number' &&
     Number.isSafeInteger(change.sequence) &&
     (change.changeType === 'RESOURCE_SAMPLE' ||
-      change.changeType === 'RESOURCE_EVENT') &&
+      change.changeType === 'RESOURCE_EVENT' ||
+      change.changeType === 'SAFETY_LEASE_EVENT') &&
     typeof change.entityId === 'string' &&
     typeof change.occurredAt === 'string' &&
     typeof change.replayed === 'boolean'

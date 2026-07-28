@@ -9,8 +9,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Reads the durable resource change feed shared by telemetry samples and adjustment timeline
- * events.
+ * Reads the durable Session change feed shared by resource samples, adjustment events and
+ * application Safe Point lease events.
  */
 @Repository
 public class SessionResourceStreamStore {
@@ -61,11 +61,22 @@ public class SessionResourceStreamStore {
                 occurred_at
             FROM session_resource_events
             WHERE tenant_id = ? AND session_id = ? AND stream_sequence > ?
+            UNION ALL
+            SELECT
+                stream_sequence,
+                'SAFETY_LEASE_EVENT' AS change_type,
+                event_id AS entity_id,
+                occurred_at
+            FROM session_safety_lease_events
+            WHERE tenant_id = ? AND session_id = ? AND stream_sequence > ?
         ) durable_changes
         ORDER BY stream_sequence
         LIMIT ?
         """,
         SessionResourceStreamStore::mapChange,
+        tenantId,
+        sessionId,
+        afterSequence,
         tenantId,
         sessionId,
         afterSequence,

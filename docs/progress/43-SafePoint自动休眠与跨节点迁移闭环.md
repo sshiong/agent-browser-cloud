@@ -1,7 +1,7 @@
 # Safe Point、自动休眠与跨节点迁移闭环
 
 > 日期：2026-07-28
-> 状态：仓库内核心执行链和单元/契约/数据库验收完成；CDP 文件传输/导航表单信号已补齐，真实双 Browser Node + S3 全链路 E2E、业务专用 Validator 和应用事务信号生产者待完成
+> 状态：仓库内核心执行链和单元/契约/数据库验收完成；CDP 浏览器活动与应用事务短 Lease 已补齐，真实双 Browser Node + S3 全链路 E2E、业务 Adapter 和专用 Validator 待完成
 
 ## 本轮完成
 
@@ -25,9 +25,11 @@
   信号新鲜度和非纯颜色的阻塞原因。
 - 当前已经有真实生产者的是 Input Ledger、CDP File Upload/Download、导航级 Form
   Submission、Operation、Agent Task 和 Durable Workflow。Payment/Security、SPA
-  应用语义和关键业务事务仍需应用侧生产者，因此不能宣称任意网站都已具备完整业务
-  安全点识别。CDP 浏览器活动的后续实现和证据见
-  [CDP 浏览器活动 Safe Point](48-CDP浏览器活动SafePoint.md)。
+  应用语义、关键业务事务和 Business Recovery Unknown 已有应用侧短 Lease Producer
+  API，但仍需每个目标业务的 Adapter 主动 Acquire/Renew/Release，因此不能宣称任意
+  网站都已自动具备完整业务安全点识别。证据见
+  [CDP 浏览器活动 Safe Point](48-CDP浏览器活动SafePoint.md)和
+  [应用业务安全点 Lease 闭环](50-应用业务安全点Lease闭环.md)。
 
 ### 达到上限的真实动作
 
@@ -85,7 +87,8 @@
   新增 Checkpoint ID 契约没有破坏现有恢复链。
 - Web 全量测试和生产 Build 通过。
 - OpenAPI、Buf、N/N-1 Expand-only Gate 通过。
-- PostgreSQL 17 从 V023 实际迁移到 V025，Flyway `Schema version: 025`。
+- 本里程碑最初由 PostgreSQL 17 从 V023 实际迁移到 V025；后续应用安全 Lease 已通过
+  V029 继续做 Additive 扩展并进入同一集成与 N/N-1 Gate。
 
 ## 仍未完成
 
@@ -94,8 +97,8 @@
 2. State Collector 预算和 Remote Desktop 码率在线执行器已完成；仍缺 Encoder Slot
    和 Extension Weight 在线执行器。
 3. File Upload/Download 和导航级 Form Submission 的 CDP Signal Producer 已完成；
-   仍缺 Payment/Security、SPA 应用语义和应用关键事务 Producer/Lease，当前不会伪造
-   这些状态。
+   Payment/Security、SPA 应用语义和关键事务的通用 Lease API 已完成。仍缺目标业务
+   Adapter/自动埋点；未接入的业务不会被伪装成已识别。
 4. 两个真实 Browser Node + S3-compatible Object Storage + 真实 Chromium 的迁移
    E2E、断点重试、源/目标 Node 故障注入和长期稳定性证书。
 5. Tenant/Application-aware Business Recovery Validator 插件；默认 Validator 只能

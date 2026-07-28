@@ -96,6 +96,37 @@ public class IdempotencyService {
         candidateOperationId);
   }
 
+  String claimSafetyLease(
+      String tenantId,
+      String sessionId,
+      String actorId,
+      String idempotencyKey,
+      Object request,
+      String candidateLeaseId) {
+    return claim(
+        tenantId,
+        "CREATE_SAFETY_LEASE:" + sessionId + ":" + actorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateLeaseId);
+  }
+
+  String claimSafetyLeaseMutation(
+      String tenantId,
+      String leaseId,
+      String actorId,
+      String mutation,
+      String idempotencyKey,
+      Object request,
+      String candidateEventId) {
+    return claim(
+        tenantId,
+        mutation + "_SAFETY_LEASE:" + leaseId + ":" + actorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateEventId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

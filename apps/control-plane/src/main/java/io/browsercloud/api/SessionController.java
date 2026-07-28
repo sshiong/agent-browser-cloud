@@ -7,6 +7,7 @@ import io.browsercloud.application.SessionApplicationService;
 import io.browsercloud.application.SessionMigrationApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceEventStreamService;
+import io.browsercloud.application.SessionSafetyLeaseApplicationService;
 import io.browsercloud.application.StateGatewayApplicationService;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.session.SessionState;
@@ -41,6 +42,7 @@ public class SessionController {
   private final PlatformIdentity identity;
   private final SessionResourceApplicationService resourceService;
   private final SafePointApplicationService safePointService;
+  private final SessionSafetyLeaseApplicationService safetyLeaseService;
   private final SessionMigrationApplicationService migrationService;
   private final SessionResourceEventStreamService resourceEventStream;
 
@@ -50,6 +52,7 @@ public class SessionController {
       PlatformIdentity identity,
       SessionResourceApplicationService resourceService,
       SafePointApplicationService safePointService,
+      SessionSafetyLeaseApplicationService safetyLeaseService,
       SessionMigrationApplicationService migrationService,
       SessionResourceEventStreamService resourceEventStream) {
     this.service = service;
@@ -57,6 +60,7 @@ public class SessionController {
     this.identity = identity;
     this.resourceService = resourceService;
     this.safePointService = safePointService;
+    this.safetyLeaseService = safetyLeaseService;
     this.migrationService = migrationService;
     this.resourceEventStream = resourceEventStream;
   }
@@ -190,6 +194,49 @@ public class SessionController {
   public SafePointModels.SessionSafePointView getSafePoint(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
     return safePointService.assess(sessionId, identity.current().tenantId());
+  }
+
+  @PostMapping("/{sessionId}/safety-leases")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public ResponseEntity<SafePointModels.SafetyLeaseView> acquireSafetyLease(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody SafePointModels.CreateSafetyLeaseRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.status(201)
+        .body(
+            safetyLeaseService.acquire(
+                sessionId, principal.tenantId(), principal.actorId(), idempotencyKey, request));
+  }
+
+  @GetMapping("/{sessionId}/safety-leases")
+  public SafePointModels.SafetyLeaseListResponse listSafetyLeases(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit) {
+    return safetyLeaseService.list(sessionId, identity.current().tenantId(), limit);
+  }
+
+  @PutMapping("/{sessionId}/safety-leases/{leaseId}")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public SafePointModels.SafetyLeaseView renewSafetyLease(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^sfl_[a-zA-Z0-9]{16,}$") String leaseId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody SafePointModels.RenewSafetyLeaseRequest request) {
+    var principal = identity.current();
+    return safetyLeaseService.renew(
+        sessionId, leaseId, principal.tenantId(), principal.actorId(), idempotencyKey, request);
+  }
+
+  @PostMapping("/{sessionId}/safety-leases/{leaseId}:release")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public SafePointModels.SafetyLeaseView releaseSafetyLease(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^sfl_[a-zA-Z0-9]{16,}$") String leaseId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
+    var principal = identity.current();
+    return safetyLeaseService.release(
+        sessionId, leaseId, principal.tenantId(), principal.actorId(), idempotencyKey);
   }
 
   @GetMapping("/{sessionId}/migration")

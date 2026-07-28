@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  acquireSessionSafetyLease,
   createSession,
   getBrowserState,
   getSessionSafePoint,
   listSessions,
   requestHumanTakeover,
+  releaseSessionSafetyLease,
   resyncBrowserState,
   SessionApiError,
   startSession,
@@ -156,6 +158,75 @@ describe('session API', () => {
     );
   });
 
+  it('acquires and releases an owner-bound safety lease with idempotency', async () => {
+    const lease = {
+      leaseId: 'sfl_1234567890abcdef',
+      sessionId: 'ses_1234567890abcdef',
+      contextEpoch: 7,
+      signalType: 'PAYMENT_OR_SECURITY',
+      reasonCode: 'CHECKOUT_COMMIT',
+      ownerActorId: 'app-adapter',
+      state: 'ACTIVE',
+      acquiredAt: new Date().toISOString(),
+      renewedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30_000).toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(lease), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...lease, state: 'RELEASED' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await acquireSessionSafetyLease(
+      'ses_1234567890abcdef',
+      {
+        signalType: 'PAYMENT_OR_SECURITY',
+        reasonCode: 'CHECKOUT_COMMIT',
+        ttlSeconds: 30,
+      },
+      'idem-lease-acquire',
+      'tenant-test'
+    );
+    await releaseSessionSafetyLease(
+      'ses_1234567890abcdef',
+      'sfl_1234567890abcdef',
+      'idem-lease-release',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/sessions/ses_1234567890abcdef/safety-leases',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'Idempotency-Key': 'idem-lease-acquire',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/safety-leases/sfl_1234567890abcdef:release',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'idem-lease-release',
+        }),
+      })
+    );
+  });
+
   it('binds HumanTakeover to tenant and actor headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -246,7 +317,8 @@ describe('session API', () => {
     const encoder = new TextEncoder();
     const payload =
       'id: 4\r\nevent: resource-stream-ready\r\ndata: {"cursor":4,"resetRequired":false,"connectedAt":"2026-07-28T00:00:00Z"}\r\n\r\n' +
-      'id: 5\r\nevent: session-resource-change\r\ndata: {"sequence":5,"changeType":"RESOURCE_SAMPLE","entityId":"rs_5","occurredAt":"2026-07-28T00:00:05Z","replayed":true}\r\n\r\n';
+      'id: 5\r\nevent: session-resource-change\r\ndata: {"sequence":5,"changeType":"RESOURCE_SAMPLE","entityId":"rs_5","occurredAt":"2026-07-28T00:00:05Z","replayed":true}\r\n\r\n' +
+      'id: 6\r\nevent: session-resource-change\r\ndata: {"sequence":6,"changeType":"SAFETY_LEASE_EVENT","entityId":"sle_6","occurredAt":"2026-07-28T00:00:06Z","replayed":false}\r\n\r\n';
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(encoder.encode(payload.slice(0, 37)));
@@ -263,7 +335,7 @@ describe('session API', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
     const controls: number[] = [];
-    const changes: number[] = [];
+    const changes: string[] = [];
 
     await streamSessionResourceChanges({
       sessionId: 'ses_1234567890abcdef',
@@ -272,11 +344,12 @@ describe('session API', () => {
       signal: new AbortController().signal,
       onOpen: vi.fn(),
       onControl: (control) => controls.push(control.cursor),
-      onChange: (change) => changes.push(change.sequence),
+      onChange: (change) =>
+        changes.push(`${change.sequence}:${change.changeType}`),
     });
 
     expect(controls).toEqual([4]);
-    expect(changes).toEqual([5]);
+    expect(changes).toEqual(['5:RESOURCE_SAMPLE', '6:SAFETY_LEASE_EVENT']);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/sessions/ses_1234567890abcdef/resource-stream',
       expect.objectContaining({

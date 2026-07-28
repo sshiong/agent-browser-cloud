@@ -263,7 +263,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -464,7 +464,29 @@ recovery_contract_cross_tenant_status="$(curl -sS \
   -H 'X-Tenant-Id: different-tenant')"
 test "$recovery_contract_cross_tenant_status" = "404"
 
-request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","applicationId":"crm.integration","region":"local","resourceClass":"L1","requestedTabs":2,"agentActionsPerMinute":60,"extensionIds":["unknown.integration"],"metadata":{"displayName":"Integration browser"}}'
+workspace_group="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/groups" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: group-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-group-create-001' \
+  -d '{"name":"Integration Operations","description":"PostgreSQL authoritative group","color":"#35D6BE","defaultOnMaximumReached":"PAUSE_AGENT","defaultAllowMigration":true,"defaultAllowHibernate":true}')"
+workspace_group_id="$(printf '%s' "$workspace_group" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["sessionCount"] == 0; assert item["defaultOnMaximumReached"] == "PAUSE_AGENT"; print(item["groupId"])')"
+workspace_group_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/groups" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: group-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-group-create-001' \
+  -d '{"name":"Integration Operations","description":"PostgreSQL authoritative group","color":"#35D6BE","defaultOnMaximumReached":"PAUSE_AGENT","defaultAllowMigration":true,"defaultAllowHibernate":true}')"
+replayed_workspace_group_id="$(printf '%s' "$workspace_group_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["groupId"])')"
+test "$workspace_group_id" = "$replayed_workspace_group_id"
+
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -484,6 +506,32 @@ created_two="$(<"$temp_dir/created-two.json")"
 session_one="$(printf '%s' "$created_one" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
 session_two="$(printf '%s' "$created_two" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
 test "$session_one" = "$session_two"
+printf '%s' "$created_one" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["resourcePolicy"]["minimumTemplate"] == "standard-v1"; assert item["resourcePolicy"]["resolvedTemplate"] == "standard-v1"'
+workspace_groups="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/groups" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$workspace_groups" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 1; item=result['items'][0]; assert item['groupId'] == '${workspace_group_id}'; assert item['sessionCount'] == 1; assert item['sessions'][0]['sessionId'] == '${session_one}'; assert result['unassignedSessions'] == []"
+session_with_group="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$session_with_group" | python3 -c \
+  "import json,sys; assert json.load(sys.stdin)['groupId'] == '${workspace_group_id}'"
+workspace_group_cross_tenant_status="$(curl -sS \
+  -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/groups" \
+  -H 'X-Tenant-Id: different-tenant')"
+test "$workspace_group_cross_tenant_status" = "200"
+python3 - "$temp_dir/group-cross-tenant.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    result = json.load(handle)
+assert result["items"] == []
+assert result["unassignedSessions"] == []
+PY
 
 viewer_write_status="$(curl -sS -o "$temp_dir/viewer-write.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}:start" \
@@ -504,7 +552,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin)["items"][0]; assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L1"'
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['resourceClass'] == 'L2'"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -534,7 +582,7 @@ placement="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/browser-placements/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$placement" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] == "node_integration"; assert item["requestedResourceClass"] == "L1"; assert item["effectiveResourceClass"] == "L2"; assert item["unknownExtensionCount"] == 1; assert item["stateCollectorBudgetPercent"] == 50; assert item["remoteDesktopBitrateKbps"] == 0; assert "UNKNOWN_EXTENSION_PROBATION" in item["reasonCodes"]; assert item["state"] == "ACTIVE"'
+  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] == "node_integration"; assert item["requestedResourceClass"] == "L2"; assert item["effectiveResourceClass"] == "L2"; assert item["unknownExtensionCount"] == 1; assert item["stateCollectorBudgetPercent"] == 50; assert item["remoteDesktopBitrateKbps"] == 0; assert "UNKNOWN_EXTENSION_PROBATION" not in item["reasonCodes"]; assert item["state"] == "ACTIVE"'
 
 safe_point=""
 for _ in $(seq 1 40); do

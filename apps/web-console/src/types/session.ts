@@ -89,6 +89,7 @@ export interface SessionView {
   displayName: string;
   tenantId: string;
   profileId: string;
+  groupId?: string;
   region: string;
   resourceClass: ResourceClass;
   state: SessionState;
@@ -130,6 +131,7 @@ export interface CreateSessionRequest {
   tenantId: string;
   profileId: string;
   applicationId?: string;
+  groupId?: string;
   region?: string;
   resourcePolicy?: ResourcePolicyRequest;
   /** @deprecated Legacy SDK compatibility. Web UI must use resourcePolicy=AUTO. */

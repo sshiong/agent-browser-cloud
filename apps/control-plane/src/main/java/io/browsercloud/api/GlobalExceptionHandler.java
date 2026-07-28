@@ -38,6 +38,8 @@ import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLe
 import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseRejectedException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
+import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupNotFoundException;
+import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupRejectedException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.CoordinatorNotOwnerException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
@@ -70,6 +72,28 @@ import org.springframework.web.context.request.async.AsyncRequestTimeoutExceptio
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(WorkspaceGroupNotFoundException.class)
+  ResponseEntity<ApiError> workspaceGroupNotFound(
+      WorkspaceGroupNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "WORKSPACE_GROUP_NOT_FOUND",
+        "Workspace Group not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(WorkspaceGroupRejectedException.class)
+  ResponseEntity<ApiError> workspaceGroupRejected(
+      WorkspaceGroupRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "WORKSPACE_GROUP_REJECTED",
+        "Workspace Group operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(GovernanceRejectedException.class)
   ResponseEntity<ApiError> governanceRejected(

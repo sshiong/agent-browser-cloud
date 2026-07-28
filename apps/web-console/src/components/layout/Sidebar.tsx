@@ -21,14 +21,12 @@ import { useUIStore } from '@/stores/ui';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/auth/AuthProvider';
 import type { PlatformRole } from '@/auth/runtimeIdentity';
-import { fixturesEnabled } from '@/shared/runtimeConfig';
 
 interface NavItem {
   label: string;
   icon: React.ReactNode;
   path: string;
   requiredRoles?: PlatformRole[];
-  fixture?: boolean;
 }
 
 interface NavGroup {
@@ -46,7 +44,6 @@ const navGroups: NavGroup[] = [
         label: '分组与标签',
         icon: <FolderTree size={18} />,
         path: '/groups',
-        fixture: true,
       },
       {
         label: 'Browser Node',
@@ -193,7 +190,6 @@ export function Sidebar() {
               </div>
             )}
             {group.items.map((item) => {
-              if (item.fixture && !fixturesEnabled) return null;
               if (item.requiredRoles && !auth.hasAnyRole(item.requiredRoles)) {
                 return null;
               }

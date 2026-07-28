@@ -37,6 +37,7 @@ class SessionApplicationServiceTest {
   @Mock private BrowserCapacityApplicationService browserCapacityService;
   @Mock private SessionResourceApplicationService sessionResourceService;
   @Mock private ApplicationBusinessRecoveryService businessRecoveryService;
+  @Mock private WorkspaceGroupApplicationService workspaceGroupService;
 
   private SessionApplicationService service;
 
@@ -59,6 +60,7 @@ class SessionApplicationServiceTest {
             browserCapacityService,
             sessionResourceService,
             businessRecoveryService,
+            workspaceGroupService,
             "runtime-test");
   }
 
@@ -84,13 +86,14 @@ class SessionApplicationServiceTest {
             now,
             now);
     when(sessionRepository.describe("ses_test"))
-        .thenReturn(new SessionDescriptor(context, "local", "Integration browser"));
+        .thenReturn(new SessionDescriptor(context, "local", "Integration browser", "grp_test"));
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
 
     var view = service.get("ses_test", "tenant-test");
 
     assertThat(view.displayName()).isEqualTo("Integration browser");
     assertThat(view.profileId()).isEqualTo("profile-test");
+    assertThat(view.groupId()).isEqualTo("grp_test");
     assertThat(view.region()).isEqualTo("local");
     assertThat(view.resourceClass()).isEqualTo(ResourceClass.L2);
   }

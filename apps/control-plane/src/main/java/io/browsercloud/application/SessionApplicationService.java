@@ -40,6 +40,7 @@ public class SessionApplicationService {
   private final BrowserCapacityApplicationService browserCapacityService;
   private final SessionResourceApplicationService sessionResourceService;
   private final ApplicationBusinessRecoveryService businessRecoveryService;
+  private final WorkspaceGroupApplicationService workspaceGroupService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -58,6 +59,7 @@ public class SessionApplicationService {
       BrowserCapacityApplicationService browserCapacityService,
       SessionResourceApplicationService sessionResourceService,
       ApplicationBusinessRecoveryService businessRecoveryService,
+      WorkspaceGroupApplicationService workspaceGroupService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -75,6 +77,7 @@ public class SessionApplicationService {
     this.browserCapacityService = browserCapacityService;
     this.sessionResourceService = sessionResourceService;
     this.businessRecoveryService = businessRecoveryService;
+    this.workspaceGroupService = workspaceGroupService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -103,6 +106,10 @@ public class SessionApplicationService {
 
     Instant now = Instant.now();
     profileApplicationService.ensureExists(request.tenantId(), request.profileId());
+    workspaceGroupService.requireExists(request.tenantId(), request.groupId());
+    var effectiveResourcePolicy =
+        workspaceGroupService.resolvePolicy(
+            request.tenantId(), request.groupId(), request.resourcePolicy());
 
     var context =
         new SessionContext(
@@ -117,7 +124,7 @@ public class SessionApplicationService {
             0,
             0,
             0,
-            initialResourceClass(request),
+            initialResourceClass(request, effectiveResourcePolicy),
             SessionState.CREATED,
             "",
             now,
@@ -126,7 +133,8 @@ public class SessionApplicationService {
     sessionRepository.insert(
         context,
         request.region() == null ? "local" : request.region(),
-        request.metadata() == null ? java.util.Map.of() : request.metadata());
+        request.metadata() == null ? java.util.Map.of() : request.metadata(),
+        request.groupId());
     businessRecoveryService.bind(
         context.sessionId(), context.tenantId(), request.applicationId(), now);
     browserCapacityService.recordDemand(
@@ -144,7 +152,7 @@ public class SessionApplicationService {
         now);
     var resourceOperation =
         sessionResourceService.initialize(
-            context, request.resourcePolicy(), actorId, idempotencyKey);
+            context, effectiveResourcePolicy, actorId, idempotencyKey);
     appendAudit(
         context,
         "SESSION_LIFECYCLE",
@@ -163,12 +171,12 @@ public class SessionApplicationService {
   }
 
   private io.browsercloud.domain.session.ResourceClass initialResourceClass(
-      CreateSessionRequest request) {
-    if (request.resourcePolicy() != null) {
-      if (request.resourcePolicy().executionEnvironment() == ExecutionEnvironment.NATIVE_OS) {
+      CreateSessionRequest request, ResourcePolicyRequest effectiveResourcePolicy) {
+    if (effectiveResourcePolicy != null) {
+      if (effectiveResourcePolicy.executionEnvironment() == ExecutionEnvironment.NATIVE_OS) {
         return io.browsercloud.domain.session.ResourceClass.L5;
       }
-      var minimum = request.resourcePolicy().minimumTemplate();
+      var minimum = effectiveResourcePolicy.minimumTemplate();
       if ("interactive-v1".equals(minimum)) return io.browsercloud.domain.session.ResourceClass.L3;
       if ("heavy-v1".equals(minimum)) return io.browsercloud.domain.session.ResourceClass.L4;
       if ("native-standard-v1".equals(minimum))
@@ -462,6 +470,7 @@ public class SessionApplicationService {
         descriptor.displayName(),
         context.tenantId(),
         context.profileId(),
+        descriptor.groupId(),
         descriptor.region(),
         context.resourceClass(),
         context.state(),

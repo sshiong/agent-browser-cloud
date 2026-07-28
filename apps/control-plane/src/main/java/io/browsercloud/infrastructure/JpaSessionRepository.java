@@ -71,7 +71,8 @@ public class JpaSessionRepository implements SessionRepository {
 
   @Override
   @Transactional
-  public void insert(SessionContext context, String region, Map<String, String> metadata) {
+  public void insert(
+      SessionContext context, String region, Map<String, String> metadata, String groupId) {
     var entity =
         new SessionEntity(
             context.sessionId(),
@@ -83,6 +84,7 @@ public class JpaSessionRepository implements SessionRepository {
             context.policyHash(),
             serializeMetadata(metadata),
             context.updatedAt());
+    entity.setGroupId(groupId);
     sessionJpa.save(entity);
 
     // 插入初始 Context
@@ -247,7 +249,10 @@ public class JpaSessionRepository implements SessionRepository {
       SessionEntity entity, Optional<SessionContextEntity> contextOpt) {
     var context = toDomain(entity, contextOpt);
     return new SessionDescriptor(
-        context, entity.getRegion(), readDisplayName(entity.getMetadata(), entity.getId()));
+        context,
+        entity.getRegion(),
+        readDisplayName(entity.getMetadata(), entity.getId()),
+        entity.getGroupId());
   }
 
   private String readDisplayName(String metadata, String fallback) {

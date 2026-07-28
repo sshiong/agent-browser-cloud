@@ -27,6 +27,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useEnterpriseOverview } from '@/features/enterprise/enterpriseQueries';
 import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
 import { useProfiles } from '@/features/profiles/profileQueries';
+import { useWorkspaceGroups } from '@/features/groups/groupQueries';
 import { useProxyOverview } from '@/features/proxies/proxyQueries';
 import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import {
@@ -38,7 +39,7 @@ import { cn } from '@/shared/lib/utils';
 const schema = z
   .object({
     name: z.string().trim().min(1, '请输入环境名称').max(128),
-    group: z.string().trim().max(64),
+    groupId: z.string().trim().max(36),
     tags: z
       .string()
       .max(256)
@@ -152,7 +153,7 @@ const mediaBudgets = {
 } as const;
 
 const stepFields: Record<Step, (keyof FormValues)[]> = {
-  1: ['name', 'group', 'tags', 'description', 'accent'],
+  1: ['name', 'groupId', 'tags', 'description', 'accent'],
   2: ['runtimeBuildId', 'applicationId', 'profileMode', 'profileId'],
   3: ['networkMode', 'region'],
   4: [
@@ -195,6 +196,7 @@ export function CreateSessionDialog({
   const enterpriseQuery = useEnterpriseOverview();
   const extensionsQuery = useExtensionProfiles();
   const recoveryContractsQuery = useRecoveryContracts();
+  const groupsQuery = useWorkspaceGroups();
   const [step, setStep] = useState<Step>(1);
   const [createdSessionId, setCreatedSessionId] = useState<string>();
   const [advancedResourcesOpen, setAdvancedResourcesOpen] = useState(false);
@@ -216,7 +218,7 @@ export function CreateSessionDialog({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
-      group: '',
+      groupId: '',
       tags: '',
       description: '',
       accent: 'teal',
@@ -280,6 +282,16 @@ export function CreateSessionDialog({
     }
   }, [regions, setValue, values.region]);
 
+  useEffect(() => {
+    const group = groupsQuery.data?.items.find(
+      (item) => item.groupId === values.groupId
+    );
+    if (!group) return;
+    setValue('onMaximumReached', group.defaultOnMaximumReached);
+    setValue('allowMigration', group.defaultAllowMigration);
+    setValue('allowHibernate', group.defaultAllowHibernate);
+  }, [groupsQuery.data?.items, setValue, values.groupId]);
+
   const resetFlow = () => {
     setStep(1);
     setCreatedSessionId(undefined);
@@ -327,6 +339,7 @@ export function CreateSessionDialog({
         tenantId: currentTenantId(),
         profileId,
         applicationId: form.applicationId || undefined,
+        groupId: form.groupId || undefined,
         region: form.region,
         resourcePolicy: {
           mode: 'AUTO',
@@ -360,7 +373,6 @@ export function CreateSessionDialog({
         extensionIds: form.extensionIds,
         metadata: {
           displayName: form.name,
-          group: form.group,
           tags: tags.join(','),
           description: form.description,
           visualAccent: form.accent,
@@ -491,12 +503,18 @@ export function CreateSessionDialog({
                     />
                   </Field>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="分组" error={errors.group?.message}>
-                      <input
-                        {...register('group')}
-                        placeholder="例如：Growth / APAC"
-                        className="field-input"
-                      />
+                    <Field
+                      label="Workspace 分组"
+                      error={errors.groupId?.message}
+                    >
+                      <select {...register('groupId')} className="field-input">
+                        <option value="">不分组</option>
+                        {(groupsQuery.data?.items ?? []).map((group) => (
+                          <option key={group.groupId} value={group.groupId}>
+                            {group.name} · {group.sessionCount} 个环境
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                     <Field
                       label="标签"
@@ -1221,7 +1239,12 @@ export function CreateSessionDialog({
                         <ReviewItem
                           label="环境"
                           value={values.name}
-                          detail={[values.group, values.tags]
+                          detail={[
+                            groupsQuery.data?.items.find(
+                              (group) => group.groupId === values.groupId
+                            )?.name,
+                            values.tags,
+                          ]
                             .filter(Boolean)
                             .join(' · ')}
                         />

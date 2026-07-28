@@ -141,6 +141,27 @@ public class IdempotencyService {
         candidateValidationId);
   }
 
+  String claimWorkspaceGroupCreate(
+      String tenantId, String idempotencyKey, Object request, String candidateGroupId) {
+    return claim(
+        tenantId, "CREATE_WORKSPACE_GROUP", idempotencyKey, hashRequest(request), candidateGroupId);
+  }
+
+  String claimWorkspaceGroupMutation(
+      String tenantId,
+      String groupId,
+      String mutation,
+      String idempotencyKey,
+      Object request,
+      String candidateMutationId) {
+    return claim(
+        tenantId,
+        mutation + "_WORKSPACE_GROUP:" + groupId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateMutationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

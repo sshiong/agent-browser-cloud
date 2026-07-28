@@ -32,7 +32,7 @@ public interface SessionRepository {
    *
    * @param context Session 上下文
    */
-  void insert(SessionContext context, String region, Map<String, String> metadata);
+  void insert(SessionContext context, String region, Map<String, String> metadata, String groupId);
 
   /**
    * 使用预期的 context_epoch 更新 Session。

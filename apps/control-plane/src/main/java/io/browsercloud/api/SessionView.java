@@ -10,6 +10,7 @@ public record SessionView(
     String displayName,
     String tenantId,
     String profileId,
+    String groupId,
     String region,
     ResourceClass resourceClass,
     SessionState state,

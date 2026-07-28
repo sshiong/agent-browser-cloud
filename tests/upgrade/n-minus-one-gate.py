@@ -164,6 +164,22 @@ for invariant in (
 ):
     assert invariant in media_encoder_slots_upper
 
+workspace_groups_migration = read(
+    "database/migrations/V033__workspace_groups.sql"
+)
+workspace_groups_upper = workspace_groups_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in workspace_groups_upper
+for invariant in (
+    "CREATE TABLE WORKSPACE_GROUPS",
+    "ADD COLUMN GROUP_ID TEXT",
+    "ON DELETE SET NULL",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT FK_SESSIONS_WORKSPACE_GROUP",
+    "CREATE INDEX IDX_SESSIONS_TENANT_GROUP",
+):
+    assert invariant in workspace_groups_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -269,7 +285,7 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V032 additive",
+    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V033 additive",
     "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24",
     "json": "new-media-and-application-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

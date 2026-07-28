@@ -1,9 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { Link, Navigate, Route, Routes } from 'react-router';
+import { Link, Route, Routes } from 'react-router';
 import { AppShell } from '@/components/layout/AppShell';
 import { LoadingPanel } from '@/components/feedback/AsyncStates';
 import { AuthGate, RequireRoles, UnauthorizedPage } from '@/auth/AuthGate';
-import { fixturesEnabled } from '@/shared/runtimeConfig';
 
 const OverviewPage = lazy(() =>
   import('@/features/overview/OverviewPage').then((module) => ({
@@ -91,14 +90,7 @@ export function App() {
             <Route path="/overview" element={<OverviewPage />} />
             <Route path="/environments" element={<EnvironmentsPage />} />
             <Route path="/environments/:id" element={<SessionDetailPage />} />
-            <Route
-              path="/groups"
-              element={
-                <FixtureRoute>
-                  <GroupsPage />
-                </FixtureRoute>
-              }
-            />
+            <Route path="/groups" element={<GroupsPage />} />
             <Route
               path="/nodes"
               element={
@@ -186,10 +178,6 @@ export function App() {
       </Suspense>
     </AuthGate>
   );
-}
-
-function FixtureRoute({ children }: { children: React.ReactNode }) {
-  return fixturesEnabled ? children : <Navigate to="/not-found" replace />;
 }
 
 function NotFoundPage() {

@@ -2067,6 +2067,127 @@ paths:
                 $ref: "#/components/schemas/ComplianceSnapshot"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/groups:
+    get:
+      operationId: listWorkspaceGroups
+      summary: List tenant Workspace Groups with authoritative Session membership
+      tags: [Groups]
+      responses:
+        "200":
+          description: Groups and unassigned Sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceGroupListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createWorkspaceGroup
+      summary: Create an audited Workspace Group
+      tags: [Groups]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceGroupRequest"
+      responses:
+        "201":
+          description: Group created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceGroup"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/groups/{groupId}:
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+    put:
+      operationId: updateWorkspaceGroup
+      summary: Update Group metadata and inherited AUTO defaults
+      tags: [Groups]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceGroupRequest"
+      responses:
+        "200":
+          description: Group updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceGroup"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteWorkspaceGroup
+      summary: Delete a Group without terminating its Sessions
+      tags: [Groups]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Group deleted and Sessions left unassigned.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/groups/{groupId}/sessions/{sessionId}:
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+      - $ref: "#/components/parameters/SessionId"
+      - $ref: "#/components/parameters/IdempotencyKey"
+    put:
+      operationId: assignSessionToWorkspaceGroup
+      summary: Assign a tenant Session to the Group
+      tags: [Groups]
+      responses:
+        "200":
+          description: Updated Group.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceGroup"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: unassignSessionFromWorkspaceGroup
+      summary: Remove a Session from the Group
+      tags: [Groups]
+      responses:
+        "200":
+          description: Updated Group.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceGroup"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     bearerAuth:
@@ -3725,7 +3846,10 @@ components:
     CreateSessionRequest:
       type: object
       additionalProperties: false
-      required: [tenantId, profileId, resourcePolicy]
+      required: [tenantId, profileId]
+      anyOf:
+        - required: [resourcePolicy]
+        - required: [groupId]
       properties:
         tenantId:
           type: string
@@ -3741,6 +3865,10 @@ components:
           type: string
           pattern: "^[a-zA-Z0-9_.-]{1,128}$"
           description: Optional enabled tenant Application Recovery Contract bound immutably at creation.
+        groupId:
+          type: string
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+          description: Optional Workspace Group. Its AUTO defaults apply only when resourcePolicy is omitted.
         region:
           type: string
           pattern: "^[a-z0-9-]{1,32}$"
@@ -4198,6 +4326,9 @@ components:
           type: string
         profileId:
           type: string
+        groupId:
+          type: [string, "null"]
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
         region:
           type: string
         resourceClass:
@@ -4226,6 +4357,111 @@ components:
         updatedAt:
           type: string
           format: date-time
+    WorkspaceGroupRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - color
+        - defaultOnMaximumReached
+        - defaultAllowMigration
+        - defaultAllowHibernate
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 96
+        description:
+          type: [string, "null"]
+          maxLength: 512
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+        defaultOnMaximumReached:
+          $ref: "#/components/schemas/MaximumReachedPolicy"
+        defaultAllowMigration:
+          type: boolean
+        defaultAllowHibernate:
+          type: boolean
+    WorkspaceGroupSession:
+      type: object
+      additionalProperties: false
+      required: [sessionId, displayName, state, region, updatedAt]
+      properties:
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        displayName:
+          type: string
+        state:
+          $ref: "#/components/schemas/SessionState"
+        region:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceGroup:
+      type: object
+      additionalProperties: false
+      required:
+        - groupId
+        - name
+        - color
+        - defaultOnMaximumReached
+        - defaultAllowMigration
+        - defaultAllowHibernate
+        - sessions
+        - sessionCount
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        groupId:
+          type: string
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        color:
+          type: string
+        defaultOnMaximumReached:
+          $ref: "#/components/schemas/MaximumReachedPolicy"
+        defaultAllowMigration:
+          type: boolean
+        defaultAllowHibernate:
+          type: boolean
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceGroupSession"
+        sessionCount:
+          type: integer
+          minimum: 0
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceGroupListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, unassignedSessions, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceGroup"
+        unassignedSessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceGroupSession"
+        total:
+          type: integer
+          minimum: 0
     SessionListResponse:
       type: object
       additionalProperties: false

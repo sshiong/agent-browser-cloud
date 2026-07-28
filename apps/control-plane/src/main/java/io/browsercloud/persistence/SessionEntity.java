@@ -32,6 +32,9 @@ public class SessionEntity {
   @Column(name = "policy_hash", nullable = false)
   private String policyHash;
 
+  @Column(name = "group_id")
+  private String groupId;
+
   @Column(name = "metadata", columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String metadata;
@@ -120,6 +123,14 @@ public class SessionEntity {
 
   public String getPolicyHash() {
     return policyHash;
+  }
+
+  public String getGroupId() {
+    return groupId;
+  }
+
+  public void setGroupId(String groupId) {
+    this.groupId = groupId;
   }
 
   public void setPolicyHash(String policyHash) {

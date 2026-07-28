@@ -19,6 +19,11 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
 
   List<SessionEntity> findByTenantIdAndState(String tenantId, String state);
 
+  List<SessionEntity> findAllByTenantIdAndGroupIdOrderByCreatedAtDesc(
+      String tenantId, String groupId);
+
+  List<SessionEntity> findAllByTenantIdAndGroupIdIsNullOrderByCreatedAtDesc(String tenantId);
+
   Page<SessionEntity> findAllByTenantId(String tenantId, Pageable pageable);
 
   Page<SessionEntity> findAllByTenantIdAndState(String tenantId, String state, Pageable pageable);

@@ -68,6 +68,7 @@ describe('session API', () => {
         region: 'local',
         resourceClass: 'L2',
         agentPolicy: 'RESTRICTED',
+        extensionIds: ['automation.extension'],
       },
       'idem-test'
     );
@@ -82,6 +83,7 @@ describe('session API', () => {
           region: 'local',
           resourceClass: 'L2',
           agentPolicy: 'RESTRICTED',
+          extensionIds: ['automation.extension'],
         }),
         headers: expect.objectContaining({
           'Idempotency-Key': 'idem-test',

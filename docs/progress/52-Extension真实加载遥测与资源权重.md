@@ -23,6 +23,8 @@
    Control Plane 不会把请求值伪装为已应用值。
 6. Session Resource API 和 Web 详情显示当前 Extension Weight、CPU 压力与 RSS；资源
    时间线的新旧资源快照包含权重。
+7. Session 创建时的不可变 Extension 绑定、旧 Demand 回填和 List/Detail 正式投影已
+   后续在 [进度 60](60-Session-Extension正式绑定与投影.md)完成。
 
 ## 协议与滚动兼容
 

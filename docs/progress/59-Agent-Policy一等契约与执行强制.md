@@ -73,5 +73,7 @@ Restricted/Disabled 不构成安全边界。
 2. 独立无宿主权限 Agent Worker、Reviewer Agent、真实模型 Provider/治理和大规模 Replay；
 3. Challenge Detection、一次性 HumanAssist、协作取消和跨 Region Workflow；
 4. 完整 State 分类、截图敏感区模糊和 Purpose 绑定访问控制；
-5. Agent/Extension 大列表批量投影与 N+1 优化；
+5. Extension Session 基础投影已在
+   [进度 60](60-Session-Extension正式绑定与投影.md)完成；仍缺 Session Ownership、
+   Group/Tags 和 Agent 大列表批量查询与 N+1 优化；
 6. 目标 Linux/双 Browser Node 长稳、真实企业 IdP 和生产发布组织 Gate。

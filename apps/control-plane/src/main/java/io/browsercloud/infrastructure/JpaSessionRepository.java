@@ -1,6 +1,7 @@
 package io.browsercloud.infrastructure;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.SessionDescriptor;
@@ -78,7 +79,8 @@ public class JpaSessionRepository implements SessionRepository {
       Map<String, String> metadata,
       String groupId,
       boolean humanTakeoverEnabled,
-      AgentPolicy agentPolicy) {
+      AgentPolicy agentPolicy,
+      List<String> extensionIds) {
     var entity =
         new SessionEntity(
             context.sessionId(),
@@ -91,6 +93,7 @@ public class JpaSessionRepository implements SessionRepository {
             serializeMetadata(metadata),
             humanTakeoverEnabled,
             agentPolicy,
+            serialize(extensionIds),
             context.updatedAt());
     entity.setGroupId(groupId);
     sessionJpa.save(entity);
@@ -113,10 +116,14 @@ public class JpaSessionRepository implements SessionRepository {
   }
 
   private String serializeMetadata(Map<String, String> metadata) {
+    return serialize(metadata);
+  }
+
+  private String serialize(Object value) {
     try {
-      return objectMapper.writeValueAsString(metadata);
+      return objectMapper.writeValueAsString(value);
     } catch (JsonProcessingException exception) {
-      throw new IllegalArgumentException("Session metadata is not serializable", exception);
+      throw new IllegalArgumentException("Session data is not serializable", exception);
     }
   }
 
@@ -262,7 +269,20 @@ public class JpaSessionRepository implements SessionRepository {
         readDisplayName(entity.getMetadata(), entity.getId()),
         entity.getGroupId(),
         entity.isHumanTakeoverEnabled(),
-        entity.getAgentPolicy());
+        entity.getAgentPolicy(),
+        readExtensionIds(entity.getExtensionIds()));
+  }
+
+  private List<String> readExtensionIds(String extensionIds) {
+    if (extensionIds == null || extensionIds.isBlank()) {
+      return List.of();
+    }
+    try {
+      return List.copyOf(
+          objectMapper.readValue(extensionIds, new TypeReference<List<String>>() {}));
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Persisted Session Extension binding is invalid", exception);
+    }
   }
 
   private String readDisplayName(String metadata, String fallback) {

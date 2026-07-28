@@ -3,6 +3,7 @@ package io.browsercloud.api;
 import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -58,4 +59,10 @@ public record CreateSessionRequest(
     @Size(max = 32)
         List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> extensionIds,
     @Size(max = 32)
-        Map<@NotBlank @Size(max = 128) String, @NotNull @Size(max = 1024) String> metadata) {}
+        Map<@NotBlank @Size(max = 128) String, @NotNull @Size(max = 1024) String> metadata) {
+
+  @AssertTrue(message = "extensionIds must contain unique values")
+  public boolean hasUniqueExtensionIds() {
+    return extensionIds == null || extensionIds.size() == extensionIds.stream().distinct().count();
+  }
+}

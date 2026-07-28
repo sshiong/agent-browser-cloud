@@ -102,6 +102,7 @@ export interface SessionView {
   tags?: WorkspaceTagSummary[];
   humanTakeoverEnabled?: boolean;
   agentPolicy?: AgentPolicy;
+  extensionIds?: string[];
   region: string;
   resourceClass: ResourceClass;
   state: SessionState;

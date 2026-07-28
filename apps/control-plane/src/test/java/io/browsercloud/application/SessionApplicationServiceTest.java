@@ -94,7 +94,13 @@ class SessionApplicationServiceTest {
     when(sessionRepository.describe("ses_test"))
         .thenReturn(
             new SessionDescriptor(
-                context, "local", "Integration browser", "grp_test", true, AgentPolicy.BALANCED));
+                context,
+                "local",
+                "Integration browser",
+                "grp_test",
+                true,
+                AgentPolicy.BALANCED,
+                java.util.List.of("automation.extension")));
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
     when(workspaceTagService.summariesForSession("tenant-test", "ses_test"))
         .thenReturn(java.util.List.of());
@@ -107,6 +113,7 @@ class SessionApplicationServiceTest {
     assertThat(view.tags()).isEmpty();
     assertThat(view.humanTakeoverEnabled()).isTrue();
     assertThat(view.agentPolicy()).isEqualTo(AgentPolicy.BALANCED);
+    assertThat(view.extensionIds()).containsExactly("automation.extension");
     assertThat(view.region()).isEqualTo("local");
     assertThat(view.resourceClass()).isEqualTo(ResourceClass.L2);
   }
@@ -135,7 +142,14 @@ class SessionApplicationServiceTest {
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(sessionRepository.describe("ses_test"))
         .thenReturn(
-            new SessionDescriptor(context, "local", "Browser", null, false, AgentPolicy.BALANCED));
+            new SessionDescriptor(
+                context,
+                "local",
+                "Browser",
+                null,
+                false,
+                AgentPolicy.BALANCED,
+                java.util.List.of()));
 
     assertThatThrownBy(() -> service.requestTakeover("ses_test", "tenant-test", "operator-test"))
         .isInstanceOf(SessionApplicationService.HumanTakeoverDisabledException.class);

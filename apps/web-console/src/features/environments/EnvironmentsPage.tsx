@@ -637,6 +637,9 @@ function SessionRow({
           <span className="block max-w-[190px] truncate font-mono text-[10px] text-text-muted">
             Agent {session.agentPolicy ?? 'BALANCED'}
           </span>
+          <span className="block max-w-[190px] truncate font-mono text-[10px] text-text-muted">
+            Ext {session.extensionIds?.length ?? 0}
+          </span>
         </td>
       )}
       {columns.context && (

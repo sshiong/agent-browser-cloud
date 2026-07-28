@@ -4588,6 +4588,14 @@ components:
         agentPolicy:
           $ref: "#/components/schemas/AgentPolicy"
           description: Immutable Agent capability and budget policy. Old Control Planes may omit it during rolling upgrades.
+        extensionIds:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          description: Immutable normalized Extension IDs bound at Session creation. Old Control Planes may omit it during rolling upgrades.
+          items:
+            type: string
+            pattern: "^[a-zA-Z0-9_.-]{1,128}$"
         region:
           type: string
         resourceClass:

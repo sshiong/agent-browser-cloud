@@ -2,6 +2,7 @@ package io.browsercloud.coordinator;
 
 import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.SessionContext;
+import java.util.List;
 
 /**
  * Session 查询投影。
@@ -14,4 +15,10 @@ public record SessionDescriptor(
     String displayName,
     String groupId,
     boolean humanTakeoverEnabled,
-    AgentPolicy agentPolicy) {}
+    AgentPolicy agentPolicy,
+    List<String> extensionIds) {
+
+  public SessionDescriptor {
+    extensionIds = extensionIds == null ? List.of() : List.copyOf(extensionIds);
+  }
+}

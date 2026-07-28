@@ -59,7 +59,7 @@ class AgentApplicationServiceTest {
     when(sessionRepository.describe(anyString()))
         .thenReturn(
             new SessionDescriptor(
-                runningSession(), "local", "Browser", null, true, AgentPolicy.BALANCED));
+                runningSession(), "local", "Browser", null, true, AgentPolicy.BALANCED, List.of()));
     when(idempotencyService.claimAgentTask(
             anyString(), anyString(), anyString(), any(), anyString()))
         .thenAnswer(invocation -> invocation.getArgument(4));
@@ -198,7 +198,13 @@ class AgentApplicationServiceTest {
     when(sessionRepository.describe("ses_1234567890abcdef"))
         .thenReturn(
             new SessionDescriptor(
-                runningSession(), "local", "Browser", null, true, AgentPolicy.RESTRICTED));
+                runningSession(),
+                "local",
+                "Browser",
+                null,
+                true,
+                AgentPolicy.RESTRICTED,
+                List.of()));
 
     var view =
         service.create(
@@ -218,7 +224,13 @@ class AgentApplicationServiceTest {
     when(sessionRepository.describe("ses_1234567890abcdef"))
         .thenReturn(
             new SessionDescriptor(
-                runningSession(), "local", "Browser", null, true, AgentPolicy.INTERACTIVE));
+                runningSession(),
+                "local",
+                "Browser",
+                null,
+                true,
+                AgentPolicy.INTERACTIVE,
+                List.of()));
 
     var view =
         service.create(
@@ -238,7 +250,7 @@ class AgentApplicationServiceTest {
     when(sessionRepository.describe("ses_1234567890abcdef"))
         .thenReturn(
             new SessionDescriptor(
-                runningSession(), "local", "Browser", null, true, AgentPolicy.DISABLED));
+                runningSession(), "local", "Browser", null, true, AgentPolicy.DISABLED, List.of()));
 
     var view =
         service.create(

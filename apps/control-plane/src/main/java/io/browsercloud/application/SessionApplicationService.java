@@ -120,6 +120,7 @@ public class SessionApplicationService {
             ? workspaceDefaults.defaultHumanTakeoverEnabled()
             : request.humanTakeoverEnabled();
     var agentPolicy = request.agentPolicy() == null ? AgentPolicy.BALANCED : request.agentPolicy();
+    var extensionIds = normalizeExtensionIds(request.extensionIds());
     var effectiveResourcePolicy =
         workspaceGroupService.resolvePolicy(
             request.tenantId(), request.groupId(), request.resourcePolicy());
@@ -149,7 +150,8 @@ public class SessionApplicationService {
         request.metadata() == null ? java.util.Map.of() : request.metadata(),
         request.groupId(),
         humanTakeoverEnabled,
-        agentPolicy);
+        agentPolicy,
+        extensionIds);
     workspaceTagService.assignInitial(
         context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);
     businessRecoveryService.bind(
@@ -165,7 +167,7 @@ public class SessionApplicationService {
         request.mediaWorkload(),
         request.requestedMediaStreams(),
         request.mediaBitrateKbps(),
-        request.extensionIds() == null ? java.util.List.of() : request.extensionIds(),
+        extensionIds,
         now);
     var resourceOperation =
         sessionResourceService.initialize(
@@ -185,6 +187,8 @@ public class SessionApplicationService {
             humanTakeoverEnabled,
             "agentPolicy",
             agentPolicy.name(),
+            "extensionIds",
+            extensionIds,
             "resourceClass",
             context.resourceClass().name()),
         idempotencyKey);
@@ -508,6 +512,7 @@ public class SessionApplicationService {
         workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
         descriptor.humanTakeoverEnabled(),
         descriptor.agentPolicy(),
+        descriptor.extensionIds(),
         descriptor.region(),
         context.resourceClass(),
         context.state(),
@@ -519,6 +524,13 @@ public class SessionApplicationService {
         operation,
         context.createdAt(),
         context.updatedAt());
+  }
+
+  private static java.util.List<String> normalizeExtensionIds(java.util.List<String> extensionIds) {
+    if (extensionIds == null || extensionIds.isEmpty()) {
+      return java.util.List.of();
+    }
+    return extensionIds.stream().map(String::strip).distinct().sorted().toList();
   }
 
   private SessionContextView toContextView(SessionContext context) {

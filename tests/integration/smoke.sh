@@ -223,6 +223,24 @@ docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
   -U browsercloud -d browsercloud \
   -c 'DROP SCHEMA tag_upgrade_test CASCADE;' >/dev/null
 
+{
+  printf '%s\n' \
+    'CREATE SCHEMA extension_upgrade_test;' \
+    'SET search_path TO extension_upgrade_test;' \
+    'CREATE TABLE sessions (id TEXT PRIMARY KEY);' \
+    'CREATE TABLE session_resource_demands (session_id TEXT PRIMARY KEY, extension_ids JSONB NOT NULL);' \
+    "INSERT INTO sessions VALUES ('ses_legacy1234567890');" \
+    "INSERT INTO session_resource_demands VALUES ('ses_legacy1234567890', '[\"legacy.extension\"]');"
+  sed -n '1,$p' database/migrations/V038__session_extension_binding.sql
+  printf '%s\n' \
+    "SELECT extension_ids::text FROM sessions WHERE id='ses_legacy1234567890';"
+} | docker exec -i "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud >"$temp_dir/extension-upgrade-backfill.txt"
+test "$(<"$temp_dir/extension-upgrade-backfill.txt")" = '["legacy.extension"]'
+docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c 'DROP SCHEMA extension_upgrade_test CASCADE;' >/dev/null
+
 mkdir -p "$temp_dir/pressure"
 for pressure_resource in memory cpu io; do
   printf 'some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n' \
@@ -644,6 +662,14 @@ temporary_tag="$(curl -fsS -X POST \
 temporary_tag_id="$(printf '%s' "$temporary_tag" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["tagId"])')"
 
+duplicate_extension_status="$(curl -sS -o "$temp_dir/duplicate-extension.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-duplicate-extension-001' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-duplicate-extension","extensionIds":["unknown.integration","unknown.integration"]}')"
+test "$duplicate_extension_status" = "400"
+
 request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
@@ -675,7 +701,7 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['unknown.integration']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
 workspace_group_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -772,7 +798,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['unknown.integration']; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -795,9 +821,17 @@ for _ in $(seq 1 40); do
 done
 test "$state" = "RUNNING"
 printf '%s' "$session_after_start" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L2"'
+  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L2"; assert item["extensionIds"] == ["unknown.integration"]'
 printf '%s' "$session_after_start" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node_integration"; assert item["contextEpoch"] == 3; assert item["proxyBindingId"] is not None'
+extension_binding_consistency="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select (session.extension_ids = demand.extension_ids
+           and session.extension_ids = placement.extension_ids)::text
+   from sessions session
+   join session_resource_demands demand on demand.session_id = session.id
+   join browser_placements placement on placement.session_id = session.id
+   where session.id='${session_one}'")"
+test "$extension_binding_consistency" = "true"
 placement="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/browser-placements/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -2032,7 +2066,7 @@ for _ in $(seq 1 40); do
 done
 test "$state" = "TERMINATED"
 printf '%s' "$session_after_terminate" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None'
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["extensionIds"] == ["unknown.integration"]'
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"

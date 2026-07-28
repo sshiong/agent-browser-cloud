@@ -43,6 +43,10 @@ public class SessionEntity {
   @Column(name = "agent_policy", nullable = false)
   private AgentPolicy agentPolicy;
 
+  @Column(name = "extension_ids", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String extensionIds;
+
   @Column(name = "metadata", columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String metadata;
@@ -69,6 +73,7 @@ public class SessionEntity {
       String metadata,
       boolean humanTakeoverEnabled,
       AgentPolicy agentPolicy,
+      String extensionIds,
       Instant createdAt) {
     this.id = id;
     this.tenantId = tenantId;
@@ -80,6 +85,7 @@ public class SessionEntity {
     this.metadata = metadata;
     this.humanTakeoverEnabled = humanTakeoverEnabled;
     this.agentPolicy = agentPolicy;
+    this.extensionIds = extensionIds;
     this.createdAt = createdAt;
     this.updatedAt = createdAt;
   }
@@ -151,6 +157,10 @@ public class SessionEntity {
 
   public AgentPolicy getAgentPolicy() {
     return agentPolicy;
+  }
+
+  public String getExtensionIds() {
+    return extensionIds;
   }
 
   public void setPolicyHash(String policyHash) {

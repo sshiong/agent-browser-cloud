@@ -92,6 +92,7 @@ class WorkspaceTagApplicationServiceTest {
             "{\"displayName\":\"CRM\"}",
             true,
             AgentPolicy.BALANCED,
+            "[]",
             now);
     var first =
         new WorkspaceTagEntity(
@@ -153,6 +154,7 @@ class WorkspaceTagApplicationServiceTest {
             "{}",
             true,
             AgentPolicy.BALANCED,
+            "[]",
             now);
     when(sessions.findById(SESSION_ID)).thenReturn(Optional.of(session));
     when(tags.findAllByTenantIdAndTagIdInOrderByNameAsc(TENANT_ID, List.of("tag_cross1234567890")))

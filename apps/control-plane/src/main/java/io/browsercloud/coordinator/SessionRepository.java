@@ -39,7 +39,8 @@ public interface SessionRepository {
       Map<String, String> metadata,
       String groupId,
       boolean humanTakeoverEnabled,
-      AgentPolicy agentPolicy);
+      AgentPolicy agentPolicy,
+      List<String> extensionIds);
 
   /**
    * 使用预期的 context_epoch 更新 Session。

@@ -379,6 +379,14 @@ export function SessionDetailPage() {
                       label="Agent Policy"
                       value={session.agentPolicy ?? 'BALANCED'}
                     />
+                    <ContextMetric
+                      label="Extensions"
+                      value={
+                        session.extensionIds?.length
+                          ? session.extensionIds.join(', ')
+                          : '未绑定'
+                      }
+                    />
                     <ContextMetric label="状态来源" value="PostgreSQL" />
                     <ContextMetric
                       label="创建时间"

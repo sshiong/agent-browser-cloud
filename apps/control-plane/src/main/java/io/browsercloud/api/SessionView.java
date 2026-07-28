@@ -16,6 +16,7 @@ public record SessionView(
     List<WorkspaceTagModels.WorkspaceTagSummary> tags,
     boolean humanTakeoverEnabled,
     AgentPolicy agentPolicy,
+    List<String> extensionIds,
     String region,
     ResourceClass resourceClass,
     SessionState state,

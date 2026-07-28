@@ -19,6 +19,7 @@ public record RuntimeResourceLimits(
     boolean freezeBackgroundTabs,
     boolean blockNewTabs,
     List<String> pausedExtensionIds,
+    int successTraceSamplePercent,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,
@@ -39,6 +40,8 @@ public record RuntimeResourceLimits(
         || stateCollectorBudgetPercent > 100
         || remoteDesktopBitrateKbps < 0
         || remoteDesktopBitrateKbps > 100_000
+        || successTraceSamplePercent < 1
+        || successTraceSamplePercent > 100
         || (desktop && remoteDesktopBitrateKbps < 250)
         || (!desktop && remoteDesktopBitrateKbps != 0)) {
       throw new IllegalArgumentException("Runtime resource limits are invalid");

@@ -306,6 +306,9 @@ pub struct StartRuntimeCommand {
     /// 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
     #[prost(message, optional, tag="25")]
     pub extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
+    /// 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
+    #[prost(uint32, optional, tag="26")]
+    pub success_trace_sample_percent: ::core::option::Option<u32>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -416,6 +419,9 @@ pub struct AdjustRuntimeResourcesCommand {
     /// 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
     #[prost(string, repeated, tag="20")]
     pub extension_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+    #[prost(uint32, optional, tag="21")]
+    pub success_trace_sample_percent: ::core::option::Option<u32>,
 }
 /// Browser Node 通过各 Extension background/service-worker Target 的 Debugger
 /// pause/resume 执行，避免直接卸载扩展或修改扩展集合。
@@ -490,6 +496,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
     #[prost(message, optional, tag="30")]
     pub new_extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
+    #[prost(uint32, optional, tag="31")]
+    pub old_success_trace_sample_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="32")]
+    pub new_success_trace_sample_percent: ::core::option::Option<u32>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

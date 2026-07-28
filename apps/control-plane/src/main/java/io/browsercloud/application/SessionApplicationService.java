@@ -262,6 +262,7 @@ public class SessionApplicationService {
                     placement.backgroundTabsFrozen(),
                     placement.newTabsBlocked(),
                     placement.pausedExtensionIds(),
+                    placement.successTraceSamplePercent(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

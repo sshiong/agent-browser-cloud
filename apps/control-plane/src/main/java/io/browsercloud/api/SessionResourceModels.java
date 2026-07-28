@@ -49,6 +49,7 @@ public final class SessionResourceModels {
       Boolean backgroundTabsFrozen,
       Boolean newTabsBlocked,
       List<String> pausedExtensionIds,
+      Integer successTraceSamplePercent,
       String placementState) {}
 
   public record UsageView(

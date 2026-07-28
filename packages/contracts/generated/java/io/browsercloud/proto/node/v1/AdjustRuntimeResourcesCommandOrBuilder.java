@@ -259,4 +259,23 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    */
   com.google.protobuf.ByteString
       getExtensionIdsBytes(int index);
+
+  /**
+   * <pre>
+   * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+   * </pre>
+   *
+   * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+   * @return Whether the successTraceSamplePercent field is set.
+   */
+  boolean hasSuccessTraceSamplePercent();
+  /**
+   * <pre>
+   * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+   * </pre>
+   *
+   * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+   * @return The successTraceSamplePercent.
+   */
+  int getSuccessTraceSamplePercent();
 }

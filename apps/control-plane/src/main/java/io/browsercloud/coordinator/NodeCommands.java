@@ -70,6 +70,7 @@ public final class NodeCommands {
             .setExtensionBackgroundPolicy(
                 ExtensionBackgroundPolicy.newBuilder()
                     .addAllPausedExtensionIds(limits.pausedExtensionIds()))
+            .setSuccessTraceSamplePercent(limits.successTraceSamplePercent())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
@@ -107,6 +108,7 @@ public final class NodeCommands {
         false,
         false,
         java.util.List.of(),
+        100,
         budget.desktopAllowed(),
         budget.gpuRequired(),
         budget.nativeOsRequired(),
@@ -147,6 +149,7 @@ public final class NodeCommands {
             .setExtensionBackgroundPolicy(
                 ExtensionBackgroundPolicy.newBuilder()
                     .addAllPausedExtensionIds(limits.pausedExtensionIds()))
+            .setSuccessTraceSamplePercent(limits.successTraceSamplePercent())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

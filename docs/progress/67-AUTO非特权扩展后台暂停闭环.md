@@ -94,7 +94,8 @@ Session Resource Panel 以文字显示“Node 已暂停 N 个非特权扩展”�
 
 ## 仍需完成
 
-1. 成功 Trace 动态采样执行器；
+1. 成功 Trace 动态采样已由
+   [进度 68](68-AUTO成功Trace动态采样闭环.md)关闭；
 2. 视频/Observer 录制停止与帧率执行器；
 3. Agent/Observer 截图频率执行器；
 4. 逐 Extension/Content Script CPU、内存和成本归因；本轮只关闭“暂停已知非特权后台

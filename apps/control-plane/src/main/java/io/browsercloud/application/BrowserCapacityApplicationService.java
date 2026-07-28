@@ -714,6 +714,7 @@ public class BrowserCapacityApplicationService {
         placement.isBackgroundTabsFrozen(),
         placement.isNewTabsBlocked(),
         readStringList(placement.getPausedExtensionIds()),
+        placement.getSuccessTraceSamplePercent(),
         placement.getMediaBitrateKbps(),
         placement.getPlacementScore(),
         placement.getState(),

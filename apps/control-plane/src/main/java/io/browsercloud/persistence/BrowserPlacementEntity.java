@@ -92,6 +92,9 @@ public class BrowserPlacementEntity {
   @JdbcTypeCode(SqlTypes.JSON)
   private String pausedExtensionIds;
 
+  @Column(name = "success_trace_sample_percent", nullable = false)
+  private int successTraceSamplePercent;
+
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
@@ -168,6 +171,7 @@ public class BrowserPlacementEntity {
     this.backgroundTabsFrozen = false;
     this.newTabsBlocked = false;
     this.pausedExtensionIds = "[]";
+    this.successTraceSamplePercent = 100;
     this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
@@ -222,7 +226,8 @@ public class BrowserPlacementEntity {
       int nextMediaEncoderSlots,
       boolean nextBackgroundTabsFrozen,
       boolean nextNewTabsBlocked,
-      String nextPausedExtensionIds) {
+      String nextPausedExtensionIds,
+      int nextSuccessTraceSamplePercent) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -235,6 +240,8 @@ public class BrowserPlacementEntity {
         || nextStateCollectorBudgetPercent > 100
         || nextRemoteDesktopBitrateKbps < 0
         || nextRemoteDesktopBitrateKbps > 100_000
+        || nextSuccessTraceSamplePercent < 1
+        || nextSuccessTraceSamplePercent > 100
         || (requiresDesktop && nextRemoteDesktopBitrateKbps < 250)
         || (!requiresDesktop && nextRemoteDesktopBitrateKbps != 0)) {
       throw new IllegalArgumentException("resource adjustment is invalid");
@@ -261,6 +268,7 @@ public class BrowserPlacementEntity {
     backgroundTabsFrozen = nextBackgroundTabsFrozen;
     newTabsBlocked = nextNewTabsBlocked;
     pausedExtensionIds = nextPausedExtensionIds;
+    successTraceSamplePercent = nextSuccessTraceSamplePercent;
   }
 
   public String getSessionId() {
@@ -361,6 +369,10 @@ public class BrowserPlacementEntity {
 
   public String getPausedExtensionIds() {
     return pausedExtensionIds;
+  }
+
+  public int getSuccessTraceSamplePercent() {
+    return successTraceSamplePercent;
   }
 
   public int getMediaBitrateKbps() {

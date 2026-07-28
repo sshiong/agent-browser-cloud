@@ -274,6 +274,7 @@ export interface SessionResourceView {
     backgroundTabsFrozen: boolean;
     newTabsBlocked: boolean;
     pausedExtensionIds?: string[];
+    successTraceSamplePercent?: number;
     placementState: string;
   };
   usage?: {

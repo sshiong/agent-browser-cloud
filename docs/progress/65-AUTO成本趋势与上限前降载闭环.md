@@ -117,9 +117,9 @@ REQUESTED
 ## 仍需完成
 
 1. 后台 Tab 冻结和新建 Tab 阻断已由
-   [进度 66](66-AUTO后台标签冻结与新建标签阻断闭环.md)关闭；Level 1 尚未覆盖成功
-   Trace 采样、视频/Observer 录制与帧率和截图频率；逐 Extension 后台暂停已由
-   [进度 67](67-AUTO非特权扩展后台暂停闭环.md)关闭；
+   [进度 66](66-AUTO后台标签冻结与新建标签阻断闭环.md)关闭；成功 Trace 采样已由
+   [进度 68](68-AUTO成功Trace动态采样闭环.md)关闭；Level 1 尚未覆盖视频/Observer
+   录制与帧率和截图频率；逐 Extension 后台暂停已由进度 67 关闭；
 2. 企业成本模型仍以内部 Legacy Resource Class 关联费率；应在兼容窗口内迁移为内部
    Template/容量维度，避免在企业 UI 暴露 L1−L5；
 3. 目标云真实费率、账单校准、租户预算来源和长期成本准确性证书；

@@ -309,4 +309,26 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy new_extension_background_policy = 30 [json_name = "newExtensionBackgroundPolicy"];</code>
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getNewExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * @return Whether the oldSuccessTraceSamplePercent field is set.
+   */
+  boolean hasOldSuccessTraceSamplePercent();
+  /**
+   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * @return The oldSuccessTraceSamplePercent.
+   */
+  int getOldSuccessTraceSamplePercent();
+
+  /**
+   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * @return Whether the newSuccessTraceSamplePercent field is set.
+   */
+  boolean hasNewSuccessTraceSamplePercent();
+  /**
+   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * @return The newSuccessTraceSamplePercent.
+   */
+  int getNewSuccessTraceSamplePercent();
 }

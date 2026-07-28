@@ -15,16 +15,17 @@ class BrowserPlacementEntityTest {
     placement.activate(Instant.parse("2026-07-28T00:00:01Z"));
 
     placement.applyResourceAdjustment(
-        2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 1, true, true, "[]");
+        2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 1, true, true, "[]", 10);
 
     assertThat(placement.getMediaSlots()).isEqualTo(2);
     assertThat(placement.getMediaEncoderSlots()).isEqualTo(1);
     assertThat(placement.isBackgroundTabsFrozen()).isTrue();
     assertThat(placement.isNewTabsBlocked()).isTrue();
+    assertThat(placement.getSuccessTraceSamplePercent()).isEqualTo(10);
     assertThatThrownBy(
             () ->
                 placement.applyResourceAdjustment(
-                    2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 3, true, true, "[]"))
+                    2_000, 1_536, 3_072, 384, 20, 75, 0, 100, 3, true, true, "[]", 10))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Media Encoder Slot");
   }

@@ -178,6 +178,14 @@ public class NodeEventMapper {
                   ? List.copyOf(
                       payload.getNewExtensionBackgroundPolicy().getPausedExtensionIdsList())
                   : null;
+          var oldSuccessTraceSamplePercent =
+              payload.hasOldSuccessTraceSamplePercent()
+                  ? payload.getOldSuccessTraceSamplePercent()
+                  : null;
+          var newSuccessTraceSamplePercent =
+              payload.hasNewSuccessTraceSamplePercent()
+                  ? payload.getNewSuccessTraceSamplePercent()
+                  : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
@@ -185,8 +193,14 @@ public class NodeEventMapper {
               || (oldFreezeBackgroundTabs == null) != (newFreezeBackgroundTabs == null)
               || (oldBlockNewTabs == null) != (newBlockNewTabs == null)
               || (oldPausedExtensionIds == null) != (newPausedExtensionIds == null)
+              || (oldSuccessTraceSamplePercent == null) != (newSuccessTraceSamplePercent == null)
               || !validExtensionPolicy(oldPausedExtensionIds)
               || !validExtensionPolicy(newPausedExtensionIds)
+              || (oldSuccessTraceSamplePercent != null
+                  && (oldSuccessTraceSamplePercent < 1
+                      || oldSuccessTraceSamplePercent > 100
+                      || newSuccessTraceSamplePercent < 1
+                      || newSuccessTraceSamplePercent > 100))
               || (oldStateCollectorBudget != null
                   && (oldStateCollectorBudget < 10
                       || oldStateCollectorBudget > 100
@@ -238,6 +252,8 @@ public class NodeEventMapper {
               newBlockNewTabs,
               oldPausedExtensionIds,
               newPausedExtensionIds,
+              oldSuccessTraceSamplePercent,
+              newSuccessTraceSamplePercent,
               payload.getReason(),
               payload.getOperationId());
         }

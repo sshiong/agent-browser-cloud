@@ -309,4 +309,23 @@ public interface StartRuntimeCommandOrBuilder extends
    * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy extension_background_policy = 25 [json_name = "extensionBackgroundPolicy"];</code>
    */
   io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <pre>
+   * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
+   * </pre>
+   *
+   * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+   * @return Whether the successTraceSamplePercent field is set.
+   */
+  boolean hasSuccessTraceSamplePercent();
+  /**
+   * <pre>
+   * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
+   * </pre>
+   *
+   * <code>optional uint32 success_trace_sample_percent = 26 [json_name = "successTraceSamplePercent"];</code>
+   * @return The successTraceSamplePercent.
+   */
+  int getSuccessTraceSamplePercent();
 }

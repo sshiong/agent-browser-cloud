@@ -147,6 +147,8 @@ class NodeEventIngestionServiceTest {
             true,
             java.util.List.of(),
             java.util.List.of("automation.extension"),
+            100,
+            10,
             "SUSTAINED_MEMORY_PRESSURE",
             "op-resource");
     var command =

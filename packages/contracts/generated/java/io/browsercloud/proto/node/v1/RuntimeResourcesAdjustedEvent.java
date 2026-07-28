@@ -682,6 +682,44 @@ private static final long serialVersionUID = 0L;
     return newExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : newExtensionBackgroundPolicy_;
   }
 
+  public static final int OLD_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 31;
+  private int oldSuccessTraceSamplePercent_ = 0;
+  /**
+   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * @return Whether the oldSuccessTraceSamplePercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasOldSuccessTraceSamplePercent() {
+    return ((bitField0_ & 0x00004000) != 0);
+  }
+  /**
+   * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+   * @return The oldSuccessTraceSamplePercent.
+   */
+  @java.lang.Override
+  public int getOldSuccessTraceSamplePercent() {
+    return oldSuccessTraceSamplePercent_;
+  }
+
+  public static final int NEW_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 32;
+  private int newSuccessTraceSamplePercent_ = 0;
+  /**
+   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * @return Whether the newSuccessTraceSamplePercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasNewSuccessTraceSamplePercent() {
+    return ((bitField0_ & 0x00008000) != 0);
+  }
+  /**
+   * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+   * @return The newSuccessTraceSamplePercent.
+   */
+  @java.lang.Override
+  public int getNewSuccessTraceSamplePercent() {
+    return newSuccessTraceSamplePercent_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -785,6 +823,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00002000) != 0)) {
       output.writeMessage(30, getNewExtensionBackgroundPolicy());
+    }
+    if (((bitField0_ & 0x00004000) != 0)) {
+      output.writeUInt32(31, oldSuccessTraceSamplePercent_);
+    }
+    if (((bitField0_ & 0x00008000) != 0)) {
+      output.writeUInt32(32, newSuccessTraceSamplePercent_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -909,6 +953,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(30, getNewExtensionBackgroundPolicy());
     }
+    if (((bitField0_ & 0x00004000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(31, oldSuccessTraceSamplePercent_);
+    }
+    if (((bitField0_ & 0x00008000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(32, newSuccessTraceSamplePercent_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1026,6 +1078,16 @@ private static final long serialVersionUID = 0L;
       if (!getNewExtensionBackgroundPolicy()
           .equals(other.getNewExtensionBackgroundPolicy())) return false;
     }
+    if (hasOldSuccessTraceSamplePercent() != other.hasOldSuccessTraceSamplePercent()) return false;
+    if (hasOldSuccessTraceSamplePercent()) {
+      if (getOldSuccessTraceSamplePercent()
+          != other.getOldSuccessTraceSamplePercent()) return false;
+    }
+    if (hasNewSuccessTraceSamplePercent() != other.hasNewSuccessTraceSamplePercent()) return false;
+    if (hasNewSuccessTraceSamplePercent()) {
+      if (getNewSuccessTraceSamplePercent()
+          != other.getNewSuccessTraceSamplePercent()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1128,6 +1190,14 @@ private static final long serialVersionUID = 0L;
     if (hasNewExtensionBackgroundPolicy()) {
       hash = (37 * hash) + NEW_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
       hash = (53 * hash) + getNewExtensionBackgroundPolicy().hashCode();
+    }
+    if (hasOldSuccessTraceSamplePercent()) {
+      hash = (37 * hash) + OLD_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getOldSuccessTraceSamplePercent();
+    }
+    if (hasNewSuccessTraceSamplePercent()) {
+      hash = (37 * hash) + NEW_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getNewSuccessTraceSamplePercent();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1309,6 +1379,8 @@ private static final long serialVersionUID = 0L;
         newExtensionBackgroundPolicyBuilder_.dispose();
         newExtensionBackgroundPolicyBuilder_ = null;
       }
+      oldSuccessTraceSamplePercent_ = 0;
+      newSuccessTraceSamplePercent_ = 0;
       return this;
     }
 
@@ -1450,6 +1522,14 @@ private static final long serialVersionUID = 0L;
             ? newExtensionBackgroundPolicy_
             : newExtensionBackgroundPolicyBuilder_.build();
         to_bitField0_ |= 0x00002000;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.oldSuccessTraceSamplePercent_ = oldSuccessTraceSamplePercent_;
+        to_bitField0_ |= 0x00004000;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.newSuccessTraceSamplePercent_ = newSuccessTraceSamplePercent_;
+        to_bitField0_ |= 0x00008000;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1599,6 +1679,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasNewExtensionBackgroundPolicy()) {
         mergeNewExtensionBackgroundPolicy(other.getNewExtensionBackgroundPolicy());
+      }
+      if (other.hasOldSuccessTraceSamplePercent()) {
+        setOldSuccessTraceSamplePercent(other.getOldSuccessTraceSamplePercent());
+      }
+      if (other.hasNewSuccessTraceSamplePercent()) {
+        setNewSuccessTraceSamplePercent(other.getNewSuccessTraceSamplePercent());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1780,6 +1866,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x20000000;
               break;
             } // case 242
+            case 248: {
+              oldSuccessTraceSamplePercent_ = input.readUInt32();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 248
+            case 256: {
+              newSuccessTraceSamplePercent_ = input.readUInt32();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 256
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3285,6 +3381,86 @@ private static final long serialVersionUID = 0L;
         newExtensionBackgroundPolicy_ = null;
       }
       return newExtensionBackgroundPolicyBuilder_;
+    }
+
+    private int oldSuccessTraceSamplePercent_ ;
+    /**
+     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * @return Whether the oldSuccessTraceSamplePercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasOldSuccessTraceSamplePercent() {
+      return ((bitField0_ & 0x40000000) != 0);
+    }
+    /**
+     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * @return The oldSuccessTraceSamplePercent.
+     */
+    @java.lang.Override
+    public int getOldSuccessTraceSamplePercent() {
+      return oldSuccessTraceSamplePercent_;
+    }
+    /**
+     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * @param value The oldSuccessTraceSamplePercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOldSuccessTraceSamplePercent(int value) {
+
+      oldSuccessTraceSamplePercent_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 old_success_trace_sample_percent = 31 [json_name = "oldSuccessTraceSamplePercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOldSuccessTraceSamplePercent() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      oldSuccessTraceSamplePercent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int newSuccessTraceSamplePercent_ ;
+    /**
+     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * @return Whether the newSuccessTraceSamplePercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasNewSuccessTraceSamplePercent() {
+      return ((bitField0_ & 0x80000000) != 0);
+    }
+    /**
+     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * @return The newSuccessTraceSamplePercent.
+     */
+    @java.lang.Override
+    public int getNewSuccessTraceSamplePercent() {
+      return newSuccessTraceSamplePercent_;
+    }
+    /**
+     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * @param value The newSuccessTraceSamplePercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNewSuccessTraceSamplePercent(int value) {
+
+      newSuccessTraceSamplePercent_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 new_success_trace_sample_percent = 32 [json_name = "newSuccessTraceSamplePercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNewSuccessTraceSamplePercent() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      newSuccessTraceSamplePercent_ = 0;
+      onChanged();
+      return this;
     }
     @java.lang.Override
     public final Builder setUnknownFields(

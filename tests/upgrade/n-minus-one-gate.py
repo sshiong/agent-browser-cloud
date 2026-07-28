@@ -371,6 +371,21 @@ for invariant in (
         f"extension background migration lacks rolling invariant: {invariant}"
     )
 
+success_trace_migration = read(
+    "database/migrations/V045__browser_placement_success_trace_sampling.sql"
+)
+success_trace_upper = success_trace_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in success_trace_upper
+for invariant in (
+    "ADD COLUMN SUCCESS_TRACE_SAMPLE_PERCENT INTEGER NOT NULL DEFAULT 100",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_BROWSER_PLACEMENTS_SUCCESS_TRACE_SAMPLE_PERCENT",
+):
+    assert invariant in success_trace_upper, (
+        f"success Trace migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -435,6 +450,7 @@ for message_name, fields in (
             ("freeze_background_tabs", 23, True),
             ("block_new_tabs", 24, True),
             ("extension_background_policy", 25, False),
+            ("success_trace_sample_percent", 26, True),
         ),
     ),
     (
@@ -446,6 +462,7 @@ for message_name, fields in (
             ("block_new_tabs", 18, True),
             ("extension_background_policy", 19, False),
             ("extension_ids", 20, False),
+            ("success_trace_sample_percent", 21, True),
         ),
     ),
     (
@@ -461,6 +478,8 @@ for message_name, fields in (
             ("new_block_new_tabs", 28, True),
             ("old_extension_background_policy", 29, False),
             ("new_extension_background_policy", 30, False),
+            ("old_success_trace_sample_percent", 31, True),
+            ("new_success_trace_sample_percent", 32, True),
         ),
     ),
 ):
@@ -535,8 +554,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V044 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,recovery-extension-tag-6",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V045 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-32,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

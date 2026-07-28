@@ -202,6 +202,8 @@ message StartRuntimeCommand {
   optional bool block_new_tabs = 24;
   // 只有 Control Plane 已确认非特权的 Extension 才会出现在此策略中。
   ExtensionBackgroundPolicy extension_background_policy = 25;
+  // 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
+  optional uint32 success_trace_sample_percent = 26;
 }
 
 // Runtime 启动事件
@@ -266,6 +268,8 @@ message AdjustRuntimeResourcesCommand {
   ExtensionBackgroundPolicy extension_background_policy = 19;
   // 当前 Runtime 已加载的可信扩展集合，用于 Node 校验暂停策略不能越权。
   repeated string extension_ids = 20;
+  // 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+  optional uint32 success_trace_sample_percent = 21;
 }
 
 // Browser Node 通过各 Extension background/service-worker Target 的 Debugger
@@ -307,6 +311,8 @@ message RuntimeResourcesAdjustedEvent {
   optional bool new_block_new_tabs = 28;
   ExtensionBackgroundPolicy old_extension_background_policy = 29;
   ExtensionBackgroundPolicy new_extension_background_policy = 30;
+  optional uint32 old_success_trace_sample_percent = 31;
+  optional uint32 new_success_trace_sample_percent = 32;
 }
 
 // Browser Crash 事件

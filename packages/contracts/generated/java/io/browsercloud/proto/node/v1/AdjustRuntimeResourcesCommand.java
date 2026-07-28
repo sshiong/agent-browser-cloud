@@ -498,6 +498,33 @@ private static final long serialVersionUID = 0L;
     return extensionIds_.getByteString(index);
   }
 
+  public static final int SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 21;
+  private int successTraceSamplePercent_ = 0;
+  /**
+   * <pre>
+   * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+   * </pre>
+   *
+   * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+   * @return Whether the successTraceSamplePercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasSuccessTraceSamplePercent() {
+    return ((bitField0_ & 0x00000080) != 0);
+  }
+  /**
+   * <pre>
+   * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+   * </pre>
+   *
+   * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+   * @return The successTraceSamplePercent.
+   */
+  @java.lang.Override
+  public int getSuccessTraceSamplePercent() {
+    return successTraceSamplePercent_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -571,6 +598,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < extensionIds_.size(); i++) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 20, extensionIds_.getRaw(i));
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      output.writeUInt32(21, successTraceSamplePercent_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -662,6 +692,10 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 2 * getExtensionIdsList().size();
     }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(21, successTraceSamplePercent_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -738,6 +772,11 @@ private static final long serialVersionUID = 0L;
     }
     if (!getExtensionIdsList()
         .equals(other.getExtensionIdsList())) return false;
+    if (hasSuccessTraceSamplePercent() != other.hasSuccessTraceSamplePercent()) return false;
+    if (hasSuccessTraceSamplePercent()) {
+      if (getSuccessTraceSamplePercent()
+          != other.getSuccessTraceSamplePercent()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -810,6 +849,10 @@ private static final long serialVersionUID = 0L;
     if (getExtensionIdsCount() > 0) {
       hash = (37 * hash) + EXTENSION_IDS_FIELD_NUMBER;
       hash = (53 * hash) + getExtensionIdsList().hashCode();
+    }
+    if (hasSuccessTraceSamplePercent()) {
+      hash = (37 * hash) + SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getSuccessTraceSamplePercent();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -977,6 +1020,7 @@ private static final long serialVersionUID = 0L;
       }
       extensionIds_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      successTraceSamplePercent_ = 0;
       return this;
     }
 
@@ -1080,6 +1124,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00080000) != 0)) {
         extensionIds_.makeImmutable();
         result.extensionIds_ = extensionIds_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.successTraceSamplePercent_ = successTraceSamplePercent_;
+        to_bitField0_ |= 0x00000080;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1200,6 +1248,9 @@ private static final long serialVersionUID = 0L;
           extensionIds_.addAll(other.extensionIds_);
         }
         onChanged();
+      }
+      if (other.hasSuccessTraceSamplePercent()) {
+        setSuccessTraceSamplePercent(other.getSuccessTraceSamplePercent());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1330,6 +1381,11 @@ private static final long serialVersionUID = 0L;
               extensionIds_.add(s);
               break;
             } // case 162
+            case 168: {
+              successTraceSamplePercent_ = input.readUInt32();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 168
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2435,6 +2491,62 @@ private static final long serialVersionUID = 0L;
       ensureExtensionIdsIsMutable();
       extensionIds_.add(value);
       bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    private int successTraceSamplePercent_ ;
+    /**
+     * <pre>
+     * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+     * </pre>
+     *
+     * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+     * @return Whether the successTraceSamplePercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasSuccessTraceSamplePercent() {
+      return ((bitField0_ & 0x00100000) != 0);
+    }
+    /**
+     * <pre>
+     * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+     * </pre>
+     *
+     * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+     * @return The successTraceSamplePercent.
+     */
+    @java.lang.Override
+    public int getSuccessTraceSamplePercent() {
+      return successTraceSamplePercent_;
+    }
+    /**
+     * <pre>
+     * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+     * </pre>
+     *
+     * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+     * @param value The successTraceSamplePercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSuccessTraceSamplePercent(int value) {
+
+      successTraceSamplePercent_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+     * </pre>
+     *
+     * <code>optional uint32 success_trace_sample_percent = 21 [json_name = "successTraceSamplePercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSuccessTraceSamplePercent() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      successTraceSamplePercent_ = 0;
       onChanged();
       return this;
     }

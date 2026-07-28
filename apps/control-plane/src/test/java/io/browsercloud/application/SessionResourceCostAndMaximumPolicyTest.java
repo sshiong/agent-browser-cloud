@@ -195,6 +195,7 @@ class SessionResourceCostAndMaximumPolicyTest {
         .containsExactly("extension.noncritical", "extension.privileged", "extension.unknown");
     assertThat(payload.getExtensionBackgroundPolicy().getPausedExtensionIdsList())
         .containsExactly("extension.noncritical");
+    assertThat(payload.getSuccessTraceSamplePercent()).isEqualTo(10);
   }
 
   private static SessionResourcePolicyEntity policy(

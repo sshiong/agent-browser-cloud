@@ -1129,6 +1129,13 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   extensionBackgroundPolicy?: ExtensionBackgroundPolicy;
 
+  /**
+   * 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
+   *
+   * @generated from field: optional uint32 success_trace_sample_percent = 26;
+   */
+  successTraceSamplePercent?: number;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1162,6 +1169,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 23, name: "freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 24, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 25, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
+    { no: 26, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1530,6 +1538,13 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   extensionIds: string[] = [];
 
+  /**
+   * 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
+   *
+   * @generated from field: optional uint32 success_trace_sample_percent = 21;
+   */
+  successTraceSamplePercent?: number;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1558,6 +1573,7 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 18, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 19, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
     { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 21, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1775,6 +1791,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newExtensionBackgroundPolicy?: ExtensionBackgroundPolicy;
 
+  /**
+   * @generated from field: optional uint32 old_success_trace_sample_percent = 31;
+   */
+  oldSuccessTraceSamplePercent?: number;
+
+  /**
+   * @generated from field: optional uint32 new_success_trace_sample_percent = 32;
+   */
+  newSuccessTraceSamplePercent?: number;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1813,6 +1839,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 28, name: "new_block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 29, name: "old_extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
     { no: 30, name: "new_extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
+    { no: 31, name: "old_success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 32, name: "new_success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

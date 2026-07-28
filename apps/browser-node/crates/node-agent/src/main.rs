@@ -73,6 +73,7 @@ struct NodeControlService {
     resource_io_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
     pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
+    success_trace_sampler: SuccessTraceSampler,
     resource_report_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
@@ -84,6 +85,57 @@ struct NodeControlService {
 struct AgentLatencyWindow {
     maximum_ms: u32,
     samples: u32,
+}
+
+/// Session-scoped actuator for optional successful command traces.
+///
+/// Failures are emitted directly by `failed` and never enter this sampler. FNV-1a keeps the
+/// decision deterministic across retries and Node restarts for the same message ID.
+#[derive(Clone, Default)]
+struct SuccessTraceSampler {
+    percentages: Arc<Mutex<HashMap<String, u32>>>,
+}
+
+impl SuccessTraceSampler {
+    async fn set(&self, session_id: &str, percentage: u32) -> anyhow::Result<u32> {
+        anyhow::ensure!(
+            (1..=100).contains(&percentage),
+            "success Trace sample percent must be between 1 and 100"
+        );
+        Ok(self
+            .percentages
+            .lock()
+            .await
+            .insert(session_id.to_owned(), percentage)
+            .unwrap_or(100))
+    }
+
+    async fn percentage(&self, session_id: &str) -> u32 {
+        self.percentages
+            .lock()
+            .await
+            .get(session_id)
+            .copied()
+            .unwrap_or(100)
+    }
+
+    async fn remove(&self, session_id: &str) {
+        self.percentages.lock().await.remove(session_id);
+    }
+
+    async fn should_sample(&self, session_id: &str, trace_id: &str) -> (bool, u32) {
+        let percentage = self.percentage(session_id).await;
+        if percentage == 100 {
+            return (true, percentage);
+        }
+        let hash = trace_id
+            .as_bytes()
+            .iter()
+            .fold(0xcbf29ce484222325_u64, |hash, byte| {
+                (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+            });
+        (hash % 100 < u64::from(percentage), percentage)
+    }
 }
 
 impl AgentLatencyWindow {
@@ -1596,6 +1648,8 @@ impl NodeControlService {
                         let freeze_background_tabs =
                             payload.freeze_background_tabs.unwrap_or(false);
                         let block_new_tabs = payload.block_new_tabs.unwrap_or(false);
+                        let success_trace_sample_percent =
+                            payload.success_trace_sample_percent.unwrap_or(100);
                         let paused_extension_ids = payload
                             .extension_background_policy
                             .as_ref()
@@ -1608,6 +1662,7 @@ impl NodeControlService {
                             || payload.pid_limit < 32
                             || payload.tab_budget == 0
                             || !(10..=100).contains(&state_collector_budget_percent)
+                            || !(1..=100).contains(&success_trace_sample_percent)
                             || remote_desktop_bitrate_kbps > 100_000
                             || (payload.desktop_required
                                 && !(250..=100_000).contains(&remote_desktop_bitrate_kbps))
@@ -1985,6 +2040,27 @@ impl NodeControlService {
                                             .unwrap_or_default(),
                                     },
                                 );
+                                if let Err(error) = self
+                                    .success_trace_sampler
+                                    .set(&command.session_id, success_trace_sample_percent)
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.input_brokers.lock().await.remove(&command.session_id);
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.profile_workspaces
+                                        .lock()
+                                        .await
+                                        .remove(&command.session_id);
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
                                 Self::runtime_started_result(
                                     Self::ack(&command.message_id, true, "", ""),
                                     event,
@@ -2178,11 +2254,26 @@ impl NodeControlService {
                         let next_state_collector_budget_percent = payload
                             .state_collector_budget_percent
                             .unwrap_or(previous_state_collector_budget_percent);
+                        let previous_success_trace_sample_percent = self
+                            .success_trace_sampler
+                            .percentage(&command.session_id)
+                            .await;
+                        let next_success_trace_sample_percent = payload
+                            .success_trace_sample_percent
+                            .unwrap_or(previous_success_trace_sample_percent);
                         if !(10..=100).contains(&next_state_collector_budget_percent) {
                             return self.failed(
                                 command,
                                 anyhow::anyhow!(
                                     "State Collector budget must be between 10 and 100 percent"
+                                ),
+                            );
+                        }
+                        if !(1..=100).contains(&next_success_trace_sample_percent) {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "success Trace sample percent must be between 1 and 100"
                                 ),
                             );
                         }
@@ -2338,6 +2429,21 @@ impl NodeControlService {
                                 return self.failed(command, error);
                             }
                         };
+                        if let Err(error) = self
+                            .success_trace_sampler
+                            .set(&command.session_id, next_success_trace_sample_percent)
+                            .await
+                        {
+                            self.rollback_resource_adjustment(
+                                &command.session_id,
+                                previous.clone(),
+                                previous_state_collector_budget_percent,
+                                previous_remote_desktop_bitrate_kbps,
+                                previous_tab_resource_policy.clone(),
+                            )
+                            .await;
+                            return self.failed(command, error);
+                        }
                         let event = Self::event(
                             command,
                             "RuntimeResourcesAdjusted",
@@ -2393,6 +2499,12 @@ impl NodeControlService {
                                     paused_extension_ids: next_tab_resource_policy
                                         .paused_extension_ids,
                                 }),
+                                old_success_trace_sample_percent: Some(
+                                    previous_success_trace_sample_percent,
+                                ),
+                                new_success_trace_sample_percent: Some(
+                                    next_success_trace_sample_percent,
+                                ),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -3656,6 +3768,7 @@ impl NodeControlServiceRpc for NodeControlService {
                         .unregister_runtime(&command.session_id)
                         .await;
                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                    self.success_trace_sampler.remove(&command.session_id).await;
                 }
                 tracing::error!(
                     message_id = %command.message_id,
@@ -3696,6 +3809,25 @@ impl NodeControlServiceRpc for NodeControlService {
             }
             if command.command_type == "StartRuntime" {
                 self.begin_runtime_monitor(&command).await;
+            }
+        }
+        if acknowledgement.accepted {
+            let (sampled, percentage) = self
+                .success_trace_sampler
+                .should_sample(&command.session_id, &command.message_id)
+                .await;
+            if sampled {
+                tracing::info!(
+                    target: "browsercloud.success_trace",
+                    trace_id = %command.message_id,
+                    session_id = %command.session_id,
+                    command_type = %command.command_type,
+                    success_trace_sample_percent = percentage,
+                    "Browser Node command completed"
+                );
+            }
+            if command.command_type == "StopRuntime" {
+                self.success_trace_sampler.remove(&command.session_id).await;
             }
         }
         Ok(Response::new(DispatchResponse {
@@ -4061,6 +4193,7 @@ async fn main() -> Result<()> {
         resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
         pending_state_events: Arc::new(Mutex::new(HashMap::new())),
+        success_trace_sampler: SuccessTraceSampler::default(),
         resource_report_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
@@ -4252,6 +4385,40 @@ mod tests {
         assert_eq!(cumulative_rate_per_second(1_000, None, now), None);
     }
 
+    #[tokio::test]
+    async fn success_trace_sampler_applies_a_deterministic_session_policy() {
+        let sampler = SuccessTraceSampler::default();
+        assert_eq!(sampler.percentage("ses_trace").await, 100);
+        assert_eq!(
+            sampler.should_sample("ses_trace", "cmd_always").await,
+            (true, 100)
+        );
+
+        assert_eq!(sampler.set("ses_trace", 10).await.unwrap(), 100);
+        let first = sampler.should_sample("ses_trace", "cmd_stable").await;
+        let repeated = sampler.should_sample("ses_trace", "cmd_stable").await;
+        assert_eq!(first, repeated);
+        assert_eq!(first.1, 10);
+
+        let mut sampled = 0;
+        for index in 0..1000 {
+            if sampler
+                .should_sample("ses_trace", &format!("cmd_{index}"))
+                .await
+                .0
+            {
+                sampled += 1;
+            }
+        }
+        assert!(
+            (70..=130).contains(&sampled),
+            "10 percent policy sampled {sampled} of 1000 stable trace IDs"
+        );
+        assert!(sampler.set("ses_trace", 0).await.is_err());
+        sampler.remove("ses_trace").await;
+        assert_eq!(sampler.percentage("ses_trace").await, 100);
+    }
+
     #[test]
     #[cfg(unix)]
     fn resolves_only_direct_non_symlink_extensions_from_the_trusted_root() {
@@ -4367,6 +4534,7 @@ mod tests {
             resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
             pending_state_events: Arc::new(Mutex::new(HashMap::new())),
+            success_trace_sampler: SuccessTraceSampler::default(),
             resource_report_interval_probes: 5,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),

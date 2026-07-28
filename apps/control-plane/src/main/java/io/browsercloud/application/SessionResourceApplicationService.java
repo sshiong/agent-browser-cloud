@@ -785,6 +785,7 @@ public class SessionResourceApplicationService {
                 .sorted()
                 .toList()
             : List.<String>of();
+    var successTraceSamplePercent = maximumMitigation ? 10 : 100;
     if (!maximumMitigation) {
       policy.clearMaximumMitigation();
     }
@@ -807,6 +808,7 @@ public class SessionResourceApplicationService {
             maximumMitigation,
             maximumMitigation,
             pausedExtensionIds,
+            successTraceSamplePercent,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
@@ -834,7 +836,8 @@ public class SessionResourceApplicationService {
             mediaEncoderSlots,
             maximumMitigation,
             maximumMitigation,
-            pausedExtensionIds),
+            pausedExtensionIds,
+            successTraceSamplePercent),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -876,7 +879,10 @@ public class SessionResourceApplicationService {
             && placement.isNewTabsBlocked() != adjusted.oldBlockNewTabs())
         || (adjusted.oldPausedExtensionIds() != null
             && !readExtensionIds(placement.getPausedExtensionIds())
-                .equals(adjusted.oldPausedExtensionIds()))) {
+                .equals(adjusted.oldPausedExtensionIds()))
+        || (adjusted.oldSuccessTraceSamplePercent() != null
+            && placement.getSuccessTraceSamplePercent()
+                != adjusted.oldSuccessTraceSamplePercent())) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
     var nextStateCollectorBudgetPercent =
@@ -907,6 +913,10 @@ public class SessionResourceApplicationService {
         adjusted.newPausedExtensionIds() == null
             ? readExtensionIds(placement.getPausedExtensionIds())
             : adjusted.newPausedExtensionIds();
+    var nextSuccessTraceSamplePercent =
+        adjusted.newSuccessTraceSamplePercent() == null
+            ? placement.getSuccessTraceSamplePercent()
+            : adjusted.newSuccessTraceSamplePercent();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
@@ -917,6 +927,8 @@ public class SessionResourceApplicationService {
         || nextStateCollectorBudgetPercent > 100
         || nextRemoteDesktopBitrateKbps < 0
         || nextRemoteDesktopBitrateKbps > 100_000
+        || nextSuccessTraceSamplePercent < 1
+        || nextSuccessTraceSamplePercent > 100
         || (placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps < 250)
         || (!placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps != 0)) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
@@ -945,7 +957,8 @@ public class SessionResourceApplicationService {
         nextMediaEncoderSlots,
         nextBackgroundTabsFrozen,
         nextNewTabsBlocked,
-        writeStringList(nextPausedExtensionIds));
+        writeStringList(nextPausedExtensionIds),
+        nextSuccessTraceSamplePercent);
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -1262,6 +1275,7 @@ public class SessionResourceApplicationService {
         placement.isBackgroundTabsFrozen(),
         placement.isNewTabsBlocked(),
         readExtensionIds(placement.getPausedExtensionIds()),
+        placement.getSuccessTraceSamplePercent(),
         placement.getState());
   }
 
@@ -1354,6 +1368,7 @@ public class SessionResourceApplicationService {
         Map.entry("backgroundTabsFrozen", placement.backgroundTabsFrozen()),
         Map.entry("newTabsBlocked", placement.newTabsBlocked()),
         Map.entry("pausedExtensionIds", placement.pausedExtensionIds()),
+        Map.entry("successTraceSamplePercent", placement.successTraceSamplePercent()),
         Map.entry("nodeId", placement.nodeId()));
   }
 
@@ -1369,7 +1384,8 @@ public class SessionResourceApplicationService {
         placement.getMediaEncoderSlots(),
         placement.isBackgroundTabsFrozen(),
         placement.isNewTabsBlocked(),
-        readExtensionIds(placement.getPausedExtensionIds()));
+        readExtensionIds(placement.getPausedExtensionIds()),
+        placement.getSuccessTraceSamplePercent());
   }
 
   private Map<String, Object> allocationMap(
@@ -1383,7 +1399,8 @@ public class SessionResourceApplicationService {
       int mediaEncoderSlots,
       boolean backgroundTabsFrozen,
       boolean newTabsBlocked,
-      List<String> pausedExtensionIds) {
+      List<String> pausedExtensionIds,
+      int successTraceSamplePercent) {
     return Map.ofEntries(
         Map.entry("template", templateFor(placement.effectiveResourceClass())),
         Map.entry("cpuMillis", cpuMillis),
@@ -1397,6 +1414,7 @@ public class SessionResourceApplicationService {
         Map.entry("backgroundTabsFrozen", backgroundTabsFrozen),
         Map.entry("newTabsBlocked", newTabsBlocked),
         Map.entry("pausedExtensionIds", pausedExtensionIds),
+        Map.entry("successTraceSamplePercent", successTraceSamplePercent),
         Map.entry("nodeId", placement.getNodeId()));
   }
 

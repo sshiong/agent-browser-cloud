@@ -124,6 +124,8 @@ class NodeEventMapperTest {
                 ExtensionBackgroundPolicy.newBuilder().addPausedExtensionIds("extension.old"))
             .setNewExtensionBackgroundPolicy(
                 ExtensionBackgroundPolicy.newBuilder().addPausedExtensionIds("extension.new"))
+            .setOldSuccessTraceSamplePercent(100)
+            .setNewSuccessTraceSamplePercent(10)
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -149,6 +151,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newMediaEncoderSlots()).isEqualTo(2);
               assertThat(adjusted.oldPausedExtensionIds()).containsExactly("extension.old");
               assertThat(adjusted.newPausedExtensionIds()).containsExactly("extension.new");
+              assertThat(adjusted.oldSuccessTraceSamplePercent()).isEqualTo(100);
+              assertThat(adjusted.newSuccessTraceSamplePercent()).isEqualTo(10);
             });
   }
 
@@ -191,7 +195,46 @@ class NodeEventMapperTest {
               assertThat(adjusted.newRemoteDesktopBitrateKbps()).isNull();
               assertThat(adjusted.oldExtensionCpuWeight()).isNull();
               assertThat(adjusted.newPausedExtensionIds()).isNull();
+              assertThat(adjusted.oldSuccessTraceSamplePercent()).isNull();
+              assertThat(adjusted.newSuccessTraceSamplePercent()).isNull();
             });
+  }
+
+  @Test
+  void shouldRejectOneSidedSuccessTraceSamplingAcknowledgement() {
+    var payload =
+        RuntimeResourcesAdjustedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setNodeId("node-test")
+            .setOldResourceClass("L2")
+            .setOldCpuMillis(600)
+            .setOldMemoryRequestMib(768)
+            .setOldMemoryLimitMib(1280)
+            .setOldPidLimit(256)
+            .setOldTabBudget(8)
+            .setNewResourceClass("L2")
+            .setNewCpuMillis(600)
+            .setNewMemoryRequestMib(768)
+            .setNewMemoryLimitMib(1280)
+            .setNewPidLimit(256)
+            .setNewTabBudget(8)
+            .setReason("MAXIMUM_NON_CORE_MITIGATION")
+            .setOperationId("op-resource")
+            .setNewSuccessTraceSamplePercent(10)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-resource-invalid-trace")
+            .setEventType(NodeEventMapper.RUNTIME_RESOURCES_ADJUSTED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("non-cgroup");
   }
 
   @Test

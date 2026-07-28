@@ -30,6 +30,7 @@ public record BrowserPlacementView(
     boolean backgroundTabsFrozen,
     boolean newTabsBlocked,
     List<String> pausedExtensionIds,
+    int successTraceSamplePercent,
     int mediaBitrateKbps,
     int placementScore,
     String state,

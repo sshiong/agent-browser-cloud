@@ -170,7 +170,7 @@ export function SessionResourcePanel({
 
           {resource.allocation ? (
             <div
-              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-3"
+              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-4"
               aria-label="非核心资源保护状态"
             >
               <div className="bg-surface-2 px-3 py-2.5">
@@ -210,6 +210,18 @@ export function SessionResourcePanel({
                     {pausedExtensionIds.join(', ')}
                   </p>
                 )}
+              </div>
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  成功 Trace
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  Node 采样{' '}
+                  {resource.allocation.successTraceSamplePercent ?? 100}%
+                </p>
+                <p className="mt-1 text-[9px] text-text-muted">
+                  失败与强制证据始终保留
+                </p>
               </div>
             </div>
           ) : null}

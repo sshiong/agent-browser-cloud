@@ -77,6 +77,8 @@ public sealed interface NodeEvent
       Boolean newBlockNewTabs,
       List<String> oldPausedExtensionIds,
       List<String> newPausedExtensionIds,
+      Integer oldSuccessTraceSamplePercent,
+      Integer newSuccessTraceSamplePercent,
       String reason,
       String operationId)
       implements NodeEvent {

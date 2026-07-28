@@ -13,6 +13,7 @@ import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -76,12 +77,19 @@ public class SessionController {
   @PreAuthorize(PlatformRoles.OPERATE)
   public ResponseEntity<CreateSessionResponse> create(
       @Valid @RequestBody CreateSessionRequest request,
-      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      HttpServletRequest servletRequest) {
     var principal = identity.current();
     if (!principal.tenantId().equals(request.tenantId())) {
       throw new TenantAccessDeniedException("new-session");
     }
-    var result = service.create(request, idempotencyKey, principal.actorId());
+    var result =
+        service.create(
+            request,
+            idempotencyKey,
+            principal.actorId(),
+            String.valueOf(
+                servletRequest.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE)));
     return ResponseEntity.status(201).body(result);
   }
 

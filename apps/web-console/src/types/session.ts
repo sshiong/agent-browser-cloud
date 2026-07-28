@@ -84,12 +84,19 @@ export interface ResourcePolicyView extends Required<
 /**
  * Session 视图。
  */
+export interface WorkspaceTagSummary {
+  tagId: string;
+  name: string;
+  color: string;
+}
+
 export interface SessionView {
   sessionId: string;
   displayName: string;
   tenantId: string;
   profileId: string;
   groupId?: string;
+  tags?: WorkspaceTagSummary[];
   region: string;
   resourceClass: ResourceClass;
   state: SessionState;
@@ -132,6 +139,7 @@ export interface CreateSessionRequest {
   profileId: string;
   applicationId?: string;
   groupId?: string;
+  tagIds?: string[];
   region?: string;
   resourcePolicy?: ResourcePolicyRequest;
   /** @deprecated Legacy SDK compatibility. Web UI must use resourcePolicy=AUTO. */

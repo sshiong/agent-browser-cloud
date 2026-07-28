@@ -40,6 +40,8 @@ import io.browsercloud.application.StateGatewayApplicationService.InvalidStateRe
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupNotFoundException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupRejectedException;
+import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagNotFoundException;
+import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagRejectedException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.CoordinatorNotOwnerException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
@@ -91,6 +93,28 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "WORKSPACE_GROUP_REJECTED",
         "Workspace Group operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(WorkspaceTagNotFoundException.class)
+  ResponseEntity<ApiError> workspaceTagNotFound(
+      WorkspaceTagNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "WORKSPACE_TAG_NOT_FOUND",
+        "Workspace Tag not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(WorkspaceTagRejectedException.class)
+  ResponseEntity<ApiError> workspaceTagRejected(
+      WorkspaceTagRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "WORKSPACE_TAG_REJECTED",
+        "Workspace Tag operation was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

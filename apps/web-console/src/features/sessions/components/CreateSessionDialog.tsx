@@ -28,6 +28,7 @@ import { useEnterpriseOverview } from '@/features/enterprise/enterpriseQueries';
 import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
 import { useProfiles } from '@/features/profiles/profileQueries';
 import { useWorkspaceGroups } from '@/features/groups/groupQueries';
+import { useWorkspaceTags } from '@/features/groups/tagQueries';
 import { useProxyOverview } from '@/features/proxies/proxyQueries';
 import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import {
@@ -40,18 +41,7 @@ const schema = z
   .object({
     name: z.string().trim().min(1, '请输入环境名称').max(128),
     groupId: z.string().trim().max(36),
-    tags: z
-      .string()
-      .max(256)
-      .refine(
-        (value) =>
-          value
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean)
-            .every((item) => /^[\p{L}\p{N}_.-]{1,32}$/u.test(item)),
-        '标签仅支持文字、数字、点、下划线和连字符'
-      ),
+    tagIds: z.array(z.string().max(36)).max(16),
     description: z.string().trim().max(500),
     accent: z.enum(['teal', 'blue', 'amber', 'violet']),
     runtimeBuildId: z.string().trim().min(1, '请选择 Runtime Build'),
@@ -153,7 +143,7 @@ const mediaBudgets = {
 } as const;
 
 const stepFields: Record<Step, (keyof FormValues)[]> = {
-  1: ['name', 'groupId', 'tags', 'description', 'accent'],
+  1: ['name', 'groupId', 'tagIds', 'description', 'accent'],
   2: ['runtimeBuildId', 'applicationId', 'profileMode', 'profileId'],
   3: ['networkMode', 'region'],
   4: [
@@ -197,6 +187,7 @@ export function CreateSessionDialog({
   const extensionsQuery = useExtensionProfiles();
   const recoveryContractsQuery = useRecoveryContracts();
   const groupsQuery = useWorkspaceGroups();
+  const tagsQuery = useWorkspaceTags();
   const [step, setStep] = useState<Step>(1);
   const [createdSessionId, setCreatedSessionId] = useState<string>();
   const [advancedResourcesOpen, setAdvancedResourcesOpen] = useState(false);
@@ -219,7 +210,7 @@ export function CreateSessionDialog({
     defaultValues: {
       name: '',
       groupId: '',
-      tags: '',
+      tagIds: [],
       description: '',
       accent: 'teal',
       runtimeBuildId: '',
@@ -328,11 +319,6 @@ export function CreateSessionDialog({
     const generatedProfileId = `profile-${safeName || 'environment'}-${crypto.randomUUID().slice(0, 8)}`;
     const profileId =
       form.profileMode === 'empty' ? generatedProfileId : form.profileId;
-    const tags = form.tags
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-
     const result = await createMutation.mutateAsync({
       idempotencyKey: crypto.randomUUID(),
       request: {
@@ -340,6 +326,7 @@ export function CreateSessionDialog({
         profileId,
         applicationId: form.applicationId || undefined,
         groupId: form.groupId || undefined,
+        tagIds: form.tagIds,
         region: form.region,
         resourcePolicy: {
           mode: 'AUTO',
@@ -373,7 +360,6 @@ export function CreateSessionDialog({
         extensionIds: form.extensionIds,
         metadata: {
           displayName: form.name,
-          tags: tags.join(','),
           description: form.description,
           visualAccent: form.accent,
           requestedRuntimeBuildId: form.runtimeBuildId,
@@ -518,14 +504,63 @@ export function CreateSessionDialog({
                     </Field>
                     <Field
                       label="标签"
-                      hint="使用逗号分隔，最多 32 个字符/标签"
-                      error={errors.tags?.message}
+                      hint="选择租户管理员创建的正式标签，最多 16 个"
+                      error={errors.tagIds?.message}
                     >
-                      <input
-                        {...register('tags')}
-                        placeholder="production, crm"
-                        className="field-input"
-                      />
+                      <div className="min-h-9 border border-border-subtle bg-surface-2 p-2">
+                        {tagsQuery.isLoading ? (
+                          <p className="text-[10px] text-text-muted">
+                            正在加载标签…
+                          </p>
+                        ) : tagsQuery.isError ? (
+                          <p role="alert" className="text-[10px] text-danger">
+                            无法读取正式标签
+                          </p>
+                        ) : tagsQuery.data?.items.length ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {tagsQuery.data.items.map((tag) => {
+                              const selected = values.tagIds.includes(
+                                tag.tagId
+                              );
+                              return (
+                                <button
+                                  key={tag.tagId}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() =>
+                                    setValue(
+                                      'tagIds',
+                                      selected
+                                        ? values.tagIds.filter(
+                                            (tagId) => tagId !== tag.tagId
+                                          )
+                                        : [...values.tagIds, tag.tagId],
+                                      { shouldValidate: true }
+                                    )
+                                  }
+                                  className={cn(
+                                    'inline-flex h-7 items-center gap-1.5 border px-2 text-[10px]',
+                                    selected
+                                      ? 'border-accent/60 bg-accent-soft text-accent'
+                                      : 'border-border-subtle text-text-muted hover:text-text-primary'
+                                  )}
+                                >
+                                  <span
+                                    className="h-2 w-2"
+                                    style={{ backgroundColor: tag.color }}
+                                    aria-hidden="true"
+                                  />
+                                  {tag.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-text-muted">
+                            尚无正式标签，可稍后在“分组与标签”中创建。
+                          </p>
+                        )}
+                      </div>
                     </Field>
                   </div>
                   <Field
@@ -1243,7 +1278,17 @@ export function CreateSessionDialog({
                             groupsQuery.data?.items.find(
                               (group) => group.groupId === values.groupId
                             )?.name,
-                            values.tags,
+                            values.tagIds.length
+                              ? values.tagIds
+                                  .map(
+                                    (tagId) =>
+                                      tagsQuery.data?.items.find(
+                                        (tag) => tag.tagId === tagId
+                                      )?.name
+                                  )
+                                  .filter(Boolean)
+                                  .join(', ')
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(' · ')}

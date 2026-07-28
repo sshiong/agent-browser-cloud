@@ -38,6 +38,7 @@ class SessionApplicationServiceTest {
   @Mock private SessionResourceApplicationService sessionResourceService;
   @Mock private ApplicationBusinessRecoveryService businessRecoveryService;
   @Mock private WorkspaceGroupApplicationService workspaceGroupService;
+  @Mock private WorkspaceTagApplicationService workspaceTagService;
 
   private SessionApplicationService service;
 
@@ -61,6 +62,7 @@ class SessionApplicationServiceTest {
             sessionResourceService,
             businessRecoveryService,
             workspaceGroupService,
+            workspaceTagService,
             "runtime-test");
   }
 
@@ -88,12 +90,15 @@ class SessionApplicationServiceTest {
     when(sessionRepository.describe("ses_test"))
         .thenReturn(new SessionDescriptor(context, "local", "Integration browser", "grp_test"));
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
+    when(workspaceTagService.summariesForSession("tenant-test", "ses_test"))
+        .thenReturn(java.util.List.of());
 
     var view = service.get("ses_test", "tenant-test");
 
     assertThat(view.displayName()).isEqualTo("Integration browser");
     assertThat(view.profileId()).isEqualTo("profile-test");
     assertThat(view.groupId()).isEqualTo("grp_test");
+    assertThat(view.tags()).isEmpty();
     assertThat(view.region()).isEqualTo("local");
     assertThat(view.resourceClass()).isEqualTo(ResourceClass.L2);
   }

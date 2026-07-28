@@ -180,6 +180,26 @@ export function SessionDetailPage() {
                       </strong>
                     </span>
                   </div>
+                  {(session.tags?.length ?? 0) > 0 && (
+                    <div
+                      className="mt-3 flex flex-wrap gap-1.5"
+                      aria-label="环境标签"
+                    >
+                      {session.tags?.map((tag) => (
+                        <span
+                          key={tag.tagId}
+                          className="inline-flex items-center gap-1.5 border border-border-subtle bg-surface-2 px-2 py-1 text-[10px] text-text-secondary"
+                        >
+                          <span
+                            className="h-2 w-2"
+                            style={{ backgroundColor: tag.color }}
+                            aria-hidden="true"
+                          />
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">

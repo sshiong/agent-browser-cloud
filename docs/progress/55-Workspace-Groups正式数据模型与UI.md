@@ -67,9 +67,10 @@ DELETE /api/v1/groups/{groupId}/sessions/{sessionId}
 
 ## 明确未完成
 
-1. Tags 仍没有正式 PostgreSQL 模型、API 与 UI；“分组与标签”当前实际只关闭了 Group；
+1. Tags 正式 PostgreSQL 模型、API 与 UI 已在
+   [进度 57](57-Workspace-Tags正式数据模型与UI.md) 完成；
 2. Group/Tags 批量 Start、Pause、Migrate、Hibernate 等生命周期 Operation 未实现；
-3. Group 列表当前按 Group 查询成员，Group 数量较大时需要批量投影，关闭 N+1；
+3. Group/Tags 列表当前按实体查询成员，数量较大时需要批量投影，关闭 N+1；
 4. Settings 持久化、全局搜索、通知中心和主题仍未完成；
 5. Group 默认值只影响新建且没有显式策略的 Session；修改 Group 不会静默重写存量
    Session，存量批量变更需要独立 Operation、权限和风险确认。

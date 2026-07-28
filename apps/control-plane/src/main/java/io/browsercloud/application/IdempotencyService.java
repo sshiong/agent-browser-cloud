@@ -162,6 +162,27 @@ public class IdempotencyService {
         candidateMutationId);
   }
 
+  String claimWorkspaceTagCreate(
+      String tenantId, String idempotencyKey, Object request, String candidateTagId) {
+    return claim(
+        tenantId, "CREATE_WORKSPACE_TAG", idempotencyKey, hashRequest(request), candidateTagId);
+  }
+
+  String claimWorkspaceTagMutation(
+      String tenantId,
+      String tagId,
+      String mutation,
+      String idempotencyKey,
+      Object request,
+      String candidateMutationId) {
+    return claim(
+        tenantId,
+        mutation + "_WORKSPACE_TAG:" + tagId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateMutationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

@@ -18,6 +18,7 @@ import {
 } from '@/components/feedback/AsyncStates';
 import { useAuth } from '@/auth/AuthProvider';
 import { GroupEditorDialog } from './GroupEditorDialog';
+import { TagSection } from './TagSection';
 import {
   useAssignSessionToGroup,
   useDeleteWorkspaceGroup,
@@ -45,7 +46,7 @@ export function GroupsPage() {
     <div>
       <TopContextBar
         title="分组与标签"
-        subtitle="PostgreSQL 权威分组、默认 AUTO 策略与环境归属"
+        subtitle="PostgreSQL 权威分组、可复用标签、默认 AUTO 策略与环境归属"
       />
 
       <main className="p-4 sm:p-6">
@@ -133,6 +134,11 @@ export function GroupsPage() {
             ))}
           </section>
         )}
+
+        <TagSection
+          canOperate={auth.canOperate}
+          canAdminister={canAdminister}
+        />
       </main>
 
       {canAdminister && (

@@ -2188,6 +2188,125 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/tags:
+    get:
+      operationId: listWorkspaceTags
+      summary: List tenant Workspace Tags and authoritative Session assignments
+      tags: [Tags]
+      responses:
+        "200":
+          description: Tags and tenant Sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceTagListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createWorkspaceTag
+      summary: Create an audited reusable Workspace Tag
+      tags: [Tags]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceTagRequest"
+      responses:
+        "201":
+          description: Tag created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceTag"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/tags/{tagId}:
+    parameters:
+      - name: tagId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+    put:
+      operationId: updateWorkspaceTag
+      summary: Update Tag metadata
+      tags: [Tags]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceTagRequest"
+      responses:
+        "200":
+          description: Tag updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceTag"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteWorkspaceTag
+      summary: Delete a Tag without terminating its Sessions
+      tags: [Tags]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Tag and its Session assignments deleted.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/tags/{tagId}/sessions/{sessionId}:
+    parameters:
+      - name: tagId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+      - $ref: "#/components/parameters/SessionId"
+      - $ref: "#/components/parameters/IdempotencyKey"
+    put:
+      operationId: assignSessionToWorkspaceTag
+      summary: Assign a tenant Session to the Tag
+      tags: [Tags]
+      responses:
+        "200":
+          description: Updated Tag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceTag"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: unassignSessionFromWorkspaceTag
+      summary: Remove a Tag assignment from the Session
+      tags: [Tags]
+      responses:
+        "200":
+          description: Updated Tag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceTag"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -3876,6 +3995,14 @@ components:
           type: string
           pattern: "^grp_[a-zA-Z0-9]{16,32}$"
           description: Optional Workspace Group. Its AUTO defaults apply only when resourcePolicy is omitted.
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          description: Optional tenant-owned Workspace Tags assigned transactionally at creation.
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
         region:
           type: string
           pattern: "^[a-z0-9-]{1,32}$"
@@ -4388,6 +4515,10 @@ components:
         groupId:
           type: [string, "null"]
           pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceTagSummary"
         region:
           type: string
         resourceClass:
@@ -4518,6 +4649,98 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkspaceGroupSession"
+        total:
+          type: integer
+          minimum: 0
+    WorkspaceTagRequest:
+      type: object
+      additionalProperties: false
+      required: [name, color]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 32
+        description:
+          type: [string, "null"]
+          maxLength: 256
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+    WorkspaceTagSummary:
+      type: object
+      additionalProperties: false
+      required: [tagId, name, color]
+      properties:
+        tagId:
+          type: string
+          pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        name:
+          type: string
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+    WorkspaceTagSession:
+      type: object
+      additionalProperties: false
+      required: [sessionId, displayName, state, region, updatedAt]
+      properties:
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        displayName:
+          type: string
+        state:
+          $ref: "#/components/schemas/SessionState"
+        region:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceTag:
+      type: object
+      additionalProperties: false
+      required:
+        [tagId, name, color, sessions, sessionCount, createdBy, createdAt, updatedAt]
+      properties:
+        tagId:
+          type: string
+          pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceTagSession"
+        sessionCount:
+          type: integer
+          minimum: 0
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceTagListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, sessions, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceTag"
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceTagSession"
         total:
           type: integer
           minimum: 0

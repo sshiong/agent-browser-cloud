@@ -41,6 +41,7 @@ public class SessionApplicationService {
   private final SessionResourceApplicationService sessionResourceService;
   private final ApplicationBusinessRecoveryService businessRecoveryService;
   private final WorkspaceGroupApplicationService workspaceGroupService;
+  private final WorkspaceTagApplicationService workspaceTagService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -60,6 +61,7 @@ public class SessionApplicationService {
       SessionResourceApplicationService sessionResourceService,
       ApplicationBusinessRecoveryService businessRecoveryService,
       WorkspaceGroupApplicationService workspaceGroupService,
+      WorkspaceTagApplicationService workspaceTagService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -78,13 +80,14 @@ public class SessionApplicationService {
     this.sessionResourceService = sessionResourceService;
     this.businessRecoveryService = businessRecoveryService;
     this.workspaceGroupService = workspaceGroupService;
+    this.workspaceTagService = workspaceTagService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
   /** 创建 Session。 */
   @Transactional
   public CreateSessionResponse create(
-      CreateSessionRequest request, String idempotencyKey, String actorId) {
+      CreateSessionRequest request, String idempotencyKey, String actorId, String requestId) {
     if (!capacityAdmissionService.snapshot().admissionOpen()) {
       throw new CapacityUnavailableException();
     }
@@ -135,6 +138,8 @@ public class SessionApplicationService {
         request.region() == null ? "local" : request.region(),
         request.metadata() == null ? java.util.Map.of() : request.metadata(),
         request.groupId());
+    workspaceTagService.assignInitial(
+        context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);
     businessRecoveryService.bind(
         context.sessionId(), context.tenantId(), request.applicationId(), now);
     browserCapacityService.recordDemand(
@@ -471,6 +476,7 @@ public class SessionApplicationService {
         context.tenantId(),
         context.profileId(),
         descriptor.groupId(),
+        workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
         descriptor.region(),
         context.resourceClass(),
         context.state(),

@@ -18,6 +18,7 @@ import java.util.Map;
  * @param profileId Profile ID
  * @param applicationId 可选的 Tenant Application Recovery Contract ID
  * @param groupId 可选的 Workspace Group；未显式提交资源策略时继承其默认策略
+ * @param tagIds 可选的租户 Workspace Tag 集合
  * @param region 部署区域
  * @param resourcePolicy 用户可见的自动资源策略
  * @param resourceClass 仅供旧版 SDK 兼容的内部资源等级；新客户端不得提交
@@ -36,6 +37,7 @@ public record CreateSessionRequest(
     @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId,
     @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
     @Pattern(regexp = "^grp_[a-zA-Z0-9]{16,32}$") String groupId,
+    @Size(max = 16) List<@NotBlank @Pattern(regexp = "^tag_[a-zA-Z0-9]{16,32}$") String> tagIds,
     @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
     @Valid ResourcePolicyRequest resourcePolicy,
     ResourceClass resourceClass,

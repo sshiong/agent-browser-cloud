@@ -586,6 +586,28 @@ function SessionRow({
           <span className="block max-w-[230px] truncate font-mono text-[10px] text-text-muted">
             {session.sessionId}
           </span>
+          {(session.tags?.length ?? 0) > 0 && (
+            <span className="mt-1 flex max-w-[230px] flex-wrap gap-1">
+              {session.tags?.slice(0, 3).map((tag) => (
+                <span
+                  key={tag.tagId}
+                  className="inline-flex items-center gap-1 border border-border-subtle px-1.5 py-0.5 text-[9px] text-text-muted"
+                >
+                  <span
+                    className="h-1.5 w-1.5"
+                    style={{ backgroundColor: tag.color }}
+                    aria-hidden="true"
+                  />
+                  {tag.name}
+                </span>
+              ))}
+              {(session.tags?.length ?? 0) > 3 && (
+                <span className="px-1 py-0.5 text-[9px] text-text-muted">
+                  +{(session.tags?.length ?? 0) - 3}
+                </span>
+              )}
+            </span>
+          )}
         </button>
       </td>
       <td className="px-4 py-3">

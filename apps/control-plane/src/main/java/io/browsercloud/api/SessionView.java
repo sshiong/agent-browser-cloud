@@ -3,6 +3,7 @@ package io.browsercloud.api;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
+import java.util.List;
 
 /** Session 视图。 */
 public record SessionView(
@@ -11,6 +12,7 @@ public record SessionView(
     String tenantId,
     String profileId,
     String groupId,
+    List<WorkspaceTagModels.WorkspaceTagSummary> tags,
     String region,
     ResourceClass resourceClass,
     SessionState state,

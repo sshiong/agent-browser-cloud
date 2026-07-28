@@ -201,6 +201,27 @@ for invariant in (
 ):
     assert invariant in auto_recovery_upper
 
+workspace_tags_migration = read(
+    "database/migrations/V035__workspace_tags.sql"
+)
+workspace_tags_upper = workspace_tags_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in workspace_tags_upper
+for invariant in (
+    "CREATE TABLE WORKSPACE_TAGS",
+    "CREATE TABLE SESSION_TAG_ASSIGNMENTS",
+    "CREATE UNIQUE INDEX UQ_SESSIONS_ID_TENANT",
+    "FOREIGN KEY (SESSION_ID, TENANT_ID)",
+    "FOREIGN KEY (TAG_ID, TENANT_ID)",
+    "ON DELETE CASCADE",
+    "UNIQUE (SESSION_ID, TAG_ID)",
+    "CREATE INDEX IDX_SESSION_TAG_ASSIGNMENTS_TENANT_SESSION",
+    "SYSTEM:V035-BACKFILL",
+    "REGEXP_SPLIT_TO_TABLE",
+    "ON CONFLICT (SESSION_ID, TAG_ID) DO NOTHING",
+):
+    assert invariant in workspace_tags_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -326,7 +347,7 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034 expand-validate-contract,V029-V033 additive",
+    "schema": "V019-V021 additive,V028,V034 expand-validate-contract,V029-V033,V035 additive",
     "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24",
     "json": "new-media-and-application-recovery-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

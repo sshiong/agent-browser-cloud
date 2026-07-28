@@ -205,6 +205,24 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 
+{
+  printf '%s\n' \
+    'CREATE SCHEMA tag_upgrade_test;' \
+    'SET search_path TO tag_upgrade_test;' \
+    'CREATE TABLE sessions (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, metadata JSONB NOT NULL);' \
+    "INSERT INTO sessions VALUES ('ses_legacy1234567890', 'tenant-legacy', '{\"tags\":\"Production, CRM, production\"}');"
+  sed -n '1,$p' database/migrations/V035__workspace_tags.sql
+  printf '%s\n' \
+    "SELECT (SELECT count(*) FROM workspace_tags) || ':' ||" \
+    "       (SELECT count(*) FROM session_tag_assignments) || ':' ||" \
+    "       (SELECT count(*) FROM workspace_tags WHERE created_by='system:v035-backfill');"
+} | docker exec -i "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud >"$temp_dir/tag-upgrade-backfill.txt"
+test "$(<"$temp_dir/tag-upgrade-backfill.txt")" = "2:2:2"
+docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c 'DROP SCHEMA tag_upgrade_test CASCADE;' >/dev/null
+
 mkdir -p "$temp_dir/pressure"
 for pressure_resource in memory cpu io; do
   printf 'some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n' \
@@ -486,7 +504,40 @@ replayed_workspace_group_id="$(printf '%s' "$workspace_group_replay" | python3 -
   'import json,sys; print(json.load(sys.stdin)["groupId"])')"
 test "$workspace_group_id" = "$replayed_workspace_group_id"
 
-request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
+workspace_tag_body='{"name":"Production","description":"PostgreSQL authoritative tag","color":"#35D6BE"}'
+workspace_tag="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/tags" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-tag-create-001' \
+  -d "$workspace_tag_body")"
+workspace_tag_id="$(printf '%s' "$workspace_tag" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["name"] == "Production"; assert item["color"] == "#35D6BE"; assert item["sessionCount"] == 0; print(item["tagId"])')"
+workspace_tag_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/tags" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-tag-create-001' \
+  -d "$workspace_tag_body")"
+replayed_workspace_tag_id="$(printf '%s' "$workspace_tag_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["tagId"])')"
+test "$workspace_tag_id" = "$replayed_workspace_tag_id"
+temporary_tag="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/tags" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-tag-create-002' \
+  -d '{"name":"Temporary","description":"Assignment mutation coverage","color":"#718096"}')"
+temporary_tag_id="$(printf '%s' "$temporary_tag" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["tagId"])')"
+
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -517,7 +568,7 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; assert json.load(sys.stdin)['groupId'] == '${workspace_group_id}'"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
 workspace_group_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -532,6 +583,68 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 assert result["items"] == []
 assert result["unassignedSessions"] == []
 PY
+
+workspace_tags="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/tags" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$workspace_tags" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 2; primary=next(item for item in result['items'] if item['tagId'] == '${workspace_tag_id}'); assert primary['sessionCount'] == 1; assert primary['sessions'][0]['sessionId'] == '${session_one}'; assert any(item['sessionId'] == '${session_one}' for item in result['sessions'])"
+assigned_temporary_tag="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/tags/${temporary_tag_id}/sessions/${session_one}" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-tag-assign-001')"
+printf '%s' "$assigned_temporary_tag" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['sessionCount'] == 1; assert item['sessions'][0]['sessionId'] == '${session_one}'"
+unassigned_temporary_tag="$(curl -fsS -X DELETE \
+  "http://localhost:${control_port}/api/v1/tags/${temporary_tag_id}/sessions/${session_one}" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-tag-unassign-001')"
+printf '%s' "$unassigned_temporary_tag" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["sessionCount"] == 0; assert item["sessions"] == []'
+updated_temporary_tag="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/tags/${temporary_tag_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-tag-update-001' \
+  -d '{"name":"Temporary Reviewed","description":"Update coverage","color":"#A78BFA"}')"
+printf '%s' "$updated_temporary_tag" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["name"] == "Temporary Reviewed"; assert item["color"] == "#A78BFA"'
+curl -fsS -X DELETE \
+  "http://localhost:${control_port}/api/v1/tags/${temporary_tag_id}" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: tag-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-tag-delete-001' >/dev/null
+workspace_tags_cross_tenant="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/tags" \
+  -H 'X-Tenant-Id: different-tenant')"
+printf '%s' "$workspace_tags_cross_tenant" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["items"] == []; assert item["sessions"] == []; assert item["total"] == 0'
+if docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "insert into session_tag_assignments (
+     assignment_id, tenant_id, session_id, tag_id, assigned_by, assigned_at
+   ) values (
+     'sta_cross1234567890', 'different-tenant', '${session_one}',
+     '${workspace_tag_id}', 'malicious', now()
+   );" >/dev/null 2>&1; then
+  echo "cross-tenant Session Tag assignment unexpectedly succeeded" >&2
+  exit 1
+fi
+workspace_tag_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+     (select count(*) from workspace_tags
+      where tenant_id='tenant-integration' and tag_id='${workspace_tag_id}') || ':' ||
+     (select count(*) from session_tag_assignments
+      where tenant_id='tenant-integration' and session_id='${session_one}'
+        and tag_id='${workspace_tag_id}') || ':' ||
+     (select count(*) from workspace_tags where tag_id='${temporary_tag_id}')")"
+test "$workspace_tag_db_summary" = "1:1:0"
 
 viewer_write_status="$(curl -sS -o "$temp_dir/viewer-write.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}:start" \
@@ -552,7 +665,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['resourceClass'] == 'L2'"
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \

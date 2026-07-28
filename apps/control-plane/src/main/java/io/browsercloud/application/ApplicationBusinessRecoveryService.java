@@ -84,10 +84,11 @@ public class ApplicationBusinessRecoveryService {
               write(normalized.accountMismatchTargets()),
               write(normalized.requiredExtensionIds()),
               normalized.allowDepthLimited(),
+              normalized.recoveryAction().name(),
               normalized.maximumAutoRecovery(),
               normalized.enabled(),
               now);
-      return toView(contracts.save(entity));
+      return toView(contracts.saveAndFlush(entity));
     }
 
     var entity = existing.orElseThrow();
@@ -107,10 +108,11 @@ public class ApplicationBusinessRecoveryService {
         write(normalized.accountMismatchTargets()),
         write(normalized.requiredExtensionIds()),
         normalized.allowDepthLimited(),
+        normalized.recoveryAction().name(),
         normalized.maximumAutoRecovery(),
         normalized.enabled(),
         now);
-    return toView(contracts.save(entity));
+    return toView(contracts.saveAndFlush(entity));
   }
 
   @Transactional(readOnly = true)
@@ -155,15 +157,37 @@ public class ApplicationBusinessRecoveryService {
 
   @Transactional
   public BusinessRecoveryValidationView validateForMigration(
-      String sessionId, String tenantId, String migrationId) {
+      String sessionId, String tenantId, String migrationId, int recoveryAttempt) {
     return validate(
         sessionId,
         tenantId,
         "system:migration",
-        "business-recovery:" + migrationId,
+        "business-recovery:" + migrationId + ":" + recoveryAttempt,
         migrationId,
         "MIGRATION",
         Instant.now());
+  }
+
+  @Transactional(readOnly = true)
+  public Optional<AutoRecoveryPolicy> autoRecoveryPolicy(String sessionId, String tenantId) {
+    requireTenant(sessionId, tenantId);
+    return bindings
+        .findBySessionIdAndTenantId(sessionId, tenantId)
+        .flatMap(
+            binding ->
+                contracts
+                    .findById(binding.getContractId())
+                    .filter(item -> item.getTenantId().equals(tenantId))
+                    .filter(ApplicationRecoveryContractEntity::isEnabled))
+        .map(
+            contract ->
+                new AutoRecoveryPolicy(
+                    contract.getContractId(),
+                    contract.getVersion(),
+                    RecoveryAction.valueOf(contract.getRecoveryAction()),
+                    contract.getMaximumAutoRecovery(),
+                    readStrings(contract.getExpectedOrigins()),
+                    readStrings(contract.getReadyRoutePrefixes())));
   }
 
   @Transactional(readOnly = true)
@@ -305,8 +329,7 @@ public class ApplicationBusinessRecoveryService {
             .toList();
     if (!missingTargets.isEmpty()) {
       return rejected(
-          Verdict.MANUAL_RECOVERY_REQUIRED,
-          "REQUIRED_TARGETS_MISSING:" + String.join(",", missingTargets));
+          Verdict.STATE_CHANGED, "REQUIRED_TARGETS_MISSING:" + String.join(",", missingTargets));
     }
     var requiredExtensions = readStrings(contract.getRequiredExtensionIds());
     if (!requiredExtensions.isEmpty()) {
@@ -340,6 +363,12 @@ public class ApplicationBusinessRecoveryService {
     if (expectedOrigins.isEmpty()) {
       throw new RecoveryContractRejectedException("EXPECTED_ORIGIN_REQUIRED");
     }
+    var recoveryAction =
+        request.recoveryAction() == null ? RecoveryAction.NONE : request.recoveryAction();
+    if (request.recoveryAction() != null
+        && (request.maximumAutoRecovery() == 0) != (recoveryAction == RecoveryAction.NONE)) {
+      throw new RecoveryContractRejectedException("AUTO_RECOVERY_ACTION_BUDGET_MISMATCH");
+    }
     return new NormalizedContract(
         expectedOrigins,
         routeList(request.readyRoutePrefixes()),
@@ -350,6 +379,7 @@ public class ApplicationBusinessRecoveryService {
         targetList(request.accountMismatchTargets()),
         identifierList(request.requiredExtensionIds()),
         request.allowDepthLimited(),
+        recoveryAction,
         request.maximumAutoRecovery(),
         request.enabled());
   }
@@ -365,6 +395,7 @@ public class ApplicationBusinessRecoveryService {
         && readTargets(entity.getAccountMismatchTargets()).equals(value.accountMismatchTargets())
         && readStrings(entity.getRequiredExtensionIds()).equals(value.requiredExtensionIds())
         && entity.isAllowDepthLimited() == value.allowDepthLimited()
+        && entity.getRecoveryAction().equals(value.recoveryAction().name())
         && entity.getMaximumAutoRecovery() == value.maximumAutoRecovery()
         && entity.isEnabled() == value.enabled();
   }
@@ -383,6 +414,7 @@ public class ApplicationBusinessRecoveryService {
         readTargets(entity.getAccountMismatchTargets()),
         readStrings(entity.getRequiredExtensionIds()),
         entity.isAllowDepthLimited(),
+        RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getMaximumAutoRecovery(),
         entity.isEnabled(),
         entity.getCreatedAt(),
@@ -584,8 +616,22 @@ public class ApplicationBusinessRecoveryService {
       List<TargetIndicator> accountMismatchTargets,
       List<String> requiredExtensionIds,
       boolean allowDepthLimited,
+      RecoveryAction recoveryAction,
       int maximumAutoRecovery,
       boolean enabled) {}
+
+  public record AutoRecoveryPolicy(
+      String contractId,
+      long contractVersion,
+      RecoveryAction action,
+      int maximumAttempts,
+      List<String> expectedOrigins,
+      List<String> readyRoutePrefixes) {
+    public AutoRecoveryPolicy {
+      expectedOrigins = List.copyOf(expectedOrigins);
+      readyRoutePrefixes = List.copyOf(readyRoutePrefixes);
+    }
+  }
 
   public static final class RecoveryContractNotFoundException extends RuntimeException {}
 

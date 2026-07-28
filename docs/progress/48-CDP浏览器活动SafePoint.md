@@ -69,8 +69,9 @@
    业务的 SDK/Adapter/自动埋点实际调用。
 2. 真实双 Browser Node + S3-compatible Object Storage + Chromium 的迁移/休眠故障
    注入和长期稳定性证书。
-3. Tenant/Application-aware 声明式 Business Recovery Validator 与规则 DSL 已完成；
-   仍缺目标站点 Adapter、Provider 级证明和自动恢复动作执行器。
+3. Tenant/Application-aware 声明式 Business Recovery Validator、规则 DSL 和有界
+   低风险动作执行器已完成；仍缺目标站点 Adapter、Provider 级证明、契约作者 UI 和
+   受信 `RESTART_EXTENSION` 动作。
 4. Browser/Profile I/O 已由 Linux Cgroup v2 Browser 子组真实生产者补齐；仍缺
    Extension、Media 的真实指标生产者，以及 Extension Weight、Media Encoder Slot
    在线执行器。

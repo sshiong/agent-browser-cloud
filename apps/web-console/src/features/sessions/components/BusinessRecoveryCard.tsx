@@ -7,10 +7,14 @@ import {
 } from 'lucide-react';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { cn } from '@/shared/lib/utils';
-import type { BusinessRecoveryValidationView } from '@/types/session';
+import type {
+  BusinessRecoveryValidationView,
+  SessionMigrationView,
+} from '@/types/session';
 
 export function BusinessRecoveryCard({
   validation,
+  migration,
   loading,
   error,
   canValidate,
@@ -19,6 +23,7 @@ export function BusinessRecoveryCard({
   onRetry,
 }: {
   validation: BusinessRecoveryValidationView | null | undefined;
+  migration: SessionMigrationView | null | undefined;
   loading: boolean;
   error: unknown;
   canValidate: boolean;
@@ -129,6 +134,31 @@ export function BusinessRecoveryCard({
             />
             <Metric label="Request" value={validation.requestId || 'system'} />
           </dl>
+
+          {migration?.latestRecoveryAction && (
+            <div className="border border-border-subtle bg-surface-2 px-3 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-mono text-[10px] text-text-primary">
+                  AUTO RECOVERY · {migration.latestRecoveryAction.action}
+                </p>
+                <span className="font-mono text-[10px] text-text-muted">
+                  {migration.latestRecoveryAction.state} ·{' '}
+                  {migration.autoRecoveryAttempts}/
+                  {migration.autoRecoveryMaximum}
+                </span>
+              </div>
+              <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                Attempt {migration.latestRecoveryAction.attemptNumber} · State{' '}
+                {migration.latestRecoveryAction.baseStateVersion}
+                {migration.latestRecoveryAction.resultingStateVersion
+                  ? ` → ${migration.latestRecoveryAction.resultingStateVersion}`
+                  : ''}
+                {migration.latestRecoveryAction.errorCode
+                  ? ` · ${migration.latestRecoveryAction.errorCode}`
+                  : ''}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             {validation.evidence.map((item) => (

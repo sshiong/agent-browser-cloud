@@ -3680,6 +3680,9 @@ components:
             pattern: "^[a-zA-Z0-9_.-]{1,128}$"
         allowDepthLimited:
           type: boolean
+        recoveryAction:
+          type: string
+          enum: [NONE, RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION]
         maximumAutoRecovery:
           type: integer
           minimum: 0
@@ -3702,6 +3705,7 @@ components:
         - accountMismatchTargets
         - requiredExtensionIds
         - allowDepthLimited
+        - recoveryAction
         - maximumAutoRecovery
         - enabled
         - createdAt
@@ -3759,6 +3763,9 @@ components:
             type: string
         allowDepthLimited:
           type: boolean
+        recoveryAction:
+          type: string
+          enum: [NONE, RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION]
         maximumAutoRecovery:
           type: integer
           minimum: 0
@@ -4193,7 +4200,8 @@ components:
       type: object
       additionalProperties: false
       required:
-        [migrationId, sessionId, sourceNodeId, sourceContextEpoch, phase, createdAt, updatedAt]
+        [migrationId, sessionId, sourceNodeId, sourceContextEpoch, phase,
+         autoRecoveryAttempts, autoRecoveryMaximum, createdAt, updatedAt]
       properties:
         migrationId:
           type: string
@@ -4221,15 +4229,66 @@ components:
           type: string
           enum:
             [CHECKPOINTING, PLACING_TARGET, RESTORING, STATE_RESYNC,
-             BUSINESS_VALIDATION, COMPLETED, DEGRADED, FAILED]
+             BUSINESS_VALIDATION, BUSINESS_RECOVERY_ACTION, COMPLETED, DEGRADED, FAILED]
         recoveryResult:
           type: [string, "null"]
         failureReason:
           type: [string, "null"]
+        autoRecoveryAttempts:
+          type: integer
+          minimum: 0
+          maximum: 10
+        autoRecoveryMaximum:
+          type: integer
+          minimum: 0
+          maximum: 10
+        latestRecoveryAction:
+          anyOf:
+            - $ref: "#/components/schemas/BusinessRecoveryAction"
+            - type: "null"
         createdAt:
           type: string
           format: date-time
         updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    BusinessRecoveryAction:
+      type: object
+      additionalProperties: false
+      required:
+        [actionId, migrationId, attemptNumber, action, baseStateVersion,
+         state, createdAt]
+      properties:
+        actionId:
+          type: string
+          pattern: "^bra_[a-zA-Z0-9]{16,32}$"
+        migrationId:
+          type: string
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 10
+        action:
+          type: string
+          enum: [RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION]
+        targetUrl:
+          type: [string, "null"]
+          maxLength: 8192
+        baseStateVersion:
+          type: integer
+          format: int64
+        resultingStateVersion:
+          type: [integer, "null"]
+          format: int64
+        state:
+          type: string
+          enum: [REQUESTED, EXECUTING, ACKNOWLEDGED, COMMITTED, FAILED]
+        errorCode:
+          type: [string, "null"]
+        createdAt:
           type: string
           format: date-time
         completedAt:

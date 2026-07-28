@@ -144,6 +144,16 @@ public class BrowserCapacityApplicationService {
     return new BrowserNodeListResponse(items, items.size());
   }
 
+  @Transactional(readOnly = true)
+  public boolean nodeHasCapability(String nodeId, String label, String expectedValue) {
+    return nodeRepository
+        .findById(nodeId)
+        .map(BrowserNodeEntity::getLabels)
+        .map(this::readStringMap)
+        .map(labels -> expectedValue.equals(labels.get(label)))
+        .orElse(false);
+  }
+
   @Transactional
   public BrowserNodeView recordPressure(
       String nodeId, RecordNodePressureRequest request, Instant now) {

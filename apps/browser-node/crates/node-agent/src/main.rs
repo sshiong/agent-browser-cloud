@@ -12,13 +12,13 @@ use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent,
     AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
-    BrowserStateDiffEvent, BrowserStateEvent, CommandAck, CommandEnvelope, DiffTruncatedEvent,
-    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
-    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
-    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
-    ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
-    RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
-    TargetBounds,
+    BrowserStateDiffEvent, BrowserStateEvent, BusinessRecoveryActionCommand, CommandAck,
+    CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
+    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, HumanTakeoverEndedEvent,
+    HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest, PingResponse, PublishRequest,
+    PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest, ReportSessionResourcesRequest,
+    RequestStateResyncCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
+    RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
     PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
@@ -316,6 +316,10 @@ impl NodeCapacityReporter {
         labels.insert(
             "safePointBrowserActivity".to_owned(),
             "cdp-network-v1".to_owned(),
+        );
+        labels.insert(
+            "businessRecoveryActions".to_owned(),
+            "cdp-low-risk-v1".to_owned(),
         );
         Ok(Self {
             node_id,
@@ -2381,6 +2385,111 @@ impl NodeControlService {
                             "FULL_RESYNC".to_owned()
                         };
                         state_payload.requested_root_ref = payload.root_ref;
+                        let event =
+                            Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                        Self::state_result(
+                            Self::ack(&command.message_id, true, "", ""),
+                            event,
+                            state,
+                        )
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
+            "BusinessRecoveryAction" => {
+                match BusinessRecoveryActionCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id
+                            || !payload.action_id.starts_with("bra_")
+                            || payload.action_id.chars().count() > 36
+                            || !matches!(
+                                payload.action.as_str(),
+                                "RELOAD"
+                                    | "NAVIGATE_HOME"
+                                    | "REOPEN_KNOWN_ROUTE"
+                                    | "REFRESH_SESSION"
+                            )
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Business Recovery action payload is invalid"),
+                            );
+                        }
+                        let execution = match payload.action.as_str() {
+                            "RELOAD" => {
+                                if !payload.target_url.is_empty() {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "reload action must not include target URL"
+                                        ),
+                                    );
+                                }
+                                self.state_collector
+                                    .reload(&command.session_id, false)
+                                    .await
+                            }
+                            "REFRESH_SESSION" => {
+                                if !payload.target_url.is_empty() {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "refresh session action must not include target URL"
+                                        ),
+                                    );
+                                }
+                                self.state_collector.reload(&command.session_id, true).await
+                            }
+                            "NAVIGATE_HOME" | "REOPEN_KNOWN_ROUTE" => {
+                                let target = match reqwest::Url::parse(&payload.target_url) {
+                                    Ok(target)
+                                        if matches!(target.scheme(), "http" | "https")
+                                            && target.host_str().is_some()
+                                            && target.username().is_empty()
+                                            && target.password().is_none() =>
+                                    {
+                                        target
+                                    }
+                                    _ => {
+                                        return self.failed(
+                                            command,
+                                            anyhow::anyhow!(
+                                                "Business Recovery target URL is invalid"
+                                            ),
+                                        )
+                                    }
+                                };
+                                self.state_collector
+                                    .navigate(&command.session_id, target.as_str())
+                                    .await
+                            }
+                            _ => unreachable!(),
+                        };
+                        if let Err(error) = execution {
+                            return self.failed(command, error);
+                        }
+                        let state =
+                            match self.state_collector.resync_full(&command.session_id).await {
+                                Ok(state) if state.state_version > payload.base_state_version => {
+                                    state
+                                }
+                                Ok(_) => {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "Business Recovery state did not advance after action"
+                                        ),
+                                    )
+                                }
+                                Err(error) => return self.failed(command, error),
+                            };
+                        let sequence = match self.next_event_sequence(&command.session_id).await {
+                            Ok(sequence) => sequence,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let mut state_payload = Self::browser_state_payload(state.clone());
+                        state_payload.snapshot_kind = "BUSINESS_RECOVERY_ACTION".to_owned();
+                        state_payload.requested_root_ref = payload.action_id;
                         let event =
                             Self::event(command, "BrowserStateUpdated", sequence, state_payload);
                         Self::state_result(

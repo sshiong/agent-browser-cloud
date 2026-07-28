@@ -1,7 +1,9 @@
 # 应用感知 Business Recovery 与 Ready Gate
 
 > 日期：2026-07-28
-> 状态：声明式契约、PostgreSQL 权威状态、迁移 Ready Gate、API/Web 展示和真实集成已完成；站点专用 Adapter、自动恢复动作与目标双 Node 长稳仍待完成
+> 状态：声明式契约、PostgreSQL 权威状态、迁移 Ready Gate、有界低风险自动动作、
+> API/Web 展示和真实集成已完成；站点专用 Adapter、Provider 级证明、契约作者 UI、
+> Extension 重启动作与目标双 Node 长稳仍待完成
 
 ## 目标和边界
 
@@ -74,8 +76,10 @@ GET  /api/v1/sessions/{id}/business-recovery
 
 1. 各目标网站的契约作者 UI、支付/账号安全/SPA Adapter、可信业务埋点和 SDK 包装；
    平台仍不会自动理解任意网页业务语义。
-2. `maximumAutoRecovery` 已版本化存储，但自动恢复动作计数、重试预算和动作执行器尚未
-   接入；当前不会据此自动重试、点击或终止。
+2. `maximumAutoRecovery` 已在 V034 接入持久尝试预算、Reload/Refresh/受限导航、
+   Node State ACK 与二次 Ready Gate，详见
+   [进度 56](56-Business-Recovery有界自动动作闭环.md)。当前仍不自动点击或终止，
+   受信 `RESTART_EXTENSION` 动作尚未实现。
 3. Account、Permission 和 Business Entity 的 Provider/API 级证明；当前仅支持契约中
    配置的 Route/Target/Extension 证据。
 4. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发、网络分区、

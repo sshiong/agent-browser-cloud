@@ -113,6 +113,11 @@ public class SessionMigrationEntity {
     updatedAt = now;
   }
 
+  public void businessRecoveryAction(Instant now) {
+    phase = "BUSINESS_RECOVERY_ACTION";
+    updatedAt = now;
+  }
+
   public void complete(String result, boolean ready, Instant now) {
     recoveryResult = result;
     phase = ready ? "COMPLETED" : "DEGRADED";

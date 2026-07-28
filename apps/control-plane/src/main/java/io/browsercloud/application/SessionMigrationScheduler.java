@@ -15,7 +15,12 @@ public class SessionMigrationScheduler {
 
   private static final Logger log = LoggerFactory.getLogger(SessionMigrationScheduler.class);
   private static final Set<String> RECONCILABLE =
-      Set.of("CHECKPOINTING", "RESTORING", "STATE_RESYNC", "BUSINESS_VALIDATION");
+      Set.of(
+          "CHECKPOINTING",
+          "RESTORING",
+          "STATE_RESYNC",
+          "BUSINESS_VALIDATION",
+          "BUSINESS_RECOVERY_ACTION");
 
   private final SessionMigrationJpaRepository migrations;
   private final SessionMigrationApplicationService service;

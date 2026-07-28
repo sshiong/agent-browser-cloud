@@ -26,6 +26,14 @@ public final class BusinessRecoveryModels {
     MANUAL_RECOVERY_REQUIRED
   }
 
+  public enum RecoveryAction {
+    NONE,
+    RELOAD,
+    NAVIGATE_HOME,
+    REOPEN_KNOWN_ROUTE,
+    REFRESH_SESSION
+  }
+
   public record TargetIndicator(
       @NotBlank @Pattern(regexp = "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$") String role,
       @NotBlank @Size(max = 160) String name) {}
@@ -42,6 +50,7 @@ public final class BusinessRecoveryModels {
       @Size(max = 32)
           List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> requiredExtensionIds,
       boolean allowDepthLimited,
+      RecoveryAction recoveryAction,
       @Min(0) @Max(10) int maximumAutoRecovery,
       boolean enabled) {}
 
@@ -58,6 +67,7 @@ public final class BusinessRecoveryModels {
       List<TargetIndicator> accountMismatchTargets,
       List<String> requiredExtensionIds,
       boolean allowDepthLimited,
+      RecoveryAction recoveryAction,
       int maximumAutoRecovery,
       boolean enabled,
       Instant createdAt,
@@ -78,4 +88,17 @@ public final class BusinessRecoveryModels {
       String source,
       String requestId,
       Instant evaluatedAt) {}
+
+  public record BusinessRecoveryActionView(
+      String actionId,
+      String migrationId,
+      int attemptNumber,
+      RecoveryAction action,
+      String targetUrl,
+      long baseStateVersion,
+      Long resultingStateVersion,
+      String state,
+      String errorCode,
+      Instant createdAt,
+      Instant completedAt) {}
 }

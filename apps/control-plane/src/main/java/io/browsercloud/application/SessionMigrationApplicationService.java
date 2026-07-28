@@ -19,7 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class SessionMigrationApplicationService {
 
   private static final Set<String> ACTIVE_PHASES =
-      Set.of("CHECKPOINTING", "PLACING_TARGET", "RESTORING", "STATE_RESYNC", "BUSINESS_VALIDATION");
+      Set.of(
+          "CHECKPOINTING",
+          "PLACING_TARGET",
+          "RESTORING",
+          "STATE_RESYNC",
+          "BUSINESS_VALIDATION",
+          "BUSINESS_RECOVERY_ACTION");
 
   private final SessionMigrationJpaRepository migrations;
   private final SessionRepository sessions;
@@ -30,6 +36,7 @@ public class SessionMigrationApplicationService {
   private final StateGatewayApplicationService stateGateway;
   private final BrowserStateRepository browserStates;
   private final ApplicationBusinessRecoveryService recoveryService;
+  private final BusinessRecoveryActionApplicationService recoveryActions;
   private final SessionResourceApplicationService resources;
 
   public SessionMigrationApplicationService(
@@ -42,6 +49,7 @@ public class SessionMigrationApplicationService {
       StateGatewayApplicationService stateGateway,
       BrowserStateRepository browserStates,
       ApplicationBusinessRecoveryService recoveryService,
+      BusinessRecoveryActionApplicationService recoveryActions,
       SessionResourceApplicationService resources) {
     this.migrations = migrations;
     this.sessions = sessions;
@@ -52,6 +60,7 @@ public class SessionMigrationApplicationService {
     this.stateGateway = stateGateway;
     this.browserStates = browserStates;
     this.recoveryService = recoveryService;
+    this.recoveryActions = recoveryActions;
     this.resources = resources;
   }
 
@@ -125,6 +134,7 @@ public class SessionMigrationApplicationService {
       case "RESTORING" -> requestStateResync(migration);
       case "STATE_RESYNC" -> observeResync(migration);
       case "BUSINESS_VALIDATION" -> validateBusinessRecovery(migration);
+      case "BUSINESS_RECOVERY_ACTION" -> recoveryActions.reconcile(migration);
       default -> {}
     }
   }
@@ -228,7 +238,13 @@ public class SessionMigrationApplicationService {
     }
     var verdict =
         recoveryService.validateForMigration(
-            migration.getSessionId(), migration.getTenantId(), migration.getMigrationId());
+            migration.getSessionId(),
+            migration.getTenantId(),
+            migration.getMigrationId(),
+            recoveryActions.attemptCount(migration.getMigrationId()));
+    if (!verdict.ready() && recoveryActions.request(migration, verdict)) {
+      return;
+    }
     migration.complete(verdict.verdict().name(), verdict.ready(), Instant.now());
     migrations.save(migration);
     resources.recordMigrationPhase(
@@ -273,6 +289,9 @@ public class SessionMigrationApplicationService {
         migration.getPhase(),
         migration.getRecoveryResult(),
         migration.getFailureReason(),
+        recoveryActions.attemptCount(migration.getMigrationId()),
+        recoveryActions.maximumAttempts(migration.getSessionId(), migration.getTenantId()),
+        recoveryActions.latest(migration.getMigrationId()).orElse(null),
         migration.getCreatedAt(),
         migration.getUpdatedAt(),
         migration.getCompletedAt());

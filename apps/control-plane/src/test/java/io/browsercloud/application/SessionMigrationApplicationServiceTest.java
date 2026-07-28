@@ -1,6 +1,7 @@
 package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -41,6 +42,8 @@ class SessionMigrationApplicationServiceTest {
   private final BrowserStateRepository browserStates = mock(BrowserStateRepository.class);
   private final ApplicationBusinessRecoveryService recoveryService =
       mock(ApplicationBusinessRecoveryService.class);
+  private final BusinessRecoveryActionApplicationService recoveryActions =
+      mock(BusinessRecoveryActionApplicationService.class);
   private final SessionResourceApplicationService resources =
       mock(SessionResourceApplicationService.class);
   private final SessionMigrationApplicationService service =
@@ -54,6 +57,7 @@ class SessionMigrationApplicationServiceTest {
           stateGateway,
           browserStates,
           recoveryService,
+          recoveryActions,
           resources);
 
   @Test
@@ -98,7 +102,7 @@ class SessionMigrationApplicationServiceTest {
     when(migrations.findById(migration.getMigrationId())).thenReturn(Optional.of(migration));
     when(browserStates.find(SESSION_ID))
         .thenReturn(Optional.of(new BrowserStateRepository.Snapshot(TENANT_ID, 7, state)));
-    when(recoveryService.validateForMigration(SESSION_ID, TENANT_ID, migration.getMigrationId()))
+    when(recoveryService.validateForMigration(SESSION_ID, TENANT_ID, migration.getMigrationId(), 0))
         .thenReturn(
             new BusinessRecoveryValidationView(
                 "brv_1234567890abcdefghij",
@@ -113,6 +117,7 @@ class SessionMigrationApplicationServiceTest {
                 "MIGRATION",
                 migration.getMigrationId(),
                 now));
+    when(recoveryActions.request(any(), any())).thenReturn(false);
 
     service.reconcile(migration.getMigrationId());
 

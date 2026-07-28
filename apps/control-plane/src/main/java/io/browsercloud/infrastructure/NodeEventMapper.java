@@ -372,7 +372,9 @@ public class NodeEventMapper {
         payload.getTitle(),
         payload.getContentHash(),
         payload.getStateQuality(),
-        targets);
+        targets,
+        payload.getSnapshotKind(),
+        payload.getRequestedRootRef());
   }
 
   private void validateStateMetadata(

@@ -58,6 +58,9 @@ public class ApplicationRecoveryContractEntity {
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
+  @Column(name = "recovery_action", nullable = false)
+  private String recoveryAction;
+
   @Column(name = "maximum_auto_recovery", nullable = false)
   private int maximumAutoRecovery;
 
@@ -85,6 +88,7 @@ public class ApplicationRecoveryContractEntity {
       String accountMismatchTargets,
       String requiredExtensionIds,
       boolean allowDepthLimited,
+      String recoveryAction,
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
@@ -102,6 +106,7 @@ public class ApplicationRecoveryContractEntity {
         accountMismatchTargets,
         requiredExtensionIds,
         allowDepthLimited,
+        recoveryAction,
         maximumAutoRecovery,
         enabled,
         now);
@@ -118,6 +123,7 @@ public class ApplicationRecoveryContractEntity {
       String accountMismatchTargets,
       String requiredExtensionIds,
       boolean allowDepthLimited,
+      String recoveryAction,
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
@@ -131,6 +137,7 @@ public class ApplicationRecoveryContractEntity {
         accountMismatchTargets,
         requiredExtensionIds,
         allowDepthLimited,
+        recoveryAction,
         maximumAutoRecovery,
         enabled,
         now);
@@ -146,6 +153,7 @@ public class ApplicationRecoveryContractEntity {
       String accountMismatchTargets,
       String requiredExtensionIds,
       boolean allowDepthLimited,
+      String recoveryAction,
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
@@ -158,6 +166,7 @@ public class ApplicationRecoveryContractEntity {
     this.accountMismatchTargets = accountMismatchTargets;
     this.requiredExtensionIds = requiredExtensionIds;
     this.allowDepthLimited = allowDepthLimited;
+    this.recoveryAction = recoveryAction;
     this.maximumAutoRecovery = maximumAutoRecovery;
     this.enabled = enabled;
     this.updatedAt = now;
@@ -213,6 +222,10 @@ public class ApplicationRecoveryContractEntity {
 
   public boolean isAllowDepthLimited() {
     return allowDepthLimited;
+  }
+
+  public String getRecoveryAction() {
+    return recoveryAction;
   }
 
   public int getMaximumAutoRecovery() {

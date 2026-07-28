@@ -36,6 +36,7 @@ class NodeEventIngestionServiceTest {
   @Mock private DurableWorkflowApplicationService workflowService;
   @Mock private BrowserCapacityApplicationService browserCapacityService;
   @Mock private SessionResourceApplicationService resourceService;
+  @Mock private BusinessRecoveryActionApplicationService recoveryActionService;
 
   private NodeEventIngestionService service;
 
@@ -54,7 +55,8 @@ class NodeEventIngestionServiceTest {
             auditService,
             workflowService,
             browserCapacityService,
-            resourceService);
+            resourceService,
+            recoveryActionService);
   }
 
   @Test

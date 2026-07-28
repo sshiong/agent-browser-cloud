@@ -263,7 +263,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -441,7 +441,7 @@ unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_co
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
 
-recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"maximumAutoRecovery":1,"enabled":true}'
+recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
 recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -449,7 +449,7 @@ recovery_contract="$(curl -fsS -X PUT \
   -H 'X-Roles: TENANT_ADMIN' \
   -d "$recovery_contract_body")"
 printf '%s' "$recovery_contract" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]'
+  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1'
 recovery_contract_replay="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -855,6 +855,49 @@ business_recovery_db_summary="$(docker exec "$postgres_name" psql -U browserclou
        where tenant_id='tenant-integration' and session_id='${session_one}'
          and source='API' and verdict='READY')")"
 test "$business_recovery_db_summary" = "1:1"
+
+auto_recovery_contract_body='{"expectedVersion":1,"expectedOrigins":["https://example.test"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"status","name":"Recovered workspace"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
+auto_recovery_contract="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d "$auto_recovery_contract_body")"
+printf '%s' "$auto_recovery_contract" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 2; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["requiredTargets"] == [{"role":"status","name":"Recovered workspace"}]'
+auto_recovery_epoch="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+  -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+auto_recovery_migration_id="mig_autorecovery0001"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "insert into session_migrations (
+     migration_id, session_id, tenant_id, source_node_id, source_context_epoch,
+     target_node_id, target_context_epoch, phase, created_at, updated_at
+   ) values (
+     '${auto_recovery_migration_id}', '${session_one}', 'tenant-integration',
+     'node_integration', ${auto_recovery_epoch}, 'node_integration',
+     ${auto_recovery_epoch}, 'BUSINESS_VALIDATION', now(), now()
+   );" >/dev/null
+auto_recovery_migration=""
+auto_recovery_phase=""
+for _ in $(seq 1 120); do
+  auto_recovery_migration="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/migration" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  auto_recovery_phase="$(printf '%s' "$auto_recovery_migration" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["phase"])')"
+  if [[ "$auto_recovery_phase" = "COMPLETED" ]]; then break; fi
+  sleep 0.25
+done
+test "$auto_recovery_phase" = "COMPLETED"
+printf '%s' "$auto_recovery_migration" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["recoveryResult"] == "READY"; assert item["autoRecoveryAttempts"] == 1; assert item["autoRecoveryMaximum"] == 1; action=item["latestRecoveryAction"]; assert action["action"] == "RELOAD"; assert action["state"] == "COMMITTED"; assert action["resultingStateVersion"] > action["baseStateVersion"]'
+auto_recovery_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state || ':' || action_type || ':' || attempt_number
+   from business_recovery_actions
+   where migration_id='${auto_recovery_migration_id}'")"
+test "$auto_recovery_db_summary" = "COMMITTED:RELOAD:1"
 
 resource_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=61)).isoformat().replace("+00:00","Z"))')"
 resource_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"

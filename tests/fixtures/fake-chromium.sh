@@ -76,6 +76,7 @@ if (
     time.sleep(delay_seconds)
 mutate_after = int(os.environ.get("FAKE_CHROMIUM_MUTATE_STATE_AFTER", "0"))
 evaluation_count = 0
+business_recovery_completed = False
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -109,7 +110,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def handle_websocket(self):
-        global evaluation_count
+        global evaluation_count, business_recovery_completed
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
             hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
@@ -161,6 +162,16 @@ class Handler(BaseHTTPRequestHandler):
                         "sensitive": True,
                     }],
                 }
+                if business_recovery_completed:
+                    result["targets"].append({
+                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)",
+                        "role": "status",
+                        "name": "Recovered workspace",
+                        "bounds": {"x": 20.0, "y": 192.0, "width": 180.0, "height": 28.0},
+                        "enabled": True,
+                        "visible": True,
+                        "sensitive": False,
+                    })
                 response = {
                     "id": command["id"],
                     "result": {"result": {"type": "object", "value": result}},
@@ -185,6 +196,9 @@ class Handler(BaseHTTPRequestHandler):
                         ]
                     },
                 }
+            elif method == "Page.reload":
+                business_recovery_completed = True
+                response = {"id": command["id"], "result": {}}
             else:
                 response = {"id": command.get("id", 1), "result": {}}
             self.write_websocket_text(json.dumps(response))

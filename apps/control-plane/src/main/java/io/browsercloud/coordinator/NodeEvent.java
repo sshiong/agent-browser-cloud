@@ -87,10 +87,34 @@ public sealed interface NodeEvent
       String title,
       String stateHash,
       String stateQuality,
-      List<InteractiveTarget> targets)
+      List<InteractiveTarget> targets,
+      String snapshotKind,
+      String requestedRootRef)
       implements NodeEvent {
     public StateUpdated {
       targets = List.copyOf(targets);
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          stateHash,
+          stateQuality,
+          targets,
+          "",
+          "");
     }
   }
 

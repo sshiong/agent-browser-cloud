@@ -152,6 +152,13 @@ export interface RecoveryTargetIndicator {
   name: string;
 }
 
+export type BusinessRecoveryAction =
+  | 'NONE'
+  | 'RELOAD'
+  | 'NAVIGATE_HOME'
+  | 'REOPEN_KNOWN_ROUTE'
+  | 'REFRESH_SESSION';
+
 export interface RecoveryContractView {
   contractId: string;
   applicationId: string;
@@ -165,6 +172,7 @@ export interface RecoveryContractView {
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string[];
   allowDepthLimited: boolean;
+  recoveryAction: BusinessRecoveryAction;
   maximumAutoRecovery: number;
   enabled: boolean;
   createdAt: string;
@@ -367,11 +375,27 @@ export interface SessionMigrationView {
     | 'RESTORING'
     | 'STATE_RESYNC'
     | 'BUSINESS_VALIDATION'
+    | 'BUSINESS_RECOVERY_ACTION'
     | 'COMPLETED'
     | 'DEGRADED'
     | 'FAILED';
   recoveryResult?: string;
   failureReason?: string;
+  autoRecoveryAttempts: number;
+  autoRecoveryMaximum: number;
+  latestRecoveryAction?: {
+    actionId: string;
+    migrationId: string;
+    attemptNumber: number;
+    action: Exclude<BusinessRecoveryAction, 'NONE'>;
+    targetUrl?: string;
+    baseStateVersion: number;
+    resultingStateVersion?: number;
+    state: 'REQUESTED' | 'EXECUTING' | 'ACKNOWLEDGED' | 'COMMITTED' | 'FAILED';
+    errorCode?: string;
+    createdAt: string;
+    completedAt?: string;
+  };
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

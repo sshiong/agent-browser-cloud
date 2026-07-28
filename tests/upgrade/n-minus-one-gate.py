@@ -180,6 +180,27 @@ for invariant in (
 ):
     assert invariant in workspace_groups_upper
 
+auto_recovery_migration = read(
+    "database/migrations/V034__business_recovery_actions.sql"
+)
+auto_recovery_upper = auto_recovery_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in auto_recovery_upper
+for invariant in (
+    "ADD COLUMN RECOVERY_ACTION TEXT NOT NULL DEFAULT 'NONE'",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_APPLICATION_RECOVERY_ACTION",
+    "CREATE TABLE BUSINESS_RECOVERY_ACTIONS",
+    "'REQUESTED'",
+    "'EXECUTING'",
+    "'ACKNOWLEDGED'",
+    "'COMMITTED'",
+    "'FAILED'",
+    "UNIQUE (MIGRATION_ID, ATTEMPT_NUMBER)",
+    "'BUSINESS_RECOVERY_ACTION'",
+):
+    assert invariant in auto_recovery_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -276,6 +297,26 @@ for optional in (
 ):
     assert optional not in create_required
 
+recovery_contract_request = openapi.split(
+    "    UpsertRecoveryContractRequest:", 1
+)[1].split("    RecoveryContract:", 1)[0]
+recovery_contract_required = recovery_contract_request.split(
+    "      properties:", 1
+)[0]
+assert "recoveryAction" not in recovery_contract_required
+
+auto_recovery_command = proto.split(
+    "message BusinessRecoveryActionCommand {", 1
+)[1].split("}", 1)[0]
+for field, tag in (
+    ("session_id", 1),
+    ("action_id", 2),
+    ("action", 3),
+    ("target_url", 4),
+    ("base_state_version", 5),
+):
+    assert re.search(rf"\b{field}\s*=\s*{tag};", auto_recovery_command)
+
 workloads = read("deploy/kubernetes/base/workloads.yaml")
 assert "maxUnavailable: 0" in workloads
 assert "maxSurge: 1" in workloads
@@ -285,9 +326,9 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V033 additive",
+    "schema": "V019-V021 additive,V028,V034 expand-validate-contract,V029-V033 additive",
     "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24",
-    "json": "new-media-and-application-fields-optional",
+    "json": "new-media-and-application-recovery-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

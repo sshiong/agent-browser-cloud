@@ -16,6 +16,9 @@ public record SessionMigrationView(
     String phase,
     String recoveryResult,
     String failureReason,
+    int autoRecoveryAttempts,
+    int autoRecoveryMaximum,
+    BusinessRecoveryModels.BusinessRecoveryActionView latestRecoveryAction,
     Instant createdAt,
     Instant updatedAt,
     Instant completedAt) {}

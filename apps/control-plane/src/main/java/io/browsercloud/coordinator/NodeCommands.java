@@ -9,6 +9,7 @@ import io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
+import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.ReleaseAllInputCommand;
 import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
@@ -241,6 +242,35 @@ public final class NodeCommands {
             .build()
             .toByteArray();
     return command(session, operation, "AgentNavigate", payload);
+  }
+
+  public static NodeCommand businessRecoveryAction(
+      SessionContext session,
+      String messageId,
+      String actionId,
+      String action,
+      String targetUrl,
+      long baseStateVersion) {
+    var payload =
+        BusinessRecoveryActionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setActionId(actionId)
+            .setAction(action)
+            .setTargetUrl(targetUrl == null ? "" : targetUrl)
+            .setBaseStateVersion(baseStateVersion)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        messageId,
+        "BusinessRecoveryAction",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        "business-recovery:" + actionId,
+        payload);
   }
 
   public static NodeCommand requestAgentStateResync(

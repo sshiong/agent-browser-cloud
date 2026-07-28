@@ -730,6 +730,44 @@ impl CdpStateCollector {
         anyhow::bail!("CDP websocket closed before Page.navigate completed")
     }
 
+    pub async fn reload(&self, session_id: &str, ignore_cache: bool) -> anyhow::Result<()> {
+        let websocket_url = self.target_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP websocket connection timed out"))??;
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 3,
+                    "method": "Page.reload",
+                    "params": {"ignoreCache": ignore_cache}
+                })
+                .to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(Duration::from_secs(5), socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP Page.reload timed out"))?
+        {
+            let message = message?;
+            let Message::Text(text) = message else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(3) {
+                continue;
+            }
+            if let Some(error) = response.get("error") {
+                anyhow::bail!("CDP Page.reload failed: {error}");
+            }
+            return Ok(());
+        }
+        anyhow::bail!("CDP websocket closed before Page.reload completed")
+    }
+
     pub async fn resolve_target(
         &self,
         session_id: &str,

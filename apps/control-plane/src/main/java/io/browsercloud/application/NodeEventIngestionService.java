@@ -33,6 +33,7 @@ public class NodeEventIngestionService {
   private final DurableWorkflowApplicationService workflowService;
   private final BrowserCapacityApplicationService browserCapacityService;
   private final SessionResourceApplicationService resourceService;
+  private final BusinessRecoveryActionApplicationService recoveryActionService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -46,7 +47,8 @@ public class NodeEventIngestionService {
       AuditApplicationService auditService,
       DurableWorkflowApplicationService workflowService,
       BrowserCapacityApplicationService browserCapacityService,
-      SessionResourceApplicationService resourceService) {
+      SessionResourceApplicationService resourceService,
+      BusinessRecoveryActionApplicationService recoveryActionService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -59,6 +61,7 @@ public class NodeEventIngestionService {
     this.workflowService = workflowService;
     this.browserCapacityService = browserCapacityService;
     this.resourceService = resourceService;
+    this.recoveryActionService = recoveryActionService;
   }
 
   @Transactional
@@ -75,6 +78,7 @@ public class NodeEventIngestionService {
       case NodeEvent.StateUpdated state -> {
         browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
         agentNavigationCompletionService.stateUpdated(command, state);
+        recoveryActionService.stateUpdated(command, state);
       }
       case NodeEvent.StateDiff diff -> {
         if (!browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff)) {

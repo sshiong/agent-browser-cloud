@@ -60,7 +60,7 @@ class ApplicationBusinessRecoveryServiceTest {
   @Test
   void createsNormalizedBoundedRecoveryContract() {
     when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.empty());
-    when(contracts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(contracts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     var result =
         service.upsertContract(
@@ -77,6 +77,7 @@ class ApplicationBusinessRecoveryServiceTest {
                 List.of(),
                 List.of(),
                 false,
+                RecoveryAction.RELOAD,
                 1,
                 true),
             NOW);
@@ -84,6 +85,35 @@ class ApplicationBusinessRecoveryServiceTest {
     assertThat(result.version()).isEqualTo(1);
     assertThat(result.expectedOrigins()).containsExactly("https://crm.example.test");
     assertThat(result.requiredTargets()).containsExactly(new TargetIndicator("button", "Continue"));
+  }
+
+  @Test
+  void acceptsLegacyContractWithoutRecoveryActionButKeepsActionsDisabled() {
+    when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.empty());
+    when(contracts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var result =
+        service.upsertContract(
+            TENANT_ID,
+            "crm",
+            new UpsertRecoveryContractRequest(
+                0,
+                List.of("https://crm.example.test"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                false,
+                null,
+                1,
+                true),
+            NOW);
+
+    assertThat(result.recoveryAction()).isEqualTo(RecoveryAction.NONE);
+    assertThat(result.maximumAutoRecovery()).isEqualTo(1);
   }
 
   @Test
@@ -100,6 +130,7 @@ class ApplicationBusinessRecoveryServiceTest {
             List.of(),
             List.of(),
             false,
+            RecoveryAction.NONE,
             0,
             true);
 
@@ -133,6 +164,7 @@ class ApplicationBusinessRecoveryServiceTest {
             List.of(),
             List.of(),
             false,
+            RecoveryAction.RELOAD,
             1,
             true);
     assertThat(service.upsertContract(TENANT_ID, "crm", replay, NOW).version()).isEqualTo(1);
@@ -149,12 +181,13 @@ class ApplicationBusinessRecoveryServiceTest {
             List.of(),
             List.of(),
             false,
+            RecoveryAction.RELOAD,
             1,
             true);
     assertThatThrownBy(() -> service.upsertContract(TENANT_ID, "crm", conflict, NOW))
         .isInstanceOf(
             ApplicationBusinessRecoveryService.RecoveryContractVersionConflictException.class);
-    verify(contracts, never()).save(any());
+    verify(contracts, never()).saveAndFlush(any());
   }
 
   @Test
@@ -331,6 +364,7 @@ class ApplicationBusinessRecoveryServiceTest {
         "[]",
         objectMapper.writeValueAsString(requiredExtensionIds),
         false,
+        RecoveryAction.RELOAD.name(),
         1,
         true,
         NOW);

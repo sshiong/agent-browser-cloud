@@ -310,6 +310,7 @@ export function SessionDetailPage() {
 
                 <BusinessRecoveryCard
                   validation={businessRecoveryQuery.data}
+                  migration={migrationQuery.data}
                   loading={businessRecoveryQuery.isLoading}
                   error={
                     businessRecoveryMutation.error ??

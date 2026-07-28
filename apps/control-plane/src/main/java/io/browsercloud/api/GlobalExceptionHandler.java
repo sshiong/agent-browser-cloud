@@ -4,6 +4,11 @@ import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundExce
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractNotFoundException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractRejectedException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractVersionConflictException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassNotFoundException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassRejectedException;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapacityUnavailableException;
@@ -399,6 +404,53 @@ public class GlobalExceptionHandler {
         "EXTENSION_PROFILE_REJECTED",
         "Extension profile cannot be used for placement",
         Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler({
+    RecoveryContractNotFoundException.class,
+    BusinessRecoveryValidationNotFoundException.class
+  })
+  ResponseEntity<ApiError> businessRecoveryNotFound(
+      RuntimeException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "BUSINESS_RECOVERY_NOT_FOUND",
+        "Business Recovery resource was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecoveryContractVersionConflictException.class)
+  ResponseEntity<ApiError> recoveryContractVersionConflict(
+      RecoveryContractVersionConflictException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RECOVERY_CONTRACT_VERSION_CONFLICT",
+        "Application Recovery Contract version changed",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecoveryContractRejectedException.class)
+  ResponseEntity<ApiError> recoveryContractRejected(
+      RecoveryContractRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "RECOVERY_CONTRACT_REJECTED",
+        "Application Recovery Contract is invalid",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(BusinessRecoveryStateUnavailableException.class)
+  ResponseEntity<ApiError> businessRecoveryStateUnavailable(
+      BusinessRecoveryStateUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "BUSINESS_RECOVERY_STATE_UNAVAILABLE",
+        "Current authoritative Browser State is not available",
+        Map.of(),
         request);
   }
 

@@ -39,6 +39,7 @@ public class SessionApplicationService {
   private final CapacityAdmissionService capacityAdmissionService;
   private final BrowserCapacityApplicationService browserCapacityService;
   private final SessionResourceApplicationService sessionResourceService;
+  private final ApplicationBusinessRecoveryService businessRecoveryService;
   private final String defaultRuntimeBuildId;
 
   public SessionApplicationService(
@@ -56,6 +57,7 @@ public class SessionApplicationService {
       CapacityAdmissionService capacityAdmissionService,
       BrowserCapacityApplicationService browserCapacityService,
       SessionResourceApplicationService sessionResourceService,
+      ApplicationBusinessRecoveryService businessRecoveryService,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
           String defaultRuntimeBuildId) {
     this.coordinator = coordinator;
@@ -72,6 +74,7 @@ public class SessionApplicationService {
     this.capacityAdmissionService = capacityAdmissionService;
     this.browserCapacityService = browserCapacityService;
     this.sessionResourceService = sessionResourceService;
+    this.businessRecoveryService = businessRecoveryService;
     this.defaultRuntimeBuildId = defaultRuntimeBuildId;
   }
 
@@ -124,6 +127,8 @@ public class SessionApplicationService {
         context,
         request.region() == null ? "local" : request.region(),
         request.metadata() == null ? java.util.Map.of() : request.metadata());
+    businessRecoveryService.bind(
+        context.sessionId(), context.tenantId(), request.applicationId(), now);
     browserCapacityService.recordDemand(
         context.sessionId(),
         context.tenantId(),

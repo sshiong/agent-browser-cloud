@@ -36,6 +36,7 @@ class SessionApplicationServiceTest {
   @Mock private CapacityAdmissionService capacityAdmissionService;
   @Mock private BrowserCapacityApplicationService browserCapacityService;
   @Mock private SessionResourceApplicationService sessionResourceService;
+  @Mock private ApplicationBusinessRecoveryService businessRecoveryService;
 
   private SessionApplicationService service;
 
@@ -57,6 +58,7 @@ class SessionApplicationServiceTest {
             capacityAdmissionService,
             browserCapacityService,
             sessionResourceService,
+            businessRecoveryService,
             "runtime-test");
   }
 

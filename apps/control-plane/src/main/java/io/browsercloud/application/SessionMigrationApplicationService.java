@@ -29,7 +29,7 @@ public class SessionMigrationApplicationService {
   private final SafePointApplicationService safePoints;
   private final StateGatewayApplicationService stateGateway;
   private final BrowserStateRepository browserStates;
-  private final BusinessRecoveryValidator recoveryValidator;
+  private final ApplicationBusinessRecoveryService recoveryService;
   private final SessionResourceApplicationService resources;
 
   public SessionMigrationApplicationService(
@@ -41,7 +41,7 @@ public class SessionMigrationApplicationService {
       SafePointApplicationService safePoints,
       StateGatewayApplicationService stateGateway,
       BrowserStateRepository browserStates,
-      BusinessRecoveryValidator recoveryValidator,
+      ApplicationBusinessRecoveryService recoveryService,
       SessionResourceApplicationService resources) {
     this.migrations = migrations;
     this.sessions = sessions;
@@ -51,7 +51,7 @@ public class SessionMigrationApplicationService {
     this.safePoints = safePoints;
     this.stateGateway = stateGateway;
     this.browserStates = browserStates;
-    this.recoveryValidator = recoveryValidator;
+    this.recoveryService = recoveryService;
     this.resources = resources;
   }
 
@@ -223,18 +223,19 @@ public class SessionMigrationApplicationService {
   }
 
   private void validateBusinessRecovery(SessionMigrationEntity migration) {
-    var snapshot =
-        browserStates
-            .find(migration.getSessionId())
-            .orElseThrow(() -> new MigrationRejectedException("BUSINESS_STATE_MISSING"));
-    var verdict = recoveryValidator.validate(snapshot.state());
-    migration.complete(verdict.code(), verdict.ready(), Instant.now());
+    if (browserStates.find(migration.getSessionId()).isEmpty()) {
+      throw new MigrationRejectedException("BUSINESS_STATE_MISSING");
+    }
+    var verdict =
+        recoveryService.validateForMigration(
+            migration.getSessionId(), migration.getTenantId(), migration.getMigrationId());
+    migration.complete(verdict.verdict().name(), verdict.ready(), Instant.now());
     migrations.save(migration);
     resources.recordMigrationPhase(
         migration.getSessionId(),
         migration.getMigrationId(),
         verdict.ready() ? "COMPLETED" : "DEGRADED",
-        verdict.code(),
+        verdict.verdict().name(),
         true,
         verdict.ready());
   }

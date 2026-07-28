@@ -116,6 +116,27 @@ for invariant in (
         f"application safety migration lacks rolling invariant: {invariant}"
     )
 
+business_recovery_migration = read(
+    "database/migrations/V030__application_business_recovery.sql"
+)
+business_recovery_upper = business_recovery_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in business_recovery_upper, (
+        f"Business Recovery migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "CREATE TABLE APPLICATION_RECOVERY_CONTRACTS",
+    "CREATE TABLE SESSION_APPLICATION_BINDINGS",
+    "CREATE TABLE BUSINESS_RECOVERY_VALIDATIONS",
+    "UNIQUE (TENANT_ID, APPLICATION_ID)",
+    "REFERENCES SESSIONS(ID) ON DELETE CASCADE",
+    "CREATE INDEX IDX_BUSINESS_RECOVERY_VALIDATIONS_LATEST",
+    "'MANUAL_RECOVERY_REQUIRED'",
+):
+    assert invariant in business_recovery_upper, (
+        f"Business Recovery migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -166,7 +187,12 @@ create = openapi.split("    CreateSessionRequest:", 1)[1].split(
     "    CreateSessionResponse:", 1
 )[0]
 create_required = create.split("      properties:", 1)[0]
-for optional in ("mediaWorkload", "requestedMediaStreams", "mediaBitrateKbps"):
+for optional in (
+    "applicationId",
+    "mediaWorkload",
+    "requestedMediaStreams",
+    "mediaBitrateKbps",
+):
     assert optional not in create_required
 
 workloads = read("deploy/kubernetes/base/workloads.yaml")
@@ -178,9 +204,9 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028 expand-validate-contract,V029 additive-safety-stream",
+    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V030 additive",
     "protobuf": "unknown-fields-15-16,optional-28-30",
-    "json": "new-media-fields-optional",
+    "json": "new-media-and-application-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

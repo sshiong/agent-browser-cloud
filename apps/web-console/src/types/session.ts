@@ -129,6 +129,7 @@ export interface OperationView {
 export interface CreateSessionRequest {
   tenantId: string;
   profileId: string;
+  applicationId?: string;
   region?: string;
   resourcePolicy?: ResourcePolicyRequest;
   /** @deprecated Legacy SDK compatibility. Web UI must use resourcePolicy=AUTO. */
@@ -142,6 +143,60 @@ export interface CreateSessionRequest {
   mediaBitrateKbps?: number;
   extensionIds?: string[];
   metadata?: Record<string, string>;
+}
+
+export interface RecoveryTargetIndicator {
+  role: string;
+  name: string;
+}
+
+export interface RecoveryContractView {
+  contractId: string;
+  applicationId: string;
+  version: number;
+  expectedOrigins: string[];
+  readyRoutePrefixes: string[];
+  loginRoutePrefixes: string[];
+  requiredTargets: RecoveryTargetIndicator[];
+  loginTargets: RecoveryTargetIndicator[];
+  permissionDeniedTargets: RecoveryTargetIndicator[];
+  accountMismatchTargets: RecoveryTargetIndicator[];
+  requiredExtensionIds: string[];
+  allowDepthLimited: boolean;
+  maximumAutoRecovery: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecoveryContractListResponse {
+  items: RecoveryContractView[];
+  total: number;
+}
+
+export type BusinessRecoveryVerdict =
+  | 'READY'
+  | 'READY_WITH_WARNING'
+  | 'LOGIN_REQUIRED'
+  | 'PERMISSION_CHANGED'
+  | 'ACCOUNT_MISMATCH'
+  | 'APPLICATION_UNAVAILABLE'
+  | 'STATE_CHANGED'
+  | 'MANUAL_RECOVERY_REQUIRED';
+
+export interface BusinessRecoveryValidationView {
+  validationId: string;
+  sessionId: string;
+  applicationId?: string;
+  contractVersion?: number;
+  contextEpoch: number;
+  stateVersion: number;
+  verdict: BusinessRecoveryVerdict;
+  ready: boolean;
+  evidence: string[];
+  source: 'API' | 'MIGRATION';
+  requestId: string;
+  evaluatedAt: string;
 }
 
 /**

@@ -1,7 +1,7 @@
 # Safe Point、自动休眠与跨节点迁移闭环
 
 > 日期：2026-07-28
-> 状态：仓库内核心执行链和单元/契约/数据库验收完成；CDP 浏览器活动与应用事务短 Lease 已补齐，真实双 Browser Node + S3 全链路 E2E、业务 Adapter 和专用 Validator 待完成
+> 状态：仓库内核心执行链和单元/契约/数据库验收完成；CDP 浏览器活动、应用事务短 Lease 与声明式应用 Ready Gate 已补齐，真实双 Browser Node + S3 全链路 E2E、业务 Adapter 和 Provider 级证明待完成
 
 ## 本轮完成
 
@@ -67,6 +67,11 @@
   `READY_DEFAULT_BROWSER_STATE_VALIDATOR`、`LOGIN_REQUIRED`、
   `MANUAL_RECOVERY_REQUIRED`、`DEGRADED_STATE_QUALITY` 或
   `BUSINESS_RECOVERY_UNKNOWN`。
+- 绑定 `applicationId` 的 Session 会改用 V030 版本化 Application Recovery Contract；
+  精确 Origin、Route、可访问性 Target 和 Extension 证据生成持久 Verdict。迁移
+  `BUSINESS_VALIDATION` 只有在该 Verdict `ready=true` 时才能完成。未绑定应用的
+  Session 仍使用上述保守默认 Validator。详见
+  [应用感知 Business Recovery 与 Ready Gate](51-应用感知Business-Recovery-Ready-Gate.md)。
 - 只有 `READY` 才把 `PAUSED_BY_RESOURCE_POLICY` Agent 恢复为可继续规划；Login、
   Manual、Unknown 或 Degraded 保持 Agent 暂停。
 - 新增 `GET /api/v1/sessions/{id}/migration`，Session 详情显示源/目标 Node、
@@ -101,8 +106,8 @@
    Adapter/自动埋点；未接入的业务不会被伪装成已识别。
 4. 两个真实 Browser Node + S3-compatible Object Storage + 真实 Chromium 的迁移
    E2E、断点重试、源/目标 Node 故障注入和长期稳定性证书。
-5. Tenant/Application-aware Business Recovery Validator 插件；默认 Validator 只能
-   给出保守的通用浏览器状态结论。
+5. Application-aware 声明式 Validator 和迁移 Ready Gate 已完成；仍缺目标站点
+   Adapter、Provider/API 级证明、契约作者 UI 和自动恢复动作执行器。
 6. PostgreSQL Resource/Migration Event SSE、`Last-Event-ID` 和断线恢复已完成；
    State/Audit 通用事件层与跨 Region Event Bus 尚未完成。
 7. Tauri 2 容器与 OS 安全存储已完成；仍缺签名发行、真实 Updater/IdP 和桌面端

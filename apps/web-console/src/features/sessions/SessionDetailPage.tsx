@@ -29,6 +29,8 @@ import {
   useSessionResources,
   useSessionSafePoint,
   useSessionMigration,
+  useBusinessRecovery,
+  useValidateBusinessRecovery,
   useStartSession,
   useTerminateSession,
   useUpdateResourcePolicy,
@@ -43,6 +45,7 @@ import type {
 } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
 import { SessionResourcePanel } from '@/features/sessions/components/resources/SessionResourcePanel';
+import { BusinessRecoveryCard } from '@/features/sessions/components/BusinessRecoveryCard';
 
 export function SessionDetailPage() {
   const auth = useAuth();
@@ -61,6 +64,8 @@ export function SessionDetailPage() {
   const resourceEventsQuery = useSessionResourceEvents(id);
   const safePointQuery = useSessionSafePoint(id);
   const migrationQuery = useSessionMigration(id);
+  const businessRecoveryQuery = useBusinessRecovery(id);
+  const businessRecoveryMutation = useValidateBusinessRecovery(id);
   const resourceStreamState = useSessionResourceStream(id, Boolean(id));
   const resourcePolicyMutation = useUpdateResourcePolicy(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
@@ -188,6 +193,7 @@ export function SessionDetailPage() {
                         resourceEventsQuery.refetch(),
                         safePointQuery.refetch(),
                         migrationQuery.refetch(),
+                        businessRecoveryQuery.refetch(),
                       ])
                     }
                     disabled={
@@ -300,6 +306,23 @@ export function SessionDetailPage() {
                       reason: 'WEB_CONSOLE',
                     })
                   }
+                />
+
+                <BusinessRecoveryCard
+                  validation={businessRecoveryQuery.data}
+                  loading={businessRecoveryQuery.isLoading}
+                  error={
+                    businessRecoveryMutation.error ??
+                    businessRecoveryQuery.error
+                  }
+                  canValidate={
+                    auth.canOperate &&
+                    ['RUNNING', 'DEGRADED'].includes(session.state) &&
+                    Boolean(browserStateQuery.data)
+                  }
+                  validating={businessRecoveryMutation.isPending}
+                  onValidate={() => businessRecoveryMutation.mutate()}
+                  onRetry={() => void businessRecoveryQuery.refetch()}
                 />
 
                 <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">

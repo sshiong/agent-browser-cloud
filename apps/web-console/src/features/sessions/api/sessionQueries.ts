@@ -16,6 +16,9 @@ import {
   terminateSession,
   updateSessionResourcePolicy,
   streamSessionResourceChanges,
+  listRecoveryContracts,
+  getBusinessRecovery,
+  validateBusinessRecovery,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -45,6 +48,9 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'safe-point'] as const,
   migration: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'migration'] as const,
+  businessRecovery: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'business-recovery'] as const,
+  recoveryContracts: ['application-recovery-contracts'] as const,
 };
 
 export function useSessions(params: {
@@ -147,6 +153,42 @@ export function useSessionMigration(sessionId: string) {
   });
 }
 
+export function useRecoveryContracts() {
+  return useQuery({
+    queryKey: sessionKeys.recoveryContracts,
+    queryFn: ({ signal }) => listRecoveryContracts(undefined, signal),
+  });
+}
+
+export function useBusinessRecovery(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.businessRecovery(sessionId),
+    queryFn: ({ signal }) => getBusinessRecovery(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useValidateBusinessRecovery(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      validateBusinessRecovery(
+        sessionId,
+        `business-recovery-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.businessRecovery(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.migration(sessionId),
+        }),
+      ]);
+    },
+  });
+}
+
 export function useSessionResourceStream(
   sessionId: string,
   enabled: boolean
@@ -180,6 +222,9 @@ export function useSessionResourceStream(
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.migration(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.businessRecovery(sessionId),
         }),
       ]);
 

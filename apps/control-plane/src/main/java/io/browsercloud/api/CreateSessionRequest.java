@@ -16,6 +16,7 @@ import java.util.Map;
  *
  * @param tenantId 租户 ID
  * @param profileId Profile ID
+ * @param applicationId 可选的 Tenant Application Recovery Contract ID
  * @param region 部署区域
  * @param resourcePolicy 用户可见的自动资源策略
  * @param resourceClass 仅供旧版 SDK 兼容的内部资源等级；新客户端不得提交
@@ -32,6 +33,7 @@ import java.util.Map;
 public record CreateSessionRequest(
     @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String tenantId,
     @NotBlank @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId,
+    @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
     @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
     @Valid ResourcePolicyRequest resourcePolicy,
     ResourceClass resourceClass,

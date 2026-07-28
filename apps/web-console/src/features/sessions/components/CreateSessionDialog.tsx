@@ -29,7 +29,10 @@ import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
 import { useProfiles } from '@/features/profiles/profileQueries';
 import { useProxyOverview } from '@/features/proxies/proxyQueries';
 import { useRuntimeBuilds } from '@/features/security/platformQueries';
-import { useCreateSession } from '@/features/sessions/api/sessionQueries';
+import {
+  useCreateSession,
+  useRecoveryContracts,
+} from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
 
 const schema = z
@@ -51,6 +54,7 @@ const schema = z
     description: z.string().trim().max(500),
     accent: z.enum(['teal', 'blue', 'amber', 'violet']),
     runtimeBuildId: z.string().trim().min(1, '请选择 Runtime Build'),
+    applicationId: z.string().trim().max(128),
     profileMode: z.enum(['empty', 'existing', 'checkpoint']),
     profileId: z.string().trim().max(128),
     networkMode: z.enum(['managed', 'direct']),
@@ -149,7 +153,7 @@ const mediaBudgets = {
 
 const stepFields: Record<Step, (keyof FormValues)[]> = {
   1: ['name', 'group', 'tags', 'description', 'accent'],
-  2: ['runtimeBuildId', 'profileMode', 'profileId'],
+  2: ['runtimeBuildId', 'applicationId', 'profileMode', 'profileId'],
   3: ['networkMode', 'region'],
   4: [
     'executionEnvironment',
@@ -190,6 +194,7 @@ export function CreateSessionDialog({
   const proxyQuery = useProxyOverview();
   const enterpriseQuery = useEnterpriseOverview();
   const extensionsQuery = useExtensionProfiles();
+  const recoveryContractsQuery = useRecoveryContracts();
   const [step, setStep] = useState<Step>(1);
   const [createdSessionId, setCreatedSessionId] = useState<string>();
   const [advancedResourcesOpen, setAdvancedResourcesOpen] = useState(false);
@@ -216,6 +221,7 @@ export function CreateSessionDialog({
       description: '',
       accent: 'teal',
       runtimeBuildId: '',
+      applicationId: '',
       profileMode: 'empty',
       profileId: '',
       networkMode: 'managed',
@@ -320,6 +326,7 @@ export function CreateSessionDialog({
       request: {
         tenantId: currentTenantId(),
         profileId,
+        applicationId: form.applicationId || undefined,
         region: form.region,
         resourcePolicy: {
           mode: 'AUTO',
@@ -679,6 +686,35 @@ export function CreateSessionDialog({
                       </select>
                     </Field>
                   )}
+
+                  <Field
+                    label="业务恢复契约"
+                    hint="可选。绑定后，迁移只有通过该应用的 Ready Gate 才会恢复 Agent。"
+                  >
+                    {recoveryContractsQuery.isLoading ? (
+                      <LoadingBlock label="正在读取 Recovery Contracts" />
+                    ) : recoveryContractsQuery.isError ? (
+                      <QueryError label="无法读取 Recovery Contracts" />
+                    ) : (
+                      <select
+                        {...register('applicationId')}
+                        className="field-input"
+                      >
+                        <option value="">通用保守验证器</option>
+                        {(recoveryContractsQuery.data?.items ?? [])
+                          .filter((contract) => contract.enabled)
+                          .map((contract) => (
+                            <option
+                              key={contract.contractId}
+                              value={contract.applicationId}
+                            >
+                              {contract.applicationId} · v{contract.version} ·{' '}
+                              {contract.expectedOrigins.join(', ')}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </Field>
 
                   <UnavailableOption
                     title="从文件导入 Profile"
@@ -1203,6 +1239,15 @@ export function CreateSessionDialog({
                               : values.profileId
                           }
                           mono={values.profileMode !== 'empty'}
+                        />
+                        <ReviewItem
+                          label="业务恢复"
+                          value={
+                            values.applicationId
+                              ? `${values.applicationId} · Application Ready Gate`
+                              : '通用保守验证器'
+                          }
+                          mono={Boolean(values.applicationId)}
                         />
                         <ReviewItem
                           label="网络 / 区域"

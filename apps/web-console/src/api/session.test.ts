@@ -3,7 +3,9 @@ import {
   acquireSessionSafetyLease,
   createSession,
   getBrowserState,
+  getBusinessRecovery,
   getSessionSafePoint,
+  listRecoveryContracts,
   listSessions,
   requestHumanTakeover,
   releaseSessionSafetyLease,
@@ -11,6 +13,7 @@ import {
   SessionApiError,
   startSession,
   streamSessionResourceChanges,
+  validateBusinessRecovery,
 } from './session';
 
 describe('session API', () => {
@@ -156,6 +159,84 @@ describe('session API', () => {
         }),
       })
     );
+  });
+
+  it('loads recovery contracts and validates Business Recovery idempotently', async () => {
+    const validation = {
+      validationId: 'brv_1234567890abcdefghij',
+      sessionId: 'ses_1234567890abcdef',
+      applicationId: 'crm',
+      contractVersion: 2,
+      contextEpoch: 7,
+      stateVersion: 12,
+      verdict: 'READY',
+      ready: true,
+      evidence: ['APPLICATION_CONTRACT_SATISFIED'],
+      source: 'API',
+      requestId: 'request-1',
+      evaluatedAt: new Date().toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ items: [], total: 0 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(validation), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(validation), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listRecoveryContracts('tenant-test');
+    await validateBusinessRecovery(
+      'ses_1234567890abcdef',
+      'business-recovery-1',
+      'tenant-test'
+    );
+    await getBusinessRecovery('ses_1234567890abcdef', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/business-recovery:validate',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'Idempotency-Key': 'business-recovery-1',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/sessions/ses_1234567890abcdef/business-recovery',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('treats a missing Business Recovery verdict as not yet validated', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
+    );
+
+    await expect(
+      getBusinessRecovery('ses_1234567890abcdef', 'tenant-test')
+    ).resolves.toBeNull();
   });
 
   it('acquires and releases an owner-bound safety lease with idempotency', async () => {

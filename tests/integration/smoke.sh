@@ -437,7 +437,30 @@ unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_co
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
 
-request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","region":"local","resourceClass":"L1","requestedTabs":2,"agentActionsPerMinute":60,"extensionIds":["unknown.integration"],"metadata":{"displayName":"Integration browser"}}'
+recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"maximumAutoRecovery":1,"enabled":true}'
+recovery_contract="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d "$recovery_contract_body")"
+printf '%s' "$recovery_contract" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]'
+recovery_contract_replay="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d "$recovery_contract_body")"
+printf '%s' "$recovery_contract_replay" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 1'
+recovery_contract_cross_tenant_status="$(curl -sS \
+  -o "$temp_dir/recovery-contract-cross-tenant.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
+  -H 'X-Tenant-Id: different-tenant')"
+test "$recovery_contract_cross_tenant_status" = "404"
+
+request_body='{"tenantId":"tenant-integration","profileId":"profile-integration","applicationId":"crm.integration","region":"local","resourceClass":"L1","requestedTabs":2,"agentActionsPerMinute":60,"extensionIds":["unknown.integration"],"metadata":{"displayName":"Integration browser"}}'
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -741,6 +764,40 @@ done
 test "$diff_target_name" = "Continue integration"
 printf '%s' "$diff_state" | python3 -c \
   "import json,sys; state=json.load(sys.stdin); assert state['stateVersion'] > ${initial_state_version}; assert state['stateQuality'] == 'COMPLETE'"
+
+business_recovery="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery:validate" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recovery-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-business-recovery-001')"
+printf '%s' "$business_recovery" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["contractVersion"] == 1; assert item["verdict"] == "READY"; assert item["ready"] is True; assert item["source"] == "API"; assert item["evidence"] == ["APPLICATION_CONTRACT_SATISFIED"]; assert item["requestId"]'
+business_recovery_id="$(printf '%s' "$business_recovery" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["validationId"])')"
+business_recovery_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery:validate" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recovery-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-business-recovery-001')"
+replayed_business_recovery_id="$(printf '%s' "$business_recovery_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["validationId"])')"
+test "$business_recovery_id" = "$replayed_business_recovery_id"
+latest_business_recovery="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$latest_business_recovery" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['validationId'] == '${business_recovery_id}'; assert item['ready'] is True"
+business_recovery_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+      (select count(*) from session_application_bindings
+       where tenant_id='tenant-integration' and session_id='${session_one}'
+         and application_id='crm.integration') || ':' ||
+      (select count(*) from business_recovery_validations
+       where tenant_id='tenant-integration' and session_id='${session_one}'
+         and source='API' and verdict='READY')")"
+test "$business_recovery_db_summary" = "1:1"
 
 resource_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=61)).isoformat().replace("+00:00","Z"))')"
 resource_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
@@ -2214,6 +2271,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

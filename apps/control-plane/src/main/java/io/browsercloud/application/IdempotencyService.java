@@ -127,6 +127,20 @@ public class IdempotencyService {
         candidateEventId);
   }
 
+  String claimBusinessRecoveryValidation(
+      String tenantId,
+      String sessionId,
+      String idempotencyKey,
+      String source,
+      String candidateValidationId) {
+    return claim(
+        tenantId,
+        "BUSINESS_RECOVERY_VALIDATION:" + sessionId,
+        idempotencyKey,
+        hashRequest(source),
+        candidateValidationId);
+  }
+
   private String claim(
       String tenantId,
       String operationType,

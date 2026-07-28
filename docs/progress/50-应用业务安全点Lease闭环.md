@@ -1,7 +1,7 @@
 # 应用业务安全点 Lease 闭环
 
 > 日期：2026-07-28
-> 状态：通用持久 Lease、Safe Point、SSE 和迁移并发屏障已完成；目标业务 Adapter 与业务恢复规则仍待接入
+> 状态：通用持久 Lease、Safe Point、SSE、迁移并发屏障和声明式业务恢复规则已完成；目标业务 Adapter、Provider 级证明与自动恢复动作仍待接入
 
 ## 为什么需要 Lease
 
@@ -103,8 +103,10 @@ POST /api/v1/sessions/{id}/safety-leases/{leaseId}:release
 
 1. 各 Tenant/Application 的支付、账号安全、SPA 和关键事务 Adapter/SDK 包装；本轮完成
    的是通用 Producer 协议，不会自动理解任意网页业务语义。
-2. Application-aware Business Recovery Validator 插件和规则 DSL；默认 Validator
-   仍只能根据通用 Browser State 给出保守结论。
+2. Application-aware Business Recovery 的版本化契约、受限规则 DSL、持久 Verdict
+   和迁移 Ready Gate 已完成；仍缺各站点 Adapter、契约作者 UI、Provider/API 级账号/
+   权限/业务实体证明和自动恢复动作执行器。详见
+   [应用感知 Business Recovery 与 Ready Gate](51-应用感知Business-Recovery-Ready-Gate.md)。
 3. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发压力、网络分区、
    Node 故障和长期稳定性证书。
 4. State/Audit/Agent Step 统一事件总线与跨 Region 消费；当前 Lease 已接入 Session

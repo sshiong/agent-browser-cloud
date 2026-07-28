@@ -260,4 +260,26 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The mediaEncoderSlots.
    */
   int getMediaEncoderSlots();
+
+  /**
+   * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+   * @return Whether the freezeBackgroundTabs field is set.
+   */
+  boolean hasFreezeBackgroundTabs();
+  /**
+   * <code>optional bool freeze_background_tabs = 23 [json_name = "freezeBackgroundTabs"];</code>
+   * @return The freezeBackgroundTabs.
+   */
+  boolean getFreezeBackgroundTabs();
+
+  /**
+   * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+   * @return Whether the blockNewTabs field is set.
+   */
+  boolean hasBlockNewTabs();
+  /**
+   * <code>optional bool block_new_tabs = 24 [json_name = "blockNewTabs"];</code>
+   * @return The blockNewTabs.
+   */
+  boolean getBlockNewTabs();
 }

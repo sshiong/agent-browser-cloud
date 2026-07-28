@@ -46,6 +46,8 @@ public final class SessionResourceModels {
       Integer extensionCpuWeight,
       Integer mediaEncoderSlots,
       Integer mediaEncoderSlotLimit,
+      Boolean backgroundTabsFrozen,
+      Boolean newTabsBlocked,
       String placementState) {}
 
   public record UsageView(

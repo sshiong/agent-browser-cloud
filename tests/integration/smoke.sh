@@ -1382,6 +1382,54 @@ non_cgroup_adjustment_events="$(docker exec "$postgres_name" psql -U browserclou
      and result='COMMITTED'")"
 test "$non_cgroup_adjustment_events" = "1"
 
+current_allocation="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select cpu_millis || ':' || memory_limit_mib
+   from browser_placements where session_id='${session_one}'")"
+current_cpu_millis="${current_allocation%%:*}"
+current_memory_limit_mib="${current_allocation#*:}"
+curl -fsS -X PATCH \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: resource-policy-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -H 'Idempotency-Key: smoke-tab-resource-policy-001' \
+  -d "{\"mode\":\"AUTO\",\"maximumCpuMillis\":${current_cpu_millis},\"maximumMemoryMib\":${current_memory_limit_mib}}" \
+  >"$temp_dir/tab-resource-policy.json"
+maximum_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=62)).isoformat().replace("+00:00","Z"))')"
+maximum_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
+for observed_at in "$maximum_pressure_start" "$maximum_pressure_end"; do
+  curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-samples" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: PLATFORM_ADMIN' \
+    -d "{\"nodeId\":\"node_integration\",\"cpuPercent\":100.0,\"memoryRssMib\":${current_memory_limit_mib},\"memoryPsiSomeAvg10\":0.02,\"observedAt\":\"${observed_at}\"}" \
+    >/dev/null
+done
+tab_resource_limits=""
+for _ in $(seq 1 160); do
+  tab_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select state_collector_budget_percent || ':' || background_tabs_frozen || ':' || new_tabs_blocked
+     from browser_placements where session_id='${session_one}'")"
+  if [[ "$tab_resource_limits" = "50:true:true" ]]; then break; fi
+  sleep 0.25
+done
+test "$tab_resource_limits" = "50:true:true"
+tab_resource_view="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resources" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$tab_resource_view" | python3 -c \
+  'import json,sys; allocation=json.load(sys.stdin)["allocation"]; assert allocation["backgroundTabsFrozen"] is True; assert allocation["newTabsBlocked"] is True; assert allocation["stateCollectorBudgetPercent"] == 50'
+tab_resource_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from session_resource_events
+   where session_id='${session_one}'
+     and event_type='ALLOCATION_ADJUSTED'
+     and new_resources->>'backgroundTabsFrozen'='true'
+     and new_resources->>'newTabsBlocked'='true'
+     and result='COMMITTED'")"
+test "$tab_resource_events" = "1"
+
 inflight_takeover="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -2272,14 +2320,14 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "10"
+test "$committed_operations" = "12"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
-test "$resource_policy_operations" = "2"
+test "$resource_policy_operations" = "4"
 non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots
+  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots || ':' || background_tabs_frozen || ':' || new_tabs_blocked
    from browser_placements where session_id='${session_one}'")"
-test "$non_cgroup_resource_limits" = "75:0:100:0"
+test "$non_cgroup_resource_limits" = "50:0:100:0:true:true"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"
@@ -2290,10 +2338,10 @@ published_commands="0"
 for _ in $(seq 1 20); do
   published_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select count(*) from outbox_events where event_type='node.command.requested' and published_at is not null")"
-  if [[ "$published_commands" -ge "10" ]]; then break; fi
+  if [[ "$published_commands" -ge "11" ]]; then break; fi
   sleep 0.25
 done
-test "$published_commands" -ge "10"
+test "$published_commands" -ge "11"
 
 browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from browser_states where session_id='${session_one}' and tenant_id='tenant-integration'")"
@@ -2848,6 +2896,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

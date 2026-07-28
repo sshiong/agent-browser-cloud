@@ -64,6 +64,8 @@ public final class NodeCommands {
             .addAllExtensionIds(limits.extensionIds())
             .setExtensionCpuWeight(limits.extensionCpuWeight())
             .setMediaEncoderSlots(limits.mediaEncoderSlots())
+            .setFreezeBackgroundTabs(limits.freezeBackgroundTabs())
+            .setBlockNewTabs(limits.blockNewTabs())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
@@ -98,6 +100,8 @@ public final class NodeCommands {
         java.util.List.of(),
         100,
         0,
+        false,
+        false,
         budget.desktopAllowed(),
         budget.gpuRequired(),
         budget.nativeOsRequired(),
@@ -109,6 +113,16 @@ public final class NodeCommands {
       ExclusiveOperation operation,
       RuntimeResourceLimits limits,
       String reason) {
+    return adjustRuntimeResources(session, operation, limits, reason, false, false);
+  }
+
+  public static NodeCommand adjustRuntimeResources(
+      SessionContext session,
+      ExclusiveOperation operation,
+      RuntimeResourceLimits limits,
+      String reason,
+      boolean freezeBackgroundTabs,
+      boolean blockNewTabs) {
     var payload =
         AdjustRuntimeResourcesCommand.newBuilder()
             .setSessionId(session.sessionId())
@@ -122,6 +136,8 @@ public final class NodeCommands {
             .setRemoteDesktopBitrateKbps(limits.remoteDesktopBitrateKbps())
             .setExtensionCpuWeight(limits.extensionCpuWeight())
             .setMediaEncoderSlots(limits.mediaEncoderSlots())
+            .setFreezeBackgroundTabs(freezeBackgroundTabs)
+            .setBlockNewTabs(blockNewTabs)
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

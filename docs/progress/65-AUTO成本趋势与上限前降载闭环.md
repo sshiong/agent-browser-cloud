@@ -66,6 +66,8 @@ CPU 和内存已到允许上限、或成本已经越界时，系统先检查当�
 - 降低 Remote Desktop Bitrate；
 - 降低受信 Extension CPU Weight；
 - 减少 Media Encoder Slot；
+- 通过真实 CDP 冻结后台 Page Target；
+- 以策略提交时的 Page Target 为允许集合，持续阻断新建标签；
 - CPU/内存保持当前值，不伪造扩容。
 
 该动作复用既有真实链路：
@@ -114,8 +116,9 @@ REQUESTED
 
 ## 仍需完成
 
-1. Level 1 尚未覆盖成功 Trace 采样、视频录制、截图频率、后台 Tab 冻结和“禁止新建
-   Tab”；这些需要独立可确认的 Node 能力和 ACK，不能只写策略事件；
+1. 后台 Tab 冻结和新建 Tab 阻断已由
+   [进度 66](66-AUTO后台标签冻结与新建标签阻断闭环.md)关闭；Level 1 尚未覆盖成功
+   Trace 采样、视频/Observer 录制与帧率、截图频率和逐 Extension 后台任务暂停；
 2. 企业成本模型仍以内部 Legacy Resource Class 关联费率；应在兼容窗口内迁移为内部
    Template/容量维度，避免在企业 UI 暴露 L1−L5；
 3. 目标云真实费率、账单校准、租户预算来源和长期成本准确性证书；

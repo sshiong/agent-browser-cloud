@@ -235,4 +235,48 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newMediaEncoderSlots.
    */
   int getNewMediaEncoderSlots();
+
+  /**
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * @return Whether the oldFreezeBackgroundTabs field is set.
+   */
+  boolean hasOldFreezeBackgroundTabs();
+  /**
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * @return The oldFreezeBackgroundTabs.
+   */
+  boolean getOldFreezeBackgroundTabs();
+
+  /**
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * @return Whether the newFreezeBackgroundTabs field is set.
+   */
+  boolean hasNewFreezeBackgroundTabs();
+  /**
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * @return The newFreezeBackgroundTabs.
+   */
+  boolean getNewFreezeBackgroundTabs();
+
+  /**
+   * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   * @return Whether the oldBlockNewTabs field is set.
+   */
+  boolean hasOldBlockNewTabs();
+  /**
+   * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   * @return The oldBlockNewTabs.
+   */
+  boolean getOldBlockNewTabs();
+
+  /**
+   * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   * @return Whether the newBlockNewTabs field is set.
+   */
+  boolean hasNewBlockNewTabs();
+  /**
+   * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   * @return The newBlockNewTabs.
+   */
+  boolean getNewBlockNewTabs();
 }

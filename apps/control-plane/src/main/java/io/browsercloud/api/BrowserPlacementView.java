@@ -27,6 +27,8 @@ public record BrowserPlacementView(
     boolean requiresMedia,
     int mediaSlots,
     int mediaEncoderSlots,
+    boolean backgroundTabsFrozen,
+    boolean newTabsBlocked,
     int mediaBitrateKbps,
     int placementScore,
     String state,

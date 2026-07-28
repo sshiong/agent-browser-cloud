@@ -31,12 +31,14 @@ import io.browsercloud.persistence.SessionResourcePolicyEntity;
 import io.browsercloud.persistence.SessionResourcePolicyJpaRepository;
 import io.browsercloud.persistence.SessionResourceSampleEntity;
 import io.browsercloud.persistence.SessionResourceSampleJpaRepository;
+import io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class SessionResourceCostAndMaximumPolicyTest {
   private final SessionResourcePolicyJpaRepository policies =
@@ -152,7 +154,7 @@ class SessionResourceCostAndMaximumPolicyTest {
   }
 
   @Test
-  void maximumPressureDispatchesOneRealNonCoreMitigationBeforePause() {
+  void maximumPressureDispatchesOneRealNonCoreMitigationBeforePause() throws Exception {
     var now = Instant.now();
     var policy = policy(MaximumReachedPolicy.PAUSE_AGENT, null);
     var placement = placement(now);
@@ -172,7 +174,11 @@ class SessionResourceCostAndMaximumPolicyTest {
         .isEqualTo("MAXIMUM_NON_CORE_MITIGATION_COMMAND_DISPATCHED");
     assertThat(policy.getMaximumMitigationOperationId()).startsWith("op_");
     verify(operations).insert(any());
-    verify(nodeCommands).send(any());
+    var command = ArgumentCaptor.forClass(io.browsercloud.coordinator.NodeCommand.class);
+    verify(nodeCommands).send(command.capture());
+    var payload = AdjustRuntimeResourcesCommand.parseFrom(command.getValue().payload());
+    assertThat(payload.getFreezeBackgroundTabs()).isTrue();
+    assertThat(payload.getBlockNewTabs()).isTrue();
   }
 
   private static SessionResourcePolicyEntity policy(

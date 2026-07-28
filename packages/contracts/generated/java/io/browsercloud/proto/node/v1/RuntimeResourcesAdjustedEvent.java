@@ -554,6 +554,82 @@ private static final long serialVersionUID = 0L;
     return newMediaEncoderSlots_;
   }
 
+  public static final int OLD_FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 25;
+  private boolean oldFreezeBackgroundTabs_ = false;
+  /**
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * @return Whether the oldFreezeBackgroundTabs field is set.
+   */
+  @java.lang.Override
+  public boolean hasOldFreezeBackgroundTabs() {
+    return ((bitField0_ & 0x00000100) != 0);
+  }
+  /**
+   * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+   * @return The oldFreezeBackgroundTabs.
+   */
+  @java.lang.Override
+  public boolean getOldFreezeBackgroundTabs() {
+    return oldFreezeBackgroundTabs_;
+  }
+
+  public static final int NEW_FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 26;
+  private boolean newFreezeBackgroundTabs_ = false;
+  /**
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * @return Whether the newFreezeBackgroundTabs field is set.
+   */
+  @java.lang.Override
+  public boolean hasNewFreezeBackgroundTabs() {
+    return ((bitField0_ & 0x00000200) != 0);
+  }
+  /**
+   * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+   * @return The newFreezeBackgroundTabs.
+   */
+  @java.lang.Override
+  public boolean getNewFreezeBackgroundTabs() {
+    return newFreezeBackgroundTabs_;
+  }
+
+  public static final int OLD_BLOCK_NEW_TABS_FIELD_NUMBER = 27;
+  private boolean oldBlockNewTabs_ = false;
+  /**
+   * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   * @return Whether the oldBlockNewTabs field is set.
+   */
+  @java.lang.Override
+  public boolean hasOldBlockNewTabs() {
+    return ((bitField0_ & 0x00000400) != 0);
+  }
+  /**
+   * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+   * @return The oldBlockNewTabs.
+   */
+  @java.lang.Override
+  public boolean getOldBlockNewTabs() {
+    return oldBlockNewTabs_;
+  }
+
+  public static final int NEW_BLOCK_NEW_TABS_FIELD_NUMBER = 28;
+  private boolean newBlockNewTabs_ = false;
+  /**
+   * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   * @return Whether the newBlockNewTabs field is set.
+   */
+  @java.lang.Override
+  public boolean hasNewBlockNewTabs() {
+    return ((bitField0_ & 0x00000800) != 0);
+  }
+  /**
+   * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+   * @return The newBlockNewTabs.
+   */
+  @java.lang.Override
+  public boolean getNewBlockNewTabs() {
+    return newBlockNewTabs_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -639,6 +715,18 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000080) != 0)) {
       output.writeUInt32(24, newMediaEncoderSlots_);
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      output.writeBool(25, oldFreezeBackgroundTabs_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      output.writeBool(26, newFreezeBackgroundTabs_);
+    }
+    if (((bitField0_ & 0x00000400) != 0)) {
+      output.writeBool(27, oldBlockNewTabs_);
+    }
+    if (((bitField0_ & 0x00000800) != 0)) {
+      output.writeBool(28, newBlockNewTabs_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -739,6 +827,22 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(24, newMediaEncoderSlots_);
     }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(25, oldFreezeBackgroundTabs_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(26, newFreezeBackgroundTabs_);
+    }
+    if (((bitField0_ & 0x00000400) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(27, oldBlockNewTabs_);
+    }
+    if (((bitField0_ & 0x00000800) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(28, newBlockNewTabs_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -826,6 +930,26 @@ private static final long serialVersionUID = 0L;
       if (getNewMediaEncoderSlots()
           != other.getNewMediaEncoderSlots()) return false;
     }
+    if (hasOldFreezeBackgroundTabs() != other.hasOldFreezeBackgroundTabs()) return false;
+    if (hasOldFreezeBackgroundTabs()) {
+      if (getOldFreezeBackgroundTabs()
+          != other.getOldFreezeBackgroundTabs()) return false;
+    }
+    if (hasNewFreezeBackgroundTabs() != other.hasNewFreezeBackgroundTabs()) return false;
+    if (hasNewFreezeBackgroundTabs()) {
+      if (getNewFreezeBackgroundTabs()
+          != other.getNewFreezeBackgroundTabs()) return false;
+    }
+    if (hasOldBlockNewTabs() != other.hasOldBlockNewTabs()) return false;
+    if (hasOldBlockNewTabs()) {
+      if (getOldBlockNewTabs()
+          != other.getOldBlockNewTabs()) return false;
+    }
+    if (hasNewBlockNewTabs() != other.hasNewBlockNewTabs()) return false;
+    if (hasNewBlockNewTabs()) {
+      if (getNewBlockNewTabs()
+          != other.getNewBlockNewTabs()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -900,6 +1024,26 @@ private static final long serialVersionUID = 0L;
     if (hasNewMediaEncoderSlots()) {
       hash = (37 * hash) + NEW_MEDIA_ENCODER_SLOTS_FIELD_NUMBER;
       hash = (53 * hash) + getNewMediaEncoderSlots();
+    }
+    if (hasOldFreezeBackgroundTabs()) {
+      hash = (37 * hash) + OLD_FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getOldFreezeBackgroundTabs());
+    }
+    if (hasNewFreezeBackgroundTabs()) {
+      hash = (37 * hash) + NEW_FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getNewFreezeBackgroundTabs());
+    }
+    if (hasOldBlockNewTabs()) {
+      hash = (37 * hash) + OLD_BLOCK_NEW_TABS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getOldBlockNewTabs());
+    }
+    if (hasNewBlockNewTabs()) {
+      hash = (37 * hash) + NEW_BLOCK_NEW_TABS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getNewBlockNewTabs());
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1060,6 +1204,10 @@ private static final long serialVersionUID = 0L;
       newExtensionCpuWeight_ = 0;
       oldMediaEncoderSlots_ = 0;
       newMediaEncoderSlots_ = 0;
+      oldFreezeBackgroundTabs_ = false;
+      newFreezeBackgroundTabs_ = false;
+      oldBlockNewTabs_ = false;
+      newBlockNewTabs_ = false;
       return this;
     }
 
@@ -1173,6 +1321,22 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00800000) != 0)) {
         result.newMediaEncoderSlots_ = newMediaEncoderSlots_;
         to_bitField0_ |= 0x00000080;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.oldFreezeBackgroundTabs_ = oldFreezeBackgroundTabs_;
+        to_bitField0_ |= 0x00000100;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.newFreezeBackgroundTabs_ = newFreezeBackgroundTabs_;
+        to_bitField0_ |= 0x00000200;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.oldBlockNewTabs_ = oldBlockNewTabs_;
+        to_bitField0_ |= 0x00000400;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.newBlockNewTabs_ = newBlockNewTabs_;
+        to_bitField0_ |= 0x00000800;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1304,6 +1468,18 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasNewMediaEncoderSlots()) {
         setNewMediaEncoderSlots(other.getNewMediaEncoderSlots());
+      }
+      if (other.hasOldFreezeBackgroundTabs()) {
+        setOldFreezeBackgroundTabs(other.getOldFreezeBackgroundTabs());
+      }
+      if (other.hasNewFreezeBackgroundTabs()) {
+        setNewFreezeBackgroundTabs(other.getNewFreezeBackgroundTabs());
+      }
+      if (other.hasOldBlockNewTabs()) {
+        setOldBlockNewTabs(other.getOldBlockNewTabs());
+      }
+      if (other.hasNewBlockNewTabs()) {
+        setNewBlockNewTabs(other.getNewBlockNewTabs());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1451,6 +1627,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00800000;
               break;
             } // case 192
+            case 200: {
+              oldFreezeBackgroundTabs_ = input.readBool();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 200
+            case 208: {
+              newFreezeBackgroundTabs_ = input.readBool();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 208
+            case 216: {
+              oldBlockNewTabs_ = input.readBool();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 216
+            case 224: {
+              newBlockNewTabs_ = input.readBool();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 224
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2552,6 +2748,166 @@ private static final long serialVersionUID = 0L;
     public Builder clearNewMediaEncoderSlots() {
       bitField0_ = (bitField0_ & ~0x00800000);
       newMediaEncoderSlots_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean oldFreezeBackgroundTabs_ ;
+    /**
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * @return Whether the oldFreezeBackgroundTabs field is set.
+     */
+    @java.lang.Override
+    public boolean hasOldFreezeBackgroundTabs() {
+      return ((bitField0_ & 0x01000000) != 0);
+    }
+    /**
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * @return The oldFreezeBackgroundTabs.
+     */
+    @java.lang.Override
+    public boolean getOldFreezeBackgroundTabs() {
+      return oldFreezeBackgroundTabs_;
+    }
+    /**
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * @param value The oldFreezeBackgroundTabs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOldFreezeBackgroundTabs(boolean value) {
+
+      oldFreezeBackgroundTabs_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool old_freeze_background_tabs = 25 [json_name = "oldFreezeBackgroundTabs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOldFreezeBackgroundTabs() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      oldFreezeBackgroundTabs_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean newFreezeBackgroundTabs_ ;
+    /**
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * @return Whether the newFreezeBackgroundTabs field is set.
+     */
+    @java.lang.Override
+    public boolean hasNewFreezeBackgroundTabs() {
+      return ((bitField0_ & 0x02000000) != 0);
+    }
+    /**
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * @return The newFreezeBackgroundTabs.
+     */
+    @java.lang.Override
+    public boolean getNewFreezeBackgroundTabs() {
+      return newFreezeBackgroundTabs_;
+    }
+    /**
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * @param value The newFreezeBackgroundTabs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNewFreezeBackgroundTabs(boolean value) {
+
+      newFreezeBackgroundTabs_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool new_freeze_background_tabs = 26 [json_name = "newFreezeBackgroundTabs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNewFreezeBackgroundTabs() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      newFreezeBackgroundTabs_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean oldBlockNewTabs_ ;
+    /**
+     * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     * @return Whether the oldBlockNewTabs field is set.
+     */
+    @java.lang.Override
+    public boolean hasOldBlockNewTabs() {
+      return ((bitField0_ & 0x04000000) != 0);
+    }
+    /**
+     * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     * @return The oldBlockNewTabs.
+     */
+    @java.lang.Override
+    public boolean getOldBlockNewTabs() {
+      return oldBlockNewTabs_;
+    }
+    /**
+     * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     * @param value The oldBlockNewTabs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOldBlockNewTabs(boolean value) {
+
+      oldBlockNewTabs_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool old_block_new_tabs = 27 [json_name = "oldBlockNewTabs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOldBlockNewTabs() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      oldBlockNewTabs_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean newBlockNewTabs_ ;
+    /**
+     * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     * @return Whether the newBlockNewTabs field is set.
+     */
+    @java.lang.Override
+    public boolean hasNewBlockNewTabs() {
+      return ((bitField0_ & 0x08000000) != 0);
+    }
+    /**
+     * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     * @return The newBlockNewTabs.
+     */
+    @java.lang.Override
+    public boolean getNewBlockNewTabs() {
+      return newBlockNewTabs_;
+    }
+    /**
+     * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     * @param value The newBlockNewTabs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNewBlockNewTabs(boolean value) {
+
+      newBlockNewTabs_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool new_block_new_tabs = 28 [json_name = "newBlockNewTabs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNewBlockNewTabs() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      newBlockNewTabs_ = false;
       onChanged();
       return this;
     }

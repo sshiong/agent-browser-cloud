@@ -271,6 +271,8 @@ export interface SessionResourceView {
     extensionCpuWeight?: number;
     mediaEncoderSlots?: number;
     mediaEncoderSlotLimit?: number;
+    backgroundTabsFrozen: boolean;
+    newTabsBlocked: boolean;
     placementState: string;
   };
   usage?: {

@@ -161,10 +161,18 @@ public class NodeEventMapper {
               payload.hasOldMediaEncoderSlots() ? payload.getOldMediaEncoderSlots() : null;
           var newMediaEncoderSlots =
               payload.hasNewMediaEncoderSlots() ? payload.getNewMediaEncoderSlots() : null;
+          var oldFreezeBackgroundTabs =
+              payload.hasOldFreezeBackgroundTabs() ? payload.getOldFreezeBackgroundTabs() : null;
+          var newFreezeBackgroundTabs =
+              payload.hasNewFreezeBackgroundTabs() ? payload.getNewFreezeBackgroundTabs() : null;
+          var oldBlockNewTabs = payload.hasOldBlockNewTabs() ? payload.getOldBlockNewTabs() : null;
+          var newBlockNewTabs = payload.hasNewBlockNewTabs() ? payload.getNewBlockNewTabs() : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
               || (oldMediaEncoderSlots == null) != (newMediaEncoderSlots == null)
+              || (oldFreezeBackgroundTabs == null) != (newFreezeBackgroundTabs == null)
+              || (oldBlockNewTabs == null) != (newBlockNewTabs == null)
               || (oldStateCollectorBudget != null
                   && (oldStateCollectorBudget < 10
                       || oldStateCollectorBudget > 100
@@ -210,6 +218,10 @@ public class NodeEventMapper {
               newExtensionCpuWeight,
               oldMediaEncoderSlots,
               newMediaEncoderSlots,
+              oldFreezeBackgroundTabs,
+              newFreezeBackgroundTabs,
+              oldBlockNewTabs,
+              newBlockNewTabs,
               payload.getReason(),
               payload.getOperationId());
         }

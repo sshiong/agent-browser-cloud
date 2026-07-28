@@ -141,6 +141,10 @@ class NodeEventIngestionServiceTest {
             150,
             0,
             0,
+            false,
+            true,
+            false,
+            true,
             "SUSTAINED_MEMORY_PRESSURE",
             "op-resource");
     var command =

@@ -71,6 +71,10 @@ public sealed interface NodeEvent
       Integer newExtensionCpuWeight,
       Integer oldMediaEncoderSlots,
       Integer newMediaEncoderSlots,
+      Boolean oldFreezeBackgroundTabs,
+      Boolean newFreezeBackgroundTabs,
+      Boolean oldBlockNewTabs,
+      Boolean newBlockNewTabs,
       String reason,
       String operationId)
       implements NodeEvent {}

@@ -342,6 +342,20 @@ for invariant in (
         f"resource cost migration lacks rolling invariant: {invariant}"
     )
 
+tab_resource_migration = read(
+    "database/migrations/V043__browser_placement_tab_resource_actuators.sql"
+)
+tab_resource_upper = tab_resource_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in tab_resource_upper
+for invariant in (
+    "ADD COLUMN BACKGROUND_TABS_FROZEN BOOLEAN NOT NULL DEFAULT FALSE",
+    "ADD COLUMN NEW_TABS_BLOCKED BOOLEAN NOT NULL DEFAULT FALSE",
+):
+    assert invariant in tab_resource_upper, (
+        f"tab resource migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -403,11 +417,18 @@ for message_name, fields in (
             ("extension_ids", 20, False),
             ("extension_cpu_weight", 21, True),
             ("media_encoder_slots", 22, True),
+            ("freeze_background_tabs", 23, True),
+            ("block_new_tabs", 24, True),
         ),
     ),
     (
         "AdjustRuntimeResourcesCommand",
-        (("extension_cpu_weight", 15, True), ("media_encoder_slots", 16, True)),
+        (
+            ("extension_cpu_weight", 15, True),
+            ("media_encoder_slots", 16, True),
+            ("freeze_background_tabs", 17, True),
+            ("block_new_tabs", 18, True),
+        ),
     ),
     (
         "RuntimeResourcesAdjustedEvent",
@@ -416,6 +437,10 @@ for message_name, fields in (
             ("new_extension_cpu_weight", 22, True),
             ("old_media_encoder_slots", 23, True),
             ("new_media_encoder_slots", 24, True),
+            ("old_freeze_background_tabs", 25, True),
+            ("new_freeze_background_tabs", 26, True),
+            ("old_block_new_tabs", 27, True),
+            ("new_block_new_tabs", 28, True),
         ),
     ),
 ):
@@ -490,8 +515,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,recovery-extension-tag-6",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

@@ -185,6 +185,8 @@ pub trait BrowserStateCollector: Send + Sync {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CdpTarget {
+    #[serde(default)]
+    id: String,
     #[serde(rename = "type")]
     target_type: String,
     #[serde(default)]
@@ -208,6 +210,25 @@ pub struct BrowserResourceMetrics {
     pub renderer_count: Option<u32>,
     pub tab_count: u32,
     pub main_thread_task_duration_ms: Option<f64>,
+}
+
+/// Browser Node 实际执行的标签页资源保护策略。
+///
+/// `block_new_tabs` 启用时以策略提交瞬间仍存在的 Page Target 为允许集合；之后出现的
+/// Page Target 会由 Node 内部 CDP 监视器关闭。已有标签页不会因为策略切换被关闭。
+/// 后台冻结使用五秒短 Lease 周期性解冻，避免用户切回标签页后被永久冻结。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TabResourcePolicy {
+    pub tab_budget: u32,
+    pub freeze_background_tabs: bool,
+    pub block_new_tabs: bool,
+}
+
+#[derive(Debug, Clone)]
+struct TabResourcePolicyState {
+    policy: TabResourcePolicy,
+    allowed_target_ids: HashSet<String>,
+    frozen_targets: HashMap<String, std::time::Instant>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -240,6 +261,8 @@ pub struct CdpStateCollector {
     cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
     target_registries: Arc<Mutex<HashMap<String, TargetRegistry>>>,
     resource_budget_percentages: Arc<RwLock<HashMap<String, u32>>>,
+    tab_resource_policies: Arc<RwLock<HashMap<String, TabResourcePolicyState>>>,
+    tab_policy_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
     safety_observations: Arc<RwLock<HashMap<String, BrowserSafetyObservation>>>,
     safety_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
 }
@@ -301,6 +324,10 @@ impl CdpStateCollector {
             .write()
             .await
             .remove(session_id);
+        self.tab_resource_policies.write().await.remove(session_id);
+        if let Some(monitor) = self.tab_policy_monitors.lock().await.remove(session_id) {
+            monitor.abort();
+        }
         self.safety_observations.write().await.remove(session_id);
         if let Some(monitor) = self.safety_monitors.lock().await.remove(session_id) {
             monitor.abort();
@@ -382,6 +409,107 @@ impl CdpStateCollector {
         u64::from(200_u32.div_ceil(budget)).max(2)
     }
 
+    /// 在线执行后台标签冻结与新增标签阻断。
+    ///
+    /// 该方法只有在首次 CDP 执行成功后才返回；调用方可据此发送 Node ACK。持续监视器
+    /// 只访问 Browser Node 回环 CDP，并在后续新 Page Target 出现时立即执行相同策略。
+    pub async fn set_tab_resource_policy(
+        &self,
+        session_id: &str,
+        policy: TabResourcePolicy,
+    ) -> anyhow::Result<TabResourcePolicy> {
+        anyhow::ensure!(policy.tab_budget > 0, "tab budget must be positive");
+        let endpoint = self.endpoint(session_id).await?;
+        let previous_state = self
+            .tab_resource_policies
+            .read()
+            .await
+            .get(session_id)
+            .cloned();
+        let previous = previous_state
+            .as_ref()
+            .map(|state| state.policy.clone())
+            .unwrap_or(TabResourcePolicy {
+                tab_budget: policy.tab_budget,
+                freeze_background_tabs: false,
+                block_new_tabs: false,
+            });
+
+        if let Some(monitor) = self.tab_policy_monitors.lock().await.remove(session_id) {
+            monitor.abort();
+        }
+        if let Some(state) = previous_state.as_ref() {
+            self.restore_frozen_tabs(&endpoint, state).await?;
+        }
+
+        let targets = Self::list_targets(&endpoint).await?;
+        let page_targets = targets
+            .into_iter()
+            .filter(|target| target.target_type == "page")
+            .collect::<Vec<_>>();
+        anyhow::ensure!(
+            !policy.block_new_tabs || !page_targets.is_empty(),
+            "cannot block new tabs before the initial Page Target is available"
+        );
+        anyhow::ensure!(
+            page_targets.iter().all(|target| !target.id.is_empty()),
+            "CDP Page Target ID is unavailable"
+        );
+        let allowed_target_ids = page_targets
+            .iter()
+            .map(|target| target.id.clone())
+            .collect::<HashSet<_>>();
+        let mut frozen_targets = HashMap::new();
+        if policy.freeze_background_tabs {
+            for target in &page_targets {
+                if self.freeze_target_if_background(target).await? {
+                    frozen_targets.insert(target.id.clone(), std::time::Instant::now());
+                }
+            }
+        }
+
+        self.tab_resource_policies.write().await.insert(
+            session_id.to_owned(),
+            TabResourcePolicyState {
+                policy: policy.clone(),
+                allowed_target_ids,
+                frozen_targets,
+            },
+        );
+        if policy.freeze_background_tabs || policy.block_new_tabs {
+            let collector = self.clone();
+            let monitored_session_id = session_id.to_owned();
+            let handle = tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    if let Err(error) = collector
+                        .enforce_tab_resource_policy_once(&monitored_session_id)
+                        .await
+                    {
+                        tracing::warn!(
+                            session_id = monitored_session_id,
+                            error = %error,
+                            "Tab resource policy enforcement failed"
+                        );
+                    }
+                }
+            });
+            self.tab_policy_monitors
+                .lock()
+                .await
+                .insert(session_id.to_owned(), handle);
+        }
+        Ok(previous)
+    }
+
+    pub async fn tab_resource_policy(&self, session_id: &str) -> Option<TabResourcePolicy> {
+        self.tab_resource_policies
+            .read()
+            .await
+            .get(session_id)
+            .map(|state| state.policy.clone())
+    }
+
     pub async fn bounded_diff_limits(
         &self,
         session_id: &str,
@@ -443,11 +571,52 @@ impl CdpStateCollector {
         Ok(version.web_socket_debugger_url)
     }
 
+    async fn cdp_command_with_params(
+        websocket_url: &str,
+        method: &str,
+        id: i64,
+        params: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        Self::require_loopback_websocket(websocket_url)?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(2),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP resource websocket connection timed out"))??;
+        socket
+            .send(Message::Text(
+                serde_json::json!({"id": id, "method": method, "params": params}).to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(Duration::from_secs(2), socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP {method} timed out"))?
+        {
+            let Message::Text(text) = message? else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(id) {
+                continue;
+            }
+            if let Some(error) = response.get("error") {
+                anyhow::bail!("CDP {method} failed: {error}");
+            }
+            return response
+                .get("result")
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("CDP {method} response has no result"));
+        }
+        anyhow::bail!("CDP websocket closed before {method} completed")
+    }
+
     async fn cdp_command(
         websocket_url: &str,
         method: &str,
         id: i64,
     ) -> anyhow::Result<serde_json::Value> {
+        Self::require_loopback_websocket(websocket_url)?;
         let (mut socket, _) = timeout(
             Duration::from_secs(2),
             tokio_tungstenite::connect_async(websocket_url),
@@ -479,6 +648,155 @@ impl CdpStateCollector {
                 .ok_or_else(|| anyhow::anyhow!("CDP {method} response has no result"));
         }
         anyhow::bail!("CDP websocket closed before {method} completed")
+    }
+
+    fn require_loopback_websocket(websocket_url: &str) -> anyhow::Result<()> {
+        let url = reqwest::Url::parse(websocket_url)?;
+        anyhow::ensure!(url.scheme() == "ws", "CDP websocket must use ws");
+        let host = url
+            .host_str()
+            .ok_or_else(|| anyhow::anyhow!("CDP websocket host is unavailable"))?;
+        let loopback = host.eq_ignore_ascii_case("localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .map(|address| address.is_loopback())
+                .unwrap_or(false);
+        anyhow::ensure!(loopback, "CDP websocket must use the Browser Node loopback");
+        Ok(())
+    }
+
+    async fn freeze_target_if_background(&self, target: &CdpTarget) -> anyhow::Result<bool> {
+        let websocket = target
+            .web_socket_debugger_url
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("CDP Page websocket is unavailable"))?;
+        let visibility = Self::cdp_command_with_params(
+            websocket,
+            "Runtime.evaluate",
+            501,
+            serde_json::json!({
+                "expression": "document.visibilityState",
+                "returnByValue": true,
+                "awaitPromise": false
+            }),
+        )
+        .await?;
+        if visibility
+            .pointer("/result/value")
+            .and_then(serde_json::Value::as_str)
+            != Some("hidden")
+        {
+            return Ok(false);
+        }
+        Self::cdp_command_with_params(
+            websocket,
+            "Page.setWebLifecycleState",
+            502,
+            serde_json::json!({"state": "frozen"}),
+        )
+        .await?;
+        Ok(true)
+    }
+
+    async fn restore_frozen_tabs(
+        &self,
+        endpoint: &str,
+        state: &TabResourcePolicyState,
+    ) -> anyhow::Result<()> {
+        if state.frozen_targets.is_empty() {
+            return Ok(());
+        }
+        let targets = Self::list_targets(endpoint).await?;
+        for target in targets.into_iter().filter(|target| {
+            target.target_type == "page" && state.frozen_targets.contains_key(&target.id)
+        }) {
+            let websocket = target
+                .web_socket_debugger_url
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("CDP Page websocket is unavailable"))?;
+            Self::cdp_command_with_params(
+                websocket,
+                "Page.setWebLifecycleState",
+                503,
+                serde_json::json!({"state": "active"}),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    async fn enforce_tab_resource_policy_once(&self, session_id: &str) -> anyhow::Result<()> {
+        let Some(state) = self
+            .tab_resource_policies
+            .read()
+            .await
+            .get(session_id)
+            .cloned()
+        else {
+            return Ok(());
+        };
+        let endpoint = self.endpoint(session_id).await?;
+        let targets = Self::list_targets(&endpoint).await?;
+        let page_targets = targets
+            .into_iter()
+            .filter(|target| target.target_type == "page")
+            .collect::<Vec<_>>();
+        let mut frozen_targets = state.frozen_targets.clone();
+        let thaw_due = frozen_targets
+            .iter()
+            .filter_map(|(target_id, frozen_at)| {
+                (frozen_at.elapsed() >= Duration::from_secs(5)).then_some(target_id.clone())
+            })
+            .collect::<HashSet<_>>();
+        for target in page_targets
+            .iter()
+            .filter(|target| thaw_due.contains(&target.id))
+        {
+            let websocket = target
+                .web_socket_debugger_url
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("CDP Page websocket is unavailable"))?;
+            Self::cdp_command_with_params(
+                websocket,
+                "Page.setWebLifecycleState",
+                505,
+                serde_json::json!({"state": "active"}),
+            )
+            .await?;
+            frozen_targets.remove(&target.id);
+        }
+        for target in page_targets {
+            anyhow::ensure!(!target.id.is_empty(), "CDP Page Target ID is unavailable");
+            if state.policy.block_new_tabs && !state.allowed_target_ids.contains(&target.id) {
+                let browser_websocket = Self::browser_websocket(&endpoint).await?;
+                let result = Self::cdp_command_with_params(
+                    &browser_websocket,
+                    "Target.closeTarget",
+                    504,
+                    serde_json::json!({"targetId": target.id}),
+                )
+                .await?;
+                anyhow::ensure!(
+                    result
+                        .get("success")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false),
+                    "CDP refused to close a policy-blocked Page Target"
+                );
+                continue;
+            }
+            if state.policy.freeze_background_tabs
+                && !thaw_due.contains(&target.id)
+                && !frozen_targets.contains_key(&target.id)
+                && self.freeze_target_if_background(&target).await?
+            {
+                frozen_targets.insert(target.id, std::time::Instant::now());
+            }
+        }
+        if let Some(current) = self.tab_resource_policies.write().await.get_mut(session_id) {
+            current.frozen_targets = frozen_targets;
+        }
+        Ok(())
     }
 
     /// 读取轻量 Browser/Page 指标。单项 CDP 能力不可用时只令该项为空；
@@ -1326,6 +1644,198 @@ mod tests {
 
         collector.unregister_runtime("ses_budget").await;
         assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);
+    }
+
+    #[test]
+    fn rejects_non_loopback_cdp_websocket_targets() {
+        assert!(CdpStateCollector::require_loopback_websocket(
+            "ws://127.0.0.1:9222/devtools/page/1"
+        )
+        .is_ok());
+        assert!(
+            CdpStateCollector::require_loopback_websocket("ws://example.test/devtools/page/1")
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn freezes_hidden_page_targets_before_acknowledging_tab_policy() {
+        let page_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let page_address = page_listener.local_addr().unwrap();
+        let page_task = tokio::spawn(async move {
+            for expected_method in ["Runtime.evaluate", "Page.setWebLifecycleState"] {
+                let (stream, _) = page_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected page CDP request");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], expected_method);
+                if expected_method == "Page.setWebLifecycleState" {
+                    assert_eq!(request["params"]["state"], "frozen");
+                }
+                let result = if expected_method == "Runtime.evaluate" {
+                    serde_json::json!({"result": {"type": "string", "value": "hidden"}})
+                } else {
+                    serde_json::json!({})
+                };
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": request["id"], "result": result}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            let request = String::from_utf8_lossy(&request[..count]);
+            assert!(request.starts_with("GET /json/list "));
+            let body = serde_json::json!([{
+                "id": "page-hidden",
+                "type": "page",
+                "url": "https://example.test/background",
+                "webSocketDebuggerUrl": format!("ws://{page_address}/devtools/page/hidden")
+            }])
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_tabs", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        let previous = collector
+            .set_tab_resource_policy(
+                "ses_tabs",
+                TabResourcePolicy {
+                    tab_budget: 8,
+                    freeze_background_tabs: true,
+                    block_new_tabs: true,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(!previous.freeze_background_tabs);
+        assert!(!previous.block_new_tabs);
+        assert_eq!(
+            collector.tab_resource_policy("ses_tabs").await,
+            Some(TabResourcePolicy {
+                tab_budget: 8,
+                freeze_background_tabs: true,
+                block_new_tabs: true
+            })
+        );
+        collector.unregister_runtime("ses_tabs").await;
+        page_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn closes_page_targets_created_after_new_tab_block_is_committed() {
+        let browser_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let browser_address = browser_listener.local_addr().unwrap();
+        let browser_task = tokio::spawn(async move {
+            let (stream, _) = browser_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected browser CDP request");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Target.closeTarget");
+            assert_eq!(request["params"]["targetId"], "page-new");
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "id": request["id"],
+                        "result": {"success": true}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            for request_number in 0..3 {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                let request = String::from_utf8_lossy(&request[..count]);
+                let body = if request.starts_with("GET /json/version ") {
+                    serde_json::json!({
+                        "webSocketDebuggerUrl": format!(
+                            "ws://{browser_address}/devtools/browser/test"
+                        )
+                    })
+                    .to_string()
+                } else {
+                    assert!(request.starts_with("GET /json/list "));
+                    if request_number == 0 {
+                        serde_json::json!([{
+                            "id": "page-existing",
+                            "type": "page",
+                            "url": "https://example.test/current"
+                        }])
+                        .to_string()
+                    } else {
+                        serde_json::json!([{
+                            "id": "page-existing",
+                            "type": "page",
+                            "url": "https://example.test/current"
+                        }, {
+                            "id": "page-new",
+                            "type": "page",
+                            "url": "https://example.test/new"
+                        }])
+                        .to_string()
+                    }
+                };
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_block_tabs", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        collector
+            .set_tab_resource_policy(
+                "ses_block_tabs",
+                TabResourcePolicy {
+                    tab_budget: 8,
+                    freeze_background_tabs: false,
+                    block_new_tabs: true,
+                },
+            )
+            .await
+            .unwrap();
+        collector
+            .enforce_tab_resource_policy_once("ses_block_tabs")
+            .await
+            .unwrap();
+        collector.unregister_runtime("ses_block_tabs").await;
+        browser_task.await.unwrap();
+        http_task.await.unwrap();
     }
 
     #[tokio::test]

@@ -212,6 +212,11 @@ pub struct CommandEnvelope {
     pub context_epoch: i64,
     #[prost(int64, tag="12")]
     pub operation_epoch: i64,
+    /// PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+    #[prost(int64, tag="13")]
+    pub route_epoch: i64,
+    #[prost(int32, tag="14")]
+    pub coordinator_shard_id: i32,
     /// 幂等
     #[prost(string, tag="20")]
     pub idempotency_key: ::prost::alloc::string::String,
@@ -294,6 +299,10 @@ pub struct StartRuntimeCommand {
     /// 当前可用的编码并发 Slot；与 Placement 预留上限分离。
     #[prost(uint32, optional, tag="22")]
     pub media_encoder_slots: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag="23")]
+    pub freeze_background_tabs: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="24")]
+    pub block_new_tabs: ::core::option::Option<bool>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -393,6 +402,12 @@ pub struct AdjustRuntimeResourcesCommand {
     /// 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
     #[prost(uint32, optional, tag="16")]
     pub media_encoder_slots: ::core::option::Option<u32>,
+    /// 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
+    #[prost(bool, optional, tag="17")]
+    pub freeze_background_tabs: ::core::option::Option<bool>,
+    /// 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
+    #[prost(bool, optional, tag="18")]
+    pub block_new_tabs: ::core::option::Option<bool>,
 }
 /// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -447,6 +462,14 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_media_encoder_slots: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="24")]
     pub new_media_encoder_slots: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag="25")]
+    pub old_freeze_background_tabs: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="26")]
+    pub new_freeze_background_tabs: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="27")]
+    pub old_block_new_tabs: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="28")]
+    pub new_block_new_tabs: ::core::option::Option<bool>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -610,6 +633,25 @@ pub struct AgentNavigateCommand {
     pub url: ::prost::alloc::string::String,
     #[prost(uint64, tag="5")]
     pub base_state_version: u64,
+}
+/// Business Recovery 只允许 Control Plane 从版本化应用契约解析出的低风险动作。
+/// target_url 对 RELOAD / REFRESH_SESSION / RESTART_EXTENSION 为空；
+/// 导航动作必须是契约内规范化 URL；extension_id 只允许契约绑定的 Chromium ID。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BusinessRecoveryActionCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub action: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub target_url: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub base_state_version: u64,
+    #[prost(string, tag="6")]
+    pub extension_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

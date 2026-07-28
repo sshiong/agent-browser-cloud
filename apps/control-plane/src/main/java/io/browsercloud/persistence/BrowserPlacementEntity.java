@@ -82,6 +82,12 @@ public class BrowserPlacementEntity {
   @Column(name = "media_encoder_slots", nullable = false)
   private int mediaEncoderSlots;
 
+  @Column(name = "background_tabs_frozen", nullable = false)
+  private boolean backgroundTabsFrozen;
+
+  @Column(name = "new_tabs_blocked", nullable = false)
+  private boolean newTabsBlocked;
+
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
@@ -155,6 +161,8 @@ public class BrowserPlacementEntity {
     this.requiresMedia = requiresMedia;
     this.mediaSlots = mediaSlots;
     this.mediaEncoderSlots = requiresMedia ? mediaSlots : 0;
+    this.backgroundTabsFrozen = false;
+    this.newTabsBlocked = false;
     this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
@@ -206,7 +214,9 @@ public class BrowserPlacementEntity {
       int nextStateCollectorBudgetPercent,
       int nextRemoteDesktopBitrateKbps,
       int nextExtensionCpuWeight,
-      int nextMediaEncoderSlots) {
+      int nextMediaEncoderSlots,
+      boolean nextBackgroundTabsFrozen,
+      boolean nextNewTabsBlocked) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -239,6 +249,8 @@ public class BrowserPlacementEntity {
     remoteDesktopBitrateKbps = nextRemoteDesktopBitrateKbps;
     extensionCpuWeight = nextExtensionCpuWeight;
     mediaEncoderSlots = nextMediaEncoderSlots;
+    backgroundTabsFrozen = nextBackgroundTabsFrozen;
+    newTabsBlocked = nextNewTabsBlocked;
   }
 
   public String getSessionId() {
@@ -327,6 +339,14 @@ public class BrowserPlacementEntity {
 
   public int getMediaEncoderSlots() {
     return mediaEncoderSlots;
+  }
+
+  public boolean isBackgroundTabsFrozen() {
+    return backgroundTabsFrozen;
+  }
+
+  public boolean isNewTabsBlocked() {
+    return newTabsBlocked;
   }
 
   public int getMediaBitrateKbps() {

@@ -119,8 +119,9 @@
 5. Checkpoint → 排除源 Node Placement → S3 Restore → State Resync → 默认 Business
    Recovery Validation 已实现；真实双 Node + S3 + Chromium 故障矩阵仍待验收。
 6. 自动休眠和严格预算终止已接入真实 Operation/Node 执行链。
-   V042 已使 `maximumCostPerHour` 进入真实五分钟成本决策；Trace/录制/截图/后台 Tab
-   等完整 Level 1 Node Actuator 仍待实现。
+   V042 已使 `maximumCostPerHour` 进入真实五分钟成本决策；V043 已补齐后台 Tab
+   冻结、新建 Tab 阻断、Node ACK 和详情状态；Trace、录制/Observer 帧率、截图和逐
+   Extension 后台任务等 Level 1 Node Actuator 仍待实现。
 7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
    Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
    层仍未实现。
@@ -129,7 +130,9 @@
 
 ## 下一步建议
 
-1. 补齐 Trace/录制/截图/后台 Tab 等 Level 1 Node Actuator 与 ACK。
+1. 补齐 Trace、录制/Observer 帧率、截图和逐 Extension 后台任务等 Level 1 Node
+   Actuator 与 ACK；后台 Tab/新建 Tab 已由
+   [进度 66](66-AUTO后台标签冻结与新建标签阻断闭环.md)关闭。
 2. 接入目标站点支付/账号安全/关键事务 Adapter 和 Provider 级恢复证明。
 3. 增加 State/Audit 统一事件流和跨 Region Event Bus。
 4. 完成 Session Coordinator HTTP/Timer/Workflow 的物理 Shard Pod 路由。

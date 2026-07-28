@@ -620,7 +620,9 @@ public class SessionResourceApplicationService {
             || (placement.isRequiresDesktop() && placement.getRemoteDesktopBitrateKbps() > 750)
             || (!readExtensionIds(placement.getExtensionIds()).isEmpty()
                 && placement.getExtensionCpuWeight() > 25)
-            || (placement.isRequiresMedia() && placement.getMediaEncoderSlots() > 1);
+            || (placement.isRequiresMedia() && placement.getMediaEncoderSlots() > 1)
+            || !placement.isBackgroundTabsFrozen()
+            || !placement.isNewTabsBlocked();
     if (!hasReducibleBudget) {
       return false;
     }
@@ -770,7 +772,8 @@ public class SessionResourceApplicationService {
                 ? Math.min(placement.getMediaSlots(), placement.getMediaEncoderSlots() + 1)
                 : Math.max(1, placement.getMediaEncoderSlots() - 1);
     var operationId = newId("op_");
-    if (!"MAXIMUM_NON_CORE_MITIGATION".equals(reason)) {
+    var maximumMitigation = "MAXIMUM_NON_CORE_MITIGATION".equals(reason);
+    if (!maximumMitigation) {
       policy.clearMaximumMitigation();
     }
     var operation =
@@ -789,13 +792,16 @@ public class SessionResourceApplicationService {
             extensionIds,
             extensionCpuWeight,
             mediaEncoderSlots,
+            maximumMitigation,
+            maximumMitigation,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
             placement.isRequiresIsolation());
     operations.insert(operation);
     nodeCommandGateway.send(
-        NodeCommands.adjustRuntimeResources(session, operation, limits, reason));
+        NodeCommands.adjustRuntimeResources(
+            session, operation, limits, reason, maximumMitigation, maximumMitigation));
     policy.evaluate(status, reason + "_COMMAND_DISPATCHED", now);
     policies.save(policy);
     appendEvent(
@@ -812,7 +818,9 @@ public class SessionResourceApplicationService {
             stateCollectorBudgetPercent,
             remoteDesktopBitrateKbps,
             extensionCpuWeight,
-            mediaEncoderSlots),
+            mediaEncoderSlots,
+            maximumMitigation,
+            maximumMitigation),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -847,7 +855,11 @@ public class SessionResourceApplicationService {
         || (adjusted.oldExtensionCpuWeight() != null
             && placement.getExtensionCpuWeight() != adjusted.oldExtensionCpuWeight())
         || (adjusted.oldMediaEncoderSlots() != null
-            && placement.getMediaEncoderSlots() != adjusted.oldMediaEncoderSlots())) {
+            && placement.getMediaEncoderSlots() != adjusted.oldMediaEncoderSlots())
+        || (adjusted.oldFreezeBackgroundTabs() != null
+            && placement.isBackgroundTabsFrozen() != adjusted.oldFreezeBackgroundTabs())
+        || (adjusted.oldBlockNewTabs() != null
+            && placement.isNewTabsBlocked() != adjusted.oldBlockNewTabs())) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
     var nextStateCollectorBudgetPercent =
@@ -866,6 +878,14 @@ public class SessionResourceApplicationService {
         adjusted.newMediaEncoderSlots() == null
             ? placement.getMediaEncoderSlots()
             : adjusted.newMediaEncoderSlots();
+    var nextBackgroundTabsFrozen =
+        adjusted.newFreezeBackgroundTabs() == null
+            ? placement.isBackgroundTabsFrozen()
+            : adjusted.newFreezeBackgroundTabs();
+    var nextNewTabsBlocked =
+        adjusted.newBlockNewTabs() == null
+            ? placement.isNewTabsBlocked()
+            : adjusted.newBlockNewTabs();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
@@ -898,7 +918,9 @@ public class SessionResourceApplicationService {
         nextStateCollectorBudgetPercent,
         nextRemoteDesktopBitrateKbps,
         nextExtensionCpuWeight,
-        nextMediaEncoderSlots);
+        nextMediaEncoderSlots,
+        nextBackgroundTabsFrozen,
+        nextNewTabsBlocked);
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -1212,6 +1234,8 @@ public class SessionResourceApplicationService {
         placement.getExtensionCpuWeight(),
         placement.getMediaEncoderSlots(),
         placement.getMediaSlots(),
+        placement.isBackgroundTabsFrozen(),
+        placement.isNewTabsBlocked(),
         placement.getState());
   }
 
@@ -1292,16 +1316,18 @@ public class SessionResourceApplicationService {
   }
 
   private Map<String, Object> allocationMap(BrowserPlacementView placement) {
-    return Map.of(
-        "template", templateFor(placement.effectiveResourceClass()),
-        "cpuMillis", placement.cpuMillis(),
-        "memoryLimitMib", placement.memoryLimitMib(),
-        "stateCollectorBudgetPercent", placement.stateCollectorBudgetPercent(),
-        "remoteDesktopBitrateKbps", placement.remoteDesktopBitrateKbps(),
-        "extensionCpuWeight", placement.extensionCpuWeight(),
-        "mediaEncoderSlots", placement.mediaEncoderSlots(),
-        "mediaEncoderSlotLimit", placement.mediaSlots(),
-        "nodeId", placement.nodeId());
+    return Map.ofEntries(
+        Map.entry("template", templateFor(placement.effectiveResourceClass())),
+        Map.entry("cpuMillis", placement.cpuMillis()),
+        Map.entry("memoryLimitMib", placement.memoryLimitMib()),
+        Map.entry("stateCollectorBudgetPercent", placement.stateCollectorBudgetPercent()),
+        Map.entry("remoteDesktopBitrateKbps", placement.remoteDesktopBitrateKbps()),
+        Map.entry("extensionCpuWeight", placement.extensionCpuWeight()),
+        Map.entry("mediaEncoderSlots", placement.mediaEncoderSlots()),
+        Map.entry("mediaEncoderSlotLimit", placement.mediaSlots()),
+        Map.entry("backgroundTabsFrozen", placement.backgroundTabsFrozen()),
+        Map.entry("newTabsBlocked", placement.newTabsBlocked()),
+        Map.entry("nodeId", placement.nodeId()));
   }
 
   private Map<String, Object> allocationMap(BrowserPlacementEntity placement) {
@@ -1313,7 +1339,9 @@ public class SessionResourceApplicationService {
         placement.getStateCollectorBudgetPercent(),
         placement.getRemoteDesktopBitrateKbps(),
         placement.getExtensionCpuWeight(),
-        placement.getMediaEncoderSlots());
+        placement.getMediaEncoderSlots(),
+        placement.isBackgroundTabsFrozen(),
+        placement.isNewTabsBlocked());
   }
 
   private Map<String, Object> allocationMap(
@@ -1324,18 +1352,22 @@ public class SessionResourceApplicationService {
       int stateCollectorBudgetPercent,
       int remoteDesktopBitrateKbps,
       int extensionCpuWeight,
-      int mediaEncoderSlots) {
-    return Map.of(
-        "template", templateFor(placement.effectiveResourceClass()),
-        "cpuMillis", cpuMillis,
-        "memoryRequestMib", memoryRequestMib,
-        "memoryLimitMib", memoryLimitMib,
-        "stateCollectorBudgetPercent", stateCollectorBudgetPercent,
-        "remoteDesktopBitrateKbps", remoteDesktopBitrateKbps,
-        "extensionCpuWeight", extensionCpuWeight,
-        "mediaEncoderSlots", mediaEncoderSlots,
-        "mediaEncoderSlotLimit", placement.getMediaSlots(),
-        "nodeId", placement.getNodeId());
+      int mediaEncoderSlots,
+      boolean backgroundTabsFrozen,
+      boolean newTabsBlocked) {
+    return Map.ofEntries(
+        Map.entry("template", templateFor(placement.effectiveResourceClass())),
+        Map.entry("cpuMillis", cpuMillis),
+        Map.entry("memoryRequestMib", memoryRequestMib),
+        Map.entry("memoryLimitMib", memoryLimitMib),
+        Map.entry("stateCollectorBudgetPercent", stateCollectorBudgetPercent),
+        Map.entry("remoteDesktopBitrateKbps", remoteDesktopBitrateKbps),
+        Map.entry("extensionCpuWeight", extensionCpuWeight),
+        Map.entry("mediaEncoderSlots", mediaEncoderSlots),
+        Map.entry("mediaEncoderSlotLimit", placement.getMediaSlots()),
+        Map.entry("backgroundTabsFrozen", backgroundTabsFrozen),
+        Map.entry("newTabsBlocked", newTabsBlocked),
+        Map.entry("nodeId", placement.getNodeId()));
   }
 
   private List<String> readExtensionIds(String value) {

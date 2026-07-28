@@ -711,6 +711,8 @@ public class BrowserCapacityApplicationService {
         placement.isRequiresMedia(),
         placement.getMediaSlots(),
         placement.getMediaEncoderSlots(),
+        placement.isBackgroundTabsFrozen(),
+        placement.isNewTabsBlocked(),
         placement.getMediaBitrateKbps(),
         placement.getPlacementScore(),
         placement.getState(),

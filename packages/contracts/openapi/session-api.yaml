@@ -3744,6 +3744,8 @@ components:
         - requiresMedia
         - mediaSlots
         - mediaEncoderSlots
+        - backgroundTabsFrozen
+        - newTabsBlocked
         - mediaBitrateKbps
         - placementScore
         - state
@@ -3806,6 +3808,10 @@ components:
           type: integer
           minimum: 0
           maximum: 32
+        backgroundTabsFrozen:
+          type: boolean
+        newTabsBlocked:
+          type: boolean
         mediaBitrateKbps:
           type: integer
           minimum: 0
@@ -4384,7 +4390,65 @@ components:
           $ref: "#/components/schemas/ResourcePolicy"
         allocation:
           type: [object, "null"]
-          additionalProperties: true
+          additionalProperties: false
+          required:
+            - nodeId
+            - template
+            - cpuMillis
+            - memoryRequestMib
+            - memoryLimitMib
+            - tabBudget
+            - stateCollectorBudgetPercent
+            - remoteDesktopBitrateKbps
+            - extensionCpuWeight
+            - mediaEncoderSlots
+            - mediaEncoderSlotLimit
+            - backgroundTabsFrozen
+            - newTabsBlocked
+            - placementState
+          properties:
+            nodeId:
+              type: string
+            template:
+              type: string
+            cpuMillis:
+              type: integer
+              minimum: 1
+            memoryRequestMib:
+              type: integer
+              minimum: 1
+            memoryLimitMib:
+              type: integer
+              minimum: 1
+            tabBudget:
+              type: integer
+              minimum: 1
+            stateCollectorBudgetPercent:
+              type: integer
+              minimum: 10
+              maximum: 100
+            remoteDesktopBitrateKbps:
+              type: integer
+              minimum: 0
+              maximum: 100000
+            extensionCpuWeight:
+              type: integer
+              minimum: 1
+              maximum: 10000
+            mediaEncoderSlots:
+              type: integer
+              minimum: 0
+              maximum: 32
+            mediaEncoderSlotLimit:
+              type: integer
+              minimum: 0
+              maximum: 32
+            backgroundTabsFrozen:
+              type: boolean
+            newTabsBlocked:
+              type: boolean
+            placementState:
+              type: string
         usage:
           type: [object, "null"]
           additionalProperties: true

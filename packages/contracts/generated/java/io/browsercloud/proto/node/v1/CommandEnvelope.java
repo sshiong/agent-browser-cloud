@@ -242,6 +242,32 @@ private static final long serialVersionUID = 0L;
     return operationEpoch_;
   }
 
+  public static final int ROUTE_EPOCH_FIELD_NUMBER = 13;
+  private long routeEpoch_ = 0L;
+  /**
+   * <pre>
+   * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+   * </pre>
+   *
+   * <code>int64 route_epoch = 13 [json_name = "routeEpoch"];</code>
+   * @return The routeEpoch.
+   */
+  @java.lang.Override
+  public long getRouteEpoch() {
+    return routeEpoch_;
+  }
+
+  public static final int COORDINATOR_SHARD_ID_FIELD_NUMBER = 14;
+  private int coordinatorShardId_ = 0;
+  /**
+   * <code>int32 coordinator_shard_id = 14 [json_name = "coordinatorShardId"];</code>
+   * @return The coordinatorShardId.
+   */
+  @java.lang.Override
+  public int getCoordinatorShardId() {
+    return coordinatorShardId_;
+  }
+
   public static final int IDEMPOTENCY_KEY_FIELD_NUMBER = 20;
   @SuppressWarnings("serial")
   private volatile java.lang.Object idempotencyKey_ = "";
@@ -335,6 +361,12 @@ private static final long serialVersionUID = 0L;
     if (operationEpoch_ != 0L) {
       output.writeInt64(12, operationEpoch_);
     }
+    if (routeEpoch_ != 0L) {
+      output.writeInt64(13, routeEpoch_);
+    }
+    if (coordinatorShardId_ != 0) {
+      output.writeInt32(14, coordinatorShardId_);
+    }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(idempotencyKey_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 20, idempotencyKey_);
     }
@@ -374,6 +406,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt64Size(12, operationEpoch_);
     }
+    if (routeEpoch_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt64Size(13, routeEpoch_);
+    }
+    if (coordinatorShardId_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(14, coordinatorShardId_);
+    }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(idempotencyKey_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, idempotencyKey_);
     }
@@ -410,6 +450,10 @@ private static final long serialVersionUID = 0L;
         != other.getContextEpoch()) return false;
     if (getOperationEpoch()
         != other.getOperationEpoch()) return false;
+    if (getRouteEpoch()
+        != other.getRouteEpoch()) return false;
+    if (getCoordinatorShardId()
+        != other.getCoordinatorShardId()) return false;
     if (!getIdempotencyKey()
         .equals(other.getIdempotencyKey())) return false;
     if (!getPayload()
@@ -442,6 +486,11 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + OPERATION_EPOCH_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         getOperationEpoch());
+    hash = (37 * hash) + ROUTE_EPOCH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getRouteEpoch());
+    hash = (37 * hash) + COORDINATOR_SHARD_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getCoordinatorShardId();
     hash = (37 * hash) + IDEMPOTENCY_KEY_FIELD_NUMBER;
     hash = (53 * hash) + getIdempotencyKey().hashCode();
     hash = (37 * hash) + PAYLOAD_FIELD_NUMBER;
@@ -588,6 +637,8 @@ private static final long serialVersionUID = 0L;
       coordinatorTerm_ = 0L;
       contextEpoch_ = 0L;
       operationEpoch_ = 0L;
+      routeEpoch_ = 0L;
+      coordinatorShardId_ = 0;
       idempotencyKey_ = "";
       payload_ = com.google.protobuf.ByteString.EMPTY;
       return this;
@@ -645,9 +696,15 @@ private static final long serialVersionUID = 0L;
         result.operationEpoch_ = operationEpoch_;
       }
       if (((from_bitField0_ & 0x00000080) != 0)) {
-        result.idempotencyKey_ = idempotencyKey_;
+        result.routeEpoch_ = routeEpoch_;
       }
       if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.coordinatorShardId_ = coordinatorShardId_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.idempotencyKey_ = idempotencyKey_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
         result.payload_ = payload_;
       }
     }
@@ -725,9 +782,15 @@ private static final long serialVersionUID = 0L;
       if (other.getOperationEpoch() != 0L) {
         setOperationEpoch(other.getOperationEpoch());
       }
+      if (other.getRouteEpoch() != 0L) {
+        setRouteEpoch(other.getRouteEpoch());
+      }
+      if (other.getCoordinatorShardId() != 0) {
+        setCoordinatorShardId(other.getCoordinatorShardId());
+      }
       if (!other.getIdempotencyKey().isEmpty()) {
         idempotencyKey_ = other.idempotencyKey_;
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000200;
         onChanged();
       }
       if (other.getPayload() != com.google.protobuf.ByteString.EMPTY) {
@@ -794,14 +857,24 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 96
+            case 104: {
+              routeEpoch_ = input.readInt64();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 104
+            case 112: {
+              coordinatorShardId_ = input.readInt32();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 112
             case 162: {
               idempotencyKey_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000080;
+              bitField0_ |= 0x00000200;
               break;
             } // case 162
             case 170: {
               payload_ = input.readBytes();
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000400;
               break;
             } // case 170
             default: {
@@ -1217,6 +1290,82 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private long routeEpoch_ ;
+    /**
+     * <pre>
+     * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+     * </pre>
+     *
+     * <code>int64 route_epoch = 13 [json_name = "routeEpoch"];</code>
+     * @return The routeEpoch.
+     */
+    @java.lang.Override
+    public long getRouteEpoch() {
+      return routeEpoch_;
+    }
+    /**
+     * <pre>
+     * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+     * </pre>
+     *
+     * <code>int64 route_epoch = 13 [json_name = "routeEpoch"];</code>
+     * @param value The routeEpoch to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRouteEpoch(long value) {
+
+      routeEpoch_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+     * </pre>
+     *
+     * <code>int64 route_epoch = 13 [json_name = "routeEpoch"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRouteEpoch() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      routeEpoch_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private int coordinatorShardId_ ;
+    /**
+     * <code>int32 coordinator_shard_id = 14 [json_name = "coordinatorShardId"];</code>
+     * @return The coordinatorShardId.
+     */
+    @java.lang.Override
+    public int getCoordinatorShardId() {
+      return coordinatorShardId_;
+    }
+    /**
+     * <code>int32 coordinator_shard_id = 14 [json_name = "coordinatorShardId"];</code>
+     * @param value The coordinatorShardId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoordinatorShardId(int value) {
+
+      coordinatorShardId_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 coordinator_shard_id = 14 [json_name = "coordinatorShardId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCoordinatorShardId() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      coordinatorShardId_ = 0;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object idempotencyKey_ = "";
     /**
      * <pre>
@@ -1272,7 +1421,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       idempotencyKey_ = value;
-      bitField0_ |= 0x00000080;
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -1286,7 +1435,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearIdempotencyKey() {
       idempotencyKey_ = getDefaultInstance().getIdempotencyKey();
-      bitField0_ = (bitField0_ & ~0x00000080);
+      bitField0_ = (bitField0_ & ~0x00000200);
       onChanged();
       return this;
     }
@@ -1304,7 +1453,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       idempotencyKey_ = value;
-      bitField0_ |= 0x00000080;
+      bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -1326,7 +1475,7 @@ private static final long serialVersionUID = 0L;
     public Builder setPayload(com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       payload_ = value;
-      bitField0_ |= 0x00000100;
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }
@@ -1335,7 +1484,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearPayload() {
-      bitField0_ = (bitField0_ & ~0x00000100);
+      bitField0_ = (bitField0_ & ~0x00000400);
       payload_ = getDefaultInstance().getPayload();
       onChanged();
       return this;

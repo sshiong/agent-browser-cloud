@@ -16,6 +16,8 @@ public record RuntimeResourceLimits(
     List<String> extensionIds,
     int extensionCpuWeight,
     int mediaEncoderSlots,
+    boolean freezeBackgroundTabs,
+    boolean blockNewTabs,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,

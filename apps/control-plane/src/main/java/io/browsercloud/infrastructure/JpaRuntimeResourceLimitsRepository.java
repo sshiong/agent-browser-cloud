@@ -39,6 +39,8 @@ public class JpaRuntimeResourceLimitsRepository implements RuntimeResourceLimits
         readExtensionIds(placement.getExtensionIds()),
         placement.getExtensionCpuWeight(),
         placement.getMediaEncoderSlots(),
+        placement.isBackgroundTabsFrozen(),
+        placement.isNewTabsBlocked(),
         placement.isRequiresDesktop(),
         placement.isRequiresGpu(),
         placement.isRequiresNativeOs(),

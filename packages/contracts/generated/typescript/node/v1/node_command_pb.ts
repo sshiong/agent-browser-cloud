@@ -838,6 +838,18 @@ export class CommandEnvelope extends Message<CommandEnvelope> {
   operationEpoch = protoInt64.zero;
 
   /**
+   * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+   *
+   * @generated from field: int64 route_epoch = 13;
+   */
+  routeEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: int32 coordinator_shard_id = 14;
+   */
+  coordinatorShardId = 0;
+
+  /**
    * 幂等
    *
    * @generated from field: string idempotency_key = 20;
@@ -864,6 +876,8 @@ export class CommandEnvelope extends Message<CommandEnvelope> {
     { no: 10, name: "coordinator_term", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 11, name: "context_epoch", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 12, name: "operation_epoch", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 13, name: "route_epoch", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 14, name: "coordinator_shard_id", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 20, name: "idempotency_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 21, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
   ]);
@@ -1098,6 +1112,16 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   mediaEncoderSlots?: number;
 
+  /**
+   * @generated from field: optional bool freeze_background_tabs = 23;
+   */
+  freezeBackgroundTabs?: boolean;
+
+  /**
+   * @generated from field: optional bool block_new_tabs = 24;
+   */
+  blockNewTabs?: boolean;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1128,6 +1152,8 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 21, name: "extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 22, name: "media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 23, name: "freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 24, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1470,6 +1496,20 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   mediaEncoderSlots?: number;
 
+  /**
+   * 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
+   *
+   * @generated from field: optional bool freeze_background_tabs = 17;
+   */
+  freezeBackgroundTabs?: boolean;
+
+  /**
+   * 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
+   *
+   * @generated from field: optional bool block_new_tabs = 18;
+   */
+  blockNewTabs?: boolean;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1494,6 +1534,8 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 14, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 15, name: "extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 16, name: "media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 17, name: "freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 18, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1641,6 +1683,26 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newMediaEncoderSlots?: number;
 
+  /**
+   * @generated from field: optional bool old_freeze_background_tabs = 25;
+   */
+  oldFreezeBackgroundTabs?: boolean;
+
+  /**
+   * @generated from field: optional bool new_freeze_background_tabs = 26;
+   */
+  newFreezeBackgroundTabs?: boolean;
+
+  /**
+   * @generated from field: optional bool old_block_new_tabs = 27;
+   */
+  oldBlockNewTabs?: boolean;
+
+  /**
+   * @generated from field: optional bool new_block_new_tabs = 28;
+   */
+  newBlockNewTabs?: boolean;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1673,6 +1735,10 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 22, name: "new_extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 23, name: "old_media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 24, name: "new_media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 25, name: "old_freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 26, name: "new_freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 27, name: "old_block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 28, name: "new_block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {
@@ -2399,6 +2465,77 @@ export class AgentNavigateCommand extends Message<AgentNavigateCommand> {
 
   static equals(a: AgentNavigateCommand | PlainMessage<AgentNavigateCommand> | undefined, b: AgentNavigateCommand | PlainMessage<AgentNavigateCommand> | undefined): boolean {
     return proto3.util.equals(AgentNavigateCommand, a, b);
+  }
+}
+
+/**
+ * Business Recovery 只允许 Control Plane 从版本化应用契约解析出的低风险动作。
+ * target_url 对 RELOAD / REFRESH_SESSION / RESTART_EXTENSION 为空；
+ * 导航动作必须是契约内规范化 URL；extension_id 只允许契约绑定的 Chromium ID。
+ *
+ * @generated from message browsercloud.node.v1.BusinessRecoveryActionCommand
+ */
+export class BusinessRecoveryActionCommand extends Message<BusinessRecoveryActionCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string action_id = 2;
+   */
+  actionId = "";
+
+  /**
+   * @generated from field: string action = 3;
+   */
+  action = "";
+
+  /**
+   * @generated from field: string target_url = 4;
+   */
+  targetUrl = "";
+
+  /**
+   * @generated from field: uint64 base_state_version = 5;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: string extension_id = 6;
+   */
+  extensionId = "";
+
+  constructor(data?: PartialMessage<BusinessRecoveryActionCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BusinessRecoveryActionCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "action_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "action", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "target_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "extension_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BusinessRecoveryActionCommand {
+    return new BusinessRecoveryActionCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BusinessRecoveryActionCommand {
+    return new BusinessRecoveryActionCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BusinessRecoveryActionCommand {
+    return new BusinessRecoveryActionCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BusinessRecoveryActionCommand | PlainMessage<BusinessRecoveryActionCommand> | undefined, b: BusinessRecoveryActionCommand | PlainMessage<BusinessRecoveryActionCommand> | undefined): boolean {
+    return proto3.util.equals(BusinessRecoveryActionCommand, a, b);
   }
 }
 

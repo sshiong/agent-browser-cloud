@@ -166,6 +166,34 @@ export function SessionResourcePanel({
             />
           </div>
 
+          {resource.allocation ? (
+            <div
+              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-2"
+              aria-label="标签页资源保护状态"
+            >
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  后台标签
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  {resource.allocation.backgroundTabsFrozen
+                    ? '已由 Node 冻结'
+                    : '正常运行'}
+                </p>
+              </div>
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  新建标签
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  {resource.allocation.newTabsBlocked
+                    ? '已由 Node 阻断'
+                    : `允许，预算 ${resource.allocation.tabBudget ?? '—'}`}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <ResourceUsageChart resource={resource} />
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

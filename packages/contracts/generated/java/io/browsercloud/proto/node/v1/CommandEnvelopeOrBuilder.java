@@ -80,6 +80,22 @@ public interface CommandEnvelopeOrBuilder extends
 
   /**
    * <pre>
+   * PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+   * </pre>
+   *
+   * <code>int64 route_epoch = 13 [json_name = "routeEpoch"];</code>
+   * @return The routeEpoch.
+   */
+  long getRouteEpoch();
+
+  /**
+   * <code>int32 coordinator_shard_id = 14 [json_name = "coordinatorShardId"];</code>
+   * @return The coordinatorShardId.
+   */
+  int getCoordinatorShardId();
+
+  /**
+   * <pre>
    * 幂等
    * </pre>
    *

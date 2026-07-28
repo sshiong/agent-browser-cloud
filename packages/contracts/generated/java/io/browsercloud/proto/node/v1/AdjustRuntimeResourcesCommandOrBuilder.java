@@ -165,4 +165,42 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The mediaEncoderSlots.
    */
   int getMediaEncoderSlots();
+
+  /**
+   * <pre>
+   * 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
+   * </pre>
+   *
+   * <code>optional bool freeze_background_tabs = 17 [json_name = "freezeBackgroundTabs"];</code>
+   * @return Whether the freezeBackgroundTabs field is set.
+   */
+  boolean hasFreezeBackgroundTabs();
+  /**
+   * <pre>
+   * 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
+   * </pre>
+   *
+   * <code>optional bool freeze_background_tabs = 17 [json_name = "freezeBackgroundTabs"];</code>
+   * @return The freezeBackgroundTabs.
+   */
+  boolean getFreezeBackgroundTabs();
+
+  /**
+   * <pre>
+   * 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
+   * </pre>
+   *
+   * <code>optional bool block_new_tabs = 18 [json_name = "blockNewTabs"];</code>
+   * @return Whether the blockNewTabs field is set.
+   */
+  boolean hasBlockNewTabs();
+  /**
+   * <pre>
+   * 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
+   * </pre>
+   *
+   * <code>optional bool block_new_tabs = 18 [json_name = "blockNewTabs"];</code>
+   * @return The blockNewTabs.
+   */
+  boolean getBlockNewTabs();
 }

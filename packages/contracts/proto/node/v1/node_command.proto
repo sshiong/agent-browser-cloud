@@ -198,6 +198,8 @@ message StartRuntimeCommand {
   optional uint32 extension_cpu_weight = 21;
   // 当前可用的编码并发 Slot；与 Placement 预留上限分离。
   optional uint32 media_encoder_slots = 22;
+  optional bool freeze_background_tabs = 23;
+  optional bool block_new_tabs = 24;
 }
 
 // Runtime 启动事件
@@ -255,6 +257,10 @@ message AdjustRuntimeResourcesCommand {
   optional uint32 extension_cpu_weight = 15;
   // 只调整 Media Encoder 子 cgroup 的当前 Slot，不改变 Placement 预留上限。
   optional uint32 media_encoder_slots = 16;
+  // 资源达到上限时冻结后台 Page Target；Node 必须通过 CDP 执行成功后才 ACK。
+  optional bool freeze_background_tabs = 17;
+  // 以命令执行时的 Page Target 为允许集合，持续关闭之后新建的 Page Target。
+  optional bool block_new_tabs = 18;
 }
 
 // Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
@@ -284,6 +290,10 @@ message RuntimeResourcesAdjustedEvent {
   optional uint32 new_extension_cpu_weight = 22;
   optional uint32 old_media_encoder_slots = 23;
   optional uint32 new_media_encoder_slots = 24;
+  optional bool old_freeze_background_tabs = 25;
+  optional bool new_freeze_background_tabs = 26;
+  optional bool old_block_new_tabs = 27;
+  optional bool new_block_new_tabs = 28;
 }
 
 // Browser Crash 事件

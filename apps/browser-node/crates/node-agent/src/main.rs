@@ -32,7 +32,7 @@ use runtime_supervisor::{
 };
 use state_collector::{
     diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
-    StateQuality,
+    StateQuality, TabResourcePolicy,
 };
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -1104,7 +1104,19 @@ impl NodeControlService {
         previous_runtime: RuntimeResourceLimits,
         previous_state_collector_budget_percent: u32,
         previous_remote_desktop_bitrate_kbps: u32,
+        previous_tab_resource_policy: TabResourcePolicy,
     ) {
+        if let Err(error) = self
+            .state_collector
+            .set_tab_resource_policy(session_id, previous_tab_resource_policy)
+            .await
+        {
+            tracing::error!(
+                session_id,
+                error = %error,
+                "Tab resource policy rollback failed"
+            );
+        }
         if let Some(gateway) = self
             .remote_desktop_gateway
             .as_ref()
@@ -1580,6 +1592,9 @@ impl NodeControlService {
                             payload.remote_desktop_bitrate_kbps.unwrap_or(0);
                         let extension_cpu_weight = payload.extension_cpu_weight.unwrap_or(100);
                         let media_encoder_slots = payload.media_encoder_slots.unwrap_or(0);
+                        let freeze_background_tabs =
+                            payload.freeze_background_tabs.unwrap_or(false);
+                        let block_new_tabs = payload.block_new_tabs.unwrap_or(false);
                         if payload.resource_class == "L0"
                             || payload.cpu_millis == 0
                             || payload.memory_request_mib == 0
@@ -1807,6 +1822,29 @@ impl NodeControlService {
                                     .set_resource_budget(
                                         &command.session_id,
                                         state_collector_budget_percent,
+                                    )
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
+                                if let Err(error) = self
+                                    .state_collector
+                                    .set_tab_resource_policy(
+                                        &command.session_id,
+                                        TabResourcePolicy {
+                                            tab_budget: payload.tab_budget,
+                                            freeze_background_tabs,
+                                            block_new_tabs,
+                                        },
                                     )
                                     .await
                                 {
@@ -2113,6 +2151,15 @@ impl NodeControlService {
                             .state_collector
                             .resource_budget_percent(&command.session_id)
                             .await;
+                        let previous_tab_resource_policy = self
+                            .state_collector
+                            .tab_resource_policy(&command.session_id)
+                            .await
+                            .unwrap_or(TabResourcePolicy {
+                                tab_budget: current_limits.tab_budget,
+                                freeze_background_tabs: false,
+                                block_new_tabs: false,
+                            });
                         let next_state_collector_budget_percent = payload
                             .state_collector_budget_percent
                             .unwrap_or(previous_state_collector_budget_percent);
@@ -2133,6 +2180,15 @@ impl NodeControlService {
                         let next_remote_desktop_bitrate_kbps = payload
                             .remote_desktop_bitrate_kbps
                             .unwrap_or(previous_remote_desktop_bitrate_kbps);
+                        let next_tab_resource_policy = TabResourcePolicy {
+                            tab_budget: payload.tab_budget,
+                            freeze_background_tabs: payload
+                                .freeze_background_tabs
+                                .unwrap_or(previous_tab_resource_policy.freeze_background_tabs),
+                            block_new_tabs: payload
+                                .block_new_tabs
+                                .unwrap_or(previous_tab_resource_policy.block_new_tabs),
+                        };
                         if next_remote_desktop_bitrate_kbps != 0
                             && !(250..=100_000).contains(&next_remote_desktop_bitrate_kbps)
                         {
@@ -2178,6 +2234,7 @@ impl NodeControlService {
                                 previous.clone(),
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
+                                previous_tab_resource_policy.clone(),
                             )
                             .await;
                             return self.failed(command, error);
@@ -2196,10 +2253,29 @@ impl NodeControlService {
                                     previous.clone(),
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
+                                    previous_tab_resource_policy.clone(),
                                 )
                                 .await;
                                 return self.failed(command, error);
                             }
+                        }
+                        if let Err(error) = self
+                            .state_collector
+                            .set_tab_resource_policy(
+                                &command.session_id,
+                                next_tab_resource_policy.clone(),
+                            )
+                            .await
+                        {
+                            self.rollback_resource_adjustment(
+                                &command.session_id,
+                                previous.clone(),
+                                previous_state_collector_budget_percent,
+                                previous_remote_desktop_bitrate_kbps,
+                                previous_tab_resource_policy.clone(),
+                            )
+                            .await;
+                            return self.failed(command, error);
                         }
                         let sequence = match self.next_event_sequence(&command.session_id).await {
                             Ok(sequence) => sequence,
@@ -2209,6 +2285,7 @@ impl NodeControlService {
                                     previous,
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
+                                    previous_tab_resource_policy.clone(),
                                 )
                                 .await;
                                 return self.failed(command, error);
@@ -2251,6 +2328,16 @@ impl NodeControlService {
                                 new_extension_cpu_weight: Some(applied_extension_cpu_weight),
                                 old_media_encoder_slots: Some(previous_media_encoder_slots),
                                 new_media_encoder_slots: Some(applied_media_encoder_slots),
+                                old_freeze_background_tabs: Some(
+                                    previous_tab_resource_policy.freeze_background_tabs,
+                                ),
+                                new_freeze_background_tabs: Some(
+                                    next_tab_resource_policy.freeze_background_tabs,
+                                ),
+                                old_block_new_tabs: Some(
+                                    previous_tab_resource_policy.block_new_tabs,
+                                ),
+                                new_block_new_tabs: Some(next_tab_resource_policy.block_new_tabs),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))

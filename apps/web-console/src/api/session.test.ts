@@ -13,6 +13,7 @@ import {
   SessionApiError,
   startSession,
   streamSessionResourceChanges,
+  upsertRecoveryContract,
   validateBusinessRecovery,
 } from './session';
 
@@ -241,6 +242,66 @@ describe('session API', () => {
     await expect(
       getBusinessRecovery('ses_1234567890abcdef', 'tenant-test')
     ).resolves.toBeNull();
+  });
+
+  it('publishes a versioned recovery contract through the tenant API', async () => {
+    const contract = {
+      contractId: 'arc_1234567890abcdefghij',
+      applicationId: 'crm.singapore',
+      version: 3,
+      expectedOrigins: ['https://crm.example.test'],
+      readyRoutePrefixes: ['/workspace'],
+      loginRoutePrefixes: ['/sign-in'],
+      requiredTargets: [{ role: 'status', name: 'Recovered workspace' }],
+      loginTargets: [],
+      permissionDeniedTargets: [],
+      accountMismatchTargets: [],
+      requiredExtensionIds: [],
+      allowDepthLimited: false,
+      recoveryAction: 'RELOAD',
+      maximumAutoRecovery: 1,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(contract), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await upsertRecoveryContract(
+      'crm.singapore',
+      {
+        expectedVersion: 2,
+        expectedOrigins: ['https://crm.example.test'],
+        readyRoutePrefixes: ['/workspace'],
+        loginRoutePrefixes: ['/sign-in'],
+        requiredTargets: [{ role: 'status', name: 'Recovered workspace' }],
+        loginTargets: [],
+        permissionDeniedTargets: [],
+        accountMismatchTargets: [],
+        requiredExtensionIds: [],
+        allowDepthLimited: false,
+        recoveryAction: 'RELOAD',
+        maximumAutoRecovery: 1,
+        enabled: true,
+      },
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/applications/crm.singapore/recovery-contract',
+      expect.objectContaining({
+        method: 'PUT',
+        body: expect.stringContaining('"expectedVersion":2'),
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
   });
 
   it('acquires and releases an owner-bound safety lease with idempotency', async () => {

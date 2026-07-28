@@ -105,8 +105,9 @@ POST /api/v1/sessions/{id}/safety-leases/{leaseId}:release
 1. 各 Tenant/Application 的支付、账号安全、SPA 和关键事务 Adapter/SDK 包装；本轮完成
    的是通用 Producer 协议，不会自动理解任意网页业务语义。
 2. Application-aware Business Recovery 的版本化契约、受限规则 DSL、持久 Verdict、
-   迁移 Ready Gate 和有界低风险动作已完成；仍缺各站点 Adapter、契约作者 UI、
-   Provider/API 级账号/权限/业务实体证明。受信 Extension 重启已在进度 61 关闭。
+   迁移 Ready Gate 和有界低风险动作已完成，进度 62 已完成契约作者 UI；仍缺各站点
+   Adapter、契约审批/审计和 Provider/API 级账号/权限/业务实体证明。受信 Extension
+   重启已在进度 61 关闭。
    详见[Business Recovery 有界自动动作闭环](56-Business-Recovery有界自动动作闭环.md)。
 3. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发压力、网络分区、
    Node 故障和长期稳定性证书。

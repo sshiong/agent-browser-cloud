@@ -9,10 +9,11 @@ export function useBrowserNodes() {
   });
 }
 
-export function useExtensionProfiles() {
+export function useExtensionProfiles(enabled = true) {
   return useQuery({
     queryKey: ['extension-profiles'],
     queryFn: ({ signal }) => listExtensionProfiles(signal),
-    refetchInterval: 15_000,
+    enabled,
+    refetchInterval: enabled ? 15_000 : false,
   });
 }

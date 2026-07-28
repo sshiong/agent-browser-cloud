@@ -17,6 +17,7 @@ import {
   updateSessionResourcePolicy,
   streamSessionResourceChanges,
   listRecoveryContracts,
+  upsertRecoveryContract,
   getBusinessRecovery,
   validateBusinessRecovery,
 } from '@/api/session';
@@ -26,6 +27,7 @@ import type {
   SessionState,
   StateResyncRequest,
   ResourcePolicyRequest,
+  UpsertRecoveryContractRequest,
 } from '@/types/session';
 
 export const sessionKeys = {
@@ -157,6 +159,24 @@ export function useRecoveryContracts() {
   return useQuery({
     queryKey: sessionKeys.recoveryContracts,
     queryFn: ({ signal }) => listRecoveryContracts(undefined, signal),
+  });
+}
+
+export function useUpsertRecoveryContract() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      applicationId,
+      body,
+    }: {
+      applicationId: string;
+      body: UpsertRecoveryContractRequest;
+    }) => upsertRecoveryContract(applicationId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.recoveryContracts,
+      });
+    },
   });
 }
 

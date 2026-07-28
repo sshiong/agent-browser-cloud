@@ -87,7 +87,8 @@ Application Recovery Contract
 
 ## 明确未完成
 
-1. Recovery Contract 作者 UI、审批和更友好的版本差异体验；
+1. Recovery Contract 作者 UI 已在进度 62 完成；审批、变更审计和更友好的版本差异
+   体验仍待完成；
 2. Provider/API 级账号、权限和业务实体恢复证明；
 3. 支付、账号安全、SPA/Form、关键事务等目标站点 Adapter/SDK 实际接入；
 4. 逐 Extension/Content Script CPU 与内存归因；

@@ -22,6 +22,8 @@ import type {
   SafetyLeaseView,
   SafetyLeaseListResponse,
   RecoveryContractListResponse,
+  RecoveryContractView,
+  UpsertRecoveryContractRequest,
   BusinessRecoveryValidationView,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
@@ -490,6 +492,23 @@ export async function listRecoveryContracts(
   return request<RecoveryContractListResponse>(
     '/applications/recovery-contracts',
     { signal },
+    tenantId
+  );
+}
+
+export async function upsertRecoveryContract(
+  applicationId: string,
+  data: UpsertRecoveryContractRequest,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<RecoveryContractView> {
+  return request<RecoveryContractView>(
+    `/applications/${encodeURIComponent(applicationId)}/recovery-contract`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      signal,
+    },
     tenantId
   );
 }

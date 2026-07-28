@@ -2,8 +2,9 @@
 
 > 日期：2026-07-28
 > 状态：声明式契约、PostgreSQL 权威状态、迁移 Ready Gate、有界低风险自动动作、
-> API/Web 展示和真实集成已完成；站点专用 Adapter、Provider 级证明、契约作者 UI、
-> 受信 Extension 重启已在 V039/进度 61 完成；目标双 Node 长稳仍待完成
+> API/Web 展示和真实集成已完成；受信 Extension 重启已在 V039/进度 61 完成，
+> 契约作者 UI 已在进度 62 完成；站点专用 Adapter、Provider 级证明、契约审批/审计
+> 和目标双 Node 长稳仍待完成
 
 ## 目标和边界
 
@@ -74,8 +75,8 @@ GET  /api/v1/sessions/{id}/business-recovery
 
 ## 仍未完成
 
-1. 各目标网站的契约作者 UI、支付/账号安全/SPA Adapter、可信业务埋点和 SDK 包装；
-   平台仍不会自动理解任意网页业务语义。
+1. 契约作者 UI 已在进度 62 完成；支付/账号安全/SPA Adapter、可信业务埋点、SDK
+   包装以及契约审批/审计仍待完成。平台仍不会自动理解任意网页业务语义。
 2. `maximumAutoRecovery` 已在 V034 接入持久尝试预算、Reload/Refresh/受限导航、
    Node State ACK 与二次 Ready Gate，详见
    [进度 56](56-Business-Recovery有界自动动作闭环.md)。当前仍不自动点击或终止，

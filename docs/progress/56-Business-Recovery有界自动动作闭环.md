@@ -3,7 +3,7 @@
 > 日期：2026-07-28
 > 状态：低风险动作、持久尝试预算、Node 执行、State ACK、二次 Ready Gate、API/Web
 > 展示和真实集成已完成；受信 `RESTART_EXTENSION` 已在 V039/进度 61 关闭，
-> 站点 Adapter、Provider 级证明和契约作者 UI 仍待完成
+> 契约作者 UI 已在进度 62 关闭；站点 Adapter、Provider 级证明和契约审批/审计仍待完成
 
 ## 目标与安全边界
 
@@ -66,7 +66,9 @@ V030 已能用声明式 Application Recovery Contract 判定恢复后的业务�
 - Session Migration 响应新增当前尝试数、最大次数和最近一次动作；
 - Session Detail 的 Business Recovery 卡显示动作类型、状态、尝试预算、Base/Result
   State Version 与错误，不用颜色替代文本；
-- 当前还没有 Recovery Contract 作者页面，契约仍由正式 Admin API 管理。
+- Recovery Contract 作者页面后续已在
+  [进度 62](62-Application-Recovery-Contract作者工作区.md)完成，并继续使用正式
+  Admin API、版本 CAS 和同一声明式边界。
 
 ## 可重复验证
 
@@ -90,6 +92,6 @@ V030 已能用声明式 Application Recovery Contract 判定恢复后的业务�
 
 1. 支付、账号安全、SPA/Form 和关键业务事务的站点 Adapter/SDK 实际接入；
 2. Provider/API 级账号、权限和业务实体证明；
-3. Recovery Contract 作者 UI、审批和变更审计体验；
+3. Recovery Contract 作者 UI 已完成；审批、变更审计和版本差异体验仍待完成；
 4. 独立 Business Recovery 事件流与 State/Audit/Agent Step 统一事件层；
 5. 两个真实 Browser Node + Object Storage 的迁移、故障注入和长期稳定性证书。

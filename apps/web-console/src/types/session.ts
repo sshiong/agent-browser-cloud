@@ -203,6 +203,23 @@ export interface RecoveryContractListResponse {
   total: number;
 }
 
+export interface UpsertRecoveryContractRequest {
+  expectedVersion: number;
+  expectedOrigins: string[];
+  readyRoutePrefixes: string[];
+  loginRoutePrefixes: string[];
+  requiredTargets: RecoveryTargetIndicator[];
+  loginTargets: RecoveryTargetIndicator[];
+  permissionDeniedTargets: RecoveryTargetIndicator[];
+  accountMismatchTargets: RecoveryTargetIndicator[];
+  requiredExtensionIds: string[];
+  allowDepthLimited: boolean;
+  recoveryAction: BusinessRecoveryAction;
+  recoveryExtensionId?: string;
+  maximumAutoRecovery: number;
+  enabled: boolean;
+}
+
 export type BusinessRecoveryVerdict =
   | 'READY'
   | 'READY_WITH_WARNING'

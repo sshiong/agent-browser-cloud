@@ -1,4 +1,11 @@
-import { Activity, FlaskConical, Puzzle, ShieldAlert } from 'lucide-react';
+import {
+  Activity,
+  Braces,
+  FlaskConical,
+  Puzzle,
+  ShieldAlert,
+} from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import {
   EmptyState,
@@ -8,9 +15,13 @@ import {
 import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
 import { cn } from '@/shared/lib/utils';
 import type { ExtensionProfileView } from '@/types/capacity';
+import { RecoveryContractWorkspace } from './RecoveryContractWorkspace';
 
 export function ExtensionsPage() {
-  const query = useExtensionProfiles();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view =
+    searchParams.get('view') === 'recovery' ? 'recovery' : 'profiles';
+  const query = useExtensionProfiles(view === 'profiles');
   const extensions = query.data?.items ?? [];
   const probation = extensions.filter(
     (extension) => extension.profileState === 'PROBATION'
@@ -26,64 +37,133 @@ export function ExtensionsPage() {
   return (
     <div>
       <TopContextBar
-        title="扩展资源画像"
-        subtitle="Extension Weight、Probation、P95 观测与隔离调度"
+        title="扩展与应用"
+        subtitle={
+          view === 'profiles'
+            ? 'Extension Weight、Probation、P95 观测与隔离调度'
+            : '版本化 Application Ready Gate、恢复证据与有界自动动作'
+        }
       />
       <main className="p-4 sm:p-6">
-        <section className="grid border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-4">
-          <Metric
-            icon={Puzzle}
-            label="Profiles"
-            value={String(extensions.length)}
+        <nav
+          aria-label="扩展与应用工作区"
+          className="mb-4 flex border-b border-border-default"
+        >
+          <WorkspaceTab
+            active={view === 'profiles'}
+            icon={<Puzzle size={14} />}
+            label="扩展资源画像"
+            detail="PROFILE / TELEMETRY"
+            onClick={() => setSearchParams({ view: 'profiles' })}
           />
-          <Metric
-            icon={FlaskConical}
-            label="Probation"
-            value={String(probation)}
-            tone={probation > 0 ? 'warning' : 'success'}
+          <WorkspaceTab
+            active={view === 'recovery'}
+            icon={<Braces size={14} />}
+            label="应用恢复契约"
+            detail="READY GATE / RECOVERY"
+            onClick={() => setSearchParams({ view: 'recovery' })}
           />
-          <Metric
-            icon={ShieldAlert}
-            label="Privileged"
-            value={String(privileged)}
-            tone={privileged > 0 ? 'warning' : 'accent'}
-          />
-          <Metric icon={Activity} label="Samples" value={String(samples)} />
-        </section>
+        </nav>
 
-        <section className="mt-4">
-          {query.isLoading ? (
-            <div className="border border-border-subtle bg-surface-1">
-              <LoadingPanel label="正在读取 Extension Profile" />
-            </div>
-          ) : query.isError ? (
-            <div className="border border-border-subtle bg-surface-1">
-              <ErrorState
-                error={query.error}
-                onRetry={() => query.refetch()}
-                title="无法加载扩展资源画像"
+        {view === 'profiles' ? (
+          <>
+            <section className="grid border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-4">
+              <Metric
+                icon={Puzzle}
+                label="Profiles"
+                value={String(extensions.length)}
               />
-            </div>
-          ) : extensions.length === 0 ? (
-            <div className="border border-border-subtle bg-surface-1">
-              <EmptyState
-                title="没有已登记的 Extension Profile"
-                description="未知扩展仍可请求 Session，但会自动进入 Probation、提升 Resource Class，并限制每个 Node 的并发数。"
+              <Metric
+                icon={FlaskConical}
+                label="Probation"
+                value={String(probation)}
+                tone={probation > 0 ? 'warning' : 'success'}
               />
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {extensions.map((extension) => (
-                <ExtensionCard
-                  key={extension.extensionId}
-                  extension={extension}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+              <Metric
+                icon={ShieldAlert}
+                label="Privileged"
+                value={String(privileged)}
+                tone={privileged > 0 ? 'warning' : 'accent'}
+              />
+              <Metric icon={Activity} label="Samples" value={String(samples)} />
+            </section>
+
+            <section className="mt-4">
+              {query.isLoading ? (
+                <div className="border border-border-subtle bg-surface-1">
+                  <LoadingPanel label="正在读取 Extension Profile" />
+                </div>
+              ) : query.isError ? (
+                <div className="border border-border-subtle bg-surface-1">
+                  <ErrorState
+                    error={query.error}
+                    onRetry={() => query.refetch()}
+                    title="无法加载扩展资源画像"
+                  />
+                </div>
+              ) : extensions.length === 0 ? (
+                <div className="border border-border-subtle bg-surface-1">
+                  <EmptyState
+                    title="没有已登记的 Extension Profile"
+                    description="未知扩展仍可请求 Session，但会自动进入 Probation、提升 Resource Class，并限制每个 Node 的并发数。"
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                  {extensions.map((extension) => (
+                    <ExtensionCard
+                      key={extension.extensionId}
+                      extension={extension}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <RecoveryContractWorkspace />
+        )}
       </main>
     </div>
+  );
+}
+
+function WorkspaceTab({
+  active,
+  icon,
+  label,
+  detail,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'relative flex min-h-14 items-center gap-3 px-4 text-left transition-colors',
+        active
+          ? 'bg-surface-1 text-accent'
+          : 'text-text-muted hover:bg-surface-1 hover:text-text-secondary'
+      )}
+    >
+      {icon}
+      <span>
+        <span className="block text-[11px] font-semibold">{label}</span>
+        <span className="mt-0.5 block font-mono text-[8px] tracking-[0.08em]">
+          {detail}
+        </span>
+      </span>
+      {active && (
+        <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-accent" />
+      )}
+    </button>
   );
 }
 

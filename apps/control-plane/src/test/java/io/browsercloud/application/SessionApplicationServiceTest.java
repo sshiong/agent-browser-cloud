@@ -10,6 +10,7 @@ import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -92,7 +93,8 @@ class SessionApplicationServiceTest {
             now);
     when(sessionRepository.describe("ses_test"))
         .thenReturn(
-            new SessionDescriptor(context, "local", "Integration browser", "grp_test", true));
+            new SessionDescriptor(
+                context, "local", "Integration browser", "grp_test", true, AgentPolicy.BALANCED));
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
     when(workspaceTagService.summariesForSession("tenant-test", "ses_test"))
         .thenReturn(java.util.List.of());
@@ -104,6 +106,7 @@ class SessionApplicationServiceTest {
     assertThat(view.groupId()).isEqualTo("grp_test");
     assertThat(view.tags()).isEmpty();
     assertThat(view.humanTakeoverEnabled()).isTrue();
+    assertThat(view.agentPolicy()).isEqualTo(AgentPolicy.BALANCED);
     assertThat(view.region()).isEqualTo("local");
     assertThat(view.resourceClass()).isEqualTo(ResourceClass.L2);
   }
@@ -131,7 +134,8 @@ class SessionApplicationServiceTest {
             now);
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(sessionRepository.describe("ses_test"))
-        .thenReturn(new SessionDescriptor(context, "local", "Browser", null, false));
+        .thenReturn(
+            new SessionDescriptor(context, "local", "Browser", null, false, AgentPolicy.BALANCED));
 
     assertThatThrownBy(() -> service.requestTakeover("ses_test", "tenant-test", "operator-test"))
         .isInstanceOf(SessionApplicationService.HumanTakeoverDisabledException.class);

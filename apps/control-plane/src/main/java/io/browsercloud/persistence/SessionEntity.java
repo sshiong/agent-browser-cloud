@@ -1,5 +1,6 @@
 package io.browsercloud.persistence;
 
+import io.browsercloud.domain.agent.AgentPolicy;
 import jakarta.persistence.*;
 import java.time.Instant;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -38,6 +39,10 @@ public class SessionEntity {
   @Column(name = "human_takeover_enabled", nullable = false)
   private boolean humanTakeoverEnabled;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "agent_policy", nullable = false)
+  private AgentPolicy agentPolicy;
+
   @Column(name = "metadata", columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String metadata;
@@ -63,6 +68,7 @@ public class SessionEntity {
       String policyHash,
       String metadata,
       boolean humanTakeoverEnabled,
+      AgentPolicy agentPolicy,
       Instant createdAt) {
     this.id = id;
     this.tenantId = tenantId;
@@ -73,6 +79,7 @@ public class SessionEntity {
     this.policyHash = policyHash;
     this.metadata = metadata;
     this.humanTakeoverEnabled = humanTakeoverEnabled;
+    this.agentPolicy = agentPolicy;
     this.createdAt = createdAt;
     this.updatedAt = createdAt;
   }
@@ -140,6 +147,10 @@ public class SessionEntity {
 
   public boolean isHumanTakeoverEnabled() {
     return humanTakeoverEnabled;
+  }
+
+  public AgentPolicy getAgentPolicy() {
+    return agentPolicy;
   }
 
   public void setPolicyHash(String policyHash) {

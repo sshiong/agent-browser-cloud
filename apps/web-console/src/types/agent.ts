@@ -74,6 +74,7 @@ export interface AgentTaskView {
   riskClass: AgentRiskClass;
   intentDecision: 'ALLOWED' | 'CONFIRM_REQUIRED' | 'FORBIDDEN';
   blockedReason?: string;
+  agentPolicy?: import('./session').AgentPolicy;
   currentStep: number;
   totalSteps: number;
   replanCount: number;

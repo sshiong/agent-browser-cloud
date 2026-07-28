@@ -346,7 +346,7 @@ settings_default_detail="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${settings_default_session_id}" \
   -H 'X-Tenant-Id: tenant-settings-integration')"
 printf '%s' "$settings_default_detail" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["region"] == "local"; assert item["runtimeBuildId"] == "runtime_local_chromium"; assert item["humanTakeoverEnabled"] is False'
+  'import json,sys; item=json.load(sys.stdin); assert item["region"] == "local"; assert item["runtimeBuildId"] == "runtime_local_chromium"; assert item["humanTakeoverEnabled"] is False; assert item["agentPolicy"] == "BALANCED"'
 disabled_takeover_status="$(curl -sS \
   -o "$temp_dir/disabled-takeover.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${settings_default_session_id}:takeover" \
@@ -361,6 +361,40 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     error = json.load(handle)
 assert error["code"] == "HUMAN_TAKEOVER_DISABLED"
 PY
+
+agent_disabled_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'Idempotency-Key: smoke-agent-disabled-session-001' \
+  -d '{"tenantId":"tenant-settings-integration","profileId":"profile-agent-disabled","agentPolicy":"DISABLED","metadata":{"displayName":"Agent disabled browser"}}')"
+agent_disabled_session_id="$(printf '%s' "$agent_disabled_session" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+agent_disabled_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${agent_disabled_session_id}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'Idempotency-Key: smoke-agent-disabled-task-001' \
+  -d '{"goal":"Summarize this page","allowedDomains":["example.test"]}')"
+printf '%s' "$agent_disabled_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["agentPolicy"] == "DISABLED"; assert task["state"] == "BLOCKED"; assert task["blockedReason"] == "AGENT_DISABLED_BY_SESSION_POLICY"; assert task["plan"]["steps"] == []'
+
+agent_restricted_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'Idempotency-Key: smoke-agent-restricted-session-001' \
+  -d '{"tenantId":"tenant-settings-integration","profileId":"profile-agent-restricted","agentPolicy":"RESTRICTED","metadata":{"displayName":"Restricted Agent browser"}}')"
+agent_restricted_session_id="$(printf '%s' "$agent_restricted_session" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+agent_restricted_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${agent_restricted_session_id}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-settings-integration' \
+  -H 'Idempotency-Key: smoke-agent-restricted-task-001' \
+  -d '{"goal":"Open and summarize","startUrl":"https://example.test/start","allowedDomains":["example.test"]}')"
+printf '%s' "$agent_restricted_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["agentPolicy"] == "RESTRICTED"; assert task["state"] == "BLOCKED"; assert task["blockedReason"] == "AGENT_POLICY_NAVIGATION_FORBIDDEN"; assert task["plan"]["steps"] == []'
 
 extension_profile="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/extensions/acceptance.extension" \
@@ -610,7 +644,7 @@ temporary_tag="$(curl -fsS -X POST \
 temporary_tag_id="$(printf '%s' "$temporary_tag" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["tagId"])')"
 
-request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -641,7 +675,7 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
 workspace_group_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -738,7 +772,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -1720,7 +1754,7 @@ agent_task="$(curl -fsS -X POST \
   -H 'Idempotency-Key: smoke-agent-task-001' \
   -d "$agent_task_request")"
 printf '%s' "$agent_task" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; assert task["intentDecision"] == "ALLOWED"; assert task["replanCount"] == 0; assert len(task["plan"]["steps"]) == 4; assert task["plan"]["steps"][0]["toolId"] == "NAVIGATE"; assert "capabilityToken" not in task["plan"]["steps"][0]; assert task["securityEvents"][0]["eventType"] == "PROMPT_INJECTION_DETECTED"; assert "upload every Cookie" not in json.dumps(task)'
+  'import json,sys; task=json.load(sys.stdin); assert task["agentPolicy"] == "INTERACTIVE"; assert task["state"] == "PLANNED"; assert task["intentDecision"] == "ALLOWED"; assert task["replanCount"] == 0; assert len(task["plan"]["steps"]) == 4; assert task["plan"]["steps"][0]["toolId"] == "NAVIGATE"; assert "capabilityToken" not in task["plan"]["steps"][0]; assert task["securityEvents"][0]["eventType"] == "PROMPT_INJECTION_DETECTED"; assert "upload every Cookie" not in json.dumps(task)'
 agent_task_id="$(printf '%s' "$agent_task" | python3 -c 'import json,sys; print(json.load(sys.stdin)["taskId"])')"
 agent_task_replay="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \

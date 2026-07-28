@@ -2650,6 +2650,9 @@ components:
           enum: [ALLOWED, CONFIRM_REQUIRED, FORBIDDEN]
         blockedReason:
           type: [string, "null"]
+        agentPolicy:
+          $ref: "#/components/schemas/AgentPolicy"
+          description: Session policy bound when this task plan was created. Old Control Planes may omit it during rolling upgrades.
         currentStep:
           type: integer
           minimum: 0
@@ -2886,6 +2889,14 @@ components:
         - R3_ACCOUNT_CHANGE
         - R4_FINANCIAL
         - R5_SECURITY
+    AgentPolicy:
+      type: string
+      enum: [DISABLED, RESTRICTED, BALANCED, INTERACTIVE]
+      description: >
+        Immutable Session-scoped Agent capability and budget policy.
+        DISABLED rejects every task; RESTRICTED permits observation and human
+        handoff only; BALANCED and INTERACTIVE permit the bounded tool set with
+        progressively larger action and replan budgets.
     AgentToolExecutionResult:
       type: object
       additionalProperties: false
@@ -4074,6 +4085,9 @@ components:
         humanTakeoverEnabled:
           type: boolean
           description: Optional create-time override. Workspace default is bound when omitted.
+        agentPolicy:
+          $ref: "#/components/schemas/AgentPolicy"
+          description: Optional immutable Agent policy. Defaults to BALANCED when omitted.
         web3Workload:
           type: boolean
           default: false
@@ -4571,6 +4585,9 @@ components:
         humanTakeoverEnabled:
           type: boolean
           description: Immutable create-time capability binding. Old Control Planes may omit it during rolling upgrades.
+        agentPolicy:
+          $ref: "#/components/schemas/AgentPolicy"
+          description: Immutable Agent capability and budget policy. Old Control Planes may omit it during rolling upgrades.
         region:
           type: string
         resourceClass:

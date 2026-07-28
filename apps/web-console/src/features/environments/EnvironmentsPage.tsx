@@ -634,6 +634,9 @@ function SessionRow({
           <span className="block max-w-[190px] truncate font-mono text-[10px] text-text-muted">
             {session.nodeId || 'Node 未分配'}
           </span>
+          <span className="block max-w-[190px] truncate font-mono text-[10px] text-text-muted">
+            Agent {session.agentPolicy ?? 'BALANCED'}
+          </span>
         </td>
       )}
       {columns.context && (

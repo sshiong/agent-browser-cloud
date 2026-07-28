@@ -388,6 +388,10 @@ export function CreateSessionDialog({
         agentActionsPerMinute: form.agentActionsPerMinute,
         remoteDesktop: form.remoteDesktop,
         humanTakeoverEnabled: form.humanTakeover,
+        agentPolicy: form.agentEnabled
+          ? (form.agentPolicy.toUpperCase() as
+              'RESTRICTED' | 'BALANCED' | 'INTERACTIVE')
+          : 'DISABLED',
         web3Workload: form.web3Workload,
         mediaWorkload: budget.mediaWorkload,
         requestedMediaStreams: budget.streams,
@@ -404,8 +408,6 @@ export function CreateSessionDialog({
               ? (proxyQuery.data?.provider.providerId ?? '')
               : '',
           mediaClass: form.mediaClass,
-          agentEnabled: String(form.agentEnabled),
-          agentPolicy: form.agentPolicy,
           idleTimeoutMinutes: String(form.idleTimeoutMinutes),
           snapshotPolicy: form.snapshotPolicy,
         },
@@ -1213,9 +1215,15 @@ export function CreateSessionDialog({
                           {...register('agentPolicy')}
                           className="field-input"
                         >
-                          <option value="balanced">Balanced</option>
-                          <option value="restricted">Restricted</option>
-                          <option value="interactive">Interactive</option>
+                          <option value="balanced">
+                            Balanced · 标准工具 / 8 steps
+                          </option>
+                          <option value="restricted">
+                            Restricted · 只读 / 等待 / 人工
+                          </option>
+                          <option value="interactive">
+                            Interactive · 交互工具 / 12 steps
+                          </option>
                         </select>
                       </Field>
                       <Field label="空闲回收（分钟）">

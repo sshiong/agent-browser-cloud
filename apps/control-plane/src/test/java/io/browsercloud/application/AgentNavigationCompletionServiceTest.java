@@ -11,6 +11,7 @@ import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
@@ -48,6 +49,7 @@ class AgentNavigationCompletionServiceTest {
             RiskClass.R1_LOW_RISK_CHANGE.name(),
             IntentDecision.ALLOWED.name(),
             null,
+            AgentPolicy.BALANCED,
             "[\"example.test\"]",
             "{}",
             "[]",
@@ -155,6 +157,7 @@ class AgentNavigationCompletionServiceTest {
             RiskClass.R1_LOW_RISK_CHANGE.name(),
             IntentDecision.ALLOWED.name(),
             null,
+            AgentPolicy.BALANCED,
             "[\"example.test\"]",
             objectMapper.writeValueAsString(plan),
             "[]",

@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
@@ -14,6 +15,7 @@ public record SessionView(
     String groupId,
     List<WorkspaceTagModels.WorkspaceTagSummary> tags,
     boolean humanTakeoverEnabled,
+    AgentPolicy agentPolicy,
     String region,
     ResourceClass resourceClass,
     SessionState state,

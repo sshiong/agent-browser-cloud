@@ -9,6 +9,7 @@ import io.browsercloud.domain.agent.AgentModels.TaskState;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
 import io.browsercloud.domain.agent.AgentModels.TrustLevel;
 import io.browsercloud.domain.agent.AgentModels.WaitCondition;
+import io.browsercloud.domain.agent.AgentPolicy;
 import java.time.Instant;
 import java.util.List;
 
@@ -20,6 +21,7 @@ public record AgentTaskView(
     RiskClass riskClass,
     IntentDecision intentDecision,
     String blockedReason,
+    AgentPolicy agentPolicy,
     int currentStep,
     int totalSteps,
     int replanCount,

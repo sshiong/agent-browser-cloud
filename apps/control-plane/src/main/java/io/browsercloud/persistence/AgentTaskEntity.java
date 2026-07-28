@@ -1,7 +1,10 @@
 package io.browsercloud.persistence;
 
+import io.browsercloud.domain.agent.AgentPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -36,6 +39,10 @@ public class AgentTaskEntity {
 
   @Column(name = "blocked_reason")
   private String blockedReason;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "agent_policy", nullable = false)
+  private AgentPolicy agentPolicy;
 
   @Column(name = "current_step", nullable = false)
   private int currentStep;
@@ -142,6 +149,7 @@ public class AgentTaskEntity {
       String riskClass,
       String intentDecision,
       String blockedReason,
+      AgentPolicy agentPolicy,
       String allowedDomains,
       String plan,
       String securityEvents,
@@ -154,6 +162,7 @@ public class AgentTaskEntity {
     this.riskClass = riskClass;
     this.intentDecision = intentDecision;
     this.blockedReason = blockedReason;
+    this.agentPolicy = agentPolicy;
     this.currentStep = 0;
     this.replanCount = 0;
     this.allowedDomains = allowedDomains;
@@ -194,6 +203,10 @@ public class AgentTaskEntity {
 
   public String getBlockedReason() {
     return blockedReason;
+  }
+
+  public AgentPolicy getAgentPolicy() {
+    return agentPolicy;
   }
 
   public int getCurrentStep() {

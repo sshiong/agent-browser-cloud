@@ -7,6 +7,7 @@ import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
 import io.browsercloud.coordinator.exceptions.StaleContextEpochException;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -76,7 +77,8 @@ public class JpaSessionRepository implements SessionRepository {
       String region,
       Map<String, String> metadata,
       String groupId,
-      boolean humanTakeoverEnabled) {
+      boolean humanTakeoverEnabled,
+      AgentPolicy agentPolicy) {
     var entity =
         new SessionEntity(
             context.sessionId(),
@@ -88,6 +90,7 @@ public class JpaSessionRepository implements SessionRepository {
             context.policyHash(),
             serializeMetadata(metadata),
             humanTakeoverEnabled,
+            agentPolicy,
             context.updatedAt());
     entity.setGroupId(groupId);
     sessionJpa.save(entity);
@@ -258,7 +261,8 @@ public class JpaSessionRepository implements SessionRepository {
         entity.getRegion(),
         readDisplayName(entity.getMetadata(), entity.getId()),
         entity.getGroupId(),
-        entity.isHumanTakeoverEnabled());
+        entity.isHumanTakeoverEnabled(),
+        entity.getAgentPolicy());
   }
 
   private String readDisplayName(String metadata, String fallback) {

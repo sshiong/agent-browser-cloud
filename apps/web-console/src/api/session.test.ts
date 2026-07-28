@@ -67,6 +67,7 @@ describe('session API', () => {
         profileId: 'profile-test',
         region: 'local',
         resourceClass: 'L2',
+        agentPolicy: 'RESTRICTED',
       },
       'idem-test'
     );
@@ -80,6 +81,7 @@ describe('session API', () => {
           profileId: 'profile-test',
           region: 'local',
           resourceClass: 'L2',
+          agentPolicy: 'RESTRICTED',
         }),
         headers: expect.objectContaining({
           'Idempotency-Key': 'idem-test',

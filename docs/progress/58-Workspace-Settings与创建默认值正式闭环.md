@@ -101,7 +101,8 @@ PUT /api/v1/workspace-settings
 
 1. Proxy Binding、Environment/Profile Import、Saved View 和环境更多操作；
 2. 全局搜索、通知中心和主题切换；
-3. Agent Policy 仍是创建 Metadata，尚未成为服务端强制的一等策略契约；
+3. Agent Policy 一等契约和执行强制已在
+   [进度 59](59-Agent-Policy一等契约与执行强制.md)关闭；
 4. Group/Tags 批量生命周期 Operation、服务端组合过滤和列表批量投影优化；
 5. OpenAPI 自动生成并发布 TypeScript Client；
 6. Settings/Enterprise/Session Detail 的完整 200% 缩放、屏幕阅读器、触控与浏览器矩阵；

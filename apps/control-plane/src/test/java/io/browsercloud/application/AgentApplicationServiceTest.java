@@ -10,10 +10,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.CreateAgentTaskRequest;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.TaskState;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -54,7 +56,10 @@ class AgentApplicationServiceTest {
                 "test-agent-action-payload-secret-with-more-than-32-bytes", "test"),
             auditService,
             mapper);
-    when(sessionRepository.require(anyString())).thenReturn(runningSession());
+    when(sessionRepository.describe(anyString()))
+        .thenReturn(
+            new SessionDescriptor(
+                runningSession(), "local", "Browser", null, true, AgentPolicy.BALANCED));
     when(idempotencyService.claimAgentTask(
             anyString(), anyString(), anyString(), any(), anyString()))
         .thenAnswer(invocation -> invocation.getArgument(4));
@@ -186,6 +191,65 @@ class AgentApplicationServiceTest {
     assertThat(view.confirmation().status()).isEqualTo("PENDING");
     assertThat(view.confirmation().confirmationId()).startsWith("cnf_");
     assertThat(view.plan().steps()).isNotEmpty();
+  }
+
+  @Test
+  void persistsBlockedTaskWhenRestrictedPolicyForbidsNavigation() {
+    when(sessionRepository.describe("ses_1234567890abcdef"))
+        .thenReturn(
+            new SessionDescriptor(
+                runningSession(), "local", "Browser", null, true, AgentPolicy.RESTRICTED));
+
+    var view =
+        service.create(
+            "ses_1234567890abcdef",
+            "tenant-test",
+            request("https://example.com/start", List.of("example.com")),
+            "idem-restricted");
+
+    assertThat(view.state()).isEqualTo(TaskState.BLOCKED);
+    assertThat(view.agentPolicy()).isEqualTo(AgentPolicy.RESTRICTED);
+    assertThat(view.blockedReason()).isEqualTo("AGENT_POLICY_NAVIGATION_FORBIDDEN");
+    assertThat(view.plan().steps()).isEmpty();
+  }
+
+  @Test
+  void appliesInteractivePolicyDefaultsToThePersistedPlan() {
+    when(sessionRepository.describe("ses_1234567890abcdef"))
+        .thenReturn(
+            new SessionDescriptor(
+                runningSession(), "local", "Browser", null, true, AgentPolicy.INTERACTIVE));
+
+    var view =
+        service.create(
+            "ses_1234567890abcdef",
+            "tenant-test",
+            request(null, List.of("example.com")),
+            "idem-interactive");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    assertThat(view.agentPolicy()).isEqualTo(AgentPolicy.INTERACTIVE);
+    assertThat(view.plan().maxActions()).isEqualTo(12);
+    assertThat(view.plan().replanBudget()).isEqualTo(2);
+  }
+
+  @Test
+  void blocksEveryTaskWhenAgentIsDisabledForTheSession() {
+    when(sessionRepository.describe("ses_1234567890abcdef"))
+        .thenReturn(
+            new SessionDescriptor(
+                runningSession(), "local", "Browser", null, true, AgentPolicy.DISABLED));
+
+    var view =
+        service.create(
+            "ses_1234567890abcdef",
+            "tenant-test",
+            request(null, List.of("example.com")),
+            "idem-disabled");
+
+    assertThat(view.state()).isEqualTo(TaskState.BLOCKED);
+    assertThat(view.agentPolicy()).isEqualTo(AgentPolicy.DISABLED);
+    assertThat(view.blockedReason()).isEqualTo("AGENT_DISABLED_BY_SESSION_POLICY");
   }
 
   private static CreateAgentTaskRequest request(String url, List<String> domains) {

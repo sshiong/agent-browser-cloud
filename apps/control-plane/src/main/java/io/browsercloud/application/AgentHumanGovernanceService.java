@@ -105,6 +105,16 @@ public class AgentHumanGovernanceService {
     if (step.toolId() != ToolId.REQUEST_HUMAN_TAKEOVER || step.input() != null) {
       throw new HumanGovernanceException("HUMAN_HANDOFF_STEP_INVALID");
     }
+    var descriptor = sessionRepository.describe(session.sessionId());
+    if (!descriptor.context().tenantId().equals(tenantId)) {
+      throw new TenantAccessDeniedException(session.sessionId());
+    }
+    if (!descriptor.humanTakeoverEnabled()) {
+      throw new HumanGovernanceException("HUMAN_TAKEOVER_DISABLED");
+    }
+    if (!descriptor.agentPolicy().allows(ToolId.REQUEST_HUMAN_TAKEOVER)) {
+      throw new HumanGovernanceException("AGENT_POLICY_TOOL_FORBIDDEN");
+    }
     var state =
         stateRepository
             .find(session.sessionId())
@@ -140,6 +150,16 @@ public class AgentHumanGovernanceService {
       return taskService.get(taskId, tenantId);
     }
     requirePendingHandoff(task);
+    var descriptor = sessionRepository.describe(task.getSessionId());
+    if (!descriptor.context().tenantId().equals(tenantId)) {
+      throw new TenantAccessDeniedException(task.getSessionId());
+    }
+    if (!descriptor.humanTakeoverEnabled()) {
+      throw new HumanGovernanceException("HUMAN_TAKEOVER_DISABLED");
+    }
+    if (!descriptor.agentPolicy().allows(ToolId.REQUEST_HUMAN_TAKEOVER)) {
+      throw new HumanGovernanceException("AGENT_POLICY_TOOL_FORBIDDEN");
+    }
     var now = Instant.now();
     if (!task.getHandoffExpiresAt().isAfter(now)) {
       task.expireHumanHandoff(now);

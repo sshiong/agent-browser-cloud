@@ -1,5 +1,6 @@
 package io.browsercloud.coordinator;
 
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
 import java.util.List;
@@ -37,7 +38,8 @@ public interface SessionRepository {
       String region,
       Map<String, String> metadata,
       String groupId,
-      boolean humanTakeoverEnabled);
+      boolean humanTakeoverEnabled,
+      AgentPolicy agentPolicy);
 
   /**
    * 使用预期的 context_epoch 更新 Session。

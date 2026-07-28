@@ -47,7 +47,11 @@ import type {
   AgentTaskView,
   InstructionSourceType,
 } from '@/types/agent';
-import type { BrowserStateView, InteractiveTargetView } from '@/types/session';
+import type {
+  AgentPolicy,
+  BrowserStateView,
+  InteractiveTargetView,
+} from '@/types/session';
 
 const inputClass =
   'h-9 w-full rounded-[6px] border border-border-default bg-surface-2 px-3 text-[11px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent/60';
@@ -85,6 +89,24 @@ const actionOptions: Array<{
   { value: 'REQUEST_HUMAN_TAKEOVER', label: '请求人工接管' },
 ];
 
+const agentPolicyBudgets: Record<
+  AgentPolicy,
+  {
+    defaultMaxActions: number;
+    maximumMaxActions: number;
+    replanBudget: number;
+  }
+> = {
+  DISABLED: { defaultMaxActions: 1, maximumMaxActions: 1, replanBudget: 0 },
+  RESTRICTED: { defaultMaxActions: 5, maximumMaxActions: 6, replanBudget: 0 },
+  BALANCED: { defaultMaxActions: 8, maximumMaxActions: 12, replanBudget: 1 },
+  INTERACTIVE: {
+    defaultMaxActions: 12,
+    maximumMaxActions: 20,
+    replanBudget: 2,
+  },
+};
+
 export function AutomationPage() {
   const tasksQuery = useAgentTasks();
   const sessionsQuery = useSessions({ state: 'RUNNING', limit: 100 });
@@ -108,6 +130,24 @@ export function AutomationPage() {
   const tasks = tasksQuery.data?.items ?? [];
   const selectedTask =
     tasks.find((task) => task.taskId === selectedTaskId) ?? tasks[0];
+  const selectedSession = sessionsQuery.data?.items.find(
+    (session) => session.sessionId === sessionId
+  );
+  const agentPolicy = selectedSession?.agentPolicy ?? 'BALANCED';
+  const policyBudget = agentPolicyBudgets[agentPolicy];
+  const permittedActionOptions = actionOptions.filter((option) => {
+    if (agentPolicy === 'DISABLED') return false;
+    if (
+      agentPolicy === 'RESTRICTED' &&
+      !['WAIT_FOR', 'REQUEST_HUMAN_TAKEOVER'].includes(option.value)
+    ) {
+      return false;
+    }
+    return !(
+      option.value === 'REQUEST_HUMAN_TAKEOVER' &&
+      selectedSession?.humanTakeoverEnabled === false
+    );
+  });
 
   useEffect(() => {
     if (!sessionId && sessionsQuery.data?.items[0]) {
@@ -137,6 +177,24 @@ export function AutomationPage() {
   const actionsValid = actions.every((action) =>
     isActionComplete(action, browserState.data?.targetRevision)
   );
+  const endsWithHandoff = actions.at(-1)?.toolId === 'REQUEST_HUMAN_TAKEOVER';
+  const requiredActionBudget =
+    (startUrl.trim() ? 4 : 3) + actions.length - (endsWithHandoff ? 2 : 0);
+  const policyConflict =
+    agentPolicy === 'DISABLED'
+      ? '该 Session 在创建时已禁用 Agent，服务端会拒绝所有计划。'
+      : startUrl.trim() && agentPolicy === 'RESTRICTED'
+        ? 'Restricted 策略禁止 Agent 导航；请在浏览器中先打开目标页面。'
+        : actions.some(
+              (action) =>
+                !permittedActionOptions.some(
+                  (option) => option.value === action.toolId
+                )
+            )
+          ? '当前 Session 策略不允许已有动作，请移除受限动作后再提交。'
+          : requiredActionBudget > policyBudget.maximumMaxActions
+            ? `计划需要 ${requiredActionBudget} 个动作，超过 ${agentPolicy} 上限 ${policyBudget.maximumMaxActions}。`
+            : '';
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -150,8 +208,11 @@ export function AutomationPage() {
         goal,
         startUrl: startUrl.trim() || undefined,
         allowedDomains: domains,
-        maxActions: Math.max(8, actions.length + 3),
-        replanBudget: 1,
+        maxActions: Math.max(
+          policyBudget.defaultMaxActions,
+          requiredActionBudget
+        ),
+        replanBudget: policyBudget.replanBudget,
         contextSources: externalContent.trim()
           ? [
               {
@@ -307,11 +368,32 @@ export function AutomationPage() {
                 <option value="">选择 Session</option>
                 {sessionsQuery.data?.items.map((session) => (
                   <option key={session.sessionId} value={session.sessionId}>
-                    {session.displayName} · {session.sessionId.slice(-6)}
+                    {session.displayName} · {session.agentPolicy ?? 'BALANCED'}{' '}
+                    · {session.sessionId.slice(-6)}
                   </option>
                 ))}
               </select>
             </Field>
+
+            {selectedSession && (
+              <div className="border border-border-subtle bg-surface-2/55 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] text-text-muted">
+                    Session Agent Policy
+                  </span>
+                  <span className="font-mono text-[10px] font-semibold text-accent">
+                    {agentPolicy}
+                  </span>
+                </div>
+                <p className="mt-1 text-[9px] leading-4 text-text-muted">
+                  动作上限 {policyBudget.maximumMaxActions} · Replan{' '}
+                  {policyBudget.replanBudget}
+                  {selectedSession.humanTakeoverEnabled === false
+                    ? ' · HumanTakeover disabled'
+                    : ''}
+                </p>
+              </div>
+            )}
 
             <Field label="用户目标" required>
               <textarea
@@ -329,8 +411,14 @@ export function AutomationPage() {
               <input
                 value={startUrl}
                 onChange={(event) => setStartUrl(event.target.value)}
+                disabled={
+                  agentPolicy === 'DISABLED' || agentPolicy === 'RESTRICTED'
+                }
                 placeholder="https://example.com/dashboard"
-                className={cn(inputClass, 'font-mono')}
+                className={cn(
+                  inputClass,
+                  'font-mono disabled:cursor-not-allowed disabled:opacity-40'
+                )}
               />
             </Field>
 
@@ -362,19 +450,21 @@ export function AutomationPage() {
                 <button
                   type="button"
                   disabled={
-                    actions.length >= 8 ||
+                    permittedActionOptions.length === 0 ||
+                    requiredActionBudget + 1 > policyBudget.maximumMaxActions ||
                     actions.at(-1)?.toolId === 'REQUEST_HUMAN_TAKEOVER'
                   }
-                  onClick={() =>
+                  onClick={() => {
+                    const option = permittedActionOptions[0];
+                    if (!option) return;
                     setActions((current) => [
                       ...current,
-                      {
-                        clientId: crypto.randomUUID(),
-                        toolId: 'CLICK_TARGET',
-                        targetRevision: browserState.data?.targetRevision,
-                      },
-                    ])
-                  }
+                      createDraftAction(
+                        option.value,
+                        browserState.data?.targetRevision
+                      ),
+                    ]);
+                  }}
                   className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border border-border-default px-2 text-[10px] text-text-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   <Plus size={11} />
@@ -395,6 +485,7 @@ export function AutomationPage() {
                       action={action}
                       targets={browserState.data?.targets ?? []}
                       targetRevision={browserState.data?.targetRevision}
+                      options={permittedActionOptions}
                       onChange={(next) =>
                         setActions((current) =>
                           current.map((item) =>
@@ -418,6 +509,15 @@ export function AutomationPage() {
                 <p className="mt-2 flex gap-1.5 text-[10px] leading-4 text-warning">
                   <AlertTriangle className="mt-0.5 shrink-0" size={11} />
                   当前版本要求先导航、重采集状态，再创建绑定动作的任务。
+                </p>
+              )}
+              {policyConflict && (
+                <p
+                  role="alert"
+                  className="mt-2 flex gap-1.5 text-[10px] leading-4 text-warning"
+                >
+                  <LockKeyhole className="mt-0.5 shrink-0" size={11} />
+                  {policyConflict}
                 </p>
               )}
             </div>
@@ -482,6 +582,7 @@ export function AutomationPage() {
                 !goal.trim() ||
                 !allowedDomains.trim() ||
                 navigationConflict ||
+                Boolean(policyConflict) ||
                 !actionsValid
               }
               className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[7px] bg-accent px-4 text-[12px] font-semibold text-canvas transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
@@ -551,6 +652,7 @@ function ActionEditor({
   action,
   targets,
   targetRevision,
+  options,
   onChange,
   onRemove,
 }: {
@@ -558,6 +660,7 @@ function ActionEditor({
   action: DraftAction;
   targets: InteractiveTargetView[];
   targetRevision?: number;
+  options: typeof actionOptions;
   onChange: (action: DraftAction) => void;
   onRemove: () => void;
 }) {
@@ -605,7 +708,7 @@ function ActionEditor({
           }
           className={cn(inputClass, 'h-7 flex-1 py-0')}
         >
-          {actionOptions.map((option) => (
+          {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -808,6 +911,25 @@ function isActionComplete(action: DraftAction, currentTargetRevision?: number) {
   }
 }
 
+function createDraftAction(
+  toolId: DraftAction['toolId'],
+  targetRevision?: number
+): DraftAction {
+  const action: DraftAction = {
+    clientId: crypto.randomUUID(),
+    toolId,
+  };
+  if (toolId === 'CLICK_TARGET' || toolId === 'TYPE_TEXT') {
+    action.targetRevision = targetRevision;
+  }
+  if (toolId === 'SCROLL') action.scrollDeltaY = 600;
+  if (toolId === 'WAIT_FOR') {
+    action.waitCondition = 'STATE_STABLE';
+    action.timeoutMs = 5000;
+  }
+  return action;
+}
+
 function toActionRequest(action: DraftAction): CreateAgentActionRequest {
   return {
     toolId: action.toolId,
@@ -932,6 +1054,7 @@ function TaskRow({
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[9px] uppercase tracking-[0.08em] text-text-muted">
             <span>{task.taskId.slice(-8)}</span>
+            <span>{task.agentPolicy ?? 'BALANCED'}</span>
             <span>{riskLabels[task.riskClass]}</span>
             <span>{task.totalSteps} steps</span>
             <span>{task.state}</span>

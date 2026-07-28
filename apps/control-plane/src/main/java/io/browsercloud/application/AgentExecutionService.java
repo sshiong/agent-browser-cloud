@@ -10,8 +10,10 @@ import io.browsercloud.coordinator.OperationFactory;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.ReconcileAgentExecution;
 import io.browsercloud.coordinator.SessionCoordinator;
+import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.operation.OperationState;
@@ -92,8 +94,8 @@ public class AgentExecutionService {
       throw new AgentExecutionRejectedException("AGENT_TASK_NOT_PLANNED");
     }
     var plan = readPlan(task.getPlan());
-    validatePlan(plan);
     var session = requireRunningSession(task, tenantId);
+    validatePlan(plan, task, sessionRepository.describe(session.sessionId()));
     coordinator.handle(new ReconcileAgentExecution(session.sessionId(), taskId));
     session = requireRunningSession(task, tenantId);
 
@@ -235,6 +237,7 @@ public class AgentExecutionService {
       AgentPlan plan,
       ArrayList<ToolExecutionResult> results) {
     try {
+      validatePlan(plan, task, sessionRepository.describe(session.sessionId()));
       for (int index = task.getCurrentStep(); index < plan.steps().size(); index++) {
         var step = plan.steps().get(index);
         var now = Instant.now();
@@ -360,8 +363,29 @@ public class AgentExecutionService {
     return session;
   }
 
-  private void validatePlan(AgentPlan plan) {
+  private void validatePlan(
+      AgentPlan plan, AgentTaskEntity task, SessionDescriptor sessionDescriptor) {
     var now = Instant.now();
+    var policy = sessionDescriptor.agentPolicy();
+    if (policy == AgentPolicy.DISABLED) {
+      throw new AgentExecutionRejectedException("AGENT_DISABLED_BY_SESSION_POLICY");
+    }
+    if (task.getAgentPolicy() != policy) {
+      throw new AgentExecutionRejectedException("AGENT_POLICY_BINDING_MISMATCH");
+    }
+    if (plan.maxActions() > policy.maximumMaxActions()) {
+      throw new AgentExecutionRejectedException("AGENT_POLICY_MAX_ACTIONS_EXCEEDED");
+    }
+    if (plan.replanBudget() > policy.maximumReplanBudget()) {
+      throw new AgentExecutionRejectedException("AGENT_POLICY_REPLAN_BUDGET_EXCEEDED");
+    }
+    if (plan.steps().stream().anyMatch(step -> !policy.allows(step.toolId()))) {
+      throw new AgentExecutionRejectedException("AGENT_POLICY_TOOL_FORBIDDEN");
+    }
+    if (!sessionDescriptor.humanTakeoverEnabled()
+        && plan.steps().stream().anyMatch(step -> step.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER)) {
+      throw new AgentExecutionRejectedException("HUMAN_TAKEOVER_DISABLED");
+    }
     if (!plan.expiresAt().isAfter(now)) {
       throw new AgentExecutionRejectedException("AGENT_PLAN_EXPIRED");
     }

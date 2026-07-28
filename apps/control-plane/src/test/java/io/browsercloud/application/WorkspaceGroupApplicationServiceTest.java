@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.WorkspaceGroupModels.WorkspaceGroupRequest;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.resource.MaximumReachedPolicy;
 import io.browsercloud.persistence.SessionEntity;
 import io.browsercloud.persistence.SessionJpaRepository;
@@ -119,6 +120,7 @@ class WorkspaceGroupApplicationServiceTest {
             "",
             "{\"displayName\":\"CRM\"}",
             true,
+            AgentPolicy.BALANCED,
             Instant.parse("2026-07-28T00:00:00Z"));
     when(groups.findByGroupIdAndTenantId(group.getGroupId(), "tenant-test"))
         .thenReturn(Optional.of(group));

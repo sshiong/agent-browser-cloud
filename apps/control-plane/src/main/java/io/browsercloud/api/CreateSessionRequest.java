@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -27,6 +28,7 @@ import java.util.Map;
  * @param agentActionsPerMinute Agent 动作速率预算
  * @param remoteDesktop 是否要求常驻 Remote Desktop
  * @param humanTakeoverEnabled 是否允许该 Session 进入 HumanTakeover；省略时绑定 Workspace 默认值
+ * @param agentPolicy 创建时不可变的 Agent 能力与预算策略；省略时为 BALANCED
  * @param web3Workload 是否为 Web3 工作负载
  * @param mediaWorkload 是否申请独立 Media/Encoder 资源
  * @param requestedMediaStreams 同时编码流数量
@@ -48,6 +50,7 @@ public record CreateSessionRequest(
     @Min(0) @Max(600) int agentActionsPerMinute,
     boolean remoteDesktop,
     Boolean humanTakeoverEnabled,
+    AgentPolicy agentPolicy,
     boolean web3Workload,
     boolean mediaWorkload,
     @Min(0) @Max(32) int requestedMediaStreams,

@@ -4,6 +4,7 @@ import io.browsercloud.api.*;
 import io.browsercloud.coordinator.*;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
@@ -118,6 +119,7 @@ public class SessionApplicationService {
         request.humanTakeoverEnabled() == null
             ? workspaceDefaults.defaultHumanTakeoverEnabled()
             : request.humanTakeoverEnabled();
+    var agentPolicy = request.agentPolicy() == null ? AgentPolicy.BALANCED : request.agentPolicy();
     var effectiveResourcePolicy =
         workspaceGroupService.resolvePolicy(
             request.tenantId(), request.groupId(), request.resourcePolicy());
@@ -146,7 +148,8 @@ public class SessionApplicationService {
         request.region() == null ? workspaceDefaults.defaultRegion() : request.region(),
         request.metadata() == null ? java.util.Map.of() : request.metadata(),
         request.groupId(),
-        humanTakeoverEnabled);
+        humanTakeoverEnabled,
+        agentPolicy);
     workspaceTagService.assignInitial(
         context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);
     businessRecoveryService.bind(
@@ -180,6 +183,8 @@ public class SessionApplicationService {
             runtimeBuildId,
             "humanTakeoverEnabled",
             humanTakeoverEnabled,
+            "agentPolicy",
+            agentPolicy.name(),
             "resourceClass",
             context.resourceClass().name()),
         idempotencyKey);
@@ -502,6 +507,7 @@ public class SessionApplicationService {
         descriptor.groupId(),
         workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
         descriptor.humanTakeoverEnabled(),
+        descriptor.agentPolicy(),
         descriptor.region(),
         context.resourceClass(),
         context.state(),

@@ -1,5 +1,6 @@
 package io.browsercloud.coordinator;
 
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.SessionContext;
 
 /**
@@ -12,4 +13,5 @@ public record SessionDescriptor(
     String region,
     String displayName,
     String groupId,
-    boolean humanTakeoverEnabled) {}
+    boolean humanTakeoverEnabled,
+    AgentPolicy agentPolicy) {}

@@ -375,6 +375,10 @@ export function SessionDetailPage() {
                       label="Runtime Build"
                       value={session.runtimeBuildId || '未绑定'}
                     />
+                    <ContextMetric
+                      label="Agent Policy"
+                      value={session.agentPolicy ?? 'BALANCED'}
+                    />
                     <ContextMetric label="状态来源" value="PostgreSQL" />
                     <ContextMetric
                       label="创建时间"
@@ -417,7 +421,12 @@ export function SessionDetailPage() {
                     <CapabilityRow
                       icon={Bot}
                       title="Agent 执行"
-                      detail="等待 Agent Task 与事件流 API"
+                      detail={
+                        session.agentPolicy === 'DISABLED'
+                          ? '创建时已禁用；服务端拒绝创建和执行 Agent 计划'
+                          : `${session.agentPolicy ?? 'BALANCED'} · 服务端工具与预算策略已绑定`
+                      }
+                      ready={session.agentPolicy !== 'DISABLED'}
                     />
                     <CapabilityRow
                       icon={Hand}

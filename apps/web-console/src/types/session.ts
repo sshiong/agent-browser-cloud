@@ -46,6 +46,9 @@ export type ExecutionEnvironment =
 export type MaximumReachedPolicy =
   'PAUSE_AGENT' | 'WAIT_SAFE_POINT_MIGRATE' | 'HIBERNATE' | 'TERMINATE_STRICT';
 
+export type AgentPolicy =
+  'DISABLED' | 'RESTRICTED' | 'BALANCED' | 'INTERACTIVE';
+
 export type ResourcePolicyStatus =
   | 'STABLE'
   | 'OBSERVING'
@@ -98,6 +101,7 @@ export interface SessionView {
   groupId?: string;
   tags?: WorkspaceTagSummary[];
   humanTakeoverEnabled?: boolean;
+  agentPolicy?: AgentPolicy;
   region: string;
   resourceClass: ResourceClass;
   state: SessionState;
@@ -150,6 +154,7 @@ export interface CreateSessionRequest {
   agentActionsPerMinute?: number;
   remoteDesktop?: boolean;
   humanTakeoverEnabled?: boolean;
+  agentPolicy?: AgentPolicy;
   web3Workload?: boolean;
   mediaWorkload?: boolean;
   requestedMediaStreams?: number;

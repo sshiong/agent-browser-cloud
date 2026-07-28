@@ -11,6 +11,7 @@ import io.browsercloud.api.CreateAgentTaskRequest;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
+import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.infrastructure.OffsetPageRequest;
 import io.browsercloud.persistence.AgentTaskEntity;
@@ -32,9 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 /** 受限 Planner：生成带 Capability、来源、风险和验证规则的可执行计划。 */
 @Service
 public class AgentApplicationService {
-
-  private static final int DEFAULT_MAX_ACTIONS = 8;
-  private static final int DEFAULT_REPLAN_BUDGET = 1;
 
   private final AgentTaskJpaRepository repository;
   private final SessionRepository sessionRepository;
@@ -70,7 +68,8 @@ public class AgentApplicationService {
   @Transactional
   public AgentTaskView create(
       String sessionId, String tenantId, CreateAgentTaskRequest request, String idempotencyKey) {
-    var session = sessionRepository.require(sessionId);
+    var descriptor = sessionRepository.describe(sessionId);
+    var session = descriptor.context();
     if (!session.tenantId().equals(tenantId)) {
       throw new TenantAccessDeniedException(sessionId);
     }
@@ -90,9 +89,11 @@ public class AgentApplicationService {
     // semantically identical on hosts whose clock exposes nanoseconds.
     var now = Instant.now().truncatedTo(ChronoUnit.MICROS);
     var intentId = newId("int_");
-    var maxActions = request.maxActions() == null ? DEFAULT_MAX_ACTIONS : request.maxActions();
+    var agentPolicy = descriptor.agentPolicy();
+    var maxActions =
+        request.maxActions() == null ? agentPolicy.defaultMaxActions() : request.maxActions();
     var replanBudget =
-        request.replanBudget() == null ? DEFAULT_REPLAN_BUDGET : request.replanBudget();
+        request.replanBudget() == null ? agentPolicy.defaultReplanBudget() : request.replanBudget();
     var expiresAt =
         now.plus(
             evaluation.decision() == IntentDecision.CONFIRM_REQUIRED ? 15 : 5, ChronoUnit.MINUTES);
@@ -109,8 +110,11 @@ public class AgentApplicationService {
             allowedDomains,
             evaluation,
             maxActions,
+            replanBudget,
             sessionId,
-            request.actions());
+            request.actions(),
+            agentPolicy,
+            descriptor.humanTakeoverEnabled());
     var authorizedDomain = resolveAuthorizedDomain(request.startUrl(), sessionId);
     var plan =
         blockReason.isBlank()
@@ -155,6 +159,7 @@ public class AgentApplicationService {
             taskRisk.name(),
             evaluation.decision().name(),
             blockReason.isBlank() ? null : blockReason,
+            agentPolicy,
             write(allowedDomains),
             write(plan),
             write(securityEvents),
@@ -225,12 +230,21 @@ public class AgentApplicationService {
       List<String> allowedDomains,
       IntentEvaluation evaluation,
       int maxActions,
+      int replanBudget,
       String sessionId,
-      List<CreateAgentTaskRequest.ActionRequest> requestedActions) {
+      List<CreateAgentTaskRequest.ActionRequest> requestedActions,
+      AgentPolicy agentPolicy,
+      boolean humanTakeoverEnabled) {
     var actions =
         requestedActions == null
             ? List.<CreateAgentTaskRequest.ActionRequest>of()
             : requestedActions;
+    var policyViolation =
+        validateAgentPolicy(
+            agentPolicy, humanTakeoverEnabled, startUrl, actions, maxActions, replanBudget);
+    if (!policyViolation.isBlank()) {
+      return policyViolation;
+    }
     if (evaluation.decision() == IntentDecision.FORBIDDEN) {
       return evaluation.reason();
     }
@@ -667,6 +681,7 @@ public class AgentApplicationService {
         RiskClass.valueOf(entity.getRiskClass()),
         IntentDecision.valueOf(entity.getIntentDecision()),
         entity.getBlockedReason(),
+        entity.getAgentPolicy(),
         entity.getCurrentStep(),
         plan.steps().size(),
         entity.getReplanCount(),
@@ -714,6 +729,36 @@ public class AgentApplicationService {
       normalized.add(domain);
     }
     return List.copyOf(normalized);
+  }
+
+  private static String validateAgentPolicy(
+      AgentPolicy policy,
+      boolean humanTakeoverEnabled,
+      String startUrl,
+      List<CreateAgentTaskRequest.ActionRequest> actions,
+      int maxActions,
+      int replanBudget) {
+    if (policy == AgentPolicy.DISABLED) {
+      return "AGENT_DISABLED_BY_SESSION_POLICY";
+    }
+    if (maxActions > policy.maximumMaxActions()) {
+      return "AGENT_POLICY_MAX_ACTIONS_EXCEEDED";
+    }
+    if (replanBudget > policy.maximumReplanBudget()) {
+      return "AGENT_POLICY_REPLAN_BUDGET_EXCEEDED";
+    }
+    if (startUrl != null && !startUrl.isBlank() && !policy.allows(ToolId.NAVIGATE)) {
+      return "AGENT_POLICY_NAVIGATION_FORBIDDEN";
+    }
+    for (var action : actions) {
+      if (!policy.allows(action.toolId())) {
+        return "AGENT_POLICY_TOOL_FORBIDDEN";
+      }
+      if (action.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER && !humanTakeoverEnabled) {
+        return "HUMAN_TAKEOVER_DISABLED";
+      }
+    }
+    return "";
   }
 
   private static RiskClass requestedActionRisk(

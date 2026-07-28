@@ -1077,6 +1077,20 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   remoteDesktopBitrateKbps?: number;
 
+  /**
+   * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+   *
+   * @generated from field: repeated string extension_ids = 20;
+   */
+  extensionIds: string[] = [];
+
+  /**
+   * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+   *
+   * @generated from field: optional uint32 extension_cpu_weight = 21;
+   */
+  extensionCpuWeight?: number;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1104,6 +1118,8 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 17, name: "profile_checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 18, name: "state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 19, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 21, name: "extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1432,6 +1448,13 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   remoteDesktopBitrateKbps?: number;
 
+  /**
+   * 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
+   *
+   * @generated from field: optional uint32 extension_cpu_weight = 15;
+   */
+  extensionCpuWeight?: number;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1454,6 +1477,7 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 12, name: "isolation_required", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 13, name: "state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 14, name: "remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 15, name: "extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1581,6 +1605,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newRemoteDesktopBitrateKbps?: number;
 
+  /**
+   * @generated from field: optional uint32 old_extension_cpu_weight = 21;
+   */
+  oldExtensionCpuWeight?: number;
+
+  /**
+   * @generated from field: optional uint32 new_extension_cpu_weight = 22;
+   */
+  newExtensionCpuWeight?: number;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1609,6 +1643,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 18, name: "old_remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 19, name: "new_state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 20, name: "new_remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 21, name: "old_extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 22, name: "new_extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

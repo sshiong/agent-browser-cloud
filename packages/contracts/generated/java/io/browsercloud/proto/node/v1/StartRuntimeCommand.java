@@ -28,6 +28,8 @@ private static final long serialVersionUID = 0L;
     proxyBindingId_ = "";
     resourceClass_ = "";
     profileCheckpointId_ = "";
+    extensionIds_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   @java.lang.Override
@@ -64,7 +66,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -80,7 +82,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -103,7 +105,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       runtimeBuildId_ = s;
@@ -119,7 +121,7 @@ private static final long serialVersionUID = 0L;
       getRuntimeBuildIdBytes() {
     java.lang.Object ref = runtimeBuildId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       runtimeBuildId_ = b;
@@ -142,7 +144,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       profileId_ = s;
@@ -158,7 +160,7 @@ private static final long serialVersionUID = 0L;
       getProfileIdBytes() {
     java.lang.Object ref = profileId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       profileId_ = b;
@@ -181,7 +183,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       display_ = s;
@@ -197,7 +199,7 @@ private static final long serialVersionUID = 0L;
       getDisplayBytes() {
     java.lang.Object ref = display_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       display_ = b;
@@ -231,7 +233,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       proxyBindingId_ = s;
@@ -247,7 +249,7 @@ private static final long serialVersionUID = 0L;
       getProxyBindingIdBytes() {
     java.lang.Object ref = proxyBindingId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       proxyBindingId_ = b;
@@ -270,7 +272,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       resourceClass_ = s;
@@ -286,7 +288,7 @@ private static final long serialVersionUID = 0L;
       getResourceClassBytes() {
     java.lang.Object ref = resourceClass_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       resourceClass_ = b;
@@ -408,7 +410,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       profileCheckpointId_ = s;
@@ -424,7 +426,7 @@ private static final long serialVersionUID = 0L;
       getProfileCheckpointIdBytes() {
     java.lang.Object ref = profileCheckpointId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       profileCheckpointId_ = b;
@@ -478,6 +480,86 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public int getRemoteDesktopBitrateKbps() {
     return remoteDesktopBitrateKbps_;
+  }
+
+  public static final int EXTENSION_IDS_FIELD_NUMBER = 20;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList extensionIds_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @return A list containing the extensionIds.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getExtensionIdsList() {
+    return extensionIds_;
+  }
+  /**
+   * <pre>
+   * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @return The count of extensionIds.
+   */
+  public int getExtensionIdsCount() {
+    return extensionIds_.size();
+  }
+  /**
+   * <pre>
+   * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @param index The index of the element to return.
+   * @return The extensionIds at the given index.
+   */
+  public java.lang.String getExtensionIds(int index) {
+    return extensionIds_.get(index);
+  }
+  /**
+   * <pre>
+   * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+   * </pre>
+   *
+   * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the extensionIds at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getExtensionIdsBytes(int index) {
+    return extensionIds_.getByteString(index);
+  }
+
+  public static final int EXTENSION_CPU_WEIGHT_FIELD_NUMBER = 21;
+  private int extensionCpuWeight_ = 0;
+  /**
+   * <pre>
+   * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+   * </pre>
+   *
+   * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+   * @return Whether the extensionCpuWeight field is set.
+   */
+  @java.lang.Override
+  public boolean hasExtensionCpuWeight() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <pre>
+   * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+   * </pre>
+   *
+   * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+   * @return The extensionCpuWeight.
+   */
+  @java.lang.Override
+  public int getExtensionCpuWeight() {
+    return extensionCpuWeight_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -550,6 +632,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000002) != 0)) {
       output.writeUInt32(19, remoteDesktopBitrateKbps_);
+    }
+    for (int i = 0; i < extensionIds_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 20, extensionIds_.getRaw(i));
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeUInt32(21, extensionCpuWeight_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -629,6 +717,18 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(19, remoteDesktopBitrateKbps_);
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < extensionIds_.size(); i++) {
+        dataSize += computeStringSizeNoTag(extensionIds_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getExtensionIdsList().size();
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(21, extensionCpuWeight_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -688,6 +788,13 @@ private static final long serialVersionUID = 0L;
       if (getRemoteDesktopBitrateKbps()
           != other.getRemoteDesktopBitrateKbps()) return false;
     }
+    if (!getExtensionIdsList()
+        .equals(other.getExtensionIdsList())) return false;
+    if (hasExtensionCpuWeight() != other.hasExtensionCpuWeight()) return false;
+    if (hasExtensionCpuWeight()) {
+      if (getExtensionCpuWeight()
+          != other.getExtensionCpuWeight()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -744,6 +851,14 @@ private static final long serialVersionUID = 0L;
     if (hasRemoteDesktopBitrateKbps()) {
       hash = (37 * hash) + REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER;
       hash = (53 * hash) + getRemoteDesktopBitrateKbps();
+    }
+    if (getExtensionIdsCount() > 0) {
+      hash = (37 * hash) + EXTENSION_IDS_FIELD_NUMBER;
+      hash = (53 * hash) + getExtensionIdsList().hashCode();
+    }
+    if (hasExtensionCpuWeight()) {
+      hash = (37 * hash) + EXTENSION_CPU_WEIGHT_FIELD_NUMBER;
+      hash = (53 * hash) + getExtensionCpuWeight();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -899,6 +1014,9 @@ private static final long serialVersionUID = 0L;
       profileCheckpointId_ = "";
       stateCollectorBudgetPercent_ = 0;
       remoteDesktopBitrateKbps_ = 0;
+      extensionIds_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      extensionCpuWeight_ = 0;
       return this;
     }
 
@@ -991,6 +1109,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00040000) != 0)) {
         result.remoteDesktopBitrateKbps_ = remoteDesktopBitrateKbps_;
         to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        extensionIds_.makeImmutable();
+        result.extensionIds_ = extensionIds_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.extensionCpuWeight_ = extensionCpuWeight_;
+        to_bitField0_ |= 0x00000004;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1109,6 +1235,19 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasRemoteDesktopBitrateKbps()) {
         setRemoteDesktopBitrateKbps(other.getRemoteDesktopBitrateKbps());
+      }
+      if (!other.extensionIds_.isEmpty()) {
+        if (extensionIds_.isEmpty()) {
+          extensionIds_ = other.extensionIds_;
+          bitField0_ |= 0x00080000;
+        } else {
+          ensureExtensionIdsIsMutable();
+          extensionIds_.addAll(other.extensionIds_);
+        }
+        onChanged();
+      }
+      if (other.hasExtensionCpuWeight()) {
+        setExtensionCpuWeight(other.getExtensionCpuWeight());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1231,6 +1370,17 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00040000;
               break;
             } // case 152
+            case 162: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureExtensionIdsIsMutable();
+              extensionIds_.add(s);
+              break;
+            } // case 162
+            case 168: {
+              extensionCpuWeight_ = input.readUInt32();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 168
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1273,7 +1423,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -1345,7 +1495,7 @@ private static final long serialVersionUID = 0L;
         getRuntimeBuildIdBytes() {
       java.lang.Object ref = runtimeBuildId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         runtimeBuildId_ = b;
@@ -1417,7 +1567,7 @@ private static final long serialVersionUID = 0L;
         getProfileIdBytes() {
       java.lang.Object ref = profileId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         profileId_ = b;
@@ -1489,7 +1639,7 @@ private static final long serialVersionUID = 0L;
         getDisplayBytes() {
       java.lang.Object ref = display_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         display_ = b;
@@ -1593,7 +1743,7 @@ private static final long serialVersionUID = 0L;
         getProxyBindingIdBytes() {
       java.lang.Object ref = proxyBindingId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         proxyBindingId_ = b;
@@ -1665,7 +1815,7 @@ private static final long serialVersionUID = 0L;
         getResourceClassBytes() {
       java.lang.Object ref = resourceClass_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         resourceClass_ = b;
@@ -2025,7 +2175,7 @@ private static final long serialVersionUID = 0L;
         getProfileCheckpointIdBytes() {
       java.lang.Object ref = profileCheckpointId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         profileCheckpointId_ = b;
@@ -2167,6 +2317,209 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private com.google.protobuf.LazyStringArrayList extensionIds_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureExtensionIdsIsMutable() {
+      if (!extensionIds_.isModifiable()) {
+        extensionIds_ = new com.google.protobuf.LazyStringArrayList(extensionIds_);
+      }
+      bitField0_ |= 0x00080000;
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @return A list containing the extensionIds.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getExtensionIdsList() {
+      extensionIds_.makeImmutable();
+      return extensionIds_;
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @return The count of extensionIds.
+     */
+    public int getExtensionIdsCount() {
+      return extensionIds_.size();
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param index The index of the element to return.
+     * @return The extensionIds at the given index.
+     */
+    public java.lang.String getExtensionIds(int index) {
+      return extensionIds_.get(index);
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the extensionIds at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getExtensionIdsBytes(int index) {
+      return extensionIds_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param index The index to set the value at.
+     * @param value The extensionIds to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExtensionIds(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureExtensionIdsIsMutable();
+      extensionIds_.set(index, value);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param value The extensionIds to add.
+     * @return This builder for chaining.
+     */
+    public Builder addExtensionIds(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureExtensionIdsIsMutable();
+      extensionIds_.add(value);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param values The extensionIds to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllExtensionIds(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureExtensionIdsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, extensionIds_);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExtensionIds() {
+      extensionIds_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00080000);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+     * </pre>
+     *
+     * <code>repeated string extension_ids = 20 [json_name = "extensionIds"];</code>
+     * @param value The bytes of the extensionIds to add.
+     * @return This builder for chaining.
+     */
+    public Builder addExtensionIdsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureExtensionIdsIsMutable();
+      extensionIds_.add(value);
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+
+    private int extensionCpuWeight_ ;
+    /**
+     * <pre>
+     * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+     * </pre>
+     *
+     * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     * @return Whether the extensionCpuWeight field is set.
+     */
+    @java.lang.Override
+    public boolean hasExtensionCpuWeight() {
+      return ((bitField0_ & 0x00100000) != 0);
+    }
+    /**
+     * <pre>
+     * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+     * </pre>
+     *
+     * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     * @return The extensionCpuWeight.
+     */
+    @java.lang.Override
+    public int getExtensionCpuWeight() {
+      return extensionCpuWeight_;
+    }
+    /**
+     * <pre>
+     * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+     * </pre>
+     *
+     * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     * @param value The extensionCpuWeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExtensionCpuWeight(int value) {
+
+      extensionCpuWeight_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+     * </pre>
+     *
+     * <code>optional uint32 extension_cpu_weight = 21 [json_name = "extensionCpuWeight"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExtensionCpuWeight() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      extensionCpuWeight_ = 0;
+      onChanged();
+      return this;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2230,3 +2583,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

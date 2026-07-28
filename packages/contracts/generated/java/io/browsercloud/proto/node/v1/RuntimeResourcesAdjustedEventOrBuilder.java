@@ -191,4 +191,26 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newRemoteDesktopBitrateKbps.
    */
   int getNewRemoteDesktopBitrateKbps();
+
+  /**
+   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+   * @return Whether the oldExtensionCpuWeight field is set.
+   */
+  boolean hasOldExtensionCpuWeight();
+  /**
+   * <code>optional uint32 old_extension_cpu_weight = 21 [json_name = "oldExtensionCpuWeight"];</code>
+   * @return The oldExtensionCpuWeight.
+   */
+  int getOldExtensionCpuWeight();
+
+  /**
+   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+   * @return Whether the newExtensionCpuWeight field is set.
+   */
+  boolean hasNewExtensionCpuWeight();
+  /**
+   * <code>optional uint32 new_extension_cpu_weight = 22 [json_name = "newExtensionCpuWeight"];</code>
+   * @return The newExtensionCpuWeight.
+   */
+  int getNewExtensionCpuWeight();
 }

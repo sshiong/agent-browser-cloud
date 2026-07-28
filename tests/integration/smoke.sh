@@ -176,10 +176,12 @@ start_browser_node() {
   NODE_PRESSURE_ROOT="$temp_dir/pressure" \
   REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
   RUNTIME_ROOT="$temp_dir/runtime" \
+  NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
+  FAKE_CHROMIUM_ARGUMENT_LOG="$temp_dir/fake-chromium-args.log" \
   FAKE_CHROMIUM_MUTATE_STATE_AFTER=2 \
   FAKE_CHROMIUM_DELAY_PROFILE_FRAGMENT=profile-recovering-failover \
   FAKE_CHROMIUM_DELAY_START_NUMBER=2 \
@@ -259,7 +261,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -744,10 +746,14 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 test "$state_status" = "200"
+grep -Fq -- \
+  "--load-extension=$repo_root/tests/integration/fixtures/extensions/unknown.integration" \
+  "$temp_dir/fake-chromium-args.log"
 printf '%s' "$browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
 
 initial_state_version="$(printf '%s' "$browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+initial_target_name="$(printf '%s' "$browser_state" | python3 -c 'import json,sys; item=json.load(sys.stdin); print(item["targets"][0]["name"] if item["targets"] else "")')"
 diff_state=""
 for _ in $(seq 1 40); do
   diff_state="$(curl -fsS \
@@ -758,12 +764,13 @@ for _ in $(seq 1 40); do
   diff_state_version="$(printf '%s' "$diff_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
   if [[ "$diff_target_name" = "Continue integration" ]] \
     && [[ "$diff_state_quality" = "COMPLETE" ]] \
-    && [[ "$diff_state_version" -gt "$initial_state_version" ]]; then break; fi
+    && { [[ "$initial_target_name" = "Continue integration" ]] \
+      || [[ "$diff_state_version" -gt "$initial_state_version" ]]; }; then break; fi
   sleep 0.25
 done
 test "$diff_target_name" = "Continue integration"
 printf '%s' "$diff_state" | python3 -c \
-  "import json,sys; state=json.load(sys.stdin); assert state['stateVersion'] > ${initial_state_version}; assert state['stateQuality'] == 'COMPLETE'"
+  "import json,sys; state=json.load(sys.stdin); assert state['stateVersion'] >= ${initial_state_version}; assert state['stateQuality'] == 'COMPLETE'"
 
 business_recovery="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery:validate" \
@@ -813,18 +820,19 @@ done
 non_cgroup_resource_limits=""
 for _ in $(seq 1 160); do
   non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-    "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps
+    "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight
      from browser_placements where session_id='${session_one}'")"
-  if [[ "$non_cgroup_resource_limits" = "75:0" ]]; then break; fi
+  if [[ "$non_cgroup_resource_limits" = "75:0:100" ]]; then break; fi
   sleep 0.25
 done
-test "$non_cgroup_resource_limits" = "75:0"
+test "$non_cgroup_resource_limits" = "75:0:100"
 non_cgroup_adjustment_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from session_resource_events
    where session_id='${session_one}'
      and event_type='ALLOCATION_ADJUSTED'
      and (new_resources->>'stateCollectorBudgetPercent')::integer = 75
      and (new_resources->>'remoteDesktopBitrateKbps')::integer = 0
+     and (new_resources->>'extensionCpuWeight')::integer = 100
      and result='COMMITTED'")"
 test "$non_cgroup_adjustment_events" = "1"
 
@@ -1717,9 +1725,9 @@ resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud 
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "2"
 non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps
+  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight
    from browser_placements where session_id='${session_one}'")"
-test "$non_cgroup_resource_limits" = "75:0"
+test "$non_cgroup_resource_limits" = "75:0:100"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"

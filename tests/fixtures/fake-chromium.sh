@@ -4,6 +4,7 @@ cdp_port=""
 user_data_dir=""
 proxy_server=""
 proxy_bypass_list=""
+load_extension=""
 for argument in "$@"; do
   case "$argument" in
     --remote-debugging-port=*)
@@ -17,6 +18,9 @@ for argument in "$@"; do
       ;;
     --proxy-bypass-list=*)
       proxy_bypass_list="${argument#*=}"
+      ;;
+    --load-extension=*)
+      load_extension="${argument#*=}"
       ;;
   esac
 done
@@ -34,6 +38,9 @@ if [ "${FAKE_CHROMIUM_REQUIRE_PROXY:-false}" = "true" ]; then
     echo "fake Chromium requires an enforced proxy with no implicit loopback bypass" >&2
     exit 2
   fi
+fi
+if [ -n "${FAKE_CHROMIUM_ARGUMENT_LOG:-}" ]; then
+  printf '%s\n' "$*" >>"$FAKE_CHROMIUM_ARGUMENT_LOG"
 fi
 
 exec python3 - "$cdp_port" "$user_data_dir" <<'PY'

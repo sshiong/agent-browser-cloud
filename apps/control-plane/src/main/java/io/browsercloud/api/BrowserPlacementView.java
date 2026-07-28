@@ -19,6 +19,7 @@ public record BrowserPlacementView(
     int tabBudget,
     int stateCollectorBudgetPercent,
     int remoteDesktopBitrateKbps,
+    int extensionCpuWeight,
     boolean requiresDesktop,
     boolean requiresGpu,
     boolean requiresNativeOs,

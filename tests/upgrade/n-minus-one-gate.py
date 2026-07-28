@@ -137,6 +137,19 @@ for invariant in (
         f"Business Recovery migration lacks rolling invariant: {invariant}"
     )
 
+extension_resources_migration = read(
+    "database/migrations/V031__extension_runtime_resources.sql"
+)
+extension_resources_upper = extension_resources_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in extension_resources_upper
+for invariant in (
+    "ADD COLUMN EXTENSION_CPU_WEIGHT",
+    "NOT NULL DEFAULT 100",
+    "CHECK (EXTENSION_CPU_WEIGHT BETWEEN 1 AND 10000)",
+):
+    assert invariant in extension_resources_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -176,6 +189,35 @@ for name, expected_tag in (
     assert qualifier is not None, f"{name} must remain optional for N/N-1"
     assert actual_tag == expected_tag
 
+for message_name, fields in (
+    (
+        "StartRuntimeCommand",
+        (("extension_ids", 20, False), ("extension_cpu_weight", 21, True)),
+    ),
+    ("AdjustRuntimeResourcesCommand", (("extension_cpu_weight", 15, True),)),
+    (
+        "RuntimeResourcesAdjustedEvent",
+        (
+            ("old_extension_cpu_weight", 21, True),
+            ("new_extension_cpu_weight", 22, True),
+        ),
+    ),
+):
+    message = proto.split(f"message {message_name} {{", 1)[1].split("}", 1)[0]
+    message_tags = {
+        name: (qualifier or "", int(tag))
+        for qualifier, name, tag in re.findall(
+            r"^\s*((?:optional|repeated)\s+)?[a-z0-9_]+\s+([a-z0-9_]+)\s*=\s*(\d+);",
+            message,
+            flags=re.MULTILINE,
+        )
+    }
+    for name, expected_tag, must_be_optional in fields:
+        qualifier, actual_tag = message_tags[name]
+        assert actual_tag == expected_tag
+        if must_be_optional:
+            assert qualifier.strip() == "optional"
+
 openapi = read("packages/contracts/openapi/session-api.yaml")
 register = openapi.split("    RegisterBrowserNodeRequest:", 1)[1].split(
     "    RecordNodePressureRequest:", 1
@@ -204,8 +246,8 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V030 additive",
-    "protobuf": "unknown-fields-15-16,optional-28-30",
+    "schema": "V019-V021 additive,V028 expand-validate-contract,V029-V031 additive",
+    "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22",
     "json": "new-media-and-application-fields-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

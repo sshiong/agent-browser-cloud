@@ -222,6 +222,7 @@ export interface SessionResourceView {
     tabBudget?: number;
     stateCollectorBudgetPercent?: number;
     remoteDesktopBitrateKbps?: number;
+    extensionCpuWeight?: number;
     placementState: string;
   };
   usage?: {
@@ -234,6 +235,8 @@ export interface SessionResourceView {
     agentActionLatencyMs?: number;
     stateDiffQueueDepth?: number;
     profileIoBytesPerSecond?: number;
+    extensionCpuPercent?: number;
+    extensionMemoryMib?: number;
     remoteDesktopFrameAgeMs?: number;
     mediaEncoderPercent?: number;
     observedAt: string;

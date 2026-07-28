@@ -153,8 +153,13 @@ public class NodeEventMapper {
               payload.hasNewRemoteDesktopBitrateKbps()
                   ? payload.getNewRemoteDesktopBitrateKbps()
                   : null;
+          var oldExtensionCpuWeight =
+              payload.hasOldExtensionCpuWeight() ? payload.getOldExtensionCpuWeight() : null;
+          var newExtensionCpuWeight =
+              payload.hasNewExtensionCpuWeight() ? payload.getNewExtensionCpuWeight() : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
+              || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
               || (oldStateCollectorBudget != null
                   && (oldStateCollectorBudget < 10
                       || oldStateCollectorBudget > 100
@@ -164,7 +169,12 @@ public class NodeEventMapper {
                   && (oldRemoteDesktopBitrate < 0
                       || oldRemoteDesktopBitrate > 100_000
                       || newRemoteDesktopBitrate < 0
-                      || newRemoteDesktopBitrate > 100_000))) {
+                      || newRemoteDesktopBitrate > 100_000))
+              || (oldExtensionCpuWeight != null
+                  && (oldExtensionCpuWeight < 1
+                      || oldExtensionCpuWeight > 10_000
+                      || newExtensionCpuWeight < 1
+                      || newExtensionCpuWeight > 10_000))) {
             throw new IllegalArgumentException("non-cgroup resource adjustment limits are invalid");
           }
           yield new NodeEvent.RuntimeResourcesAdjusted(
@@ -186,6 +196,8 @@ public class NodeEventMapper {
               oldRemoteDesktopBitrate,
               newStateCollectorBudget,
               newRemoteDesktopBitrate,
+              oldExtensionCpuWeight,
+              newExtensionCpuWeight,
               payload.getReason(),
               payload.getOperationId());
         }

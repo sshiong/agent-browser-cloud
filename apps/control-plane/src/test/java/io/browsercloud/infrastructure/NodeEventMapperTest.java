@@ -115,6 +115,8 @@ class NodeEventMapperTest {
             .setNewStateCollectorBudgetPercent(75)
             .setOldRemoteDesktopBitrateKbps(8000)
             .setNewRemoteDesktopBitrateKbps(6000)
+            .setOldExtensionCpuWeight(100)
+            .setNewExtensionCpuWeight(150)
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -134,6 +136,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newStateCollectorBudgetPercent()).isEqualTo(75);
               assertThat(adjusted.oldRemoteDesktopBitrateKbps()).isEqualTo(8000);
               assertThat(adjusted.newRemoteDesktopBitrateKbps()).isEqualTo(6000);
+              assertThat(adjusted.oldExtensionCpuWeight()).isEqualTo(100);
+              assertThat(adjusted.newExtensionCpuWeight()).isEqualTo(150);
             });
   }
 
@@ -174,6 +178,7 @@ class NodeEventMapperTest {
             adjusted -> {
               assertThat(adjusted.oldStateCollectorBudgetPercent()).isNull();
               assertThat(adjusted.newRemoteDesktopBitrateKbps()).isNull();
+              assertThat(adjusted.oldExtensionCpuWeight()).isNull();
             });
   }
 

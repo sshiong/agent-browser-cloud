@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
@@ -84,7 +84,7 @@ private static final long serialVersionUID = 0L;
       getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       nodeId_ = b;
@@ -107,7 +107,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       region_ = s;
@@ -123,7 +123,7 @@ private static final long serialVersionUID = 0L;
       getRegionBytes() {
     java.lang.Object ref = region_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       region_ = b;
@@ -146,7 +146,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       grpcTarget_ = s;
@@ -162,7 +162,7 @@ private static final long serialVersionUID = 0L;
       getGrpcTargetBytes() {
     java.lang.Object ref = grpcTarget_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       grpcTarget_ = b;
@@ -288,7 +288,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String, java.lang.String> defaultEntry =
             com.google.protobuf.MapEntry
             .<java.lang.String, java.lang.String>newDefaultInstance(
-                io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_LabelsEntry_descriptor,
+                io.browsercloud.proto.node.v1.NodeCommand.internal_static_browsercloud_node_v1_ReportCapacityRequest_LabelsEntry_descriptor, 
                 com.google.protobuf.WireFormat.FieldType.STRING,
                 "",
                 com.google.protobuf.WireFormat.FieldType.STRING,
@@ -440,7 +440,7 @@ java.lang.String defaultValue) {
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       pressureReason_ = s;
@@ -456,7 +456,7 @@ java.lang.String defaultValue) {
       getPressureReasonBytes() {
     java.lang.Object ref = pressureReason_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       pressureReason_ = b;
@@ -1331,7 +1331,7 @@ java.lang.String defaultValue) {
         getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         nodeId_ = b;
@@ -1403,7 +1403,7 @@ java.lang.String defaultValue) {
         getRegionBytes() {
       java.lang.Object ref = region_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         region_ = b;
@@ -1475,7 +1475,7 @@ java.lang.String defaultValue) {
         getGrpcTargetBytes() {
       java.lang.Object ref = grpcTarget_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         grpcTarget_ = b;
@@ -2186,7 +2186,7 @@ java.lang.String defaultValue) {
         getPressureReasonBytes() {
       java.lang.Object ref = pressureReason_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         pressureReason_ = b;
@@ -2295,3 +2295,4 @@ java.lang.String defaultValue) {
   }
 
 }
+

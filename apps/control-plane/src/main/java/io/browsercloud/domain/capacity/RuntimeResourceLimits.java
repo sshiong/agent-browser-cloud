@@ -1,6 +1,7 @@
 package io.browsercloud.domain.capacity;
 
 import io.browsercloud.domain.session.ResourceClass;
+import java.util.List;
 
 /** Placement 决策下发给 Runtime Supervisor 的不可放宽资源边界。 */
 public record RuntimeResourceLimits(
@@ -12,12 +13,15 @@ public record RuntimeResourceLimits(
     int tabBudget,
     int stateCollectorBudgetPercent,
     int remoteDesktopBitrateKbps,
+    List<String> extensionIds,
+    int extensionCpuWeight,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,
     boolean isolated) {
 
   public RuntimeResourceLimits {
+    extensionIds = extensionIds == null ? List.of() : List.copyOf(extensionIds);
     if (cpuMillis < 0
         || memoryRequestMib < 0
         || memoryLimitMib < memoryRequestMib
@@ -30,6 +34,17 @@ public record RuntimeResourceLimits(
         || (desktop && remoteDesktopBitrateKbps < 250)
         || (!desktop && remoteDesktopBitrateKbps != 0)) {
       throw new IllegalArgumentException("Runtime resource limits are invalid");
+    }
+    if (extensionCpuWeight < 1
+        || extensionCpuWeight > 10_000
+        || extensionIds.stream()
+            .anyMatch(
+                id ->
+                    id == null
+                        || id.isBlank()
+                        || id.length() > 128
+                        || !id.matches("[A-Za-z0-9._-]+"))) {
+      throw new IllegalArgumentException("Runtime extension resource limits are invalid");
     }
   }
 }

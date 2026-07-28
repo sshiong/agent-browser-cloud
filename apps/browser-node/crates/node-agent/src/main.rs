@@ -53,6 +53,7 @@ struct NodeControlService {
     profile_workspaces: Arc<Mutex<HashMap<String, ActiveProfileWorkspace>>>,
     network_helper: Option<Arc<NetworkHelperClient>>,
     allow_direct_network: bool,
+    extension_root: Option<PathBuf>,
     state_collector: Arc<CdpStateCollector>,
     state_baselines: Arc<Mutex<HashMap<String, CurrentState>>>,
     resync_required: Arc<Mutex<HashSet<String>>>,
@@ -63,6 +64,7 @@ struct NodeControlService {
     inflight: Arc<Mutex<HashSet<String>>>,
     monitored_sessions: Arc<Mutex<HashSet<String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
+    resource_extension_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_browser_baselines: Arc<Mutex<HashMap<String, (f64, Instant)>>>,
     resource_io_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
@@ -112,6 +114,66 @@ fn cumulative_rate_per_second(
             .div_ceil(elapsed_nanos)
             .min(u128::from(u64::MAX)) as u64,
     )
+}
+
+fn resolve_trusted_extension_dirs(
+    extension_root: Option<&Path>,
+    extension_ids: &[String],
+) -> anyhow::Result<Vec<PathBuf>> {
+    if extension_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let root = extension_root
+        .ok_or_else(|| anyhow::anyhow!("trusted Extension root is not configured"))?;
+    let canonical_root =
+        std::fs::canonicalize(root).context("trusted Extension root is unavailable")?;
+    let mut result = Vec::with_capacity(extension_ids.len());
+    for extension_id in extension_ids {
+        anyhow::ensure!(
+            !extension_id.is_empty()
+                && extension_id.len() <= 128
+                && extension_id
+                    .chars()
+                    .all(|value| value.is_ascii_alphanumeric() || "._-".contains(value)),
+            "Extension ID is invalid"
+        );
+        let candidate = root.join(extension_id);
+        let metadata = std::fs::symlink_metadata(&candidate)
+            .with_context(|| format!("Extension artifact {extension_id} is unavailable"))?;
+        anyhow::ensure!(
+            metadata.is_dir() && !metadata.file_type().is_symlink(),
+            "Extension artifact must be a non-symlink directory"
+        );
+        let canonical = std::fs::canonicalize(&candidate)?;
+        anyhow::ensure!(
+            canonical.parent() == Some(canonical_root.as_path()),
+            "Extension artifact escaped the trusted root"
+        );
+        let manifest = canonical.join("manifest.json");
+        let manifest_metadata = std::fs::symlink_metadata(&manifest)?;
+        anyhow::ensure!(
+            manifest_metadata.is_file()
+                && !manifest_metadata.file_type().is_symlink()
+                && manifest_metadata.len() <= 1024 * 1024,
+            "Extension manifest is invalid"
+        );
+        let manifest_value: serde_json::Value = serde_json::from_slice(&std::fs::read(&manifest)?)?;
+        anyhow::ensure!(
+            manifest_value.is_object()
+                && manifest_value.get("manifest_version").is_some()
+                && manifest_value
+                    .get("name")
+                    .and_then(|value| value.as_str())
+                    .is_some()
+                && manifest_value
+                    .get("version")
+                    .and_then(|value| value.as_str())
+                    .is_some(),
+            "Extension manifest is incomplete"
+        );
+        result.push(canonical);
+    }
+    Ok(result)
 }
 
 #[derive(Clone)]
@@ -222,6 +284,19 @@ impl NodeCapacityReporter {
             "profileIoTelemetry".to_owned(),
             if cgroup_capabilities.io_telemetry {
                 "browser-cgroup-io-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "extensionTelemetry".to_owned(),
+            if cgroup_capabilities.enforcement
+                && std::env::var("NODE_EXTENSION_ROOT")
+                    .map(|value| !value.trim().is_empty())
+                    .unwrap_or(false)
+            {
+                "extension-cgroup-v1"
             } else {
                 "unavailable"
             }
@@ -441,6 +516,10 @@ impl NodeControlService {
             && session_id
                 .chars()
                 .all(|character| character.is_ascii_alphanumeric() || character == '_')
+    }
+
+    fn resolve_extension_dirs(&self, extension_ids: &[String]) -> anyhow::Result<Vec<PathBuf>> {
+        resolve_trusted_extension_dirs(self.extension_root.as_deref(), extension_ids)
     }
 
     async fn allocate_cdp_port(&self) -> anyhow::Result<u16> {
@@ -824,6 +903,28 @@ impl NodeControlService {
             } else {
                 None
             };
+        let extension_cpu_percent =
+            if let Some(current_usage_micros) = metrics.cumulative_extension_cpu_usage_micros {
+                let now = Instant::now();
+                let previous = self
+                    .resource_extension_cpu_baselines
+                    .lock()
+                    .await
+                    .insert(session_id.to_owned(), (current_usage_micros, now));
+                previous.and_then(|(previous_usage_micros, previous_at)| {
+                    let elapsed_micros = now.duration_since(previous_at).as_micros() as f64;
+                    let cpu_limit_cores = f64::from(metrics.cpu_limit_millis) / 1000.0;
+                    (elapsed_micros > 0.0 && cpu_limit_cores > 0.0).then(|| {
+                        (current_usage_micros.saturating_sub(previous_usage_micros) as f64
+                            / elapsed_micros
+                            / cpu_limit_cores
+                            * 100.0)
+                            .clamp(0.0, 100.0)
+                    })
+                })
+            } else {
+                None
+            };
         let agent_action_latency_ms = if include_resource_metrics {
             self.agent_action_latencies
                 .lock()
@@ -910,8 +1011,16 @@ impl NodeControlService {
                 profile_io_bytes_per_second: include_resource_metrics
                     .then_some(profile_io_bytes_per_second)
                     .flatten(),
-                extension_cpu_percent: None,
-                extension_memory_mib: None,
+                extension_cpu_percent: include_resource_metrics
+                    .then_some(extension_cpu_percent)
+                    .flatten(),
+                extension_memory_mib: include_resource_metrics
+                    .then(|| {
+                        metrics
+                            .extension_memory_bytes
+                            .map(|bytes| bytes.div_ceil(1024 * 1024))
+                    })
+                    .flatten(),
                 remote_desktop_frame_age_ms: include_resource_metrics
                     .then_some(remote_desktop_frame_age_ms)
                     .flatten(),
@@ -1425,6 +1534,7 @@ impl NodeControlService {
                             payload.state_collector_budget_percent.unwrap_or(100);
                         let remote_desktop_bitrate_kbps =
                             payload.remote_desktop_bitrate_kbps.unwrap_or(0);
+                        let extension_cpu_weight = payload.extension_cpu_weight.unwrap_or(100);
                         if payload.resource_class == "L0"
                             || payload.cpu_millis == 0
                             || payload.memory_request_mib == 0
@@ -1436,12 +1546,18 @@ impl NodeControlService {
                             || (payload.desktop_required
                                 && !(250..=100_000).contains(&remote_desktop_bitrate_kbps))
                             || (!payload.desktop_required && remote_desktop_bitrate_kbps != 0)
+                            || !(1..=10_000).contains(&extension_cpu_weight)
                         {
                             return self.failed(
                                 command,
                                 anyhow::anyhow!("runtime resource limit payload is invalid"),
                             );
                         }
+                        let extension_dirs =
+                            match self.resolve_extension_dirs(&payload.extension_ids) {
+                                Ok(directories) => directories,
+                                Err(error) => return self.failed(command, error),
+                            };
                         if payload.desktop_required && !self.desktop_enabled {
                             return self.failed(
                                 command,
@@ -1550,6 +1666,7 @@ impl NodeControlService {
                                 display,
                                 cdp_port,
                                 vnc_port,
+                                extension_dirs,
                                 resource_limits: RuntimeResourceLimits {
                                     resource_class: payload.resource_class,
                                     cpu_millis: payload.cpu_millis,
@@ -1557,6 +1674,7 @@ impl NodeControlService {
                                     memory_limit_mib: payload.memory_limit_mib,
                                     pid_limit: payload.pid_limit,
                                     tab_budget: payload.tab_budget,
+                                    extension_cpu_weight,
                                     desktop_required: payload.desktop_required,
                                     gpu_required: payload.gpu_required,
                                     native_os_required: payload.native_os_required,
@@ -1906,6 +2024,14 @@ impl NodeControlService {
                                 ),
                             );
                         }
+                        let current_limits = match self
+                            .runtime_supervisor
+                            .current_resource_limits(&command.session_id)
+                            .await
+                        {
+                            Ok(limits) => limits,
+                            Err(error) => return self.failed(command, error),
+                        };
                         let next = RuntimeResourceLimits {
                             resource_class: payload.resource_class.clone(),
                             cpu_millis: payload.cpu_millis,
@@ -1913,6 +2039,9 @@ impl NodeControlService {
                             memory_limit_mib: payload.memory_limit_mib,
                             pid_limit: payload.pid_limit,
                             tab_budget: payload.tab_budget,
+                            extension_cpu_weight: payload
+                                .extension_cpu_weight
+                                .unwrap_or(current_limits.extension_cpu_weight),
                             desktop_required: payload.desktop_required,
                             gpu_required: payload.gpu_required,
                             native_os_required: payload.native_os_required,
@@ -1970,6 +2099,8 @@ impl NodeControlService {
                         };
                         let previous = runtime_adjustment.previous;
                         let applied = runtime_adjustment.applied;
+                        let previous_extension_cpu_weight = previous.extension_cpu_weight;
+                        let applied_extension_cpu_weight = applied.extension_cpu_weight;
                         if let Err(error) = self
                             .state_collector
                             .set_resource_budget(
@@ -2052,6 +2183,8 @@ impl NodeControlService {
                                 new_remote_desktop_bitrate_kbps: Some(
                                     next_remote_desktop_bitrate_kbps,
                                 ),
+                                old_extension_cpu_weight: Some(previous_extension_cpu_weight),
+                                new_extension_cpu_weight: Some(applied_extension_cpu_weight),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -2697,6 +2830,11 @@ impl NodeControlService {
                             .await
                             .remove(&session_id);
                         service
+                            .resource_extension_cpu_baselines
+                            .lock()
+                            .await
+                            .remove(&session_id);
+                        service
                             .resource_browser_baselines
                             .lock()
                             .await
@@ -3089,6 +3227,10 @@ impl NodeControlServiceRpc for NodeControlService {
                 .lock()
                 .await
                 .remove(&command.session_id);
+            self.resource_extension_cpu_baselines
+                .lock()
+                .await
+                .remove(&command.session_id);
             self.resource_browser_baselines
                 .lock()
                 .await
@@ -3233,6 +3375,17 @@ async fn main() -> Result<()> {
     let profile_storage_root = std::env::var("PROFILE_STORAGE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| runtime_root.join("profile-storage"));
+    let extension_root = std::env::var("NODE_EXTENSION_ROOT")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    if let Some(root) = extension_root.as_ref() {
+        anyhow::ensure!(
+            root.is_absolute() && root.is_dir(),
+            "NODE_EXTENSION_ROOT must be an existing absolute directory"
+        );
+    }
     let storage_helper_socket = std::env::var("STORAGE_HELPER_SOCKET")
         .unwrap_or_default()
         .trim()
@@ -3506,6 +3659,7 @@ async fn main() -> Result<()> {
         profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
         network_helper,
         allow_direct_network,
+        extension_root,
         state_collector: Arc::new(CdpStateCollector::new()),
         state_baselines: Arc::new(Mutex::new(HashMap::new())),
         resync_required: Arc::new(Mutex::new(HashSet::new())),
@@ -3516,6 +3670,7 @@ async fn main() -> Result<()> {
         inflight: Arc::new(Mutex::new(HashSet::new())),
         monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
@@ -3569,6 +3724,11 @@ async fn main() -> Result<()> {
     // their Runtime children so they cannot enqueue a second recovery while the Node is exiting.
     service.monitored_sessions.lock().await.clear();
     service.resource_cpu_baselines.lock().await.clear();
+    service
+        .resource_extension_cpu_baselines
+        .lock()
+        .await
+        .clear();
     service.resource_browser_baselines.lock().await.clear();
     service.resource_io_baselines.lock().await.clear();
     service.agent_action_latencies.lock().await.clear();
@@ -3705,6 +3865,33 @@ mod tests {
         assert_eq!(cumulative_rate_per_second(1_000, None, now), None);
     }
 
+    #[test]
+    #[cfg(unix)]
+    fn resolves_only_direct_non_symlink_extensions_from_the_trusted_root() {
+        let root = temporary_path("trusted-extensions");
+        let extension = root.join("accepted.extension");
+        std::fs::create_dir_all(&extension).unwrap();
+        std::fs::write(
+            extension.join("manifest.json"),
+            r#"{"manifest_version":3,"name":"Accepted","version":"1.0.0"}"#,
+        )
+        .unwrap();
+
+        let resolved =
+            resolve_trusted_extension_dirs(Some(&root), &["accepted.extension".to_owned()])
+                .unwrap();
+        assert_eq!(resolved, vec![std::fs::canonicalize(&extension).unwrap()]);
+        assert!(resolve_trusted_extension_dirs(None, &["accepted.extension".to_owned()]).is_err());
+        assert!(resolve_trusted_extension_dirs(Some(&root), &["..".to_owned()]).is_err());
+
+        let linked = root.join("linked.extension");
+        std::os::unix::fs::symlink(&extension, &linked).unwrap();
+        assert!(
+            resolve_trusted_extension_dirs(Some(&root), &["linked.extension".to_owned()]).is_err()
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[tokio::test]
     async fn redelivers_persisted_event_after_journal_reopen() {
         let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -3775,6 +3962,7 @@ mod tests {
             profile_workspaces: Arc::new(Mutex::new(HashMap::new())),
             network_helper: None,
             allow_direct_network: true,
+            extension_root: None,
             state_collector: Arc::new(CdpStateCollector::new()),
             state_baselines: Arc::new(Mutex::new(HashMap::new())),
             resync_required: Arc::new(Mutex::new(HashSet::new())),
@@ -3785,6 +3973,7 @@ mod tests {
             inflight: Arc::new(Mutex::new(HashSet::new())),
             monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),

@@ -27,6 +27,7 @@ pub struct RuntimeSpec {
     pub display: String,
     pub cdp_port: u16,
     pub vnc_port: Option<u16>,
+    pub extension_dirs: Vec<PathBuf>,
     pub resource_limits: RuntimeResourceLimits,
 }
 
@@ -38,6 +39,7 @@ pub struct RuntimeResourceLimits {
     pub memory_limit_mib: u32,
     pub pid_limit: u32,
     pub tab_budget: u32,
+    pub extension_cpu_weight: u32,
     pub desktop_required: bool,
     pub gpu_required: bool,
     pub native_os_required: bool,
@@ -59,6 +61,7 @@ impl RuntimeResourceLimits {
             memory_limit_mib: 1280,
             pid_limit: 192,
             tab_budget: 8,
+            extension_cpu_weight: 100,
             desktop_required: false,
             gpu_required: false,
             native_os_required: false,
@@ -98,6 +101,8 @@ pub struct RuntimeMetrics {
     pub memory_psi_some_avg10: Option<f64>,
     pub process_count: Option<u32>,
     pub cumulative_browser_io_bytes: Option<u64>,
+    pub cumulative_extension_cpu_usage_micros: Option<u64>,
+    pub extension_memory_bytes: Option<u64>,
 }
 
 /// Runtime Supervisor trait。
@@ -150,6 +155,7 @@ struct RuntimeCgroup {
     path: PathBuf,
     browser_path: Option<PathBuf>,
     desktop_path: Option<PathBuf>,
+    extension_path: Option<PathBuf>,
 }
 
 impl RuntimeCgroup {
@@ -217,25 +223,40 @@ impl RuntimeCgroup {
                 fs::write(&swap_max, "0").context("failed to disable runtime swap")?;
             }
             Self::write(&path, "pids.max", limits.pid_limit.to_string())?;
-            if io_available {
-                Self::write(&path, "cgroup.subtree_control", "+io".to_owned())
-                    .context("failed to enable Browser I/O accounting subtree")?;
-                fs::create_dir(path.join("browser"))
-                    .context("failed to create Browser I/O accounting cgroup")?;
-                fs::create_dir(path.join("desktop"))
-                    .context("failed to create desktop process cgroup")?;
-            }
+            Self::write(
+                &path,
+                "cgroup.subtree_control",
+                if io_available {
+                    "+cpu +memory +pids +io".to_owned()
+                } else {
+                    "+cpu +memory +pids".to_owned()
+                },
+            )
+            .context("failed to enable runtime child cgroup controllers")?;
+            fs::create_dir(path.join("browser"))
+                .context("failed to create Browser process cgroup")?;
+            fs::create_dir(path.join("desktop"))
+                .context("failed to create desktop process cgroup")?;
+            fs::create_dir(path.join("extension"))
+                .context("failed to create Extension process cgroup")?;
+            Self::write(
+                &path.join("extension"),
+                "cpu.weight",
+                limits.extension_cpu_weight.to_string(),
+            )?;
             Ok::<(), anyhow::Error>(())
         })();
         if let Err(error) = result {
             let _ = fs::remove_dir(path.join("browser"));
             let _ = fs::remove_dir(path.join("desktop"));
+            let _ = fs::remove_dir(path.join("extension"));
             let _ = fs::remove_dir(&path);
             return Err(error);
         }
         Ok(Self {
-            browser_path: io_available.then(|| path.join("browser")),
-            desktop_path: io_available.then(|| path.join("desktop")),
+            browser_path: Some(path.join("browser")),
+            desktop_path: Some(path.join("desktop")),
+            extension_path: Some(path.join("extension")),
             path,
         })
     }
@@ -314,6 +335,54 @@ impl RuntimeCgroup {
         (saw_counter || contents.trim().is_empty()).then_some(total)
     }
 
+    fn extension_memory_bytes(&self) -> Option<u64> {
+        fs::read_to_string(self.extension_path.as_ref()?.join("memory.current"))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    }
+
+    fn cumulative_extension_cpu_usage_micros(&self) -> Option<u64> {
+        fs::read_to_string(self.extension_path.as_ref()?.join("cpu.stat"))
+            .ok()?
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("usage_usec ")
+                    .and_then(|value| value.trim().parse().ok())
+            })
+    }
+
+    fn classify_extension_processes(&self, proc_root: &Path) -> anyhow::Result<u32> {
+        let Some(browser_path) = self.browser_path.as_ref() else {
+            return Ok(0);
+        };
+        let Some(extension_path) = self.extension_path.as_ref() else {
+            return Ok(0);
+        };
+        let processes = fs::read_to_string(browser_path.join("cgroup.procs"))
+            .context("failed to read Browser cgroup processes")?;
+        let mut moved = 0_u32;
+        for pid in processes
+            .lines()
+            .filter_map(|line| line.trim().parse::<u32>().ok())
+        {
+            let command_line = match fs::read(proc_root.join(pid.to_string()).join("cmdline")) {
+                Ok(value) => value,
+                Err(error) if error.kind() == ErrorKind::NotFound => continue,
+                Err(error) => return Err(error).context("failed to inspect Browser process"),
+            };
+            if command_line
+                .split(|byte| *byte == 0)
+                .any(|argument| argument == b"--extension-process")
+            {
+                Self::attach_to(extension_path, pid)?;
+                moved = moved.saturating_add(1);
+            }
+        }
+        Ok(moved)
+    }
+
     fn adjust(
         &self,
         previous: &RuntimeResourceLimits,
@@ -324,7 +393,8 @@ impl RuntimeCgroup {
                 && next.memory_request_mib > 0
                 && next.memory_limit_mib >= next.memory_request_mib
                 && next.pid_limit >= 32
-                && next.tab_budget > 0,
+                && next.tab_budget > 0
+                && (1..=10_000).contains(&next.extension_cpu_weight),
             "runtime resource adjustment is invalid"
         );
         if next.memory_limit_mib < previous.memory_limit_mib {
@@ -385,7 +455,14 @@ impl RuntimeCgroup {
                         .to_string(),
                 )?;
             }
-            Self::write(&self.path, "pids.max", next.pid_limit.to_string())
+            Self::write(&self.path, "pids.max", next.pid_limit.to_string())?;
+            Self::write(
+                self.extension_path
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("Extension cgroup is unavailable"))?,
+                "cpu.weight",
+                next.extension_cpu_weight.to_string(),
+            )
         };
         if let Err(error) = apply() {
             let old_quota = u64::from(previous.cpu_millis)
@@ -411,6 +488,13 @@ impl RuntimeCgroup {
                     .to_string(),
             );
             let _ = Self::write(&self.path, "pids.max", previous.pid_limit.to_string());
+            if let Some(path) = self.extension_path.as_deref() {
+                let _ = Self::write(
+                    path,
+                    "cpu.weight",
+                    previous.extension_cpu_weight.to_string(),
+                );
+            }
             return Err(error.context("failed to adjust runtime cgroup; previous limits restored"));
         }
         Ok(())
@@ -426,7 +510,7 @@ impl RuntimeCgroup {
     }
 
     fn cleanup(&self) {
-        for child in [&self.browser_path, &self.desktop_path]
+        for child in [&self.browser_path, &self.desktop_path, &self.extension_path]
             .into_iter()
             .flatten()
         {
@@ -492,6 +576,18 @@ impl ChromiumRuntimeSupervisor {
         Ok(self)
     }
 
+    pub async fn current_resource_limits(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<RuntimeResourceLimits> {
+        self.runtimes
+            .lock()
+            .await
+            .get(session_id)
+            .map(|runtime| runtime.resource_limits.clone())
+            .ok_or_else(|| anyhow::anyhow!("runtime not found"))
+    }
+
     fn validate_spec(spec: &RuntimeSpec) -> anyhow::Result<()> {
         let valid_session_id = spec.session_id.starts_with("ses_")
             && spec
@@ -519,6 +615,20 @@ impl ChromiumRuntimeSupervisor {
         );
         anyhow::ensure!(limits.pid_limit >= 32, "PID limit is invalid");
         anyhow::ensure!(limits.tab_budget > 0, "tab budget is invalid");
+        anyhow::ensure!(
+            (1..=10_000).contains(&limits.extension_cpu_weight),
+            "Extension CPU weight is invalid"
+        );
+        for directory in &spec.extension_dirs {
+            anyhow::ensure!(
+                directory.is_absolute(),
+                "Extension directory must be absolute"
+            );
+            anyhow::ensure!(
+                directory.join("manifest.json").is_file(),
+                "Extension manifest is unavailable"
+            );
+        }
         anyhow::ensure!(
             !limits.desktop_required || !spec.display.is_empty(),
             "desktop-required placement has no display"
@@ -815,10 +925,23 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             .arg("--disable-translate")
             .arg("--no-default-browser-check")
             .arg("--disable-default-apps")
-            .arg("--disable-extensions")
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .kill_on_drop(true);
+
+        if spec.extension_dirs.is_empty() {
+            command.arg("--disable-extensions");
+        } else {
+            let extension_paths = spec
+                .extension_dirs
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            command
+                .arg(format!("--disable-extensions-except={extension_paths}"))
+                .arg(format!("--load-extension={extension_paths}"));
+        }
 
         if let Some(proxy_server) = spec.proxy_server.as_ref() {
             command
@@ -1060,6 +1183,11 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
         let process = system
             .process(process_id)
             .ok_or_else(|| anyhow::anyhow!("runtime process is not visible"))?;
+        if let Some(cgroup) = cgroup.as_ref() {
+            if let Err(error) = cgroup.classify_extension_processes(Path::new("/proc")) {
+                tracing::warn!(session_id, error = %error, "Extension process classification deferred");
+            }
+        }
         Ok(RuntimeMetrics {
             pid,
             resident_memory_bytes: cgroup
@@ -1079,6 +1207,12 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             cumulative_browser_io_bytes: cgroup
                 .as_ref()
                 .and_then(RuntimeCgroup::cumulative_browser_io_bytes),
+            cumulative_extension_cpu_usage_micros: cgroup
+                .as_ref()
+                .and_then(RuntimeCgroup::cumulative_extension_cpu_usage_micros),
+            extension_memory_bytes: cgroup
+                .as_ref()
+                .and_then(RuntimeCgroup::extension_memory_bytes),
         })
     }
 }
@@ -1110,6 +1244,7 @@ mod tests {
                 display: String::new(),
                 cdp_port: 9222,
                 vnc_port: None,
+                extension_dirs: Vec::new(),
                 resource_limits: RuntimeResourceLimits::local_test_default(),
             })
             .await;
@@ -1135,6 +1270,7 @@ mod tests {
             display: String::new(),
             cdp_port: 9222,
             vnc_port: None,
+            extension_dirs: Vec::new(),
             resource_limits: RuntimeResourceLimits {
                 resource_class: "L3".into(),
                 cpu_millis: 1_250,
@@ -1142,6 +1278,7 @@ mod tests {
                 memory_limit_mib: 2_048,
                 pid_limit: 256,
                 tab_budget: 16,
+                extension_cpu_weight: 100,
                 desktop_required: false,
                 gpu_required: false,
                 native_os_required: false,
@@ -1174,6 +1311,7 @@ mod tests {
             memory_limit_mib: 3_072,
             pid_limit: 384,
             tab_budget: 20,
+            extension_cpu_weight: 150,
             desktop_required: false,
             gpu_required: false,
             native_os_required: false,
@@ -1202,6 +1340,11 @@ mod tests {
         );
         let browser_path = cgroup.browser_path.as_ref().unwrap();
         let desktop_path = cgroup.desktop_path.as_ref().unwrap();
+        let extension_path = cgroup.extension_path.as_ref().unwrap();
+        assert_eq!(
+            fs::read_to_string(extension_path.join("cpu.weight")).unwrap(),
+            "150"
+        );
         fs::write(
             browser_path.join("io.stat"),
             "8:0 rbytes=1024 wbytes=2048 rios=2 wios=3\n8:16 rbytes=4096 wbytes=8192",
@@ -1218,6 +1361,29 @@ mod tests {
             fs::read_to_string(desktop_path.join("cgroup.procs")).unwrap(),
             "43"
         );
+        let proc_root = root.join("proc");
+        fs::create_dir_all(proc_root.join("44")).unwrap();
+        fs::create_dir_all(proc_root.join("45")).unwrap();
+        fs::write(browser_path.join("cgroup.procs"), "44\n45\n").unwrap();
+        fs::write(
+            proc_root.join("44").join("cmdline"),
+            b"/usr/bin/chromium\0--extension-process\0",
+        )
+        .unwrap();
+        fs::write(
+            proc_root.join("45").join("cmdline"),
+            b"/usr/bin/chromium\0--type=renderer\0",
+        )
+        .unwrap();
+        assert_eq!(cgroup.classify_extension_processes(&proc_root).unwrap(), 1);
+        assert_eq!(
+            fs::read_to_string(extension_path.join("cgroup.procs")).unwrap(),
+            "44"
+        );
+        fs::write(extension_path.join("cpu.stat"), "usage_usec 12345\n").unwrap();
+        fs::write(extension_path.join("memory.current"), "10485760").unwrap();
+        assert_eq!(cgroup.cumulative_extension_cpu_usage_micros(), Some(12_345));
+        assert_eq!(cgroup.extension_memory_bytes(), Some(10 * 1024 * 1024));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1246,6 +1412,7 @@ mod tests {
                 display: String::new(),
                 cdp_port,
                 vnc_port: None,
+                extension_dirs: Vec::new(),
                 resource_limits: RuntimeResourceLimits::local_test_default(),
             })
             .await

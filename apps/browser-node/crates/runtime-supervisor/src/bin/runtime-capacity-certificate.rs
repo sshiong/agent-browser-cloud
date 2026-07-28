@@ -380,6 +380,7 @@ async fn run_batch(
                     display: String::new(),
                     cdp_port,
                     vnc_port: None,
+                    extension_dirs: Vec::new(),
                     resource_limits: RuntimeResourceLimits::local_test_default(),
                 })
                 .await

@@ -205,6 +205,8 @@ public class SessionApplicationService {
                     placement.tabBudget(),
                     placement.stateCollectorBudgetPercent(),
                     placement.remoteDesktopBitrateKbps(),
+                    placement.extensionIds(),
+                    placement.extensionCpuWeight(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

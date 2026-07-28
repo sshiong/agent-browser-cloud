@@ -140,7 +140,7 @@ export function SessionResourcePanel({
                       resource.allocation.remoteDesktopBitrateKbps
                         ? `${resource.allocation.remoteDesktopBitrateKbps} Kbps`
                         : '未启用'
-                    }`
+                    } · Extension weight ${resource.allocation.extensionCpuWeight ?? '—'}`
                   : '等待 Placement'
               }
             />
@@ -168,7 +168,7 @@ export function SessionResourcePanel({
 
           <ResourceUsageChart resource={resource} />
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <ResourceLimitProgress
               label="CPU 压力"
               value={resource.usage?.cpuPercent}
@@ -178,6 +178,11 @@ export function SessionResourcePanel({
               label="内存上限"
               value={resource.usage?.memoryPercentOfLimit}
               detail={`${formatMemory(resource.usage?.memoryRssMib)} RSS`}
+            />
+            <ResourceLimitProgress
+              label="Extension 压力"
+              value={resource.usage?.extensionCpuPercent}
+              detail={`${formatMemory(resource.usage?.extensionMemoryMib)} Extension RSS`}
             />
             <ResourceLimitProgress
               label="Profile I/O"

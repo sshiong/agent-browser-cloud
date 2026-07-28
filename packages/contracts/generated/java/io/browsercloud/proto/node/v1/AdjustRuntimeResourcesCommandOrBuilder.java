@@ -127,4 +127,23 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The remoteDesktopBitrateKbps.
    */
   int getRemoteDesktopBitrateKbps();
+
+  /**
+   * <pre>
+   * 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
+   * </pre>
+   *
+   * <code>optional uint32 extension_cpu_weight = 15 [json_name = "extensionCpuWeight"];</code>
+   * @return Whether the extensionCpuWeight field is set.
+   */
+  boolean hasExtensionCpuWeight();
+  /**
+   * <pre>
+   * 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
+   * </pre>
+   *
+   * <code>optional uint32 extension_cpu_weight = 15 [json_name = "extensionCpuWeight"];</code>
+   * @return The extensionCpuWeight.
+   */
+  int getExtensionCpuWeight();
 }

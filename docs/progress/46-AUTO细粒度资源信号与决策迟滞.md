@@ -3,7 +3,7 @@
 > 日期：2026-07-28
 > 状态：首批六类细粒度真实信号、多指标决策迟滞、State Collector Budget 和
 > Remote Desktop Bitrate 执行器和 Browser/Profile I/O 真实生产者已完成；
-> Extension/Media 指标生产者与执行器待完成
+> Extension 指标生产者与 Weight 执行器已完成；Media 待完成
 
 ## 本轮目标
 
@@ -80,9 +80,9 @@ make test-integration
 ## 尚未完成
 
 1. Browser/Profile I/O 已由 Linux Cgroup v2 Browser 子组真实生产者补齐；仍缺
-   Extension CPU/内存和 Media Encoder 的真实指标生产者。
+   Media Encoder 的真实指标生产者；Extension 进程级聚合生产者见进度 52。
 2. State Collector Budget、Remote Desktop Bitrate、回滚和 Node ACK 语义已完成；
-   仍缺 Extension Resource Weight 与 Media Encoder Slot 在线执行器。
+   仍缺 Media Encoder Slot 在线执行器；Extension Resource Weight 见进度 52。
 3. Long Tasks/页面主线程阻塞的更精确采集；当前使用 CDP `TaskDuration` 差值。
 4. 目标 Linux 的多 Session 5 秒遥测长稳、缩容抖动和 OOM/磁盘满即时保护证书。
 5. 双真实 Browser Node + S3 + Chromium 的迁移故障注入与长稳证书。
@@ -90,5 +90,5 @@ make test-integration
 
 ## 下一步
 
-优先补 Extension/Media 的隔离执行器和真实指标生产者；随后在双真实桌面 Browser Node
+优先补 Media 的隔离执行器和真实指标生产者；随后在双真实桌面 Browser Node
 上验证 Remote Desktop Bitrate、迁移和业务恢复的故障矩阵。

@@ -189,6 +189,10 @@ message StartRuntimeCommand {
   // N-1 Node 不识别时安全忽略；缺失表示使用 Node 安全默认值。
   optional uint32 state_collector_budget_percent = 18;
   optional uint32 remote_desktop_bitrate_kbps = 19;
+  // 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+  repeated string extension_ids = 20;
+  // cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+  optional uint32 extension_cpu_weight = 21;
 }
 
 // Runtime 启动事件
@@ -242,6 +246,8 @@ message AdjustRuntimeResourcesCommand {
   // optional 保证 N/N-1 滚动升级：缺失时保持当前非 Cgroup 配置。
   optional uint32 state_collector_budget_percent = 13;
   optional uint32 remote_desktop_bitrate_kbps = 14;
+  // 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
+  optional uint32 extension_cpu_weight = 15;
 }
 
 // Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
@@ -267,6 +273,8 @@ message RuntimeResourcesAdjustedEvent {
   optional uint32 old_remote_desktop_bitrate_kbps = 18;
   optional uint32 new_state_collector_budget_percent = 19;
   optional uint32 new_remote_desktop_bitrate_kbps = 20;
+  optional uint32 old_extension_cpu_weight = 21;
+  optional uint32 new_extension_cpu_weight = 22;
 }
 
 // Browser Crash 事件

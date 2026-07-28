@@ -596,6 +596,17 @@ public class SessionResourceApplicationService {
                             placement.getRemoteDesktopBitrateKbps() + 500,
                             placement.getRemoteDesktopBitrateKbps() * 3 / 2)))
                 : Math.max(750, placement.getRemoteDesktopBitrateKbps() * 3 / 4);
+    var extensionIds = readExtensionIds(placement.getExtensionIds());
+    var extensionCpuWeight =
+        extensionIds.isEmpty()
+            ? placement.getExtensionCpuWeight()
+            : scalingUp
+                ? Math.min(
+                    1_000,
+                    Math.max(
+                        placement.getExtensionCpuWeight() + 50,
+                        placement.getExtensionCpuWeight() * 3 / 2))
+                : Math.max(25, placement.getExtensionCpuWeight() * 3 / 4);
     var operationId = newId("op_");
     var operation =
         OperationFactory.resourceAdjustment(
@@ -610,6 +621,8 @@ public class SessionResourceApplicationService {
             placement.getTabBudget(),
             stateCollectorBudgetPercent,
             remoteDesktopBitrateKbps,
+            extensionIds,
+            extensionCpuWeight,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
@@ -631,7 +644,8 @@ public class SessionResourceApplicationService {
             memoryRequestMib,
             memoryLimitMib,
             stateCollectorBudgetPercent,
-            remoteDesktopBitrateKbps),
+            remoteDesktopBitrateKbps,
+            extensionCpuWeight),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -661,7 +675,9 @@ public class SessionResourceApplicationService {
             && placement.getStateCollectorBudgetPercent()
                 != adjusted.oldStateCollectorBudgetPercent())
         || (adjusted.oldRemoteDesktopBitrateKbps() != null
-            && placement.getRemoteDesktopBitrateKbps() != adjusted.oldRemoteDesktopBitrateKbps())) {
+            && placement.getRemoteDesktopBitrateKbps() != adjusted.oldRemoteDesktopBitrateKbps())
+        || (adjusted.oldExtensionCpuWeight() != null
+            && placement.getExtensionCpuWeight() != adjusted.oldExtensionCpuWeight())) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
     var nextStateCollectorBudgetPercent =
@@ -672,6 +688,10 @@ public class SessionResourceApplicationService {
         adjusted.newRemoteDesktopBitrateKbps() == null
             ? placement.getRemoteDesktopBitrateKbps()
             : adjusted.newRemoteDesktopBitrateKbps();
+    var nextExtensionCpuWeight =
+        adjusted.newExtensionCpuWeight() == null
+            ? placement.getExtensionCpuWeight()
+            : adjusted.newExtensionCpuWeight();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
@@ -686,6 +706,9 @@ public class SessionResourceApplicationService {
         || (!placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps != 0)) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
+    if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
     var old = allocationMap(placement);
     placement.applyResourceAdjustment(
         adjusted.newCpuMillis(),
@@ -694,7 +717,8 @@ public class SessionResourceApplicationService {
         adjusted.newPidLimit(),
         adjusted.newTabBudget(),
         nextStateCollectorBudgetPercent,
-        nextRemoteDesktopBitrateKbps);
+        nextRemoteDesktopBitrateKbps,
+        nextExtensionCpuWeight);
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -985,6 +1009,7 @@ public class SessionResourceApplicationService {
         placement.getTabBudget(),
         placement.getStateCollectorBudgetPercent(),
         placement.getRemoteDesktopBitrateKbps(),
+        placement.getExtensionCpuWeight(),
         placement.getState());
   }
 
@@ -1001,6 +1026,8 @@ public class SessionResourceApplicationService {
         sample.getAgentActionLatencyMs(),
         sample.getStateDiffQueueDepth(),
         sample.getProfileIoBytesPerSecond(),
+        sample.getExtensionCpuPercent(),
+        sample.getExtensionMemoryMib(),
         sample.getRemoteDesktopFrameAgeMs(),
         sample.getMediaEncoderPercent(),
         sample.getObservedAt());
@@ -1069,6 +1096,7 @@ public class SessionResourceApplicationService {
         "memoryLimitMib", placement.memoryLimitMib(),
         "stateCollectorBudgetPercent", placement.stateCollectorBudgetPercent(),
         "remoteDesktopBitrateKbps", placement.remoteDesktopBitrateKbps(),
+        "extensionCpuWeight", placement.extensionCpuWeight(),
         "nodeId", placement.nodeId());
   }
 
@@ -1079,7 +1107,8 @@ public class SessionResourceApplicationService {
         placement.getMemoryRequestMib(),
         placement.getMemoryLimitMib(),
         placement.getStateCollectorBudgetPercent(),
-        placement.getRemoteDesktopBitrateKbps());
+        placement.getRemoteDesktopBitrateKbps(),
+        placement.getExtensionCpuWeight());
   }
 
   private Map<String, Object> allocationMap(
@@ -1088,7 +1117,8 @@ public class SessionResourceApplicationService {
       int memoryRequestMib,
       int memoryLimitMib,
       int stateCollectorBudgetPercent,
-      int remoteDesktopBitrateKbps) {
+      int remoteDesktopBitrateKbps,
+      int extensionCpuWeight) {
     return Map.of(
         "template", templateFor(placement.effectiveResourceClass()),
         "cpuMillis", cpuMillis,
@@ -1096,7 +1126,16 @@ public class SessionResourceApplicationService {
         "memoryLimitMib", memoryLimitMib,
         "stateCollectorBudgetPercent", stateCollectorBudgetPercent,
         "remoteDesktopBitrateKbps", remoteDesktopBitrateKbps,
+        "extensionCpuWeight", extensionCpuWeight,
         "nodeId", placement.getNodeId());
+  }
+
+  private List<String> readExtensionIds(String value) {
+    try {
+      return mapper.readValue(value, new TypeReference<>() {});
+    } catch (Exception exception) {
+      throw new IllegalStateException("Placement extension IDs are invalid", exception);
+    }
   }
 
   private String writeMap(Map<String, Object> value) {

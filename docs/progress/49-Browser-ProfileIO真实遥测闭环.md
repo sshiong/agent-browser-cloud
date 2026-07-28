@@ -72,8 +72,8 @@ make ci
    Runtime 重启证书。
 2. 如果产品需要精确区分 Profile、Cache、Download 和其他 Chromium I/O，需要增加
    独立挂载/块设备、eBPF 或文件系统级归因；当前不能用于目录级计费。
-3. Extension CPU/内存真实生产者与 Extension Resource Weight 执行器；当前 Chromium
-   启动仍禁用扩展，不能伪造扩展负载。
+3. Extension CPU/内存进程级聚合与 Extension Resource Weight 已在进度 52 完成；
+   仍需目标 Linux 长稳和逐 Extension 归因。
 4. Media Encoder 真实生产者与 Media Encoder Slot 执行器；当前尚无独立 Encoder
    Helper 数据面。
 5. OOM、磁盘满等危险事件的目标 Linux 即时保护与长期故障注入证书。

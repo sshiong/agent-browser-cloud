@@ -58,6 +58,9 @@ public class BrowserPlacementEntity {
   @Column(name = "remote_desktop_bitrate_kbps", nullable = false)
   private int remoteDesktopBitrateKbps;
 
+  @Column(name = "extension_cpu_weight", nullable = false)
+  private int extensionCpuWeight;
+
   @Column(name = "requires_desktop", nullable = false)
   private boolean requiresDesktop;
 
@@ -141,6 +144,7 @@ public class BrowserPlacementEntity {
     this.tabBudget = tabBudget;
     this.stateCollectorBudgetPercent = 50;
     this.remoteDesktopBitrateKbps = requiresDesktop ? 8_000 : 0;
+    this.extensionCpuWeight = 100;
     this.requiresDesktop = requiresDesktop;
     this.requiresGpu = requiresGpu;
     this.requiresNativeOs = requiresNativeOs;
@@ -196,7 +200,8 @@ public class BrowserPlacementEntity {
       int nextPidLimit,
       int nextTabBudget,
       int nextStateCollectorBudgetPercent,
-      int nextRemoteDesktopBitrateKbps) {
+      int nextRemoteDesktopBitrateKbps,
+      int nextExtensionCpuWeight) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -213,6 +218,9 @@ public class BrowserPlacementEntity {
         || (!requiresDesktop && nextRemoteDesktopBitrateKbps != 0)) {
       throw new IllegalArgumentException("resource adjustment is invalid");
     }
+    if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
+      throw new IllegalArgumentException("extension CPU weight is invalid");
+    }
     cpuMillis = nextCpuMillis;
     memoryRequestMib = nextMemoryRequestMib;
     memoryLimitMib = nextMemoryLimitMib;
@@ -220,6 +228,7 @@ public class BrowserPlacementEntity {
     tabBudget = nextTabBudget;
     stateCollectorBudgetPercent = nextStateCollectorBudgetPercent;
     remoteDesktopBitrateKbps = nextRemoteDesktopBitrateKbps;
+    extensionCpuWeight = nextExtensionCpuWeight;
   }
 
   public String getSessionId() {
@@ -276,6 +285,10 @@ public class BrowserPlacementEntity {
 
   public int getRemoteDesktopBitrateKbps() {
     return remoteDesktopBitrateKbps;
+  }
+
+  public int getExtensionCpuWeight() {
+    return extensionCpuWeight;
   }
 
   public boolean isRequiresDesktop() {

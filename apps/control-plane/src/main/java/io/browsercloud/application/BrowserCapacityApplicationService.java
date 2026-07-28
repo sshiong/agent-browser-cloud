@@ -693,6 +693,7 @@ public class BrowserCapacityApplicationService {
         placement.getTabBudget(),
         placement.getStateCollectorBudgetPercent(),
         placement.getRemoteDesktopBitrateKbps(),
+        placement.getExtensionCpuWeight(),
         placement.isRequiresDesktop(),
         placement.isRequiresGpu(),
         placement.isRequiresNativeOs(),

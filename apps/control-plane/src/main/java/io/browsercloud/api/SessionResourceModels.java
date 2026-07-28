@@ -42,6 +42,7 @@ public final class SessionResourceModels {
       Integer tabBudget,
       Integer stateCollectorBudgetPercent,
       Integer remoteDesktopBitrateKbps,
+      Integer extensionCpuWeight,
       String placementState) {}
 
   public record UsageView(
@@ -54,6 +55,8 @@ public final class SessionResourceModels {
       Integer agentActionLatencyMs,
       Integer stateDiffQueueDepth,
       Long profileIoBytesPerSecond,
+      Double extensionCpuPercent,
+      Integer extensionMemoryMib,
       Integer remoteDesktopFrameAgeMs,
       Double mediaEncoderPercent,
       Instant observedAt) {}

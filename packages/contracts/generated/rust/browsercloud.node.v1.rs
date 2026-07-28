@@ -285,6 +285,12 @@ pub struct StartRuntimeCommand {
     pub state_collector_budget_percent: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="19")]
     pub remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
+    /// 仅传递已由 Control Plane 接纳、并由 Node 从可信目录解析的扩展标识。
+    #[prost(string, repeated, tag="20")]
+    pub extension_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// cgroup v2 cpu.weight，N-1 Node 会安全忽略。
+    #[prost(uint32, optional, tag="21")]
+    pub extension_cpu_weight: ::core::option::Option<u32>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -378,6 +384,9 @@ pub struct AdjustRuntimeResourcesCommand {
     pub state_collector_budget_percent: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="14")]
     pub remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
+    /// 只调整 Extension 子 cgroup 权重，不改变运行中的扩展集合。
+    #[prost(uint32, optional, tag="15")]
+    pub extension_cpu_weight: ::core::option::Option<u32>,
 }
 /// Node 完成 cgroup 调整后返回的权威确认；Control Plane 收到前不得更新当前分配。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -424,6 +433,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub new_state_collector_budget_percent: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="20")]
     pub new_remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="21")]
+    pub old_extension_cpu_weight: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="22")]
+    pub new_extension_cpu_weight: ::core::option::Option<u32>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

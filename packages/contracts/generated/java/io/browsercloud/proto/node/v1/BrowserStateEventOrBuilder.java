@@ -83,7 +83,7 @@ public interface BrowserStateEventOrBuilder extends
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
    */
-  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState>
+  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> 
       getTargetsList();
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
@@ -96,7 +96,7 @@ public interface BrowserStateEventOrBuilder extends
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>
    */
-  java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
+  java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder> 
       getTargetsOrBuilderList();
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState targets = 8 [json_name = "targets"];</code>

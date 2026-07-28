@@ -60,6 +60,8 @@ public final class NodeCommands {
             .setTabBudget(limits.tabBudget())
             .setStateCollectorBudgetPercent(limits.stateCollectorBudgetPercent())
             .setRemoteDesktopBitrateKbps(limits.remoteDesktopBitrateKbps())
+            .addAllExtensionIds(limits.extensionIds())
+            .setExtensionCpuWeight(limits.extensionCpuWeight())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
@@ -91,6 +93,8 @@ public final class NodeCommands {
         budget.tabBudget(),
         50,
         budget.desktopAllowed() ? 8_000 : 0,
+        java.util.List.of(),
+        100,
         budget.desktopAllowed(),
         budget.gpuRequired(),
         budget.nativeOsRequired(),
@@ -113,6 +117,7 @@ public final class NodeCommands {
             .setTabBudget(limits.tabBudget())
             .setStateCollectorBudgetPercent(limits.stateCollectorBudgetPercent())
             .setRemoteDesktopBitrateKbps(limits.remoteDesktopBitrateKbps())
+            .setExtensionCpuWeight(limits.extensionCpuWeight())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

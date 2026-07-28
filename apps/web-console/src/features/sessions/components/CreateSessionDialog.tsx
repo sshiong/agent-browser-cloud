@@ -73,6 +73,10 @@ const schema = z
     ]),
     maximumCpuMillis: z.coerce.number().int().min(500).max(32000),
     maximumMemoryMib: z.coerce.number().int().min(512).max(131072),
+    maximumCostPerHour: z.union([
+      z.literal(''),
+      z.coerce.number().positive().max(10000),
+    ]),
     allowMigration: z.boolean(),
     allowHibernate: z.boolean(),
     blockMigrationDuringHumanTakeover: z.boolean(),
@@ -154,6 +158,7 @@ const stepFields: Record<Step, (keyof FormValues)[]> = {
     'minimumTemplate',
     'maximumCpuMillis',
     'maximumMemoryMib',
+    'maximumCostPerHour',
     'requestedTabs',
     'agentActionsPerMinute',
     'remoteDesktop',
@@ -229,6 +234,7 @@ export function CreateSessionDialog({
       minimumTemplate: 'standard-v1',
       maximumCpuMillis: 4000,
       maximumMemoryMib: 4096,
+      maximumCostPerHour: '',
       allowMigration: true,
       allowHibernate: true,
       blockMigrationDuringHumanTakeover: true,
@@ -379,6 +385,9 @@ export function CreateSessionDialog({
                 minimumTemplate: form.minimumTemplate,
                 maximumCpuMillis: form.maximumCpuMillis,
                 maximumMemoryMib: form.maximumMemoryMib,
+                ...(typeof form.maximumCostPerHour === 'number'
+                  ? { maximumCostPerHour: form.maximumCostPerHour }
+                  : {}),
                 adjustmentCooldownSeconds: form.adjustmentCooldownSeconds,
                 scaleDownWindowSeconds: form.scaleDownWindowSeconds,
               }
@@ -1071,6 +1080,20 @@ export function CreateSessionDialog({
                               <input
                                 type="number"
                                 {...register('maximumMemoryMib')}
+                                className="field-input font-mono"
+                              />
+                            </Field>
+                            <Field
+                              label="每小时成本上限 (USD)"
+                              hint="留空表示由 Workspace 策略决定"
+                            >
+                              <input
+                                type="number"
+                                min="0.000001"
+                                max="10000"
+                                step="0.000001"
+                                placeholder="未设置"
+                                {...register('maximumCostPerHour')}
                                 className="field-input font-mono"
                               />
                             </Field>

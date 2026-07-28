@@ -14,6 +14,7 @@ import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
 import io.browsercloud.persistence.BrowserPlacementEntity;
 import io.browsercloud.persistence.BrowserPlacementJpaRepository;
+import io.browsercloud.persistence.SessionResourceCostSnapshotJpaRepository;
 import io.browsercloud.persistence.SessionResourceEventJpaRepository;
 import io.browsercloud.persistence.SessionResourcePolicyEntity;
 import io.browsercloud.persistence.SessionResourcePolicyJpaRepository;
@@ -30,6 +31,7 @@ class SessionResourcePressureEvaluationTest {
           mock(SessionResourcePolicyJpaRepository.class),
           mock(SessionResourceSampleJpaRepository.class),
           mock(SessionResourceEventJpaRepository.class),
+          mock(SessionResourceCostSnapshotJpaRepository.class),
           mock(BrowserPlacementJpaRepository.class),
           mock(AgentTaskJpaRepository.class),
           mock(SessionRepository.class),
@@ -37,6 +39,7 @@ class SessionResourcePressureEvaluationTest {
           mock(IdempotencyService.class),
           mock(NodeCommandGateway.class),
           mock(SafePointApplicationService.class),
+          mock(EnterpriseOperationsApplicationService.class),
           new ObjectMapper());
 
   @Test

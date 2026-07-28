@@ -61,6 +61,11 @@ public class SessionResourcePolicyEntity {
   private String statusReason;
   private Instant lastEvaluatedAt;
   private Instant lastAdjustedAt;
+  private BigDecimal currentHourlyCost;
+  private String costPricingVersion;
+  private Instant lastCostEvaluatedAt;
+  private Instant maximumMitigationAt;
+  private String maximumMitigationOperationId;
 
   @Column(nullable = false)
   private Instant createdAt;
@@ -129,6 +134,7 @@ public class SessionResourcePolicyEntity {
         onMaximumReached = request.onMaximumReached().name();
       }
     }
+    clearMaximumMitigation();
     updatedAt = now;
   }
 
@@ -136,6 +142,7 @@ public class SessionResourcePolicyEntity {
     resolvedTemplate = template;
     status = ResourcePolicyStatus.OBSERVING.name();
     statusReason = "PLACEMENT_RESOLVED_AWAITING_TELEMETRY";
+    clearMaximumMitigation();
     updatedAt = now;
   }
 
@@ -154,6 +161,43 @@ public class SessionResourcePolicyEntity {
     lastEvaluatedAt = now;
     lastAdjustedAt = now;
     updatedAt = now;
+  }
+
+  public void recordCost(BigDecimal hourlyCost, String pricingVersion, Instant now) {
+    if (hourlyCost == null || hourlyCost.signum() < 0) {
+      throw new IllegalArgumentException("hourly cost must be non-negative");
+    }
+    if (pricingVersion == null || pricingVersion.isBlank()) {
+      throw new IllegalArgumentException("pricing version is required");
+    }
+    currentHourlyCost = hourlyCost;
+    costPricingVersion = pricingVersion;
+    lastCostEvaluatedAt = now;
+    updatedAt = now;
+  }
+
+  public void recordCostUnavailable(boolean failClosed, Instant now) {
+    lastCostEvaluatedAt = now;
+    if (failClosed) {
+      status = ResourcePolicyStatus.CRITICAL.name();
+      statusReason = "COST_EVALUATION_UNAVAILABLE_BROWSER_PRESERVED";
+      lastEvaluatedAt = now;
+    }
+    updatedAt = now;
+  }
+
+  public void markMaximumMitigation(String operationId, Instant now) {
+    if (operationId == null || operationId.isBlank()) {
+      throw new IllegalArgumentException("maximum mitigation operation is required");
+    }
+    maximumMitigationAt = now;
+    maximumMitigationOperationId = operationId;
+    updatedAt = now;
+  }
+
+  public void clearMaximumMitigation() {
+    maximumMitigationAt = null;
+    maximumMitigationOperationId = null;
   }
 
   public String getSessionId() {
@@ -234,5 +278,25 @@ public class SessionResourcePolicyEntity {
 
   public Instant getLastAdjustedAt() {
     return lastAdjustedAt;
+  }
+
+  public BigDecimal getCurrentHourlyCost() {
+    return currentHourlyCost;
+  }
+
+  public String getCostPricingVersion() {
+    return costPricingVersion;
+  }
+
+  public Instant getLastCostEvaluatedAt() {
+    return lastCostEvaluatedAt;
+  }
+
+  public Instant getMaximumMitigationAt() {
+    return maximumMitigationAt;
+  }
+
+  public String getMaximumMitigationOperationId() {
+    return maximumMitigationOperationId;
   }
 }

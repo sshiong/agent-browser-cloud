@@ -4393,6 +4393,37 @@ components:
           items:
             type: object
             additionalProperties: true
+        cost:
+          type: [object, "null"]
+          additionalProperties: false
+          required: [trend]
+          properties:
+            currentHourlyCost:
+              type: [number, "null"]
+              minimum: 0
+            maximumHourlyCost:
+              type: [number, "null"]
+              minimum: 0
+            pricingVersion:
+              type: [string, "null"]
+            lastEvaluatedAt:
+              type: [string, "null"]
+              format: date-time
+            trend:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [observedAt, hourlyCost, pricingVersion]
+                properties:
+                  observedAt:
+                    type: string
+                    format: date-time
+                  hourlyCost:
+                    type: number
+                    minimum: 0
+                  pricingVersion:
+                    type: string
         status:
           $ref: "#/components/schemas/ResourcePolicyStatus"
         statusReason:

@@ -89,7 +89,11 @@ public class SessionApplicationService {
   /** 创建 Session。 */
   @Transactional
   public CreateSessionResponse create(
-      CreateSessionRequest request, String idempotencyKey, String actorId, String requestId) {
+      CreateSessionRequest request,
+      String idempotencyKey,
+      String actorId,
+      String requestId,
+      boolean platformAdmin) {
     if (!capacityAdmissionService.snapshot().admissionOpen()) {
       throw new CapacityUnavailableException();
     }
@@ -175,7 +179,7 @@ public class SessionApplicationService {
         now);
     var resourceOperation =
         sessionResourceService.initialize(
-            context, effectiveResourcePolicy, actorId, idempotencyKey);
+            context, effectiveResourcePolicy, actorId, idempotencyKey, platformAdmin);
     appendAudit(
         context,
         "SESSION_LIFECYCLE",

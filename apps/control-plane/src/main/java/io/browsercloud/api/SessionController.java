@@ -89,7 +89,8 @@ public class SessionController {
             idempotencyKey,
             principal.actorId(),
             String.valueOf(
-                servletRequest.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE)));
+                servletRequest.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE)),
+            principal.roles().contains("PLATFORM_ADMIN"));
     return ResponseEntity.status(201).body(result);
   }
 

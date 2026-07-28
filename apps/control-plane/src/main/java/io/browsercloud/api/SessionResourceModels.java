@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Pattern;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -66,12 +67,22 @@ public final class SessionResourceModels {
   public record UsagePoint(
       Instant observedAt, Double cpuPercent, Integer memoryRssMib, Double memoryPercentOfLimit) {}
 
+  public record CostPoint(Instant observedAt, BigDecimal hourlyCost, String pricingVersion) {}
+
+  public record CostView(
+      BigDecimal currentHourlyCost,
+      Double maximumHourlyCost,
+      String pricingVersion,
+      Instant lastEvaluatedAt,
+      List<CostPoint> trend) {}
+
   public record SessionResourceView(
       String sessionId,
       PolicyView policy,
       AllocationView allocation,
       UsageView usage,
       List<UsagePoint> usageSamples,
+      CostView cost,
       ResourcePolicyStatus status,
       String statusReason,
       String dataFreshness,

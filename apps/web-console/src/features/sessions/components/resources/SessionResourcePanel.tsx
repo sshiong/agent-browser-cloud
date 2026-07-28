@@ -310,6 +310,18 @@ export function ResourcePolicyCard({
             ? 'HumanTakeover 正在进行，自动迁移保持禁止。'
             : translateReason(resource.statusReason)}
         </p>
+        {resource.cost && (
+          <p className="mt-1 text-[10px] text-text-muted">
+            当前成本{' '}
+            <span className="font-mono text-text-secondary">
+              ${resource.cost.currentHourlyCost?.toFixed(6) ?? '—'}/h
+            </span>
+            {resource.cost.maximumHourlyCost !== undefined &&
+              ` · 上限 $${resource.cost.maximumHourlyCost.toFixed(6)}/h`}
+            {resource.cost.pricingVersion &&
+              ` · ${resource.cost.pricingVersion}`}
+          </p>
+        )}
       </div>
       {canAdminister && (
         <ResourcePolicyDrawer
@@ -712,12 +724,16 @@ export function ResourcePolicyDrawer({
   const [allowHibernate, setAllowHibernate] = useState(
     resource.policy.allowHibernate
   );
+  const [maximumCost, setMaximumCost] = useState(
+    resource.policy.maximumCostPerHour?.toString() ?? ''
+  );
   const [strictConfirmed, setStrictConfirmed] = useState(false);
 
   useEffect(() => {
     setMaximum(resource.policy.onMaximumReached);
     setAllowMigration(resource.policy.allowMigration);
     setAllowHibernate(resource.policy.allowHibernate);
+    setMaximumCost(resource.policy.maximumCostPerHour?.toString() ?? '');
     setStrictConfirmed(false);
   }, [resource.policy]);
 
@@ -733,6 +749,9 @@ export function ResourcePolicyDrawer({
       minimumTemplate: resource.policy.minimumTemplate,
       maximumCpuMillis: resource.policy.maximumCpuMillis,
       maximumMemoryMib: resource.policy.maximumMemoryMib,
+      ...(maximumCost.trim()
+        ? { maximumCostPerHour: Number(maximumCost) }
+        : {}),
       scaleUpWindowSeconds: resource.policy.scaleUpWindowSeconds,
       scaleDownWindowSeconds: resource.policy.scaleDownWindowSeconds,
       adjustmentCooldownSeconds: resource.policy.adjustmentCooldownSeconds,
@@ -798,6 +817,25 @@ export function ResourcePolicyDrawer({
               ))}
             </div>
           </fieldset>
+
+          <label className="mt-5 block border-t border-border-subtle pt-4">
+            <span className="text-[11px] font-medium text-text-secondary">
+              每小时成本上限 (USD)
+            </span>
+            <input
+              type="number"
+              min="0.000001"
+              max="10000"
+              step="0.000001"
+              value={maximumCost}
+              onChange={(event) => setMaximumCost(event.target.value)}
+              placeholder="由 Workspace 策略决定"
+              className="field-input mt-2 font-mono"
+            />
+            <span className="mt-1 block text-[9px] text-text-muted">
+              每 5 分钟按真实 Placement 与版本化费率重新计算。
+            </span>
+          </label>
 
           <label className="mt-5 flex items-start justify-between gap-4 border-t border-border-subtle pt-4">
             <span>

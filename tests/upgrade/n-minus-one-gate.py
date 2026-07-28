@@ -321,6 +321,27 @@ assert "CREATE INDEX CONCURRENTLY IF NOT EXISTS IDX_OUTBOX_NODE_COMMAND_SHARD_CL
 )
 assert "ALTER TABLE" not in sharded_dispatch_index_upper
 
+resource_cost_migration = read(
+    "database/migrations/V042__session_resource_cost_and_maximum_mitigation.sql"
+)
+resource_cost_upper = resource_cost_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in resource_cost_upper
+for invariant in (
+    "ADD COLUMN CURRENT_HOURLY_COST NUMERIC(12,6)",
+    "ADD COLUMN COST_PRICING_VERSION TEXT",
+    "ADD COLUMN LAST_COST_EVALUATED_AT TIMESTAMPTZ",
+    "ADD COLUMN MAXIMUM_MITIGATION_AT TIMESTAMPTZ",
+    "ADD COLUMN MAXIMUM_MITIGATION_OPERATION_ID TEXT",
+    "CREATE TABLE SESSION_RESOURCE_COST_SNAPSHOTS",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CK_SESSION_RESOURCE_POLICY_CURRENT_COST",
+    "VALIDATE CONSTRAINT CK_SESSION_RESOURCE_POLICY_MAXIMUM_MITIGATION",
+):
+    assert invariant in resource_cost_upper, (
+        f"resource cost migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -469,7 +490,7 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V041 expand-validate-contract,online concurrent-index,V029-V033,V035-V038 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038 additive",
     "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

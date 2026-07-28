@@ -26,4 +26,21 @@ public interface SessionResourcePolicyJpaRepository
       nativeQuery = true)
   List<SessionResourcePolicyEntity> findDueActive(
       @Param("dueBefore") Instant dueBefore, Pageable pageable);
+
+  @Query(
+      value =
+          """
+          SELECT policy.*
+          FROM session_resource_policies policy
+          JOIN sessions session_record ON session_record.id = policy.session_id
+          WHERE session_record.state IN ('RUNNING', 'DEGRADED')
+            AND (
+              policy.last_cost_evaluated_at IS NULL
+              OR policy.last_cost_evaluated_at <= :dueBefore
+            )
+          ORDER BY policy.last_cost_evaluated_at NULLS FIRST
+          """,
+      nativeQuery = true)
+  List<SessionResourcePolicyEntity> findDueCostEvaluation(
+      @Param("dueBefore") Instant dueBefore, Pageable pageable);
 }

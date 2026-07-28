@@ -98,6 +98,10 @@ coordinator:
   dispatch-lease-seconds: ${COORDINATOR_DISPATCH_LEASE_SECONDS:6}
   dispatch-worker-lease-seconds: ${COORDINATOR_DISPATCH_WORKER_LEASE_SECONDS:3}
 
+resource-policy:
+  decision-interval-ms: ${RESOURCE_POLICY_DECISION_INTERVAL_MS:30000}
+  cost-trend-interval-ms: ${RESOURCE_POLICY_COST_TREND_INTERVAL_MS:300000}
+
 browser-density:
   pressure-remediation:
     enabled: ${BROWSER_DENSITY_PRESSURE_REMEDIATION_ENABLED:true}

@@ -17,6 +17,7 @@ import io.browsercloud.domain.resource.*;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.persistence.*;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -40,6 +41,7 @@ public class SessionResourceApplicationService {
   private final SessionResourcePolicyJpaRepository policies;
   private final SessionResourceSampleJpaRepository samples;
   private final SessionResourceEventJpaRepository events;
+  private final SessionResourceCostSnapshotJpaRepository costSnapshots;
   private final BrowserPlacementJpaRepository placements;
   private final AgentTaskJpaRepository tasks;
   private final SessionRepository sessions;
@@ -47,12 +49,14 @@ public class SessionResourceApplicationService {
   private final IdempotencyService idempotency;
   private final NodeCommandGateway nodeCommandGateway;
   private final SafePointApplicationService safePointService;
+  private final EnterpriseOperationsApplicationService enterpriseOperations;
   private final ObjectMapper mapper;
 
   public SessionResourceApplicationService(
       SessionResourcePolicyJpaRepository policies,
       SessionResourceSampleJpaRepository samples,
       SessionResourceEventJpaRepository events,
+      SessionResourceCostSnapshotJpaRepository costSnapshots,
       BrowserPlacementJpaRepository placements,
       AgentTaskJpaRepository tasks,
       SessionRepository sessions,
@@ -60,10 +64,12 @@ public class SessionResourceApplicationService {
       IdempotencyService idempotency,
       NodeCommandGateway nodeCommandGateway,
       SafePointApplicationService safePointService,
+      EnterpriseOperationsApplicationService enterpriseOperations,
       ObjectMapper mapper) {
     this.policies = policies;
     this.samples = samples;
     this.events = events;
+    this.costSnapshots = costSnapshots;
     this.placements = placements;
     this.tasks = tasks;
     this.sessions = sessions;
@@ -71,12 +77,20 @@ public class SessionResourceApplicationService {
     this.idempotency = idempotency;
     this.nodeCommandGateway = nodeCommandGateway;
     this.safePointService = safePointService;
+    this.enterpriseOperations = enterpriseOperations;
     this.mapper = mapper;
   }
 
   @Transactional
   public ResourcePolicyOperationResponse initialize(
-      SessionContext session, ResourcePolicyRequest request, String actorId, String requestId) {
+      SessionContext session,
+      ResourcePolicyRequest request,
+      String actorId,
+      String requestId,
+      boolean platformAdmin) {
+    requirePolicyPermission(
+        request == null ? MaximumReachedPolicy.PAUSE_AGENT : request.onMaximumReached(),
+        platformAdmin);
     var now = Instant.now();
     var policy =
         policies.save(
@@ -111,16 +125,16 @@ public class SessionResourceApplicationService {
       String actorId,
       boolean platformAdmin) {
     var session = requireTenant(sessionId, tenantId);
-    if (request != null
-        && request.onMaximumReached() == MaximumReachedPolicy.TERMINATE_STRICT
-        && !platformAdmin) {
-      throw new ResourcePolicyPermissionException();
-    }
+    var policy = requirePolicy(sessionId, tenantId);
+    requirePolicyPermission(
+        request != null && request.onMaximumReached() != null
+            ? request.onMaximumReached()
+            : policy.onMaximumReached(),
+        platformAdmin);
     var candidateOperation = newId("op_");
     var operationId =
         idempotency.claimResourcePolicy(
             tenantId, sessionId, idempotencyKey, request, candidateOperation);
-    var policy = requirePolicy(sessionId, tenantId);
     if (!operationId.equals(candidateOperation)) {
       return new ResourcePolicyOperationResponse(
           operationId, OperationState.COMMITTED.name(), toPolicy(policy));
@@ -178,6 +192,8 @@ public class SessionResourceApplicationService {
     var policy = requirePolicy(sessionId, tenantId);
     var placement = placements.findById(sessionId).orElse(null);
     var recent = samples.findBySessionIdOrderByObservedAtDesc(sessionId, PageRequest.of(0, 60));
+    var recentCosts =
+        costSnapshots.findBySessionIdOrderByObservedAtDesc(sessionId, PageRequest.of(0, 24));
     var latest = recent.isEmpty() ? null : recent.getFirst();
     var limit = placement == null ? null : placement.getMemoryLimitMib();
     var freshness =
@@ -192,6 +208,7 @@ public class SessionResourceApplicationService {
         placement == null ? null : toAllocation(placement),
         latest == null ? null : toUsage(latest, limit),
         recent.reversed().stream().map(sample -> toPoint(sample, limit)).toList(),
+        toCost(policy, recentCosts),
         policy.status(),
         policy.getStatusReason(),
         freshness,
@@ -273,6 +290,12 @@ public class SessionResourceApplicationService {
     var policy = policies.findById(sessionId).orElse(null);
     if (policy == null) return;
     var now = Instant.now();
+    if ("COST_EVALUATION_UNAVAILABLE_BROWSER_PRESERVED".equals(policy.getStatusReason())) {
+      policy.evaluate(
+          ResourcePolicyStatus.CRITICAL, "COST_EVALUATION_UNAVAILABLE_BROWSER_PRESERVED", now);
+      policies.save(policy);
+      return;
+    }
     var window =
         samples.findBySessionIdAndObservedAtAfterOrderByObservedAtAsc(
             sessionId,
@@ -309,16 +332,16 @@ public class SessionResourceApplicationService {
                 .plusSeconds(policy.getAdjustmentCooldownSeconds())
                 .isAfter(now);
     if (pressureReason != null) {
-      if (cooldownActive) {
-        policy.evaluate(ResourcePolicyStatus.OBSERVING, "ADJUSTMENT_COOLDOWN_ACTIVE", now);
-        policies.save(policy);
-        return;
-      }
       var atMaximum =
           placement.getCpuMillis() >= policy.getMaximumCpuMillis()
               && placement.getMemoryLimitMib() >= policy.getMaximumMemoryMib();
       if (atMaximum) {
         handleMaximumReached(policy, sessionId, now);
+        policies.save(policy);
+        return;
+      }
+      if (cooldownActive) {
+        policy.evaluate(ResourcePolicyStatus.OBSERVING, "ADJUSTMENT_COOLDOWN_ACTIVE", now);
         policies.save(policy);
         return;
       }
@@ -392,6 +415,15 @@ public class SessionResourceApplicationService {
 
   private void handleMaximumReached(
       SessionResourcePolicyEntity policy, String sessionId, Instant now) {
+    if (operations.findActive(sessionId).isPresent()) {
+      policy.evaluate(
+          ResourcePolicyStatus.OBSERVING, "MAXIMUM_HANDLING_OPERATION_BUSY_BROWSER_PRESERVED", now);
+      return;
+    }
+    if (policy.getMaximumMitigationAt() == null
+        && requestMaximumNonCoreMitigation(policy, sessionId, now)) {
+      return;
+    }
     switch (policy.onMaximumReached()) {
       case PAUSE_AGENT -> {
         var newlyPaused = policy.status() != ResourcePolicyStatus.AGENT_PAUSED;
@@ -487,6 +519,130 @@ public class SessionResourceApplicationService {
     }
   }
 
+  /**
+   * Resolve a versioned hourly cost from the real Placement every five minutes.
+   *
+   * <p>The snapshot and any maximum-policy transition commit atomically. If a configured budget
+   * cannot be priced, the policy fails closed and preserves the Browser instead of guessing.
+   */
+  @Transactional
+  public void evaluateCostTrend(String sessionId) {
+    var policy = policies.findById(sessionId).orElse(null);
+    if (policy == null) return;
+    var now = Instant.now();
+    var previousCost = policy.getCurrentHourlyCost();
+    io.browsercloud.api.EnterpriseOperationsModels.SessionCostExplanationView priced;
+    try {
+      priced = enterpriseOperations.explainSessionCost(sessionId, policy.getTenantId());
+    } catch (RuntimeException pricingUnavailable) {
+      var failClosed = policy.getMaximumCostPerHour() != null;
+      var changed =
+          failClosed
+              && !"COST_EVALUATION_UNAVAILABLE_BROWSER_PRESERVED".equals(policy.getStatusReason());
+      policy.recordCostUnavailable(failClosed, now);
+      policies.save(policy);
+      if (changed) {
+        appendEvent(
+            sessionId,
+            policy.getTenantId(),
+            "COST_EVALUATION_UNAVAILABLE",
+            "VERSIONED_COST_RATE_OR_ACTIVE_PLACEMENT_MISSING",
+            null,
+            policyMap(policy),
+            "RESOURCE_COST_AGGREGATOR",
+            null,
+            null,
+            "BROWSER_PRESERVED",
+            now);
+      }
+      return;
+    }
+
+    costSnapshots.save(
+        new SessionResourceCostSnapshotEntity(
+            newId("rcs_"),
+            sessionId,
+            policy.getTenantId(),
+            priced.nodeId(),
+            priced.pricingVersion(),
+            priced.totalHourlyUsd(),
+            now));
+    policy.recordCost(priced.totalHourlyUsd(), priced.pricingVersion(), now);
+    var maximum = policy.getMaximumCostPerHour();
+    if (maximum != null && priced.totalHourlyUsd().compareTo(BigDecimal.valueOf(maximum)) > 0) {
+      if (previousCost == null || previousCost.compareTo(BigDecimal.valueOf(maximum)) <= 0) {
+        appendEvent(
+            sessionId,
+            policy.getTenantId(),
+            "COST_BUDGET_EXCEEDED",
+            "CURRENT_HOURLY_COST_ABOVE_POLICY_MAXIMUM",
+            previousCost == null ? null : Map.of("hourlyCost", previousCost),
+            Map.of(
+                "hourlyCost",
+                priced.totalHourlyUsd(),
+                "maximumHourlyCost",
+                maximum,
+                "pricingVersion",
+                priced.pricingVersion()),
+            "RESOURCE_COST_AGGREGATOR",
+            null,
+            null,
+            "MAXIMUM_POLICY_REQUIRED",
+            now);
+      }
+      handleMaximumReached(policy, sessionId, now);
+    } else if ("COST_EVALUATION_UNAVAILABLE_BROWSER_PRESERVED".equals(policy.getStatusReason())) {
+      policy.evaluate(ResourcePolicyStatus.OBSERVING, "COST_EVALUATION_RECOVERED", now);
+      appendEvent(
+          sessionId,
+          policy.getTenantId(),
+          "COST_EVALUATION_RECOVERED",
+          "VERSIONED_COST_RATE_AND_ACTIVE_PLACEMENT_AVAILABLE",
+          null,
+          Map.of("hourlyCost", priced.totalHourlyUsd(), "pricingVersion", priced.pricingVersion()),
+          "RESOURCE_COST_AGGREGATOR",
+          null,
+          null,
+          "COMMITTED",
+          now);
+    }
+    policies.save(policy);
+  }
+
+  private boolean requestMaximumNonCoreMitigation(
+      SessionResourcePolicyEntity policy, String sessionId, Instant now) {
+    var placement = placements.findById(sessionId).orElse(null);
+    if (placement == null || !"ACTIVE".equals(placement.getState())) {
+      return false;
+    }
+    var hasReducibleBudget =
+        placement.getStateCollectorBudgetPercent() > 25
+            || (placement.isRequiresDesktop() && placement.getRemoteDesktopBitrateKbps() > 750)
+            || (!readExtensionIds(placement.getExtensionIds()).isEmpty()
+                && placement.getExtensionCpuWeight() > 25)
+            || (placement.isRequiresMedia() && placement.getMediaEncoderSlots() > 1);
+    if (!hasReducibleBudget) {
+      return false;
+    }
+    var operationId =
+        requestAdjustment(
+            requireTenant(sessionId, policy.getTenantId()),
+            policy,
+            placement,
+            placement.getCpuMillis(),
+            placement.getMemoryRequestMib(),
+            placement.getMemoryLimitMib(),
+            ResourcePolicyStatus.SCALING_DOWN,
+            "MAXIMUM_NON_CORE_MITIGATION",
+            now);
+    if (operationId == null) {
+      return false;
+    }
+    policy.markMaximumMitigation(operationId, now);
+    policies.save(policy);
+    return true;
+  }
+
   private void pauseAgentTasks(String sessionId, Instant now) {
     tasks
         .findAllBySessionIdAndState(sessionId, "RUNNING")
@@ -563,7 +719,7 @@ public class SessionResourceApplicationService {
         now);
   }
 
-  private void requestAdjustment(
+  private String requestAdjustment(
       SessionContext session,
       SessionResourcePolicyEntity policy,
       BrowserPlacementEntity placement,
@@ -576,7 +732,7 @@ public class SessionResourceApplicationService {
     if (operations.findActive(session.sessionId()).isPresent()) {
       policy.evaluate(ResourcePolicyStatus.OBSERVING, "RESOURCE_ADJUSTMENT_OPERATION_BUSY", now);
       policies.save(policy);
-      return;
+      return null;
     }
     memoryRequestMib = Math.min(memoryRequestMib, memoryLimitMib);
     var scalingUp = status == ResourcePolicyStatus.SCALING_UP;
@@ -614,6 +770,9 @@ public class SessionResourceApplicationService {
                 ? Math.min(placement.getMediaSlots(), placement.getMediaEncoderSlots() + 1)
                 : Math.max(1, placement.getMediaEncoderSlots() - 1);
     var operationId = newId("op_");
+    if (!"MAXIMUM_NON_CORE_MITIGATION".equals(reason)) {
+      policy.clearMaximumMitigation();
+    }
     var operation =
         OperationFactory.resourceAdjustment(
             session, operations.nextOperationEpoch(session.sessionId()), operationId);
@@ -659,6 +818,7 @@ public class SessionResourceApplicationService {
         null,
         "PENDING_NODE_ACK",
         now);
+    return operationId;
   }
 
   @Transactional
@@ -1019,6 +1179,26 @@ public class SessionResourceApplicationService {
         policy.onMaximumReached());
   }
 
+  private CostView toCost(
+      SessionResourcePolicyEntity policy, List<SessionResourceCostSnapshotEntity> snapshots) {
+    if (policy.getCurrentHourlyCost() == null && snapshots.isEmpty()) {
+      return null;
+    }
+    return new CostView(
+        policy.getCurrentHourlyCost(),
+        policy.getMaximumCostPerHour(),
+        policy.getCostPricingVersion(),
+        policy.getLastCostEvaluatedAt(),
+        snapshots.reversed().stream()
+            .map(
+                snapshot ->
+                    new CostPoint(
+                        snapshot.getObservedAt(),
+                        snapshot.getHourlyCost(),
+                        snapshot.getPricingVersion()))
+            .toList());
+  }
+
   private AllocationView toAllocation(BrowserPlacementEntity placement) {
     return new AllocationView(
         placement.getNodeId(),
@@ -1195,6 +1375,13 @@ public class SessionResourceApplicationService {
 
   private static String newId(String prefix) {
     return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+  }
+
+  private static void requirePolicyPermission(
+      MaximumReachedPolicy maximumReachedPolicy, boolean platformAdmin) {
+    if (maximumReachedPolicy == MaximumReachedPolicy.TERMINATE_STRICT && !platformAdmin) {
+      throw new ResourcePolicyPermissionException();
+    }
   }
 
   public static final class ResourcePolicyNotFoundException extends RuntimeException {}

@@ -295,6 +295,17 @@ export interface SessionResourceView {
     memoryRssMib?: number;
     memoryPercentOfLimit?: number;
   }[];
+  cost?: {
+    currentHourlyCost?: number;
+    maximumHourlyCost?: number;
+    pricingVersion?: string;
+    lastEvaluatedAt?: string;
+    trend: {
+      observedAt: string;
+      hourlyCost: number;
+      pricingVersion: string;
+    }[];
+  };
   status: ResourcePolicyStatus;
   statusReason?: string;
   dataFreshness: 'LIVE' | 'STALE' | 'AWAITING_TELEMETRY';

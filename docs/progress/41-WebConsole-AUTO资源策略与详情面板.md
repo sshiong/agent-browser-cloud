@@ -104,6 +104,10 @@
 
 以下项目不能因为本轮 UI/API 已存在而计为完成：
 
+> 本节是滚动状态记录。资源遥测/Actuator/Safe Point/迁移/SSE 已由进度 42−54
+> 逐步关闭；五分钟成本趋势、成本上限执行和上限前一次性非核心降载已由
+> [进度 65](65-AUTO成本趋势与上限前降载闭环.md)关闭。以下以各条最新说明为准。
+
 1. Browser Node 已按 5 秒周期自动上报 CPU、RSS 和 Memory PSI；Renderer、Tab、主线程、
    Agent Action、State Diff、Profile I/O、Extension、Remote Desktop 与 Media 指标尚未接入。
 2. 在线 Cgroup CPU/Memory/PID 调整已完成；State Collector 预算、Encoder Slot、
@@ -115,6 +119,8 @@
 5. Checkpoint → 排除源 Node Placement → S3 Restore → State Resync → 默认 Business
    Recovery Validation 已实现；真实双 Node + S3 + Chromium 故障矩阵仍待验收。
 6. 自动休眠和严格预算终止已接入真实 Operation/Node 执行链。
+   V042 已使 `maximumCostPerHour` 进入真实五分钟成本决策；Trace/录制/截图/后台 Tab
+   等完整 Level 1 Node Actuator 仍待实现。
 7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
    Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
    层仍未实现。
@@ -123,8 +129,8 @@
 
 ## 下一步建议
 
-1. 补齐 Browser/Agent/State/Extension/Remote Desktop/Media 的真实指标采集。
-2. 增加 Safe Point Aggregator，再实现跨 Node 迁移和 Business Recovery Validation。
-3. 接入自动休眠、严格预算终止和危险事件即时保护执行链。
-4. 增加 State/Audit 统一事件流和跨 Region Event Bus。
-5. 执行压力、冷却、抖动、HumanTakeover 与危险事件集成矩阵。
+1. 补齐 Trace/录制/截图/后台 Tab 等 Level 1 Node Actuator 与 ACK。
+2. 接入目标站点支付/账号安全/关键事务 Adapter 和 Provider 级恢复证明。
+3. 增加 State/Audit 统一事件流和跨 Region Event Bus。
+4. 完成 Session Coordinator HTTP/Timer/Workflow 的物理 Shard Pod 路由。
+5. 执行目标 Linux/云压力、成本校准、HumanTakeover 与危险事件长稳矩阵。

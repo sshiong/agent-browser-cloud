@@ -90,8 +90,9 @@ POST /api/v1/coordinator/tenant-route/migrations
 
 ## 仍需完成
 
-1. 本轮完成的是 PostgreSQL 权威的逻辑 Shard Route 与安全迁移；物理
-   shard-specific Coordinator Worker/Pod 调度仍需结合目标集群拓扑验收；
+1. Node Command Outbox 的物理分片派发、Worker Lease、Rendezvous Hash 与 Node 双重
+   栅栏已在[进度 64](64-Node-Command物理分片派发与双重栅栏.md)完成；HTTP/API、
+   Timer、Workflow 等 Session Coordinator 命令仍未强制路由到 shard-specific Pod；
 2. 双 Coordinator、高数据库延迟、热点 Tenant 大规模 Session 的长时间并发压测和
    Route 分布容量证书；
 3. 迁移 Prometheus 指标、目标 Alertmanager/Pager 到达与运维工作台；

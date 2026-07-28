@@ -295,7 +295,48 @@ for invariant in (
 ):
     assert invariant in tenant_route_upper
 
+sharded_dispatch_migration = read(
+    "database/migrations/V041__sharded_node_command_dispatch.sql"
+)
+sharded_dispatch_upper = sharded_dispatch_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in sharded_dispatch_upper
+for invariant in (
+    "ADD COLUMN ROUTE_EPOCH BIGINT",
+    "ADD COLUMN COORDINATOR_SHARD_ID INTEGER",
+    "ADD COLUMN DISPATCH_OWNER TEXT",
+    "ADD COLUMN DISPATCH_LEASE_UNTIL TIMESTAMPTZ",
+    "CREATE TABLE COORDINATOR_DISPATCH_WORKERS",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_OUTBOX_ROUTE_BINDING_COMPLETE",
+):
+    assert invariant in sharded_dispatch_upper
+
+sharded_dispatch_index = read(
+    "database/online-migrations/create_outbox_node_command_shard_claim_index.sql"
+)
+sharded_dispatch_index_upper = sharded_dispatch_index.upper()
+assert "CREATE INDEX CONCURRENTLY IF NOT EXISTS IDX_OUTBOX_NODE_COMMAND_SHARD_CLAIM" in (
+    sharded_dispatch_index_upper
+)
+assert "ALTER TABLE" not in sharded_dispatch_index_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
+command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
+command_tags = {
+    name: int(tag)
+    for name, tag in re.findall(
+        r"^\s*[a-z0-9_]+\s+([a-z0-9_]+)\s*=\s*(\d+);",
+        command_envelope,
+        flags=re.MULTILINE,
+    )
+}
+assert len(command_tags.values()) == len(set(command_tags.values())), (
+    "command envelope protobuf field number reused"
+)
+assert command_tags["route_epoch"] == 13
+assert command_tags["coordinator_shard_id"] == 14
+
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
     name: int(tag)
@@ -423,12 +464,15 @@ assert "kind: PodDisruptionBudget" in workloads
 assert "  maxUnavailable: 1" in workloads
 assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
+assert "kind: Deployment" in workloads
+assert "COORDINATOR_INSTANCE_ID" in workloads
+assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V040 expand-validate-contract,V029-V033,V035-V038 additive",
-    "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,recovery-extension-tag-6",
+    "schema": "V019-V021 additive,V028,V034,V039-V041 expand-validate-contract,online concurrent-index,V029-V033,V035-V038 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
-    "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
+    "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
 print(

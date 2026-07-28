@@ -2,12 +2,12 @@ package io.browsercloud.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeEntity;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
@@ -56,6 +56,9 @@ class NodeCommandMultiNodeRoutingTest {
                 1,
                 "stop-one",
                 new byte[0]));
+    eventOne.setRouteEpoch(2L);
+    eventOne.setCoordinatorShardId(3);
+    eventOne.setDispatchOwner("dispatcher-test");
     var eventTwo =
         outbox(
             mapper,
@@ -70,13 +73,27 @@ class NodeCommandMultiNodeRoutingTest {
                 1,
                 "stop-two",
                 new byte[0]));
+    eventTwo.setRouteEpoch(4L);
+    eventTwo.setCoordinatorShardId(9);
+    eventTwo.setDispatchOwner("dispatcher-test");
 
     var outboxRepository = mock(OutboxEventJpaRepository.class);
-    when(outboxRepository
-            .findTop100ByPublishedAtIsNullAndDeadLetteredAtIsNullAndEventTypeAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
-                anyString(), any()))
-        .thenReturn(List.of(eventOne, eventTwo));
+    when(outboxRepository.findById(eventOne.getEventId())).thenReturn(Optional.of(eventOne));
+    when(outboxRepository.findById(eventTwo.getEventId())).thenReturn(Optional.of(eventTwo));
     when(outboxRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    var claimService = mock(NodeCommandDispatchClaimService.class);
+    when(claimService.claimReady(any()))
+        .thenReturn(List.of(eventOne.getEventId(), eventTwo.getEventId()));
+    when(claimService.workerId()).thenReturn("dispatcher-test");
+    var routeAuthority = mock(CoordinatorRouteAuthority.class);
+    when(routeAuthority.resolve("ses_0000000000000001"))
+        .thenReturn(
+            new CoordinatorRouteAuthority.SessionRoute(
+                "ses_0000000000000001", "tenant-a", 2, 0, 3));
+    when(routeAuthority.resolve("ses_0000000000000002"))
+        .thenReturn(
+            new CoordinatorRouteAuthority.SessionRoute(
+                "ses_0000000000000002", "tenant-a", 4, 0, 9));
     var nodeRepository = mock(BrowserNodeJpaRepository.class);
     when(nodeRepository.findById("node_one"))
         .thenReturn(Optional.of(node("node_one", serverOne.getPort())));
@@ -85,8 +102,10 @@ class NodeCommandMultiNodeRoutingTest {
     var dispatcher =
         new NodeCommandOutboxDispatcher(
             outboxRepository,
+            claimService,
             mapper,
             mock(AgentActionPayloadService.class),
+            routeAuthority,
             nodeRepository,
             new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
             "127.0.0.1:1");
@@ -98,6 +117,59 @@ class NodeCommandMultiNodeRoutingTest {
     assertThat(nodeTwoCommands).containsExactly("ses_0000000000000002");
     assertThat(eventOne.getPublishedAt()).isNotNull();
     assertThat(eventTwo.getPublishedAt()).isNotNull();
+    assertThat(eventOne.getDispatchOwner()).isNull();
+    assertThat(eventTwo.getDispatchOwner()).isNull();
+  }
+
+  @Test
+  void deadLettersAnOutboxCommandAfterItsRouteEpochMoves() throws Exception {
+    var mapper = new ObjectMapper();
+    var event =
+        outbox(
+            mapper,
+            new NodeCommand(
+                "msg_stale_route",
+                "StopRuntime",
+                "node_one",
+                "ses_0000000000000003",
+                "tenant-a",
+                2,
+                1,
+                1,
+                "stop-stale",
+                new byte[0]));
+    event.setRouteEpoch(1L);
+    event.setCoordinatorShardId(3);
+    event.setDispatchOwner("dispatcher-test");
+    var outboxRepository = mock(OutboxEventJpaRepository.class);
+    when(outboxRepository.findById(event.getEventId())).thenReturn(Optional.of(event));
+    when(outboxRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    var claimService = mock(NodeCommandDispatchClaimService.class);
+    when(claimService.claimReady(any())).thenReturn(List.of(event.getEventId()));
+    when(claimService.workerId()).thenReturn("dispatcher-test");
+    var routeAuthority = mock(CoordinatorRouteAuthority.class);
+    when(routeAuthority.resolve("ses_0000000000000003"))
+        .thenReturn(
+            new CoordinatorRouteAuthority.SessionRoute(
+                "ses_0000000000000003", "tenant-a", 2, 0, 7));
+    var dispatcher =
+        new NodeCommandOutboxDispatcher(
+            outboxRepository,
+            claimService,
+            mapper,
+            mock(AgentActionPayloadService.class),
+            routeAuthority,
+            mock(BrowserNodeJpaRepository.class),
+            new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
+            "127.0.0.1:1");
+
+    dispatcher.dispatchPending();
+    dispatcher.closeChannels();
+
+    assertThat(event.getPublishedAt()).isNull();
+    assertThat(event.getDeadLetteredAt()).isNotNull();
+    assertThat(event.getLastError()).isEqualTo("STALE_ROUTE_EPOCH");
+    assertThat(event.getDispatchOwner()).isNull();
   }
 
   private Server startServer(List<String> sessions) throws Exception {
@@ -108,7 +180,15 @@ class NodeCommandMultiNodeRoutingTest {
                   @Override
                   public void dispatch(
                       DispatchRequest request, StreamObserver<DispatchResponse> observer) {
-                    sessions.add(request.getCommand().getSessionId());
+                    var command = request.getCommand();
+                    sessions.add(command.getSessionId());
+                    if (command.getSessionId().endsWith("1")) {
+                      assertThat(command.getRouteEpoch()).isEqualTo(2);
+                      assertThat(command.getCoordinatorShardId()).isEqualTo(3);
+                    } else {
+                      assertThat(command.getRouteEpoch()).isEqualTo(4);
+                      assertThat(command.getCoordinatorShardId()).isEqualTo(9);
+                    }
                     observer.onNext(
                         DispatchResponse.newBuilder()
                             .setAcknowledgement(

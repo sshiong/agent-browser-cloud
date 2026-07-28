@@ -95,6 +95,8 @@ control-plane:
 coordinator:
   instance-id: ${COORDINATOR_INSTANCE_ID:${random.uuid}}
   lease-seconds: ${COORDINATOR_LEASE_SECONDS:30}
+  dispatch-lease-seconds: ${COORDINATOR_DISPATCH_LEASE_SECONDS:6}
+  dispatch-worker-lease-seconds: ${COORDINATOR_DISPATCH_WORKER_LEASE_SECONDS:3}
 
 browser-density:
   pressure-remediation:

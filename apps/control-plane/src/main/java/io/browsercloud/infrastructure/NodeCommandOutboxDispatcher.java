@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
@@ -30,11 +31,18 @@ public class NodeCommandOutboxDispatcher {
   private static final Logger log = LoggerFactory.getLogger(NodeCommandOutboxDispatcher.class);
   private static final int MAX_ATTEMPTS = 10;
   private static final Set<String> TERMINAL_REJECTIONS =
-      Set.of("UNSUPPORTED_COMMAND", "STALE_COORDINATOR_TERM");
+      Set.of(
+          "UNSUPPORTED_COMMAND",
+          "STALE_COORDINATOR_TERM",
+          "STALE_ROUTE_EPOCH",
+          "ROUTE_EPOCH_REQUIRED",
+          "WRONG_COORDINATOR_SHARD");
 
   private final OutboxEventJpaRepository outboxRepository;
+  private final NodeCommandDispatchClaimService claimService;
   private final ObjectMapper objectMapper;
   private final AgentActionPayloadService actionPayloadService;
+  private final CoordinatorRouteAuthority routeAuthority;
   private final BrowserNodeJpaRepository browserNodeRepository;
   private final GrpcTransportFactory transportFactory;
   private final String legacyGrpcTarget;
@@ -42,14 +50,18 @@ public class NodeCommandOutboxDispatcher {
 
   public NodeCommandOutboxDispatcher(
       OutboxEventJpaRepository outboxRepository,
+      NodeCommandDispatchClaimService claimService,
       ObjectMapper objectMapper,
       AgentActionPayloadService actionPayloadService,
+      CoordinatorRouteAuthority routeAuthority,
       BrowserNodeJpaRepository browserNodeRepository,
       GrpcTransportFactory transportFactory,
       @Value("${browser-node.grpc-target:localhost:9090}") String grpcTarget) {
     this.outboxRepository = outboxRepository;
+    this.claimService = claimService;
     this.objectMapper = objectMapper;
     this.actionPayloadService = actionPayloadService;
+    this.routeAuthority = routeAuthority;
     this.browserNodeRepository = browserNodeRepository;
     this.transportFactory = transportFactory;
     this.legacyGrpcTarget = grpcTarget;
@@ -57,21 +69,25 @@ public class NodeCommandOutboxDispatcher {
 
   @Scheduled(fixedDelayString = "${browser-node.dispatch-interval-ms:250}")
   public void dispatchPending() {
-    var events =
-        outboxRepository
-            .findTop100ByPublishedAtIsNullAndDeadLetteredAtIsNullAndEventTypeAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
-                PostgresNodeCommandGateway.NODE_COMMAND_EVENT, Instant.now());
-    for (var event : events) {
+    var eventIds = claimService.claimReady(Instant.now());
+    for (var eventId : eventIds) {
+      var event = outboxRepository.findById(eventId).orElse(null);
+      if (event == null || !claimService.workerId().equals(event.getDispatchOwner())) {
+        continue;
+      }
       try {
         var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
+        assertCurrentRoute(event, command);
         var channel = channelFor(command);
         var response =
             NodeControlServiceGrpc.newBlockingStub(channel)
                 .withDeadlineAfter(5, TimeUnit.SECONDS)
-                .dispatch(DispatchRequest.newBuilder().setCommand(toEnvelope(command)).build());
+                .dispatch(
+                    DispatchRequest.newBuilder().setCommand(toEnvelope(event, command)).build());
         var acknowledgement = response.getAcknowledgement();
         if (acknowledgement.getAccepted()) {
           event.setPublishedAt(Instant.now());
+          event.releaseDispatchClaim();
           outboxRepository.save(event);
         } else {
           recordFailure(
@@ -83,6 +99,12 @@ public class NodeCommandOutboxDispatcher {
               command.messageId(),
               acknowledgement.getErrorCode());
         }
+      } catch (StaleRouteException exception) {
+        recordFailure(event, exception.errorCode(), true);
+        log.warn(
+            "Rejected stale routed Node Command event {} with code {}",
+            event.getEventId(),
+            exception.errorCode());
       } catch (Exception exception) {
         recordFailure(event, "NODE_UNAVAILABLE", false);
         log.debug(
@@ -135,21 +157,46 @@ public class NodeCommandOutboxDispatcher {
       event.setNextAttemptAt(
           Instant.now().plus(Duration.ofSeconds(backoffSeconds)).plusMillis(jitterMillis));
     }
+    event.releaseDispatchClaim();
     outboxRepository.save(event);
   }
 
-  private CommandEnvelope toEnvelope(NodeCommand command) {
-    return CommandEnvelope.newBuilder()
-        .setMessageId(command.messageId())
-        .setCommandType(command.commandType())
-        .setTenantId(command.tenantId())
-        .setSessionId(command.sessionId())
-        .setCoordinatorTerm(command.coordinatorTerm())
-        .setContextEpoch(command.contextEpoch())
-        .setOperationEpoch(command.operationEpoch())
-        .setIdempotencyKey(command.idempotencyKey())
-        .setPayload(ByteString.copyFrom(outboundPayload(command)))
-        .build();
+  private void assertCurrentRoute(
+      io.browsercloud.persistence.OutboxEventEntity event, NodeCommand command) {
+    if (event.getRouteEpoch() == null && event.getCoordinatorShardId() == null) {
+      return;
+    }
+    if (event.getRouteEpoch() == null || event.getCoordinatorShardId() == null) {
+      throw new StaleRouteException("INVALID_ROUTE_BINDING");
+    }
+    var current = routeAuthority.resolve(command.sessionId());
+    if (current.routeEpoch() != event.getRouteEpoch()) {
+      throw new StaleRouteException("STALE_ROUTE_EPOCH");
+    }
+    if (current.shardId() != event.getCoordinatorShardId()) {
+      throw new StaleRouteException("WRONG_COORDINATOR_SHARD");
+    }
+  }
+
+  private CommandEnvelope toEnvelope(
+      io.browsercloud.persistence.OutboxEventEntity event, NodeCommand command) {
+    var builder =
+        CommandEnvelope.newBuilder()
+            .setMessageId(command.messageId())
+            .setCommandType(command.commandType())
+            .setTenantId(command.tenantId())
+            .setSessionId(command.sessionId())
+            .setCoordinatorTerm(command.coordinatorTerm())
+            .setContextEpoch(command.contextEpoch())
+            .setOperationEpoch(command.operationEpoch())
+            .setIdempotencyKey(command.idempotencyKey())
+            .setPayload(ByteString.copyFrom(outboundPayload(command)));
+    if (event.getRouteEpoch() != null && event.getCoordinatorShardId() != null) {
+      builder
+          .setRouteEpoch(event.getRouteEpoch())
+          .setCoordinatorShardId(event.getCoordinatorShardId());
+    }
+    return builder.build();
   }
 
   private byte[] outboundPayload(NodeCommand command) {
@@ -178,9 +225,27 @@ public class NodeCommandOutboxDispatcher {
 
   @PreDestroy
   void closeChannels() {
+    try {
+      claimService.unregister();
+    } catch (RuntimeException failure) {
+      log.debug("Failed to unregister Node Command dispatch worker during shutdown", failure);
+    }
     nodeChannels.values().forEach(nodeChannel -> nodeChannel.channel().shutdown());
     nodeChannels.clear();
   }
 
   private record NodeChannel(String target, ManagedChannel channel) {}
+
+  private static final class StaleRouteException extends RuntimeException {
+    private final String errorCode;
+
+    private StaleRouteException(String errorCode) {
+      super(errorCode);
+      this.errorCode = errorCode;
+    }
+
+    private String errorCode() {
+      return errorCode;
+    }
+  }
 }

@@ -21,7 +21,8 @@ use node_contracts::proto::{
     RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
-    PersistedAcknowledgement, PersistedCommandResult, RuntimeLease, SqliteNodeJournal, TermDecision,
+    CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
+    SqliteNodeJournal,
 };
 use prost::Message;
 use remote_desktop_gateway::{DisconnectHandler, RemoteDesktopGateway, RemoteDesktopTicketClaims};
@@ -61,8 +62,9 @@ struct NodeControlService {
     diff_max_changes: usize,
     input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
     journal: Arc<SqliteNodeJournal>,
+    require_route_epoch: bool,
     inflight: Arc<Mutex<HashSet<String>>>,
-    monitored_sessions: Arc<Mutex<HashSet<String>>>,
+    runtime_monitors: Arc<Mutex<HashMap<String, String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_extension_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_media_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
@@ -2797,14 +2799,13 @@ impl NodeControlService {
     }
 
     async fn begin_runtime_monitor(&self, command: &CommandEnvelope) {
-        if !self
-            .monitored_sessions
-            .lock()
-            .await
-            .insert(command.session_id.clone())
-        {
+        let monitor_token = command.message_id.clone();
+        let mut runtime_monitors = self.runtime_monitors.lock().await;
+        if runtime_monitors.contains_key(&command.session_id) {
             return;
         }
+        runtime_monitors.insert(command.session_id.clone(), monitor_token.clone());
+        drop(runtime_monitors);
         let service = self.clone();
         let session_id = command.session_id.clone();
         let tenant_id = command.tenant_id.clone();
@@ -2818,12 +2819,7 @@ impl NodeControlService {
             let mut probe_count = 0_u64;
             loop {
                 interval.tick().await;
-                if !service
-                    .monitored_sessions
-                    .lock()
-                    .await
-                    .contains(&session_id)
-                {
+                if service.runtime_monitors.lock().await.get(&session_id) != Some(&monitor_token) {
                     return;
                 }
                 let health = match service.runtime_supervisor.health(&session_id).await {
@@ -2837,12 +2833,7 @@ impl NodeControlService {
                         continue;
                     }
                 };
-                if !service
-                    .monitored_sessions
-                    .lock()
-                    .await
-                    .contains(&session_id)
-                {
+                if service.runtime_monitors.lock().await.get(&session_id) != Some(&monitor_token) {
                     return;
                 }
                 match health {
@@ -3022,7 +3013,11 @@ impl NodeControlService {
                             reason = %reason,
                             "Runtime health monitor detected a Browser crash"
                         );
-                        service.monitored_sessions.lock().await.remove(&session_id);
+                        let mut runtime_monitors = service.runtime_monitors.lock().await;
+                        if runtime_monitors.get(&session_id) == Some(&monitor_token) {
+                            runtime_monitors.remove(&session_id);
+                        }
+                        drop(runtime_monitors);
                         service
                             .resource_cpu_baselines
                             .lock()
@@ -3392,13 +3387,50 @@ impl NodeControlServiceRpc for NodeControlService {
 
         match self
             .journal
-            .validate_and_record_term(&command.session_id, command.coordinator_term)
+            .validate_and_record_command_fence(
+                &command.session_id,
+                command.route_epoch,
+                command.coordinator_shard_id,
+                command.coordinator_term,
+                self.require_route_epoch,
+            )
             .await
             .map_err(|error| {
-                tracing::error!(error = %error, "Failed to update Coordinator Term");
+                tracing::error!(error = %error, "Failed to update Coordinator command fences");
                 Status::internal("node journal unavailable")
             })? {
-            TermDecision::Stale { .. } => {
+            CommandFenceDecision::Accepted | CommandFenceDecision::LegacyAccepted => {}
+            CommandFenceDecision::RouteMissing => {
+                return Ok(Response::new(DispatchResponse {
+                    acknowledgement: Some(Self::ack(
+                        &command.message_id,
+                        false,
+                        "ROUTE_EPOCH_REQUIRED",
+                        "route epoch is required or a routed command was already accepted",
+                    )),
+                }));
+            }
+            CommandFenceDecision::RouteStale { .. } => {
+                return Ok(Response::new(DispatchResponse {
+                    acknowledgement: Some(Self::ack(
+                        &command.message_id,
+                        false,
+                        "STALE_ROUTE_EPOCH",
+                        "route epoch is older than the last accepted epoch",
+                    )),
+                }));
+            }
+            CommandFenceDecision::ShardMismatch { .. } => {
+                return Ok(Response::new(DispatchResponse {
+                    acknowledgement: Some(Self::ack(
+                        &command.message_id,
+                        false,
+                        "WRONG_COORDINATOR_SHARD",
+                        "coordinator shard does not match the accepted route",
+                    )),
+                }));
+            }
+            CommandFenceDecision::TermStale { .. } => {
                 return Ok(Response::new(DispatchResponse {
                     acknowledgement: Some(Self::ack(
                         &command.message_id,
@@ -3408,7 +3440,6 @@ impl NodeControlServiceRpc for NodeControlService {
                     )),
                 }));
             }
-            TermDecision::Accepted => {}
         }
 
         {
@@ -3423,7 +3454,7 @@ impl NodeControlServiceRpc for NodeControlService {
         }
 
         if command.command_type == "StopRuntime" {
-            self.monitored_sessions
+            self.runtime_monitors
                 .lock()
                 .await
                 .remove(&command.session_id);
@@ -3575,6 +3606,9 @@ async fn main() -> Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|_| Path::new("/tmp/browsercloud-runtime").to_path_buf());
     let environment = std::env::var("APP_ENVIRONMENT").unwrap_or_else(|_| "local".to_owned());
+    let require_route_epoch = std::env::var("NODE_REQUIRE_ROUTE_EPOCH")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
     tokio::fs::create_dir_all(&runtime_root).await?;
     let journal_path = std::env::var("NODE_JOURNAL_PATH")
         .map(PathBuf::from)
@@ -3875,8 +3909,9 @@ async fn main() -> Result<()> {
         diff_max_changes,
         input_brokers,
         journal,
+        require_route_epoch,
         inflight: Arc::new(Mutex::new(HashSet::new())),
-        monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
+        runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
@@ -3931,7 +3966,7 @@ async fn main() -> Result<()> {
         .await?;
     // A process-level shutdown is not a Browser crash. Stop health monitors before terminating
     // their Runtime children so they cannot enqueue a second recovery while the Node is exiting.
-    service.monitored_sessions.lock().await.clear();
+    service.runtime_monitors.lock().await.clear();
     service.resource_cpu_baselines.lock().await.clear();
     service
         .resource_extension_cpu_baselines
@@ -4180,8 +4215,9 @@ mod tests {
             diff_max_changes: 200,
             input_brokers: Arc::new(Mutex::new(HashMap::new())),
             journal: reopened.clone(),
+            require_route_epoch: false,
             inflight: Arc::new(Mutex::new(HashSet::new())),
-            monitored_sessions: Arc::new(Mutex::new(HashSet::new())),
+            runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),

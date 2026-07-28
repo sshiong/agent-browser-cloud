@@ -3,7 +3,9 @@ package io.browsercloud.coordinator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +80,57 @@ class CoordinatorOwnershipServiceTest {
     var service = new CoordinatorOwnershipService(repository, "coordinator-b", 30);
 
     assertThatThrownBy(() -> service.assertCurrentOwner("ses-1", 4, 1))
+        .isInstanceOf(CoordinatorNotOwnerException.class);
+  }
+
+  @Test
+  void acceptsCurrentNodeEventGenerationOnAStatelessIngressPod() {
+    var ownership = ownership("ses-1", "coordinator-owner", 4);
+    ownership.setRouteEpoch(2);
+    when(repository.findById("ses-1")).thenReturn(Optional.of(ownership));
+    var service = new CoordinatorOwnershipService(repository, "coordinator-ingress", 30);
+
+    service.assertCurrentGeneration("ses-1", 4, 2);
+
+    verify(repository, never()).heartbeatIfOwner(any(), any(), anyLong(), any(Instant.class));
+  }
+
+  @Test
+  void currentOwnerRenewsItsOwnLeaseWhileAcceptingNodeEvent() {
+    var ownership = ownership("ses-1", "coordinator-owner", 4);
+    when(repository.findById("ses-1")).thenReturn(Optional.of(ownership));
+    when(repository.heartbeatIfOwner(
+            eq("ses-1"), eq("coordinator-owner"), eq(1L), any(Instant.class)))
+        .thenReturn(1);
+    var service = new CoordinatorOwnershipService(repository, "coordinator-owner", 30);
+
+    service.assertCurrentGeneration("ses-1", 4, 1);
+
+    verify(repository)
+        .heartbeatIfOwner(eq("ses-1"), eq("coordinator-owner"), eq(1L), any(Instant.class));
+  }
+
+  @Test
+  void rejectsNodeEventFromStaleGenerationOnAStatelessIngressPod() {
+    var ownership = ownership("ses-1", "coordinator-owner", 4);
+    ownership.setRouteEpoch(2);
+    when(repository.findById("ses-1")).thenReturn(Optional.of(ownership));
+    var service = new CoordinatorOwnershipService(repository, "coordinator-ingress", 30);
+
+    assertThatThrownBy(() -> service.assertCurrentGeneration("ses-1", 3, 2))
+        .isInstanceOf(StaleCoordinatorTermException.class);
+    assertThatThrownBy(() -> service.assertCurrentGeneration("ses-1", 4, 1))
+        .isInstanceOf(CoordinatorNotOwnerException.class);
+  }
+
+  @Test
+  void rejectsCurrentGenerationWhenItsRemoteOwnerLeaseExpired() {
+    var ownership = ownership("ses-1", "coordinator-owner", 4);
+    ownership.setOwnerHeartbeatAt(Instant.now().minusSeconds(31));
+    when(repository.findById("ses-1")).thenReturn(Optional.of(ownership));
+    var service = new CoordinatorOwnershipService(repository, "coordinator-ingress", 30);
+
+    assertThatThrownBy(() -> service.assertCurrentGeneration("ses-1", 4, 1))
         .isInstanceOf(CoordinatorNotOwnerException.class);
   }
 

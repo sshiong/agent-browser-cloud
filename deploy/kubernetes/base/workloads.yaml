@@ -33,6 +33,10 @@ spec:
               value: production
             - name: GRPC_TLS_ENABLED
               value: "true"
+            - name: COORDINATOR_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           envFrom:
             - secretRef:
                 name: control-plane-runtime-secrets

@@ -145,6 +145,9 @@ message CommandEnvelope {
   int64 coordinator_term = 10;
   int64 context_epoch = 11;
   int64 operation_epoch = 12;
+  // PostgreSQL authoritative route fencing. Zero is accepted only during N/N-1 rollout.
+  int64 route_epoch = 13;
+  int32 coordinator_shard_id = 14;
 
   // 幂等
   string idempotency_key = 20;

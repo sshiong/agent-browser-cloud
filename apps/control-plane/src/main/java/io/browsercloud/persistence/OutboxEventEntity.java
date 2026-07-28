@@ -48,6 +48,18 @@ public class OutboxEventEntity {
   @Column(name = "dead_lettered_at")
   private Instant deadLetteredAt;
 
+  @Column(name = "route_epoch")
+  private Long routeEpoch;
+
+  @Column(name = "coordinator_shard_id")
+  private Integer coordinatorShardId;
+
+  @Column(name = "dispatch_owner")
+  private String dispatchOwner;
+
+  @Column(name = "dispatch_lease_until")
+  private Instant dispatchLeaseUntil;
+
   public OutboxEventEntity() {}
 
   // Getters and Setters
@@ -145,5 +157,42 @@ public class OutboxEventEntity {
 
   public void setDeadLetteredAt(Instant deadLetteredAt) {
     this.deadLetteredAt = deadLetteredAt;
+  }
+
+  public Long getRouteEpoch() {
+    return routeEpoch;
+  }
+
+  public void setRouteEpoch(Long routeEpoch) {
+    this.routeEpoch = routeEpoch;
+  }
+
+  public Integer getCoordinatorShardId() {
+    return coordinatorShardId;
+  }
+
+  public void setCoordinatorShardId(Integer coordinatorShardId) {
+    this.coordinatorShardId = coordinatorShardId;
+  }
+
+  public String getDispatchOwner() {
+    return dispatchOwner;
+  }
+
+  public void setDispatchOwner(String dispatchOwner) {
+    this.dispatchOwner = dispatchOwner;
+  }
+
+  public Instant getDispatchLeaseUntil() {
+    return dispatchLeaseUntil;
+  }
+
+  public void setDispatchLeaseUntil(Instant dispatchLeaseUntil) {
+    this.dispatchLeaseUntil = dispatchLeaseUntil;
+  }
+
+  public void releaseDispatchClaim() {
+    dispatchOwner = null;
+    dispatchLeaseUntil = null;
   }
 }

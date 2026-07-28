@@ -2,6 +2,7 @@ package io.browsercloud.infrastructure;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.coordinator.NodeCommandGateway;
 import io.browsercloud.persistence.OutboxEventEntity;
@@ -22,15 +23,20 @@ public class PostgresNodeCommandGateway implements NodeCommandGateway {
 
   private final OutboxEventJpaRepository outboxRepository;
   private final ObjectMapper objectMapper;
+  private final CoordinatorRouteAuthority routeAuthority;
 
   public PostgresNodeCommandGateway(
-      OutboxEventJpaRepository outboxRepository, ObjectMapper objectMapper) {
+      OutboxEventJpaRepository outboxRepository,
+      ObjectMapper objectMapper,
+      CoordinatorRouteAuthority routeAuthority) {
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
+    this.routeAuthority = routeAuthority;
   }
 
   @Override
   public void send(NodeCommand command) {
+    var route = routeAuthority.resolve(command.sessionId());
     var entity = new OutboxEventEntity();
     entity.setEventId(newId("evt_"));
     entity.setAggregateType("session");
@@ -40,6 +46,8 @@ public class PostgresNodeCommandGateway implements NodeCommandGateway {
     entity.setPayload(serialize(command));
     entity.setCreatedAt(Instant.now());
     entity.setNextAttemptAt(Instant.now());
+    entity.setRouteEpoch(route.routeEpoch());
+    entity.setCoordinatorShardId(route.shardId());
     outboxRepository.save(entity);
   }
 

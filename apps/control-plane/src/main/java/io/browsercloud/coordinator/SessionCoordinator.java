@@ -75,7 +75,7 @@ public final class SessionCoordinator {
     // Session row -> Coordinator ownership. Handler-specific lookups reuse this row lock.
     sessionRepository.lockForUpdate(command.sessionId());
     if (command instanceof NodeEventReceived event) {
-      ownershipService.assertCurrentOwner(
+      ownershipService.assertCurrentGeneration(
           event.sessionId(), event.coordinatorTerm(), route.routeEpoch());
     } else {
       long currentTerm = ownershipService.acquireSession(command.sessionId(), route.routeEpoch());

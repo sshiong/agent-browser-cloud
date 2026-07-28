@@ -30,6 +30,25 @@ pub enum TermDecision {
     Stale { current_term: i64 },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RouteDecision {
+    Accepted,
+    LegacyAccepted,
+    Missing,
+    Stale { current_epoch: i64 },
+    ShardMismatch { current_shard: i32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandFenceDecision {
+    Accepted,
+    LegacyAccepted,
+    RouteMissing,
+    RouteStale { current_epoch: i64 },
+    ShardMismatch { current_shard: i32 },
+    TermStale { current_term: i64 },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RuntimeLease {
     pub session_id: String,
@@ -75,6 +94,11 @@ impl SqliteNodeJournal {
                     CREATE TABLE IF NOT EXISTS coordinator_terms (
                         session_id TEXT PRIMARY KEY,
                         coordinator_term INTEGER NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS coordinator_routes (
+                        session_id TEXT PRIMARY KEY,
+                        route_epoch INTEGER NOT NULL,
+                        coordinator_shard_id INTEGER NOT NULL
                     );
                     CREATE TABLE IF NOT EXISTS event_sequences (
                         session_id TEXT PRIMARY KEY,
@@ -252,6 +276,166 @@ impl SqliteNodeJournal {
                 )
                 .optional()
                 .context("read current Coordinator Term")
+        })
+        .await
+    }
+
+    /// Atomically fences stale physical Shard dispatch.
+    ///
+    /// Legacy route_epoch=0 is accepted only before this Node has observed a routed command for the
+    /// Session and only while rollout compatibility is enabled. Once an epoch is recorded, an
+    /// unversioned command can never bypass the fence.
+    pub async fn validate_and_record_route(
+        &self,
+        session_id: &str,
+        route_epoch: i64,
+        coordinator_shard_id: i32,
+        require_route_epoch: bool,
+    ) -> anyhow::Result<RouteDecision> {
+        let session_id = session_id.to_owned();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let current = transaction
+                .query_row(
+                    r#"
+                    SELECT route_epoch, coordinator_shard_id
+                      FROM coordinator_routes
+                     WHERE session_id = ?1
+                    "#,
+                    params![session_id],
+                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?)),
+                )
+                .optional()?;
+
+            if route_epoch <= 0 {
+                return Ok(if require_route_epoch || current.is_some() {
+                    RouteDecision::Missing
+                } else {
+                    RouteDecision::LegacyAccepted
+                });
+            }
+            if !(0..=4095).contains(&coordinator_shard_id) {
+                return Ok(RouteDecision::ShardMismatch {
+                    current_shard: current.map(|route| route.1).unwrap_or(-1),
+                });
+            }
+            if let Some((current_epoch, current_shard)) = current {
+                if route_epoch < current_epoch {
+                    return Ok(RouteDecision::Stale { current_epoch });
+                }
+                if route_epoch == current_epoch && coordinator_shard_id != current_shard {
+                    return Ok(RouteDecision::ShardMismatch { current_shard });
+                }
+            }
+
+            transaction.execute(
+                r#"
+                INSERT INTO coordinator_routes(
+                    session_id, route_epoch, coordinator_shard_id
+                ) VALUES (?1, ?2, ?3)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    route_epoch = excluded.route_epoch,
+                    coordinator_shard_id = excluded.coordinator_shard_id
+                WHERE excluded.route_epoch >= coordinator_routes.route_epoch
+                "#,
+                params![session_id, route_epoch, coordinator_shard_id],
+            )?;
+            transaction.commit()?;
+            Ok(RouteDecision::Accepted)
+        })
+        .await
+    }
+
+    /// Atomically validates and advances both physical Route and Coordinator Term fences.
+    ///
+    /// Neither fence is persisted when the other one rejects the command. This prevents a command
+    /// carrying a future Route Epoch but a stale Coordinator Term from poisoning the durable Node
+    /// route, and prevents a wrong-shard command from advancing the accepted Term.
+    pub async fn validate_and_record_command_fence(
+        &self,
+        session_id: &str,
+        route_epoch: i64,
+        coordinator_shard_id: i32,
+        coordinator_term: i64,
+        require_route_epoch: bool,
+    ) -> anyhow::Result<CommandFenceDecision> {
+        let session_id = session_id.to_owned();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let current_route = transaction
+                .query_row(
+                    r#"
+                    SELECT route_epoch, coordinator_shard_id
+                      FROM coordinator_routes
+                     WHERE session_id = ?1
+                    "#,
+                    params![session_id],
+                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?)),
+                )
+                .optional()?;
+            let current_term = transaction
+                .query_row(
+                    "SELECT coordinator_term FROM coordinator_terms WHERE session_id = ?1",
+                    params![session_id],
+                    |row| row.get::<_, i64>(0),
+                )
+                .optional()?
+                .unwrap_or_default();
+
+            if coordinator_term < current_term {
+                return Ok(CommandFenceDecision::TermStale { current_term });
+            }
+            let legacy = route_epoch <= 0;
+            if legacy && (require_route_epoch || current_route.is_some()) {
+                return Ok(CommandFenceDecision::RouteMissing);
+            }
+            if !legacy {
+                if !(0..=4095).contains(&coordinator_shard_id) {
+                    return Ok(CommandFenceDecision::ShardMismatch {
+                        current_shard: current_route.map(|route| route.1).unwrap_or(-1),
+                    });
+                }
+                if let Some((current_epoch, current_shard)) = current_route {
+                    if route_epoch < current_epoch {
+                        return Ok(CommandFenceDecision::RouteStale { current_epoch });
+                    }
+                    if route_epoch == current_epoch && coordinator_shard_id != current_shard {
+                        return Ok(CommandFenceDecision::ShardMismatch { current_shard });
+                    }
+                }
+            }
+
+            if !legacy {
+                transaction.execute(
+                    r#"
+                    INSERT INTO coordinator_routes(
+                        session_id, route_epoch, coordinator_shard_id
+                    ) VALUES (?1, ?2, ?3)
+                    ON CONFLICT(session_id) DO UPDATE SET
+                        route_epoch = excluded.route_epoch,
+                        coordinator_shard_id = excluded.coordinator_shard_id
+                    WHERE excluded.route_epoch >= coordinator_routes.route_epoch
+                    "#,
+                    params![session_id, route_epoch, coordinator_shard_id],
+                )?;
+            }
+            transaction.execute(
+                r#"
+                INSERT INTO coordinator_terms(session_id, coordinator_term)
+                VALUES (?1, ?2)
+                ON CONFLICT(session_id) DO UPDATE
+                SET coordinator_term = MAX(coordinator_terms.coordinator_term, excluded.coordinator_term)
+                "#,
+                params![session_id, coordinator_term],
+            )?;
+            transaction.commit()?;
+            Ok(if legacy {
+                CommandFenceDecision::LegacyAccepted
+            } else {
+                CommandFenceDecision::Accepted
+            })
         })
         .await
     }
@@ -608,6 +792,102 @@ mod tests {
         assert_eq!(
             reopened.current_coordinator_term("ses_1").await.unwrap(),
             Some(8)
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn persists_route_epoch_and_rejects_stale_or_wrong_shard_dispatch() {
+        let path = temporary_database("route");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        assert_eq!(
+            journal
+                .validate_and_record_route("ses_route", 0, 0, false)
+                .await
+                .unwrap(),
+            RouteDecision::LegacyAccepted
+        );
+        assert_eq!(
+            journal
+                .validate_and_record_route("ses_route", 2, 7, false)
+                .await
+                .unwrap(),
+            RouteDecision::Accepted
+        );
+        drop(journal);
+
+        let reopened = SqliteNodeJournal::open(&path).await.unwrap();
+        assert_eq!(
+            reopened
+                .validate_and_record_route("ses_route", 1, 7, false)
+                .await
+                .unwrap(),
+            RouteDecision::Stale { current_epoch: 2 }
+        );
+        assert_eq!(
+            reopened
+                .validate_and_record_route("ses_route", 2, 8, false)
+                .await
+                .unwrap(),
+            RouteDecision::ShardMismatch { current_shard: 7 }
+        );
+        assert_eq!(
+            reopened
+                .validate_and_record_route("ses_route", 0, 0, false)
+                .await
+                .unwrap(),
+            RouteDecision::Missing
+        );
+        assert_eq!(
+            reopened
+                .validate_and_record_route("ses_fresh", 0, 0, true)
+                .await
+                .unwrap(),
+            RouteDecision::Missing
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn commits_route_and_term_fences_atomically() {
+        let path = temporary_database("command-fence");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        assert_eq!(
+            journal
+                .validate_and_record_command_fence("ses_fenced", 2, 7, 2, false)
+                .await
+                .unwrap(),
+            CommandFenceDecision::Accepted
+        );
+        assert_eq!(
+            journal
+                .validate_and_record_command_fence("ses_fenced", 3, 9, 1, false)
+                .await
+                .unwrap(),
+            CommandFenceDecision::TermStale { current_term: 2 }
+        );
+        assert_eq!(
+            journal
+                .validate_and_record_command_fence("ses_fenced", 2, 7, 2, false)
+                .await
+                .unwrap(),
+            CommandFenceDecision::Accepted,
+            "a future route with a stale term must not poison the route fence"
+        );
+        assert_eq!(
+            journal
+                .validate_and_record_command_fence("ses_fenced", 2, 8, 3, false)
+                .await
+                .unwrap(),
+            CommandFenceDecision::ShardMismatch { current_shard: 7 }
+        );
+        assert_eq!(
+            journal
+                .current_coordinator_term("ses_fenced")
+                .await
+                .unwrap(),
+            Some(2),
+            "a wrong-shard command must not advance the term fence"
         );
         let _ = std::fs::remove_file(path);
     }

@@ -82,6 +82,38 @@ public class CoordinatorOwnershipService {
   }
 
   /**
+   * 校验来自 Browser Node 的事件仍属于当前路由和 Coordinator 世代。
+   *
+   * <p>Node Event 入口由 Service 负载均衡到任意健康 Control Plane Pod，接收 Pod 不一定是逻辑 Coordinator
+   * Owner。因此这里只校验数据库中的权威 Route Epoch、Coordinator Term 与远端 Owner Lease 新鲜度；只有事件落到 Owner Pod
+   * 时才续租，绝不替其他 Pod 续租。Session 行锁负责串行化事件提交，命令路径仍通过 {@link #acquireSession} 维护单 Owner。
+   */
+  @Transactional
+  public void assertCurrentGeneration(String sessionId, long coordinatorTerm, long routeEpoch) {
+    var current =
+        ownershipJpa
+            .findById(sessionId)
+            .orElseThrow(() -> new CoordinatorNotOwnerException(sessionId));
+    if (current.getRouteEpoch() != routeEpoch) {
+      throw new CoordinatorNotOwnerException(sessionId);
+    }
+    if (current.getCoordinatorTerm() != coordinatorTerm) {
+      throw new StaleCoordinatorTermException(
+          sessionId, coordinatorTerm, current.getCoordinatorTerm());
+    }
+    var now = Instant.now();
+    if (current.getCoordinatorOwner().equals(coordinatorId)) {
+      if (ownershipJpa.heartbeatIfOwner(sessionId, coordinatorId, routeEpoch, now) != 1) {
+        throw new CoordinatorNotOwnerException(sessionId);
+      }
+      return;
+    }
+    if (current.getOwnerHeartbeatAt().isBefore(now.minus(leaseDuration))) {
+      throw new CoordinatorNotOwnerException(sessionId);
+    }
+  }
+
+  /**
    * 获取当前 Coordinator Term。
    *
    * @param sessionId Session ID

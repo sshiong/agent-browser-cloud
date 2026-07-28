@@ -274,6 +274,40 @@ docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
   -U browsercloud -d browsercloud \
   -c 'DROP SCHEMA extension_upgrade_test CASCADE;' >/dev/null
 
+{
+  printf '%s\n' \
+    'CREATE SCHEMA trusted_extension_recovery_upgrade_test;' \
+    'SET search_path TO trusted_extension_recovery_upgrade_test;' \
+    "CREATE TABLE application_recovery_contracts (required_extension_ids JSONB NOT NULL DEFAULT '[]', recovery_action TEXT NOT NULL DEFAULT 'NONE', CONSTRAINT chk_application_recovery_action CHECK (recovery_action IN ('NONE','RELOAD','NAVIGATE_HOME','REOPEN_KNOWN_ROUTE','REFRESH_SESSION')));" \
+    "CREATE TABLE business_recovery_actions (action_type TEXT NOT NULL, target_url TEXT, CONSTRAINT chk_business_recovery_action_type CHECK (action_type IN ('RELOAD','NAVIGATE_HOME','REOPEN_KNOWN_ROUTE','REFRESH_SESSION')), CONSTRAINT chk_business_recovery_action_target CHECK ((action_type IN ('RELOAD','REFRESH_SESSION') AND target_url IS NULL) OR (action_type IN ('NAVIGATE_HOME','REOPEN_KNOWN_ROUTE') AND target_url ~ '^https?://')));" \
+    "INSERT INTO application_recovery_contracts VALUES ('[]', 'RELOAD');" \
+    "INSERT INTO business_recovery_actions VALUES ('RELOAD', NULL);"
+  sed -n '1,$p' database/migrations/V039__trusted_extension_recovery.sql
+  printf '%s\n' \
+    "INSERT INTO application_recovery_contracts(required_extension_ids, recovery_action, recovery_extension_id) VALUES ('[\"jdgnleokimdbblcflcfcohbinohmmmlb\"]', 'RESTART_EXTENSION', 'jdgnleokimdbblcflcfcohbinohmmmlb');" \
+    "INSERT INTO business_recovery_actions(action_type, target_url, target_extension_id) VALUES ('RESTART_EXTENSION', NULL, 'jdgnleokimdbblcflcfcohbinohmmmlb');" \
+    "SELECT (SELECT count(*) FROM application_recovery_contracts WHERE recovery_extension_id IS NULL) || ':' || (SELECT count(*) FROM application_recovery_contracts WHERE recovery_extension_id='jdgnleokimdbblcflcfcohbinohmmmlb') || ':' || (SELECT count(*) FROM business_recovery_actions WHERE target_extension_id IS NULL) || ':' || (SELECT count(*) FROM business_recovery_actions WHERE target_extension_id='jdgnleokimdbblcflcfcohbinohmmmlb');"
+} | docker exec -i "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud >"$temp_dir/trusted-extension-recovery-upgrade.txt"
+test "$(<"$temp_dir/trusted-extension-recovery-upgrade.txt")" = "1:1:1:1"
+if docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c "SET search_path TO trusted_extension_recovery_upgrade_test; INSERT INTO application_recovery_contracts(required_extension_ids, recovery_action, recovery_extension_id) VALUES ('[]', 'RESTART_EXTENSION', NULL);" \
+  >/dev/null 2>&1; then
+  echo "V039 accepted RESTART_EXTENSION without a recovery_extension_id" >&2
+  exit 1
+fi
+if docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c "SET search_path TO trusted_extension_recovery_upgrade_test; INSERT INTO business_recovery_actions(action_type, target_url, target_extension_id) VALUES ('RESTART_EXTENSION', NULL, NULL);" \
+  >/dev/null 2>&1; then
+  echo "V039 accepted RESTART_EXTENSION action without a target_extension_id" >&2
+  exit 1
+fi
+docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c 'DROP SCHEMA trusted_extension_recovery_upgrade_test CASCADE;' >/dev/null
+
 mkdir -p "$temp_dir/pressure"
 for pressure_resource in memory cpu io; do
   printf 'some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n' \
@@ -332,7 +366,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -700,10 +734,10 @@ duplicate_extension_status="$(curl -sS -o "$temp_dir/duplicate-extension.json" -
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-duplicate-extension-001' \
-  -d '{"tenantId":"tenant-integration","profileId":"profile-duplicate-extension","extensionIds":["unknown.integration","unknown.integration"]}')"
+  -d '{"tenantId":"tenant-integration","profileId":"profile-duplicate-extension","extensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb","jdgnleokimdbblcflcfcohbinohmmmlb"]}')"
 test "$duplicate_extension_status" = "400"
 
-request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"unknown.integration\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourceClass\":\"L1\",\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -734,7 +768,7 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['unknown.integration']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
 workspace_group_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -831,7 +865,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['unknown.integration']; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceClass'] == 'L2'"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -854,7 +888,7 @@ for _ in $(seq 1 40); do
 done
 test "$state" = "RUNNING"
 printf '%s' "$session_after_start" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L2"; assert item["extensionIds"] == ["unknown.integration"]'
+  'import json,sys; item=json.load(sys.stdin); assert item["displayName"] == "Integration browser"; assert item["profileId"] == "profile-integration"; assert item["region"] == "local"; assert item["resourceClass"] == "L2"; assert item["extensionIds"] == ["jdgnleokimdbblcflcfcohbinohmmmlb"]'
 printf '%s' "$session_after_start" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["nodeId"] == "node_integration"; assert item["contextEpoch"] == 3; assert item["proxyBindingId"] is not None'
 extension_binding_consistency="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
@@ -1084,7 +1118,7 @@ for _ in $(seq 1 40); do
 done
 test "$state_status" = "200"
 grep -Fq -- \
-  "--load-extension=$repo_root/tests/integration/fixtures/extensions/unknown.integration" \
+  "--load-extension=$repo_root/tests/integration/fixtures/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   "$temp_dir/fake-chromium-args.log"
 printf '%s' "$browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
@@ -1143,7 +1177,7 @@ business_recovery_db_summary="$(docker exec "$postgres_name" psql -U browserclou
          and source='API' and verdict='READY')")"
 test "$business_recovery_db_summary" = "1:1"
 
-auto_recovery_contract_body='{"expectedVersion":1,"expectedOrigins":["https://example.test"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"status","name":"Recovered workspace"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
+auto_recovery_contract_body='{"expectedVersion":1,"expectedOrigins":["https://example.test"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"status","name":"Recovered workspace"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb"],"allowDepthLimited":false,"recoveryAction":"RESTART_EXTENSION","recoveryExtensionId":"jdgnleokimdbblcflcfcohbinohmmmlb","maximumAutoRecovery":1,"enabled":true}'
 auto_recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -1151,7 +1185,7 @@ auto_recovery_contract="$(curl -fsS -X PUT \
   -H 'X-Roles: TENANT_ADMIN' \
   -d "$auto_recovery_contract_body")"
 printf '%s' "$auto_recovery_contract" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 2; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["requiredTargets"] == [{"role":"status","name":"Recovered workspace"}]'
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 2; assert item["recoveryAction"] == "RESTART_EXTENSION"; assert item["recoveryExtensionId"] == "jdgnleokimdbblcflcfcohbinohmmmlb"; assert item["maximumAutoRecovery"] == 1; assert item["requiredTargets"] == [{"role":"status","name":"Recovered workspace"}]'
 auto_recovery_epoch="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration' | python3 -c \
@@ -1179,12 +1213,12 @@ for _ in $(seq 1 120); do
 done
 test "$auto_recovery_phase" = "COMPLETED"
 printf '%s' "$auto_recovery_migration" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["recoveryResult"] == "READY"; assert item["autoRecoveryAttempts"] == 1; assert item["autoRecoveryMaximum"] == 1; action=item["latestRecoveryAction"]; assert action["action"] == "RELOAD"; assert action["state"] == "COMMITTED"; assert action["resultingStateVersion"] > action["baseStateVersion"]'
+  'import json,sys; item=json.load(sys.stdin); assert item["recoveryResult"] == "READY"; assert item["autoRecoveryAttempts"] == 1; assert item["autoRecoveryMaximum"] == 1; action=item["latestRecoveryAction"]; assert action["action"] == "RESTART_EXTENSION"; assert action["targetExtensionId"] == "jdgnleokimdbblcflcfcohbinohmmmlb"; assert action["state"] == "COMMITTED"; assert action["resultingStateVersion"] > action["baseStateVersion"]'
 auto_recovery_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select state || ':' || action_type || ':' || attempt_number
+  "select state || ':' || action_type || ':' || target_extension_id || ':' || attempt_number
    from business_recovery_actions
    where migration_id='${auto_recovery_migration_id}'")"
-test "$auto_recovery_db_summary" = "COMMITTED:RELOAD:1"
+test "$auto_recovery_db_summary" = "COMMITTED:RESTART_EXTENSION:jdgnleokimdbblcflcfcohbinohmmmlb:1"
 
 resource_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=61)).isoformat().replace("+00:00","Z"))')"
 resource_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
@@ -2099,7 +2133,7 @@ for _ in $(seq 1 40); do
 done
 test "$state" = "TERMINATED"
 printf '%s' "$session_after_terminate" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["extensionIds"] == ["unknown.integration"]'
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None; assert item["extensionIds"] == ["jdgnleokimdbblcflcfcohbinohmmmlb"]'
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"

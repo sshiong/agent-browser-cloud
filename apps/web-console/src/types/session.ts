@@ -174,7 +174,8 @@ export type BusinessRecoveryAction =
   | 'RELOAD'
   | 'NAVIGATE_HOME'
   | 'REOPEN_KNOWN_ROUTE'
-  | 'REFRESH_SESSION';
+  | 'REFRESH_SESSION'
+  | 'RESTART_EXTENSION';
 
 export interface RecoveryContractView {
   contractId: string;
@@ -190,6 +191,7 @@ export interface RecoveryContractView {
   requiredExtensionIds: string[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
+  recoveryExtensionId?: string;
   maximumAutoRecovery: number;
   enabled: boolean;
   createdAt: string;
@@ -406,6 +408,7 @@ export interface SessionMigrationView {
     attemptNumber: number;
     action: Exclude<BusinessRecoveryAction, 'NONE'>;
     targetUrl?: string;
+    targetExtensionId?: string;
     baseStateVersion: number;
     resultingStateVersion?: number;
     state: 'REQUESTED' | 'EXECUTING' | 'ACKNOWLEDGED' | 'COMMITTED' | 'FAILED';

@@ -31,7 +31,8 @@ public final class BusinessRecoveryModels {
     RELOAD,
     NAVIGATE_HOME,
     REOPEN_KNOWN_ROUTE,
-    REFRESH_SESSION
+    REFRESH_SESSION,
+    RESTART_EXTENSION
   }
 
   public record TargetIndicator(
@@ -51,6 +52,7 @@ public final class BusinessRecoveryModels {
           List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> requiredExtensionIds,
       boolean allowDepthLimited,
       RecoveryAction recoveryAction,
+      @Pattern(regexp = "^[a-p]{32}$") String recoveryExtensionId,
       @Min(0) @Max(10) int maximumAutoRecovery,
       boolean enabled) {}
 
@@ -68,6 +70,7 @@ public final class BusinessRecoveryModels {
       List<String> requiredExtensionIds,
       boolean allowDepthLimited,
       RecoveryAction recoveryAction,
+      String recoveryExtensionId,
       int maximumAutoRecovery,
       boolean enabled,
       Instant createdAt,
@@ -95,6 +98,7 @@ public final class BusinessRecoveryModels {
       int attemptNumber,
       RecoveryAction action,
       String targetUrl,
+      String targetExtensionId,
       long baseStateVersion,
       Long resultingStateVersion,
       String state,

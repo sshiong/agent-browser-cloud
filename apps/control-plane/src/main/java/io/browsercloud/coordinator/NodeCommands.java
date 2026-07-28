@@ -250,6 +250,7 @@ public final class NodeCommands {
       String actionId,
       String action,
       String targetUrl,
+      String targetExtensionId,
       long baseStateVersion) {
     var payload =
         BusinessRecoveryActionCommand.newBuilder()
@@ -257,6 +258,7 @@ public final class NodeCommands {
             .setActionId(actionId)
             .setAction(action)
             .setTargetUrl(targetUrl == null ? "" : targetUrl)
+            .setExtensionId(targetExtensionId == null ? "" : targetExtensionId)
             .setBaseStateVersion(baseStateVersion)
             .build()
             .toByteArray();

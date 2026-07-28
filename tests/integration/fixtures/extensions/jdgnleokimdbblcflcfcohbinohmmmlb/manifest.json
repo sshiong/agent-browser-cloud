@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Agent Browser Integration Extension",
+  "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqTRhVt9NGVbq5MSNrZxqQKdYFgxJp0amVz8KZZb9UW2MXIl3TBy440VCn0vuG1E2x0fqAN6diCr39j0+lKu/jaLeWBqqT9TNslYrpwWdPK9lvCKqew4GoafnVXxh+ZZy6/QnvqBDu5zTzFY9JQDR2WU8YWbf+5hdsPo0vY0m27aFJqnQhm5NBm9RUZaP1ObL6oku8iW+4ECW94W4QqnDhfTDFzlg439M9SABNI+nujOZgByZiOapbAWzG76VfirJg7Qf6n22LZbCB6ktgactSyFOPXtrc81XHgVvSGBHTPtATS1VxkFKPbGnyUypFBAf9Mgkven80vuGlDWPmXDzqQIDAQAB",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

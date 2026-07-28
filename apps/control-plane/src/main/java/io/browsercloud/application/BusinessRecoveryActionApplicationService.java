@@ -86,9 +86,25 @@ public class BusinessRecoveryActionApplicationService {
             .filter(item -> item.contextEpoch() == session.contextEpoch())
             .orElseThrow(
                 () -> new AutoRecoveryRejectedException("AUTO_RECOVERY_STATE_UNAVAILABLE"));
-    if (!capacity.nodeHasCapability(
-        session.nodeId(), "businessRecoveryActions", "cdp-low-risk-v1")) {
+    var supportsLegacyActions =
+        capacity.nodeHasCapability(session.nodeId(), "businessRecoveryActions", "cdp-low-risk-v1");
+    var supportsExtensionRestart =
+        capacity.nodeHasCapability(
+            session.nodeId(), "businessRecoveryExtensionActions", "cdp-extension-restart-v1");
+    if ((policy.action() == RecoveryAction.RESTART_EXTENSION && !supportsExtensionRestart)
+        || (policy.action() != RecoveryAction.RESTART_EXTENSION && !supportsLegacyActions)) {
       return false;
+    }
+    if (policy.action() == RecoveryAction.RESTART_EXTENSION) {
+      var targetExtensionId = policy.recoveryExtensionId();
+      if (targetExtensionId == null
+          || !policy.requiredExtensionIds().contains(targetExtensionId)
+          || !capacity
+              .getPlacement(migration.getSessionId(), migration.getTenantId())
+              .extensionIds()
+              .contains(targetExtensionId)) {
+        throw new AutoRecoveryRejectedException("AUTO_RECOVERY_EXTENSION_NOT_BOUND_TO_SESSION");
+      }
     }
     var targetUrl = targetUrl(policy, snapshot.state().url());
     var now = Instant.now();
@@ -105,6 +121,7 @@ public class BusinessRecoveryActionApplicationService {
             priorAttempts + 1,
             policy.action(),
             targetUrl,
+            policy.recoveryExtensionId(),
             snapshot.state().stateVersion(),
             commandId,
             now.plusSeconds(30),
@@ -117,6 +134,7 @@ public class BusinessRecoveryActionApplicationService {
             actionId,
             policy.action().name(),
             targetUrl,
+            policy.recoveryExtensionId(),
             snapshot.state().stateVersion()));
     action.executing(now);
     actions.save(action);
@@ -220,7 +238,7 @@ public class BusinessRecoveryActionApplicationService {
   private static String targetUrl(
       ApplicationBusinessRecoveryService.AutoRecoveryPolicy policy, String currentUrl) {
     return switch (policy.action()) {
-      case RELOAD, REFRESH_SESSION -> null;
+      case RELOAD, REFRESH_SESSION, RESTART_EXTENSION -> null;
       case NAVIGATE_HOME -> origin(policy, currentUrl) + "/";
       case REOPEN_KNOWN_ROUTE -> {
         var route =
@@ -266,6 +284,7 @@ public class BusinessRecoveryActionApplicationService {
         action.getAttemptNumber(),
         action.action(),
         action.getTargetUrl(),
+        action.getTargetExtensionId(),
         action.getBaseStateVersion(),
         action.getResultingStateVersion(),
         action.getState(),

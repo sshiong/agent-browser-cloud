@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.browsercloud.api.BrowserPlacementView;
 import io.browsercloud.api.BusinessRecoveryModels.BusinessRecoveryValidationView;
 import io.browsercloud.api.BusinessRecoveryModels.RecoveryAction;
 import io.browsercloud.api.BusinessRecoveryModels.Verdict;
@@ -35,6 +36,7 @@ class BusinessRecoveryActionApplicationServiceTest {
 
   private static final String SESSION_ID = "ses_1234567890abcdef";
   private static final String TENANT_ID = "tenant-a";
+  private static final String EXTENSION_ID = "jdgnleokimdbblcflcfcohbinohmmmlb";
 
   private final ApplicationBusinessRecoveryService recovery =
       mock(ApplicationBusinessRecoveryService.class);
@@ -85,9 +87,11 @@ class BusinessRecoveryActionApplicationServiceTest {
                     "arc_1234567890abcdefghij",
                     1,
                     RecoveryAction.RELOAD,
+                    null,
                     1,
                     List.of("https://crm.example.test"),
-                    List.of("/customers"))));
+                    List.of("/customers"),
+                    List.of())));
     when(actions.countByMigrationId(migration.getMigrationId())).thenReturn(0L);
     when(sessions.requireForUpdate(SESSION_ID)).thenReturn(session());
     when(browserStates.find(SESSION_ID))
@@ -159,6 +163,74 @@ class BusinessRecoveryActionApplicationServiceTest {
     assertThat(action.getState()).isEqualTo("COMMITTED");
     assertThat(action.getResultingStateVersion()).isEqualTo(11);
     assertThat(migration.getPhase()).isEqualTo("BUSINESS_VALIDATION");
+  }
+
+  @Test
+  void dispatchesRestartOnlyForContractAndPlacementBoundChromiumExtension() throws Exception {
+    var now = Instant.now();
+    var migration =
+        new SessionMigrationEntity(
+            "mig_extensionrestart1", SESSION_ID, TENANT_ID, "node-a", 6, now);
+    migration.targetPlaced("node-b", 7, "checkpoint-a", now);
+    migration.stateResync("resync-a", now);
+    migration.businessValidation(now);
+    var state =
+        new NodeEvent.StateUpdated(
+            SESSION_ID,
+            10,
+            10,
+            "https://crm.example.test/customers",
+            "Customers",
+            "hash",
+            "COMPLETE",
+            List.of());
+    when(recovery.autoRecoveryPolicy(SESSION_ID, TENANT_ID))
+        .thenReturn(
+            Optional.of(
+                new AutoRecoveryPolicy(
+                    "arc_1234567890abcdefghij",
+                    2,
+                    RecoveryAction.RESTART_EXTENSION,
+                    EXTENSION_ID,
+                    1,
+                    List.of("https://crm.example.test"),
+                    List.of("/customers"),
+                    List.of(EXTENSION_ID))));
+    when(actions.countByMigrationId(migration.getMigrationId())).thenReturn(0L);
+    when(sessions.requireForUpdate(SESSION_ID)).thenReturn(session());
+    when(browserStates.find(SESSION_ID))
+        .thenReturn(Optional.of(new BrowserStateRepository.Snapshot(TENANT_ID, 7, state)));
+    when(capacity.nodeHasCapability(
+            "node-b", "businessRecoveryExtensionActions", "cdp-extension-restart-v1"))
+        .thenReturn(true);
+    var placement = mock(BrowserPlacementView.class);
+    when(placement.extensionIds()).thenReturn(List.of(EXTENSION_ID));
+    when(capacity.getPlacement(SESSION_ID, TENANT_ID)).thenReturn(placement);
+    when(actions.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var validation =
+        new BusinessRecoveryValidationView(
+            "brv_extensionrestart1",
+            SESSION_ID,
+            "crm",
+            2L,
+            7,
+            10,
+            Verdict.STATE_CHANGED,
+            false,
+            List.of("REQUIRED_TARGETS_MISSING:status:Recovered"),
+            "MIGRATION",
+            migration.getMigrationId(),
+            now);
+
+    assertThat(service.request(migration, validation)).isTrue();
+
+    var commandCaptor = ArgumentCaptor.forClass(NodeCommand.class);
+    verify(nodeCommands).send(commandCaptor.capture());
+    var payload = BusinessRecoveryActionCommand.parseFrom(commandCaptor.getValue().payload());
+    assertThat(payload.getAction()).isEqualTo("RESTART_EXTENSION");
+    assertThat(payload.getTargetUrl()).isEmpty();
+    assertThat(payload.getExtensionId()).isEqualTo(EXTENSION_ID);
   }
 
   private static SessionContext session() {

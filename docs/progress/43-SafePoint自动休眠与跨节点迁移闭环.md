@@ -107,8 +107,8 @@
 4. 两个真实 Browser Node + S3-compatible Object Storage + 真实 Chromium 的迁移
    E2E、断点重试、源/目标 Node 故障注入和长期稳定性证书。
 5. Application-aware 声明式 Validator、迁移 Ready Gate 和有界低风险动作执行器已
-   完成；仍缺目标站点 Adapter、Provider/API 级证明、契约作者 UI 和受信
-   `RESTART_EXTENSION` 动作。
+   完成；V039 又补齐受信 Extension 重启，仍缺目标站点 Adapter、Provider/API 级证明
+   和契约作者 UI。
 6. PostgreSQL Resource/Migration Event SSE、`Last-Event-ID` 和断线恢复已完成；
    State/Audit 通用事件层与跨 Region Event Bus 尚未完成。
 7. Tauri 2 容器与 OS 安全存储已完成；仍缺签名发行、真实 Updater/IdP 和桌面端

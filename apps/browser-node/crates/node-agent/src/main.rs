@@ -321,6 +321,10 @@ impl NodeCapacityReporter {
             "businessRecoveryActions".to_owned(),
             "cdp-low-risk-v1".to_owned(),
         );
+        labels.insert(
+            "businessRecoveryExtensionActions".to_owned(),
+            "cdp-extension-restart-v1".to_owned(),
+        );
         Ok(Self {
             node_id,
             region,
@@ -2408,6 +2412,7 @@ impl NodeControlService {
                                     | "NAVIGATE_HOME"
                                     | "REOPEN_KNOWN_ROUTE"
                                     | "REFRESH_SESSION"
+                                    | "RESTART_EXTENSION"
                             )
                         {
                             return self.failed(
@@ -2417,12 +2422,12 @@ impl NodeControlService {
                         }
                         let execution = match payload.action.as_str() {
                             "RELOAD" => {
-                                if !payload.target_url.is_empty() {
+                                if !payload.target_url.is_empty()
+                                    || !payload.extension_id.is_empty()
+                                {
                                     return self.failed(
                                         command,
-                                        anyhow::anyhow!(
-                                            "reload action must not include target URL"
-                                        ),
+                                        anyhow::anyhow!("reload action must not include a target"),
                                     );
                                 }
                                 self.state_collector
@@ -2430,17 +2435,46 @@ impl NodeControlService {
                                     .await
                             }
                             "REFRESH_SESSION" => {
-                                if !payload.target_url.is_empty() {
+                                if !payload.target_url.is_empty()
+                                    || !payload.extension_id.is_empty()
+                                {
                                     return self.failed(
                                         command,
                                         anyhow::anyhow!(
-                                            "refresh session action must not include target URL"
+                                            "refresh session action must not include a target"
                                         ),
                                     );
                                 }
                                 self.state_collector.reload(&command.session_id, true).await
                             }
+                            "RESTART_EXTENSION" => {
+                                if !payload.target_url.is_empty()
+                                    || payload.extension_id.len() != 32
+                                    || !payload
+                                        .extension_id
+                                        .bytes()
+                                        .all(|character| (b'a'..=b'p').contains(&character))
+                                {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "restart extension action target is invalid"
+                                        ),
+                                    );
+                                }
+                                self.state_collector
+                                    .restart_extension(&command.session_id, &payload.extension_id)
+                                    .await
+                            }
                             "NAVIGATE_HOME" | "REOPEN_KNOWN_ROUTE" => {
+                                if !payload.extension_id.is_empty() {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "navigation recovery action must not include an extension"
+                                        ),
+                                    );
+                                }
                                 let target = match reqwest::Url::parse(&payload.target_url) {
                                     Ok(target)
                                         if matches!(target.scheme(), "http" | "https")

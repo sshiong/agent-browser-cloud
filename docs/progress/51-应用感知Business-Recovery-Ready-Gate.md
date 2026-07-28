@@ -3,7 +3,7 @@
 > 日期：2026-07-28
 > 状态：声明式契约、PostgreSQL 权威状态、迁移 Ready Gate、有界低风险自动动作、
 > API/Web 展示和真实集成已完成；站点专用 Adapter、Provider 级证明、契约作者 UI、
-> Extension 重启动作与目标双 Node 长稳仍待完成
+> 受信 Extension 重启已在 V039/进度 61 完成；目标双 Node 长稳仍待完成
 
 ## 目标和边界
 
@@ -79,7 +79,8 @@ GET  /api/v1/sessions/{id}/business-recovery
 2. `maximumAutoRecovery` 已在 V034 接入持久尝试预算、Reload/Refresh/受限导航、
    Node State ACK 与二次 Ready Gate，详见
    [进度 56](56-Business-Recovery有界自动动作闭环.md)。当前仍不自动点击或终止，
-   受信 `RESTART_EXTENSION` 动作尚未实现。
+   受信 `RESTART_EXTENSION` 动作已在
+   [进度 61](61-受信Extension自动恢复动作闭环.md)实现。
 3. Account、Permission 和 Business Entity 的 Provider/API 级证明；当前仅支持契约中
    配置的 Route/Target/Extension 证据。
 4. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发、网络分区、

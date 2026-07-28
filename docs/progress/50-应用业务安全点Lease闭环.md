@@ -2,7 +2,7 @@
 
 > 日期：2026-07-28
 > 状态：通用持久 Lease、Safe Point、SSE、迁移并发屏障、声明式业务恢复规则和有界
-> 低风险动作已完成；目标业务 Adapter、Provider 级证明与 Extension 重启动作仍待接入
+> 低风险动作和受信 Extension 重启已完成；目标业务 Adapter 与 Provider 级证明仍待接入
 
 ## 为什么需要 Lease
 
@@ -106,8 +106,8 @@ POST /api/v1/sessions/{id}/safety-leases/{leaseId}:release
    的是通用 Producer 协议，不会自动理解任意网页业务语义。
 2. Application-aware Business Recovery 的版本化契约、受限规则 DSL、持久 Verdict、
    迁移 Ready Gate 和有界低风险动作已完成；仍缺各站点 Adapter、契约作者 UI、
-   Provider/API 级账号/权限/业务实体证明和受信 `RESTART_EXTENSION` 动作。详见
-   [Business Recovery 有界自动动作闭环](56-Business-Recovery有界自动动作闭环.md)。
+   Provider/API 级账号/权限/业务实体证明。受信 Extension 重启已在进度 61 关闭。
+   详见[Business Recovery 有界自动动作闭环](56-Business-Recovery有界自动动作闭环.md)。
 3. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发压力、网络分区、
    Node 故障和长期稳定性证书。
 4. State/Audit/Agent Step 统一事件总线与跨 Region 消费；当前 Lease 已接入 Session

@@ -46,8 +46,8 @@ List/Detail 无法回答“这个环境创建时绑定了哪些扩展”，因�
   `956459ed602ebc356d8d9294b5d0a406f5c6169fd28d84b2810818f60b5f8189`；
 - 完整 PostgreSQL 17 + Browser Node Integration 先构造旧版 Session/Demand 并执行
   V038 回填，再验证新建 Session 的 Session/Demand/Placement 一致、List/Detail 返回
-  `unknown.integration`、重复 ID 请求返回 400、Node 使用可信路径启动，终止后绑定仍
-  保留；
+  固定 Chromium Extension ID、重复 ID 请求返回 400、Node 使用可信路径启动，终止后
+  绑定仍保留；
 - 针对远端首次拉取 PostgreSQL 镜像后的启动竞争，Integration 不再以
   `pg_isready` 后静默继续，而是等待真实 `SELECT 1` 成功；超时或容器提前退出会
   fail-closed 并输出 PostgreSQL/Redis 容器日志。本地修复后完整 Integration 再次通过。
@@ -58,6 +58,8 @@ List/Detail 无法回答“这个环境创建时绑定了哪些扩展”，因�
    归因；
 2. 目标 Linux 委派 Cgroup v2 上真实 Chromium/企业扩展的多 Session 长稳、OOM/PSI
    和权重效果证书；
-3. 受信 `RESTART_EXTENSION` Business Recovery 动作；
-4. Session Ownership、Group/Tags 等大列表组合查询与 N+1 优化；
-5. Extension 包签名、企业分发治理与生产组织 Gate。
+3. Session Ownership、Group/Tags 等大列表组合查询与 N+1 优化；
+4. Extension 包签名、企业分发治理与生产组织 Gate。
+
+受信 `RESTART_EXTENSION` 已在
+[进度 61](61-受信Extension自动恢复动作闭环.md)关闭，不再属于未完成项。

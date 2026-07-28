@@ -380,13 +380,15 @@ message AgentNavigateCommand {
 }
 
 // Business Recovery 只允许 Control Plane 从版本化应用契约解析出的低风险动作。
-// target_url 对 RELOAD / REFRESH_SESSION 为空；导航动作必须是契约内规范化 URL。
+// target_url 对 RELOAD / REFRESH_SESSION / RESTART_EXTENSION 为空；
+// 导航动作必须是契约内规范化 URL；extension_id 只允许契约绑定的 Chromium ID。
 message BusinessRecoveryActionCommand {
   string session_id = 1;
   string action_id = 2;
   string action = 3;
   string target_url = 4;
   uint64 base_state_version = 5;
+  string extension_id = 6;
 }
 
 message AgentNavigationFailedEvent {

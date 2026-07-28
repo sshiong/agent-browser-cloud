@@ -153,6 +153,9 @@ export function BusinessRecoveryCard({
                 {migration.latestRecoveryAction.resultingStateVersion
                   ? ` → ${migration.latestRecoveryAction.resultingStateVersion}`
                   : ''}
+                {migration.latestRecoveryAction.targetExtensionId
+                  ? ` · Extension ${migration.latestRecoveryAction.targetExtensionId}`
+                  : ''}
                 {migration.latestRecoveryAction.errorCode
                   ? ` · ${migration.latestRecoveryAction.errorCode}`
                   : ''}

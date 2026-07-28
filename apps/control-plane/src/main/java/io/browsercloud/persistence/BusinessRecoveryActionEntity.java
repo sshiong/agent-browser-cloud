@@ -40,6 +40,9 @@ public class BusinessRecoveryActionEntity {
   @Column(name = "target_url")
   private String targetUrl;
 
+  @Column(name = "target_extension_id")
+  private String targetExtensionId;
+
   @Column(name = "base_state_version", nullable = false)
   private long baseStateVersion;
 
@@ -87,6 +90,7 @@ public class BusinessRecoveryActionEntity {
       int attemptNumber,
       RecoveryAction action,
       String targetUrl,
+      String targetExtensionId,
       long baseStateVersion,
       String commandMessageId,
       Instant deadlineAt,
@@ -100,6 +104,7 @@ public class BusinessRecoveryActionEntity {
     this.attemptNumber = attemptNumber;
     this.actionType = action.name();
     this.targetUrl = targetUrl;
+    this.targetExtensionId = targetExtensionId;
     this.baseStateVersion = baseStateVersion;
     this.commandMessageId = commandMessageId;
     this.deadlineAt = deadlineAt;
@@ -173,6 +178,10 @@ public class BusinessRecoveryActionEntity {
 
   public String getTargetUrl() {
     return targetUrl;
+  }
+
+  public String getTargetExtensionId() {
+    return targetExtensionId;
   }
 
   public long getBaseStateVersion() {

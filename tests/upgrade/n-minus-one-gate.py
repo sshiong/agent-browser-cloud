@@ -261,6 +261,23 @@ for invariant in (
 ):
     assert invariant in session_extension_upper
 
+trusted_extension_recovery_migration = read(
+    "database/migrations/V039__trusted_extension_recovery.sql"
+)
+trusted_extension_recovery_upper = trusted_extension_recovery_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in trusted_extension_recovery_upper
+for invariant in (
+    "ADD COLUMN RECOVERY_EXTENSION_ID TEXT",
+    "ADD COLUMN TARGET_EXTENSION_ID TEXT",
+    "'RESTART_EXTENSION'",
+    "REQUIRED_EXTENSION_IDS ? RECOVERY_EXTENSION_ID",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_APPLICATION_RECOVERY_EXTENSION_TARGET",
+    "VALIDATE CONSTRAINT CHK_BUSINESS_RECOVERY_ACTION_TARGET",
+):
+    assert invariant in trusted_extension_recovery_upper
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 capacity = proto.split("message ReportCapacityRequest {", 1)[1].split("}", 1)[0]
 tags = {
@@ -367,6 +384,7 @@ recovery_contract_required = recovery_contract_request.split(
     "      properties:", 1
 )[0]
 assert "recoveryAction" not in recovery_contract_required
+assert "recoveryExtensionId" not in recovery_contract_required
 
 auto_recovery_command = proto.split(
     "message BusinessRecoveryActionCommand {", 1
@@ -377,6 +395,7 @@ for field, tag in (
     ("action", 3),
     ("target_url", 4),
     ("base_state_version", 5),
+    ("extension_id", 6),
 ):
     assert re.search(rf"\b{field}\s*=\s*{tag};", auto_recovery_command)
 
@@ -389,9 +408,9 @@ assert "startupProbe:" in workloads
 assert "readinessProbe:" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034 expand-validate-contract,V029-V033,V035-V038 additive",
-    "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24",
-    "json": "new-media-and-application-recovery-fields-optional",
+    "schema": "V019-V021 additive,V028,V034,V039 expand-validate-contract,V029-V033,V035-V038 additive",
+    "protobuf": "unknown-fields-15-16,optional-28-30,extension-tags-15-22,media-slot-tags-16-24,recovery-extension-tag-6",
+    "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

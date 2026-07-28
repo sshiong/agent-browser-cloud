@@ -27,6 +27,7 @@ class ApplicationBusinessRecoveryServiceTest {
 
   private static final String SESSION_ID = "ses_1234567890abcdef";
   private static final String TENANT_ID = "tenant-a";
+  private static final String EXTENSION_ID = "jdgnleokimdbblcflcfcohbinohmmmlb";
   private static final Instant NOW = Instant.parse("2026-07-28T01:00:00Z");
 
   @Mock private ApplicationRecoveryContractJpaRepository contracts;
@@ -78,6 +79,7 @@ class ApplicationBusinessRecoveryServiceTest {
                 List.of(),
                 false,
                 RecoveryAction.RELOAD,
+                null,
                 1,
                 true),
             NOW);
@@ -85,6 +87,59 @@ class ApplicationBusinessRecoveryServiceTest {
     assertThat(result.version()).isEqualTo(1);
     assertThat(result.expectedOrigins()).containsExactly("https://crm.example.test");
     assertThat(result.requiredTargets()).containsExactly(new TargetIndicator("button", "Continue"));
+  }
+
+  @Test
+  void acceptsOnlyExplicitRequiredChromiumExtensionAsRestartTarget() {
+    when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.empty());
+    when(contracts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var request =
+        new UpsertRecoveryContractRequest(
+            0,
+            List.of("https://crm.example.test"),
+            List.of("/customers"),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(EXTENSION_ID),
+            false,
+            RecoveryAction.RESTART_EXTENSION,
+            EXTENSION_ID,
+            1,
+            true);
+
+    var result = service.upsertContract(TENANT_ID, "crm", request, NOW);
+
+    assertThat(result.recoveryAction()).isEqualTo(RecoveryAction.RESTART_EXTENSION);
+    assertThat(result.recoveryExtensionId()).isEqualTo(EXTENSION_ID);
+  }
+
+  @Test
+  void rejectsRestartTargetThatIsNotRequiredByTheContract() {
+    var request =
+        new UpsertRecoveryContractRequest(
+            0,
+            List.of("https://crm.example.test"),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            false,
+            RecoveryAction.RESTART_EXTENSION,
+            EXTENSION_ID,
+            1,
+            true);
+
+    assertThatThrownBy(() -> service.upsertContract(TENANT_ID, "crm", request, NOW))
+        .isInstanceOf(ApplicationBusinessRecoveryService.RecoveryContractRejectedException.class)
+        .hasMessage("RECOVERY_EXTENSION_MUST_BE_REQUIRED_CHROMIUM_EXTENSION");
+    verifyNoInteractions(contracts);
   }
 
   @Test
@@ -107,6 +162,7 @@ class ApplicationBusinessRecoveryServiceTest {
                 List.of(),
                 List.of(),
                 false,
+                null,
                 null,
                 1,
                 true),
@@ -131,6 +187,7 @@ class ApplicationBusinessRecoveryServiceTest {
             List.of(),
             false,
             RecoveryAction.NONE,
+            null,
             0,
             true);
 
@@ -165,6 +222,7 @@ class ApplicationBusinessRecoveryServiceTest {
             List.of(),
             false,
             RecoveryAction.RELOAD,
+            null,
             1,
             true);
     assertThat(service.upsertContract(TENANT_ID, "crm", replay, NOW).version()).isEqualTo(1);
@@ -182,6 +240,7 @@ class ApplicationBusinessRecoveryServiceTest {
             List.of(),
             false,
             RecoveryAction.RELOAD,
+            null,
             1,
             true);
     assertThatThrownBy(() -> service.upsertContract(TENANT_ID, "crm", conflict, NOW))
@@ -365,6 +424,7 @@ class ApplicationBusinessRecoveryServiceTest {
         objectMapper.writeValueAsString(requiredExtensionIds),
         false,
         RecoveryAction.RELOAD.name(),
+        null,
         1,
         true,
         NOW);

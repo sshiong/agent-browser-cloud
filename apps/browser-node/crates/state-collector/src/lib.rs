@@ -188,6 +188,8 @@ struct CdpTarget {
     #[serde(rename = "type")]
     target_type: String,
     #[serde(default)]
+    url: String,
+    #[serde(default)]
     web_socket_debugger_url: Option<String>,
 }
 
@@ -768,6 +770,96 @@ impl CdpStateCollector {
         anyhow::bail!("CDP websocket closed before Page.reload completed")
     }
 
+    /// Restarts exactly one contract-bound Chromium extension from its own trusted CDP context.
+    ///
+    /// The expression is constant and the Extension ID is used only to select a
+    /// `chrome-extension://<id>/` target. Arbitrary JavaScript, arbitrary target URLs and
+    /// cross-extension execution are intentionally unsupported.
+    pub async fn restart_extension(
+        &self,
+        session_id: &str,
+        extension_id: &str,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            extension_id.len() == 32
+                && extension_id
+                    .bytes()
+                    .all(|character| (b'a'..=b'p').contains(&character)),
+            "Chromium Extension ID is invalid"
+        );
+        let endpoint = self.endpoint(session_id).await?;
+        let target_prefix = format!("chrome-extension://{extension_id}/");
+        let websocket_url = Self::list_targets(&endpoint)
+            .await?
+            .into_iter()
+            .filter(|target| target.url.starts_with(&target_prefix))
+            .filter(|target| {
+                matches!(
+                    target.target_type.as_str(),
+                    "service_worker" | "background_page" | "page"
+                )
+            })
+            .filter_map(|target| {
+                let priority = match target.target_type.as_str() {
+                    "service_worker" => 0_u8,
+                    "background_page" => 1,
+                    _ => 2,
+                };
+                target
+                    .web_socket_debugger_url
+                    .map(|websocket| (priority, websocket))
+            })
+            .min_by_key(|(priority, _)| *priority)
+            .map(|(_, websocket)| websocket)
+            .ok_or_else(|| anyhow::anyhow!("trusted Extension CDP target is unavailable"))?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Extension CDP websocket connection timed out"))??;
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 4,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": "setTimeout(() => chrome.runtime.reload(), 0); true",
+                        "returnByValue": true,
+                        "awaitPromise": false
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(Duration::from_secs(5), socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("Extension Runtime.evaluate timed out"))?
+        {
+            let message = message?;
+            let Message::Text(text) = message else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(4) {
+                continue;
+            }
+            if let Some(error) = response.get("error") {
+                anyhow::bail!("Extension Runtime.evaluate failed: {error}");
+            }
+            if let Some(exception) = response.pointer("/result/exceptionDetails") {
+                anyhow::bail!("Extension reload was rejected: {exception}");
+            }
+            let accepted = response
+                .pointer("/result/result/value")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            anyhow::ensure!(accepted, "Extension reload was not accepted");
+            return Ok(());
+        }
+        anyhow::bail!("Extension CDP websocket closed before reload was accepted")
+    }
+
     pub async fn resolve_target(
         &self,
         session_id: &str,
@@ -1234,6 +1326,73 @@ mod tests {
 
         collector.unregister_runtime("ses_budget").await;
         assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);
+    }
+
+    #[tokio::test]
+    async fn restarts_only_the_matching_chromium_extension_context() {
+        let extension_id = "jdgnleokimdbblcflcfcohbinohmmmlb";
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected CDP text request");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["method"], "Runtime.evaluate");
+            assert_eq!(
+                request["params"]["expression"],
+                "setTimeout(() => chrome.runtime.reload(), 0); true"
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::json!({
+                        "id": 4,
+                        "result": {"result": {"type": "boolean", "value": true}}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let body = serde_json::json!([{
+                "id": "extension-worker",
+                "type": "service_worker",
+                "url": format!("chrome-extension://{extension_id}/background.js"),
+                "webSocketDebuggerUrl": format!(
+                    "ws://{websocket_address}/devtools/page/extension-worker"
+                )
+            }])
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_extension", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        collector
+            .restart_extension("ses_extension", extension_id)
+            .await
+            .unwrap();
+
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
     }
 
     #[test]

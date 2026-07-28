@@ -3857,7 +3857,11 @@ components:
           type: boolean
         recoveryAction:
           type: string
-          enum: [NONE, RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION]
+          enum: [NONE, RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION, RESTART_EXTENSION]
+        recoveryExtensionId:
+          type: [string, "null"]
+          pattern: "^[a-p]{32}$"
+          description: Required only for RESTART_EXTENSION and must also appear in requiredExtensionIds.
         maximumAutoRecovery:
           type: integer
           minimum: 0
@@ -3940,7 +3944,10 @@ components:
           type: boolean
         recoveryAction:
           type: string
-          enum: [NONE, RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION]
+          enum: [NONE, RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION, RESTART_EXTENSION]
+        recoveryExtensionId:
+          type: [string, "null"]
+          pattern: "^[a-p]{32}$"
         maximumAutoRecovery:
           type: integer
           minimum: 0
@@ -4463,10 +4470,13 @@ components:
           maximum: 10
         action:
           type: string
-          enum: [RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION]
+          enum: [RELOAD, NAVIGATE_HOME, REOPEN_KNOWN_ROUTE, REFRESH_SESSION, RESTART_EXTENSION]
         targetUrl:
           type: [string, "null"]
           maxLength: 8192
+        targetExtensionId:
+          type: [string, "null"]
+          pattern: "^[a-p]{32}$"
         baseStateVersion:
           type: integer
           format: int64

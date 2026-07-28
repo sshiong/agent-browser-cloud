@@ -61,6 +61,9 @@ public class ApplicationRecoveryContractEntity {
   @Column(name = "recovery_action", nullable = false)
   private String recoveryAction;
 
+  @Column(name = "recovery_extension_id")
+  private String recoveryExtensionId;
+
   @Column(name = "maximum_auto_recovery", nullable = false)
   private int maximumAutoRecovery;
 
@@ -89,6 +92,7 @@ public class ApplicationRecoveryContractEntity {
       String requiredExtensionIds,
       boolean allowDepthLimited,
       String recoveryAction,
+      String recoveryExtensionId,
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
@@ -107,6 +111,7 @@ public class ApplicationRecoveryContractEntity {
         requiredExtensionIds,
         allowDepthLimited,
         recoveryAction,
+        recoveryExtensionId,
         maximumAutoRecovery,
         enabled,
         now);
@@ -124,6 +129,7 @@ public class ApplicationRecoveryContractEntity {
       String requiredExtensionIds,
       boolean allowDepthLimited,
       String recoveryAction,
+      String recoveryExtensionId,
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
@@ -138,6 +144,7 @@ public class ApplicationRecoveryContractEntity {
         requiredExtensionIds,
         allowDepthLimited,
         recoveryAction,
+        recoveryExtensionId,
         maximumAutoRecovery,
         enabled,
         now);
@@ -154,6 +161,7 @@ public class ApplicationRecoveryContractEntity {
       String requiredExtensionIds,
       boolean allowDepthLimited,
       String recoveryAction,
+      String recoveryExtensionId,
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
@@ -167,6 +175,7 @@ public class ApplicationRecoveryContractEntity {
     this.requiredExtensionIds = requiredExtensionIds;
     this.allowDepthLimited = allowDepthLimited;
     this.recoveryAction = recoveryAction;
+    this.recoveryExtensionId = recoveryExtensionId;
     this.maximumAutoRecovery = maximumAutoRecovery;
     this.enabled = enabled;
     this.updatedAt = now;
@@ -226,6 +235,10 @@ public class ApplicationRecoveryContractEntity {
 
   public String getRecoveryAction() {
     return recoveryAction;
+  }
+
+  public String getRecoveryExtensionId() {
+    return recoveryExtensionId;
   }
 
   public int getMaximumAutoRecovery() {

@@ -70,8 +70,8 @@
 2. 真实双 Browser Node + S3-compatible Object Storage + Chromium 的迁移/休眠故障
    注入和长期稳定性证书。
 3. Tenant/Application-aware 声明式 Business Recovery Validator、规则 DSL 和有界
-   低风险动作执行器已完成；仍缺目标站点 Adapter、Provider 级证明、契约作者 UI 和
-   受信 `RESTART_EXTENSION` 动作。
+   低风险动作执行器已完成；V039 又补齐受信 Extension 重启。仍缺目标站点 Adapter、
+   Provider 级证明和契约作者 UI。
 4. Browser/Profile I/O 已由 Linux Cgroup v2 Browser 子组真实生产者补齐；仍缺
-   Extension、Media 的真实指标生产者，以及 Extension Weight、Media Encoder Slot
-   在线执行器。
+   逐 Extension 归因、硬件 Codec/GPU 和目标 Linux 长稳；Session 级 Extension/Media
+   生产者及 Weight/Slot 在线执行器已分别关闭。

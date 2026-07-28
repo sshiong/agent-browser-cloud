@@ -43,7 +43,7 @@ if [ -n "${FAKE_CHROMIUM_ARGUMENT_LOG:-}" ]; then
   printf '%s\n' "$*" >>"$FAKE_CHROMIUM_ARGUMENT_LOG"
 fi
 
-exec python3 - "$cdp_port" "$user_data_dir" <<'PY'
+exec python3 - "$cdp_port" "$user_data_dir" "$load_extension" <<'PY'
 import json
 import base64
 import hashlib
@@ -57,6 +57,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 port = int(sys.argv[1])
 profile_root = Path(sys.argv[2])
+extension_ids = [
+    Path(item).name
+    for item in sys.argv[3].split(",")
+    if item and Path(item).name
+]
 marker = profile_root / "Default" / "BrowserCloudProfileState.json"
 marker.parent.mkdir(parents=True, exist_ok=True)
 try:
@@ -99,6 +104,15 @@ class Handler(BaseHTTPRequestHandler):
                 "url": "about:blank",
                 "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/page-1",
             }]
+            payload.extend({
+                "id": f"extension-{extension_id}",
+                "type": "service_worker",
+                "title": "Agent Browser Integration Extension",
+                "url": f"chrome-extension://{extension_id}/background.js",
+                "webSocketDebuggerUrl": (
+                    f"ws://127.0.0.1:{port}/devtools/page/extension-{extension_id}"
+                ),
+            } for extension_id in extension_ids)
         else:
             self.send_error(404)
             return
@@ -127,55 +141,72 @@ class Handler(BaseHTTPRequestHandler):
             command = json.loads(request)
             method = command.get("method")
             if method == "Runtime.evaluate":
-                evaluation_count += 1
-                target_name = (
-                    "Continue integration"
-                    if mutate_after > 0 and evaluation_count >= mutate_after
-                    else "Run integration"
-                )
-                result = {
-                    "url": "https://example.test/runtime",
-                    "title": "Browser Cloud Test Page",
-                    "targets": [{
-                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
-                        "role": "button",
-                        "name": target_name,
-                        "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
-                        "enabled": True,
-                        "visible": True,
-                        "sensitive": False,
-                    }, {
-                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
-                        "role": "textbox",
-                        "name": "Public note",
-                        "bounds": {"x": 20.0, "y": 84.0, "width": 240.0, "height": 36.0},
-                        "enabled": True,
-                        "visible": True,
-                        "sensitive": False,
-                    }, {
-                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(2)",
-                        "role": "textbox",
-                        "name": None,
-                        "bounds": {"x": 20.0, "y": 138.0, "width": 240.0, "height": 36.0},
-                        "enabled": True,
-                        "visible": True,
-                        "sensitive": True,
-                    }],
-                }
-                if business_recovery_completed:
-                    result["targets"].append({
-                        "path": "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)",
-                        "role": "status",
-                        "name": "Recovered workspace",
-                        "bounds": {"x": 20.0, "y": 192.0, "width": 180.0, "height": 28.0},
-                        "enabled": True,
-                        "visible": True,
-                        "sensitive": False,
-                    })
-                response = {
-                    "id": command["id"],
-                    "result": {"result": {"type": "object", "value": result}},
-                }
+                if self.path.startswith("/devtools/page/extension-"):
+                    if command.get("params", {}).get("expression") != (
+                        "setTimeout(() => chrome.runtime.reload(), 0); true"
+                    ):
+                        response = {
+                            "id": command["id"],
+                            "error": {"code": -32602, "message": "untrusted extension expression"},
+                        }
+                    else:
+                        business_recovery_completed = True
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {"type": "boolean", "value": True}
+                            },
+                        }
+                else:
+                    evaluation_count += 1
+                    target_name = (
+                        "Continue integration"
+                        if mutate_after > 0 and evaluation_count >= mutate_after
+                        else "Run integration"
+                    )
+                    result = {
+                        "url": "https://example.test/runtime",
+                        "title": "Browser Cloud Test Page",
+                        "targets": [{
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
+                            "role": "button",
+                            "name": target_name,
+                            "bounds": {"x": 20.0, "y": 30.0, "width": 120.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
+                            "role": "textbox",
+                            "name": "Public note",
+                            "bounds": {"x": 20.0, "y": 84.0, "width": 240.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(2)",
+                            "role": "textbox",
+                            "name": None,
+                            "bounds": {"x": 20.0, "y": 138.0, "width": 240.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": True,
+                        }],
+                    }
+                    if business_recovery_completed:
+                        result["targets"].append({
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)",
+                            "role": "status",
+                            "name": "Recovered workspace",
+                            "bounds": {"x": 20.0, "y": 192.0, "width": 180.0, "height": 28.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                        })
+                    response = {
+                        "id": command["id"],
+                        "result": {"result": {"type": "object", "value": result}},
+                    }
             elif method == "SystemInfo.getProcessInfo":
                 response = {
                     "id": command["id"],

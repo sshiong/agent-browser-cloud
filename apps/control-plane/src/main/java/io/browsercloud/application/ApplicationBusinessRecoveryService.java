@@ -85,6 +85,7 @@ public class ApplicationBusinessRecoveryService {
               write(normalized.requiredExtensionIds()),
               normalized.allowDepthLimited(),
               normalized.recoveryAction().name(),
+              normalized.recoveryExtensionId(),
               normalized.maximumAutoRecovery(),
               normalized.enabled(),
               now);
@@ -109,6 +110,7 @@ public class ApplicationBusinessRecoveryService {
         write(normalized.requiredExtensionIds()),
         normalized.allowDepthLimited(),
         normalized.recoveryAction().name(),
+        normalized.recoveryExtensionId(),
         normalized.maximumAutoRecovery(),
         normalized.enabled(),
         now);
@@ -185,9 +187,11 @@ public class ApplicationBusinessRecoveryService {
                     contract.getContractId(),
                     contract.getVersion(),
                     RecoveryAction.valueOf(contract.getRecoveryAction()),
+                    contract.getRecoveryExtensionId(),
                     contract.getMaximumAutoRecovery(),
                     readStrings(contract.getExpectedOrigins()),
-                    readStrings(contract.getReadyRoutePrefixes())));
+                    readStrings(contract.getReadyRoutePrefixes()),
+                    readStrings(contract.getRequiredExtensionIds())));
   }
 
   @Transactional(readOnly = true)
@@ -369,6 +373,22 @@ public class ApplicationBusinessRecoveryService {
         && (request.maximumAutoRecovery() == 0) != (recoveryAction == RecoveryAction.NONE)) {
       throw new RecoveryContractRejectedException("AUTO_RECOVERY_ACTION_BUDGET_MISMATCH");
     }
+    var requiredExtensionIds = identifierList(request.requiredExtensionIds());
+    var recoveryExtensionId =
+        request.recoveryExtensionId() == null || request.recoveryExtensionId().isBlank()
+            ? null
+            : request.recoveryExtensionId().strip();
+    if (recoveryAction == RecoveryAction.RESTART_EXTENSION) {
+      if (recoveryExtensionId == null
+          || !recoveryExtensionId.matches("^[a-p]{32}$")
+          || !requiredExtensionIds.contains(recoveryExtensionId)) {
+        throw new RecoveryContractRejectedException(
+            "RECOVERY_EXTENSION_MUST_BE_REQUIRED_CHROMIUM_EXTENSION");
+      }
+    } else if (recoveryExtensionId != null) {
+      throw new RecoveryContractRejectedException(
+          "RECOVERY_EXTENSION_REQUIRES_RESTART_EXTENSION_ACTION");
+    }
     return new NormalizedContract(
         expectedOrigins,
         routeList(request.readyRoutePrefixes()),
@@ -377,9 +397,10 @@ public class ApplicationBusinessRecoveryService {
         targetList(request.loginTargets()),
         targetList(request.permissionDeniedTargets()),
         targetList(request.accountMismatchTargets()),
-        identifierList(request.requiredExtensionIds()),
+        requiredExtensionIds,
         request.allowDepthLimited(),
         recoveryAction,
+        recoveryExtensionId,
         request.maximumAutoRecovery(),
         request.enabled());
   }
@@ -396,6 +417,7 @@ public class ApplicationBusinessRecoveryService {
         && readStrings(entity.getRequiredExtensionIds()).equals(value.requiredExtensionIds())
         && entity.isAllowDepthLimited() == value.allowDepthLimited()
         && entity.getRecoveryAction().equals(value.recoveryAction().name())
+        && java.util.Objects.equals(entity.getRecoveryExtensionId(), value.recoveryExtensionId())
         && entity.getMaximumAutoRecovery() == value.maximumAutoRecovery()
         && entity.isEnabled() == value.enabled();
   }
@@ -415,6 +437,7 @@ public class ApplicationBusinessRecoveryService {
         readStrings(entity.getRequiredExtensionIds()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
+        entity.getRecoveryExtensionId(),
         entity.getMaximumAutoRecovery(),
         entity.isEnabled(),
         entity.getCreatedAt(),
@@ -617,6 +640,7 @@ public class ApplicationBusinessRecoveryService {
       List<String> requiredExtensionIds,
       boolean allowDepthLimited,
       RecoveryAction recoveryAction,
+      String recoveryExtensionId,
       int maximumAutoRecovery,
       boolean enabled) {}
 
@@ -624,12 +648,15 @@ public class ApplicationBusinessRecoveryService {
       String contractId,
       long contractVersion,
       RecoveryAction action,
+      String recoveryExtensionId,
       int maximumAttempts,
       List<String> expectedOrigins,
-      List<String> readyRoutePrefixes) {
+      List<String> readyRoutePrefixes,
+      List<String> requiredExtensionIds) {
     public AutoRecoveryPolicy {
       expectedOrigins = List.copyOf(expectedOrigins);
       readyRoutePrefixes = List.copyOf(readyRoutePrefixes);
+      requiredExtensionIds = List.copyOf(requiredExtensionIds);
     }
   }
 

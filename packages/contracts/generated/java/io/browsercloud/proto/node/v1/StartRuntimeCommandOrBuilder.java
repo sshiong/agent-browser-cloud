@@ -328,4 +328,23 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The successTraceSamplePercent.
    */
   int getSuccessTraceSamplePercent();
+
+  /**
+   * <pre>
+   * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
+   * </pre>
+   *
+   * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+   * @return Whether the observerFrameRateFps field is set.
+   */
+  boolean hasObserverFrameRateFps();
+  /**
+   * <pre>
+   * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
+   * </pre>
+   *
+   * <code>optional uint32 observer_frame_rate_fps = 27 [json_name = "observerFrameRateFps"];</code>
+   * @return The observerFrameRateFps.
+   */
+  int getObserverFrameRateFps();
 }

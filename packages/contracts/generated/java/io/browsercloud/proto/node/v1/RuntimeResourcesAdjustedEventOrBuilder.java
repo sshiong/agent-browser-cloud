@@ -331,4 +331,26 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newSuccessTraceSamplePercent.
    */
   int getNewSuccessTraceSamplePercent();
+
+  /**
+   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+   * @return Whether the oldObserverFrameRateFps field is set.
+   */
+  boolean hasOldObserverFrameRateFps();
+  /**
+   * <code>optional uint32 old_observer_frame_rate_fps = 33 [json_name = "oldObserverFrameRateFps"];</code>
+   * @return The oldObserverFrameRateFps.
+   */
+  int getOldObserverFrameRateFps();
+
+  /**
+   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+   * @return Whether the newObserverFrameRateFps field is set.
+   */
+  boolean hasNewObserverFrameRateFps();
+  /**
+   * <code>optional uint32 new_observer_frame_rate_fps = 34 [json_name = "newObserverFrameRateFps"];</code>
+   * @return The newObserverFrameRateFps.
+   */
+  int getNewObserverFrameRateFps();
 }

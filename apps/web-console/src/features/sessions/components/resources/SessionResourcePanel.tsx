@@ -170,7 +170,7 @@ export function SessionResourcePanel({
 
           {resource.allocation ? (
             <div
-              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-4"
+              className="grid gap-px overflow-hidden border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-5"
               aria-label="非核心资源保护状态"
             >
               <div className="bg-surface-2 px-3 py-2.5">
@@ -221,6 +221,19 @@ export function SessionResourcePanel({
                 </p>
                 <p className="mt-1 text-[9px] text-text-muted">
                   失败与强制证据始终保留
+                </p>
+              </div>
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  Observer 帧率
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  {resource.allocation.observerFrameRateFps
+                    ? `Node 限制 ${resource.allocation.observerFrameRateFps} FPS`
+                    : '未启用桌面数据面'}
+                </p>
+                <p className="mt-1 text-[9px] text-text-muted">
+                  Human Input 不经过此节流器
                 </p>
               </div>
             </div>

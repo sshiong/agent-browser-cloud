@@ -1136,6 +1136,13 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   successTraceSamplePercent?: number;
 
+  /**
+   * 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
+   *
+   * @generated from field: optional uint32 observer_frame_rate_fps = 27;
+   */
+  observerFrameRateFps?: number;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1170,6 +1177,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 24, name: "block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 25, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
     { no: 26, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 27, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1545,6 +1553,13 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   successTraceSamplePercent?: number;
 
+  /**
+   * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+   *
+   * @generated from field: optional uint32 observer_frame_rate_fps = 22;
+   */
+  observerFrameRateFps?: number;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1574,6 +1589,7 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 19, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
     { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 21, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 22, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1801,6 +1817,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newSuccessTraceSamplePercent?: number;
 
+  /**
+   * @generated from field: optional uint32 old_observer_frame_rate_fps = 33;
+   */
+  oldObserverFrameRateFps?: number;
+
+  /**
+   * @generated from field: optional uint32 new_observer_frame_rate_fps = 34;
+   */
+  newObserverFrameRateFps?: number;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1841,6 +1867,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 30, name: "new_extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
     { no: 31, name: "old_success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 32, name: "new_success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 33, name: "old_observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 34, name: "new_observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

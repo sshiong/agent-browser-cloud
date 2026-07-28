@@ -386,6 +386,23 @@ for invariant in (
         f"success Trace migration lacks rolling invariant: {invariant}"
     )
 
+observer_frame_rate_migration = read(
+    "database/migrations/V046__browser_placement_observer_frame_rate.sql"
+)
+observer_frame_rate_upper = observer_frame_rate_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in observer_frame_rate_upper
+for invariant in (
+    "ADD COLUMN OBSERVER_FRAME_RATE_FPS INTEGER NOT NULL DEFAULT 0",
+    "SET OBSERVER_FRAME_RATE_FPS = 30",
+    "WHERE REQUIRES_DESKTOP",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_BROWSER_PLACEMENTS_OBSERVER_FRAME_RATE_FPS",
+):
+    assert invariant in observer_frame_rate_upper, (
+        f"Observer frame-rate migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -451,6 +468,7 @@ for message_name, fields in (
             ("block_new_tabs", 24, True),
             ("extension_background_policy", 25, False),
             ("success_trace_sample_percent", 26, True),
+            ("observer_frame_rate_fps", 27, True),
         ),
     ),
     (
@@ -463,6 +481,7 @@ for message_name, fields in (
             ("extension_background_policy", 19, False),
             ("extension_ids", 20, False),
             ("success_trace_sample_percent", 21, True),
+            ("observer_frame_rate_fps", 22, True),
         ),
     ),
     (
@@ -480,6 +499,8 @@ for message_name, fields in (
             ("new_extension_background_policy", 30, False),
             ("old_success_trace_sample_percent", 31, True),
             ("new_success_trace_sample_percent", 32, True),
+            ("old_observer_frame_rate_fps", 33, True),
+            ("new_observer_frame_rate_fps", 34, True),
         ),
     ),
 ):
@@ -554,8 +575,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V045 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-32,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,recovery-extension-tag-6",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V046 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-34,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recovery-extension-tag-6",
     "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

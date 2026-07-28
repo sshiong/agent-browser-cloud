@@ -105,7 +105,9 @@ Session Resource Panel 直接显示“已由 Node 冻结/阻断”或正常状�
 
 1. 成功 Trace 动态采样已由
    [进度 68](68-AUTO成功Trace动态采样闭环.md)关闭；
-2. 视频/Observer 录制停止与帧率执行器；
+2. Observer 帧率已由
+   [进度 69](69-AUTO-Observer帧率在线执行闭环.md)关闭；视频录制停止仍缺真实
+   Recording Worker/队列；
 3. Agent/Observer 截图频率执行器；
 4. 非关键 Extension 后台任务的逐扩展暂停已由
    [进度 67](67-AUTO非特权扩展后台暂停闭环.md)关闭；

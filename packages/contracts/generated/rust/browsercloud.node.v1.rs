@@ -309,6 +309,9 @@ pub struct StartRuntimeCommand {
     /// 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
     #[prost(uint32, optional, tag="26")]
     pub success_trace_sample_percent: ::core::option::Option<u32>,
+    /// 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
+    #[prost(uint32, optional, tag="27")]
+    pub observer_frame_rate_fps: ::core::option::Option<u32>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -422,6 +425,9 @@ pub struct AdjustRuntimeResourcesCommand {
     /// 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
     #[prost(uint32, optional, tag="21")]
     pub success_trace_sample_percent: ::core::option::Option<u32>,
+    /// 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+    #[prost(uint32, optional, tag="22")]
+    pub observer_frame_rate_fps: ::core::option::Option<u32>,
 }
 /// Browser Node 通过各 Extension background/service-worker Target 的 Debugger
 /// pause/resume 执行，避免直接卸载扩展或修改扩展集合。
@@ -500,6 +506,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_success_trace_sample_percent: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="32")]
     pub new_success_trace_sample_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="33")]
+    pub old_observer_frame_rate_fps: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="34")]
+    pub new_observer_frame_rate_fps: ::core::option::Option<u32>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

@@ -186,6 +186,10 @@ public class NodeEventMapper {
               payload.hasNewSuccessTraceSamplePercent()
                   ? payload.getNewSuccessTraceSamplePercent()
                   : null;
+          var oldObserverFrameRateFps =
+              payload.hasOldObserverFrameRateFps() ? payload.getOldObserverFrameRateFps() : null;
+          var newObserverFrameRateFps =
+              payload.hasNewObserverFrameRateFps() ? payload.getNewObserverFrameRateFps() : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
@@ -194,6 +198,7 @@ public class NodeEventMapper {
               || (oldBlockNewTabs == null) != (newBlockNewTabs == null)
               || (oldPausedExtensionIds == null) != (newPausedExtensionIds == null)
               || (oldSuccessTraceSamplePercent == null) != (newSuccessTraceSamplePercent == null)
+              || (oldObserverFrameRateFps == null) != (newObserverFrameRateFps == null)
               || !validExtensionPolicy(oldPausedExtensionIds)
               || !validExtensionPolicy(newPausedExtensionIds)
               || (oldSuccessTraceSamplePercent != null
@@ -201,6 +206,11 @@ public class NodeEventMapper {
                       || oldSuccessTraceSamplePercent > 100
                       || newSuccessTraceSamplePercent < 1
                       || newSuccessTraceSamplePercent > 100))
+              || (oldObserverFrameRateFps != null
+                  && (oldObserverFrameRateFps < 0
+                      || oldObserverFrameRateFps > 60
+                      || newObserverFrameRateFps < 0
+                      || newObserverFrameRateFps > 60))
               || (oldStateCollectorBudget != null
                   && (oldStateCollectorBudget < 10
                       || oldStateCollectorBudget > 100
@@ -254,6 +264,8 @@ public class NodeEventMapper {
               newPausedExtensionIds,
               oldSuccessTraceSamplePercent,
               newSuccessTraceSamplePercent,
+              oldObserverFrameRateFps,
+              newObserverFrameRateFps,
               payload.getReason(),
               payload.getOperationId());
         }

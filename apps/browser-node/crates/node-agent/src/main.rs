@@ -1157,6 +1157,7 @@ impl NodeControlService {
         previous_runtime: RuntimeResourceLimits,
         previous_state_collector_budget_percent: u32,
         previous_remote_desktop_bitrate_kbps: u32,
+        previous_observer_frame_rate_fps: u32,
         previous_tab_resource_policy: TabResourcePolicy,
     ) {
         if let Err(error) = self
@@ -1182,6 +1183,15 @@ impl NodeControlService {
                     session_id,
                     error = %error,
                     "Remote Desktop bitrate rollback failed"
+                );
+            }
+            if let Err(error) =
+                gateway.set_observer_frame_rate(session_id, previous_observer_frame_rate_fps)
+            {
+                tracing::error!(
+                    session_id,
+                    error = %error,
+                    "Observer frame-rate rollback failed"
                 );
             }
         }
@@ -1650,6 +1660,9 @@ impl NodeControlService {
                         let block_new_tabs = payload.block_new_tabs.unwrap_or(false);
                         let success_trace_sample_percent =
                             payload.success_trace_sample_percent.unwrap_or(100);
+                        let observer_frame_rate_fps = payload
+                            .observer_frame_rate_fps
+                            .unwrap_or(if payload.desktop_required { 30 } else { 0 });
                         let paused_extension_ids = payload
                             .extension_background_policy
                             .as_ref()
@@ -1663,10 +1676,14 @@ impl NodeControlService {
                             || payload.tab_budget == 0
                             || !(10..=100).contains(&state_collector_budget_percent)
                             || !(1..=100).contains(&success_trace_sample_percent)
+                            || observer_frame_rate_fps > 60
                             || remote_desktop_bitrate_kbps > 100_000
                             || (payload.desktop_required
                                 && !(250..=100_000).contains(&remote_desktop_bitrate_kbps))
                             || (!payload.desktop_required && remote_desktop_bitrate_kbps != 0)
+                            || (payload.desktop_required
+                                && !(1..=60).contains(&observer_frame_rate_fps))
+                            || (!payload.desktop_required && observer_frame_rate_fps != 0)
                             || !(1..=10_000).contains(&extension_cpu_weight)
                             || media_encoder_slots > 32
                             || paused_extension_ids.len()
@@ -1826,10 +1843,37 @@ impl NodeControlService {
                             .await
                         {
                             Ok(handle) => {
-                                if let (Some(gateway), Some(endpoint)) = (
-                                    self.remote_desktop_gateway.as_ref(),
-                                    handle.vnc_endpoint.as_ref(),
-                                ) {
+                                if payload.desktop_required {
+                                    let Some(gateway) = self.remote_desktop_gateway.as_ref() else {
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
+                                        return self.failed(
+                                            command,
+                                            anyhow::anyhow!(
+                                                "Remote Desktop Gateway is unavailable"
+                                            ),
+                                        );
+                                    };
+                                    let Some(endpoint) = handle.vnc_endpoint.as_ref() else {
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
+                                        return self.failed(
+                                            command,
+                                            anyhow::anyhow!(
+                                                "desktop Runtime did not expose a VNC endpoint"
+                                            ),
+                                        );
+                                    };
                                     let endpoint = match endpoint.parse::<SocketAddr>() {
                                         Ok(endpoint) => endpoint,
                                         Err(error) => {
@@ -1860,6 +1904,20 @@ impl NodeControlService {
                                     if let Err(error) = gateway.set_bitrate_limit(
                                         &command.session_id,
                                         remote_desktop_bitrate_kbps,
+                                    ) {
+                                        gateway.unregister_session(&command.session_id);
+                                        let _ =
+                                            self.runtime_supervisor.stop(&command.session_id).await;
+                                        self.release_start_resources(
+                                            &command.session_id,
+                                            &workspace,
+                                        )
+                                        .await;
+                                        return self.failed(command, error);
+                                    }
+                                    if let Err(error) = gateway.set_observer_frame_rate(
+                                        &command.session_id,
+                                        observer_frame_rate_fps,
                                     ) {
                                         gateway.unregister_session(&command.session_id);
                                         let _ =
@@ -2286,6 +2344,15 @@ impl NodeControlService {
                         let next_remote_desktop_bitrate_kbps = payload
                             .remote_desktop_bitrate_kbps
                             .unwrap_or(previous_remote_desktop_bitrate_kbps);
+                        let registered_observer_frame_rate_fps =
+                            self.remote_desktop_gateway.as_ref().and_then(|gateway| {
+                                gateway.observer_frame_rate_fps(&command.session_id)
+                            });
+                        let previous_observer_frame_rate_fps =
+                            registered_observer_frame_rate_fps.unwrap_or_default();
+                        let next_observer_frame_rate_fps = payload
+                            .observer_frame_rate_fps
+                            .unwrap_or(previous_observer_frame_rate_fps);
                         let next_tab_resource_policy = TabResourcePolicy {
                             tab_budget: payload.tab_budget,
                             freeze_background_tabs: payload
@@ -2345,6 +2412,18 @@ impl NodeControlService {
                                 anyhow::anyhow!("Remote Desktop bitrate actuator is unavailable"),
                             );
                         }
+                        if (registered_observer_frame_rate_fps.is_some()
+                            && !(1..=60).contains(&next_observer_frame_rate_fps))
+                            || (registered_observer_frame_rate_fps.is_none()
+                                && next_observer_frame_rate_fps != 0)
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "Observer frame rate must match the registered desktop data plane"
+                                ),
+                            );
+                        }
                         let runtime_adjustment = match self
                             .runtime_supervisor
                             .adjust_resources(&command.session_id, next)
@@ -2372,6 +2451,7 @@ impl NodeControlService {
                                 previous.clone(),
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
+                                previous_observer_frame_rate_fps,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2391,6 +2471,22 @@ impl NodeControlService {
                                     previous.clone(),
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
+                                    previous_observer_frame_rate_fps,
+                                    previous_tab_resource_policy.clone(),
+                                )
+                                .await;
+                                return self.failed(command, error);
+                            }
+                            if let Err(error) = gateway.set_observer_frame_rate(
+                                &command.session_id,
+                                next_observer_frame_rate_fps,
+                            ) {
+                                self.rollback_resource_adjustment(
+                                    &command.session_id,
+                                    previous.clone(),
+                                    previous_state_collector_budget_percent,
+                                    previous_remote_desktop_bitrate_kbps,
+                                    previous_observer_frame_rate_fps,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2410,6 +2506,7 @@ impl NodeControlService {
                                 previous.clone(),
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
+                                previous_observer_frame_rate_fps,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2423,6 +2520,7 @@ impl NodeControlService {
                                     previous,
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
+                                    previous_observer_frame_rate_fps,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2439,6 +2537,7 @@ impl NodeControlService {
                                 previous.clone(),
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
+                                previous_observer_frame_rate_fps,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2505,6 +2604,8 @@ impl NodeControlService {
                                 new_success_trace_sample_percent: Some(
                                     next_success_trace_sample_percent,
                                 ),
+                                old_observer_frame_rate_fps: Some(previous_observer_frame_rate_fps),
+                                new_observer_frame_rate_fps: Some(next_observer_frame_rate_fps),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))

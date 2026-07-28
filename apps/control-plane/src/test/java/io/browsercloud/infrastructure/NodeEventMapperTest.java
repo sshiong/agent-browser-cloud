@@ -126,6 +126,8 @@ class NodeEventMapperTest {
                 ExtensionBackgroundPolicy.newBuilder().addPausedExtensionIds("extension.new"))
             .setOldSuccessTraceSamplePercent(100)
             .setNewSuccessTraceSamplePercent(10)
+            .setOldObserverFrameRateFps(30)
+            .setNewObserverFrameRateFps(5)
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -153,6 +155,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newPausedExtensionIds()).containsExactly("extension.new");
               assertThat(adjusted.oldSuccessTraceSamplePercent()).isEqualTo(100);
               assertThat(adjusted.newSuccessTraceSamplePercent()).isEqualTo(10);
+              assertThat(adjusted.oldObserverFrameRateFps()).isEqualTo(30);
+              assertThat(adjusted.newObserverFrameRateFps()).isEqualTo(5);
             });
   }
 
@@ -197,6 +201,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newPausedExtensionIds()).isNull();
               assertThat(adjusted.oldSuccessTraceSamplePercent()).isNull();
               assertThat(adjusted.newSuccessTraceSamplePercent()).isNull();
+              assertThat(adjusted.oldObserverFrameRateFps()).isNull();
+              assertThat(adjusted.newObserverFrameRateFps()).isNull();
             });
   }
 
@@ -225,6 +231,43 @@ class NodeEventMapperTest {
     var envelope =
         EventEnvelope.newBuilder()
             .setEventId("evt-resource-invalid-trace")
+            .setEventType(NodeEventMapper.RUNTIME_RESOURCES_ADJUSTED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("non-cgroup");
+  }
+
+  @Test
+  void shouldRejectOneSidedObserverFrameRateAcknowledgement() {
+    var payload =
+        RuntimeResourcesAdjustedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setNodeId("node-test")
+            .setOldResourceClass("L2")
+            .setOldCpuMillis(600)
+            .setOldMemoryRequestMib(768)
+            .setOldMemoryLimitMib(1280)
+            .setOldPidLimit(256)
+            .setOldTabBudget(8)
+            .setNewResourceClass("L2")
+            .setNewCpuMillis(600)
+            .setNewMemoryRequestMib(768)
+            .setNewMemoryLimitMib(1280)
+            .setNewPidLimit(256)
+            .setNewTabBudget(8)
+            .setReason("MAXIMUM_NON_CORE_MITIGATION")
+            .setOperationId("op-resource")
+            .setNewObserverFrameRateFps(5)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-resource-invalid-observer-fps")
             .setEventType(NodeEventMapper.RUNTIME_RESOURCES_ADJUSTED)
             .setTenantId("tenant-test")
             .setSessionId("ses_test")

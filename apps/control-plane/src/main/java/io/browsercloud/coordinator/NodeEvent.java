@@ -79,6 +79,8 @@ public sealed interface NodeEvent
       List<String> newPausedExtensionIds,
       Integer oldSuccessTraceSamplePercent,
       Integer newSuccessTraceSamplePercent,
+      Integer oldObserverFrameRateFps,
+      Integer newObserverFrameRateFps,
       String reason,
       String operationId)
       implements NodeEvent {

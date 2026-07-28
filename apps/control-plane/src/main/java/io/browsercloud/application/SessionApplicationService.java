@@ -263,6 +263,7 @@ public class SessionApplicationService {
                     placement.newTabsBlocked(),
                     placement.pausedExtensionIds(),
                     placement.successTraceSamplePercent(),
+                    placement.observerFrameRateFps(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

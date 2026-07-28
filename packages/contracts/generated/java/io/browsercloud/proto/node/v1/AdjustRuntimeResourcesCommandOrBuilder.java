@@ -278,4 +278,23 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The successTraceSamplePercent.
    */
   int getSuccessTraceSamplePercent();
+
+  /**
+   * <pre>
+   * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+   * </pre>
+   *
+   * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+   * @return Whether the observerFrameRateFps field is set.
+   */
+  boolean hasObserverFrameRateFps();
+  /**
+   * <pre>
+   * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+   * </pre>
+   *
+   * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+   * @return The observerFrameRateFps.
+   */
+  int getObserverFrameRateFps();
 }

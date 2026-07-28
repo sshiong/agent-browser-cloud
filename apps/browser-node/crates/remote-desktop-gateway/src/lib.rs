@@ -65,6 +65,7 @@ struct GatewayState {
     connection_generations: Mutex<HashMap<String, u64>>,
     last_server_frame_at: Mutex<HashMap<String, Instant>>,
     bitrate_limits_kbps: Mutex<HashMap<String, u32>>,
+    observer_frame_rates_fps: Mutex<HashMap<String, u32>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
@@ -164,6 +165,7 @@ impl RemoteDesktopGateway {
                 connection_generations: Mutex::new(HashMap::new()),
                 last_server_frame_at: Mutex::new(HashMap::new()),
                 bitrate_limits_kbps: Mutex::new(HashMap::new()),
+                observer_frame_rates_fps: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -194,6 +196,12 @@ impl RemoteDesktopGateway {
             .expect("bitrate limit lock poisoned")
             .entry(session_id.to_owned())
             .or_insert(0);
+        self.state
+            .observer_frame_rates_fps
+            .lock()
+            .expect("Observer frame-rate lock poisoned")
+            .entry(session_id.to_owned())
+            .or_insert(30);
         Ok(())
     }
 
@@ -212,6 +220,11 @@ impl RemoteDesktopGateway {
             .bitrate_limits_kbps
             .lock()
             .expect("bitrate limit lock poisoned")
+            .remove(session_id);
+        self.state
+            .observer_frame_rates_fps
+            .lock()
+            .expect("Observer frame-rate lock poisoned")
             .remove(session_id);
     }
 
@@ -249,13 +262,78 @@ impl RemoteDesktopGateway {
             .copied()
     }
 
-    async fn apply_server_bitrate_limit(&self, session_id: &str, bytes: usize) {
+    /// 在线限制受控 VNC Observer 数据面向客户端转发数据批次的最大频率。
+    ///
+    /// VNC TCP 流不暴露编码帧边界，因此这里在安全边界内对 Server → Client
+    /// 转发批次做节流；它不会延迟 Client → Server 的 Human Input。
+    pub fn set_observer_frame_rate(
+        &self,
+        session_id: &str,
+        frame_rate_fps: u32,
+    ) -> anyhow::Result<u32> {
+        anyhow::ensure!(
+            (1..=60).contains(&frame_rate_fps),
+            "Observer frame rate must be between 1 and 60 FPS"
+        );
+        anyhow::ensure!(
+            self.state
+                .vnc_endpoints
+                .read()
+                .expect("VNC endpoint lock poisoned")
+                .contains_key(session_id),
+            "remote desktop session is not registered"
+        );
+        Ok(self
+            .state
+            .observer_frame_rates_fps
+            .lock()
+            .expect("Observer frame-rate lock poisoned")
+            .insert(session_id.to_owned(), frame_rate_fps)
+            .unwrap_or(30))
+    }
+
+    pub fn observer_frame_rate_fps(&self, session_id: &str) -> Option<u32> {
+        self.state
+            .observer_frame_rates_fps
+            .lock()
+            .expect("Observer frame-rate lock poisoned")
+            .get(session_id)
+            .copied()
+    }
+
+    fn server_bitrate_delay(&self, session_id: &str, bytes: usize) -> Duration {
         let bitrate_kbps = self.bitrate_limit_kbps(session_id).unwrap_or_default();
         if bitrate_kbps == 0 || bytes == 0 {
-            return;
+            return Duration::ZERO;
         }
         let seconds = bytes as f64 * 8.0 / (f64::from(bitrate_kbps) * 1_000.0);
-        tokio::time::sleep(Duration::from_secs_f64(seconds)).await;
+        Duration::from_secs_f64(seconds)
+    }
+
+    fn observer_frame_rate_delay(
+        &self,
+        session_id: &str,
+        last_forwarded_at: Option<Instant>,
+    ) -> Duration {
+        let frame_rate_fps = self.observer_frame_rate_fps(session_id).unwrap_or(30);
+        let minimum_interval = Duration::from_secs_f64(1.0 / f64::from(frame_rate_fps));
+        if let Some(last_forwarded_at) = last_forwarded_at {
+            let elapsed = last_forwarded_at.elapsed();
+            if elapsed < minimum_interval {
+                return minimum_interval - elapsed;
+            }
+        }
+        Duration::ZERO
+    }
+
+    fn server_forwarding_delay(
+        &self,
+        session_id: &str,
+        bytes: usize,
+        last_forwarded_at: Option<Instant>,
+    ) -> Duration {
+        self.server_bitrate_delay(session_id, bytes)
+            .max(self.observer_frame_rate_delay(session_id, last_forwarded_at))
     }
 
     /// 返回当前活跃远程桌面连接距离最近一批 VNC Server 数据的年龄。
@@ -392,6 +470,9 @@ impl RemoteDesktopGateway {
         );
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_client_activity = tokio::time::Instant::now();
+        let mut last_server_forwarded_at = None;
+        let mut pending_server_payload = None;
+        let mut pending_server_ready_at = tokio::time::Instant::now();
         loop {
             tokio::select! {
                 _ = heartbeat.tick() => {
@@ -401,7 +482,7 @@ impl RemoteDesktopGateway {
                     );
                     websocket.send(Message::Ping(Vec::new())).await?;
                 }
-                read = vnc.read(&mut buffer) => {
+                read = vnc.read(&mut buffer), if pending_server_payload.is_none() => {
                     let read = read?;
                     if read == 0 {
                         break;
@@ -411,11 +492,22 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
-                    self.apply_server_bitrate_limit(&authorized.claims.session_id, read)
-                        .await;
+                    pending_server_ready_at = tokio::time::Instant::now() + self.server_forwarding_delay(
+                        &authorized.claims.session_id,
+                        read,
+                        last_server_forwarded_at,
+                    );
+                    pending_server_payload = Some(buffer[..read].to_vec());
+                }
+                _ = tokio::time::sleep_until(pending_server_ready_at), if pending_server_payload.is_some() => {
                     websocket
-                        .send(Message::Binary(buffer[..read].to_vec()))
+                        .send(Message::Binary(
+                            pending_server_payload
+                                .take()
+                                .expect("guarded pending Observer payload"),
+                        ))
                         .await?;
+                    last_server_forwarded_at = Some(Instant::now());
                 }
                 message = websocket.next() => {
                     match message {
@@ -756,14 +848,123 @@ mod tests {
             .set_bitrate_limit("ses_bitrate1234567890", 250)
             .unwrap();
 
-        let started = Instant::now();
-        gateway
-            .apply_server_bitrate_limit("ses_bitrate1234567890", 1_000)
-            .await;
         assert!(
-            started.elapsed() >= Duration::from_millis(30),
+            gateway.server_bitrate_delay("ses_bitrate1234567890", 1_000)
+                >= Duration::from_millis(30),
             "1KB at 250Kbps must consume the configured transmission budget"
         );
+    }
+
+    #[tokio::test]
+    async fn enforces_configured_observer_forwarding_rate_without_affecting_input_path() {
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        gateway
+            .register_session("ses_observer123456789", "127.0.0.1:5901".parse().unwrap())
+            .unwrap();
+        assert_eq!(
+            gateway.observer_frame_rate_fps("ses_observer123456789"),
+            Some(30)
+        );
+        assert!(gateway
+            .set_observer_frame_rate("ses_observer123456789", 0)
+            .is_err());
+        assert_eq!(
+            gateway
+                .set_observer_frame_rate("ses_observer123456789", 5)
+                .unwrap(),
+            30
+        );
+
+        assert_eq!(
+            gateway.observer_frame_rate_delay("ses_observer123456789", None),
+            Duration::ZERO
+        );
+        assert!(
+            gateway.observer_frame_rate_delay("ses_observer123456789", Some(Instant::now()),)
+                >= Duration::from_millis(180),
+            "5 FPS must keep consecutive Observer forwarding batches about 200ms apart"
+        );
+
+        gateway.unregister_session("ses_observer123456789");
+        assert_eq!(
+            gateway.observer_frame_rate_fps("ses_observer123456789"),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn observer_throttle_does_not_block_human_input_forwarding() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        let (second_frame_sender, second_frame_receiver) = oneshot::channel();
+        let (input_sender, input_receiver) = oneshot::channel();
+        tokio::spawn(async move {
+            let (mut stream, _) = vnc_listener.accept().await.unwrap();
+            stream.write_all(b"first-frame").await.unwrap();
+            second_frame_receiver.await.unwrap();
+            stream.write_all(b"second-frame").await.unwrap();
+            let mut input = [0_u8; 64];
+            let read = stream.read(&mut input).await.unwrap();
+            input_sender.send(input[..read].to_vec()).unwrap();
+        });
+
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        gateway
+            .register_session("ses_inputpriority1234", vnc_endpoint)
+            .unwrap();
+        gateway
+            .set_observer_frame_rate("ses_inputpriority1234", 1)
+            .unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let mut request = format!(
+            "ws://{gateway_endpoint}/desktop/v1/sessions/ses_inputpriority1234?ticket={}",
+            ticket("ses_inputpriority1234", &nonce)
+        )
+        .into_client_request()
+        .unwrap();
+        request
+            .headers_mut()
+            .insert(ORIGIN, "http://console.test".parse().unwrap());
+        let (mut websocket, _) = connect_async(request).await.unwrap();
+        loop {
+            match websocket.next().await.unwrap().unwrap() {
+                Message::Binary(payload) => {
+                    assert_eq!(payload, b"first-frame");
+                    break;
+                }
+                Message::Ping(payload) => websocket.send(Message::Pong(payload)).await.unwrap(),
+                other => panic!("unexpected message before first Observer frame: {other:?}"),
+            }
+        }
+
+        second_frame_sender.send(()).unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        websocket
+            .send(Message::Binary(b"human-input".to_vec()))
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_millis(200), input_receiver)
+                .await
+                .expect("Human Input must not wait for the one-second Observer frame interval")
+                .unwrap(),
+            b"human-input"
+        );
+        websocket.close(None).await.unwrap();
     }
 
     #[tokio::test]

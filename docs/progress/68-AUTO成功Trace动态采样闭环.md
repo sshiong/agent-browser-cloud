@@ -83,7 +83,9 @@ Web 不根据压力状态猜测百分比，也不在前端执行随机采样。
 
 ## 仍需完成
 
-1. 视频/Observer 录制停止与帧率执行器；
+1. Observer 帧率已由
+   [进度 69](69-AUTO-Observer帧率在线执行闭环.md)关闭；视频录制停止仍缺真实
+   Recording Worker/队列；
 2. Agent/Observer 成功截图频率执行器；
 3. 正式 OpenTelemetry Collector/Exporter、Tail Sampling 和跨服务 Trace Context
    属于完整 Observability 平台能力；本轮关闭的是 Browser Node Session 级成功命令

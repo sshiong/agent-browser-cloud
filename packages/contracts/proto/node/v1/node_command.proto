@@ -204,6 +204,8 @@ message StartRuntimeCommand {
   ExtensionBackgroundPolicy extension_background_policy = 25;
   // 只作用于可丢弃的成功命令 Trace；失败、Crash、Audit、Operation 和 Billing 不采样。
   optional uint32 success_trace_sample_percent = 26;
+  // 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
+  optional uint32 observer_frame_rate_fps = 27;
 }
 
 // Runtime 启动事件
@@ -270,6 +272,8 @@ message AdjustRuntimeResourcesCommand {
   repeated string extension_ids = 20;
   // 1..100；缺失时保持当前值，以支持 N/N-1 滚动升级。
   optional uint32 success_trace_sample_percent = 21;
+  // 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+  optional uint32 observer_frame_rate_fps = 22;
 }
 
 // Browser Node 通过各 Extension background/service-worker Target 的 Debugger
@@ -313,6 +317,8 @@ message RuntimeResourcesAdjustedEvent {
   ExtensionBackgroundPolicy new_extension_background_policy = 30;
   optional uint32 old_success_trace_sample_percent = 31;
   optional uint32 new_success_trace_sample_percent = 32;
+  optional uint32 old_observer_frame_rate_fps = 33;
+  optional uint32 new_observer_frame_rate_fps = 34;
 }
 
 // Browser Crash 事件

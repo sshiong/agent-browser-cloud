@@ -275,6 +275,7 @@ export interface SessionResourceView {
     newTabsBlocked: boolean;
     pausedExtensionIds?: string[];
     successTraceSamplePercent?: number;
+    observerFrameRateFps?: number;
     placementState: string;
   };
   usage?: {

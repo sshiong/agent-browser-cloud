@@ -3748,6 +3748,7 @@ components:
         - newTabsBlocked
         - pausedExtensionIds
         - successTraceSamplePercent
+        - observerFrameRateFps
         - mediaBitrateKbps
         - placementScore
         - state
@@ -3826,6 +3827,11 @@ components:
           minimum: 1
           maximum: 100
           description: Node-acknowledged sampling percentage for optional successful command traces. Failures and mandatory evidence are not sampled.
+        observerFrameRateFps:
+          type: integer
+          minimum: 0
+          maximum: 60
+          description: Node-acknowledged maximum Observer forwarding rate. It is zero only for Sessions without a desktop data plane.
         mediaBitrateKbps:
           type: integer
           minimum: 0
@@ -4421,6 +4427,7 @@ components:
             - newTabsBlocked
             - pausedExtensionIds
             - successTraceSamplePercent
+            - observerFrameRateFps
             - placementState
           properties:
             nodeId:
@@ -4474,6 +4481,10 @@ components:
               type: integer
               minimum: 1
               maximum: 100
+            observerFrameRateFps:
+              type: integer
+              minimum: 0
+              maximum: 60
             placementState:
               type: string
         usage:

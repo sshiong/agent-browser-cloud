@@ -14,6 +14,7 @@ import io.browsercloud.api.ResourcePolicyRequest;
 import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.coordinator.NodeCommandGateway;
+import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.resource.MaximumReachedPolicy;
@@ -196,6 +197,55 @@ class SessionResourceCostAndMaximumPolicyTest {
     assertThat(payload.getExtensionBackgroundPolicy().getPausedExtensionIdsList())
         .containsExactly("extension.noncritical");
     assertThat(payload.getSuccessTraceSamplePercent()).isEqualTo(10);
+    assertThat(payload.getObserverFrameRateFps()).isEqualTo(5);
+  }
+
+  @Test
+  void observerFrameRateAcknowledgementMustMatchTheCurrentPlacement() {
+    var now = Instant.now();
+    var placement = placement(now);
+    when(sessions.require("ses_cost")).thenReturn(session(now));
+    when(placements.findById("ses_cost")).thenReturn(Optional.of(placement));
+    var adjusted =
+        new NodeEvent.RuntimeResourcesAdjusted(
+            "ses_cost",
+            "node_test",
+            "L4",
+            4_000,
+            3_500,
+            4_096,
+            256,
+            12,
+            "L4",
+            4_000,
+            3_500,
+            4_096,
+            256,
+            12,
+            50,
+            8_000,
+            50,
+            8_000,
+            100,
+            100,
+            2,
+            2,
+            false,
+            false,
+            false,
+            false,
+            List.of(),
+            List.of(),
+            100,
+            100,
+            5,
+            5,
+            "MAXIMUM_NON_CORE_MITIGATION",
+            "op-resource");
+
+    assertThatThrownBy(() -> service.recordAdjustmentAcknowledged("tenant-test", adjusted))
+        .isInstanceOf(SessionResourceApplicationService.ResourceTelemetryRejectedException.class)
+        .hasMessageContaining("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
   }
 
   private static SessionResourcePolicyEntity policy(

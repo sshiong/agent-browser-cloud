@@ -525,6 +525,33 @@ private static final long serialVersionUID = 0L;
     return successTraceSamplePercent_;
   }
 
+  public static final int OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER = 22;
+  private int observerFrameRateFps_ = 0;
+  /**
+   * <pre>
+   * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+   * </pre>
+   *
+   * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+   * @return Whether the observerFrameRateFps field is set.
+   */
+  @java.lang.Override
+  public boolean hasObserverFrameRateFps() {
+    return ((bitField0_ & 0x00000100) != 0);
+  }
+  /**
+   * <pre>
+   * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+   * </pre>
+   *
+   * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+   * @return The observerFrameRateFps.
+   */
+  @java.lang.Override
+  public int getObserverFrameRateFps() {
+    return observerFrameRateFps_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -601,6 +628,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000080) != 0)) {
       output.writeUInt32(21, successTraceSamplePercent_);
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      output.writeUInt32(22, observerFrameRateFps_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -696,6 +726,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(21, successTraceSamplePercent_);
     }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(22, observerFrameRateFps_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -777,6 +811,11 @@ private static final long serialVersionUID = 0L;
       if (getSuccessTraceSamplePercent()
           != other.getSuccessTraceSamplePercent()) return false;
     }
+    if (hasObserverFrameRateFps() != other.hasObserverFrameRateFps()) return false;
+    if (hasObserverFrameRateFps()) {
+      if (getObserverFrameRateFps()
+          != other.getObserverFrameRateFps()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -853,6 +892,10 @@ private static final long serialVersionUID = 0L;
     if (hasSuccessTraceSamplePercent()) {
       hash = (37 * hash) + SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER;
       hash = (53 * hash) + getSuccessTraceSamplePercent();
+    }
+    if (hasObserverFrameRateFps()) {
+      hash = (37 * hash) + OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER;
+      hash = (53 * hash) + getObserverFrameRateFps();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1021,6 +1064,7 @@ private static final long serialVersionUID = 0L;
       extensionIds_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
       successTraceSamplePercent_ = 0;
+      observerFrameRateFps_ = 0;
       return this;
     }
 
@@ -1128,6 +1172,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00100000) != 0)) {
         result.successTraceSamplePercent_ = successTraceSamplePercent_;
         to_bitField0_ |= 0x00000080;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.observerFrameRateFps_ = observerFrameRateFps_;
+        to_bitField0_ |= 0x00000100;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1251,6 +1299,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasSuccessTraceSamplePercent()) {
         setSuccessTraceSamplePercent(other.getSuccessTraceSamplePercent());
+      }
+      if (other.hasObserverFrameRateFps()) {
+        setObserverFrameRateFps(other.getObserverFrameRateFps());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1386,6 +1437,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00100000;
               break;
             } // case 168
+            case 176: {
+              observerFrameRateFps_ = input.readUInt32();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 176
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2547,6 +2603,62 @@ private static final long serialVersionUID = 0L;
     public Builder clearSuccessTraceSamplePercent() {
       bitField0_ = (bitField0_ & ~0x00100000);
       successTraceSamplePercent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int observerFrameRateFps_ ;
+    /**
+     * <pre>
+     * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+     * </pre>
+     *
+     * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+     * @return Whether the observerFrameRateFps field is set.
+     */
+    @java.lang.Override
+    public boolean hasObserverFrameRateFps() {
+      return ((bitField0_ & 0x00200000) != 0);
+    }
+    /**
+     * <pre>
+     * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+     * </pre>
+     *
+     * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+     * @return The observerFrameRateFps.
+     */
+    @java.lang.Override
+    public int getObserverFrameRateFps() {
+      return observerFrameRateFps_;
+    }
+    /**
+     * <pre>
+     * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+     * </pre>
+     *
+     * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+     * @param value The observerFrameRateFps to set.
+     * @return This builder for chaining.
+     */
+    public Builder setObserverFrameRateFps(int value) {
+
+      observerFrameRateFps_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
+     * </pre>
+     *
+     * <code>optional uint32 observer_frame_rate_fps = 22 [json_name = "observerFrameRateFps"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearObserverFrameRateFps() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      observerFrameRateFps_ = 0;
       onChanged();
       return this;
     }

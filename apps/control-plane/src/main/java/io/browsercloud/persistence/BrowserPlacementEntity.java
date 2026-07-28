@@ -95,6 +95,9 @@ public class BrowserPlacementEntity {
   @Column(name = "success_trace_sample_percent", nullable = false)
   private int successTraceSamplePercent;
 
+  @Column(name = "observer_frame_rate_fps", nullable = false)
+  private int observerFrameRateFps;
+
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
@@ -172,6 +175,7 @@ public class BrowserPlacementEntity {
     this.newTabsBlocked = false;
     this.pausedExtensionIds = "[]";
     this.successTraceSamplePercent = 100;
+    this.observerFrameRateFps = requiresDesktop ? 30 : 0;
     this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
@@ -227,7 +231,8 @@ public class BrowserPlacementEntity {
       boolean nextBackgroundTabsFrozen,
       boolean nextNewTabsBlocked,
       String nextPausedExtensionIds,
-      int nextSuccessTraceSamplePercent) {
+      int nextSuccessTraceSamplePercent,
+      int nextObserverFrameRateFps) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -242,8 +247,12 @@ public class BrowserPlacementEntity {
         || nextRemoteDesktopBitrateKbps > 100_000
         || nextSuccessTraceSamplePercent < 1
         || nextSuccessTraceSamplePercent > 100
+        || nextObserverFrameRateFps < 0
+        || nextObserverFrameRateFps > 60
         || (requiresDesktop && nextRemoteDesktopBitrateKbps < 250)
-        || (!requiresDesktop && nextRemoteDesktopBitrateKbps != 0)) {
+        || (!requiresDesktop && nextRemoteDesktopBitrateKbps != 0)
+        || (requiresDesktop && nextObserverFrameRateFps < 1)
+        || (!requiresDesktop && nextObserverFrameRateFps != 0)) {
       throw new IllegalArgumentException("resource adjustment is invalid");
     }
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
@@ -269,6 +278,7 @@ public class BrowserPlacementEntity {
     newTabsBlocked = nextNewTabsBlocked;
     pausedExtensionIds = nextPausedExtensionIds;
     successTraceSamplePercent = nextSuccessTraceSamplePercent;
+    observerFrameRateFps = nextObserverFrameRateFps;
   }
 
   public String getSessionId() {
@@ -373,6 +383,10 @@ public class BrowserPlacementEntity {
 
   public int getSuccessTraceSamplePercent() {
     return successTraceSamplePercent;
+  }
+
+  public int getObserverFrameRateFps() {
+    return observerFrameRateFps;
   }
 
   public int getMediaBitrateKbps() {

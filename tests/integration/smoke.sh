@@ -102,6 +102,10 @@ cleanup() {
     tail -n 240 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
+    echo '--- postgres container log ---' >&2
+    docker logs "$postgres_name" >&2 2>/dev/null || true
+    echo '--- redis container log ---' >&2
+    docker logs "$redis_name" >&2 2>/dev/null || true
   fi
   docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
   rm -rf "$temp_dir"
@@ -196,14 +200,43 @@ start_browser_node() {
   node_pid=$!
 }
 
-for _ in $(seq 1 40); do
-  docker exec "$postgres_name" pg_isready -U browsercloud -d browsercloud >/dev/null 2>&1 && break
-  sleep 0.5
-done
-for _ in $(seq 1 40); do
-  docker exec "$redis_name" redis-cli ping 2>/dev/null | grep -q PONG && break
-  sleep 0.25
-done
+wait_for_postgres() {
+  for _ in $(seq 1 80); do
+    if docker exec "$postgres_name" psql -U browsercloud -d browsercloud \
+      -qAt -v ON_ERROR_STOP=1 -c 'SELECT 1;' 2>/dev/null | grep -qx '1'; then
+      return
+    fi
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$postgres_name" 2>/dev/null || true)" != "true" ]]; then
+      echo "PostgreSQL container exited before becoming SQL-ready." >&2
+      docker logs "$postgres_name" >&2 2>/dev/null || true
+      exit 1
+    fi
+    sleep 0.5
+  done
+  echo "PostgreSQL did not become SQL-ready within 40 seconds." >&2
+  docker logs "$postgres_name" >&2 2>/dev/null || true
+  exit 1
+}
+
+wait_for_redis() {
+  for _ in $(seq 1 80); do
+    if docker exec "$redis_name" redis-cli ping 2>/dev/null | grep -qx 'PONG'; then
+      return
+    fi
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$redis_name" 2>/dev/null || true)" != "true" ]]; then
+      echo "Redis container exited before becoming ready." >&2
+      docker logs "$redis_name" >&2 2>/dev/null || true
+      exit 1
+    fi
+    sleep 0.25
+  done
+  echo "Redis did not become ready within 20 seconds." >&2
+  docker logs "$redis_name" >&2 2>/dev/null || true
+  exit 1
+}
+
+wait_for_postgres
+wait_for_redis
 
 {
   printf '%s\n' \

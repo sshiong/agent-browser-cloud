@@ -47,7 +47,10 @@ List/Detail 无法回答“这个环境创建时绑定了哪些扩展”，因�
 - 完整 PostgreSQL 17 + Browser Node Integration 先构造旧版 Session/Demand 并执行
   V038 回填，再验证新建 Session 的 Session/Demand/Placement 一致、List/Detail 返回
   `unknown.integration`、重复 ID 请求返回 400、Node 使用可信路径启动，终止后绑定仍
-  保留。
+  保留；
+- 针对远端首次拉取 PostgreSQL 镜像后的启动竞争，Integration 不再以
+  `pg_isready` 后静默继续，而是等待真实 `SELECT 1` 成功；超时或容器提前退出会
+  fail-closed 并输出 PostgreSQL/Redis 容器日志。本地修复后完整 Integration 再次通过。
 
 ## 明确未完成
 

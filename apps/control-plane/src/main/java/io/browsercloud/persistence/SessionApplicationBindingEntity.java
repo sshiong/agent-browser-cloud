@@ -71,4 +71,10 @@ public class SessionApplicationBindingEntity {
   public Instant getBoundAt() {
     return boundAt;
   }
+
+  public void rebind(String contractId, long contractVersion, Instant now) {
+    this.contractId = contractId;
+    this.contractVersion = contractVersion;
+    this.boundAt = now;
+  }
 }

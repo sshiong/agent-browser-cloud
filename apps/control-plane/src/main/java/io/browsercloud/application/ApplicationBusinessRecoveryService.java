@@ -7,6 +7,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.coordinator.OperationFactory;
+import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.persistence.*;
 import java.net.URI;
@@ -31,10 +33,13 @@ public class ApplicationBusinessRecoveryService {
   private static final TypeReference<List<TargetIndicator>> TARGET_LIST = new TypeReference<>() {};
 
   private final ApplicationRecoveryContractJpaRepository contracts;
+  private final ApplicationRecoveryContractRevisionJpaRepository revisions;
   private final ApplicationRecoveryContractApprovalJpaRepository approvals;
   private final SessionApplicationBindingJpaRepository bindings;
+  private final SessionApplicationRebindJpaRepository rebinds;
   private final BusinessRecoveryValidationJpaRepository validations;
   private final SessionRepository sessions;
+  private final OperationRepository operations;
   private final BrowserStateRepository browserStates;
   private final BrowserCapacityApplicationService capacity;
   private final BusinessRecoveryValidator defaultValidator;
@@ -44,10 +49,13 @@ public class ApplicationBusinessRecoveryService {
 
   public ApplicationBusinessRecoveryService(
       ApplicationRecoveryContractJpaRepository contracts,
+      ApplicationRecoveryContractRevisionJpaRepository revisions,
       ApplicationRecoveryContractApprovalJpaRepository approvals,
       SessionApplicationBindingJpaRepository bindings,
+      SessionApplicationRebindJpaRepository rebinds,
       BusinessRecoveryValidationJpaRepository validations,
       SessionRepository sessions,
+      OperationRepository operations,
       BrowserStateRepository browserStates,
       BrowserCapacityApplicationService capacity,
       BusinessRecoveryValidator defaultValidator,
@@ -55,10 +63,13 @@ public class ApplicationBusinessRecoveryService {
       AuditApplicationService audit,
       ObjectMapper objectMapper) {
     this.contracts = contracts;
+    this.revisions = revisions;
     this.approvals = approvals;
     this.bindings = bindings;
+    this.rebinds = rebinds;
     this.validations = validations;
     this.sessions = sessions;
+    this.operations = operations;
     this.browserStates = browserStates;
     this.capacity = capacity;
     this.defaultValidator = defaultValidator;
@@ -307,6 +318,138 @@ public class ApplicationBusinessRecoveryService {
             now));
   }
 
+  @Transactional(readOnly = true)
+  public SessionApplicationBindingView binding(String sessionId, String tenantId) {
+    requireTenant(sessionId, tenantId);
+    var binding =
+        bindings
+            .findBySessionIdAndTenantId(sessionId, tenantId)
+            .orElseThrow(SessionApplicationBindingNotFoundException::new);
+    var current =
+        contracts
+            .findById(binding.getContractId())
+            .filter(item -> item.getTenantId().equals(tenantId))
+            .filter(item -> item.getApplicationId().equals(binding.getApplicationId()))
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    var approval = currentApproval(current);
+    var approvalState =
+        approval
+            .map(item -> RecoveryContractApprovalState.valueOf(item.getState()))
+            .orElse(RecoveryContractApprovalState.DRAFT);
+    var upgradeAvailable =
+        current.isEnabled()
+            && current.getVersion() > binding.getContractVersion()
+            && approvalState == RecoveryContractApprovalState.APPROVED;
+    return new SessionApplicationBindingView(
+        sessionId,
+        binding.getApplicationId(),
+        binding.getContractId(),
+        binding.getContractVersion(),
+        current.getVersion(),
+        approvalState,
+        current.isEnabled(),
+        upgradeAvailable,
+        binding.getBoundAt());
+  }
+
+  @Transactional
+  public SessionApplicationRebindView rebind(
+      String sessionId,
+      String tenantId,
+      String actorId,
+      String idempotencyKey,
+      String requestId,
+      RebindSessionApplicationRequest request) {
+    var candidateOperationId = newId("op_");
+    var operationId =
+        idempotency.claimApplicationBindingRebind(
+            tenantId, sessionId, idempotencyKey, request, candidateOperationId);
+    if (!candidateOperationId.equals(operationId)) {
+      return rebinds
+          .findByOperationIdAndTenantId(operationId, tenantId)
+          .map(ApplicationBusinessRecoveryService::toRebindView)
+          .orElseThrow(
+              () ->
+                  new IllegalStateException(
+                      "Application binding idempotency claim has no Operation"));
+    }
+
+    var session = sessions.requireForUpdate(sessionId);
+    if (!session.tenantId().equals(tenantId)) {
+      throw new SessionApplicationBindingNotFoundException();
+    }
+    operations.ensureNoActiveOperation(sessionId);
+    var binding =
+        bindings
+            .findForUpdate(sessionId, tenantId)
+            .orElseThrow(SessionApplicationBindingNotFoundException::new);
+    if (binding.getContractVersion() != request.expectedCurrentVersion()) {
+      throw new RecoveryContractVersionConflictException();
+    }
+    if (binding.getContractVersion() == request.targetContractVersion()) {
+      throw new RecoveryContractVersionConflictException();
+    }
+    var current =
+        contracts
+            .findForUpdate(tenantId, binding.getApplicationId())
+            .filter(ApplicationRecoveryContractEntity::isEnabled)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    if (!current.getContractId().equals(binding.getContractId())
+        || current.getVersion() != request.targetContractVersion()) {
+      throw new RecoveryContractVersionConflictException();
+    }
+    requireApproved(current);
+    revisions
+        .findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            current.getContractId(), current.getVersion(), tenantId, binding.getApplicationId())
+        .filter(ApplicationRecoveryContractRevisionEntity::isEnabled)
+        .orElseThrow(RecoveryContractApprovalRequiredException::new);
+
+    var now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    var operationEpoch = operations.nextOperationEpoch(sessionId);
+    operations.insert(
+        OperationFactory.committedApplicationBinding(
+            session, actorId, operationEpoch, operationId));
+    var previousVersion = binding.getContractVersion();
+    binding.rebind(current.getContractId(), current.getVersion(), now);
+    bindings.save(binding);
+    var rebind =
+        rebinds.save(
+            new SessionApplicationRebindEntity(
+                operationId,
+                tenantId,
+                sessionId,
+                binding.getApplicationId(),
+                current.getContractId(),
+                previousVersion,
+                current.getVersion(),
+                actorId,
+                requestId,
+                now));
+    audit.append(
+        new AuditApplicationService.AuditRecord(
+            tenantId,
+            sessionId,
+            "RECOVERY_CONTRACT_BINDING",
+            "USER",
+            actorId,
+            "SESSION",
+            sessionId,
+            "SESSION_RECOVERY_CONTRACT_REBOUND",
+            "SUCCESS",
+            Map.of(
+                "applicationId",
+                binding.getApplicationId(),
+                "operationId",
+                operationId,
+                "previousContractVersion",
+                previousVersion,
+                "targetContractVersion",
+                current.getVersion()),
+            requestId));
+    return toRebindView(rebind);
+  }
+
   @Transactional
   public BusinessRecoveryValidationView validateFromApi(
       String sessionId, String tenantId, String actorId, String idempotencyKey, String requestId) {
@@ -329,21 +472,32 @@ public class ApplicationBusinessRecoveryService {
   @Transactional(readOnly = true)
   public Optional<AutoRecoveryPolicy> autoRecoveryPolicy(String sessionId, String tenantId) {
     requireTenant(sessionId, tenantId);
-    return bindings
-        .findBySessionIdAndTenantId(sessionId, tenantId)
-        .flatMap(
-            binding ->
-                contracts
-                    .findById(binding.getContractId())
-                    .filter(item -> item.getTenantId().equals(tenantId))
-                    .filter(ApplicationRecoveryContractEntity::isEnabled)
-                    .filter(item -> item.getVersion() == binding.getContractVersion())
-                    .filter(this::isApproved))
+    var binding = bindings.findBySessionIdAndTenantId(sessionId, tenantId);
+    if (binding.isEmpty()) return Optional.empty();
+    var currentBinding = binding.orElseThrow();
+    var current =
+        contracts
+            .findById(currentBinding.getContractId())
+            .filter(item -> item.getTenantId().equals(tenantId))
+            .filter(item -> item.getApplicationId().equals(currentBinding.getApplicationId()))
+            .filter(ApplicationRecoveryContractEntity::isEnabled);
+    if (current.isEmpty()
+        || !isApproved(
+            tenantId, currentBinding.getContractId(), currentBinding.getContractVersion())) {
+      return Optional.empty();
+    }
+    return revisions
+        .findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            currentBinding.getContractId(),
+            currentBinding.getContractVersion(),
+            tenantId,
+            currentBinding.getApplicationId())
+        .filter(ApplicationRecoveryContractRevisionEntity::isEnabled)
         .map(
             contract ->
                 new AutoRecoveryPolicy(
                     contract.getContractId(),
-                    contract.getVersion(),
+                    contract.getContractVersion(),
                     RecoveryAction.valueOf(contract.getRecoveryAction()),
                     contract.getRecoveryExtensionId(),
                     contract.getMaximumAutoRecovery(),
@@ -393,7 +547,7 @@ public class ApplicationBusinessRecoveryService {
             .orElseThrow(BusinessRecoveryStateUnavailableException::new);
     var binding = bindings.findBySessionIdAndTenantId(sessionId, tenantId);
     Evaluation evaluation;
-    ApplicationRecoveryContractEntity contract = null;
+    ApplicationRecoveryContractRevisionEntity contract = null;
     if (binding.isEmpty()) {
       evaluation = evaluateDefault(snapshot.state());
     } else {
@@ -409,7 +563,7 @@ public class ApplicationBusinessRecoveryService {
                 sessionId,
                 binding.map(SessionApplicationBindingEntity::getApplicationId).orElse(null),
                 contract == null ? null : contract.getContractId(),
-                contract == null ? null : contract.getVersion(),
+                contract == null ? null : contract.getContractVersion(),
                 session.contextEpoch(),
                 snapshot.state().stateVersion(),
                 evaluation.verdict().name(),
@@ -436,7 +590,7 @@ public class ApplicationBusinessRecoveryService {
   }
 
   private Evaluation evaluateContract(
-      ApplicationRecoveryContractEntity contract,
+      ApplicationRecoveryContractRevisionEntity contract,
       NodeEvent.StateUpdated state,
       String sessionId,
       String tenantId) {
@@ -625,17 +779,31 @@ public class ApplicationBusinessRecoveryService {
     }
   }
 
-  private ApplicationRecoveryContractEntity requireApprovedBindingContract(
+  private ApplicationRecoveryContractRevisionEntity requireApprovedBindingContract(
       SessionApplicationBindingEntity binding, String tenantId) {
-    var contract =
+    var current =
         contracts
             .findById(binding.getContractId())
             .filter(item -> item.getTenantId().equals(tenantId))
+            .filter(item -> item.getApplicationId().equals(binding.getApplicationId()))
             .filter(ApplicationRecoveryContractEntity::isEnabled)
-            .filter(item -> item.getVersion() == binding.getContractVersion())
             .orElseThrow(RecoveryContractApprovalRequiredException::new);
-    requireApproved(contract);
-    return contract;
+    if (!isApproved(tenantId, binding.getContractId(), binding.getContractVersion())) {
+      throw new RecoveryContractApprovalRequiredException();
+    }
+    return revisions
+        .findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            current.getContractId(),
+            binding.getContractVersion(),
+            tenantId,
+            binding.getApplicationId())
+        .filter(ApplicationRecoveryContractRevisionEntity::isEnabled)
+        .orElseThrow(RecoveryContractApprovalRequiredException::new);
+  }
+
+  private boolean isApproved(String tenantId, String contractId, long contractVersion) {
+    return approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+        tenantId, contractId, contractVersion, "APPROVED");
   }
 
   private ApplicationRecoveryContractApprovalEntity requireApprovalForUpdate(
@@ -754,6 +922,20 @@ public class ApplicationBusinessRecoveryService {
         approval.getRequestedAt(),
         approval.getDecidedAt(),
         approval.getEvidenceHash());
+  }
+
+  private static SessionApplicationRebindView toRebindView(SessionApplicationRebindEntity rebind) {
+    return new SessionApplicationRebindView(
+        rebind.getOperationId(),
+        rebind.getSessionId(),
+        rebind.getApplicationId(),
+        rebind.getContractId(),
+        rebind.getPreviousContractVersion(),
+        rebind.getTargetContractVersion(),
+        "COMMITTED",
+        rebind.getRequestId(),
+        rebind.getCreatedAt(),
+        rebind.getCompletedAt());
   }
 
   private BusinessRecoveryValidationView toValidationView(BusinessRecoveryValidationEntity entity) {
@@ -997,4 +1179,6 @@ public class ApplicationBusinessRecoveryService {
   public static final class BusinessRecoveryStateUnavailableException extends RuntimeException {}
 
   public static final class BusinessRecoveryValidationNotFoundException extends RuntimeException {}
+
+  public static final class SessionApplicationBindingNotFoundException extends RuntimeException {}
 }

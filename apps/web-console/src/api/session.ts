@@ -27,6 +27,9 @@ import type {
   RequestRecoveryContractApprovalRequest,
   RecoveryContractApprovalView,
   BusinessRecoveryValidationView,
+  SessionApplicationBindingView,
+  RebindSessionApplicationRequest,
+  SessionApplicationRebindView,
   SessionEvidenceListResponse,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
@@ -126,31 +129,6 @@ async function requestOptional<T>(
   });
 
   if (response.status === 204) return null;
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({
-      code: 'UNKNOWN_ERROR',
-      message: `Request failed with status ${response.status}`,
-    }));
-    throw new SessionApiError(response.status, body);
-  }
-  return response.json();
-}
-
-async function requestNotFoundOptional<T>(
-  path: string,
-  options?: RequestInit,
-  tenantId?: string,
-  actorId?: string
-): Promise<T | null> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(tenantId ? identityHeaders(tenantId, actorId) : {}),
-      ...options?.headers,
-    },
-  });
-  if (response.status === 404) return null;
   if (!response.ok) {
     const body = await response.json().catch(() => ({
       code: 'UNKNOWN_ERROR',
@@ -564,7 +542,7 @@ export async function getBusinessRecovery(
   tenantId = currentTenantId(),
   signal?: AbortSignal
 ): Promise<BusinessRecoveryValidationView | null> {
-  return requestNotFoundOptional<BusinessRecoveryValidationView>(
+  return requestOptional<BusinessRecoveryValidationView>(
     `/sessions/${sessionId}/business-recovery`,
     { signal },
     tenantId
@@ -581,6 +559,37 @@ export async function validateBusinessRecovery(
     `/sessions/${sessionId}/business-recovery:validate`,
     {
       method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export async function getSessionApplicationBinding(
+  sessionId: string,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<SessionApplicationBindingView | null> {
+  return requestOptional<SessionApplicationBindingView>(
+    `/sessions/${sessionId}/application-binding`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function rebindSessionApplication(
+  sessionId: string,
+  data: RebindSessionApplicationRequest,
+  idempotencyKey: string,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<SessionApplicationRebindView> {
+  return request<SessionApplicationRebindView>(
+    `/sessions/${sessionId}/application-binding:rebind`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
       signal,
       headers: { 'Idempotency-Key': idempotencyKey },
     },

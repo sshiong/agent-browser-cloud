@@ -126,9 +126,44 @@ public class BusinessRecoveryController {
   }
 
   @GetMapping("/sessions/{sessionId}/business-recovery")
-  public BusinessRecoveryValidationView latest(
+  public ResponseEntity<BusinessRecoveryValidationView> latest(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
-    return service.latest(sessionId, identity.current().tenantId());
+    try {
+      return ResponseEntity.ok(service.latest(sessionId, identity.current().tenantId()));
+    } catch (
+        ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException exception) {
+      return ResponseEntity.noContent().build();
+    }
+  }
+
+  @GetMapping("/sessions/{sessionId}/application-binding")
+  public ResponseEntity<SessionApplicationBindingView> binding(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+    try {
+      return ResponseEntity.ok(service.binding(sessionId, identity.current().tenantId()));
+    } catch (
+        ApplicationBusinessRecoveryService.SessionApplicationBindingNotFoundException exception) {
+      return ResponseEntity.noContent().build();
+    }
+  }
+
+  @PostMapping("/sessions/{sessionId}/application-binding:rebind")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public ResponseEntity<SessionApplicationRebindView> rebind(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody RebindSessionApplicationRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.accepted()
+        .body(
+            service.rebind(
+                sessionId,
+                principal.tenantId(),
+                principal.actorId(),
+                idempotencyKey,
+                requestId(request),
+                body));
   }
 
   private static String requestId(HttpServletRequest request) {

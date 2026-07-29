@@ -12,6 +12,7 @@ import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryCo
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractNotFoundException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractVersionConflictException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.SessionApplicationBindingNotFoundException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassNotFoundException;
 import io.browsercloud.application.BreakGlassApplicationService.BreakGlassRejectedException;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapacityUnavailableException;
@@ -530,6 +531,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "RECOVERY_CONTRACT_APPROVAL_REQUIRED",
         "The exact Application Recovery Contract version is not approved",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(SessionApplicationBindingNotFoundException.class)
+  ResponseEntity<ApiError> sessionApplicationBindingNotFound(
+      SessionApplicationBindingNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "SESSION_APPLICATION_BINDING_NOT_FOUND",
+        "Session Application Recovery binding was not found",
         Map.of(),
         request);
   }

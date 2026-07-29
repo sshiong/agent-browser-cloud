@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
@@ -32,10 +33,13 @@ class ApplicationBusinessRecoveryServiceTest {
   private static final Instant NOW = Instant.parse("2026-07-28T01:00:00Z");
 
   @Mock private ApplicationRecoveryContractJpaRepository contracts;
+  @Mock private ApplicationRecoveryContractRevisionJpaRepository revisions;
   @Mock private ApplicationRecoveryContractApprovalJpaRepository approvals;
   @Mock private SessionApplicationBindingJpaRepository bindings;
+  @Mock private SessionApplicationRebindJpaRepository rebinds;
   @Mock private BusinessRecoveryValidationJpaRepository validations;
   @Mock private SessionRepository sessions;
+  @Mock private OperationRepository operations;
   @Mock private BrowserStateRepository browserStates;
   @Mock private BrowserCapacityApplicationService capacity;
   @Mock private BusinessRecoveryValidator defaultValidator;
@@ -51,10 +55,13 @@ class ApplicationBusinessRecoveryServiceTest {
     service =
         new ApplicationBusinessRecoveryService(
             contracts,
+            revisions,
             approvals,
             bindings,
+            rebinds,
             validations,
             sessions,
+            operations,
             browserStates,
             capacity,
             defaultValidator,
@@ -464,6 +471,103 @@ class ApplicationBusinessRecoveryServiceTest {
   }
 
   @Test
+  void evaluatesTheImmutableBoundRevisionAfterThePublishedHeadAdvances() throws Exception {
+    var revisionSource =
+        contract(
+            List.of("https://crm.example.test"),
+            List.of("/customers"),
+            List.of(),
+            List.of(new TargetIndicator("button", "Continue")),
+            List.of());
+    var head = latestHead(revisionSource.getContractId(), 2);
+    when(sessions.require(SESSION_ID)).thenReturn(session());
+    when(idempotency.claimBusinessRecoveryValidation(any(), any(), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(4));
+    when(browserStates.find(SESSION_ID))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    TENANT_ID,
+                    7,
+                    state(
+                        "https://crm.example.test/customers",
+                        "COMPLETE",
+                        List.of(
+                            new NodeEvent.InteractiveTarget(
+                                "target-1", "button", "Continue", null, true, true, false))))));
+    when(bindings.findBySessionIdAndTenantId(SESSION_ID, TENANT_ID))
+        .thenReturn(
+            Optional.of(
+                new SessionApplicationBindingEntity(
+                    SESSION_ID, TENANT_ID, "crm", revisionSource.getContractId(), 1, NOW)));
+    when(contracts.findById(revisionSource.getContractId())).thenReturn(Optional.of(head));
+    when(approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+            TENANT_ID, revisionSource.getContractId(), 1, "APPROVED"))
+        .thenReturn(true);
+    var pinnedRevision = revision(revisionSource);
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            revisionSource.getContractId(), 1, TENANT_ID, "crm"))
+        .thenReturn(Optional.of(pinnedRevision));
+    when(validations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var result =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-pinned", "request-pinned");
+
+    assertThat(result.contractVersion()).isEqualTo(1);
+    assertThat(result.ready()).isTrue();
+    assertThat(result.evidence()).containsExactly("APPLICATION_CONTRACT_SATISFIED");
+  }
+
+  @Test
+  void rebindsThroughAnIdempotentCommittedExclusiveOperation() {
+    var head = latestHead("arc_1234567890abcdefghij", 2);
+    var targetRevision =
+        mock(ApplicationRecoveryContractRevisionEntity.class, withSettings().lenient());
+    when(targetRevision.isEnabled()).thenReturn(true);
+    var binding =
+        new SessionApplicationBindingEntity(
+            SESSION_ID, TENANT_ID, "crm", head.getContractId(), 1, NOW);
+    when(idempotency.claimApplicationBindingRebind(any(), any(), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(4));
+    when(sessions.requireForUpdate(SESSION_ID)).thenReturn(session());
+    when(bindings.findForUpdate(SESSION_ID, TENANT_ID)).thenReturn(Optional.of(binding));
+    when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.of(head));
+    when(approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+            TENANT_ID, head.getContractId(), 2, "APPROVED"))
+        .thenReturn(true);
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            head.getContractId(), 2, TENANT_ID, "crm"))
+        .thenReturn(Optional.of(targetRevision));
+    when(operations.nextOperationEpoch(SESSION_ID)).thenReturn(12L);
+    when(rebinds.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var result =
+        service.rebind(
+            SESSION_ID,
+            TENANT_ID,
+            "admin-a",
+            "rebind-1",
+            "request-rebind",
+            new RebindSessionApplicationRequest(1, 2));
+
+    assertThat(result.previousContractVersion()).isEqualTo(1);
+    assertThat(result.targetContractVersion()).isEqualTo(2);
+    assertThat(result.state()).isEqualTo("COMMITTED");
+    assertThat(binding.getContractVersion()).isEqualTo(2);
+    verify(operations)
+        .insert(
+            argThat(
+                operation ->
+                    operation.mode()
+                            == io.browsercloud.domain.operation.OperationMode.APPLICATION_BINDING
+                        && operation.state()
+                            == io.browsercloud.domain.operation.OperationState.COMMITTED
+                        && operation.operationEpoch() == 12));
+    verify(audit).append(any());
+  }
+
+  @Test
   void rejectsApprovalWhenContractChangedAfterRequest() throws Exception {
     var contract =
         contract(
@@ -519,10 +623,47 @@ class ApplicationBusinessRecoveryServiceTest {
                     contract.getVersion(),
                     NOW)));
     when(contracts.findById(contract.getContractId())).thenReturn(Optional.of(contract));
+    var exactRevision = revision(contract);
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            contract.getContractId(), contract.getVersion(), TENANT_ID, "crm"))
+        .thenReturn(Optional.of(exactRevision));
     when(approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
             TENANT_ID, contract.getContractId(), contract.getVersion(), "APPROVED"))
         .thenReturn(true);
     when(validations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+  }
+
+  private ApplicationRecoveryContractRevisionEntity revision(
+      ApplicationRecoveryContractEntity contract) {
+    var revision = mock(ApplicationRecoveryContractRevisionEntity.class, withSettings().lenient());
+    when(revision.getContractId()).thenReturn(contract.getContractId());
+    when(revision.getContractVersion()).thenReturn(contract.getVersion());
+    when(revision.getTenantId()).thenReturn(contract.getTenantId());
+    when(revision.getApplicationId()).thenReturn(contract.getApplicationId());
+    when(revision.getExpectedOrigins()).thenReturn(contract.getExpectedOrigins());
+    when(revision.getReadyRoutePrefixes()).thenReturn(contract.getReadyRoutePrefixes());
+    when(revision.getLoginRoutePrefixes()).thenReturn(contract.getLoginRoutePrefixes());
+    when(revision.getRequiredTargets()).thenReturn(contract.getRequiredTargets());
+    when(revision.getLoginTargets()).thenReturn(contract.getLoginTargets());
+    when(revision.getPermissionDeniedTargets()).thenReturn(contract.getPermissionDeniedTargets());
+    when(revision.getAccountMismatchTargets()).thenReturn(contract.getAccountMismatchTargets());
+    when(revision.getRequiredExtensionIds()).thenReturn(contract.getRequiredExtensionIds());
+    when(revision.isAllowDepthLimited()).thenReturn(contract.isAllowDepthLimited());
+    when(revision.getRecoveryAction()).thenReturn(contract.getRecoveryAction());
+    when(revision.getRecoveryExtensionId()).thenReturn(contract.getRecoveryExtensionId());
+    when(revision.getMaximumAutoRecovery()).thenReturn(contract.getMaximumAutoRecovery());
+    when(revision.isEnabled()).thenReturn(contract.isEnabled());
+    return revision;
+  }
+
+  private ApplicationRecoveryContractEntity latestHead(String contractId, long version) {
+    var head = mock(ApplicationRecoveryContractEntity.class, withSettings().lenient());
+    when(head.getContractId()).thenReturn(contractId);
+    when(head.getTenantId()).thenReturn(TENANT_ID);
+    when(head.getApplicationId()).thenReturn("crm");
+    when(head.getVersion()).thenReturn(version);
+    when(head.isEnabled()).thenReturn(true);
+    return head;
   }
 
   private ApplicationRecoveryContractEntity contract(

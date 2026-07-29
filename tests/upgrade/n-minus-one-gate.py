@@ -477,6 +477,30 @@ for invariant in (
         f"recovery approval migration lacks rolling invariant: {invariant}"
     )
 
+recovery_revision_migration = read(
+    "database/migrations/V051__application_recovery_contract_revisions.sql"
+)
+recovery_revision_upper = recovery_revision_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE"):
+    assert forbidden not in recovery_revision_upper
+for invariant in (
+    "CREATE TABLE APPLICATION_RECOVERY_CONTRACT_REVISIONS",
+    "PRIMARY KEY (CONTRACT_ID, CONTRACT_VERSION)",
+    "CREATE TRIGGER TRG_APPLICATION_RECOVERY_CONTRACT_REVISION",
+    "AFTER INSERT OR UPDATE ON APPLICATION_RECOVERY_CONTRACTS",
+    "ON CONFLICT (CONTRACT_ID, CONTRACT_VERSION) DO NOTHING",
+    "CREATE TRIGGER TRG_APPLICATION_RECOVERY_REVISION_IMMUTABLE",
+    "BEFORE UPDATE OR DELETE ON APPLICATION_RECOVERY_CONTRACT_REVISIONS",
+    "ADD CONSTRAINT FK_SESSION_APPLICATION_BINDING_REVISION",
+    "ADD CONSTRAINT FK_RECOVERY_CONTRACT_APPROVAL_REVISION",
+    "NOT VALID",
+    "CREATE TABLE SESSION_APPLICATION_REBIND_OPERATIONS",
+    "REFERENCES EXCLUSIVE_OPERATIONS(OPERATION_ID)",
+):
+    assert invariant in recovery_revision_upper, (
+        f"recovery revision migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -651,6 +675,10 @@ for optional in (
 assert "resourceClass" not in create
 assert "ResourceClass" not in openapi
 assert "enum: [L0, L1, L2, L3, L4, L5]" not in openapi
+assert "/api/v1/sessions/{sessionId}/application-binding:" in openapi
+assert "/api/v1/sessions/{sessionId}/application-binding:rebind:" in openapi
+assert "SessionApplicationBinding:" in openapi
+assert "SessionApplicationRebind:" in openapi
 
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
@@ -686,7 +714,7 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V050 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V051 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,evidence-event-tags-1-13,recovery-extension-tag-6",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

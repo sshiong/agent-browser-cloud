@@ -76,7 +76,7 @@ try {
   await page.goto(`${baseUrl}/extensions`);
   await page.waitForLoadState("networkidle");
   await expect(
-    page.getByRole("heading", { name: "扩展资源画像" }),
+    page.getByRole("button", { name: /扩展资源画像/ }),
   ).toBeVisible();
   await expect(
     page.getByText("E2E Accessibility Helper", { exact: true }),
@@ -89,7 +89,9 @@ try {
   await expect(
     page.getByRole("heading", { name: "Runtime Validation Farm" }),
   ).toBeVisible();
-  await expect(page.getByText("local / L1", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("local / standard-lite-v1", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("PRIMARY · replication lag 0s")).toBeVisible();
 
   await page.goto(`${baseUrl}/environments`);
@@ -112,8 +114,12 @@ try {
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByLabel("部署区域")).toHaveValue("local");
   await page.getByRole("button", { name: "下一步" }).click();
-  await page.getByLabel("标签页预算").fill("3");
-  await page.getByLabel("Agent 动作 / 分钟").fill("90");
+  await expect(
+    page.getByText("自动分配", { exact: true }).first(),
+  ).toBeVisible();
+  await page.getByRole("checkbox", {
+    name: "需要远程桌面 / 人工交互",
+  }).check();
   await page.getByRole("button", { name: "下一步" }).click();
   await page
     .locator("label")

@@ -141,6 +141,20 @@ public class IdempotencyService {
         candidateValidationId);
   }
 
+  String claimApplicationBindingRebind(
+      String tenantId,
+      String sessionId,
+      String idempotencyKey,
+      Object request,
+      String candidateOperationId) {
+    return claim(
+        tenantId,
+        "REBIND_APPLICATION_CONTRACT:" + sessionId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateOperationId);
+  }
+
   String claimWorkspaceGroupCreate(
       String tenantId, String idempotencyKey, Object request, String candidateGroupId) {
     return claim(

@@ -37,7 +37,7 @@ try {
   await expect(page.getByRole("link", { name: "远程桌面" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "安全中心" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "设置" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "分组与标签" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "分组与标签" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Browser Node" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "扩展与应用" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "企业运营" })).toHaveCount(0);
@@ -57,8 +57,11 @@ try {
   await expect(page.getByRole("heading", { name: "权限不足" })).toBeVisible();
 
   await page.goto(`${baseUrl}/groups`);
-  await page.waitForURL("**/not-found");
-  await expect(page.getByRole("heading", { name: "页面不存在" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "分组与标签" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "新建分组" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "创建第一个分组" }),
+  ).toHaveCount(0);
 
   await page.goto(`${baseUrl}/profiles`);
   await expect(

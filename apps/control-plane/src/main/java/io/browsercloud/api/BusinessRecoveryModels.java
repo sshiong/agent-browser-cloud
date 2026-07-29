@@ -108,6 +108,32 @@ public final class BusinessRecoveryModels {
       Instant decidedAt,
       String evidenceHash) {}
 
+  public record SessionApplicationBindingView(
+      String sessionId,
+      String applicationId,
+      String contractId,
+      long contractVersion,
+      long latestContractVersion,
+      RecoveryContractApprovalState latestApprovalState,
+      boolean currentContractEnabled,
+      boolean upgradeAvailable,
+      Instant boundAt) {}
+
+  public record RebindSessionApplicationRequest(
+      @Min(1) long expectedCurrentVersion, @Min(1) long targetContractVersion) {}
+
+  public record SessionApplicationRebindView(
+      String operationId,
+      String sessionId,
+      String applicationId,
+      String contractId,
+      long previousContractVersion,
+      long targetContractVersion,
+      String state,
+      String requestId,
+      Instant createdAt,
+      Instant completedAt) {}
+
   public record BusinessRecoveryValidationView(
       String validationId,
       String sessionId,

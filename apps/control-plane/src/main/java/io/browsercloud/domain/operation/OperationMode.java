@@ -36,6 +36,9 @@ public enum OperationMode {
   /** 资源策略或资源调整 */
   RESOURCE_ADJUSTMENT,
 
+  /** Session 应用恢复契约绑定升级 */
+  APPLICATION_BINDING,
+
   /** 终止 */
   TERMINATION
 }

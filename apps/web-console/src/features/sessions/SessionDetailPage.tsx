@@ -31,6 +31,8 @@ import {
   useSessionSafePoint,
   useSessionMigration,
   useBusinessRecovery,
+  useSessionApplicationBinding,
+  useRebindSessionApplication,
   useValidateBusinessRecovery,
   useStartSession,
   useTerminateSession,
@@ -72,6 +74,8 @@ export function SessionDetailPage() {
   const migrationQuery = useSessionMigration(id);
   const businessRecoveryQuery = useBusinessRecovery(id);
   const businessRecoveryMutation = useValidateBusinessRecovery(id);
+  const applicationBindingQuery = useSessionApplicationBinding(id);
+  const applicationRebindMutation = useRebindSessionApplication(id);
   const resourceStreamState = useSessionResourceStream(id, Boolean(id));
   const resourcePolicyMutation = useUpdateResourcePolicy(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
@@ -346,11 +350,17 @@ export function SessionDetailPage() {
 
                 <BusinessRecoveryCard
                   validation={businessRecoveryQuery.data}
+                  binding={applicationBindingQuery.data}
                   migration={migrationQuery.data}
-                  loading={businessRecoveryQuery.isLoading}
+                  loading={
+                    businessRecoveryQuery.isLoading ||
+                    applicationBindingQuery.isLoading
+                  }
                   error={
+                    applicationRebindMutation.error ??
                     businessRecoveryMutation.error ??
-                    businessRecoveryQuery.error
+                    businessRecoveryQuery.error ??
+                    applicationBindingQuery.error
                   }
                   canValidate={
                     auth.canOperate &&
@@ -358,7 +368,25 @@ export function SessionDetailPage() {
                     Boolean(browserStateQuery.data)
                   }
                   validating={businessRecoveryMutation.isPending}
+                  canRebind={
+                    auth.hasAnyRole([
+                      'TENANT_ADMIN',
+                      'SECURITY_ADMIN',
+                      'PLATFORM_ADMIN',
+                    ]) &&
+                    Boolean(applicationBindingQuery.data?.upgradeAvailable) &&
+                    !session.currentOperation
+                  }
+                  rebinding={applicationRebindMutation.isPending}
                   onValidate={() => businessRecoveryMutation.mutate()}
+                  onRebind={() => {
+                    const binding = applicationBindingQuery.data;
+                    if (!binding) return;
+                    applicationRebindMutation.mutate({
+                      expectedCurrentVersion: binding.contractVersion,
+                      targetContractVersion: binding.latestContractVersion,
+                    });
+                  }}
                   onRetry={() => void businessRecoveryQuery.refetch()}
                 />
 

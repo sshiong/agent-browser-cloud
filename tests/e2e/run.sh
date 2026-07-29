@@ -133,6 +133,9 @@ NODE_ID=node_e2e \
 CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
 RUNTIME_ROOT="$temp_dir/runtime" \
 PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
+NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
+NODE_CERTIFIED_MEDIA_SLOTS=2 \
+NODE_SUPPORTS_MEDIA=true \
 STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
 REMOTE_DESKTOP_GATEWAY_PORT="$desktop_port" \
 REMOTE_DESKTOP_TICKET_SECRET="$ticket_secret" \
@@ -189,7 +192,7 @@ printf '%s' "$browser_nodes" | python3 -c \
   'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_e2e"; assert node["admissionState"] == "OPEN"'
 
 curl -fsS -X PUT \
-  "http://127.0.0.1:${control_port}/api/v1/extensions/extension.e2e" \
+  "http://127.0.0.1:${control_port}/api/v1/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-local' \
   -H 'X-Roles: PLATFORM_ADMIN' \

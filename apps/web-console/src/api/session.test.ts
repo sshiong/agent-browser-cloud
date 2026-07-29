@@ -4,6 +4,7 @@ import {
   createSession,
   getBrowserState,
   getBusinessRecovery,
+  getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
   listRecoveryContracts,
@@ -12,6 +13,7 @@ import {
   requestRecoveryContractApproval,
   decideRecoveryContractApproval,
   releaseSessionSafetyLease,
+  rebindSessionApplication,
   resyncBrowserState,
   SessionApiError,
   startSession,
@@ -260,12 +262,89 @@ describe('session API', () => {
   it('treats a missing Business Recovery verdict as not yet validated', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
+      vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     );
 
     await expect(
       getBusinessRecovery('ses_1234567890abcdef', 'tenant-test')
     ).resolves.toBeNull();
+  });
+
+  it('treats a Session without an application binding as unbound', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    );
+
+    await expect(
+      getSessionApplicationBinding('ses_1234567890abcdef', 'tenant-test')
+    ).resolves.toBeNull();
+  });
+
+  it('reads and explicitly rebinds the immutable application contract version', async () => {
+    const binding = {
+      sessionId: 'ses_1234567890abcdef',
+      applicationId: 'crm.singapore',
+      contractId: 'arc_1234567890abcdefghij',
+      contractVersion: 2,
+      latestContractVersion: 3,
+      latestApprovalState: 'APPROVED',
+      currentContractEnabled: true,
+      upgradeAvailable: true,
+      boundAt: new Date().toISOString(),
+    };
+    const operation = {
+      operationId: 'op_1234567890abcdefghij',
+      ...binding,
+      previousContractVersion: 2,
+      targetContractVersion: 3,
+      state: 'COMMITTED',
+      requestId: 'request-1',
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(binding), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(operation), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getSessionApplicationBinding(
+      'ses_1234567890abcdef',
+      'tenant-test'
+    );
+    await rebindSessionApplication(
+      'ses_1234567890abcdef',
+      { expectedCurrentVersion: 2, targetContractVersion: 3 },
+      'application-rebind-1',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/application-binding:rebind',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          expectedCurrentVersion: 2,
+          targetContractVersion: 3,
+        }),
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'Idempotency-Key': 'application-rebind-1',
+        }),
+      })
+    );
   });
 
   it('publishes a versioned recovery contract through the tenant API', async () => {

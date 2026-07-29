@@ -444,6 +444,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BusinessRecoveryValidation"
+        "204":
+          description: The Session exists but has no durable Business Recovery validation yet.
         "404":
           $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/business-recovery:validate:
@@ -465,6 +467,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BusinessRecoveryValidation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/application-binding:
+    get:
+      operationId: getSessionApplicationBinding
+      summary: Read the exact Application Recovery Contract revision bound to a Session
+      tags: [Session, Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current binding and approved head upgrade availability.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionApplicationBinding"
+        "204":
+          description: The Session exists but is not bound to an Application Recovery Contract.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/application-binding:rebind:
+    post:
+      operationId: rebindSessionApplicationContract
+      summary: Explicitly upgrade a Session to the current approved contract revision
+      description: >
+        Administrative, idempotent, tenant-scoped Operation. The Session row and binding are
+        locked, active exclusive Operations block the change, and historical policy is never
+        mutated in place.
+      tags: [Session, Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RebindSessionApplicationRequest"
+      responses:
+        "202":
+          description: Application binding Operation committed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionApplicationRebind"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -4368,6 +4421,105 @@ components:
         evidenceHash:
           type: [string, "null"]
           pattern: "^[a-f0-9]{64}$"
+    SessionApplicationBinding:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - applicationId
+        - contractId
+        - contractVersion
+        - latestContractVersion
+        - latestApprovalState
+        - currentContractEnabled
+        - upgradeAvailable
+        - boundAt
+      properties:
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        applicationId:
+          type: string
+          pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+        contractId:
+          type: string
+          pattern: "^arc_[a-zA-Z0-9]{20}$"
+        contractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        latestContractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        latestApprovalState:
+          type: string
+          enum: [DRAFT, REQUESTED, APPROVED, REJECTED]
+        currentContractEnabled:
+          type: boolean
+        upgradeAvailable:
+          type: boolean
+        boundAt:
+          type: string
+          format: date-time
+    RebindSessionApplicationRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedCurrentVersion, targetContractVersion]
+      properties:
+        expectedCurrentVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        targetContractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    SessionApplicationRebind:
+      type: object
+      additionalProperties: false
+      required:
+        - operationId
+        - sessionId
+        - applicationId
+        - contractId
+        - previousContractVersion
+        - targetContractVersion
+        - state
+        - requestId
+        - createdAt
+        - completedAt
+      properties:
+        operationId:
+          type: string
+          pattern: "^op_[a-zA-Z0-9]{20}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        applicationId:
+          type: string
+        contractId:
+          type: string
+          pattern: "^arc_[a-zA-Z0-9]{20}$"
+        previousContractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        targetContractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        state:
+          type: string
+          enum: [COMMITTED]
+        requestId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
     BusinessRecoveryValidation:
       type: object
       additionalProperties: false

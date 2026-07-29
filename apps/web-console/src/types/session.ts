@@ -243,6 +243,36 @@ export interface RecoveryContractApprovalView {
   evidenceHash?: string;
 }
 
+export interface SessionApplicationBindingView {
+  sessionId: string;
+  applicationId: string;
+  contractId: string;
+  contractVersion: number;
+  latestContractVersion: number;
+  latestApprovalState: RecoveryContractApprovalState;
+  currentContractEnabled: boolean;
+  upgradeAvailable: boolean;
+  boundAt: string;
+}
+
+export interface RebindSessionApplicationRequest {
+  expectedCurrentVersion: number;
+  targetContractVersion: number;
+}
+
+export interface SessionApplicationRebindView {
+  operationId: string;
+  sessionId: string;
+  applicationId: string;
+  contractId: string;
+  previousContractVersion: number;
+  targetContractVersion: number;
+  state: 'COMMITTED';
+  requestId: string;
+  createdAt: string;
+  completedAt: string;
+}
+
 export type BusinessRecoveryVerdict =
   | 'READY'
   | 'READY_WITH_WARNING'

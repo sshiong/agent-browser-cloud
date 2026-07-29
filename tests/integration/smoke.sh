@@ -1385,6 +1385,15 @@ business_recovery_db_summary="$(docker exec "$postgres_name" psql -U browserclou
          and source='API' and verdict='READY')")"
 test "$business_recovery_db_summary" = "1:1"
 
+rebind_session_response="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-rebind-session-001' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-rebind","runtimeBuildId":"runtime_local_chromium","applicationId":"crm.integration","region":"local","resourcePolicy":{"mode":"AUTO"},"metadata":{"displayName":"Recovery contract rebind"}}')"
+rebind_session="$(printf '%s' "$rebind_session_response" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+
 auto_recovery_contract_body='{"expectedVersion":1,"expectedOrigins":["https://example.test"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"status","name":"Recovered workspace"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb"],"allowDepthLimited":false,"recoveryAction":"RESTART_EXTENSION","recoveryExtensionId":"jdgnleokimdbblcflcfcohbinohmmmlb","maximumAutoRecovery":1,"enabled":true}'
 auto_recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
@@ -1415,22 +1424,62 @@ version_pinning_summary="$(docker exec "$postgres_name" psql -U browsercloud -d 
    join application_recovery_contracts contract on contract.contract_id=binding.contract_id
    where binding.session_id='${session_one}'")"
 test "$version_pinning_summary" = "1:2"
-stale_binding_validation_status="$(curl -sS \
-  -o "$temp_dir/stale-binding-validation.json" -w '%{http_code}' \
+exact_revision_validation="$(curl -fsS \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery:validate" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: recovery-adapter' \
   -H 'X-Roles: TENANT_OPERATOR' \
   -H 'Idempotency-Key: smoke-stale-contract-binding-001')"
-test "$stale_binding_validation_status" = "409"
-python3 - "$temp_dir/stale-binding-validation.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    error = json.load(handle)
-assert error["code"] == "RECOVERY_CONTRACT_APPROVAL_REQUIRED"
-PY
+printf '%s' "$exact_revision_validation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["contractVersion"] == 1; assert item["ready"] is True; assert item["evidence"] == ["APPLICATION_CONTRACT_SATISFIED"]'
+binding_before_rebind="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${rebind_session}/application-binding" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$binding_before_rebind" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["contractVersion"] == 1; assert item["latestContractVersion"] == 2; assert item["latestApprovalState"] == "APPROVED"; assert item["upgradeAvailable"] is True'
+application_rebind="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${rebind_session}/application-binding:rebind" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-application-rebind-001' \
+  -d '{"expectedCurrentVersion":1,"targetContractVersion":2}')"
+application_rebind_operation="$(printf '%s' "$application_rebind" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["previousContractVersion"] == 1; assert item["targetContractVersion"] == 2; assert item["state"] == "COMMITTED"; print(item["operationId"])')"
+application_rebind_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${rebind_session}/application-binding:rebind" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-application-rebind-001' \
+  -d '{"expectedCurrentVersion":1,"targetContractVersion":2}')"
+test "$(printf '%s' "$application_rebind_replay" | python3 -c 'import json,sys; print(json.load(sys.stdin)["operationId"])')" = "$application_rebind_operation"
+binding_after_rebind="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${rebind_session}/application-binding" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$binding_after_rebind" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["contractVersion"] == 2; assert item["latestContractVersion"] == 2; assert item["upgradeAvailable"] is False'
+revision_rebind_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+      (select count(*) from application_recovery_contract_revisions
+       where tenant_id='tenant-integration' and application_id='crm.integration') || ':' ||
+      (select count(*) from session_application_rebind_operations
+       where tenant_id='tenant-integration' and session_id='${rebind_session}'
+         and operation_id='${application_rebind_operation}') || ':' ||
+      (select count(*) from exclusive_operations
+       where operation_id='${application_rebind_operation}'
+         and mode='APPLICATION_BINDING' and state='COMMITTED')")"
+test "$revision_rebind_db_summary" = "2:1:1"
+if docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 \
+  -c "update application_recovery_contract_revisions
+      set enabled=false
+      where tenant_id='tenant-integration' and application_id='crm.integration'
+        and contract_version=1" >/dev/null 2>&1; then
+  echo "V051 accepted mutation of an immutable recovery contract revision" >&2
+  exit 1
+fi
 
 auto_recovery_session_response="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
@@ -2590,7 +2639,7 @@ printf '%s' "$proxy_after_terminate" | python3 -c \
 profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$profile_list" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 7; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 8; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-rebind","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
 profile_forbidden_status="$(curl -sS -o "$temp_dir/profile-forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
   -H 'X-Tenant-Id: different-tenant')"

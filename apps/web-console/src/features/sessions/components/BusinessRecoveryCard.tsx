@@ -9,26 +9,35 @@ import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { cn } from '@/shared/lib/utils';
 import type {
   BusinessRecoveryValidationView,
+  SessionApplicationBindingView,
   SessionMigrationView,
 } from '@/types/session';
 
 export function BusinessRecoveryCard({
   validation,
+  binding,
   migration,
   loading,
   error,
   canValidate,
   validating,
+  canRebind,
+  rebinding,
   onValidate,
+  onRebind,
   onRetry,
 }: {
   validation: BusinessRecoveryValidationView | null | undefined;
+  binding: SessionApplicationBindingView | null | undefined;
   migration: SessionMigrationView | null | undefined;
   loading: boolean;
   error: unknown;
   canValidate: boolean;
   validating: boolean;
+  rebinding: boolean;
+  canRebind: boolean;
   onValidate: () => void;
+  onRebind: () => void;
   onRetry: () => void;
 }) {
   return (
@@ -46,19 +55,33 @@ export function BusinessRecoveryCard({
             State；不执行租户脚本。
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onValidate}
-          disabled={!canValidate || validating}
-          className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-accent/35 px-3 text-[11px] text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted disabled:opacity-45"
-        >
-          {validating ? (
-            <LoaderCircle size={13} className="animate-spin" />
-          ) : (
-            <RefreshCw size={13} />
+        <div className="flex flex-wrap items-center gap-2">
+          {binding?.upgradeAvailable && (
+            <button
+              type="button"
+              onClick={onRebind}
+              disabled={!canRebind || rebinding}
+              className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-warning/35 px-3 text-[11px] text-warning hover:bg-warning/8 disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted disabled:opacity-45"
+            >
+              {rebinding && <LoaderCircle size={13} className="animate-spin" />}
+              升级契约 v{binding.contractVersion} → v
+              {binding.latestContractVersion}
+            </button>
           )}
-          重新验证
-        </button>
+          <button
+            type="button"
+            onClick={onValidate}
+            disabled={!canValidate || validating}
+            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-accent/35 px-3 text-[11px] text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted disabled:opacity-45"
+          >
+            {validating ? (
+              <LoaderCircle size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
+            重新验证
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -84,6 +107,18 @@ export function BusinessRecoveryCard({
         </div>
       ) : (
         <div className="space-y-3">
+          {binding && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border border-border-subtle bg-surface-2 px-3 py-2.5">
+              <p className="font-mono text-[10px] text-text-primary">
+                BOUND · {binding.applicationId} · v{binding.contractVersion}
+              </p>
+              <span className="font-mono text-[10px] text-text-muted">
+                HEAD v{binding.latestContractVersion} ·{' '}
+                {binding.latestApprovalState}
+                {!binding.currentContractEnabled ? ' · DISABLED' : ''}
+              </span>
+            </div>
+          )}
           <div
             className={cn(
               'flex flex-wrap items-center justify-between gap-3 border p-4',

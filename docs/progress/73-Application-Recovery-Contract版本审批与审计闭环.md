@@ -2,6 +2,9 @@
 
 > 完成日期：2026-07-29
 > 状态：精确版本双人审批、Session 版本固定、审计证据、真实 UI 和滚动升级兼容已完成
+>
+> 后续：不可变历史正文与显式 Rebind 已在
+> [进度 74](74-Application-Recovery-Contract不可变历史与Session-Rebind.md)完成。
 
 ## 本轮关闭的缺口
 

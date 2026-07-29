@@ -23,6 +23,8 @@ import {
   decideRecoveryContractApproval,
   getBusinessRecovery,
   validateBusinessRecovery,
+  getSessionApplicationBinding,
+  rebindSessionApplication,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -32,6 +34,7 @@ import type {
   ResourcePolicyRequest,
   UpsertRecoveryContractRequest,
   RequestRecoveryContractApprovalRequest,
+  RebindSessionApplicationRequest,
 } from '@/types/session';
 
 export const sessionKeys = {
@@ -58,6 +61,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'migration'] as const,
   businessRecovery: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'business-recovery'] as const,
+  applicationBinding: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'application-binding'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
 };
 
@@ -256,6 +261,40 @@ export function useValidateBusinessRecovery(sessionId: string) {
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.migration(sessionId),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useSessionApplicationBinding(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.applicationBinding(sessionId),
+    queryFn: ({ signal }) =>
+      getSessionApplicationBinding(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useRebindSessionApplication(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RebindSessionApplicationRequest) =>
+      rebindSessionApplication(
+        sessionId,
+        body,
+        `application-binding-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.applicationBinding(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.businessRecovery(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.detail(sessionId),
         }),
       ]);
     },

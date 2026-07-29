@@ -474,6 +474,117 @@ settings_viewer_write_status="$(curl -sS \
   -d "$workspace_settings_body")"
 test "$settings_viewer_write_status" = "403"
 
+environment_import_body='{"schemaVersion":1,"name":"Integration import","environments":[{"displayName":"Imported CRM Singapore","profileId":"profile-import-sg","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO","onMaximumReached":"PAUSE_AGENT","allowMigration":true,"allowHibernate":true}}]}'
+environment_import_preview="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-imports:preview" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-preview-001' \
+  -d "$environment_import_body")"
+environment_import_id="$(printf '%s' "$environment_import_preview" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "VALIDATED"; assert item["totalCount"] == 1; assert item["readyCount"] == 1; assert item["succeededCount"] == 0; assert item["items"][0]["validationState"] == "READY"; assert item["version"] == 0; print(item["importId"])')"
+environment_import_preview_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-imports:preview" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-preview-001' \
+  -d "$environment_import_body")"
+replayed_environment_import_id="$(printf '%s' "$environment_import_preview_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["importId"])')"
+test "$environment_import_id" = "$replayed_environment_import_id"
+foreign_environment_import_status="$(curl -sS \
+  -o "$temp_dir/foreign-environment-import.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/environment-imports/${environment_import_id}" \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: other-import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+test "$foreign_environment_import_status" = "404"
+viewer_environment_import_status="$(curl -sS \
+  -o "$temp_dir/viewer-environment-import.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/environment-imports" \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: import-viewer' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$viewer_environment_import_status" = "403"
+stale_environment_import_status="$(curl -sS \
+  -o "$temp_dir/stale-environment-import.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/environment-imports/${environment_import_id}:commit" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-stale-001' \
+  -d '{"expectedVersion":1}')"
+test "$stale_environment_import_status" = "409"
+grep -q 'IMPORT_VERSION_MISMATCH' "$temp_dir/stale-environment-import.json"
+environment_import_commit="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-imports/${environment_import_id}:commit" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-commit-001' \
+  -d '{"expectedVersion":0}')"
+imported_session_id="$(printf '%s' "$environment_import_commit" | python3 -c \
+  'import json,sys,re; item=json.load(sys.stdin); assert item["state"] == "COMMITTED"; assert item["succeededCount"] == 1; result=item["items"][0]; assert result["executionState"] == "SUCCEEDED"; assert re.match(r"^ses_[A-Za-z0-9]{16,}$", result["sessionId"]); assert re.match(r"^op_[A-Za-z0-9]{16,}$", result["operationId"]); assert result["requestId"]; print(result["sessionId"])')"
+environment_import_commit_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-imports/${environment_import_id}:commit" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-integration' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-commit-001' \
+  -d '{"expectedVersion":0}')"
+replayed_imported_session_id="$(printf '%s' "$environment_import_commit_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["items"][0]["sessionId"])')"
+test "$imported_session_id" = "$replayed_imported_session_id"
+environment_import_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from environment_import_jobs where tenant_id='tenant-import-integration' and state='COMMITTED'")"
+test "$environment_import_rows" = "1"
+environment_import_audits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events where tenant_id='tenant-import-integration' and event_type='ENVIRONMENT_IMPORT'")"
+test "$environment_import_audits" = "2"
+
+rollback_import_body='{"schemaVersion":1,"name":"Rollback import","environments":[{"displayName":"Rollback first","profileId":"profile-import-rollback-first"},{"displayName":"Rollback conflict","profileId":"profile-import-rollback-conflict"}]}'
+rollback_import_preview="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-imports:preview" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-rollback' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-preview-rollback-001' \
+  -d "$rollback_import_body")"
+rollback_import_id="$(printf '%s' "$rollback_import_preview" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "VALIDATED"; print(item["importId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/profiles" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-foreign' \
+  -H 'X-Actor-Id: profile-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"profileId":"profile-import-rollback-conflict","name":"Foreign conflict"}' \
+  >"$temp_dir/foreign-import-profile.json"
+rollback_import_commit_status="$(curl -sS \
+  -o "$temp_dir/rollback-environment-import.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/environment-imports/${rollback_import_id}:commit" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-import-rollback' \
+  -H 'X-Actor-Id: import-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-environment-import-commit-rollback-001' \
+  -d '{"expectedVersion":0}')"
+test "$rollback_import_commit_status" = "403"
+rollback_import_sessions="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from sessions where tenant_id='tenant-import-rollback'")"
+test "$rollback_import_sessions" = "0"
+rollback_import_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select state || ':' || succeeded_count from environment_import_jobs where import_id='${rollback_import_id}'")"
+test "$rollback_import_state" = "VALIDATED:0"
+
 disabled_settings_body='{"workspaceName":"Restricted Workspace","defaultRuntimeBuildId":"runtime_local_chromium","defaultRegion":"local","defaultHumanTakeoverEnabled":false}'
 curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/workspace-settings" \

@@ -107,7 +107,8 @@ make test-e2e
 
 Saved View 已关闭，不再列为当前产品缺口。环境管理仍需：
 
-1. Environment/Profile Import 的上传、校验、预览、Operation 和审计链；
+1. Environment Import 已由[进度 78](78-Environment-Import正式闭环.md)关闭；Profile
+   内容/Checkpoint Import 的上传、对象存储和审计链仍未完成；
 2. 可复用 Proxy Binding 的 Secret 引用、租户权限、健康检查和绑定 Operation；
 3. Group/Tags 批量生命周期、服务端组合过滤和大列表批量投影；
 4. 环境“更多操作”、全局搜索、通知、主题和用户菜单；

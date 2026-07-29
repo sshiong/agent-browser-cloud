@@ -23,6 +23,8 @@ import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionPr
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.GovernanceRejectedException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.MediaQuotaRejectedException;
+import io.browsercloud.application.EnvironmentImportApplicationService.EnvironmentImportNotFoundException;
+import io.browsercloud.application.EnvironmentImportApplicationService.EnvironmentImportRejectedException;
 import io.browsercloud.application.EnvironmentSavedViewApplicationService.EnvironmentSavedViewNotFoundException;
 import io.browsercloud.application.EnvironmentSavedViewApplicationService.EnvironmentSavedViewRejectedException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotFoundException;
@@ -83,6 +85,28 @@ import org.springframework.web.context.request.async.AsyncRequestTimeoutExceptio
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(EnvironmentImportNotFoundException.class)
+  ResponseEntity<ApiError> environmentImportNotFound(
+      EnvironmentImportNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "ENVIRONMENT_IMPORT_NOT_FOUND",
+        "Environment Import was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(EnvironmentImportRejectedException.class)
+  ResponseEntity<ApiError> environmentImportRejected(
+      EnvironmentImportRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "ENVIRONMENT_IMPORT_REJECTED",
+        "Environment Import cannot be committed",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(EnvironmentSavedViewNotFoundException.class)
   ResponseEntity<ApiError> environmentSavedViewNotFound(

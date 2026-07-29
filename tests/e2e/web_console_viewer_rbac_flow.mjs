@@ -30,6 +30,7 @@ try {
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "环境管理" })).toBeVisible();
   await expect(page.getByRole("button", { name: "新建环境" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "导入环境" })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "新建浏览器环境" }),
   ).toHaveCount(0);

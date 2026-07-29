@@ -268,6 +268,35 @@ public class IdempotencyService {
         candidateMutationId);
   }
 
+  String claimEnvironmentImportPreview(
+      String tenantId,
+      String actorId,
+      String idempotencyKey,
+      Object request,
+      String candidateImportId) {
+    return claim(
+        tenantId,
+        "PREVIEW_ENVIRONMENT_IMPORT:" + actorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateImportId);
+  }
+
+  String claimEnvironmentImportCommit(
+      String tenantId,
+      String actorId,
+      String importId,
+      String idempotencyKey,
+      Object request,
+      String candidateMutationId) {
+    return claim(
+        tenantId,
+        "COMMIT_ENVIRONMENT_IMPORT:" + importId + ":" + actorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateMutationId);
+  }
+
   String claimTenantRouteMigration(
       String tenantId, String idempotencyKey, Object request, String candidateMigrationId) {
     return claim(

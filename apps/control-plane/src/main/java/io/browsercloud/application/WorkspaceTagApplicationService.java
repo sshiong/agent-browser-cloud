@@ -255,6 +255,14 @@ public class WorkspaceTagApplicationService {
         .toList();
   }
 
+  @Transactional(readOnly = true)
+  public void requireAllExist(String tenantId, List<String> requestedTagIds) {
+    var tagIds = normalizeTagIds(requestedTagIds);
+    if (!tagIds.isEmpty()) {
+      requireAll(tenantId, tagIds);
+    }
+  }
+
   private List<WorkspaceTagEntity> requireAll(String tenantId, List<String> tagIds) {
     var selected = tags.findAllByTenantIdAndTagIdInOrderByNameAsc(tenantId, tagIds);
     var found = selected.stream().map(WorkspaceTagEntity::getTagId).collect(Collectors.toSet());

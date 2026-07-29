@@ -200,6 +200,78 @@ try {
     .getByRole("button", { name: "关闭 Saved Views" })
     .click();
 
+  const importedEnvironmentName = `E2E Imported ${runSuffix}`;
+  await page.getByRole("button", { name: "导入环境" }).click();
+  await expect(
+    page.getByRole("heading", { name: "导入浏览器环境" }),
+  ).toBeVisible();
+  const environmentImportDialog = page.getByRole("dialog", {
+    name: "导入浏览器环境",
+  });
+  const importPreviewResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/environment-imports:preview") &&
+      response.request().method() === "POST",
+  );
+  await page.locator('input[type="file"][accept*="json"]').setInputFiles({
+    name: "e2e-environment-import.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        schemaVersion: 1,
+        name: `E2E Import ${runSuffix}`,
+        environments: [
+          {
+            displayName: importedEnvironmentName,
+            profileId: `profile-e2e-import-${runSuffix}`,
+            runtimeBuildId: "runtime_local_chromium",
+            region: "local",
+            resourcePolicy: {
+              mode: "AUTO",
+              onMaximumReached: "PAUSE_AGENT",
+              allowMigration: true,
+              allowHibernate: true,
+            },
+          },
+        ],
+      }),
+    ),
+  });
+  const importPreviewResponse = await importPreviewResponsePromise;
+  if (importPreviewResponse.status() !== 201) {
+    throw new Error(
+      `Environment Import preview failed with ${importPreviewResponse.status()}: ${await importPreviewResponse.text()}`,
+    );
+  }
+  await expect(
+    environmentImportDialog.getByText("VALIDATED", { exact: true }),
+  ).toBeVisible();
+  const importCommitResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(":commit") &&
+      response.url().includes("/api/v1/environment-imports/") &&
+      response.request().method() === "POST",
+  );
+  await environmentImportDialog
+    .getByRole("button", { name: "提交全部 1 个环境" })
+    .click();
+  const importCommitResponse = await importCommitResponsePromise;
+  if (importCommitResponse.status() !== 200) {
+    throw new Error(
+      `Environment Import commit failed with ${importCommitResponse.status()}: ${await importCommitResponse.text()}`,
+    );
+  }
+  await expect(
+    environmentImportDialog.getByText("COMMITTED", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    environmentImportDialog.getByText(/^ses_[A-Za-z0-9]{16,}/),
+  ).toBeVisible();
+  await environmentImportDialog.getByRole("button", { name: "完成" }).click();
+  await expect(
+    page.getByText(importedEnvironmentName, { exact: true }),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: "新建环境" }).first().click();
   await expect(
     page.getByRole("heading", { name: "新建浏览器环境" }),
@@ -863,7 +935,7 @@ try {
     page.locator("table").getByText("epoch 1", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.locator("table").getByText("空白初始化", { exact: true }),
+    page.locator("table").getByText("空白初始化", { exact: true }).first(),
   ).toBeVisible();
 
   const uiProfileId = `profile-e2e-ui-${runSuffix}`;

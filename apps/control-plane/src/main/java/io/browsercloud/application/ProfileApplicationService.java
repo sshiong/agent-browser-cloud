@@ -60,6 +60,14 @@ public class ProfileApplicationService {
             profileId, tenantId, profileId, null, storagePath(tenantId, profileId), now));
   }
 
+  /**
+   * Import preview is read-only: a new Profile is allowed, but an existing foreign Profile is not.
+   */
+  @Transactional(readOnly = true)
+  public void validateImportReference(String tenantId, String profileId) {
+    repository.findById(profileId).ifPresent(profile -> requireTenant(profile, tenantId));
+  }
+
   @Transactional(readOnly = true)
   public ProfileView get(String tenantId, String profileId) {
     var profile =

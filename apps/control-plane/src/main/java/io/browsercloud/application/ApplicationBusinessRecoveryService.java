@@ -465,6 +465,21 @@ public class ApplicationBusinessRecoveryService {
             now));
   }
 
+  /** Validates a future Session binding without creating any binding or recovery state. */
+  @Transactional(readOnly = true)
+  public void validateBinding(String tenantId, String applicationId) {
+    if (applicationId == null || applicationId.isBlank()) {
+      return;
+    }
+    validateApplicationId(applicationId);
+    var contract =
+        contracts
+            .findByTenantIdAndApplicationId(tenantId, applicationId)
+            .filter(ApplicationRecoveryContractEntity::isEnabled)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    requireApproved(contract);
+  }
+
   @Transactional(readOnly = true)
   public SessionApplicationBindingView binding(String sessionId, String tenantId) {
     requireTenant(sessionId, tenantId);

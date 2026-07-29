@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Columns3,
   ExternalLink,
+  FileUp,
   Filter,
   Layers3,
   LoaderCircle,
@@ -30,6 +31,7 @@ import { cn } from '@/shared/lib/utils';
 import type { SessionState, SessionView } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
 import { EnvironmentSavedViews } from './EnvironmentSavedViews';
+import { EnvironmentImportDrawer } from './EnvironmentImportDrawer';
 import type {
   EnvironmentPrimaryView,
   EnvironmentSavedView,
@@ -116,6 +118,7 @@ export function EnvironmentsPage() {
     offset: page * PAGE_SIZE,
   });
   const createOpen = auth.canOperate && searchParams.get('create') === '1';
+  const importOpen = auth.canOperate && searchParams.get('import') === '1';
   const total = query.data?.total ?? 0;
   const items = query.data?.items ?? [];
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -136,6 +139,11 @@ export function EnvironmentsPage() {
   const setCreateOpen = (open: boolean) => {
     if (open && !auth.canOperate) return;
     updateParams({ create: open ? '1' : undefined });
+  };
+
+  const setImportOpen = (open: boolean) => {
+    if (open && !auth.canOperate) return;
+    updateParams({ import: open ? '1' : undefined });
   };
 
   const selectView = (nextView: View) => {
@@ -176,14 +184,24 @@ export function EnvironmentsPage() {
             </p>
           </div>
           {auth.canOperate && (
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas transition-colors hover:bg-accent/90"
-            >
-              <Plus size={16} />
-              新建环境
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-[7px] border border-border-default bg-surface-1 px-4 text-[13px] font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+              >
+                <FileUp size={15} />
+                导入环境
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-[7px] bg-accent px-4 text-[13px] font-semibold text-canvas transition-colors hover:bg-accent/90"
+              >
+                <Plus size={16} />
+                新建环境
+              </button>
+            </div>
           )}
         </div>
       </section>
@@ -381,6 +399,7 @@ export function EnvironmentsPage() {
           <EnvironmentEmptyState
             canCreate={auth.canOperate}
             onCreate={() => setCreateOpen(true)}
+            onImport={() => setImportOpen(true)}
           />
         ) : items.length === 0 ? (
           <FilteredEmptyState
@@ -472,7 +491,13 @@ export function EnvironmentsPage() {
       </main>
 
       {auth.canOperate && (
-        <CreateSessionDialog open={createOpen} onOpenChange={setCreateOpen} />
+        <>
+          <CreateSessionDialog open={createOpen} onOpenChange={setCreateOpen} />
+          <EnvironmentImportDrawer
+            open={importOpen}
+            onOpenChange={setImportOpen}
+          />
+        </>
       )}
     </div>
   );
@@ -481,9 +506,11 @@ export function EnvironmentsPage() {
 function EnvironmentEmptyState({
   canCreate,
   onCreate,
+  onImport,
 }: {
   canCreate: boolean;
   onCreate: () => void;
+  onImport: () => void;
 }) {
   const flow = [
     { icon: Box, label: 'Runtime', detail: '已签名的稳定 Build' },
@@ -519,14 +546,16 @@ function EnvironmentEmptyState({
                 新建环境
               </button>
             )}
-            <button
-              type="button"
-              disabled
-              title="等待 Environment Import API 接入"
-              className="inline-flex h-10 cursor-not-allowed items-center rounded-[7px] border border-border-default px-4 text-[13px] text-text-muted opacity-50"
-            >
-              导入配置
-            </button>
+            {canCreate && (
+              <button
+                type="button"
+                onClick={onImport}
+                className="inline-flex h-10 items-center gap-2 rounded-[7px] border border-border-default px-4 text-[13px] text-text-secondary hover:border-accent/40 hover:text-text-primary"
+              >
+                <FileUp size={15} />
+                导入配置
+              </button>
+            )}
           </div>
           {!canCreate && (
             <p className="mt-5 text-[11px] text-warning">

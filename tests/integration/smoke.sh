@@ -549,7 +549,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -3472,7 +3472,7 @@ for _ in $(seq 1 80); do
     -H 'X-Tenant-Id: tenant-integration' \
     -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
   if printf '%s' "$dual_node_inventory" | python3 -c \
-    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" for item in data["items"])' \
+    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" and item["labels"]["startRuntimeGenerationFloor"] == "v1" for item in data["items"])' \
     2>/dev/null; then
     break
   fi
@@ -3588,6 +3588,19 @@ for _ in $(seq 1 180); do
 done
 test "$dual_node_maximum_mitigation" = "true:25:true:true:0"
 
+# Register a fresh N-1-shaped candidate after the Session is already running. It sorts before the
+# real target and advertises ample capacity, but deliberately lacks startRuntimeGenerationFloor.
+# A regression to generic placement would dispatch the restore to its unreachable gRPC endpoint.
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/browser-nodes/node_000_legacy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"region":"local","grpcTarget":"127.0.0.1:1","certifiedCpuMillis":10000,"certifiedMemoryMib":16384,"certifiedPidCount":4096,"certifiedGpuSlots":0,"certifiedMediaSlots":0,"safetyMarginPercent":20,"maxSessions":10,"supportsDesktop":true,"supportsGpu":false,"supportsMedia":false,"supportsNativeOs":false,"isolationCapable":true,"labels":{"runtime":"chromium","environment":"n-minus-one-integration"}}' \
+  >"$temp_dir/legacy-node-registration.json"
+printf '%s' "$(<"$temp_dir/legacy-node-registration.json")" | python3 -c \
+  'import json,sys; node=json.load(sys.stdin); assert node["nodeId"] == "node_000_legacy"; assert "startRuntimeGenerationFloor" not in node["labels"]'
+
 docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
   "delete from session_resource_samples where session_id='${dual_node_session}';
    update session_resource_policies
@@ -3643,7 +3656,7 @@ for _ in $(seq 1 360); do
 done
 test "$dual_node_migration_phase" = "COMPLETED"
 dual_node_target="$(printf '%s' "$dual_node_migration" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["sourceNodeId"] != item["targetNodeId"]; assert item["checkpointId"]; assert item["resyncRequestId"]; assert item["recoveryResult"] == "READY"; print(item["targetNodeId"])')"
+  'import json,sys; item=json.load(sys.stdin); assert item["sourceNodeId"] != item["targetNodeId"]; assert item["targetNodeId"] != "node_000_legacy"; assert item["checkpointId"]; assert item["resyncRequestId"]; assert item["recoveryResult"] == "READY"; print(item["targetNodeId"])')"
 dual_node_checkpoint="$(printf '%s' "$dual_node_migration" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["checkpointId"])')"
 test "$dual_node_source" != "$dual_node_target"

@@ -53,6 +53,9 @@
   COMPLETED/DEGRADED/FAILED`。
 - 目标 Placement 明确排除源 Node；没有第二个合格 Node 时保持可重试失败，不会把同
   Node 重启描述成跨 Node 迁移。
+- 新 Node 通过心跳声明 `startRuntimeGenerationFloor=v1`；迁移目标的 PostgreSQL
+  候选查询和服务层二次校验都会拒绝缺少该能力的 N−1 Node，避免旧 Node 忽略
+  `minimum_browser_generation` 后产生世代回退。
 - StartRuntime 契约新增 `profile_checkpoint_id`。目标 Storage Helper 从 S3-compatible
   Object Storage 读取远端 `COMMITTED` 和 `checkpoint.tar.zst`，验证：
   - Commit Marker Checkpoint ID；
@@ -95,7 +98,8 @@
 - 进度 80 进一步启动两个独立 Browser Node、两套 Storage Helper/Runtime/Profile 根
   和共享 MinIO，验证 Level 1 ACK → Safe Point → Checkpoint → 跨 Node Restore →
   State Resync → Business Validation → Completed；源/目标 `COMMITTED` Marker、
-  Placement 和 Context Epoch 均有持久化断言。
+  Placement 和 Context Epoch 均有持久化断言。测试还注册一个排序靠前但缺少
+  Generation Floor 能力、gRPC 不可达的旧 Node，证明迁移不会误调度到 N−1 目标。
 - Web 全量测试和生产 Build 通过。
 - OpenAPI、Buf、N/N-1 Expand-only Gate 通过。
 - 本里程碑最初由 PostgreSQL 17 从 V023 实际迁移到 V025；后续应用安全 Lease 已通过
@@ -103,10 +107,11 @@
 
 ## 仍未完成
 
-1. Renderer、Tab、主线程、Agent 延迟、State Diff、Remote Desktop 和 Browser/Profile
-   I/O 的真实细分指标已完成；仍缺 Extension 和 Media 指标生产者。
-2. State Collector 预算和 Remote Desktop 码率在线执行器已完成；仍缺 Encoder Slot
-   和 Extension Weight 在线执行器。
+1. Renderer、Tab、主线程、Agent 延迟、State Diff、Remote Desktop、Browser/Profile
+   I/O、Extension 和 x11vnc Media 的真实生产者已完成；仍缺硬件 Codec/GPU Helper
+   和目标 Linux 长稳证书。
+2. State Collector、Remote Desktop 码率、Encoder Slot 和 Extension Weight 在线
+   执行器已完成；仍缺编码器级动态码率/封装/播放和目标环境证书。
 3. File Upload/Download 和导航级 Form Submission 的 CDP Signal Producer 已完成；
    Payment/Security、SPA 应用语义和关键事务的通用 Lease API 已完成。仍缺目标业务
    Adapter/自动埋点；未接入的业务不会被伪装成已识别。

@@ -49,6 +49,8 @@ public class BrowserCapacityApplicationService {
   private static final int UNKNOWN_EXTENSION_CPU_MILLIS = 150;
   private static final int UNKNOWN_EXTENSION_MEMORY_MIB = 256;
   private static final int UNKNOWN_EXTENSION_PER_NODE_LIMIT = 2;
+  private static final String GENERATION_FLOOR_CAPABILITY = "startRuntimeGenerationFloor";
+  private static final String GENERATION_FLOOR_CAPABILITY_VERSION = "v1";
   private static final Set<String> ACTIVE_PLACEMENT_STATES =
       Set.of("RESERVED", "ACTIVE", "WAITING_SAFE_POINT");
 
@@ -316,13 +318,24 @@ public class BrowserCapacityApplicationService {
   /** 在同一事务内锁定候选 Node、执行反亲和打分、预留资源并提交 Session Context。 */
   @Transactional
   public BrowserPlacementView reserve(SessionContext session, String region) {
-    return reserveExcluding(session, region, null);
+    return reserveInternal(session, region, null, false);
   }
 
-  /** Migration placement must not silently select the source Node again. */
+  /**
+   * Migration placement must neither select the source Node again nor dispatch a generation floor
+   * to an N-1 target that ignores it.
+   */
   @Transactional
-  public BrowserPlacementView reserveExcluding(
-      SessionContext session, String region, String excludedNodeId) {
+  public BrowserPlacementView reserveMigrationTarget(
+      SessionContext session, String region, String sourceNodeId) {
+    return reserveInternal(session, region, sourceNodeId, true);
+  }
+
+  private BrowserPlacementView reserveInternal(
+      SessionContext session,
+      String region,
+      String excludedNodeId,
+      boolean requireGenerationFloorCapability) {
     var existing = placementRepository.findForUpdate(session.sessionId());
     if (existing.isPresent() && !existing.orElseThrow().getState().equals("RELEASED")) {
       return toPlacementView(existing.orElseThrow());
@@ -339,15 +352,27 @@ public class BrowserCapacityApplicationService {
     enterpriseOperationsService.requireMediaQuota(
         session.tenantId(), calculated.mediaSlots(), calculated.mediaBitrateKbps());
     var now = Instant.now();
+    var placementCandidates =
+        requireGenerationFloorCapability
+            ? nodeRepository.lockMigrationPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL))
+            : nodeRepository.lockPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL));
     var candidates =
-        nodeRepository.lockPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL)).stream()
+        placementCandidates.stream()
             .filter(node -> excludedNodeId == null || !excludedNodeId.equals(node.getNodeId()))
+            .filter(
+                node ->
+                    !requireGenerationFloorCapability
+                        || nodeHasLabel(
+                            node, GENERATION_FLOOR_CAPABILITY, GENERATION_FLOOR_CAPABILITY_VERSION))
             .map(node -> scoreCandidate(node, session.tenantId(), calculated))
             .filter(Candidate::eligible)
             .sorted(Comparator.comparingInt(Candidate::score))
             .toList();
     if (candidates.isEmpty()) {
-      throw new BrowserCapacityUnavailableException("NO_ELIGIBLE_BROWSER_NODE");
+      throw new BrowserCapacityUnavailableException(
+          requireGenerationFloorCapability
+              ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
+              : "NO_ELIGIBLE_BROWSER_NODE");
     }
     var chosen = candidates.getFirst();
     var node = chosen.node();
@@ -396,6 +421,10 @@ public class BrowserCapacityApplicationService {
     var placementView = toPlacementView(placement);
     sessionResourceService.placementResolved(placementView);
     return placementView;
+  }
+
+  private boolean nodeHasLabel(BrowserNodeEntity node, String label, String expectedValue) {
+    return expectedValue.equals(readStringMap(node.getLabels()).get(label));
   }
 
   @Transactional

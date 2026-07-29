@@ -636,6 +636,23 @@ assert tags["certified_media_slots"] == 15
 assert tags["supports_media"] == 16
 assert tags["memory_psi_some_avg10"] == 20
 
+node_agent = read("apps/browser-node/crates/node-agent/src/main.rs")
+capacity_repository = read(
+    "apps/control-plane/src/main/java/io/browsercloud/persistence/BrowserNodeJpaRepository.java"
+)
+capacity_service = read(
+    "apps/control-plane/src/main/java/io/browsercloud/application/BrowserCapacityApplicationService.java"
+)
+migration_service = read(
+    "apps/control-plane/src/main/java/io/browsercloud/application/SessionMigrationApplicationService.java"
+)
+assert '"startRuntimeGenerationFloor".to_owned()' in node_agent
+assert '"v1".to_owned()' in node_agent
+assert "labels->>'startRuntimeGenerationFloor' = 'v1'" in capacity_repository
+assert "lockMigrationPlacementCandidates" in capacity_repository
+assert "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY" in capacity_service
+assert "reserveMigrationTarget" in migration_service
+
 resource_report = proto.split("message ReportSessionResourcesRequest {", 1)[1].split(
     "}", 1
 )[0]
@@ -856,7 +873,7 @@ facts = {
     "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V055 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-additive-endpoints",
-    "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
+    "rolling": "leased-rendezvous-shard-dispatch,migration-target-generation-floor-capability,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
 print(

@@ -206,6 +206,129 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   @Test
+  void migrationRejectsNMinusOneCandidateWithoutGenerationFloorCapability() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L2,
+            2,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            "[]",
+            now);
+    var legacyNode =
+        new BrowserNodeEntity(
+            "node_000_legacy",
+            "local",
+            "localhost:9091",
+            10_000,
+            16_384,
+            4096,
+            0,
+            0,
+            20,
+            10,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "{\"runtime\":\"chromium\"}",
+            now);
+    var compatibleNode =
+        new BrowserNodeEntity(
+            "node_compatible",
+            "local",
+            "localhost:9092",
+            10_000,
+            16_384,
+            4096,
+            0,
+            0,
+            20,
+            10,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "{\"runtime\":\"chromium\",\"startRuntimeGenerationFloor\":\"v1\"}",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    // The service deliberately rechecks the label even though the PostgreSQL query also filters it.
+    when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any()))
+        .thenReturn(List.of(legacyNode, compatibleNode));
+    when(placementRepository.findAllByNodeIdAndStateIn(eq("node_compatible"), any()))
+        .thenReturn(List.of());
+    when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var placement =
+        service.reserveMigrationTarget(session(ResourceClass.L2), "local", "node_source");
+
+    assertThat(placement.nodeId()).isEqualTo("node_compatible");
+    assertThat(compatibleNode.getActiveSessions()).isEqualTo(1);
+    assertThat(legacyNode.getActiveSessions()).isZero();
+  }
+
+  @Test
+  void migrationFailsClosedWhenOnlyNMinusOneCandidatesExist() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L2,
+            2,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            "[]",
+            now);
+    var legacyNode =
+        new BrowserNodeEntity(
+            "node_000_legacy",
+            "local",
+            "localhost:9091",
+            10_000,
+            16_384,
+            4096,
+            0,
+            0,
+            20,
+            10,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "{\"runtime\":\"chromium\"}",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any()))
+        .thenReturn(List.of(legacyNode));
+
+    assertThatThrownBy(
+            () -> service.reserveMigrationTarget(session(ResourceClass.L2), "local", "node_source"))
+        .isInstanceOf(BrowserCapacityUnavailableException.class)
+        .hasMessage("NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY");
+    assertThat(legacyNode.getActiveSessions()).isZero();
+  }
+
+  @Test
   void privilegedExtensionCannotMixWithAnExistingOrdinaryPlacement() throws Exception {
     var now = Instant.now();
     var demand =

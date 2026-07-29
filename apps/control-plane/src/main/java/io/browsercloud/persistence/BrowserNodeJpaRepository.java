@@ -38,6 +38,35 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
   List<BrowserNodeEntity> lockPlacementCandidates(
       @Param("region") String region, @Param("freshAfter") Instant freshAfter);
 
+  /**
+   * Cross-Node restore requires a target that understands StartRuntimeCommand's generation floor.
+   *
+   * <p>Keep this predicate in PostgreSQL instead of filtering the generic 64-row candidate window
+   * in memory. During a rolling upgrade, an arbitrarily large N-1 fleet must not hide a compatible
+   * target behind the query limit.
+   */
+  @Query(
+      value =
+          """
+          SELECT *
+          FROM browser_nodes
+          WHERE region = :region
+            AND lifecycle_state = 'READY'
+            AND admission_state = 'OPEN'
+            AND pressure_state = 'NORMAL'
+            AND last_heartbeat_at >= :freshAfter
+            AND labels->>'startRuntimeGenerationFloor' = 'v1'
+          ORDER BY
+            (CAST(reserved_memory_mib AS numeric) / certified_memory_mib) ASC,
+            active_sessions ASC,
+            node_id ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 64
+          """,
+      nativeQuery = true)
+  List<BrowserNodeEntity> lockMigrationPlacementCandidates(
+      @Param("region") String region, @Param("freshAfter") Instant freshAfter);
+
   @Query(
       value =
           """

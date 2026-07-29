@@ -34,8 +34,15 @@
   Generation 必须严格递增。
 - 该修复没有放宽 Control Plane 的 `STALE_BROWSER_GENERATION` 检查，也没有把旧事件
   强制提交为成功。
-- N−1 Node 会安全忽略新增字段。混合版本滚动期间不得把跨 Node 迁移调度到不支持此
-  字段的 N−1 Node；目标集群仍需通过节点能力准入或升级窗口策略关闭这一运行 Gate。
+- N−1 Node 会安全忽略新增字段，因此新 Node 固定通过容量心跳声明
+  `startRuntimeGenerationFloor=v1`。迁移目标查询只锁定具备该能力、心跳新鲜且 Admission
+  开放的 Node，并在 Java 服务层再次校验标签；普通 Session Placement 不受影响。
+- 能力过滤在 PostgreSQL 的 64 个候选窗口之前执行，避免大型 N−1 集群把兼容 Node
+  挤出查询上限。只有旧 Node 可用时返回
+  `NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY`，不会向旧 Node 下发 Restore。
+- 集成测试会在源 Session 运行后额外注册一个容量充足、排序靠前但不声明该能力且
+  gRPC 不可达的 N−1 形态 Node。迁移仍必须选择真实兼容 Node 并完成，以证明能力准入
+  不是只存在于单元测试或文档中。
 
 ### 可验证的迁移终态
 
@@ -91,7 +98,5 @@ Profile Restore、Resource Actuator、SSE、Audit Chain 与 N/N−1 数据库夹
    Node 和生产形态对象存储的长时间压力与容量证书；
 2. 源 Node 在 Checkpoint 前后宕机、目标 Node Restore 中宕机、对象存储超时/分区、
    PostgreSQL 延迟及重复调度的完整故障矩阵；
-3. 混合 N/N−1 Browser Node 集群的目标能力准入，确保迁移目标支持 Browser Generation
-   下界协议；
-4. 真实 CRM/支付站点的业务安全 Lease Adapter、Provider Evidence 凭据和恢复验证；
-5. 跨 Region State/Object Restore、KMS/IAM、流量切换与 RTO/RPO 证书。
+3. 真实 CRM/支付站点的业务安全 Lease Adapter、Provider Evidence 凭据和恢复验证；
+4. 跨 Region State/Object Restore、KMS/IAM、流量切换与 RTO/RPO 证书。

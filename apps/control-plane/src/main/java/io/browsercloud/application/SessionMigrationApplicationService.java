@@ -168,7 +168,7 @@ public class SessionMigrationApplicationService {
     }
     var descriptor = sessions.describe(session.sessionId());
     var placement =
-        capacity.reserveExcluding(session, descriptor.region(), migration.getSourceNodeId());
+        capacity.reserveMigrationTarget(session, descriptor.region(), migration.getSourceNodeId());
     var placedSession = sessions.require(session.sessionId());
     var operation =
         sessionService.start(migration.getSessionId(), migration.getTenantId(), "system:migration");

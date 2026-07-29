@@ -406,6 +406,7 @@ impl NodeCapacityReporter {
             "businessRecoveryExtensionActions".to_owned(),
             "cdp-extension-restart-v1".to_owned(),
         );
+        labels.insert("startRuntimeGenerationFloor".to_owned(), "v1".to_owned());
         labels.insert(
             "profileImport".to_owned(),
             if std::env::var("STORAGE_HELPER_SOCKET")

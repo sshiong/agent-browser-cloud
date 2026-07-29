@@ -99,8 +99,9 @@
 2. State Collector Budget、Remote Desktop Bitrate、Extension Resource Weight 和
    Media Encoder Slot 在线执行器已完成；独立 CDP Pixel Recording、有界队列和
    上限停止已由进度 70 完成，编码器级动态码率与封装仍未完成。
-3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；
-   上传下载、表单、支付、安全和应用关键事务仍缺真实信号生产者。
+3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task、Durable Workflow、
+   CDP 上传下载与导航级表单；支付、安全、SPA 和应用关键事务已具备短 Lease Producer
+   API，但仍缺各目标业务 Adapter 的真实接入。
 4. 跨 Node 核心链与仓库级双 Browser Node + MinIO + CDP 数据面集成证书已由进度 80
    完成；仍缺正式 Chromium/目标 Linux 的节点故障、网络分区和长稳证书。
 5. `WAIT_SAFE_POINT_MIGRATE`、`HIBERNATE` 和 `TERMINATE_STRICT` 已进入真实执行链；

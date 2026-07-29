@@ -319,10 +319,7 @@ describe('session API', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await getSessionApplicationBinding(
-      'ses_1234567890abcdef',
-      'tenant-test'
-    );
+    await getSessionApplicationBinding('ses_1234567890abcdef', 'tenant-test');
     await rebindSessionApplication(
       'ses_1234567890abcdef',
       { expectedCurrentVersion: 2, targetContractVersion: 3 },

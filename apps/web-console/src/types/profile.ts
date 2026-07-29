@@ -25,3 +25,42 @@ export interface CreateProfileRequest {
   name: string;
   description?: string;
 }
+
+export type ProfileImportState =
+  'REQUESTED' | 'UPLOADING' | 'VALIDATING' | 'COMMITTED' | 'FAILED';
+
+export interface ProfileImportView {
+  importId: string;
+  operationId: string;
+  profileId: string;
+  profileName: string;
+  runtimeBuildId: string;
+  archiveSha256: string;
+  archiveSizeBytes: number;
+  state: ProfileImportState;
+  nodeId: string | null;
+  checkpointId: string;
+  checkpointEpoch: number | null;
+  profileWriteEpoch: number | null;
+  coreSizeBytes: number | null;
+  checkpointFileCount: number | null;
+  errorCode: string | null;
+  requestId: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface ProfileImportListResponse {
+  items: ProfileImportView[];
+  total: number;
+}
+
+export interface ProfileImportRequest {
+  profileId: string;
+  profileName: string;
+  profileDescription?: string;
+  runtimeBuildId: string;
+  archiveSha256: string;
+  archive: File;
+}

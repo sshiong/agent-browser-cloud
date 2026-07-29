@@ -200,6 +200,43 @@ impl StorageHelperClient {
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted checkpoint"))
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub async fn import_checkpoint(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        import_id: &str,
+        checkpoint_id: &str,
+        runtime_build_id: &str,
+        archive_sha256: &str,
+        archive_size_bytes: u64,
+    ) -> anyhow::Result<StorageCheckpoint> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("import_id", import_id)?;
+        validate_identifier("checkpoint_id", checkpoint_id)?;
+        validate_identifier("runtime_build_id", runtime_build_id)?;
+        anyhow::ensure!(
+            archive_sha256.len() == 64
+                && archive_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit()),
+            "archive_sha256 is invalid"
+        );
+        self.call(StorageCommand::ImportCheckpoint {
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            import_id: import_id.to_owned(),
+            checkpoint_id: checkpoint_id.to_owned(),
+            runtime_build_id: runtime_build_id.to_owned(),
+            archive_sha256: archive_sha256.to_ascii_lowercase(),
+            archive_size_bytes,
+        })
+        .await?
+        .checkpoint
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted imported checkpoint"))
+    }
+
     pub async fn prepare_recording(
         &self,
         workspace: &StorageWorkspace,

@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createProfile, listProfiles } from './profile';
+import {
+  createProfile,
+  importProfileCheckpoint,
+  listProfileImports,
+  listProfiles,
+} from './profile';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -58,6 +63,84 @@ describe('profile API', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ profileId: 'profile-test', name: 'Test' }),
+      })
+    );
+  });
+
+  it('streams a checkpoint as multipart without overriding the browser boundary', async () => {
+    const imported = {
+      importId: 'pim_1234567890abcdef',
+      operationId: 'op_1234567890abcdef',
+      profileId: 'profile-imported',
+      profileName: 'Imported',
+      runtimeBuildId: 'runtime-stable',
+      archiveSha256: 'a'.repeat(64),
+      archiveSizeBytes: 3,
+      state: 'COMMITTED',
+      nodeId: 'node-one',
+      checkpointId: 'chk_1234567890abcdef',
+      checkpointEpoch: 1,
+      profileWriteEpoch: 0,
+      coreSizeBytes: 3,
+      checkpointFileCount: 1,
+      errorCode: null,
+      requestId: 'req-one',
+      createdAt: '2026-07-30T00:00:00Z',
+      updatedAt: '2026-07-30T00:00:00Z',
+      completedAt: '2026-07-30T00:00:00Z',
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(imported), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await importProfileCheckpoint(
+      {
+        profileId: 'profile-imported',
+        profileName: 'Imported',
+        runtimeBuildId: 'runtime-stable',
+        archiveSha256: 'a'.repeat(64),
+        archive: new File(['abc'], 'profile.tar.zst'),
+      },
+      'profile-import-key',
+      'tenant-test'
+    );
+
+    const fetchCall = fetchMock.mock.calls[0];
+    expect(fetchCall).toBeDefined();
+    const [, init] = fetchCall!;
+    expect(init).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'profile-import-key',
+          'X-Tenant-Id': 'tenant-test',
+        }),
+        body: expect.any(FormData),
+      })
+    );
+    expect(
+      (init?.headers as Record<string, string>)['Content-Type']
+    ).toBeUndefined();
+    expect((init?.body as FormData).get('profileId')).toBe('profile-imported');
+  });
+
+  it('lists only actor-owned Profile Import jobs', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await listProfileImports('tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/profile-imports?limit=20',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })
     );
   });

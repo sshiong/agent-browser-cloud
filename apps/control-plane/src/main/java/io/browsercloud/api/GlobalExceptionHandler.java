@@ -31,6 +31,10 @@ import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotF
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
+import io.browsercloud.application.ProfileImportApplicationService.ProfileImportRejectedException;
+import io.browsercloud.application.ProfileImportApplicationService.ProfileImportUnavailableException;
+import io.browsercloud.application.ProfileImportJobStore.ProfileImportConflictException;
+import io.browsercloud.application.ProfileImportJobStore.ProfileImportNotFoundException;
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
@@ -79,6 +83,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /** 将领域异常转换为正式契约中的 Error Envelope，避免向客户端泄露堆栈。 */
 @RestControllerAdvice
@@ -435,6 +440,61 @@ public class GlobalExceptionHandler {
       ProfileAlreadyExistsException exception, HttpServletRequest request) {
     return response(
         HttpStatus.CONFLICT, "PROFILE_ALREADY_EXISTS", "Profile already exists", Map.of(), request);
+  }
+
+  @ExceptionHandler(ProfileImportNotFoundException.class)
+  ResponseEntity<ApiError> profileImportNotFound(
+      ProfileImportNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "PROFILE_IMPORT_NOT_FOUND",
+        "Profile Import was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ProfileImportConflictException.class)
+  ResponseEntity<ApiError> profileImportConflict(
+      ProfileImportConflictException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "PROFILE_IMPORT_CONFLICT",
+        "Profile Import conflicts with current state",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(ProfileImportRejectedException.class)
+  ResponseEntity<ApiError> profileImportRejected(
+      ProfileImportRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "PROFILE_IMPORT_REJECTED",
+        "Profile archive could not be validated or committed",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ApiError> multipartPayloadTooLarge(
+      MaxUploadSizeExceededException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.PAYLOAD_TOO_LARGE,
+        "UPLOAD_SIZE_EXCEEDED",
+        "Uploaded archive exceeds the configured request limit",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ProfileImportUnavailableException.class)
+  ResponseEntity<ApiError> profileImportUnavailable(
+      ProfileImportUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "PROFILE_IMPORT_UNAVAILABLE",
+        "No verified Profile Import data plane is currently available",
+        Map.of("reason", exception.getMessage()),
+        request);
   }
 
   @ExceptionHandler(ProxyUnavailableException.class)

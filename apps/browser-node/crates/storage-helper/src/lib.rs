@@ -6,8 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
@@ -16,6 +17,7 @@ pub mod object_archive;
 
 const MAX_PROFILE_FILES: usize = 50_000;
 const MAX_PROFILE_FILE_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_PROFILE_CORE_BYTES: u64 = 1024 * 1024 * 1024;
 const MANIFEST_FILE: &str = "manifest.json";
 const COMMIT_MARKER_FILE: &str = "COMMITTED";
 const LATEST_FILE: &str = "LATEST";
@@ -177,6 +179,85 @@ impl LocalProfileStore {
                 &profile_id,
                 &checkpoint_id,
                 &archive,
+            )
+        })
+        .await?
+    }
+
+    /// Imports an untrusted exported checkpoint into a new tenant/Profile identity.
+    ///
+    /// Source manifest identities are deliberately ignored. Only regular files below `core/`
+    /// survive, and a new manifest/commit marker is produced from verified bytes.
+    pub async fn import_checkpoint_archive(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+        runtime_build_id: &str,
+        archive: Vec<u8>,
+    ) -> anyhow::Result<ProfileCheckpointManifest> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("checkpoint_id", checkpoint_id)?;
+        validate_identifier("runtime_build_id", runtime_build_id)?;
+        anyhow::ensure!(
+            archive.len() <= MAX_CHECKPOINT_ARCHIVE_BYTES,
+            "checkpoint archive exceeds the bounded import size"
+        );
+        let root = self.root.clone();
+        let tenant_id = tenant_id.to_owned();
+        let profile_id = profile_id.to_owned();
+        let checkpoint_id = checkpoint_id.to_owned();
+        let runtime_build_id = runtime_build_id.to_owned();
+        tokio::task::spawn_blocking(move || {
+            import_checkpoint_archive_blocking(
+                &root,
+                &tenant_id,
+                &profile_id,
+                &checkpoint_id,
+                &runtime_build_id,
+                Cursor::new(archive),
+            )
+        })
+        .await?
+    }
+
+    /// Imports from an already securely opened staging file without buffering the compressed
+    /// archive in helper memory.
+    pub async fn import_checkpoint_archive_file(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+        runtime_build_id: &str,
+        archive_size_bytes: u64,
+        archive: fs::File,
+    ) -> anyhow::Result<ProfileCheckpointManifest> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("checkpoint_id", checkpoint_id)?;
+        validate_identifier("runtime_build_id", runtime_build_id)?;
+        anyhow::ensure!(
+            archive_size_bytes > 0 && archive_size_bytes <= MAX_CHECKPOINT_ARCHIVE_BYTES as u64,
+            "checkpoint archive exceeds the bounded import size"
+        );
+        anyhow::ensure!(
+            archive.metadata()?.len() == archive_size_bytes,
+            "checkpoint archive size changed before import"
+        );
+        let root = self.root.clone();
+        let tenant_id = tenant_id.to_owned();
+        let profile_id = profile_id.to_owned();
+        let checkpoint_id = checkpoint_id.to_owned();
+        let runtime_build_id = runtime_build_id.to_owned();
+        tokio::task::spawn_blocking(move || {
+            import_checkpoint_archive_blocking(
+                &root,
+                &tenant_id,
+                &profile_id,
+                &checkpoint_id,
+                &runtime_build_id,
+                archive,
             )
         })
         .await?
@@ -400,6 +481,150 @@ fn install_checkpoint_archive_blocking(
         );
         fs::rename(&staging, &committed)?;
         sync_directory(&checkpoints)?;
+        atomic_write(&profile_root.join(LATEST_FILE), checkpoint_id.as_bytes())?;
+        validate_committed_checkpoint(&profile_root, checkpoint_id)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    result
+}
+
+fn import_checkpoint_archive_blocking(
+    root: &Path,
+    tenant_id: &str,
+    profile_id: &str,
+    checkpoint_id: &str,
+    runtime_build_id: &str,
+    archive_reader: impl Read,
+) -> anyhow::Result<ProfileCheckpointManifest> {
+    let profile_root = profile_root(root, tenant_id, profile_id);
+    let checkpoints = profile_root.join("checkpoints");
+    secure_create_dir_all(&checkpoints)?;
+    let committed = checkpoints.join(checkpoint_id);
+    if committed.is_dir() {
+        let manifest = validate_committed_checkpoint(&profile_root, checkpoint_id)?;
+        anyhow::ensure!(
+            manifest.tenant_id == tenant_id
+                && manifest.profile_id == profile_id
+                && manifest.runtime_build_id == runtime_build_id,
+            "imported checkpoint identity mismatch"
+        );
+        atomic_write(&profile_root.join(LATEST_FILE), checkpoint_id.as_bytes())?;
+        return Ok(manifest);
+    }
+
+    let staging = checkpoints.join(format!(
+        ".import-{checkpoint_id}-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    secure_create_dir_all(&staging.join("core"))?;
+    let result = (|| {
+        let decoder = zstd::Decoder::new(archive_reader)?;
+        let mut archive = tar::Archive::new(decoder);
+        let mut files = Vec::new();
+        let mut seen = HashSet::new();
+        let mut entry_count = 0usize;
+        let mut core_size_bytes = 0_u64;
+        for entry in archive.entries()? {
+            let mut entry = entry?;
+            entry_count = entry_count.saturating_add(1);
+            anyhow::ensure!(
+                entry_count <= MAX_PROFILE_FILES + 3,
+                "checkpoint import contains too many entries"
+            );
+            let entry_type = entry.header().entry_type();
+            anyhow::ensure!(
+                entry_type.is_file() || entry_type.is_dir(),
+                "checkpoint import contains a non-regular entry"
+            );
+            let path = safe_relative_path(&entry.path()?.to_string_lossy())?;
+            if path == Path::new(MANIFEST_FILE) || path == Path::new(COMMIT_MARKER_FILE) {
+                anyhow::ensure!(
+                    entry_type.is_file(),
+                    "checkpoint metadata entry must be a regular file"
+                );
+                continue;
+            }
+            anyhow::ensure!(
+                path.starts_with("core"),
+                "checkpoint import contains an unexpected path"
+            );
+            let relative = path
+                .strip_prefix("core")
+                .map_err(|_| anyhow::anyhow!("checkpoint core path is invalid"))?;
+            if relative.as_os_str().is_empty() {
+                anyhow::ensure!(
+                    entry_type.is_dir(),
+                    "checkpoint core root must be a directory"
+                );
+                continue;
+            }
+            let relative = safe_relative_path(&relative.to_string_lossy())?;
+            if is_ephemeral(&relative) {
+                continue;
+            }
+            anyhow::ensure!(
+                seen.insert(relative.clone()),
+                "checkpoint import contains a duplicate path"
+            );
+            let target = staging.join("core").join(&relative);
+            if entry_type.is_dir() {
+                secure_create_dir_all(&target)?;
+                continue;
+            }
+            let size = entry.header().size()?;
+            anyhow::ensure!(
+                size <= MAX_PROFILE_FILE_BYTES,
+                "checkpoint import file exceeds size limit"
+            );
+            core_size_bytes = core_size_bytes
+                .checked_add(size)
+                .ok_or_else(|| anyhow::anyhow!("checkpoint import size overflow"))?;
+            anyhow::ensure!(
+                core_size_bytes <= MAX_PROFILE_CORE_BYTES,
+                "checkpoint import core exceeds size limit"
+            );
+            anyhow::ensure!(
+                files.len() < MAX_PROFILE_FILES,
+                "checkpoint import contains too many files"
+            );
+            if let Some(parent) = target.parent() {
+                secure_create_dir_all(parent)?;
+            }
+            entry.unpack(&target)?;
+            secure_file_permissions(&target)?;
+            files.push(CheckpointFile {
+                relative_path: path_to_manifest(&relative)?,
+                size,
+                sha256: hash_file(&target)?,
+            });
+        }
+        anyhow::ensure!(
+            !files.is_empty(),
+            "checkpoint import contains no Profile Core files"
+        );
+        files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+        let content_hash = manifest_content_hash(&files);
+        let manifest = ProfileCheckpointManifest {
+            checkpoint_id: checkpoint_id.to_owned(),
+            checkpoint_epoch: 1,
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            runtime_build_id: runtime_build_id.to_owned(),
+            profile_write_epoch: 0,
+            files,
+            core_size_bytes,
+            content_hash: content_hash.clone(),
+            committed: true,
+        };
+        atomic_write(
+            &staging.join(MANIFEST_FILE),
+            &serde_json::to_vec_pretty(&manifest)?,
+        )?;
+        fs::rename(&staging, &committed)?;
+        sync_directory(&checkpoints)?;
+        atomic_write(&committed.join(COMMIT_MARKER_FILE), content_hash.as_bytes())?;
         atomic_write(&profile_root.join(LATEST_FILE), checkpoint_id.as_bytes())?;
         validate_committed_checkpoint(&profile_root, checkpoint_id)
     })();
@@ -965,6 +1190,54 @@ mod tests {
         assert_eq!(
             restored.restore_status,
             ProfileRestoreStatus::TechnicalReady
+        );
+        store.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn imports_checkpoint_into_a_new_tenant_profile_identity() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let source = store
+            .acquire_workspace("tenant-source", "profile-source", "session-source")
+            .await
+            .unwrap();
+        fs::create_dir_all(source.core_dir.join("Default")).unwrap();
+        fs::write(source.core_dir.join("Default/Cookies"), b"portable-session").unwrap();
+        let source_manifest = store.checkpoint(&source, "runtime-source").await.unwrap();
+        let archive = store.pack_checkpoint(&source_manifest).await.unwrap();
+        store.release_writer(&source).await.unwrap();
+
+        let imported = store
+            .import_checkpoint_archive(
+                "tenant-target",
+                "profile-target",
+                "chk_import_1234567890abcdef",
+                "runtime-target",
+                archive,
+            )
+            .await
+            .unwrap();
+        assert_eq!(imported.tenant_id, "tenant-target");
+        assert_eq!(imported.profile_id, "profile-target");
+        assert_eq!(imported.checkpoint_id, "chk_import_1234567890abcdef");
+        assert_eq!(imported.runtime_build_id, "runtime-target");
+        assert_eq!(imported.checkpoint_epoch, 1);
+        assert_eq!(imported.profile_write_epoch, 0);
+        assert_eq!(imported.files.len(), 1);
+
+        let restored = store
+            .acquire_workspace("tenant-target", "profile-target", "session-target")
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(restored.core_dir.join("Default/Cookies")).unwrap(),
+            b"portable-session"
+        );
+        assert_eq!(
+            restored.restored_checkpoint_id.as_deref(),
+            Some("chk_import_1234567890abcdef")
         );
         store.release_writer(&restored).await.unwrap();
         fs::remove_dir_all(root).unwrap();

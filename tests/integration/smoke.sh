@@ -35,6 +35,11 @@ cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-it-${run_id}"
 redis_name="agentbrowser-redis-it-${run_id}"
+minio_name="agentbrowser-minio-it-${run_id}"
+minio_network="${minio_name}-network"
+minio_access_key="browsercloud-integration"
+minio_secret_key="browsercloud-integration-secret"
+minio_bucket="profile-checkpoints"
 temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
@@ -107,7 +112,8 @@ cleanup() {
     echo '--- redis container log ---' >&2
     docker logs "$redis_name" >&2 2>/dev/null || true
   fi
-  docker rm -f "$postgres_name" "$redis_name" >/dev/null 2>&1 || true
+  docker rm -f "$postgres_name" "$redis_name" "$minio_name" >/dev/null 2>&1 || true
+  docker network rm "$minio_network" >/dev/null 2>&1 || true
   rm -rf "$temp_dir"
 }
 trap cleanup EXIT INT TERM
@@ -121,9 +127,17 @@ docker run -d --name "$postgres_name" \
 docker run -d --name "$redis_name" \
   -p 127.0.0.1::6379 \
   redis:7-alpine >/dev/null
+docker network create "$minio_network" >/dev/null
+docker run -d --name "$minio_name" \
+  --network "$minio_network" \
+  -p 127.0.0.1::9000 \
+  -e "MINIO_ROOT_USER=${minio_access_key}" \
+  -e "MINIO_ROOT_PASSWORD=${minio_secret_key}" \
+  minio/minio:RELEASE.2025-04-22T22-12-26Z server /data >/dev/null
 
 postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
+minio_port="$(docker port "$minio_name" 9000/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
@@ -173,6 +187,12 @@ start_network_helper() {
 }
 
 start_storage_helper() {
+  APP_ENVIRONMENT=local \
+  OBJECT_STORAGE_ENABLED=true \
+  OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${minio_port}" \
+  OBJECT_STORAGE_BUCKET="$minio_bucket" \
+  OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
+  OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
   NODE_AGENT_UID="$(id -u)" \
@@ -205,6 +225,7 @@ start_browser_node() {
   NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
   PROFILE_STORAGE_ROOT="$temp_dir/runtime/profile-storage" \
   STORAGE_HELPER_SOCKET="$temp_dir/storage-helper.sock" \
+  OBJECT_STORAGE_ENABLED=true \
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   FAKE_CHROMIUM_REQUIRE_PROXY=true \
   FAKE_CHROMIUM_ARGUMENT_LOG="$temp_dir/fake-chromium-args.log" \
@@ -257,6 +278,18 @@ wait_for_redis() {
 
 wait_for_postgres
 wait_for_redis
+minio_ready="false"
+for _ in $(seq 1 80); do
+  if curl -fsS "http://127.0.0.1:${minio_port}/minio/health/ready" >/dev/null 2>&1; then
+    minio_ready="true"
+    break
+  fi
+  sleep 0.25
+done
+test "$minio_ready" = "true"
+docker run --rm --network "$minio_network" --entrypoint /bin/sh \
+  minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  -c "mc alias set integration http://${minio_name}:9000 '${minio_access_key}' '${minio_secret_key}' >/dev/null && mc mb integration/${minio_bucket} >/dev/null"
 
 {
   printf '%s\n' \
@@ -430,13 +463,77 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$runtime_builds" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["total"] == 1; build=result["items"][0]; assert build["buildId"] == "runtime_local_chromium"; assert build["regressionStatus"] == "STABLE"; assert build["signatureVerified"] is True; assert build["artifactDigest"] == "sha256:" + "0"*64; assert build["signingKeyId"] == "local-development"; assert build["sbomUrl"]'
+
+cargo run --quiet --locked --manifest-path apps/browser-node/Cargo.toml \
+  -p storage-helper --example create_profile_import -- \
+  "$temp_dir/profile-import.tar.zst"
+profile_import_sha="$(openssl dgst -sha256 -r "$temp_dir/profile-import.tar.zst" | awk '{print $1}')"
+profile_import_response="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/profile-imports" \
+  -H 'X-Tenant-Id: tenant-profile-import' \
+  -H 'X-Actor-Id: profile-import-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: profile-import-integration-v1' \
+  -F 'profileId=profile-import-integration' \
+  -F 'profileName=Imported integration Profile' \
+  -F 'runtimeBuildId=runtime_local_chromium' \
+  -F "archiveSha256=${profile_import_sha}" \
+  -F "archive=@${temp_dir}/profile-import.tar.zst;type=application/zstd")"
+printf '%s' "$profile_import_response" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "COMMITTED"; assert item["profileId"] == "profile-import-integration"; assert item["nodeId"] == "node_integration"; assert item["checkpointEpoch"] == 1; assert item["profileWriteEpoch"] == 0; assert item["checkpointFileCount"] == 1; assert item["coreSizeBytes"] > 0; assert item["operationId"].startswith("op_"); assert item["requestId"]'
+profile_import_id="$(printf '%s' "$profile_import_response" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["importId"])')"
+profile_import_replay="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/profile-imports" \
+  -H 'X-Tenant-Id: tenant-profile-import' \
+  -H 'X-Actor-Id: profile-import-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: profile-import-integration-v1' \
+  -F 'profileId=profile-import-integration' \
+  -F 'profileName=Imported integration Profile' \
+  -F 'runtimeBuildId=runtime_local_chromium' \
+  -F "archiveSha256=${profile_import_sha}" \
+  -F "archive=@${temp_dir}/profile-import.tar.zst;type=application/zstd")"
+python3 - "$profile_import_response" "$profile_import_replay" <<'PY'
+import json
+import sys
+
+first = json.loads(sys.argv[1])
+replay = json.loads(sys.argv[2])
+assert replay["importId"] == first["importId"]
+assert replay["operationId"] == first["operationId"]
+assert replay["checkpointId"] == first["checkpointId"]
+PY
+profile_import_cross_actor="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/profile-imports/${profile_import_id}" \
+  -H 'X-Tenant-Id: tenant-profile-import' \
+  -H 'X-Actor-Id: different-operator' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$profile_import_cross_actor" = "404"
+profile_import_viewer_write="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/profile-imports" \
+  -H 'X-Tenant-Id: tenant-profile-import' \
+  -H 'X-Actor-Id: profile-import-viewer' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -H 'Idempotency-Key: profile-import-viewer-denied' \
+  -F 'profileId=profile-import-viewer-denied' \
+  -F 'profileName=Viewer denied Profile' \
+  -F 'runtimeBuildId=runtime_local_chromium' \
+  -F "archiveSha256=${profile_import_sha}" \
+  -F "archive=@${temp_dir}/profile-import.tar.zst;type=application/zstd")"
+test "$profile_import_viewer_write" = "403"
+profile_import_db="$(docker exec "$postgres_name" psql -qAt -U browsercloud -d browsercloud -c \
+  "select (select count(*) from profile_import_jobs where tenant_id='tenant-profile-import' and state='COMMITTED') || ':' ||
+          (select count(*) from profiles where tenant_id='tenant-profile-import' and profile_id='profile-import-integration' and restore_status='TECHNICAL_READY') || ':' ||
+          (select count(*) from audit_events where tenant_id='tenant-profile-import' and event_type='PROFILE_IMPORT' and action='PROFILE_CHECKPOINT_IMPORTED');")"
+test "$profile_import_db" = "1:1:1"
 
 system_workspace_settings="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/workspace-settings" \

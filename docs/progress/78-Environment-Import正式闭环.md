@@ -100,7 +100,8 @@ make test-e2e
 
 Environment Import 的核心闭环已关闭。以下仍是独立缺口：
 
-1. Profile 内容导入、Checkpoint 上传与对象存储审计链；
+1. Profile 内容导入、Checkpoint 上传与对象存储审计链已由
+   [进度 79](79-Profile-Checkpoint-Import正式闭环.md)关闭；
 2. 可复用 Proxy Binding 的 Secret 引用、健康检查、租户权限和绑定 Operation；
 3. 导入超大清单的异步分批策略；当前有意限制为最多 25 个并采用全事务语义；
 4. Group/Tags 批量生命周期、服务端组合过滤和列表批量投影；

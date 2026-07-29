@@ -285,6 +285,14 @@ try {
     page.getByText("Runtime & State", { exact: false }),
   ).toBeVisible();
   await expect(page.getByRole("radio").first()).toBeVisible();
+  await page.getByRole("button", { name: /从文件导入 Profile/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "导入 Profile Checkpoint" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "关闭 Profile 导入" }).click();
+  await expect(
+    page.getByRole("heading", { name: "新建浏览器环境" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByLabel("部署区域")).toHaveValue("local");
   await page.getByRole("button", { name: "下一步" }).click();
@@ -937,6 +945,26 @@ try {
   await expect(
     page.locator("table").getByText("空白初始化", { exact: true }).first(),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "导入 Checkpoint" }).click();
+  await expect(
+    page.getByRole("heading", { name: "导入 Profile Checkpoint" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Profile ID")).toBeVisible();
+  await expect(page.getByLabel("已批准 Runtime Build")).toContainText(
+    "runtime_local_chromium",
+  );
+  await expect(
+    page.getByRole("button", { name: /选择或拖入 .tar.zst/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Storage Helper", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-profile-import.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "关闭 Profile 导入" }).click();
 
   const uiProfileId = `profile-e2e-ui-${runSuffix}`;
   await page.getByRole("button", { name: "新建 Profile" }).click();

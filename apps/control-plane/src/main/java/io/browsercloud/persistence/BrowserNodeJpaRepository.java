@@ -37,4 +37,23 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
       nativeQuery = true)
   List<BrowserNodeEntity> lockPlacementCandidates(
       @Param("region") String region, @Param("freshAfter") Instant freshAfter);
+
+  @Query(
+      value =
+          """
+          SELECT *
+          FROM browser_nodes
+          WHERE lifecycle_state = 'READY'
+            AND admission_state = 'OPEN'
+            AND pressure_state = 'NORMAL'
+            AND last_heartbeat_at >= :freshAfter
+            AND labels->>'profileImport' = 'checkpoint-stream-v1'
+          ORDER BY
+            (CAST(reserved_memory_mib AS numeric) / certified_memory_mib) ASC,
+            active_sessions ASC,
+            node_id ASC
+          LIMIT 16
+          """,
+      nativeQuery = true)
+  List<BrowserNodeEntity> findProfileImportCandidates(@Param("freshAfter") Instant freshAfter);
 }

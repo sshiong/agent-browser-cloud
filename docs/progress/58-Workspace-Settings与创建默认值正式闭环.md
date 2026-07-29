@@ -99,8 +99,10 @@ PUT /api/v1/workspace-settings
 
 ## 明确未完成
 
-1. Proxy Binding、Environment/Profile Import 和环境更多操作；Saved View 已在
-   [进度 77](77-Environment-Saved-Views正式闭环.md)关闭；
+1. Proxy Binding 和环境更多操作；Saved View 已在
+   [进度 77](77-Environment-Saved-Views正式闭环.md)关闭，Environment Import 已在
+   [进度 78](78-Environment-Import正式闭环.md)关闭，Profile Import 已在
+   [进度 79](79-Profile-Checkpoint-Import正式闭环.md)关闭；
 2. 全局搜索、通知中心和主题切换；
 3. Agent Policy 一等契约和执行强制已在
    [进度 59](59-Agent-Policy一等契约与执行强制.md)关闭；

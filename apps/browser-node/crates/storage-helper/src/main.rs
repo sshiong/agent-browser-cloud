@@ -6,13 +6,14 @@ use helper_contracts::{
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
+use sha2::{Digest, Sha256};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use storage_helper::object_archive::{ObjectArchive, S3ArchiveConfig};
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -20,14 +21,20 @@ use tracing::{error, info, warn};
 struct StorageService {
     store: LocalProfileStore,
     archive: Option<ObjectArchive>,
+    import_staging_root: PathBuf,
     profile_locks: Vec<Mutex<()>>,
 }
 
 impl StorageService {
-    fn new(store: LocalProfileStore, archive: Option<ObjectArchive>) -> Self {
+    fn new(
+        store: LocalProfileStore,
+        archive: Option<ObjectArchive>,
+        import_staging_root: PathBuf,
+    ) -> Self {
         Self {
             store,
             archive,
+            import_staging_root,
             profile_locks: (0..64).map(|_| Mutex::new(())).collect(),
         }
     }
@@ -46,7 +53,13 @@ impl StorageService {
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
-        execute_storage_operation(&self.store, self.archive.as_ref(), command).await
+        execute_storage_operation(
+            &self.store,
+            self.archive.as_ref(),
+            &self.import_staging_root,
+            command,
+        )
+        .await
     }
 }
 
@@ -61,12 +74,17 @@ async fn main() -> anyhow::Result<()> {
 
     let socket_path = required_absolute_path("STORAGE_HELPER_SOCKET")?;
     let storage_root = required_absolute_path("PROFILE_STORAGE_ROOT")?;
+    let import_staging_root = storage_root.join(".imports");
+    tokio::fs::create_dir_all(&import_staging_root).await?;
+    tokio::fs::set_permissions(&import_staging_root, std::fs::Permissions::from_mode(0o770))
+        .await?;
     let object_archive = object_archive_from_environment()?;
     prepare_socket_path(&socket_path).await?;
     let allowed_uid = configured_node_agent_uid()?;
     let service = Arc::new(StorageService::new(
         LocalProfileStore::open(storage_root).await?,
         object_archive,
+        import_staging_root,
     ));
     let listener = UnixListener::bind(&socket_path)
         .with_context(|| format!("failed to bind {}", socket_path.display()))?;
@@ -132,6 +150,7 @@ async fn serve_connection(
 async fn execute_storage_operation(
     store: &LocalProfileStore,
     archive: Option<&ObjectArchive>,
+    import_staging_root: &Path,
     command: &StorageCommand,
 ) -> anyhow::Result<(
     Option<StorageWorkspace>,
@@ -188,6 +207,102 @@ async fn execute_storage_operation(
                     profile_write_epoch: checkpoint.profile_write_epoch,
                     core_size_bytes: checkpoint.core_size_bytes,
                     checkpoint_file_count: checkpoint.files.len() as u64,
+                }),
+                None,
+                None,
+            ))
+        }
+        StorageCommand::ImportCheckpoint {
+            tenant_id,
+            profile_id,
+            import_id,
+            checkpoint_id,
+            runtime_build_id,
+            archive_sha256,
+            archive_size_bytes,
+        } => {
+            validate_import_identifier("import_id", import_id, "pim_")?;
+            validate_import_identifier("checkpoint_id", checkpoint_id, "chk_")?;
+            anyhow::ensure!(
+                archive_sha256.len() == 64
+                    && archive_sha256
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit()),
+                "Profile import SHA-256 is invalid"
+            );
+            anyhow::ensure!(
+                *archive_size_bytes > 0 && *archive_size_bytes <= 256 * 1024 * 1024,
+                "Profile import size is invalid"
+            );
+            let object_archive =
+                archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
+            let path = import_staging_root.join(format!("{import_id}.tar.zst"));
+            let metadata = tokio::fs::symlink_metadata(&path).await?;
+            anyhow::ensure!(
+                metadata.is_file()
+                    && !metadata.file_type().is_symlink()
+                    && metadata.len() == *archive_size_bytes,
+                "Profile import staging file is invalid"
+            );
+            let canonical_root = tokio::fs::canonicalize(import_staging_root).await?;
+            let canonical_path = tokio::fs::canonicalize(&path).await?;
+            anyhow::ensure!(
+                canonical_path.parent() == Some(canonical_root.as_path()),
+                "Profile import escaped its staging root"
+            );
+            let mut file = tokio::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(nix::libc::O_NOFOLLOW)
+                .open(&canonical_path)
+                .await?;
+            let opened_metadata = file.metadata().await?;
+            anyhow::ensure!(
+                opened_metadata.is_file() && opened_metadata.len() == *archive_size_bytes,
+                "Profile import changed before secure open"
+            );
+            let mut digest = Sha256::new();
+            let mut observed_size = 0_u64;
+            let mut buffer = [0_u8; 256 * 1024];
+            loop {
+                let read = file.read(&mut buffer).await?;
+                if read == 0 {
+                    break;
+                }
+                observed_size = observed_size
+                    .checked_add(read as u64)
+                    .ok_or_else(|| anyhow::anyhow!("Profile import size overflow"))?;
+                anyhow::ensure!(
+                    observed_size <= *archive_size_bytes,
+                    "Profile import exceeds declared size"
+                );
+                digest.update(&buffer[..read]);
+            }
+            anyhow::ensure!(
+                observed_size == *archive_size_bytes
+                    && format!("{:x}", digest.finalize()) == archive_sha256.to_ascii_lowercase(),
+                "Profile import integrity verification failed"
+            );
+            file.seek(std::io::SeekFrom::Start(0)).await?;
+            let manifest = store
+                .import_checkpoint_archive_file(
+                    tenant_id,
+                    profile_id,
+                    checkpoint_id,
+                    runtime_build_id,
+                    *archive_size_bytes,
+                    file.into_std().await,
+                )
+                .await?;
+            object_archive.commit_checkpoint(store, &manifest).await?;
+            tokio::fs::remove_file(&canonical_path).await?;
+            Ok((
+                None,
+                Some(StorageCheckpoint {
+                    checkpoint_id: manifest.checkpoint_id,
+                    checkpoint_epoch: manifest.checkpoint_epoch,
+                    profile_write_epoch: manifest.profile_write_epoch,
+                    core_size_bytes: manifest.core_size_bytes,
+                    checkpoint_file_count: manifest.files.len() as u64,
                 }),
                 None,
                 None,
@@ -523,6 +638,11 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             profile_id,
             ..
         }
+        | StorageCommand::ImportCheckpoint {
+            tenant_id,
+            profile_id,
+            ..
+        }
         | StorageCommand::PrepareRecording {
             tenant_id,
             profile_id,
@@ -549,6 +669,18 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             ..
         } => Some((tenant_id, profile_id)),
     }
+}
+
+fn validate_import_identifier(name: &str, value: &str, prefix: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        value.starts_with(prefix)
+            && value.len() <= 128
+            && value.chars().all(
+                |character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            ),
+        "{name} is invalid"
+    );
+    Ok(())
 }
 
 async fn verified_recording_directory(
@@ -780,6 +912,7 @@ mod tests {
                 .await
                 .unwrap(),
             None,
+            root.join("imports"),
         ));
         let disallowed_uid = Uid::current().as_raw().saturating_add(1);
         let error = serve_connection(stream, disallowed_uid, service)

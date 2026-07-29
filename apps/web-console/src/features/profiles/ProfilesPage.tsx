@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Database,
   FileArchive,
+  FileUp,
   Plus,
   Search,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ import {
   LoadingRows,
 } from '@/components/feedback/AsyncStates';
 import { CreateProfileDialog } from '@/features/profiles/CreateProfileDialog';
+import { ProfileImportDrawer } from '@/features/profiles/ProfileImportDrawer';
 import { useProfiles } from '@/features/profiles/profileQueries';
 import { cn } from '@/shared/lib/utils';
 import type { ProfileView } from '@/types/profile';
@@ -23,6 +25,7 @@ export function ProfilesPage() {
   const query = useProfiles();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const profiles = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return query.data?.items ?? [];
@@ -91,14 +94,24 @@ export function ProfilesPage() {
             />
           </label>
           {auth.canOperate && (
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex h-9 items-center justify-center gap-2 bg-accent px-4 text-[12px] font-semibold text-canvas transition-colors hover:bg-accent/90"
-            >
-              <Plus size={14} />
-              新建 Profile
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="inline-flex h-9 items-center justify-center gap-2 border border-border-default px-4 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-2 hover:text-text-primary"
+              >
+                <FileUp size={14} />
+                导入 Checkpoint
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex h-9 items-center justify-center gap-2 bg-accent px-4 text-[12px] font-semibold text-canvas transition-colors hover:bg-accent/90"
+              >
+                <Plus size={14} />
+                新建 Profile
+              </button>
+            </div>
           )}
         </div>
 
@@ -121,13 +134,22 @@ export function ProfilesPage() {
               }
               action={
                 !search && auth.canOperate ? (
-                  <button
-                    type="button"
-                    onClick={() => setCreateOpen(true)}
-                    className="h-8 bg-accent px-3 text-[12px] font-semibold text-canvas"
-                  >
-                    创建 Profile
-                  </button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setImportOpen(true)}
+                      className="h-8 border border-border-default px-3 text-[12px] text-text-secondary"
+                    >
+                      导入 Checkpoint
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreateOpen(true)}
+                      className="h-8 bg-accent px-3 text-[12px] font-semibold text-canvas"
+                    >
+                      创建空白 Profile
+                    </button>
+                  </div>
                 ) : null
               }
             />
@@ -172,7 +194,10 @@ export function ProfilesPage() {
       </main>
 
       {auth.canOperate && (
-        <CreateProfileDialog open={createOpen} onOpenChange={setCreateOpen} />
+        <>
+          <CreateProfileDialog open={createOpen} onOpenChange={setCreateOpen} />
+          <ProfileImportDrawer open={importOpen} onOpenChange={setImportOpen} />
+        </>
       )}
     </div>
   );

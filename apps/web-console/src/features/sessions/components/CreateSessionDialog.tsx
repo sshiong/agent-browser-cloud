@@ -27,6 +27,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useEnterpriseOverview } from '@/features/enterprise/enterpriseQueries';
 import { useExtensionProfiles } from '@/features/nodes/capacityQueries';
 import { useProfiles } from '@/features/profiles/profileQueries';
+import { ProfileImportDrawer } from '@/features/profiles/ProfileImportDrawer';
 import { useWorkspaceGroups } from '@/features/groups/groupQueries';
 import { useWorkspaceTags } from '@/features/groups/tagQueries';
 import { useProxyOverview } from '@/features/proxies/proxyQueries';
@@ -200,6 +201,7 @@ export function CreateSessionDialog({
   const [step, setStep] = useState<Step>(1);
   const [createdSessionId, setCreatedSessionId] = useState<string>();
   const [advancedResourcesOpen, setAdvancedResourcesOpen] = useState(false);
+  const [profileImportOpen, setProfileImportOpen] = useState(false);
   const canAdministerResources = auth.hasAnyRole([
     'TENANT_ADMIN',
     'SECURITY_ADMIN',
@@ -835,7 +837,8 @@ export function CreateSessionDialog({
 
                   <UnavailableOption
                     title="从文件导入 Profile"
-                    detail="等待 Profile Import API 和上传审计链路接入后开放。"
+                    detail="打开受控 Checkpoint 导入工作区；提交成功后会自动刷新上方 Profile 列表。"
+                    onClick={() => setProfileImportOpen(true)}
                   />
                 </WizardStep>
               )}
@@ -1539,6 +1542,10 @@ export function CreateSessionDialog({
           </form>
         </Dialog.Content>
       </Dialog.Portal>
+      <ProfileImportDrawer
+        open={profileImportOpen}
+        onOpenChange={setProfileImportOpen}
+      />
     </Dialog.Root>
   );
 }
@@ -1702,10 +1709,31 @@ function SwitchRow({
 function UnavailableOption({
   title,
   detail,
+  onClick,
 }: {
   title: string;
   detail: string;
+  onClick?: () => void;
 }) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-start gap-3 rounded-[7px] border border-border-default bg-surface-2 p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/20"
+      >
+        <Database size={15} className="mt-0.5 shrink-0 text-accent" />
+        <span>
+          <span className="text-[12px] font-medium text-text-primary">
+            {title}
+          </span>
+          <span className="mt-0.5 block text-[10px] leading-4 text-text-muted">
+            {detail}
+          </span>
+        </span>
+      </button>
+    );
+  }
   return (
     <div
       className="flex items-start gap-3 rounded-[7px] border border-dashed border-border-subtle p-3 opacity-65"

@@ -149,6 +149,10 @@ spec:
               value: /var/run/browsercloud/helpers/network.sock
             - name: STORAGE_HELPER_SOCKET
               value: /var/run/browsercloud/helpers/storage.sock
+            # Keep this in lockstep with the Storage Helper setting. When enabled, the Node
+            # advertises profileImport=checkpoint-stream-v1; credentials remain Helper-only.
+            - name: OBJECT_STORAGE_ENABLED
+              value: "false"
             - name: PROFILE_STORAGE_ROOT
               value: /var/lib/browsercloud/profiles
             - name: RUNTIME_ROOT

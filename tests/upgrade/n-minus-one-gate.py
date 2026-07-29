@@ -540,7 +540,73 @@ for invariant in (
         f"Environment Saved View migration lacks rolling invariant: {invariant}"
     )
 
+profile_import_migration = read(
+    "database/migrations/V055__profile_checkpoint_imports.sql"
+)
+profile_import_upper = profile_import_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE", "ALTER TABLE"):
+    assert forbidden not in profile_import_upper, (
+        f"Profile Import migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "CREATE TABLE PROFILE_IMPORT_JOBS",
+    "UNIQUE (TENANT_ID, OWNER_ACTOR_ID, IDEMPOTENCY_KEY)",
+    "STATE IN ('REQUESTED', 'UPLOADING', 'VALIDATING', 'COMMITTED', 'FAILED')",
+    "ARCHIVE_SIZE_BYTES BETWEEN 1 AND 268435456",
+    "RAW ARCHIVE BYTES NEVER ENTER POSTGRESQL",
+):
+    assert invariant in profile_import_upper, (
+        f"Profile Import migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
+service = proto.split("service NodeControlService {", 1)[1].split("}", 1)[0]
+assert (
+    "rpc UploadProfileImport(stream UploadProfileImportRequest) returns (UploadProfileImportResponse);"
+    in service
+)
+for message_name, expected_tags in (
+    (
+        "UploadProfileImportRequest",
+        {
+            "import_id": 1,
+            "tenant_id": 2,
+            "profile_id": 3,
+            "checkpoint_id": 4,
+            "runtime_build_id": 5,
+            "archive_sha256": 6,
+            "archive_size_bytes": 7,
+            "offset": 8,
+            "data": 9,
+        },
+    ),
+    (
+        "UploadProfileImportResponse",
+        {
+            "import_id": 1,
+            "node_id": 2,
+            "profile_id": 3,
+            "checkpoint_id": 4,
+            "checkpoint_epoch": 5,
+            "profile_write_epoch": 6,
+            "core_size_bytes": 7,
+            "checkpoint_file_count": 8,
+            "archive_sha256": 9,
+            "archive_size_bytes": 10,
+        },
+    ),
+):
+    message = proto.split(f"message {message_name} {{", 1)[1].split("}", 1)[0]
+    observed_tags = {
+        name: int(tag)
+        for name, tag in re.findall(
+            r"^\s*[A-Za-z0-9_.]+\s+([a-z0-9_]+)\s*=\s*(\d+);",
+            message,
+            flags=re.MULTILINE,
+        )
+    }
+    assert observed_tags == expected_tags
+
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
     name: int(tag)
@@ -740,6 +806,10 @@ assert "/api/v1/environment-imports:preview:" in openapi
 assert "/api/v1/environment-imports/{importId}:commit:" in openapi
 assert "PreviewEnvironmentImportRequest:" in openapi
 assert "EnvironmentImportListResponse:" in openapi
+assert "/api/v1/profile-imports:" in openapi
+assert "/api/v1/profile-imports/{importId}:" in openapi
+assert "ProfileImport:" in openapi
+assert "ProfileImportListResponse:" in openapi
 environment_import_migration = read(
     "database/migrations/V054__environment_import_jobs.sql"
 )
@@ -782,9 +852,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V054 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,evidence-event-tags-1-13,recovery-extension-tag-6",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V055 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

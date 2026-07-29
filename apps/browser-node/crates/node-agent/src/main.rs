@@ -19,7 +19,7 @@ use node_contracts::proto::{
     PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
     ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
     RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand,
-    StopRuntimeCommand, TargetBounds,
+    StopRuntimeCommand, TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -34,6 +34,7 @@ use runtime_supervisor::{
 use session_recorder::{
     EvidenceCapture, EvidenceSpec, RecordingSpec, SessionEvidenceRegistry, SessionRecorderRegistry,
 };
+use sha2::{Digest, Sha256};
 use state_collector::{
     diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
     StateQuality, TabResourcePolicy,
@@ -43,6 +44,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc, Mutex};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
@@ -79,6 +81,8 @@ struct NodeControlService {
     success_trace_sampler: SuccessTraceSampler,
     session_recorders: SessionRecorderRegistry,
     session_evidence: SessionEvidenceRegistry,
+    profile_import_staging_root: PathBuf,
+    inflight_profile_imports: Arc<Mutex<HashSet<String>>>,
     resource_report_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
@@ -401,6 +405,19 @@ impl NodeCapacityReporter {
         labels.insert(
             "businessRecoveryExtensionActions".to_owned(),
             "cdp-extension-restart-v1".to_owned(),
+        );
+        labels.insert(
+            "profileImport".to_owned(),
+            if std::env::var("STORAGE_HELPER_SOCKET")
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+                && Self::bool_env("OBJECT_STORAGE_ENABLED", false)
+            {
+                "checkpoint-stream-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
         );
         Ok(Self {
             node_id,
@@ -4318,6 +4335,216 @@ impl NodeControlServiceRpc for NodeControlService {
             acknowledgement: Some(acknowledgement),
         }))
     }
+
+    async fn upload_profile_import(
+        &self,
+        request: Request<tonic::Streaming<UploadProfileImportRequest>>,
+    ) -> Result<Response<UploadProfileImportResponse>, Status> {
+        const MAX_IMPORT_BYTES: u64 = 256 * 1024 * 1024;
+        const MAX_CHUNK_BYTES: usize = 1024 * 1024;
+
+        let Some(storage_helper) = self.storage_helper.as_ref() else {
+            return Err(Status::failed_precondition(
+                "Profile Import requires the Storage Helper",
+            ));
+        };
+        let mut stream = request.into_inner();
+        let first = stream
+            .message()
+            .await?
+            .ok_or_else(|| Status::invalid_argument("Profile Import stream is empty"))?;
+        validate_profile_import_chunk(&first, MAX_IMPORT_BYTES, MAX_CHUNK_BYTES)
+            .map_err(Status::invalid_argument)?;
+        if first.offset != 0 {
+            return Err(Status::invalid_argument(
+                "Profile Import must start at offset zero",
+            ));
+        }
+        let inflight_import_id = first.import_id.clone();
+
+        {
+            let mut inflight = self.inflight_profile_imports.lock().await;
+            if !inflight.insert(inflight_import_id.clone()) {
+                return Err(Status::already_exists(
+                    "Profile Import is already being uploaded",
+                ));
+            }
+        }
+
+        let result = async {
+            tokio::fs::create_dir_all(&self.profile_import_staging_root)
+                .await
+                .map_err(|error| {
+                    tracing::error!(error = %error, "Profile Import staging root is unavailable");
+                    Status::internal("Profile Import staging is unavailable")
+                })?;
+            let path = self
+                .profile_import_staging_root
+                .join(format!("{}.tar.zst", first.import_id));
+            let mut file = tokio::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&path)
+                .await
+                .map_err(|error| {
+                    tracing::error!(error = %error, "Cannot open Profile Import staging file");
+                    Status::internal("Profile Import staging is unavailable")
+                })?;
+            let mut hasher = Sha256::new();
+            let mut written = 0_u64;
+            let expected = ProfileImportMetadata::from(&first);
+            let mut chunk = Some(first);
+            while let Some(current) = chunk {
+                validate_profile_import_chunk(&current, MAX_IMPORT_BYTES, MAX_CHUNK_BYTES)
+                    .map_err(Status::invalid_argument)?;
+                if !expected.matches(&current) || current.offset != written {
+                    return Err(Status::invalid_argument(
+                        "Profile Import chunk metadata or offset changed",
+                    ));
+                }
+                written = written
+                    .checked_add(current.data.len() as u64)
+                    .ok_or_else(|| Status::invalid_argument("Profile Import size overflow"))?;
+                if written > expected.archive_size_bytes {
+                    return Err(Status::invalid_argument(
+                        "Profile Import exceeds the declared size",
+                    ));
+                }
+                file.write_all(&current.data).await.map_err(|error| {
+                    tracing::error!(error = %error, "Cannot write Profile Import staging file");
+                    Status::internal("Profile Import staging write failed")
+                })?;
+                hasher.update(&current.data);
+                chunk = stream.message().await?;
+            }
+            file.sync_all().await.map_err(|error| {
+                tracing::error!(error = %error, "Cannot sync Profile Import staging file");
+                Status::internal("Profile Import staging sync failed")
+            })?;
+            drop(file);
+            let observed_sha256 = format!("{:x}", hasher.finalize());
+            if written != expected.archive_size_bytes
+                || observed_sha256 != expected.archive_sha256.to_ascii_lowercase()
+            {
+                let _ = tokio::fs::remove_file(&path).await;
+                return Err(Status::invalid_argument(
+                    "Profile Import size or SHA-256 does not match",
+                ));
+            }
+            let checkpoint = storage_helper
+                .import_checkpoint(
+                    &expected.tenant_id,
+                    &expected.profile_id,
+                    &expected.import_id,
+                    &expected.checkpoint_id,
+                    &expected.runtime_build_id,
+                    &observed_sha256,
+                    written,
+                )
+                .await
+                .map_err(|error| {
+                    tracing::warn!(
+                        import_id = %expected.import_id,
+                        error = %error,
+                        "Storage Helper rejected Profile Import"
+                    );
+                    Status::failed_precondition("Profile Import validation or commit failed")
+                })?;
+            Ok(UploadProfileImportResponse {
+                import_id: expected.import_id,
+                node_id: self.node_id.clone(),
+                profile_id: expected.profile_id,
+                checkpoint_id: checkpoint.checkpoint_id,
+                checkpoint_epoch: checkpoint.checkpoint_epoch,
+                profile_write_epoch: checkpoint.profile_write_epoch,
+                core_size_bytes: checkpoint.core_size_bytes,
+                checkpoint_file_count: checkpoint.checkpoint_file_count,
+                archive_sha256: observed_sha256,
+                archive_size_bytes: written,
+            })
+        }
+        .await;
+        self.inflight_profile_imports
+            .lock()
+            .await
+            .remove(&inflight_import_id);
+        result.map(Response::new)
+    }
+}
+
+#[derive(Clone)]
+struct ProfileImportMetadata {
+    import_id: String,
+    tenant_id: String,
+    profile_id: String,
+    checkpoint_id: String,
+    runtime_build_id: String,
+    archive_sha256: String,
+    archive_size_bytes: u64,
+}
+
+impl From<&UploadProfileImportRequest> for ProfileImportMetadata {
+    fn from(value: &UploadProfileImportRequest) -> Self {
+        Self {
+            import_id: value.import_id.clone(),
+            tenant_id: value.tenant_id.clone(),
+            profile_id: value.profile_id.clone(),
+            checkpoint_id: value.checkpoint_id.clone(),
+            runtime_build_id: value.runtime_build_id.clone(),
+            archive_sha256: value.archive_sha256.clone(),
+            archive_size_bytes: value.archive_size_bytes,
+        }
+    }
+}
+
+impl ProfileImportMetadata {
+    fn matches(&self, value: &UploadProfileImportRequest) -> bool {
+        self.import_id == value.import_id
+            && self.tenant_id == value.tenant_id
+            && self.profile_id == value.profile_id
+            && self.checkpoint_id == value.checkpoint_id
+            && self.runtime_build_id == value.runtime_build_id
+            && self
+                .archive_sha256
+                .eq_ignore_ascii_case(&value.archive_sha256)
+            && self.archive_size_bytes == value.archive_size_bytes
+    }
+}
+
+fn validate_profile_import_chunk(
+    value: &UploadProfileImportRequest,
+    max_import_bytes: u64,
+    max_chunk_bytes: usize,
+) -> Result<(), &'static str> {
+    let valid_identifier = |candidate: &str, prefix: Option<&str>| {
+        !candidate.is_empty()
+            && candidate.len() <= 128
+            && prefix
+                .map(|expected| candidate.starts_with(expected))
+                .unwrap_or(true)
+            && candidate.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            })
+    };
+    if !valid_identifier(&value.import_id, Some("pim_"))
+        || !valid_identifier(&value.tenant_id, None)
+        || !valid_identifier(&value.profile_id, None)
+        || !valid_identifier(&value.checkpoint_id, Some("chk_"))
+        || !valid_identifier(&value.runtime_build_id, None)
+        || value.archive_sha256.len() != 64
+        || !value
+            .archive_sha256
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+        || value.archive_size_bytes == 0
+        || value.archive_size_bytes > max_import_bytes
+        || value.data.is_empty()
+        || value.data.len() > max_chunk_bytes
+    {
+        return Err("Profile Import chunk is invalid or exceeds its bound");
+    }
+    Ok(())
 }
 
 #[tokio::main]
@@ -4375,6 +4602,8 @@ async fn main() -> Result<()> {
     let profile_storage_root = std::env::var("PROFILE_STORAGE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| runtime_root.join("profile-storage"));
+    let profile_import_staging_root = profile_storage_root.join(".imports");
+    tokio::fs::create_dir_all(&profile_import_staging_root).await?;
     let extension_root = std::env::var("NODE_EXTENSION_ROOT")
         .ok()
         .map(|value| value.trim().to_owned())
@@ -4680,6 +4909,8 @@ async fn main() -> Result<()> {
         success_trace_sampler: SuccessTraceSampler::default(),
         session_recorders: SessionRecorderRegistry::default(),
         session_evidence: SessionEvidenceRegistry::default(),
+        profile_import_staging_root,
+        inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
         resource_report_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
@@ -5028,6 +5259,8 @@ mod tests {
             next_display: Arc::new(Mutex::new(100)),
             remote_desktop_gateway: None,
             desktop_enabled: false,
+            profile_import_staging_root: root.join("profile-imports"),
+            inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
         };
 
         // Give the local gRPC listener one scheduler turn before redelivery.

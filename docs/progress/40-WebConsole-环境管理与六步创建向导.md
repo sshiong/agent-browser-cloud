@@ -89,7 +89,8 @@ UI 在检查页明确展示上述边界，没有把治理偏好描述为已经�
 ## 仍未完成
 
 1. Saved View 领域模型、API、租户共享与权限后续已在进度 77 关闭；
-2. Environment Import 和 Profile Import 上传、校验、审计链；
+2. Environment Import 已在进度 78 关闭；Profile/Checkpoint Import 已在进度 79
+   关闭，不再属于未完成项；
 3. 可安全复用的独立 Proxy Binding API；现有 Allocation 与 Session 绑定，不能跨环境复用；
 4. Runtime Build、Resource Template、Execution Environment 和 Agent Policy 的一等
    Create Session 契约及调度强制执行；

@@ -10,6 +10,10 @@ option java_multiple_files = true;
 service NodeControlService {
   rpc Ping(PingRequest) returns (PingResponse);
   rpc Dispatch(DispatchRequest) returns (DispatchResponse);
+  // mTLS-authenticated, bounded Profile archive ingress. The Control Plane
+  // streams bytes without durable business persistence; the Node delegates validation and
+  // checkpoint/object-store commit to the isolated Storage Helper.
+  rpc UploadProfileImport(stream UploadProfileImportRequest) returns (UploadProfileImportResponse);
 }
 
 // Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
@@ -48,6 +52,31 @@ message DispatchRequest {
 
 message DispatchResponse {
   CommandAck acknowledgement = 1;
+}
+
+message UploadProfileImportRequest {
+  string import_id = 1;
+  string tenant_id = 2;
+  string profile_id = 3;
+  string checkpoint_id = 4;
+  string runtime_build_id = 5;
+  string archive_sha256 = 6;
+  uint64 archive_size_bytes = 7;
+  uint64 offset = 8;
+  bytes data = 9;
+}
+
+message UploadProfileImportResponse {
+  string import_id = 1;
+  string node_id = 2;
+  string profile_id = 3;
+  string checkpoint_id = 4;
+  uint64 checkpoint_epoch = 5;
+  uint64 profile_write_epoch = 6;
+  uint64 core_size_bytes = 7;
+  uint64 checkpoint_file_count = 8;
+  string archive_sha256 = 9;
+  uint64 archive_size_bytes = 10;
 }
 
 message PublishRequest {

@@ -1002,6 +1002,123 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/profile-imports:
+    get:
+      operationId: listProfileImports
+      summary: List the current actor's durable Profile Import jobs
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Actor-owned Profile Import jobs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileImportListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: importProfileCheckpoint
+      summary: Stream and import a native Profile checkpoint archive
+      description: >
+        After bounded multipart ingress, the Control Plane forwards archive bytes over
+        mTLS and never stores them in PostgreSQL or durable business storage. A
+        capability-advertising Browser Node and isolated Storage Helper independently
+        verify SHA-256, normalize tenant/Profile identity and commit Object Storage before
+        PostgreSQL Profile metadata becomes visible.
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - profileId
+                - profileName
+                - runtimeBuildId
+                - archiveSha256
+                - archive
+              properties:
+                profileId:
+                  type: string
+                  pattern: "^[A-Za-z0-9_-]{1,128}$"
+                profileName:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                profileDescription:
+                  type: string
+                  maxLength: 1024
+                runtimeBuildId:
+                  type: string
+                  pattern: "^[A-Za-z0-9_-]{1,128}$"
+                archiveSha256:
+                  type: string
+                  pattern: "^[0-9a-fA-F]{64}$"
+                archive:
+                  type: string
+                  format: binary
+            encoding:
+              archive:
+                contentType: application/zstd, application/octet-stream
+      responses:
+        "201":
+          description: Archive validated and Profile checkpoint committed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileImport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/profile-imports/{importId}:
+    get:
+      operationId: getProfileImport
+      summary: Get one actor-owned Profile Import job
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^pim_[A-Za-z0-9]{16,32}$"
+      responses:
+        "200":
+          description: Durable Profile Import job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileImport"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/proxies:
     get:
       operationId: getProxyOverview
@@ -3705,6 +3822,87 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Profile"
+        total:
+          type: integer
+          minimum: 0
+    ProfileImport:
+      type: object
+      additionalProperties: false
+      required:
+        - importId
+        - operationId
+        - profileId
+        - profileName
+        - runtimeBuildId
+        - archiveSha256
+        - archiveSizeBytes
+        - state
+        - checkpointId
+        - requestId
+        - createdAt
+        - updatedAt
+      properties:
+        importId:
+          type: string
+          pattern: "^pim_[A-Za-z0-9]{16,32}$"
+        operationId:
+          type: string
+          pattern: "^op_[A-Za-z0-9]{16,32}$"
+        profileId:
+          type: string
+        profileName:
+          type: string
+        runtimeBuildId:
+          type: string
+        archiveSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        archiveSizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 268435456
+        state:
+          type: string
+          enum: [REQUESTED, UPLOADING, VALIDATING, COMMITTED, FAILED]
+        nodeId:
+          type: [string, "null"]
+        checkpointId:
+          type: string
+        checkpointEpoch:
+          type: [integer, "null"]
+          format: int64
+        profileWriteEpoch:
+          type: [integer, "null"]
+          format: int64
+        coreSizeBytes:
+          type: [integer, "null"]
+          format: int64
+        checkpointFileCount:
+          type: [integer, "null"]
+          format: int64
+        errorCode:
+          type: [string, "null"]
+        requestId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    ProfileImportListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileImport"
         total:
           type: integer
           minimum: 0
@@ -8246,6 +8444,18 @@ components:
             $ref: "#/components/schemas/Error"
     Conflict:
       description: State or idempotency conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    UnprocessableEntity:
+      description: The bounded archive was received but failed semantic or integrity validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    PayloadTooLarge:
+      description: The upload exceeds the configured bounded ingress limit.
       content:
         application/json:
           schema:

@@ -88,6 +88,9 @@ try {
   await expect(page.getByRole("button", { name: "新建 Profile" })).toHaveCount(
     0,
   );
+  await expect(
+    page.getByRole("button", { name: "导入 Checkpoint" }),
+  ).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/environments`);

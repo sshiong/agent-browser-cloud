@@ -71,6 +71,7 @@ services:
       NODE_JOURNAL_PATH: /var/lib/browsercloud/runtime/node-journal.sqlite3
       PROFILE_STORAGE_ROOT: /var/lib/browsercloud/profiles
       STORAGE_HELPER_SOCKET: /var/run/browsercloud/helpers/storage.sock
+      OBJECT_STORAGE_ENABLED: "false"
       RUST_LOG: info
       APP_ENVIRONMENT: local
       REMOTE_DESKTOP_GATEWAY_PORT: 6080

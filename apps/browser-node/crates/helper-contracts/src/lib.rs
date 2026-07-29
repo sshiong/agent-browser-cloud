@@ -76,6 +76,15 @@ pub enum StorageCommand {
         session_id: String,
         runtime_build_id: String,
     },
+    ImportCheckpoint {
+        tenant_id: String,
+        profile_id: String,
+        import_id: String,
+        checkpoint_id: String,
+        runtime_build_id: String,
+        archive_sha256: String,
+        archive_size_bytes: u64,
+    },
     PrepareRecording {
         tenant_id: String,
         profile_id: String,

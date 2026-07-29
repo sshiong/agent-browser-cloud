@@ -1239,6 +1239,7 @@ dependencies = [
  "serde",
  "serde_json",
  "session-recorder",
+ "sha2",
  "state-collector",
  "tokio",
  "tonic",

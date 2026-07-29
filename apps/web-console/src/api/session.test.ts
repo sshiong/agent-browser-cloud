@@ -4,15 +4,18 @@ import {
   createSession,
   getBrowserState,
   getBusinessRecovery,
+  getRecoveryContractDiff,
   getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
   listRecoveryContracts,
+  listRecoveryContractRevisions,
   listSessions,
   requestHumanTakeover,
   requestRecoveryContractApproval,
   decideRecoveryContractApproval,
   releaseSessionSafetyLease,
+  restoreRecoveryContractRevision,
   rebindSessionApplication,
   resyncBrowserState,
   SessionApiError,
@@ -453,6 +456,105 @@ describe('session API', () => {
       2,
       '/api/v1/applications/crm.singapore/recovery-contract-approvals/ara_1234567890abcdefghij:approve',
       expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('lists, compares, and restores an immutable recovery contract revision', async () => {
+    const now = new Date().toISOString();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ items: [], total: 0, currentVersion: 3 }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            contractId: 'arc_1234567890abcdefghij',
+            applicationId: 'crm.singapore',
+            fromVersion: 1,
+            toVersion: 3,
+            changes: [],
+            total: 0,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            contractId: 'arc_1234567890abcdefghij',
+            applicationId: 'crm.singapore',
+            version: 4,
+            expectedOrigins: ['https://crm.example.test'],
+            readyRoutePrefixes: [],
+            loginRoutePrefixes: [],
+            requiredTargets: [],
+            loginTargets: [],
+            permissionDeniedTargets: [],
+            accountMismatchTargets: [],
+            requiredExtensionIds: [],
+            allowDepthLimited: false,
+            recoveryAction: 'NONE',
+            maximumAutoRecovery: 0,
+            enabled: true,
+            approvalState: 'DRAFT',
+            createdAt: now,
+            updatedAt: now,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listRecoveryContractRevisions('crm.singapore', 'tenant-test');
+    await getRecoveryContractDiff('crm.singapore', 1, 3, 'tenant-test');
+    await restoreRecoveryContractRevision(
+      'crm.singapore',
+      {
+        expectedCurrentVersion: 3,
+        sourceContractVersion: 1,
+        reason: 'Restore known-good route gate',
+      },
+      'restore-contract-1',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/applications/crm.singapore/recovery-contract/revisions',
+      expect.any(Object)
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/applications/crm.singapore/recovery-contract/revisions/1/diff?compareToVersion=3',
+      expect.any(Object)
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/applications/crm.singapore/recovery-contract:restore',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          expectedCurrentVersion: 3,
+          sourceContractVersion: 1,
+          reason: 'Restore known-good route gate',
+        }),
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'restore-contract-1',
+        }),
+      })
     );
   });
 

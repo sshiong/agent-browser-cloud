@@ -206,6 +206,34 @@ export interface RecoveryContractListResponse {
   total: number;
 }
 
+export interface RecoveryContractRevisionListResponse {
+  items: RecoveryContractView[];
+  total: number;
+  currentVersion: number;
+}
+
+export interface RecoveryContractFieldChange {
+  field: string;
+  changeType: 'MODIFIED';
+  beforeValue: string;
+  afterValue: string;
+}
+
+export interface RecoveryContractDiffView {
+  contractId: string;
+  applicationId: string;
+  fromVersion: number;
+  toVersion: number;
+  changes: RecoveryContractFieldChange[];
+  total: number;
+}
+
+export interface RestoreRecoveryContractRevisionRequest {
+  expectedCurrentVersion: number;
+  sourceContractVersion: number;
+  reason: string;
+}
+
 export interface UpsertRecoveryContractRequest {
   expectedVersion: number;
   expectedOrigins: string[];

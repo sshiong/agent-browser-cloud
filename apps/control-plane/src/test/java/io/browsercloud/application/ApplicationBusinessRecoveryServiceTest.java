@@ -17,6 +17,7 @@ import io.browsercloud.persistence.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -471,6 +472,207 @@ class ApplicationBusinessRecoveryServiceTest {
   }
 
   @Test
+  void listsImmutableRevisionsWithTheirExactApprovalState() throws Exception {
+    var head = latestHead("arc_1234567890abcdefghij", 2);
+    var v1 =
+        revision(
+            contract(
+                List.of("https://crm.example.test"),
+                List.of("/customers"),
+                List.of(),
+                List.of(),
+                List.of()));
+    var v2 = revisionVersion(v1, 2, "[\"/customers\",\"/workspaces\"]");
+    var approval =
+        new ApplicationRecoveryContractApprovalEntity(
+            "ara_1234567890abcdefghij",
+            TENANT_ID,
+            head.getContractId(),
+            "crm",
+            1,
+            "Initial production policy",
+            "admin-a",
+            NOW);
+    approval.approve("admin-b", "evidence", NOW.plusSeconds(1));
+    when(contracts.findByTenantIdAndApplicationId(TENANT_ID, "crm")).thenReturn(Optional.of(head));
+    when(approvals.findAllByTenantIdAndContractIdOrderByRequestedAtDesc(
+            TENANT_ID, head.getContractId()))
+        .thenReturn(List.of(approval));
+    when(revisions.findAllByContractIdAndTenantIdAndApplicationIdOrderByContractVersionDesc(
+            head.getContractId(), TENANT_ID, "crm"))
+        .thenReturn(List.of(v2, v1));
+
+    var result = service.listRevisions(TENANT_ID, "crm");
+
+    assertThat(result.currentVersion()).isEqualTo(2);
+    assertThat(result.items()).extracting(RecoveryContractView::version).containsExactly(2L, 1L);
+    assertThat(result.items().get(0).approvalState())
+        .isEqualTo(RecoveryContractApprovalState.DRAFT);
+    assertThat(result.items().get(1).approvalState())
+        .isEqualTo(RecoveryContractApprovalState.APPROVED);
+  }
+
+  @Test
+  void returnsOnlyChangedFieldsBetweenTwoImmutableRevisions() throws Exception {
+    var source =
+        revision(
+            contract(
+                List.of("https://crm.example.test"),
+                List.of("/customers"),
+                List.of(),
+                List.of(),
+                List.of()));
+    var target = revisionVersion(source, 2, "[\"/customers\",\"/workspaces\"]");
+    var head = latestHead(source.getContractId(), 2);
+    when(contracts.findByTenantIdAndApplicationId(TENANT_ID, "crm")).thenReturn(Optional.of(head));
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            source.getContractId(), 1, TENANT_ID, "crm"))
+        .thenReturn(Optional.of(source));
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            source.getContractId(), 2, TENANT_ID, "crm"))
+        .thenReturn(Optional.of(target));
+
+    var result = service.diff(TENANT_ID, "crm", 1, 2);
+
+    assertThat(result.total()).isEqualTo(1);
+    assertThat(result.changes())
+        .containsExactly(
+            new RecoveryContractFieldChange(
+                "readyRoutePrefixes",
+                "MODIFIED",
+                "[\"/customers\"]",
+                "[\"/customers\",\"/workspaces\"]"));
+  }
+
+  @Test
+  void restoresApprovedHistoryAsANewDraftWithoutMutatingTheSource() throws Exception {
+    var head = latestHead("arc_1234567890abcdefghij", 2);
+    var source =
+        revision(
+            contract(
+                List.of("https://crm.example.test"),
+                List.of("/customers"),
+                List.of(),
+                List.of(),
+                List.of()));
+    var restored = latestHead(head.getContractId(), 3);
+    var sourceExpectedOrigins = source.getExpectedOrigins();
+    var sourceReadyRoutes = source.getReadyRoutePrefixes();
+    var sourceLoginRoutes = source.getLoginRoutePrefixes();
+    var sourceRequiredTargets = source.getRequiredTargets();
+    var sourceLoginTargets = source.getLoginTargets();
+    var sourcePermissionTargets = source.getPermissionDeniedTargets();
+    var sourceAccountTargets = source.getAccountMismatchTargets();
+    var sourceExtensionIds = source.getRequiredExtensionIds();
+    var sourceAction = source.getRecoveryAction();
+    var sourceMaximumRecovery = source.getMaximumAutoRecovery();
+    when(restored.getExpectedOrigins()).thenReturn(sourceExpectedOrigins);
+    when(restored.getReadyRoutePrefixes()).thenReturn(sourceReadyRoutes);
+    when(restored.getLoginRoutePrefixes()).thenReturn(sourceLoginRoutes);
+    when(restored.getRequiredTargets()).thenReturn(sourceRequiredTargets);
+    when(restored.getLoginTargets()).thenReturn(sourceLoginTargets);
+    when(restored.getPermissionDeniedTargets()).thenReturn(sourcePermissionTargets);
+    when(restored.getAccountMismatchTargets()).thenReturn(sourceAccountTargets);
+    when(restored.getRequiredExtensionIds()).thenReturn(sourceExtensionIds);
+    when(restored.getRecoveryAction()).thenReturn(sourceAction);
+    when(restored.getMaximumAutoRecovery()).thenReturn(sourceMaximumRecovery);
+    when(restored.getCreatedAt()).thenReturn(NOW.minusSeconds(3600));
+    when(restored.getUpdatedAt()).thenReturn(NOW.plusSeconds(1));
+    when(contracts.findByTenantIdAndApplicationId(TENANT_ID, "crm")).thenReturn(Optional.of(head));
+    when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.of(head));
+    when(idempotency.claimRecoveryContractRestore(any(), any(), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(4));
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            head.getContractId(), 1, TENANT_ID, "crm"))
+        .thenReturn(Optional.of(source));
+    when(approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+            TENANT_ID, head.getContractId(), 1, "APPROVED"))
+        .thenReturn(true);
+    when(contracts.saveAndFlush(head)).thenReturn(restored);
+
+    var result =
+        service.restoreRevision(
+            TENANT_ID,
+            "crm",
+            new RestoreRecoveryContractRevisionRequest(2, 1, "Rollback after CRM regression"),
+            "admin-a",
+            "restore-1",
+            "request-restore",
+            NOW.plusSeconds(1));
+
+    assertThat(result.version()).isEqualTo(3);
+    assertThat(result.approvalState()).isEqualTo(RecoveryContractApprovalState.DRAFT);
+    verify(head)
+        .update(
+            source.getExpectedOrigins(),
+            source.getReadyRoutePrefixes(),
+            source.getLoginRoutePrefixes(),
+            source.getRequiredTargets(),
+            source.getLoginTargets(),
+            source.getPermissionDeniedTargets(),
+            source.getAccountMismatchTargets(),
+            source.getRequiredExtensionIds(),
+            source.isAllowDepthLimited(),
+            source.getRecoveryAction(),
+            source.getRecoveryExtensionId(),
+            source.getMaximumAutoRecovery(),
+            source.isEnabled(),
+            NOW.plusSeconds(1));
+    verifyNoInteractions(bindings);
+    verify(audit)
+        .append(
+            argThat(
+                record ->
+                    record.action().equals("RECOVERY_CONTRACT_REVISION_RESTORED")
+                        && record.details().get("sourceContractVersion").equals(1L)
+                        && record.details().get("newContractVersion").equals(3L)));
+  }
+
+  @Test
+  void replaysRestoreFromThePersistedRevisionId() throws Exception {
+    var head = latestHead("arc_1234567890abcdefghij", 3);
+    var restoredRevision =
+        revisionVersion(
+            revision(
+                contractUnchecked(
+                    List.of("https://crm.example.test"),
+                    List.of("/customers"),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of())),
+            3,
+            "[\"/customers\"]");
+    var claimed = new AtomicReference<String>();
+    when(contracts.findByTenantIdAndApplicationId(TENANT_ID, "crm")).thenReturn(Optional.of(head));
+    when(idempotency.claimRecoveryContractRestore(any(), any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              if (claimed.get() == null) {
+                claimed.set(head.getContractId() + ":v3:restore_1234567890abcdefghij");
+              }
+              return claimed.get();
+            });
+    when(revisions.findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            head.getContractId(), 3, TENANT_ID, "crm"))
+        .thenReturn(Optional.of(restoredRevision));
+
+    var result =
+        service.restoreRevision(
+            TENANT_ID,
+            "crm",
+            new RestoreRecoveryContractRevisionRequest(2, 1, "same request"),
+            "admin-a",
+            "restore-replay",
+            "request-replay",
+            NOW);
+
+    assertThat(result.version()).isEqualTo(3);
+    verify(contracts, never()).findForUpdate(any(), any());
+    verify(contracts, never()).saveAndFlush(any());
+  }
+
+  @Test
   void evaluatesTheImmutableBoundRevisionAfterThePublishedHeadAdvances() throws Exception {
     var revisionSource =
         contract(
@@ -653,6 +855,46 @@ class ApplicationBusinessRecoveryServiceTest {
     when(revision.getRecoveryExtensionId()).thenReturn(contract.getRecoveryExtensionId());
     when(revision.getMaximumAutoRecovery()).thenReturn(contract.getMaximumAutoRecovery());
     when(revision.isEnabled()).thenReturn(contract.isEnabled());
+    return revision;
+  }
+
+  private ApplicationRecoveryContractRevisionEntity revisionVersion(
+      ApplicationRecoveryContractRevisionEntity source, long version, String readyRoutePrefixes) {
+    var contractId = source.getContractId();
+    var tenantId = source.getTenantId();
+    var applicationId = source.getApplicationId();
+    var expectedOrigins = source.getExpectedOrigins();
+    var loginRoutePrefixes = source.getLoginRoutePrefixes();
+    var requiredTargets = source.getRequiredTargets();
+    var loginTargets = source.getLoginTargets();
+    var permissionDeniedTargets = source.getPermissionDeniedTargets();
+    var accountMismatchTargets = source.getAccountMismatchTargets();
+    var requiredExtensionIds = source.getRequiredExtensionIds();
+    var allowDepthLimited = source.isAllowDepthLimited();
+    var recoveryAction = source.getRecoveryAction();
+    var recoveryExtensionId = source.getRecoveryExtensionId();
+    var maximumAutoRecovery = source.getMaximumAutoRecovery();
+    var enabled = source.isEnabled();
+    var revision = mock(ApplicationRecoveryContractRevisionEntity.class, withSettings().lenient());
+    when(revision.getContractId()).thenReturn(contractId);
+    when(revision.getContractVersion()).thenReturn(version);
+    when(revision.getTenantId()).thenReturn(tenantId);
+    when(revision.getApplicationId()).thenReturn(applicationId);
+    when(revision.getExpectedOrigins()).thenReturn(expectedOrigins);
+    when(revision.getReadyRoutePrefixes()).thenReturn(readyRoutePrefixes);
+    when(revision.getLoginRoutePrefixes()).thenReturn(loginRoutePrefixes);
+    when(revision.getRequiredTargets()).thenReturn(requiredTargets);
+    when(revision.getLoginTargets()).thenReturn(loginTargets);
+    when(revision.getPermissionDeniedTargets()).thenReturn(permissionDeniedTargets);
+    when(revision.getAccountMismatchTargets()).thenReturn(accountMismatchTargets);
+    when(revision.getRequiredExtensionIds()).thenReturn(requiredExtensionIds);
+    when(revision.isAllowDepthLimited()).thenReturn(allowDepthLimited);
+    when(revision.getRecoveryAction()).thenReturn(recoveryAction);
+    when(revision.getRecoveryExtensionId()).thenReturn(recoveryExtensionId);
+    when(revision.getMaximumAutoRecovery()).thenReturn(maximumAutoRecovery);
+    when(revision.isEnabled()).thenReturn(enabled);
+    when(revision.getContractCreatedAt()).thenReturn(NOW.minusSeconds(3600));
+    when(revision.getPublishedAt()).thenReturn(NOW.plusSeconds(version));
     return revision;
   }
 

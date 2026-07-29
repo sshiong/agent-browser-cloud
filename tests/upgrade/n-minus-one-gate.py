@@ -679,6 +679,15 @@ assert "/api/v1/sessions/{sessionId}/application-binding:" in openapi
 assert "/api/v1/sessions/{sessionId}/application-binding:rebind:" in openapi
 assert "SessionApplicationBinding:" in openapi
 assert "SessionApplicationRebind:" in openapi
+assert "/api/v1/applications/{applicationId}/recovery-contract/revisions:" in openapi
+assert (
+    "/api/v1/applications/{applicationId}/recovery-contract/revisions/{version}/diff:"
+    in openapi
+)
+assert "/api/v1/applications/{applicationId}/recovery-contract:restore:" in openapi
+assert "RecoveryContractRevisionListResponse:" in openapi
+assert "RecoveryContractDiff:" in openapi
+assert "RestoreRecoveryContractRevisionRequest:" in openapi
 
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1

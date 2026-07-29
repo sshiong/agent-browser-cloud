@@ -155,6 +155,20 @@ public class IdempotencyService {
         candidateOperationId);
   }
 
+  String claimRecoveryContractRestore(
+      String tenantId,
+      String applicationId,
+      String idempotencyKey,
+      Object request,
+      String candidateRevisionId) {
+    return claim(
+        tenantId,
+        "RESTORE_RECOVERY_CONTRACT:" + applicationId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateRevisionId);
+  }
+
   String claimWorkspaceGroupCreate(
       String tenantId, String idempotencyKey, Object request, String candidateGroupId) {
     return claim(

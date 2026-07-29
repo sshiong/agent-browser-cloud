@@ -1555,6 +1555,50 @@ curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}:terminate" \
   -H 'X-Tenant-Id: tenant-integration' >/dev/null
 
+recovery_revision_history="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract/revisions" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$recovery_revision_history" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["currentVersion"] == 2; assert item["total"] == 2; assert [revision["version"] for revision in item["items"]] == [2,1]; assert [revision["approvalState"] for revision in item["items"]] == ["APPROVED","APPROVED"]'
+recovery_revision_diff="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract/revisions/1/diff?compareToVersion=2" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$recovery_revision_diff" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["fromVersion"] == 1; assert item["toVersion"] == 2; assert item["total"] >= 1; fields={change["field"] for change in item["changes"]}; assert "recoveryAction" in fields; assert "requiredExtensionIds" in fields'
+restored_recovery_contract="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract:restore" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-recovery-contract-restore-001' \
+  -d '{"expectedCurrentVersion":2,"sourceContractVersion":1,"reason":"Restore known-good integration policy"}')"
+printf '%s' "$restored_recovery_contract" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 3; assert item["approvalState"] == "DRAFT"; assert item["recoveryAction"] == "RELOAD"; assert item["requiredExtensionIds"] == []'
+restored_recovery_contract_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract:restore" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-operator' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-recovery-contract-restore-001' \
+  -d '{"expectedCurrentVersion":2,"sourceContractVersion":1,"reason":"Restore known-good integration policy"}')"
+printf '%s' "$restored_recovery_contract_replay" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 3; assert item["approvalState"] == "DRAFT"'
+recovery_restore_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+      (select count(*) from application_recovery_contract_revisions
+       where tenant_id='tenant-integration' and application_id='crm.integration') || ':' ||
+      (select contract_version from session_application_bindings
+       where tenant_id='tenant-integration' and session_id='${session_one}') || ':' ||
+      (select contract_version from session_application_bindings
+       where tenant_id='tenant-integration' and session_id='${rebind_session}') || ':' ||
+      (select count(*) from audit_events
+       where tenant_id='tenant-integration'
+         and event_type='RECOVERY_CONTRACT'
+         and action='RECOVERY_CONTRACT_REVISION_RESTORED')")"
+test "$recovery_restore_db_summary" = "3:1:2:1"
+
 resource_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=61)).isoformat().replace("+00:00","Z"))')"
 resource_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
 for observed_at in "$resource_pressure_start" "$resource_pressure_end"; do

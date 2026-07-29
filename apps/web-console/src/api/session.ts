@@ -26,6 +26,9 @@ import type {
   UpsertRecoveryContractRequest,
   RequestRecoveryContractApprovalRequest,
   RecoveryContractApprovalView,
+  RecoveryContractRevisionListResponse,
+  RecoveryContractDiffView,
+  RestoreRecoveryContractRevisionRequest,
   BusinessRecoveryValidationView,
   SessionApplicationBindingView,
   RebindSessionApplicationRequest,
@@ -501,6 +504,54 @@ export async function upsertRecoveryContract(
       method: 'PUT',
       body: JSON.stringify(data),
       signal,
+    },
+    tenantId
+  );
+}
+
+export async function listRecoveryContractRevisions(
+  applicationId: string,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<RecoveryContractRevisionListResponse> {
+  return request<RecoveryContractRevisionListResponse>(
+    `/applications/${encodeURIComponent(applicationId)}/recovery-contract/revisions`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getRecoveryContractDiff(
+  applicationId: string,
+  fromVersion: number,
+  toVersion: number,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<RecoveryContractDiffView> {
+  const query = new URLSearchParams({
+    compareToVersion: String(toVersion),
+  });
+  return request<RecoveryContractDiffView>(
+    `/applications/${encodeURIComponent(applicationId)}/recovery-contract/revisions/${fromVersion}/diff?${query.toString()}`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function restoreRecoveryContractRevision(
+  applicationId: string,
+  data: RestoreRecoveryContractRevisionRequest,
+  idempotencyKey: string,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<RecoveryContractView> {
+  return request<RecoveryContractView>(
+    `/applications/${encodeURIComponent(applicationId)}/recovery-contract:restore`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
     },
     tenantId
   );

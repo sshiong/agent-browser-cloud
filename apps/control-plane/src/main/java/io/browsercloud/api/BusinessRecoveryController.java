@@ -7,6 +7,7 @@ import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -43,6 +44,20 @@ public class BusinessRecoveryController {
     return service.getContract(identity.current().tenantId(), applicationId);
   }
 
+  @GetMapping("/applications/{applicationId}/recovery-contract/revisions")
+  public RecoveryContractRevisionListResponse listRevisions(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId) {
+    return service.listRevisions(identity.current().tenantId(), applicationId);
+  }
+
+  @GetMapping("/applications/{applicationId}/recovery-contract/revisions/{version}/diff")
+  public RecoveryContractDiffView diff(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
+      @PathVariable @Min(1) long version,
+      @RequestParam @Min(1) long compareToVersion) {
+    return service.diff(identity.current().tenantId(), applicationId, version, compareToVersion);
+  }
+
   @PutMapping("/applications/{applicationId}/recovery-contract")
   @PreAuthorize(PlatformRoles.ADMIN)
   public RecoveryContractView upsertContract(
@@ -56,6 +71,24 @@ public class BusinessRecoveryController {
         request,
         principal.actorId(),
         requestId(httpRequest),
+        Instant.now());
+  }
+
+  @PostMapping("/applications/{applicationId}/recovery-contract:restore")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryContractView restoreRevision(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody RestoreRecoveryContractRevisionRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return service.restoreRevision(
+        principal.tenantId(),
+        applicationId,
+        body,
+        principal.actorId(),
+        idempotencyKey,
+        requestId(request),
         Instant.now());
   }
 

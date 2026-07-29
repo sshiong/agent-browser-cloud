@@ -91,6 +91,25 @@ public final class BusinessRecoveryModels {
 
   public record RecoveryContractListResponse(List<RecoveryContractView> items, long total) {}
 
+  public record RecoveryContractRevisionListResponse(
+      List<RecoveryContractView> items, long total, long currentVersion) {}
+
+  public record RecoveryContractFieldChange(
+      String field, String changeType, String beforeValue, String afterValue) {}
+
+  public record RecoveryContractDiffView(
+      String contractId,
+      String applicationId,
+      long fromVersion,
+      long toVersion,
+      List<RecoveryContractFieldChange> changes,
+      long total) {}
+
+  public record RestoreRecoveryContractRevisionRequest(
+      @Min(1) long expectedCurrentVersion,
+      @Min(1) long sourceContractVersion,
+      @NotBlank @Size(max = 500) String reason) {}
+
   public record RequestRecoveryContractApprovalRequest(
       @Min(1) long expectedVersion, @NotBlank @Size(max = 500) String reason) {}
 

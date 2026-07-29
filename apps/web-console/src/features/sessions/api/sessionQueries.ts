@@ -21,6 +21,9 @@ import {
   upsertRecoveryContract,
   requestRecoveryContractApproval,
   decideRecoveryContractApproval,
+  listRecoveryContractRevisions,
+  getRecoveryContractDiff,
+  restoreRecoveryContractRevision,
   getBusinessRecovery,
   validateBusinessRecovery,
   getSessionApplicationBinding,
@@ -35,6 +38,7 @@ import type {
   UpsertRecoveryContractRequest,
   RequestRecoveryContractApprovalRequest,
   RebindSessionApplicationRequest,
+  RestoreRecoveryContractRevisionRequest,
 } from '@/types/session';
 
 export const sessionKeys = {
@@ -64,6 +68,19 @@ export const sessionKeys = {
   applicationBinding: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'application-binding'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
+  recoveryContractRevisions: (applicationId: string) =>
+    [...sessionKeys.recoveryContracts, applicationId, 'revisions'] as const,
+  recoveryContractDiff: (
+    applicationId: string,
+    fromVersion: number,
+    toVersion: number
+  ) =>
+    [
+      ...sessionKeys.recoveryContractRevisions(applicationId),
+      'diff',
+      fromVersion,
+      toVersion,
+    ] as const,
 };
 
 export function useSessions(params: {
@@ -196,6 +213,72 @@ export function useUpsertRecoveryContract() {
       await queryClient.invalidateQueries({
         queryKey: sessionKeys.recoveryContracts,
       });
+    },
+  });
+}
+
+export function useRecoveryContractRevisions(applicationId?: string) {
+  return useQuery({
+    queryKey: sessionKeys.recoveryContractRevisions(applicationId ?? ''),
+    queryFn: ({ signal }) =>
+      listRecoveryContractRevisions(applicationId ?? '', undefined, signal),
+    enabled: Boolean(applicationId),
+  });
+}
+
+export function useRecoveryContractDiff(
+  applicationId: string | undefined,
+  fromVersion: number | undefined,
+  toVersion: number | undefined
+) {
+  return useQuery({
+    queryKey: sessionKeys.recoveryContractDiff(
+      applicationId ?? '',
+      fromVersion ?? 0,
+      toVersion ?? 0
+    ),
+    queryFn: ({ signal }) =>
+      getRecoveryContractDiff(
+        applicationId ?? '',
+        fromVersion ?? 0,
+        toVersion ?? 0,
+        undefined,
+        signal
+      ),
+    enabled:
+      Boolean(applicationId) &&
+      Boolean(fromVersion) &&
+      Boolean(toVersion) &&
+      fromVersion !== toVersion,
+  });
+}
+
+export function useRestoreRecoveryContractRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      applicationId,
+      body,
+    }: {
+      applicationId: string;
+      body: RestoreRecoveryContractRevisionRequest;
+    }) =>
+      restoreRecoveryContractRevision(
+        applicationId,
+        body,
+        `recovery-contract-restore-${crypto.randomUUID()}`
+      ),
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.recoveryContracts,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.recoveryContractRevisions(
+            variables.applicationId
+          ),
+        }),
+      ]);
     },
   });
 }

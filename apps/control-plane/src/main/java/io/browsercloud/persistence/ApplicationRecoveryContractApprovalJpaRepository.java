@@ -14,6 +14,9 @@ public interface ApplicationRecoveryContractApprovalJpaRepository
   List<ApplicationRecoveryContractApprovalEntity> findAllByTenantIdOrderByRequestedAtDesc(
       String tenantId);
 
+  List<ApplicationRecoveryContractApprovalEntity>
+      findAllByTenantIdAndContractIdOrderByRequestedAtDesc(String tenantId, String contractId);
+
   Optional<ApplicationRecoveryContractApprovalEntity>
       findFirstByTenantIdAndContractIdAndContractVersionOrderByRequestedAtDesc(
           String tenantId, String contractId, long contractVersion);

@@ -199,6 +199,51 @@ curl -fsS -X PUT \
   -d '{"displayName":"E2E Accessibility Helper","staticCpuWeight":40,"staticMemoryWeight":64,"startupWeight":20,"pageInjectionWeight":10,"serviceWorkerWeight":0,"cryptoWeight":0,"networkWeight":10,"observedMultiplier":1.0,"confidence":0.9,"profileState":"CERTIFIED","web3":false,"serviceWorker":false,"crypto":false,"privileged":false}' \
   >"$temp_dir/extension-profile.json"
 
+curl -fsS -X PUT \
+  "http://127.0.0.1:${control_port}/api/v1/applications/crm.e2e/recovery-contract" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":0,"expectedOrigins":["https://crm.example.test"],"readyRoutePrefixes":["/customers"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[],"loginTargets":[],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}' \
+  >"$temp_dir/recovery-contract-v1.json"
+recovery_v1_approval="$(curl -fsS -X POST \
+  "http://127.0.0.1:${control_port}/api/v1/applications/crm.e2e/recovery-contract:request-approval" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":1,"reason":"E2E initial recovery gate"}')"
+recovery_v1_approval_id="$(printf '%s' "$recovery_v1_approval" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["approvalId"])')"
+curl -fsS -X POST \
+  "http://127.0.0.1:${control_port}/api/v1/applications/crm.e2e/recovery-contract-approvals/${recovery_v1_approval_id}:approve" \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: contract-approver' \
+  -H 'X-Roles: TENANT_ADMIN' >/dev/null
+curl -fsS -X PUT \
+  "http://127.0.0.1:${control_port}/api/v1/applications/crm.e2e/recovery-contract" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":1,"expectedOrigins":["https://crm.example.test"],"readyRoutePrefixes":["/customers","/workspaces"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[],"loginTargets":[],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}' \
+  >"$temp_dir/recovery-contract-v2.json"
+recovery_v2_approval="$(curl -fsS -X POST \
+  "http://127.0.0.1:${control_port}/api/v1/applications/crm.e2e/recovery-contract:request-approval" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":2,"reason":"E2E expanded route gate"}')"
+recovery_v2_approval_id="$(printf '%s' "$recovery_v2_approval" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["approvalId"])')"
+curl -fsS -X POST \
+  "http://127.0.0.1:${control_port}/api/v1/applications/crm.e2e/recovery-contract-approvals/${recovery_v2_approval_id}:approve" \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: contract-approver' \
+  -H 'X-Roles: TENANT_ADMIN' >/dev/null
+
 python3 "$repo_root/tests/fixtures/fault-tcp-proxy.py" \
   "$desktop_fault_port" 127.0.0.1 "$desktop_port" \
   >"$temp_dir/desktop-fault-proxy.log" 2>&1 &

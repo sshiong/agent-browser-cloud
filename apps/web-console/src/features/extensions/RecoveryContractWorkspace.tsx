@@ -45,6 +45,7 @@ import {
   recoveryContractToForm,
   type RecoveryContractFormValues,
 } from './recoveryContractForm';
+import { RecoveryContractHistory } from './RecoveryContractHistory';
 
 const applicationIdPattern = /^[a-zA-Z0-9_.-]{1,128}$/;
 const extensionIdPattern = /^[a-zA-Z0-9_.-]{1,128}$/;
@@ -670,6 +671,19 @@ function ContractEditor({
               )}
             </div>
           </section>
+        )}
+
+        {contract && (
+          <RecoveryContractHistory
+            contract={contract}
+            dirty={isDirty}
+            onRestored={(restored) => {
+              reset(recoveryContractToForm(restored));
+              approvalRequest.reset();
+              approvalDecision.reset();
+              onSaved(restored);
+            }}
+          />
         )}
 
         <section className="grid gap-4 lg:grid-cols-2">

@@ -579,6 +579,91 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/applications/{applicationId}/recovery-contract/revisions:
+    get:
+      operationId: listApplicationRecoveryContractRevisions
+      summary: List immutable snapshots for an Application Recovery Contract
+      description: >
+        Returns exact append-only policy bodies in descending version order with
+        the approval decision attached to each exact version.
+      tags: [Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Immutable contract snapshots.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryContractRevisionListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/applications/{applicationId}/recovery-contract/revisions/{version}/diff:
+    get:
+      operationId: diffApplicationRecoveryContractRevisions
+      summary: Compare two immutable Application Recovery Contract versions
+      tags: [Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: compareToVersion
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Field-level exact-version comparison.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryContractDiff"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/applications/{applicationId}/recovery-contract:restore:
+    post:
+      operationId: restoreApplicationRecoveryContractRevision
+      summary: Restore approved history as a new draft contract version
+      description: >
+        The selected historical body is copied into a new immutable head version.
+        History and existing Session bindings are never mutated. The new version is
+        DRAFT and must pass the normal dual-control approval gate.
+      tags: [Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreRecoveryContractRevisionRequest"
+      responses:
+        "200":
+          description: Newly created draft head version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryContract"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/applications/{applicationId}/recovery-contract:request-approval:
     post:
       operationId: requestApplicationRecoveryContractApproval
@@ -4361,6 +4446,101 @@ components:
           type: integer
           format: int64
           minimum: 0
+    RecoveryContractRevisionListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, currentVersion]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryContract"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        currentVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    RecoveryContractFieldChange:
+      type: object
+      additionalProperties: false
+      required: [field, changeType, beforeValue, afterValue]
+      properties:
+        field:
+          type: string
+          enum:
+            - expectedOrigins
+            - readyRoutePrefixes
+            - loginRoutePrefixes
+            - requiredTargets
+            - loginTargets
+            - permissionDeniedTargets
+            - accountMismatchTargets
+            - requiredExtensionIds
+            - allowDepthLimited
+            - recoveryAction
+            - recoveryExtensionId
+            - maximumAutoRecovery
+            - enabled
+        changeType:
+          type: string
+          enum: [MODIFIED]
+        beforeValue:
+          type: string
+        afterValue:
+          type: string
+    RecoveryContractDiff:
+      type: object
+      additionalProperties: false
+      required:
+        - contractId
+        - applicationId
+        - fromVersion
+        - toVersion
+        - changes
+        - total
+      properties:
+        contractId:
+          type: string
+          pattern: "^arc_[a-zA-Z0-9]{20}$"
+        applicationId:
+          type: string
+          pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+        fromVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        toVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryContractFieldChange"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+    RestoreRecoveryContractRevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedCurrentVersion, sourceContractVersion, reason]
+      properties:
+        expectedCurrentVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        sourceContractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
     RequestRecoveryContractApprovalRequest:
       type: object
       additionalProperties: false

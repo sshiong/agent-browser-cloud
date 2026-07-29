@@ -183,6 +183,144 @@ public class ApplicationBusinessRecoveryService {
     return new RecoveryContractListResponse(items, items.size());
   }
 
+  @Transactional(readOnly = true)
+  public RecoveryContractRevisionListResponse listRevisions(String tenantId, String applicationId) {
+    validateApplicationId(applicationId);
+    var contract =
+        contracts
+            .findByTenantIdAndApplicationId(tenantId, applicationId)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    var latestApprovals =
+        new HashMap<ContractVersionKey, ApplicationRecoveryContractApprovalEntity>();
+    approvals
+        .findAllByTenantIdAndContractIdOrderByRequestedAtDesc(tenantId, contract.getContractId())
+        .stream()
+        .forEach(
+            approval ->
+                latestApprovals.putIfAbsent(
+                    new ContractVersionKey(approval.getContractId(), approval.getContractVersion()),
+                    approval));
+    var items =
+        revisions
+            .findAllByContractIdAndTenantIdAndApplicationIdOrderByContractVersionDesc(
+                contract.getContractId(), tenantId, applicationId)
+            .stream()
+            .map(
+                revision ->
+                    toView(
+                        revision,
+                        Optional.ofNullable(
+                            latestApprovals.get(
+                                new ContractVersionKey(
+                                    revision.getContractId(), revision.getContractVersion())))))
+            .toList();
+    return new RecoveryContractRevisionListResponse(items, items.size(), contract.getVersion());
+  }
+
+  @Transactional(readOnly = true)
+  public RecoveryContractDiffView diff(
+      String tenantId, String applicationId, long fromVersion, long toVersion) {
+    validateApplicationId(applicationId);
+    var contract =
+        contracts
+            .findByTenantIdAndApplicationId(tenantId, applicationId)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    var from = requireRevision(contract.getContractId(), fromVersion, tenantId, applicationId);
+    var to = requireRevision(contract.getContractId(), toVersion, tenantId, applicationId);
+    var changes = contractChanges(from, to);
+    return new RecoveryContractDiffView(
+        contract.getContractId(), applicationId, fromVersion, toVersion, changes, changes.size());
+  }
+
+  @Transactional
+  public RecoveryContractView restoreRevision(
+      String tenantId,
+      String applicationId,
+      RestoreRecoveryContractRevisionRequest request,
+      String actorId,
+      String idempotencyKey,
+      String requestId,
+      Instant now) {
+    validateApplicationId(applicationId);
+    var discovered =
+        contracts
+            .findByTenantIdAndApplicationId(tenantId, applicationId)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    var candidateRevisionId =
+        discovered.getContractId()
+            + ":v"
+            + (request.expectedCurrentVersion() + 1)
+            + ":"
+            + newId("restore_");
+    var revisionId =
+        idempotency.claimRecoveryContractRestore(
+            tenantId, applicationId, idempotencyKey, request, candidateRevisionId);
+    if (!candidateRevisionId.equals(revisionId)) {
+      return restoredRevisionView(tenantId, applicationId, revisionId);
+    }
+
+    var contract =
+        contracts
+            .findForUpdate(tenantId, applicationId)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    if (!contract.getContractId().equals(discovered.getContractId())
+        || contract.getVersion() != request.expectedCurrentVersion()) {
+      throw new RecoveryContractVersionConflictException();
+    }
+    if (request.sourceContractVersion() >= contract.getVersion()) {
+      throw new RecoveryContractRejectedException("RESTORE_SOURCE_MUST_BE_HISTORICAL");
+    }
+    var source =
+        requireRevision(
+            contract.getContractId(), request.sourceContractVersion(), tenantId, applicationId);
+    if (!isApproved(tenantId, contract.getContractId(), source.getContractVersion())) {
+      throw new RecoveryContractApprovalRequiredException();
+    }
+    contract.update(
+        source.getExpectedOrigins(),
+        source.getReadyRoutePrefixes(),
+        source.getLoginRoutePrefixes(),
+        source.getRequiredTargets(),
+        source.getLoginTargets(),
+        source.getPermissionDeniedTargets(),
+        source.getAccountMismatchTargets(),
+        source.getRequiredExtensionIds(),
+        source.isAllowDepthLimited(),
+        source.getRecoveryAction(),
+        source.getRecoveryExtensionId(),
+        source.getMaximumAutoRecovery(),
+        source.isEnabled(),
+        now.truncatedTo(ChronoUnit.MICROS));
+    var restored = contracts.saveAndFlush(contract);
+    if (restored.getVersion() != request.expectedCurrentVersion() + 1) {
+      throw new RecoveryContractVersionConflictException();
+    }
+    audit.append(
+        new AuditApplicationService.AuditRecord(
+            tenantId,
+            null,
+            "RECOVERY_CONTRACT",
+            "USER",
+            actorId,
+            "APPLICATION_RECOVERY_CONTRACT",
+            restored.getContractId(),
+            "RECOVERY_CONTRACT_REVISION_RESTORED",
+            "SUCCESS",
+            Map.of(
+                "applicationId",
+                applicationId,
+                "sourceContractVersion",
+                source.getContractVersion(),
+                "previousHeadVersion",
+                request.expectedCurrentVersion(),
+                "newContractVersion",
+                restored.getVersion(),
+                "reason",
+                AgentDataMinimizer.redact(request.reason().strip())),
+            requestId));
+    return toView(restored, Optional.empty());
+  }
+
   @Transactional
   public RecoveryContractApprovalView requestApproval(
       String tenantId,
@@ -760,6 +898,126 @@ public class ApplicationBusinessRecoveryService {
         currentApproval == null ? null : currentApproval.getDecidedAt(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
+  }
+
+  private RecoveryContractView toView(
+      ApplicationRecoveryContractRevisionEntity entity,
+      Optional<ApplicationRecoveryContractApprovalEntity> approval) {
+    var currentApproval = approval.orElse(null);
+    return new RecoveryContractView(
+        entity.getContractId(),
+        entity.getApplicationId(),
+        entity.getContractVersion(),
+        readStrings(entity.getExpectedOrigins()),
+        readStrings(entity.getReadyRoutePrefixes()),
+        readStrings(entity.getLoginRoutePrefixes()),
+        readTargets(entity.getRequiredTargets()),
+        readTargets(entity.getLoginTargets()),
+        readTargets(entity.getPermissionDeniedTargets()),
+        readTargets(entity.getAccountMismatchTargets()),
+        readStrings(entity.getRequiredExtensionIds()),
+        entity.isAllowDepthLimited(),
+        RecoveryAction.valueOf(entity.getRecoveryAction()),
+        entity.getRecoveryExtensionId(),
+        entity.getMaximumAutoRecovery(),
+        entity.isEnabled(),
+        currentApproval == null
+            ? RecoveryContractApprovalState.DRAFT
+            : RecoveryContractApprovalState.valueOf(currentApproval.getState()),
+        currentApproval == null ? null : currentApproval.getApprovalId(),
+        currentApproval == null ? null : currentApproval.getRequestedBy(),
+        currentApproval == null ? null : currentApproval.getApprovedBy(),
+        currentApproval == null ? null : currentApproval.getRequestedAt(),
+        currentApproval == null ? null : currentApproval.getDecidedAt(),
+        entity.getContractCreatedAt(),
+        entity.getPublishedAt());
+  }
+
+  private RecoveryContractView restoredRevisionView(
+      String tenantId, String applicationId, String revisionId) {
+    var separator = revisionId.lastIndexOf(":v");
+    var suffix = revisionId.indexOf(':', separator + 2);
+    if (separator <= 0 || suffix <= separator + 2) {
+      throw new IllegalStateException("Recovery Contract restore claim has invalid revision ID");
+    }
+    final long version;
+    try {
+      version = Long.parseLong(revisionId.substring(separator + 2, suffix));
+    } catch (NumberFormatException exception) {
+      throw new IllegalStateException(
+          "Recovery Contract restore claim has invalid revision version", exception);
+    }
+    var revision =
+        requireRevision(revisionId.substring(0, separator), version, tenantId, applicationId);
+    return toView(revision, latestApproval(tenantId, revision.getContractId(), version));
+  }
+
+  private ApplicationRecoveryContractRevisionEntity requireRevision(
+      String contractId, long version, String tenantId, String applicationId) {
+    return revisions
+        .findByContractIdAndContractVersionAndTenantIdAndApplicationId(
+            contractId, version, tenantId, applicationId)
+        .orElseThrow(RecoveryContractNotFoundException::new);
+  }
+
+  private Optional<ApplicationRecoveryContractApprovalEntity> latestApproval(
+      String tenantId, String contractId, long version) {
+    return approvals.findFirstByTenantIdAndContractIdAndContractVersionOrderByRequestedAtDesc(
+        tenantId, contractId, version);
+  }
+
+  private List<RecoveryContractFieldChange> contractChanges(
+      ApplicationRecoveryContractRevisionEntity from,
+      ApplicationRecoveryContractRevisionEntity to) {
+    var changes = new ArrayList<RecoveryContractFieldChange>();
+    addChange(changes, "expectedOrigins", from.getExpectedOrigins(), to.getExpectedOrigins());
+    addChange(
+        changes, "readyRoutePrefixes", from.getReadyRoutePrefixes(), to.getReadyRoutePrefixes());
+    addChange(
+        changes, "loginRoutePrefixes", from.getLoginRoutePrefixes(), to.getLoginRoutePrefixes());
+    addChange(changes, "requiredTargets", from.getRequiredTargets(), to.getRequiredTargets());
+    addChange(changes, "loginTargets", from.getLoginTargets(), to.getLoginTargets());
+    addChange(
+        changes,
+        "permissionDeniedTargets",
+        from.getPermissionDeniedTargets(),
+        to.getPermissionDeniedTargets());
+    addChange(
+        changes,
+        "accountMismatchTargets",
+        from.getAccountMismatchTargets(),
+        to.getAccountMismatchTargets());
+    addChange(
+        changes,
+        "requiredExtensionIds",
+        from.getRequiredExtensionIds(),
+        to.getRequiredExtensionIds());
+    addChange(
+        changes,
+        "allowDepthLimited",
+        Boolean.toString(from.isAllowDepthLimited()),
+        Boolean.toString(to.isAllowDepthLimited()));
+    addChange(changes, "recoveryAction", from.getRecoveryAction(), to.getRecoveryAction());
+    addChange(
+        changes,
+        "recoveryExtensionId",
+        Objects.toString(from.getRecoveryExtensionId(), "null"),
+        Objects.toString(to.getRecoveryExtensionId(), "null"));
+    addChange(
+        changes,
+        "maximumAutoRecovery",
+        Integer.toString(from.getMaximumAutoRecovery()),
+        Integer.toString(to.getMaximumAutoRecovery()));
+    addChange(
+        changes, "enabled", Boolean.toString(from.isEnabled()), Boolean.toString(to.isEnabled()));
+    return List.copyOf(changes);
+  }
+
+  private static void addChange(
+      List<RecoveryContractFieldChange> changes, String field, String before, String after) {
+    if (!Objects.equals(before, after)) {
+      changes.add(new RecoveryContractFieldChange(field, "MODIFIED", before, after));
+    }
   }
 
   private Optional<ApplicationRecoveryContractApprovalEntity> currentApproval(

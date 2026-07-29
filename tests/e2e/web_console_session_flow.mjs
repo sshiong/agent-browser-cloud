@@ -83,6 +83,41 @@ try {
   ).toBeVisible();
   await expect(page.getByText("CERTIFIED", { exact: true })).toBeVisible();
 
+  await page.goto(`${baseUrl}/extensions?view=recovery`);
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "Application Recovery Contract" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "不可变版本历史" }),
+  ).toBeVisible();
+  await expect(page.getByText("v2 · CURRENT", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /^v1/ }).click();
+  await expect(page.getByText("v1 → v2", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ready Route Prefixes")).toBeVisible();
+  await page
+    .getByPlaceholder("填写恢复原因和验证依据")
+    .fill("E2E controlled restore of approved policy");
+  await page.getByRole("button", { name: "准备恢复为新草稿" }).click();
+  const restoreResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("recovery-contract:restore") &&
+      response.request().method() === "POST",
+  );
+  await page
+    .getByRole("button", { name: "确认创建 v3 DRAFT" })
+    .click();
+  const restoreResponse = await restoreResponsePromise;
+  if (restoreResponse.status() !== 200) {
+    throw new Error(
+      `Recovery Contract restore failed with ${restoreResponse.status()}: ${await restoreResponse.text()}`,
+    );
+  }
+  await expect(page.getByText("crm.e2e / v3", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("DRAFT · NOT APPROVED", { exact: true }).first(),
+  ).toBeVisible();
+
   await page.goto(`${baseUrl}/enterprise`);
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "企业运营" })).toBeVisible();

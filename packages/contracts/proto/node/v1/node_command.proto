@@ -208,6 +208,8 @@ message StartRuntimeCommand {
   optional uint32 observer_frame_rate_fps = 27;
   // 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
   optional bool video_recording_enabled = 28;
+  // 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
+  optional uint32 success_screenshot_sample_percent = 29;
 }
 
 // Runtime 启动事件
@@ -278,6 +280,8 @@ message AdjustRuntimeResourcesCommand {
   optional uint32 observer_frame_rate_fps = 22;
   // Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
   optional bool video_recording_enabled = 23;
+  // 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+  optional uint32 success_screenshot_sample_percent = 24;
 }
 
 // Browser Node 通过各 Extension background/service-worker Target 的 Debugger
@@ -325,6 +329,8 @@ message RuntimeResourcesAdjustedEvent {
   optional uint32 new_observer_frame_rate_fps = 34;
   optional bool old_video_recording_enabled = 35;
   optional bool new_video_recording_enabled = 36;
+  optional uint32 old_success_screenshot_sample_percent = 37;
+  optional uint32 new_success_screenshot_sample_percent = 38;
 }
 
 // Browser Crash 事件
@@ -466,6 +472,24 @@ message AgentActionFailedEvent {
   string step_id = 3;
   string tool_id = 4;
   string error_code = 5;
+}
+
+// Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
+// Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
+message SessionEvidenceCapturedEvent {
+  string session_id = 1;
+  string evidence_id = 2;
+  string evidence_kind = 3;
+  string task_id = 4;
+  string step_id = 5;
+  string command_id = 6;
+  string content_sha256 = 7;
+  uint64 content_bytes = 8;
+  string object_key = 9;
+  int64 captured_at_ms = 10;
+  bool mandatory = 11;
+  string result = 12;
+  string error_code = 13;
 }
 
 message BrowserStateDiffEvent {

@@ -25,6 +25,7 @@ import {
   useRequestHumanTakeover,
   useResyncBrowserState,
   useSessionResourceEvents,
+  useSessionEvidence,
   useSessionResourceStream,
   useSessionResources,
   useSessionSafePoint,
@@ -46,6 +47,7 @@ import type {
 import { useAuth } from '@/auth/AuthProvider';
 import { SessionResourcePanel } from '@/features/sessions/components/resources/SessionResourcePanel';
 import { BusinessRecoveryCard } from '@/features/sessions/components/BusinessRecoveryCard';
+import { SessionEvidenceCard } from '@/features/sessions/components/SessionEvidenceCard';
 
 export function SessionDetailPage() {
   const auth = useAuth();
@@ -62,6 +64,10 @@ export function SessionDetailPage() {
   const resyncMutation = useResyncBrowserState(id);
   const resourceQuery = useSessionResources(id);
   const resourceEventsQuery = useSessionResourceEvents(id);
+  const evidenceQuery = useSessionEvidence(
+    id,
+    sessionQuery.data?.state === 'RUNNING'
+  );
   const safePointQuery = useSessionSafePoint(id);
   const migrationQuery = useSessionMigration(id);
   const businessRecoveryQuery = useBusinessRecovery(id);
@@ -311,6 +317,13 @@ export function SessionDetailPage() {
                   onUpdate={(policy) =>
                     resourcePolicyMutation.mutateAsync(policy)
                   }
+                />
+
+                <SessionEvidenceCard
+                  items={evidenceQuery.data?.items ?? []}
+                  loading={evidenceQuery.isLoading}
+                  error={evidenceQuery.error}
+                  onRetry={() => evidenceQuery.refetch()}
                 />
 
                 <BrowserStatePanel

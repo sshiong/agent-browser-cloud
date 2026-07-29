@@ -2148,6 +2148,7 @@ name = "session-recorder"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "futures-util",
  "helper-client",
  "reqwest 0.12.28",

@@ -16,6 +16,7 @@ import io.browsercloud.proto.node.v1.InteractiveTargetState;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
+import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
 import io.browsercloud.proto.node.v1.TargetBounds;
 import org.junit.jupiter.api.Test;
 
@@ -126,6 +127,8 @@ class NodeEventMapperTest {
                 ExtensionBackgroundPolicy.newBuilder().addPausedExtensionIds("extension.new"))
             .setOldSuccessTraceSamplePercent(100)
             .setNewSuccessTraceSamplePercent(10)
+            .setOldSuccessScreenshotSamplePercent(100)
+            .setNewSuccessScreenshotSamplePercent(10)
             .setOldObserverFrameRateFps(30)
             .setNewObserverFrameRateFps(5)
             .build();
@@ -155,6 +158,8 @@ class NodeEventMapperTest {
               assertThat(adjusted.newPausedExtensionIds()).containsExactly("extension.new");
               assertThat(adjusted.oldSuccessTraceSamplePercent()).isEqualTo(100);
               assertThat(adjusted.newSuccessTraceSamplePercent()).isEqualTo(10);
+              assertThat(adjusted.oldSuccessScreenshotSamplePercent()).isEqualTo(100);
+              assertThat(adjusted.newSuccessScreenshotSamplePercent()).isEqualTo(10);
               assertThat(adjusted.oldObserverFrameRateFps()).isEqualTo(30);
               assertThat(adjusted.newObserverFrameRateFps()).isEqualTo(5);
             });
@@ -423,6 +428,77 @@ class NodeEventMapperTest {
               assertThat(failed.toolId()).isEqualTo("TYPE_TEXT");
               assertThat(failed.errorCode()).isEqualTo("ACTION_PRECONDITION_FAILED");
             });
+  }
+
+  @Test
+  void shouldMapCommittedSessionEvidenceWithoutWeakeningValidation() {
+    var payload =
+        SessionEvidenceCapturedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvidenceId("evd_1234567890abcdef")
+            .setEvidenceKind("AGENT_ACTION_FAILURE")
+            .setTaskId("agt_1234567890abcdef")
+            .setStepId("step_1234567890abcd")
+            .setCommandId("cmd_1234567890abcdef")
+            .setContentSha256("a".repeat(64))
+            .setContentBytes(1024)
+            .setObjectKey(
+                "tenants/tenant-test/profiles/profile-test/sessions/ses_test/evidence/"
+                    + "evd_1234567890abcdef/screenshot.jpeg")
+            .setCapturedAtMs(1_785_283_200_000L)
+            .setMandatory(true)
+            .setResult("COMMITTED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_evidence")
+            .setEventType(NodeEventMapper.SESSION_EVIDENCE_CAPTURED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(4)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.EvidenceCaptured.class,
+            evidence -> {
+              assertThat(evidence.evidenceId()).isEqualTo("evd_1234567890abcdef");
+              assertThat(evidence.mandatory()).isTrue();
+              assertThat(evidence.result()).isEqualTo("COMMITTED");
+              assertThat(evidence.contentBytes()).isEqualTo(1024);
+            });
+  }
+
+  @Test
+  void shouldRejectEvidenceThatClaimsCommittedWithoutAnObject() {
+    var payload =
+        SessionEvidenceCapturedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvidenceId("evd_1234567890abcdef")
+            .setEvidenceKind("AGENT_ACTION_SUCCESS")
+            .setTaskId("agt_1234567890abcdef")
+            .setStepId("step_1234567890abcd")
+            .setCommandId("cmd_1234567890abcdef")
+            .setContentSha256("a".repeat(64))
+            .setContentBytes(1024)
+            .setCapturedAtMs(1_785_283_200_000L)
+            .setResult("COMMITTED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_evidence_invalid")
+            .setEventType(NodeEventMapper.SESSION_EVIDENCE_CAPTURED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(4)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("committed evidence metadata");
   }
 
   @Test

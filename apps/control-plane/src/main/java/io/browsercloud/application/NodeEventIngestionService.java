@@ -34,6 +34,7 @@ public class NodeEventIngestionService {
   private final BrowserCapacityApplicationService browserCapacityService;
   private final SessionResourceApplicationService resourceService;
   private final BusinessRecoveryActionApplicationService recoveryActionService;
+  private final SessionEvidenceApplicationService evidenceService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -48,7 +49,8 @@ public class NodeEventIngestionService {
       DurableWorkflowApplicationService workflowService,
       BrowserCapacityApplicationService browserCapacityService,
       SessionResourceApplicationService resourceService,
-      BusinessRecoveryActionApplicationService recoveryActionService) {
+      BusinessRecoveryActionApplicationService recoveryActionService,
+      SessionEvidenceApplicationService evidenceService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -62,6 +64,7 @@ public class NodeEventIngestionService {
     this.browserCapacityService = browserCapacityService;
     this.resourceService = resourceService;
     this.recoveryActionService = recoveryActionService;
+    this.evidenceService = evidenceService;
   }
 
   @Transactional
@@ -110,6 +113,8 @@ public class NodeEventIngestionService {
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ended.state());
       case NodeEvent.RuntimeResourcesAdjusted adjusted ->
           resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
+      case NodeEvent.EvidenceCaptured captured ->
+          evidenceService.record(command.tenantId(), command.eventId(), captured);
       default -> {}
     }
     if (command.event() instanceof NodeEvent.RuntimeStopped stopped

@@ -1418,17 +1418,17 @@ done
 tab_resource_limits=""
 for _ in $(seq 1 160); do
   tab_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-    "select state_collector_budget_percent || ':' || background_tabs_frozen || ':' || new_tabs_blocked || ':' || paused_extension_ids::text || ':' || success_trace_sample_percent || ':' || observer_frame_rate_fps || ':' || video_recording_requested || ':' || video_recording_enabled
+    "select state_collector_budget_percent || ':' || background_tabs_frozen || ':' || new_tabs_blocked || ':' || paused_extension_ids::text || ':' || success_trace_sample_percent || ':' || success_screenshot_sample_percent || ':' || observer_frame_rate_fps || ':' || video_recording_requested || ':' || video_recording_enabled
      from browser_placements where session_id='${session_one}'")"
-  if [[ "$tab_resource_limits" = '50:true:true:["jdgnleokimdbblcflcfcohbinohmmmlb"]:10:0:false:false' ]]; then break; fi
+  if [[ "$tab_resource_limits" = '50:true:true:["jdgnleokimdbblcflcfcohbinohmmmlb"]:10:10:0:false:false' ]]; then break; fi
   sleep 0.25
 done
-test "$tab_resource_limits" = '50:true:true:["jdgnleokimdbblcflcfcohbinohmmmlb"]:10:0:false:false'
+test "$tab_resource_limits" = '50:true:true:["jdgnleokimdbblcflcfcohbinohmmmlb"]:10:10:0:false:false'
 tab_resource_view="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/resources" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$tab_resource_view" | python3 -c \
-  'import json,sys; allocation=json.load(sys.stdin)["allocation"]; assert allocation["backgroundTabsFrozen"] is True; assert allocation["newTabsBlocked"] is True; assert allocation["pausedExtensionIds"] == ["jdgnleokimdbblcflcfcohbinohmmmlb"]; assert allocation["stateCollectorBudgetPercent"] == 50; assert allocation["successTraceSamplePercent"] == 10; assert allocation["observerFrameRateFps"] == 0; assert allocation["videoRecordingRequested"] is False; assert allocation["videoRecordingEnabled"] is False'
+  'import json,sys; allocation=json.load(sys.stdin)["allocation"]; assert allocation["backgroundTabsFrozen"] is True; assert allocation["newTabsBlocked"] is True; assert allocation["pausedExtensionIds"] == ["jdgnleokimdbblcflcfcohbinohmmmlb"]; assert allocation["stateCollectorBudgetPercent"] == 50; assert allocation["successTraceSamplePercent"] == 10; assert allocation["successScreenshotSamplePercent"] == 10; assert allocation["observerFrameRateFps"] == 0; assert allocation["videoRecordingRequested"] is False; assert allocation["videoRecordingEnabled"] is False'
 tab_resource_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from session_resource_events
    where session_id='${session_one}'
@@ -1436,6 +1436,7 @@ tab_resource_events="$(docker exec "$postgres_name" psql -U browsercloud -d brow
      and new_resources->>'backgroundTabsFrozen'='true'
      and new_resources->>'newTabsBlocked'='true'
      and new_resources->>'successTraceSamplePercent'='10'
+     and new_resources->>'successScreenshotSamplePercent'='10'
      and new_resources->>'observerFrameRateFps'='0'
      and new_resources->>'videoRecordingEnabled'='false'
      and new_resources->'pausedExtensionIds' @> '[\"jdgnleokimdbblcflcfcohbinohmmmlb\"]'::jsonb
@@ -2132,6 +2133,24 @@ tool_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d bro
   "select count(*) from tool_capability_uses where task_id='${read_agent_task_id}'")"
 test "$tool_capability_uses" = "3"
 
+session_evidence=""
+for _ in $(seq 1 40); do
+  session_evidence="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/evidence?limit=20" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  evidence_count="$(printf '%s' "$session_evidence" | python3 -c \
+    'import json,sys; print(len(json.load(sys.stdin)["items"]))')"
+  if [[ "$evidence_count" -ge "1" ]]; then break; fi
+  sleep 0.25
+done
+test "$evidence_count" -ge "1"
+printf '%s' "$session_evidence" | python3 -c \
+  'import json,sys; response=json.load(sys.stdin); assert response["limit"] == 20; assert all("objectKey" not in item for item in response["items"]); assert all(item["result"] in ("COMMITTED", "FAILED") for item in response["items"]); assert any(item["evidenceKind"].startswith("AGENT_") for item in response["items"])'
+cross_tenant_evidence_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/evidence" \
+  -H 'X-Tenant-Id: tenant-other')"
+test "$cross_tenant_evidence_status" = "404"
+
 confirmation_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
   -H 'Content-Type: application/json' \
@@ -2337,9 +2356,9 @@ resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud 
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "4"
 non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots || ':' || background_tabs_frozen || ':' || new_tabs_blocked || ':' || success_trace_sample_percent || ':' || observer_frame_rate_fps || ':' || video_recording_requested || ':' || video_recording_enabled
+  "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots || ':' || background_tabs_frozen || ':' || new_tabs_blocked || ':' || success_trace_sample_percent || ':' || success_screenshot_sample_percent || ':' || observer_frame_rate_fps || ':' || video_recording_requested || ':' || video_recording_enabled
    from browser_placements where session_id='${session_one}'")"
-test "$non_cgroup_resource_limits" = "50:0:100:0:true:true:10:0:false:false"
+test "$non_cgroup_resource_limits" = "50:0:100:0:true:true:10:10:0:false:false"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"
@@ -2908,6 +2927,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

@@ -37,6 +37,7 @@ class NodeEventIngestionServiceTest {
   @Mock private BrowserCapacityApplicationService browserCapacityService;
   @Mock private SessionResourceApplicationService resourceService;
   @Mock private BusinessRecoveryActionApplicationService recoveryActionService;
+  @Mock private SessionEvidenceApplicationService evidenceService;
 
   private NodeEventIngestionService service;
 
@@ -56,7 +57,8 @@ class NodeEventIngestionServiceTest {
             workflowService,
             browserCapacityService,
             resourceService,
-            recoveryActionService);
+            recoveryActionService,
+            evidenceService);
   }
 
   @Test
@@ -81,6 +83,32 @@ class NodeEventIngestionServiceTest {
     verify(profileApplicationService)
         .recordCheckpoint("tenant-test", (NodeEvent.RuntimeStopped) command.event());
     verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldPersistEvidenceMetadataInsideTheInboxTransaction() {
+    var evidence =
+        new NodeEvent.EvidenceCaptured(
+            "ses_test",
+            "evd_1234567890abcdef",
+            "AGENT_ACTION_FAILURE",
+            "agt_1234567890abcdef",
+            "step_1234567890abcd",
+            "cmd_1234567890abcdef",
+            "a".repeat(64),
+            1024,
+            "tenants/tenant-test/evidence/evd_1234567890abcdef/screenshot.jpeg",
+            1_785_283_200_000L,
+            true,
+            "COMMITTED",
+            "");
+    var command =
+        new NodeEventReceived("evt_evidence", "tenant-test", "ses_test", 1, 1, 0, 2, evidence);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(evidenceService).record("tenant-test", "evt_evidence", evidence);
   }
 
   @Test

@@ -20,6 +20,7 @@ public record RuntimeResourceLimits(
     boolean blockNewTabs,
     List<String> pausedExtensionIds,
     int successTraceSamplePercent,
+    int successScreenshotSamplePercent,
     int observerFrameRateFps,
     boolean videoRecordingEnabled,
     boolean desktop,
@@ -44,6 +45,8 @@ public record RuntimeResourceLimits(
         || remoteDesktopBitrateKbps > 100_000
         || successTraceSamplePercent < 1
         || successTraceSamplePercent > 100
+        || successScreenshotSamplePercent < 1
+        || successScreenshotSamplePercent > 100
         || observerFrameRateFps < 0
         || observerFrameRateFps > 60
         || (desktop && remoteDesktopBitrateKbps < 250)

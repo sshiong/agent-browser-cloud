@@ -269,6 +269,7 @@ export interface SessionResourceView {
     newTabsBlocked: boolean;
     pausedExtensionIds?: string[];
     successTraceSamplePercent?: number;
+    successScreenshotSamplePercent?: number;
     observerFrameRateFps?: number;
     videoRecordingRequested?: boolean;
     videoRecordingEnabled?: boolean;
@@ -312,6 +313,30 @@ export interface SessionResourceView {
   dataFreshness: 'LIVE' | 'STALE' | 'AWAITING_TELEMETRY';
   lastEvaluatedAt?: string;
   lastAdjustedAt?: string;
+}
+
+export interface SessionEvidenceView {
+  evidenceId: string;
+  evidenceKind:
+    | 'AGENT_ACTION_SUCCESS'
+    | 'AGENT_ACTION_FAILURE'
+    | 'AGENT_NAVIGATION_SUCCESS'
+    | 'AGENT_NAVIGATION_FAILURE';
+  taskId: string;
+  stepId: string;
+  commandId: string;
+  mandatory: boolean;
+  result: 'COMMITTED' | 'FAILED';
+  contentSha256?: string;
+  contentBytes: number;
+  capturedAt: string;
+  errorCode?: string;
+}
+
+export interface SessionEvidenceListResponse {
+  items: SessionEvidenceView[];
+  limit: number;
+  offset: number;
 }
 
 export interface ResourceEventView {

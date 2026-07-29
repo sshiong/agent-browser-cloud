@@ -315,6 +315,9 @@ pub struct StartRuntimeCommand {
     /// 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
     #[prost(bool, optional, tag="28")]
     pub video_recording_enabled: ::core::option::Option<bool>,
+    /// 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
+    #[prost(uint32, optional, tag="29")]
+    pub success_screenshot_sample_percent: ::core::option::Option<u32>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -434,6 +437,9 @@ pub struct AdjustRuntimeResourcesCommand {
     /// Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
     #[prost(bool, optional, tag="23")]
     pub video_recording_enabled: ::core::option::Option<bool>,
+    /// 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+    #[prost(uint32, optional, tag="24")]
+    pub success_screenshot_sample_percent: ::core::option::Option<u32>,
 }
 /// Browser Node 通过各 Extension background/service-worker Target 的 Debugger
 /// pause/resume 执行，避免直接卸载扩展或修改扩展集合。
@@ -520,6 +526,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_video_recording_enabled: ::core::option::Option<bool>,
     #[prost(bool, optional, tag="36")]
     pub new_video_recording_enabled: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag="37")]
+    pub old_success_screenshot_sample_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="38")]
+    pub new_success_screenshot_sample_percent: ::core::option::Option<u32>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -759,6 +769,38 @@ pub struct AgentActionFailedEvent {
     #[prost(string, tag="4")]
     pub tool_id: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
+    pub error_code: ::prost::alloc::string::String,
+}
+/// Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
+/// Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SessionEvidenceCapturedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub evidence_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub evidence_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub task_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub step_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub command_id: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub content_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="8")]
+    pub content_bytes: u64,
+    #[prost(string, tag="9")]
+    pub object_key: ::prost::alloc::string::String,
+    #[prost(int64, tag="10")]
+    pub captured_at_ms: i64,
+    #[prost(bool, tag="11")]
+    pub mandatory: bool,
+    #[prost(string, tag="12")]
+    pub result: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
     pub error_code: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

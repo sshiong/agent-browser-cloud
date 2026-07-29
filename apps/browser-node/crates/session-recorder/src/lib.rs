@@ -4,6 +4,7 @@
 //! Node writes bounded NDJSON segments into the Session ephemeral workspace; only Storage Helper
 //! can commit those segments to Object Storage.
 
+use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use helper_client::{StorageHelperClient, StorageWorkspace};
 use serde::Deserialize;
@@ -22,6 +23,7 @@ const FRAME_QUEUE_CAPACITY: usize = 8;
 const SEGMENT_MAX_BYTES: u64 = 4 * 1024 * 1024;
 const SEGMENT_MAX_DURATION_MS: u64 = 10_000;
 const CDP_TIMEOUT: Duration = Duration::from_secs(5);
+const EVIDENCE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct RecordingSpec {
@@ -53,6 +55,185 @@ pub struct RecordingSummary {
 #[derive(Clone, Default)]
 pub struct SessionRecorderRegistry {
     sessions: Arc<Mutex<HashMap<String, RegisteredRecording>>>,
+}
+
+#[derive(Clone)]
+pub struct EvidenceSpec {
+    pub session_id: String,
+    pub cdp_endpoint: String,
+    pub workspace: StorageWorkspace,
+    pub storage_helper: Arc<StorageHelperClient>,
+}
+
+#[derive(Clone)]
+struct RegisteredEvidence {
+    spec: EvidenceSpec,
+    success_sample_percent: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceSummary {
+    pub evidence_id: String,
+    pub content_sha256: String,
+    pub content_bytes: u64,
+    pub object_key: String,
+    pub captured_at_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvidenceCapture {
+    Skipped { sample_percent: u32 },
+    Committed(EvidenceSummary),
+}
+
+#[derive(Clone, Default)]
+pub struct SessionEvidenceRegistry {
+    sessions: Arc<Mutex<HashMap<String, RegisteredEvidence>>>,
+}
+
+impl SessionEvidenceRegistry {
+    pub async fn register(
+        &self,
+        spec: EvidenceSpec,
+        success_sample_percent: u32,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            spec.session_id == spec.workspace.session_id,
+            "evidence Session identity does not match workspace"
+        );
+        validate_sample_percent(success_sample_percent)?;
+        let previous = self.sessions.lock().await.insert(
+            spec.session_id.clone(),
+            RegisteredEvidence {
+                spec,
+                success_sample_percent,
+            },
+        );
+        anyhow::ensure!(previous.is_none(), "evidence Session is already registered");
+        Ok(())
+    }
+
+    pub async fn set_success_sample_percent(
+        &self,
+        session_id: &str,
+        success_sample_percent: u32,
+    ) -> anyhow::Result<u32> {
+        validate_sample_percent(success_sample_percent)?;
+        let mut sessions = self.sessions.lock().await;
+        let registered = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| anyhow::anyhow!("Screenshot evidence actuator is unavailable"))?;
+        let previous = registered.success_sample_percent;
+        registered.success_sample_percent = success_sample_percent;
+        Ok(previous)
+    }
+
+    pub async fn success_sample_percent(&self, session_id: &str) -> Option<u32> {
+        self.sessions
+            .lock()
+            .await
+            .get(session_id)
+            .map(|registered| registered.success_sample_percent)
+    }
+
+    pub async fn unregister(&self, session_id: &str) {
+        self.sessions.lock().await.remove(session_id);
+    }
+
+    pub async fn capture(
+        &self,
+        session_id: &str,
+        evidence_key: &str,
+        evidence_kind: &str,
+        mandatory: bool,
+    ) -> anyhow::Result<EvidenceCapture> {
+        let registered = self
+            .sessions
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Screenshot evidence actuator is unavailable"))?;
+        if !mandatory && !deterministic_sample(evidence_key, registered.success_sample_percent) {
+            return Ok(EvidenceCapture::Skipped {
+                sample_percent: registered.success_sample_percent,
+            });
+        }
+        let evidence_id = format!("evd_{}", uuid::Uuid::new_v4().simple());
+        let captured_at_ms = now_millis();
+        let content = capture_screenshot(&registered.spec.cdp_endpoint).await?;
+        anyhow::ensure!(
+            !content.is_empty() && content.len() <= EVIDENCE_MAX_BYTES,
+            "CDP screenshot exceeds the bounded evidence size"
+        );
+        anyhow::ensure!(
+            content.starts_with(&[0xff, 0xd8]),
+            "CDP screenshot is not a JPEG"
+        );
+        let content_sha256 = format!("{:x}", Sha256::digest(&content));
+        let path = prepare_evidence_path(&registered.spec.workspace, &evidence_id).await?;
+        let mut file = tokio::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)
+            .await?;
+        file.write_all(&content).await?;
+        file.flush().await?;
+        file.sync_data().await?;
+        drop(file);
+        let committed = registered
+            .spec
+            .storage_helper
+            .commit_evidence(
+                &registered.spec.workspace,
+                &evidence_id,
+                evidence_kind,
+                &content_sha256,
+                content.len() as u64,
+                captured_at_ms,
+            )
+            .await;
+        if committed.is_err() {
+            let _ = tokio::fs::remove_file(&path).await;
+        }
+        let committed = committed?;
+        anyhow::ensure!(
+            committed.committed
+                && committed.evidence_id == evidence_id
+                && committed.content_sha256 == content_sha256
+                && committed.content_bytes == content.len() as u64
+                && committed.captured_at_ms == captured_at_ms,
+            "Storage Helper evidence acknowledgement mismatch"
+        );
+        Ok(EvidenceCapture::Committed(EvidenceSummary {
+            evidence_id,
+            content_sha256,
+            content_bytes: content.len() as u64,
+            object_key: committed.object_key,
+            captured_at_ms,
+        }))
+    }
+}
+
+fn validate_sample_percent(value: u32) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        (1..=100).contains(&value),
+        "success screenshot sample percent must be between 1 and 100"
+    );
+    Ok(())
+}
+
+fn deterministic_sample(key: &str, percentage: u32) -> bool {
+    if percentage == 100 {
+        return true;
+    }
+    let hash = key
+        .as_bytes()
+        .iter()
+        .fold(0xcbf29ce484222325_u64, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+        });
+    hash % 100 < u64::from(percentage)
 }
 
 impl SessionRecorderRegistry {
@@ -503,6 +684,79 @@ async fn commit_segment(
     Ok(())
 }
 
+async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<Vec<u8>> {
+    let websocket_url = target_websocket(cdp_endpoint).await?;
+    require_loopback_websocket(&websocket_url)?;
+    let (mut socket, _) = tokio::time::timeout(
+        CDP_TIMEOUT,
+        tokio_tungstenite::connect_async(&websocket_url),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("CDP evidence connection timed out"))??;
+    send_command(&mut socket, 1, "Page.enable", json!({})).await?;
+    let response = send_command_value(
+        &mut socket,
+        2,
+        "Page.captureScreenshot",
+        json!({
+            "format": "jpeg",
+            "quality": 70,
+            "fromSurface": true,
+            "captureBeyondViewport": false
+        }),
+    )
+    .await?;
+    let encoded = response
+        .pointer("/result/data")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("CDP screenshot response omitted image data"))?;
+    let content = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|_| anyhow::anyhow!("CDP screenshot response is not valid base64"))?;
+    anyhow::ensure!(
+        content.len() <= EVIDENCE_MAX_BYTES,
+        "CDP screenshot exceeds the bounded evidence size"
+    );
+    Ok(content)
+}
+
+async fn prepare_evidence_path(
+    workspace: &StorageWorkspace,
+    evidence_id: &str,
+) -> anyhow::Result<PathBuf> {
+    let ephemeral = PathBuf::from(&workspace.ephemeral_dir);
+    let canonical_ephemeral = tokio::fs::canonicalize(&ephemeral).await?;
+    let root = ephemeral.join("evidence");
+    match tokio::fs::create_dir(&root).await {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error.into()),
+    }
+    let root_metadata = tokio::fs::symlink_metadata(&root).await?;
+    anyhow::ensure!(
+        root_metadata.is_dir() && !root_metadata.file_type().is_symlink(),
+        "evidence root is not a regular directory"
+    );
+    let canonical_root = tokio::fs::canonicalize(&root).await?;
+    anyhow::ensure!(
+        canonical_root.parent() == Some(canonical_ephemeral.as_path()),
+        "evidence root escaped the Session ephemeral directory"
+    );
+    let directory = root.join(evidence_id);
+    tokio::fs::create_dir(&directory).await?;
+    let metadata = tokio::fs::symlink_metadata(&directory).await?;
+    anyhow::ensure!(
+        metadata.is_dir() && !metadata.file_type().is_symlink(),
+        "evidence path is not a regular directory"
+    );
+    let canonical_directory = tokio::fs::canonicalize(&directory).await?;
+    anyhow::ensure!(
+        canonical_directory.parent() == Some(canonical_root.as_path()),
+        "evidence path escaped the evidence root"
+    );
+    Ok(canonical_directory.join("screenshot.jpeg"))
+}
+
 #[derive(Deserialize)]
 struct CdpTarget {
     #[serde(rename = "type")]
@@ -563,6 +817,19 @@ async fn send_command<S>(
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
+    send_command_value(socket, id, method, params).await?;
+    Ok(())
+}
+
+async fn send_command_value<S>(
+    socket: &mut tokio_tungstenite::WebSocketStream<S>,
+    id: i64,
+    method: &str,
+    params: Value,
+) -> anyhow::Result<Value>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     socket
         .send(Message::Text(
             json!({"id": id, "method": method, "params": params}).to_string(),
@@ -582,7 +849,7 @@ where
         if let Some(error) = response.get("error") {
             anyhow::bail!("CDP {method} failed: {error}");
         }
-        return Ok(());
+        return Ok(response);
     }
     anyhow::bail!("CDP websocket closed before {method} completed")
 }
@@ -609,6 +876,71 @@ mod tests {
         assert!(require_loopback_http("http://example.com:9222").is_err());
         assert!(require_loopback_websocket("ws://localhost:9222/devtools/page/1").is_ok());
         assert!(require_loopback_websocket("wss://localhost/devtools/page/1").is_err());
+    }
+
+    #[tokio::test]
+    async fn captures_real_bounded_jpeg_screenshot_over_cdp() {
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            let Message::Text(enable) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected Page.enable");
+            };
+            let enable: Value = serde_json::from_str(&enable).unwrap();
+            assert_eq!(enable["method"], "Page.enable");
+            socket
+                .send(Message::Text(json!({"id": 1, "result": {}}).to_string()))
+                .await
+                .unwrap();
+
+            let Message::Text(capture) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected Page.captureScreenshot");
+            };
+            let capture: Value = serde_json::from_str(&capture).unwrap();
+            assert_eq!(capture["method"], "Page.captureScreenshot");
+            assert_eq!(capture["params"]["format"], "jpeg");
+            assert_eq!(capture["params"]["quality"], 70);
+            socket
+                .send(Message::Text(
+                    json!({"id": 2, "result": {"data": "/9j/2Q=="}}).to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = [0_u8; 2048];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let body = json!([{
+                "type": "page",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
+            }])
+            .to_string();
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        });
+
+        let screenshot = capture_screenshot(&format!("http://{http_address}"))
+            .await
+            .unwrap();
+        assert_eq!(screenshot, vec![0xff, 0xd8, 0xff, 0xd9]);
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
     }
 
     #[tokio::test]

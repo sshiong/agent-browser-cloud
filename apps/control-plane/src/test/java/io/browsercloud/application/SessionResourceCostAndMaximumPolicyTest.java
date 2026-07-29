@@ -197,6 +197,7 @@ class SessionResourceCostAndMaximumPolicyTest {
     assertThat(payload.getExtensionBackgroundPolicy().getPausedExtensionIdsList())
         .containsExactly("extension.noncritical");
     assertThat(payload.getSuccessTraceSamplePercent()).isEqualTo(10);
+    assertThat(payload.getSuccessScreenshotSamplePercent()).isEqualTo(10);
     assertThat(payload.getObserverFrameRateFps()).isEqualTo(5);
     assertThat(payload.getVideoRecordingEnabled()).isFalse();
   }

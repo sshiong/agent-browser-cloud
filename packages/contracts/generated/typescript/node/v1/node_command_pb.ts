@@ -1150,6 +1150,13 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   videoRecordingEnabled?: boolean;
 
+  /**
+   * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
+   *
+   * @generated from field: optional uint32 success_screenshot_sample_percent = 29;
+   */
+  successScreenshotSamplePercent?: number;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1186,6 +1193,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 26, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 27, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 28, name: "video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 29, name: "success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1575,6 +1583,13 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   videoRecordingEnabled?: boolean;
 
+  /**
+   * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+   *
+   * @generated from field: optional uint32 success_screenshot_sample_percent = 24;
+   */
+  successScreenshotSamplePercent?: number;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1606,6 +1621,7 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 21, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 22, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 23, name: "video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 24, name: "success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1853,6 +1869,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newVideoRecordingEnabled?: boolean;
 
+  /**
+   * @generated from field: optional uint32 old_success_screenshot_sample_percent = 37;
+   */
+  oldSuccessScreenshotSamplePercent?: number;
+
+  /**
+   * @generated from field: optional uint32 new_success_screenshot_sample_percent = 38;
+   */
+  newSuccessScreenshotSamplePercent?: number;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1897,6 +1923,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 34, name: "new_observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 35, name: "old_video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 36, name: "new_video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 37, name: "old_success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 38, name: "new_success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {
@@ -2922,6 +2950,118 @@ export class AgentActionFailedEvent extends Message<AgentActionFailedEvent> {
 
   static equals(a: AgentActionFailedEvent | PlainMessage<AgentActionFailedEvent> | undefined, b: AgentActionFailedEvent | PlainMessage<AgentActionFailedEvent> | undefined): boolean {
     return proto3.util.equals(AgentActionFailedEvent, a, b);
+  }
+}
+
+/**
+ * Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
+ * Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
+ *
+ * @generated from message browsercloud.node.v1.SessionEvidenceCapturedEvent
+ */
+export class SessionEvidenceCapturedEvent extends Message<SessionEvidenceCapturedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string evidence_id = 2;
+   */
+  evidenceId = "";
+
+  /**
+   * @generated from field: string evidence_kind = 3;
+   */
+  evidenceKind = "";
+
+  /**
+   * @generated from field: string task_id = 4;
+   */
+  taskId = "";
+
+  /**
+   * @generated from field: string step_id = 5;
+   */
+  stepId = "";
+
+  /**
+   * @generated from field: string command_id = 6;
+   */
+  commandId = "";
+
+  /**
+   * @generated from field: string content_sha256 = 7;
+   */
+  contentSha256 = "";
+
+  /**
+   * @generated from field: uint64 content_bytes = 8;
+   */
+  contentBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: string object_key = 9;
+   */
+  objectKey = "";
+
+  /**
+   * @generated from field: int64 captured_at_ms = 10;
+   */
+  capturedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: bool mandatory = 11;
+   */
+  mandatory = false;
+
+  /**
+   * @generated from field: string result = 12;
+   */
+  result = "";
+
+  /**
+   * @generated from field: string error_code = 13;
+   */
+  errorCode = "";
+
+  constructor(data?: PartialMessage<SessionEvidenceCapturedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.SessionEvidenceCapturedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "evidence_kind", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "task_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "step_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "command_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "content_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "content_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "object_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "captured_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 11, name: "mandatory", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 12, name: "result", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 13, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SessionEvidenceCapturedEvent {
+    return new SessionEvidenceCapturedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SessionEvidenceCapturedEvent {
+    return new SessionEvidenceCapturedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SessionEvidenceCapturedEvent {
+    return new SessionEvidenceCapturedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: SessionEvidenceCapturedEvent | PlainMessage<SessionEvidenceCapturedEvent> | undefined, b: SessionEvidenceCapturedEvent | PlainMessage<SessionEvidenceCapturedEvent> | undefined): boolean {
+    return proto3.util.equals(SessionEvidenceCapturedEvent, a, b);
   }
 }
 

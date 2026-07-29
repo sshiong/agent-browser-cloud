@@ -1,8 +1,8 @@
 use anyhow::Context;
 use bytes::Bytes;
 use helper_contracts::{
-    read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageRecording, StorageRequest,
-    StorageResponse, StorageRestoreStatus, StorageWorkspace, SCHEMA_VERSION,
+    read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageEvidence, StorageRecording,
+    StorageRequest, StorageResponse, StorageRestoreStatus, StorageWorkspace, SCHEMA_VERSION,
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
@@ -39,9 +39,10 @@ impl StorageService {
         Option<StorageWorkspace>,
         Option<StorageCheckpoint>,
         Option<StorageRecording>,
+        Option<StorageEvidence>,
     )> {
         let Some((tenant_id, profile_id)) = command_profile(command) else {
-            return Ok((None, None, None));
+            return Ok((None, None, None, None));
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
@@ -104,13 +105,14 @@ async fn serve_connection(
         )
     } else {
         match service.execute(&request.command).await {
-            Ok((workspace, checkpoint, recording)) => StorageResponse {
+            Ok((workspace, checkpoint, recording, evidence)) => StorageResponse {
                 schema_version: SCHEMA_VERSION,
                 request_id: request.request_id,
                 ok: true,
                 workspace,
                 checkpoint,
                 recording,
+                evidence,
                 error_code: None,
                 error_message: None,
             },
@@ -135,9 +137,10 @@ async fn execute_storage_operation(
     Option<StorageWorkspace>,
     Option<StorageCheckpoint>,
     Option<StorageRecording>,
+    Option<StorageEvidence>,
 )> {
     match command {
-        StorageCommand::Ping => Ok((None, None, None)),
+        StorageCommand::Ping => Ok((None, None, None, None)),
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -162,7 +165,7 @@ async fn execute_storage_operation(
             let workspace = store
                 .acquire_workspace(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((Some(workspace_response(workspace)), None, None))
+            Ok((Some(workspace_response(workspace)), None, None, None))
         }
         StorageCommand::Checkpoint {
             tenant_id,
@@ -186,6 +189,7 @@ async fn execute_storage_operation(
                     core_size_bytes: checkpoint.core_size_bytes,
                     checkpoint_file_count: checkpoint.files.len() as u64,
                 }),
+                None,
                 None,
             ))
         }
@@ -215,6 +219,7 @@ async fn execute_storage_operation(
                     frame_count: 0,
                     completed: false,
                 }),
+                None,
             ))
         }
         StorageCommand::CommitRecordingSegment {
@@ -309,6 +314,7 @@ async fn execute_storage_operation(
                     frame_count: *frame_count,
                     completed: false,
                 }),
+                None,
             ))
         }
         StorageCommand::CompleteRecording {
@@ -351,6 +357,105 @@ async fn execute_storage_operation(
                     frame_count: *frame_count,
                     completed: true,
                 }),
+                None,
+            ))
+        }
+        StorageCommand::CommitEvidence {
+            tenant_id,
+            profile_id,
+            session_id,
+            evidence_id,
+            evidence_kind,
+            content_sha256,
+            content_bytes,
+            captured_at_ms,
+        } => {
+            validate_recording_identifier("evidence_id", evidence_id)?;
+            anyhow::ensure!(
+                matches!(
+                    evidence_kind.as_str(),
+                    "AGENT_ACTION_SUCCESS"
+                        | "AGENT_ACTION_FAILURE"
+                        | "AGENT_NAVIGATION_SUCCESS"
+                        | "AGENT_NAVIGATION_FAILURE"
+                ),
+                "evidence kind is invalid"
+            );
+            anyhow::ensure!(
+                content_sha256.len() == 64
+                    && content_sha256
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit()),
+                "evidence SHA-256 is invalid"
+            );
+            anyhow::ensure!(
+                *content_bytes > 0 && *content_bytes <= 8 * 1024 * 1024,
+                "evidence size is invalid"
+            );
+            anyhow::ensure!(*captured_at_ms > 0, "evidence timestamp is invalid");
+            let archive =
+                archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
+            let workspace = store
+                .resume_workspace(tenant_id, profile_id, session_id)
+                .await?;
+            let directory =
+                verified_evidence_directory(&workspace.ephemeral_dir, evidence_id, false).await?;
+            let path = directory.join("screenshot.jpeg");
+            let metadata = tokio::fs::symlink_metadata(&path).await?;
+            anyhow::ensure!(
+                metadata.is_file() && !metadata.file_type().is_symlink(),
+                "evidence screenshot is not a regular file"
+            );
+            anyhow::ensure!(
+                metadata.len() == *content_bytes,
+                "evidence size does not match command"
+            );
+            let canonical_path = tokio::fs::canonicalize(&path).await?;
+            anyhow::ensure!(
+                canonical_path.parent() == Some(directory.as_path()),
+                "evidence screenshot escaped its isolated directory"
+            );
+            let mut file = tokio::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(nix::libc::O_NOFOLLOW)
+                .open(&canonical_path)
+                .await?;
+            let opened_metadata = file.metadata().await?;
+            anyhow::ensure!(
+                opened_metadata.is_file() && opened_metadata.len() == *content_bytes,
+                "evidence screenshot changed before secure open"
+            );
+            let mut content = Vec::with_capacity(*content_bytes as usize);
+            file.read_to_end(&mut content).await?;
+            anyhow::ensure!(
+                content.len() as u64 == *content_bytes,
+                "evidence screenshot changed while being read"
+            );
+            let object_key = archive
+                .commit_evidence(
+                    tenant_id,
+                    profile_id,
+                    session_id,
+                    evidence_id,
+                    evidence_kind,
+                    Bytes::from(content),
+                    content_sha256,
+                    *captured_at_ms,
+                )
+                .await?;
+            tokio::fs::remove_file(&canonical_path).await?;
+            Ok((
+                None,
+                None,
+                None,
+                Some(StorageEvidence {
+                    evidence_id: evidence_id.clone(),
+                    object_key,
+                    content_sha256: content_sha256.clone(),
+                    content_bytes: *content_bytes,
+                    captured_at_ms: *captured_at_ms,
+                    committed: true,
+                }),
             ))
         }
         StorageCommand::Release {
@@ -361,7 +466,7 @@ async fn execute_storage_operation(
             store
                 .release_writer_by_identity(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((None, None, None))
+            Ok((None, None, None, None))
         }
     }
 }
@@ -433,6 +538,11 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             profile_id,
             ..
         }
+        | StorageCommand::CommitEvidence {
+            tenant_id,
+            profile_id,
+            ..
+        }
         | StorageCommand::Release {
             tenant_id,
             profile_id,
@@ -486,6 +596,51 @@ async fn verified_recording_directory(
     Ok(canonical_directory)
 }
 
+async fn verified_evidence_directory(
+    ephemeral_dir: &Path,
+    evidence_id: &str,
+    create: bool,
+) -> anyhow::Result<PathBuf> {
+    let canonical_ephemeral = tokio::fs::canonicalize(ephemeral_dir).await?;
+    let evidence_root = ephemeral_dir.join("evidence");
+    if create {
+        match tokio::fs::create_dir(&evidence_root).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let root_metadata = tokio::fs::symlink_metadata(&evidence_root).await?;
+    anyhow::ensure!(
+        root_metadata.is_dir() && !root_metadata.file_type().is_symlink(),
+        "evidence root is not a regular directory"
+    );
+    let canonical_root = tokio::fs::canonicalize(&evidence_root).await?;
+    anyhow::ensure!(
+        canonical_root.parent() == Some(canonical_ephemeral.as_path()),
+        "evidence root escaped the Session ephemeral directory"
+    );
+    let directory = evidence_root.join(evidence_id);
+    if create {
+        match tokio::fs::create_dir(&directory).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let metadata = tokio::fs::symlink_metadata(&directory).await?;
+    anyhow::ensure!(
+        metadata.is_dir() && !metadata.file_type().is_symlink(),
+        "evidence path is not a regular directory"
+    );
+    let canonical_directory = tokio::fs::canonicalize(&directory).await?;
+    anyhow::ensure!(
+        canonical_directory.parent() == Some(canonical_root.as_path()),
+        "evidence directory escaped the evidence root"
+    );
+    Ok(canonical_directory)
+}
+
 fn validate_recording_identifier(name: &str, value: &str) -> anyhow::Result<()> {
     anyhow::ensure!(
         !value.is_empty()
@@ -530,6 +685,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         workspace: None,
         checkpoint: None,
         recording: None,
+        evidence: None,
         error_code: Some(code.to_owned()),
         error_message: Some(message.to_owned()),
     }

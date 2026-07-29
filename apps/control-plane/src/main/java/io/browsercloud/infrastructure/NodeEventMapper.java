@@ -15,6 +15,7 @@ import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
+import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,7 @@ public class NodeEventMapper {
   static final String DIFF_TRUNCATED = "DiffTruncated";
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String AGENT_ACTION_FAILED = "AgentActionFailed";
+  static final String SESSION_EVIDENCE_CAPTURED = "SessionEvidenceCaptured";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
@@ -194,6 +196,14 @@ public class NodeEventMapper {
               payload.hasOldVideoRecordingEnabled() ? payload.getOldVideoRecordingEnabled() : null;
           var newVideoRecordingEnabled =
               payload.hasNewVideoRecordingEnabled() ? payload.getNewVideoRecordingEnabled() : null;
+          var oldSuccessScreenshotSamplePercent =
+              payload.hasOldSuccessScreenshotSamplePercent()
+                  ? payload.getOldSuccessScreenshotSamplePercent()
+                  : null;
+          var newSuccessScreenshotSamplePercent =
+              payload.hasNewSuccessScreenshotSamplePercent()
+                  ? payload.getNewSuccessScreenshotSamplePercent()
+                  : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
@@ -204,6 +214,8 @@ public class NodeEventMapper {
               || (oldSuccessTraceSamplePercent == null) != (newSuccessTraceSamplePercent == null)
               || (oldObserverFrameRateFps == null) != (newObserverFrameRateFps == null)
               || (oldVideoRecordingEnabled == null) != (newVideoRecordingEnabled == null)
+              || (oldSuccessScreenshotSamplePercent == null)
+                  != (newSuccessScreenshotSamplePercent == null)
               || !validExtensionPolicy(oldPausedExtensionIds)
               || !validExtensionPolicy(newPausedExtensionIds)
               || (oldSuccessTraceSamplePercent != null
@@ -211,6 +223,11 @@ public class NodeEventMapper {
                       || oldSuccessTraceSamplePercent > 100
                       || newSuccessTraceSamplePercent < 1
                       || newSuccessTraceSamplePercent > 100))
+              || (oldSuccessScreenshotSamplePercent != null
+                  && (oldSuccessScreenshotSamplePercent < 1
+                      || oldSuccessScreenshotSamplePercent > 100
+                      || newSuccessScreenshotSamplePercent < 1
+                      || newSuccessScreenshotSamplePercent > 100))
               || (oldObserverFrameRateFps != null
                   && (oldObserverFrameRateFps < 0
                       || oldObserverFrameRateFps > 60
@@ -273,6 +290,8 @@ public class NodeEventMapper {
               newObserverFrameRateFps,
               oldVideoRecordingEnabled,
               newVideoRecordingEnabled,
+              oldSuccessScreenshotSamplePercent,
+              newSuccessScreenshotSamplePercent,
               payload.getReason(),
               payload.getOperationId());
         }
@@ -361,6 +380,70 @@ public class NodeEventMapper {
               payload.getToolId(),
               payload.getErrorCode());
         }
+        case SESSION_EVIDENCE_CAPTURED -> {
+          var payload = SessionEvidenceCapturedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getEvidenceId(), "evidence_id");
+          requireText(payload.getEvidenceKind(), "evidence_kind");
+          requireText(payload.getTaskId(), "task_id");
+          requireText(payload.getStepId(), "step_id");
+          requireText(payload.getCommandId(), "command_id");
+          requireText(payload.getResult(), "result");
+          if (!java.util.Set.of(
+                  "AGENT_ACTION_SUCCESS",
+                  "AGENT_ACTION_FAILURE",
+                  "AGENT_NAVIGATION_SUCCESS",
+                  "AGENT_NAVIGATION_FAILURE")
+              .contains(payload.getEvidenceKind())) {
+            throw new IllegalArgumentException("unsupported evidence_kind");
+          }
+          if (payload.getCapturedAtMs() <= 0) {
+            throw new IllegalArgumentException("captured_at_ms must be positive");
+          }
+          if (payload.getResult().equals("COMMITTED")) {
+            var objectKey = payload.getObjectKey();
+            var tenantEvidenceRoot = "/tenants/" + envelope.getTenantId() + "/profiles/";
+            var evidenceSuffix =
+                "/sessions/"
+                    + payload.getSessionId()
+                    + "/evidence/"
+                    + payload.getEvidenceId()
+                    + "/screenshot.jpeg";
+            if (!payload.getContentSha256().matches("^[0-9a-f]{64}$")
+                || payload.getContentBytes() <= 0
+                || payload.getContentBytes() > 8L * 1024 * 1024
+                || objectKey.isBlank()
+                || objectKey.contains("..")
+                || objectKey.contains("\\")
+                || !("/" + objectKey).contains(tenantEvidenceRoot)
+                || !("/" + objectKey).endsWith(evidenceSuffix)
+                || !payload.getErrorCode().isBlank()) {
+              throw new IllegalArgumentException("committed evidence metadata is invalid");
+            }
+          } else if (payload.getResult().equals("FAILED")) {
+            if (!payload.getContentSha256().isBlank()
+                || payload.getContentBytes() != 0
+                || !payload.getObjectKey().isBlank()
+                || payload.getErrorCode().isBlank()) {
+              throw new IllegalArgumentException("failed evidence metadata is invalid");
+            }
+          } else {
+            throw new IllegalArgumentException("unsupported evidence result");
+          }
+          yield new NodeEvent.EvidenceCaptured(
+              payload.getSessionId(),
+              payload.getEvidenceId(),
+              payload.getEvidenceKind(),
+              payload.getTaskId(),
+              payload.getStepId(),
+              payload.getCommandId(),
+              payload.getContentSha256(),
+              payload.getContentBytes(),
+              payload.getObjectKey(),
+              payload.getCapturedAtMs(),
+              payload.getMandatory(),
+              payload.getResult(),
+              payload.getErrorCode());
+        }
         case HUMAN_TAKEOVER_READY -> {
           var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());
           if (!payload.hasState()) {
@@ -409,6 +492,7 @@ public class NodeEventMapper {
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
+      case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

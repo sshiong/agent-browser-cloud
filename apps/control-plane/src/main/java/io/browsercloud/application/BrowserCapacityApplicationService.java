@@ -718,6 +718,7 @@ public class BrowserCapacityApplicationService {
         placement.isNewTabsBlocked(),
         readStringList(placement.getPausedExtensionIds()),
         placement.getSuccessTraceSamplePercent(),
+        placement.getSuccessScreenshotSamplePercent(),
         placement.getObserverFrameRateFps(),
         placement.isVideoRecordingRequested(),
         placement.isVideoRecordingEnabled(),

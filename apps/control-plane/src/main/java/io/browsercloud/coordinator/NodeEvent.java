@@ -17,6 +17,7 @@ public sealed interface NodeEvent
         NodeEvent.DiffTruncated,
         NodeEvent.AgentNavigationFailed,
         NodeEvent.AgentActionFailed,
+        NodeEvent.EvidenceCaptured,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
 
@@ -83,6 +84,8 @@ public sealed interface NodeEvent
       Integer newObserverFrameRateFps,
       Boolean oldVideoRecordingEnabled,
       Boolean newVideoRecordingEnabled,
+      Integer oldSuccessScreenshotSamplePercent,
+      Integer newSuccessScreenshotSamplePercent,
       String reason,
       String operationId)
       implements NodeEvent {
@@ -161,6 +164,8 @@ public sealed interface NodeEvent
           newSuccessTraceSamplePercent,
           oldObserverFrameRateFps,
           newObserverFrameRateFps,
+          null,
+          null,
           null,
           null,
           reason,
@@ -243,6 +248,22 @@ public sealed interface NodeEvent
 
   record AgentActionFailed(
       String sessionId, String taskId, String stepId, String toolId, String errorCode)
+      implements NodeEvent {}
+
+  record EvidenceCaptured(
+      String sessionId,
+      String evidenceId,
+      String evidenceKind,
+      String taskId,
+      String stepId,
+      String commandId,
+      String contentSha256,
+      long contentBytes,
+      String objectKey,
+      long capturedAtMs,
+      boolean mandatory,
+      String result,
+      String errorCode)
       implements NodeEvent {}
 
   record InteractiveTarget(

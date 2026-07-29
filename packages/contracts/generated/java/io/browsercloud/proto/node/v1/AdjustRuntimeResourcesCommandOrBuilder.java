@@ -316,4 +316,23 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The videoRecordingEnabled.
    */
   boolean getVideoRecordingEnabled();
+
+  /**
+   * <pre>
+   * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+   * </pre>
+   *
+   * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+   * @return Whether the successScreenshotSamplePercent field is set.
+   */
+  boolean hasSuccessScreenshotSamplePercent();
+  /**
+   * <pre>
+   * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+   * </pre>
+   *
+   * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+   * @return The successScreenshotSamplePercent.
+   */
+  int getSuccessScreenshotSamplePercent();
 }

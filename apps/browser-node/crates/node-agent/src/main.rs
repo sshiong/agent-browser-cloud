@@ -18,8 +18,8 @@ use node_contracts::proto::{
     HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
     PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
     ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
-    RuntimeStartedEvent, RuntimeStoppedEvent, StartRuntimeCommand, StopRuntimeCommand,
-    TargetBounds,
+    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand,
+    StopRuntimeCommand, TargetBounds,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -31,7 +31,9 @@ use runtime_supervisor::{
     CgroupV2Config, ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeResourceLimits,
     RuntimeSpec, RuntimeSupervisor,
 };
-use session_recorder::{RecordingSpec, SessionRecorderRegistry};
+use session_recorder::{
+    EvidenceCapture, EvidenceSpec, RecordingSpec, SessionEvidenceRegistry, SessionRecorderRegistry,
+};
 use state_collector::{
     diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
     StateQuality, TabResourcePolicy,
@@ -76,6 +78,7 @@ struct NodeControlService {
     pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
     success_trace_sampler: SuccessTraceSampler,
     session_recorders: SessionRecorderRegistry,
+    session_evidence: SessionEvidenceRegistry,
     resource_report_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
@@ -87,6 +90,14 @@ struct NodeControlService {
 struct AgentLatencyWindow {
     maximum_ms: u32,
     samples: u32,
+}
+
+#[derive(Debug)]
+struct EvidenceRequest {
+    evidence_kind: &'static str,
+    task_id: String,
+    step_id: String,
+    mandatory: bool,
 }
 
 /// Session-scoped actuator for optional successful command traces.
@@ -172,6 +183,15 @@ fn cumulative_rate_per_second(
             .div_ceil(elapsed_nanos)
             .min(u128::from(u64::MAX)) as u64,
     )
+}
+
+fn wall_clock_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
 }
 
 fn resolve_trusted_extension_dirs(
@@ -586,6 +606,131 @@ struct CommandResult {
 }
 
 impl NodeControlService {
+    fn evidence_request(
+        command: &CommandEnvelope,
+        result: &CommandResult,
+    ) -> Option<EvidenceRequest> {
+        let event_type = result.event.as_ref()?.event_type.as_str();
+        match command.command_type.as_str() {
+            "AgentAction" => {
+                let payload = AgentActionCommand::decode(command.payload.as_slice()).ok()?;
+                Some(EvidenceRequest {
+                    evidence_kind: if event_type == "AgentActionFailed" {
+                        "AGENT_ACTION_FAILURE"
+                    } else if event_type == "BrowserStateUpdated" {
+                        "AGENT_ACTION_SUCCESS"
+                    } else {
+                        return None;
+                    },
+                    task_id: payload.task_id,
+                    step_id: payload.step_id,
+                    mandatory: event_type == "AgentActionFailed",
+                })
+            }
+            "AgentNavigate" => {
+                let payload = AgentNavigateCommand::decode(command.payload.as_slice()).ok()?;
+                Some(EvidenceRequest {
+                    evidence_kind: if event_type == "AgentNavigationFailed" {
+                        "AGENT_NAVIGATION_FAILURE"
+                    } else if event_type == "BrowserStateUpdated" {
+                        "AGENT_NAVIGATION_SUCCESS"
+                    } else {
+                        return None;
+                    },
+                    task_id: payload.task_id,
+                    step_id: payload.step_id,
+                    mandatory: event_type == "AgentNavigationFailed",
+                })
+            }
+            _ => None,
+        }
+    }
+
+    async fn capture_and_publish_evidence(
+        &self,
+        command: &CommandEnvelope,
+        request: EvidenceRequest,
+    ) -> anyhow::Result<()> {
+        let capture = self
+            .session_evidence
+            .capture(
+                &command.session_id,
+                &command.message_id,
+                request.evidence_kind,
+                request.mandatory,
+            )
+            .await;
+        let (
+            evidence_id,
+            content_sha256,
+            content_bytes,
+            object_key,
+            captured_at_ms,
+            result,
+            error_code,
+        ) = match capture {
+            Ok(EvidenceCapture::Skipped { .. }) => return Ok(()),
+            Ok(EvidenceCapture::Committed(summary)) => (
+                summary.evidence_id,
+                summary.content_sha256,
+                summary.content_bytes,
+                summary.object_key,
+                summary.captured_at_ms as i64,
+                "COMMITTED".to_owned(),
+                String::new(),
+            ),
+            Err(error) => {
+                tracing::warn!(
+                    session_id = command.session_id,
+                    command_id = command.message_id,
+                    error = %error,
+                    "Session screenshot evidence capture failed"
+                );
+                let message = error.to_string();
+                let error_code =
+                    if message.contains("Object Storage") || message.contains("storage helper") {
+                        "OBJECT_STORAGE_UNAVAILABLE"
+                    } else if message.contains("CDP") {
+                        "CDP_CAPTURE_FAILED"
+                    } else {
+                        "EVIDENCE_CAPTURE_FAILED"
+                    };
+                (
+                    format!("evd_{}", uuid::Uuid::new_v4().simple()),
+                    String::new(),
+                    0,
+                    String::new(),
+                    wall_clock_millis() as i64,
+                    "FAILED".to_owned(),
+                    error_code.to_owned(),
+                )
+            }
+        };
+        self.record_and_publish_background_event(
+            &command.tenant_id,
+            &command.session_id,
+            command.coordinator_term,
+            command.context_epoch,
+            "SessionEvidenceCaptured",
+            SessionEvidenceCapturedEvent {
+                session_id: command.session_id.clone(),
+                evidence_id,
+                evidence_kind: request.evidence_kind.to_owned(),
+                task_id: request.task_id,
+                step_id: request.step_id,
+                command_id: command.message_id.clone(),
+                content_sha256,
+                content_bytes,
+                object_key,
+                captured_at_ms,
+                mandatory: request.mandatory,
+                result,
+                error_code,
+            },
+        )
+        .await
+    }
+
     fn is_valid_session_id(session_id: &str) -> bool {
         session_id.starts_with("ses_")
             && session_id
@@ -1162,8 +1307,20 @@ impl NodeControlService {
         previous_remote_desktop_bitrate_kbps: u32,
         previous_observer_frame_rate_fps: u32,
         previous_video_recording_enabled: bool,
+        previous_success_screenshot_sample_percent: u32,
         previous_tab_resource_policy: TabResourcePolicy,
     ) {
+        if let Err(error) = self
+            .session_evidence
+            .set_success_sample_percent(session_id, previous_success_screenshot_sample_percent)
+            .await
+        {
+            tracing::error!(
+                session_id,
+                error = %error,
+                "Screenshot evidence sampling rollback failed"
+            );
+        }
         if let Err(error) = self
             .session_recorders
             .set_enabled(session_id, previous_video_recording_enabled)
@@ -1680,6 +1837,8 @@ impl NodeControlService {
                             .unwrap_or(if payload.desktop_required { 30 } else { 0 });
                         let video_recording_enabled =
                             payload.video_recording_enabled.unwrap_or(false);
+                        let success_screenshot_sample_percent =
+                            payload.success_screenshot_sample_percent.unwrap_or(100);
                         let paused_extension_ids = payload
                             .extension_background_policy
                             .as_ref()
@@ -1693,6 +1852,7 @@ impl NodeControlService {
                             || payload.tab_budget == 0
                             || !(10..=100).contains(&state_collector_budget_percent)
                             || !(1..=100).contains(&success_trace_sample_percent)
+                            || !(1..=100).contains(&success_screenshot_sample_percent)
                             || observer_frame_rate_fps > 60
                             || remote_desktop_bitrate_kbps > 100_000
                             || (payload.desktop_required
@@ -2043,6 +2203,34 @@ impl NodeControlService {
                                         .await;
                                     return self.failed(command, error);
                                 }
+                                if let Err(error) = self
+                                    .session_evidence
+                                    .register(
+                                        EvidenceSpec {
+                                            session_id: command.session_id.clone(),
+                                            cdp_endpoint: handle.cdp_endpoint.clone(),
+                                            workspace: workspace.clone(),
+                                            storage_helper: Arc::clone(storage_helper),
+                                        },
+                                        success_screenshot_sample_percent,
+                                    )
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
+                                    let _ = self
+                                        .session_recorders
+                                        .unregister(&command.session_id)
+                                        .await;
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
                                 let input = match CdpDesktopInput::connect(&handle.cdp_endpoint)
                                     .await
                                 {
@@ -2059,6 +2247,7 @@ impl NodeControlService {
                                             .session_recorders
                                             .unregister(&command.session_id)
                                             .await;
+                                        self.session_evidence.unregister(&command.session_id).await;
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
                                         self.release_start_resources(
@@ -2108,6 +2297,7 @@ impl NodeControlService {
                                             .session_recorders
                                             .unregister(&command.session_id)
                                             .await;
+                                        self.session_evidence.unregister(&command.session_id).await;
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
                                         self.profile_workspaces
@@ -2163,6 +2353,7 @@ impl NodeControlService {
                                         .session_recorders
                                         .unregister(&command.session_id)
                                         .await;
+                                    self.session_evidence.unregister(&command.session_id).await;
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                                     self.profile_workspaces
                                         .lock()
@@ -2203,6 +2394,7 @@ impl NodeControlService {
                     {
                         return self.failed(command, error);
                     }
+                    self.session_evidence.unregister(&command.session_id).await;
                     self.state_collector
                         .unregister_runtime(&command.session_id)
                         .await;
@@ -2376,6 +2568,22 @@ impl NodeControlService {
                         let next_success_trace_sample_percent = payload
                             .success_trace_sample_percent
                             .unwrap_or(previous_success_trace_sample_percent);
+                        let previous_success_screenshot_sample_percent = match self
+                            .session_evidence
+                            .success_sample_percent(&command.session_id)
+                            .await
+                        {
+                            Some(value) => value,
+                            None => {
+                                return self.failed(
+                                    command,
+                                    anyhow::anyhow!("Screenshot evidence actuator is unavailable"),
+                                )
+                            }
+                        };
+                        let next_success_screenshot_sample_percent = payload
+                            .success_screenshot_sample_percent
+                            .unwrap_or(previous_success_screenshot_sample_percent);
                         if !(10..=100).contains(&next_state_collector_budget_percent) {
                             return self.failed(
                                 command,
@@ -2389,6 +2597,14 @@ impl NodeControlService {
                                 command,
                                 anyhow::anyhow!(
                                     "success Trace sample percent must be between 1 and 100"
+                                ),
+                            );
+                        }
+                        if !(1..=100).contains(&next_success_screenshot_sample_percent) {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!(
+                                    "success screenshot sample percent must be between 1 and 100"
                                 ),
                             );
                         }
@@ -2523,6 +2739,7 @@ impl NodeControlService {
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
                                 previous_video_recording_enabled,
+                                previous_success_screenshot_sample_percent,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2544,6 +2761,7 @@ impl NodeControlService {
                                     previous_remote_desktop_bitrate_kbps,
                                     previous_observer_frame_rate_fps,
                                     previous_video_recording_enabled,
+                                    previous_success_screenshot_sample_percent,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2560,6 +2778,7 @@ impl NodeControlService {
                                     previous_remote_desktop_bitrate_kbps,
                                     previous_observer_frame_rate_fps,
                                     previous_video_recording_enabled,
+                                    previous_success_screenshot_sample_percent,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2581,6 +2800,7 @@ impl NodeControlService {
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
                                 previous_video_recording_enabled,
+                                previous_success_screenshot_sample_percent,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2598,6 +2818,28 @@ impl NodeControlService {
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
                                 previous_video_recording_enabled,
+                                previous_success_screenshot_sample_percent,
+                                previous_tab_resource_policy.clone(),
+                            )
+                            .await;
+                            return self.failed(command, error);
+                        }
+                        if let Err(error) = self
+                            .session_evidence
+                            .set_success_sample_percent(
+                                &command.session_id,
+                                next_success_screenshot_sample_percent,
+                            )
+                            .await
+                        {
+                            self.rollback_resource_adjustment(
+                                &command.session_id,
+                                previous.clone(),
+                                previous_state_collector_budget_percent,
+                                previous_remote_desktop_bitrate_kbps,
+                                previous_observer_frame_rate_fps,
+                                previous_video_recording_enabled,
+                                previous_success_screenshot_sample_percent,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2613,6 +2855,7 @@ impl NodeControlService {
                                     previous_remote_desktop_bitrate_kbps,
                                     previous_observer_frame_rate_fps,
                                     previous_video_recording_enabled,
+                                    previous_success_screenshot_sample_percent,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2631,6 +2874,7 @@ impl NodeControlService {
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
                                 previous_video_recording_enabled,
+                                previous_success_screenshot_sample_percent,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2701,6 +2945,12 @@ impl NodeControlService {
                                 new_observer_frame_rate_fps: Some(next_observer_frame_rate_fps),
                                 old_video_recording_enabled: Some(previous_video_recording_enabled),
                                 new_video_recording_enabled: Some(next_video_recording_enabled),
+                                old_success_screenshot_sample_percent: Some(
+                                    previous_success_screenshot_sample_percent,
+                                ),
+                                new_success_screenshot_sample_percent: Some(
+                                    next_success_screenshot_sample_percent,
+                                ),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -3525,6 +3775,7 @@ impl NodeControlService {
                                 "Failed to finalize Session recording after Browser crash"
                             );
                         }
+                        service.session_evidence.unregister(&session_id).await;
                         if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
                             gateway.unregister_session(&session_id);
                         }
@@ -3960,6 +4211,7 @@ impl NodeControlServiceRpc for NodeControlService {
                 .remove(&command.session_id);
         }
         let result = self.execute(&command).await;
+        let evidence_request = Self::evidence_request(&command, &result);
         self.inflight.lock().await.remove(&command.message_id);
         if result.acknowledgement.accepted
             || result.acknowledgement.error_code == "UNSUPPORTED_COMMAND"
@@ -3986,6 +4238,7 @@ impl NodeControlServiceRpc for NodeControlService {
                         .unregister_runtime(&command.session_id)
                         .await;
                     let _ = self.session_recorders.unregister(&command.session_id).await;
+                    self.session_evidence.unregister(&command.session_id).await;
                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                     self.success_trace_sampler.remove(&command.session_id).await;
                 }
@@ -4024,6 +4277,18 @@ impl NodeControlServiceRpc for NodeControlService {
                         "EVENT_DELIVERY_FAILED",
                         "node event delivery failed",
                     );
+                }
+            }
+            if acknowledgement.accepted {
+                if let Some(request) = evidence_request {
+                    if let Err(error) = self.capture_and_publish_evidence(&command, request).await {
+                        tracing::warn!(
+                            message_id = %command.message_id,
+                            session_id = %command.session_id,
+                            error = %error,
+                            "Session evidence event queued or rejected"
+                        );
+                    }
                 }
             }
             if command.command_type == "StartRuntime" {
@@ -4414,6 +4679,7 @@ async fn main() -> Result<()> {
         pending_state_events: Arc::new(Mutex::new(HashMap::new())),
         success_trace_sampler: SuccessTraceSampler::default(),
         session_recorders: SessionRecorderRegistry::default(),
+        session_evidence: SessionEvidenceRegistry::default(),
         resource_report_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
@@ -4756,6 +5022,7 @@ mod tests {
             pending_state_events: Arc::new(Mutex::new(HashMap::new())),
             success_trace_sampler: SuccessTraceSampler::default(),
             session_recorders: SessionRecorderRegistry::default(),
+            session_evidence: SessionEvidenceRegistry::default(),
             resource_report_interval_probes: 5,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),

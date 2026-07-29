@@ -787,6 +787,7 @@ public class SessionResourceApplicationService {
                 .toList()
             : List.<String>of();
     var successTraceSamplePercent = maximumMitigation ? 10 : 100;
+    var successScreenshotSamplePercent = maximumMitigation ? 10 : 100;
     var observerFrameRateFps = placement.isRequiresDesktop() ? (maximumMitigation ? 5 : 30) : 0;
     var videoRecordingEnabled = placement.isVideoRecordingRequested() && !maximumMitigation;
     if (!maximumMitigation) {
@@ -812,6 +813,7 @@ public class SessionResourceApplicationService {
             maximumMitigation,
             pausedExtensionIds,
             successTraceSamplePercent,
+            successScreenshotSamplePercent,
             observerFrameRateFps,
             videoRecordingEnabled,
             placement.isRequiresDesktop(),
@@ -843,6 +845,7 @@ public class SessionResourceApplicationService {
             maximumMitigation,
             pausedExtensionIds,
             successTraceSamplePercent,
+            successScreenshotSamplePercent,
             observerFrameRateFps,
             videoRecordingEnabled),
         "RESOURCE_DECISION_ENGINE",
@@ -889,6 +892,9 @@ public class SessionResourceApplicationService {
                 .equals(adjusted.oldPausedExtensionIds()))
         || (adjusted.oldSuccessTraceSamplePercent() != null
             && placement.getSuccessTraceSamplePercent() != adjusted.oldSuccessTraceSamplePercent())
+        || (adjusted.oldSuccessScreenshotSamplePercent() != null
+            && placement.getSuccessScreenshotSamplePercent()
+                != adjusted.oldSuccessScreenshotSamplePercent())
         || (adjusted.oldObserverFrameRateFps() != null
             && placement.getObserverFrameRateFps() != adjusted.oldObserverFrameRateFps())
         || (adjusted.oldVideoRecordingEnabled() != null
@@ -927,6 +933,10 @@ public class SessionResourceApplicationService {
         adjusted.newSuccessTraceSamplePercent() == null
             ? placement.getSuccessTraceSamplePercent()
             : adjusted.newSuccessTraceSamplePercent();
+    var nextSuccessScreenshotSamplePercent =
+        adjusted.newSuccessScreenshotSamplePercent() == null
+            ? placement.getSuccessScreenshotSamplePercent()
+            : adjusted.newSuccessScreenshotSamplePercent();
     var nextObserverFrameRateFps =
         adjusted.newObserverFrameRateFps() == null
             ? placement.getObserverFrameRateFps()
@@ -947,6 +957,8 @@ public class SessionResourceApplicationService {
         || nextRemoteDesktopBitrateKbps > 100_000
         || nextSuccessTraceSamplePercent < 1
         || nextSuccessTraceSamplePercent > 100
+        || nextSuccessScreenshotSamplePercent < 1
+        || nextSuccessScreenshotSamplePercent > 100
         || nextObserverFrameRateFps < 0
         || nextObserverFrameRateFps > 60
         || (placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps < 250)
@@ -984,6 +996,7 @@ public class SessionResourceApplicationService {
         nextNewTabsBlocked,
         writeStringList(nextPausedExtensionIds),
         nextSuccessTraceSamplePercent,
+        nextSuccessScreenshotSamplePercent,
         nextObserverFrameRateFps,
         nextVideoRecordingEnabled);
     placements.save(placement);
@@ -1303,6 +1316,7 @@ public class SessionResourceApplicationService {
         placement.isNewTabsBlocked(),
         readExtensionIds(placement.getPausedExtensionIds()),
         placement.getSuccessTraceSamplePercent(),
+        placement.getSuccessScreenshotSamplePercent(),
         placement.getObserverFrameRateFps(),
         placement.isVideoRecordingRequested(),
         placement.isVideoRecordingEnabled(),
@@ -1399,6 +1413,7 @@ public class SessionResourceApplicationService {
         Map.entry("newTabsBlocked", placement.newTabsBlocked()),
         Map.entry("pausedExtensionIds", placement.pausedExtensionIds()),
         Map.entry("successTraceSamplePercent", placement.successTraceSamplePercent()),
+        Map.entry("successScreenshotSamplePercent", placement.successScreenshotSamplePercent()),
         Map.entry("observerFrameRateFps", placement.observerFrameRateFps()),
         Map.entry("videoRecordingRequested", placement.videoRecordingRequested()),
         Map.entry("videoRecordingEnabled", placement.videoRecordingEnabled()),
@@ -1419,6 +1434,7 @@ public class SessionResourceApplicationService {
         placement.isNewTabsBlocked(),
         readExtensionIds(placement.getPausedExtensionIds()),
         placement.getSuccessTraceSamplePercent(),
+        placement.getSuccessScreenshotSamplePercent(),
         placement.getObserverFrameRateFps(),
         placement.isVideoRecordingEnabled());
   }
@@ -1436,6 +1452,7 @@ public class SessionResourceApplicationService {
       boolean newTabsBlocked,
       List<String> pausedExtensionIds,
       int successTraceSamplePercent,
+      int successScreenshotSamplePercent,
       int observerFrameRateFps,
       boolean videoRecordingEnabled) {
     return Map.ofEntries(
@@ -1452,6 +1469,7 @@ public class SessionResourceApplicationService {
         Map.entry("newTabsBlocked", newTabsBlocked),
         Map.entry("pausedExtensionIds", pausedExtensionIds),
         Map.entry("successTraceSamplePercent", successTraceSamplePercent),
+        Map.entry("successScreenshotSamplePercent", successScreenshotSamplePercent),
         Map.entry("observerFrameRateFps", observerFrameRateFps),
         Map.entry("videoRecordingRequested", placement.isVideoRecordingRequested()),
         Map.entry("videoRecordingEnabled", videoRecordingEnabled),

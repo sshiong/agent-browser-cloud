@@ -4,6 +4,7 @@ import {
   createSession,
   getBrowserState,
   getSessionResourceEvents,
+  getSessionEvidence,
   getSessionResources,
   getSessionSafePoint,
   getSessionMigration,
@@ -46,6 +47,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'resources'] as const,
   resourceEvents: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'resource-events'] as const,
+  evidence: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'evidence'] as const,
   safePoint: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'safe-point'] as const,
   migration: (sessionId: string) =>
@@ -126,6 +129,15 @@ export function useSessionResourceEvents(sessionId: string) {
     queryFn: ({ signal }) =>
       getSessionResourceEvents(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
+  });
+}
+
+export function useSessionEvidence(sessionId: string, running: boolean) {
+  return useQuery({
+    queryKey: sessionKeys.evidence(sessionId),
+    queryFn: ({ signal }) => getSessionEvidence(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+    refetchInterval: running ? 5_000 : false,
   });
 }
 

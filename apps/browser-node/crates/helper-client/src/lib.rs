@@ -5,7 +5,7 @@ use helper_contracts::{
     StorageCommand, StorageRequest, StorageResponse, SCHEMA_VERSION,
 };
 pub use helper_contracts::{
-    StorageCheckpoint, StorageRecording, StorageRestoreStatus, StorageWorkspace,
+    StorageCheckpoint, StorageEvidence, StorageRecording, StorageRestoreStatus, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -289,6 +289,38 @@ impl StorageHelperClient {
         .await?
         .recording
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording completion"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn commit_evidence(
+        &self,
+        workspace: &StorageWorkspace,
+        evidence_id: &str,
+        evidence_kind: &str,
+        content_sha256: &str,
+        content_bytes: u64,
+        captured_at_ms: u64,
+    ) -> anyhow::Result<StorageEvidence> {
+        self.validate_workspace(
+            workspace,
+            &workspace.tenant_id,
+            &workspace.profile_id,
+            &workspace.session_id,
+        )?;
+        validate_identifier("evidence_id", evidence_id)?;
+        self.call(StorageCommand::CommitEvidence {
+            tenant_id: workspace.tenant_id.clone(),
+            profile_id: workspace.profile_id.clone(),
+            session_id: workspace.session_id.clone(),
+            evidence_id: evidence_id.to_owned(),
+            evidence_kind: evidence_kind.to_owned(),
+            content_sha256: content_sha256.to_owned(),
+            content_bytes,
+            captured_at_ms,
+        })
+        .await?
+        .evidence
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted evidence result"))
     }
 
     pub async fn release(&self, workspace: &StorageWorkspace) -> anyhow::Result<()> {

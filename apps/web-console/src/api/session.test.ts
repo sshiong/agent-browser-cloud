@@ -5,6 +5,7 @@ import {
   getBrowserState,
   getBusinessRecovery,
   getSessionSafePoint,
+  getSessionEvidence,
   listRecoveryContracts,
   listSessions,
   requestHumanTakeover,
@@ -39,6 +40,27 @@ describe('session API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/sessions?q=crm+singapore&limit=10',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('reads the tenant-scoped screenshot evidence index', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], limit: 20, offset: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getSessionEvidence('ses_1234567890abcdef', 'tenant-test', undefined);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef/evidence?limit=20',
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',

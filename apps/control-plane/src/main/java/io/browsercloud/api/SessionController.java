@@ -4,6 +4,7 @@ import static io.browsercloud.api.SessionResourceModels.*;
 
 import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SessionApplicationService;
+import io.browsercloud.application.SessionEvidenceApplicationService;
 import io.browsercloud.application.SessionMigrationApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceEventStreamService;
@@ -46,6 +47,7 @@ public class SessionController {
   private final SessionSafetyLeaseApplicationService safetyLeaseService;
   private final SessionMigrationApplicationService migrationService;
   private final SessionResourceEventStreamService resourceEventStream;
+  private final SessionEvidenceApplicationService evidenceService;
 
   public SessionController(
       SessionApplicationService service,
@@ -55,7 +57,8 @@ public class SessionController {
       SafePointApplicationService safePointService,
       SessionSafetyLeaseApplicationService safetyLeaseService,
       SessionMigrationApplicationService migrationService,
-      SessionResourceEventStreamService resourceEventStream) {
+      SessionResourceEventStreamService resourceEventStream,
+      SessionEvidenceApplicationService evidenceService) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
@@ -64,6 +67,7 @@ public class SessionController {
     this.safetyLeaseService = safetyLeaseService;
     this.migrationService = migrationService;
     this.resourceEventStream = resourceEventStream;
+    this.evidenceService = evidenceService;
   }
 
   /**
@@ -187,6 +191,14 @@ public class SessionController {
       @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return resourceService.events(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  @GetMapping("/{sessionId}/evidence")
+  public SessionEvidenceModels.EvidenceListResponse getEvidence(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
+      @RequestParam(defaultValue = "0") @Min(0) int offset) {
+    return evidenceService.list(sessionId, identity.current().tenantId(), limit, offset);
   }
 
   @GetMapping(value = "/{sessionId}/resource-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

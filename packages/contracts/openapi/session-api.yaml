@@ -214,6 +214,39 @@ paths:
                 $ref: "#/components/schemas/ResourceEventList"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/evidence:
+    get:
+      operationId: listSessionEvidence
+      summary: List tenant-scoped real screenshot evidence metadata
+      description: >
+        Lists the durable metadata index for real CDP screenshots committed through the
+        privileged Storage Helper. Raw pixels and internal object-storage keys are not returned.
+      tags: [Session, Evidence]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Screenshot evidence metadata ordered newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceList"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/resource-stream:
     get:
       operationId: streamSessionResourceChanges
@@ -3754,6 +3787,7 @@ components:
         - newTabsBlocked
         - pausedExtensionIds
         - successTraceSamplePercent
+        - successScreenshotSamplePercent
         - observerFrameRateFps
         - videoRecordingRequested
         - videoRecordingEnabled
@@ -3835,6 +3869,11 @@ components:
           minimum: 1
           maximum: 100
           description: Node-acknowledged sampling percentage for optional successful command traces. Failures and mandatory evidence are not sampled.
+        successScreenshotSamplePercent:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Node-acknowledged sampling percentage for successful Agent screenshots. Failed actions and navigation remain mandatory.
         observerFrameRateFps:
           type: integer
           minimum: 0
@@ -4440,6 +4479,7 @@ components:
             - newTabsBlocked
             - pausedExtensionIds
             - successTraceSamplePercent
+            - successScreenshotSamplePercent
             - observerFrameRateFps
             - videoRecordingRequested
             - videoRecordingEnabled
@@ -4493,6 +4533,10 @@ components:
                 type: string
                 pattern: "^[a-zA-Z0-9_.-]{1,128}$"
             successTraceSamplePercent:
+              type: integer
+              minimum: 1
+              maximum: 100
+            successScreenshotSamplePercent:
               type: integer
               minimum: 1
               maximum: 100
@@ -4571,6 +4615,61 @@ components:
           type: integer
         offset:
           type: integer
+    Evidence:
+      type: object
+      additionalProperties: false
+      required:
+        [evidenceId, evidenceKind, taskId, stepId, commandId, mandatory,
+         result, contentBytes, capturedAt]
+      properties:
+        evidenceId:
+          type: string
+          pattern: "^evd_[a-zA-Z0-9]{16,}$"
+        evidenceKind:
+          type: string
+          enum:
+            [AGENT_ACTION_SUCCESS, AGENT_ACTION_FAILURE,
+             AGENT_NAVIGATION_SUCCESS, AGENT_NAVIGATION_FAILURE]
+        taskId:
+          type: string
+        stepId:
+          type: string
+        commandId:
+          type: string
+        mandatory:
+          type: boolean
+        result:
+          type: string
+          enum: [COMMITTED, FAILED]
+        contentSha256:
+          type: [string, "null"]
+          pattern: "^[0-9a-f]{64}$"
+        contentBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 8388608
+        capturedAt:
+          type: string
+          format: date-time
+        errorCode:
+          type: [string, "null"]
+    EvidenceList:
+      type: object
+      additionalProperties: false
+      required: [items, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Evidence"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        offset:
+          type: integer
+          minimum: 0
     SessionSafePoint:
       type: object
       additionalProperties: false

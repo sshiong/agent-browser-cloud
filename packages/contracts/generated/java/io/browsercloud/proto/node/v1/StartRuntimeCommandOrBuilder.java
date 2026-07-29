@@ -366,4 +366,23 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The videoRecordingEnabled.
    */
   boolean getVideoRecordingEnabled();
+
+  /**
+   * <pre>
+   * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
+   * </pre>
+   *
+   * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+   * @return Whether the successScreenshotSamplePercent field is set.
+   */
+  boolean hasSuccessScreenshotSamplePercent();
+  /**
+   * <pre>
+   * 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
+   * </pre>
+   *
+   * <code>optional uint32 success_screenshot_sample_percent = 29 [json_name = "successScreenshotSamplePercent"];</code>
+   * @return The successScreenshotSamplePercent.
+   */
+  int getSuccessScreenshotSamplePercent();
 }

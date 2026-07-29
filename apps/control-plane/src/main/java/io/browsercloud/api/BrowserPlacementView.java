@@ -34,6 +34,7 @@ public record BrowserPlacementView(
     boolean newTabsBlocked,
     List<String> pausedExtensionIds,
     int successTraceSamplePercent,
+    int successScreenshotSamplePercent,
     int observerFrameRateFps,
     boolean videoRecordingRequested,
     boolean videoRecordingEnabled,

@@ -95,6 +95,9 @@ public class BrowserPlacementEntity {
   @Column(name = "success_trace_sample_percent", nullable = false)
   private int successTraceSamplePercent;
 
+  @Column(name = "success_screenshot_sample_percent", nullable = false)
+  private int successScreenshotSamplePercent;
+
   @Column(name = "observer_frame_rate_fps", nullable = false)
   private int observerFrameRateFps;
 
@@ -231,6 +234,7 @@ public class BrowserPlacementEntity {
     this.newTabsBlocked = false;
     this.pausedExtensionIds = "[]";
     this.successTraceSamplePercent = 100;
+    this.successScreenshotSamplePercent = 100;
     this.observerFrameRateFps = requiresDesktop ? 30 : 0;
     this.videoRecordingRequested = videoRecordingRequested;
     this.videoRecordingEnabled = false;
@@ -291,6 +295,7 @@ public class BrowserPlacementEntity {
       boolean nextNewTabsBlocked,
       String nextPausedExtensionIds,
       int nextSuccessTraceSamplePercent,
+      int nextSuccessScreenshotSamplePercent,
       int nextObserverFrameRateFps,
       boolean nextVideoRecordingEnabled) {
     if (!state.equals("ACTIVE")) {
@@ -307,6 +312,8 @@ public class BrowserPlacementEntity {
         || nextRemoteDesktopBitrateKbps > 100_000
         || nextSuccessTraceSamplePercent < 1
         || nextSuccessTraceSamplePercent > 100
+        || nextSuccessScreenshotSamplePercent < 1
+        || nextSuccessScreenshotSamplePercent > 100
         || nextObserverFrameRateFps < 0
         || nextObserverFrameRateFps > 60
         || (requiresDesktop && nextRemoteDesktopBitrateKbps < 250)
@@ -341,10 +348,47 @@ public class BrowserPlacementEntity {
     newTabsBlocked = nextNewTabsBlocked;
     pausedExtensionIds = nextPausedExtensionIds;
     successTraceSamplePercent = nextSuccessTraceSamplePercent;
+    successScreenshotSamplePercent = nextSuccessScreenshotSamplePercent;
     observerFrameRateFps = nextObserverFrameRateFps;
     videoRecordingEnabled = nextVideoRecordingEnabled;
   }
 
+  public void applyResourceAdjustment(
+      int nextCpuMillis,
+      int nextMemoryRequestMib,
+      int nextMemoryLimitMib,
+      int nextPidLimit,
+      int nextTabBudget,
+      int nextStateCollectorBudgetPercent,
+      int nextRemoteDesktopBitrateKbps,
+      int nextExtensionCpuWeight,
+      int nextMediaEncoderSlots,
+      boolean nextBackgroundTabsFrozen,
+      boolean nextNewTabsBlocked,
+      String nextPausedExtensionIds,
+      int nextSuccessTraceSamplePercent,
+      int nextSuccessScreenshotSamplePercent,
+      int nextObserverFrameRateFps) {
+    applyResourceAdjustment(
+        nextCpuMillis,
+        nextMemoryRequestMib,
+        nextMemoryLimitMib,
+        nextPidLimit,
+        nextTabBudget,
+        nextStateCollectorBudgetPercent,
+        nextRemoteDesktopBitrateKbps,
+        nextExtensionCpuWeight,
+        nextMediaEncoderSlots,
+        nextBackgroundTabsFrozen,
+        nextNewTabsBlocked,
+        nextPausedExtensionIds,
+        nextSuccessTraceSamplePercent,
+        nextSuccessScreenshotSamplePercent,
+        nextObserverFrameRateFps,
+        videoRecordingEnabled);
+  }
+
+  /** N-1 compatibility: screenshot sampling remains unchanged when an older caller omits it. */
   public void applyResourceAdjustment(
       int nextCpuMillis,
       int nextMemoryRequestMib,
@@ -374,8 +418,45 @@ public class BrowserPlacementEntity {
         nextNewTabsBlocked,
         nextPausedExtensionIds,
         nextSuccessTraceSamplePercent,
+        successScreenshotSamplePercent,
         nextObserverFrameRateFps,
         videoRecordingEnabled);
+  }
+
+  /** N-1 compatibility: screenshot sampling remains unchanged when an older caller omits it. */
+  public void applyResourceAdjustment(
+      int nextCpuMillis,
+      int nextMemoryRequestMib,
+      int nextMemoryLimitMib,
+      int nextPidLimit,
+      int nextTabBudget,
+      int nextStateCollectorBudgetPercent,
+      int nextRemoteDesktopBitrateKbps,
+      int nextExtensionCpuWeight,
+      int nextMediaEncoderSlots,
+      boolean nextBackgroundTabsFrozen,
+      boolean nextNewTabsBlocked,
+      String nextPausedExtensionIds,
+      int nextSuccessTraceSamplePercent,
+      int nextObserverFrameRateFps,
+      boolean nextVideoRecordingEnabled) {
+    applyResourceAdjustment(
+        nextCpuMillis,
+        nextMemoryRequestMib,
+        nextMemoryLimitMib,
+        nextPidLimit,
+        nextTabBudget,
+        nextStateCollectorBudgetPercent,
+        nextRemoteDesktopBitrateKbps,
+        nextExtensionCpuWeight,
+        nextMediaEncoderSlots,
+        nextBackgroundTabsFrozen,
+        nextNewTabsBlocked,
+        nextPausedExtensionIds,
+        nextSuccessTraceSamplePercent,
+        successScreenshotSamplePercent,
+        nextObserverFrameRateFps,
+        nextVideoRecordingEnabled);
   }
 
   public String getSessionId() {
@@ -480,6 +561,10 @@ public class BrowserPlacementEntity {
 
   public int getSuccessTraceSamplePercent() {
     return successTraceSamplePercent;
+  }
+
+  public int getSuccessScreenshotSamplePercent() {
+    return successScreenshotSamplePercent;
   }
 
   public int getObserverFrameRateFps() {

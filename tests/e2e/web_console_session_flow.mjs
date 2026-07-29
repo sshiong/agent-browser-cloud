@@ -29,7 +29,11 @@ page.on("response", (response) => {
   }
 });
 
-async function executeSelectedTaskAndWait(taskId, expectedState, timeoutMs = 25_000) {
+async function executeSelectedTaskAndWait(
+  taskId,
+  expectedState,
+  timeoutMs = 25_000,
+) {
   const [response] = await Promise.all([
     page.waitForResponse((candidate) =>
       candidate.url().includes(`${taskId}:execute`),
@@ -62,7 +66,9 @@ async function executeSelectedTaskAndWait(taskId, expectedState, timeoutMs = 25_
 try {
   await page.goto(`${baseUrl}/nodes`);
   await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("heading", { name: "Browser Node" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Browser Node" }),
+  ).toBeVisible();
   await expect(page.getByText("node_e2e", { exact: true })).toBeVisible();
   await expect(page.getByText("OPEN", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("NORMAL", { exact: true }).first()).toBeVisible();
@@ -99,7 +105,9 @@ try {
   await nameInput.fill(startName);
   await expect(nameInput).toHaveValue(startName);
   await page.getByRole("button", { name: "下一步" }).click();
-  await expect(page.getByText("Runtime & State", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("Runtime & State", { exact: false }),
+  ).toBeVisible();
   await expect(page.getByRole("radio").first()).toBeVisible();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByLabel("部署区域")).toHaveValue("local");
@@ -115,7 +123,9 @@ try {
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("button", { name: "确认创建" })).toBeVisible();
   await page.getByRole("button", { name: "确认创建" }).click();
-  await expect(page.getByText("Session CREATED", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Session CREATED", { exact: true }),
+  ).toBeVisible();
   const sessionIdText = await page
     .locator("p")
     .filter({ hasText: /^ses_/ })
@@ -156,7 +166,9 @@ try {
   await expect(
     page.getByText("Browser Cloud Test Page", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("Run integration", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Run integration", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible();
   const [stateResyncResponse] = await Promise.all([
     page.waitForResponse(
@@ -178,9 +190,7 @@ try {
   });
 
   await page.getByRole("link", { name: "代理与出口" }).click();
-  await expect(
-    page.getByRole("heading", { name: "代理与出口" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "代理与出口" })).toBeVisible();
   await expect(page.getByText("static-local", { exact: true })).toBeVisible();
   await expect(page.getByText("CONFIGURED", { exact: true })).toBeVisible();
   await expect(page.getByText("DENIED", { exact: true })).toBeVisible();
@@ -204,9 +214,11 @@ try {
   });
   await page.getByRole("button", { name: "人工接管" }).click();
   await page.waitForURL("**/remote-desktop?session=ses_*");
-  await expect(page.getByText("CONTROL ACQUIRED", { exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(page.getByText("CONTROL ACQUIRED", { exact: true })).toBeVisible(
+    {
+      timeout: 15_000,
+    },
+  );
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
@@ -262,13 +274,18 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   if (!lostKeyDownObserved) {
-    throw new Error("noVNC did not forward the intentionally unpaired Shift KeyDown");
+    throw new Error(
+      "noVNC did not forward the intentionally unpaired Shift KeyDown",
+    );
   }
   const releaseCountBeforeDisconnect = (
     readFileSync(vncEventLog, "utf8").match(/"type":"release"/g) ?? []
   ).length;
   const desktopFaultProxyPid = Number(process.env.DESKTOP_FAULT_PROXY_PID);
-  if (!Number.isSafeInteger(desktopFaultProxyPid) || desktopFaultProxyPid <= 0) {
+  if (
+    !Number.isSafeInteger(desktopFaultProxyPid) ||
+    desktopFaultProxyPid <= 0
+  ) {
     throw new Error("DESKTOP_FAULT_PROXY_PID is required");
   }
   process.kill(desktopFaultProxyPid, "SIGSTOP");
@@ -321,9 +338,7 @@ try {
         response.url().includes(`${startSessionId}/agent-tasks`) &&
         response.status() === 201,
     ),
-    page
-      .getByRole("button", { name: "运行安全校验并生成计划" })
-      .click(),
+    page.getByRole("button", { name: "运行安全校验并生成计划" }).click(),
   ]);
   const agentTask = await agentTaskResponse.json();
   if (
@@ -336,9 +351,7 @@ try {
   await expect(
     page.getByText("PROMPT_INJECTION_DETECTED", { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText("NAVIGATE", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("NAVIGATE", { exact: true })).toBeVisible();
   const [agentExecutionResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -354,12 +367,18 @@ try {
   ) {
     throw new Error("Node navigation was not queued as an Agent operation");
   }
-  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByText("VERIFIED", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
+    {
+      timeout: 20_000,
+    },
+  );
+  await expect(
+    page.getByText("VERIFIED", { exact: true }).first(),
+  ).toBeVisible();
 
-  await page.getByLabel("用户目标").fill("点击运行、填写公开备注、滚动并等待状态稳定");
+  await page
+    .getByLabel("用户目标")
+    .fill("点击运行、填写公开备注、滚动并等待状态稳定");
   await page.getByLabel("起始 URL").fill("");
   await page.getByRole("button", { name: "添加" }).click();
   const clickTargetSelect = page.getByLabel("动作 1 目标");
@@ -387,9 +406,7 @@ try {
         response.url().includes(`${startSessionId}/agent-tasks`) &&
         response.status() === 201,
     ),
-    page
-      .getByRole("button", { name: "运行安全校验并生成计划" })
-      .click(),
+    page.getByRole("button", { name: "运行安全校验并生成计划" }).click(),
   ]);
   const actionTask = await actionTaskResponse.json();
   if (
@@ -400,9 +417,11 @@ try {
     throw new Error("structured action plan was not safely created");
   }
   await executeSelectedTaskAndWait(actionTask.taskId, "COMPLETED");
-  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
+    {
+      timeout: 10_000,
+    },
+  );
   for (const tool of ["CLICK_TARGET", "TYPE_TEXT", "SCROLL", "WAIT_FOR"]) {
     await expect(page.getByText(tool, { exact: true }).first()).toBeVisible();
   }
@@ -414,9 +433,7 @@ try {
         response.url().includes(`${startSessionId}/agent-tasks`) &&
         response.status() === 201,
     ),
-    page
-      .getByRole("button", { name: "运行安全校验并生成计划" })
-      .click(),
+    page.getByRole("button", { name: "运行安全校验并生成计划" }).click(),
   ]);
   const confirmationTask = await confirmationTaskResponse.json();
   if (confirmationTask.state !== "AWAITING_CONFIRMATION") {
@@ -430,24 +447,22 @@ try {
     timeout: 10_000,
   });
   await executeSelectedTaskAndWait(confirmationTask.taskId, "COMPLETED");
-  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
+    {
+      timeout: 10_000,
+    },
+  );
 
   await page.getByLabel("用户目标").fill("请求人工继续处理当前页面");
   await page.getByRole("button", { name: "添加" }).click();
-  await page
-    .getByLabel("动作 1 类型")
-    .selectOption("REQUEST_HUMAN_TAKEOVER");
+  await page.getByLabel("动作 1 类型").selectOption("REQUEST_HUMAN_TAKEOVER");
   const [handoffTaskResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
         response.url().includes(`${startSessionId}/agent-tasks`) &&
         response.status() === 201,
     ),
-    page
-      .getByRole("button", { name: "运行安全校验并生成计划" })
-      .click(),
+    page.getByRole("button", { name: "运行安全校验并生成计划" }).click(),
   ]);
   const handoffTask = await handoffTaskResponse.json();
   if (handoffTask.state !== "PLANNED") {
@@ -462,9 +477,11 @@ try {
     page.getByText("Agent 已释放执行权，等待人工接管", { exact: true }),
   ).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "接受并进入人工接管" }).click();
-  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
+    {
+      timeout: 15_000,
+    },
+  );
   let handoffReady = false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const response = await page.request.get(
@@ -519,9 +536,7 @@ try {
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "安全中心" })).toBeVisible();
   await expect(page.getByText("完整", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/SESSION_CONTEXT_COMMIT/).first(),
-  ).toBeVisible();
+  await expect(page.getByText(/SESSION_CONTEXT_COMMIT/).first()).toBeVisible();
   await page.getByRole("button", { name: "申请紧急访问" }).click();
   const breakGlassTicket = `INC-E2E-${runSuffix}`;
   await page.getByLabel("工单 ID").fill(breakGlassTicket);
@@ -546,9 +561,7 @@ try {
   ) {
     throw new Error("Break-glass request did not enter dual-control approval");
   }
-  await expect(
-    page.getByText(breakGlassTicket, { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(breakGlassTicket, { exact: true })).toBeVisible();
   await expect(
     page.getByText("等待另一位管理员", { exact: true }),
   ).toBeVisible();
@@ -587,7 +600,9 @@ try {
     debugSession.state !== "ACTIVE" ||
     debugSession.operatorId !== "user-local"
   ) {
-    throw new Error("Secure Debug session did not bind to its original operator");
+    throw new Error(
+      "Secure Debug session did not bind to its original operator",
+    );
   }
   const [debugSnapshotResponse] = await Promise.all([
     page.waitForResponse(
@@ -616,9 +631,9 @@ try {
   ) {
     throw new Error("Secure Debug snapshot violated its minimized contract");
   }
-  await expect(
-    page.getByTestId("secure-debug-snapshot"),
-  ).toContainText("SENSITIVE_MINIMIZED");
+  await expect(page.getByTestId("secure-debug-snapshot")).toContainText(
+    "SENSITIVE_MINIMIZED",
+  );
   await expect(page.getByText("ACCESS #1 RECORDED")).toBeVisible();
   await page.screenshot({
     path: screenshotPath.replace(/\.png$/, "-secure-debug.png"),
@@ -639,9 +654,7 @@ try {
   if (endedDebugSession.state !== "ENDED") {
     throw new Error("Secure Debug session did not terminate from the console");
   }
-  await expect(
-    page.getByText("ENDED", { exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.getByText("ENDED", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "发起密钥轮换" }).click();
   const newKeyId = `node-ca-e2e-${runSuffix}`;
@@ -688,11 +701,42 @@ try {
   });
 
   await page.goto(`${baseUrl}/environments/${startSessionId}`);
-  await expect(page.getByRole("button", { name: "终止", exact: true })).toBeEnabled({
+  await expect(
+    page.getByRole("heading", { name: "Session 截图证据" }),
+  ).toBeVisible({ timeout: 15_000 });
+  let screenshotEvidence = [];
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const response = await page.request.get(
+      `${baseUrl}/api/v1/sessions/${startSessionId}/evidence?limit=20`,
+      { headers: { "X-Tenant-Id": "tenant-local" } },
+    );
+    if (response.ok()) {
+      const result = await response.json();
+      screenshotEvidence = result.items ?? [];
+      if (screenshotEvidence.length > 0) break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  if (
+    screenshotEvidence.length === 0 ||
+    screenshotEvidence.some((item) => "objectKey" in item)
+  ) {
+    throw new Error(
+      "tenant-scoped screenshot evidence metadata is missing or leaks object keys",
+    );
+  }
+  await expect(
+    page.getByText(/Agent (动作|导航)(成功|失败)/).first(),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByRole("button", { name: "终止", exact: true }),
+  ).toBeEnabled({
     timeout: 15_000,
   });
   await page.getByRole("button", { name: "终止", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "终止 Session？" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "终止 Session？" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "确认终止" }).click();
   await expect(
     page.locator("main").getByText("已终止", { exact: true }).last(),
@@ -746,7 +790,9 @@ try {
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("button", { name: "确认创建" })).toBeVisible();
   await page.getByRole("button", { name: "确认创建" }).click();
-  await expect(page.getByText("Session CREATED", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Session CREATED", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "查看环境详情" }).click();
   await page.waitForURL("**/environments/ses_*");
   await expect(
@@ -773,12 +819,17 @@ try {
   await expect(page.getByText(terminateName, { exact: true })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByText("服务端筛选与分页", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("服务端筛选与分页", { exact: false }),
+  ).toBeVisible();
   await page.screenshot({ path: screenshotPath, fullPage: true });
 } catch (error) {
   console.error(
     `E2E_FAILURE url=${page.url()} buttons=${JSON.stringify(
-      await page.getByRole("button").allTextContents().catch(() => []),
+      await page
+        .getByRole("button")
+        .allTextContents()
+        .catch(() => []),
     )} consoleErrors=${JSON.stringify(consoleErrors)} httpErrors=${JSON.stringify(httpErrors)}`,
   );
   await page

@@ -62,7 +62,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -78,7 +78,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -101,7 +101,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       resourceClass_ = s;
@@ -117,7 +117,7 @@ private static final long serialVersionUID = 0L;
       getResourceClassBytes() {
     java.lang.Object ref = resourceClass_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       resourceClass_ = b;
@@ -195,7 +195,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       reason_ = s;
@@ -211,7 +211,7 @@ private static final long serialVersionUID = 0L;
       getReasonBytes() {
     java.lang.Object ref = reason_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       reason_ = b;
@@ -579,6 +579,33 @@ private static final long serialVersionUID = 0L;
     return videoRecordingEnabled_;
   }
 
+  public static final int SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER = 24;
+  private int successScreenshotSamplePercent_ = 0;
+  /**
+   * <pre>
+   * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+   * </pre>
+   *
+   * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+   * @return Whether the successScreenshotSamplePercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasSuccessScreenshotSamplePercent() {
+    return ((bitField0_ & 0x00000400) != 0);
+  }
+  /**
+   * <pre>
+   * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+   * </pre>
+   *
+   * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+   * @return The successScreenshotSamplePercent.
+   */
+  @java.lang.Override
+  public int getSuccessScreenshotSamplePercent() {
+    return successScreenshotSamplePercent_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -661,6 +688,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000200) != 0)) {
       output.writeBool(23, videoRecordingEnabled_);
+    }
+    if (((bitField0_ & 0x00000400) != 0)) {
+      output.writeUInt32(24, successScreenshotSamplePercent_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -764,6 +794,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(23, videoRecordingEnabled_);
     }
+    if (((bitField0_ & 0x00000400) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(24, successScreenshotSamplePercent_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -855,6 +889,11 @@ private static final long serialVersionUID = 0L;
       if (getVideoRecordingEnabled()
           != other.getVideoRecordingEnabled()) return false;
     }
+    if (hasSuccessScreenshotSamplePercent() != other.hasSuccessScreenshotSamplePercent()) return false;
+    if (hasSuccessScreenshotSamplePercent()) {
+      if (getSuccessScreenshotSamplePercent()
+          != other.getSuccessScreenshotSamplePercent()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -940,6 +979,10 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getVideoRecordingEnabled());
+    }
+    if (hasSuccessScreenshotSamplePercent()) {
+      hash = (37 * hash) + SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getSuccessScreenshotSamplePercent();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1110,6 +1153,7 @@ private static final long serialVersionUID = 0L;
       successTraceSamplePercent_ = 0;
       observerFrameRateFps_ = 0;
       videoRecordingEnabled_ = false;
+      successScreenshotSamplePercent_ = 0;
       return this;
     }
 
@@ -1225,6 +1269,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00400000) != 0)) {
         result.videoRecordingEnabled_ = videoRecordingEnabled_;
         to_bitField0_ |= 0x00000200;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.successScreenshotSamplePercent_ = successScreenshotSamplePercent_;
+        to_bitField0_ |= 0x00000400;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1354,6 +1402,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasVideoRecordingEnabled()) {
         setVideoRecordingEnabled(other.getVideoRecordingEnabled());
+      }
+      if (other.hasSuccessScreenshotSamplePercent()) {
+        setSuccessScreenshotSamplePercent(other.getSuccessScreenshotSamplePercent());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1499,6 +1550,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00400000;
               break;
             } // case 184
+            case 192: {
+              successScreenshotSamplePercent_ = input.readUInt32();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 192
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1541,7 +1597,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -1613,7 +1669,7 @@ private static final long serialVersionUID = 0L;
         getResourceClassBytes() {
       java.lang.Object ref = resourceClass_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         resourceClass_ = b;
@@ -1845,7 +1901,7 @@ private static final long serialVersionUID = 0L;
         getReasonBytes() {
       java.lang.Object ref = reason_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         reason_ = b;
@@ -2772,6 +2828,62 @@ private static final long serialVersionUID = 0L;
     public Builder clearVideoRecordingEnabled() {
       bitField0_ = (bitField0_ & ~0x00400000);
       videoRecordingEnabled_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int successScreenshotSamplePercent_ ;
+    /**
+     * <pre>
+     * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+     * </pre>
+     *
+     * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+     * @return Whether the successScreenshotSamplePercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasSuccessScreenshotSamplePercent() {
+      return ((bitField0_ & 0x00800000) != 0);
+    }
+    /**
+     * <pre>
+     * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+     * </pre>
+     *
+     * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+     * @return The successScreenshotSamplePercent.
+     */
+    @java.lang.Override
+    public int getSuccessScreenshotSamplePercent() {
+      return successScreenshotSamplePercent_;
+    }
+    /**
+     * <pre>
+     * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+     * </pre>
+     *
+     * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+     * @param value The successScreenshotSamplePercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSuccessScreenshotSamplePercent(int value) {
+
+      successScreenshotSamplePercent_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 1..100；仅控制成功动作截图，失败证据保持强制捕获。
+     * </pre>
+     *
+     * <code>optional uint32 success_screenshot_sample_percent = 24 [json_name = "successScreenshotSamplePercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSuccessScreenshotSamplePercent() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      successScreenshotSamplePercent_ = 0;
       onChanged();
       return this;
     }

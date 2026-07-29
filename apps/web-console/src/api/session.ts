@@ -25,6 +25,7 @@ import type {
   RecoveryContractView,
   UpsertRecoveryContractRequest,
   BusinessRecoveryValidationView,
+  SessionEvidenceListResponse,
 } from '../types/session';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
@@ -203,6 +204,18 @@ export async function getSessionResourceEvents(
 ): Promise<ResourceEventListResponse> {
   return request<ResourceEventListResponse>(
     `/sessions/${sessionId}/resource-events?limit=50`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getSessionEvidence(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionEvidenceListResponse> {
+  return request<SessionEvidenceListResponse>(
+    `/sessions/${sessionId}/evidence?limit=20`,
     { signal },
     tenantId
   );

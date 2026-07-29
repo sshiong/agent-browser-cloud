@@ -375,4 +375,26 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newVideoRecordingEnabled.
    */
   boolean getNewVideoRecordingEnabled();
+
+  /**
+   * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+   * @return Whether the oldSuccessScreenshotSamplePercent field is set.
+   */
+  boolean hasOldSuccessScreenshotSamplePercent();
+  /**
+   * <code>optional uint32 old_success_screenshot_sample_percent = 37 [json_name = "oldSuccessScreenshotSamplePercent"];</code>
+   * @return The oldSuccessScreenshotSamplePercent.
+   */
+  int getOldSuccessScreenshotSamplePercent();
+
+  /**
+   * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+   * @return Whether the newSuccessScreenshotSamplePercent field is set.
+   */
+  boolean hasNewSuccessScreenshotSamplePercent();
+  /**
+   * <code>optional uint32 new_success_screenshot_sample_percent = 38 [json_name = "newSuccessScreenshotSamplePercent"];</code>
+   * @return The newSuccessScreenshotSamplePercent.
+   */
+  int getNewSuccessScreenshotSamplePercent();
 }

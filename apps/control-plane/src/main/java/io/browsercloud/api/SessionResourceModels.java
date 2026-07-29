@@ -50,6 +50,7 @@ public final class SessionResourceModels {
       Boolean newTabsBlocked,
       List<String> pausedExtensionIds,
       Integer successTraceSamplePercent,
+      Integer successScreenshotSamplePercent,
       Integer observerFrameRateFps,
       Boolean videoRecordingRequested,
       Boolean videoRecordingEnabled,

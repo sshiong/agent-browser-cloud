@@ -225,6 +225,18 @@ export function SessionResourcePanel({
               </div>
               <div className="bg-surface-2 px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  成功截图
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  Node 采样{' '}
+                  {resource.allocation.successScreenshotSamplePercent ?? 100}%
+                </p>
+                <p className="mt-1 text-[9px] text-text-muted">
+                  失败动作与导航截图始终尝试留证
+                </p>
+              </div>
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
                   Observer 帧率
                 </p>
                 <p className="mt-1 text-xs font-medium text-text-primary">

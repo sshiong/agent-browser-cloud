@@ -437,6 +437,24 @@ for invariant in (
         f"resource template migration lacks rolling invariant: {invariant}"
     )
 
+screenshot_evidence_migration = read(
+    "database/migrations/V049__session_screenshot_evidence.sql"
+)
+screenshot_evidence_upper = screenshot_evidence_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE", "ALTER COLUMN"):
+    assert forbidden not in screenshot_evidence_upper
+for invariant in (
+    "ADD COLUMN SUCCESS_SCREENSHOT_SAMPLE_PERCENT INTEGER NOT NULL DEFAULT 100",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_BROWSER_PLACEMENTS_SUCCESS_SCREENSHOT_SAMPLE_PERCENT",
+    "CREATE TABLE SESSION_EVIDENCE",
+    "OBJECT_KEY",
+    "RESULT IN ('COMMITTED', 'FAILED')",
+):
+    assert invariant in screenshot_evidence_upper, (
+        f"screenshot evidence migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -504,6 +522,7 @@ for message_name, fields in (
             ("success_trace_sample_percent", 26, True),
             ("observer_frame_rate_fps", 27, True),
             ("video_recording_enabled", 28, True),
+            ("success_screenshot_sample_percent", 29, True),
         ),
     ),
     (
@@ -518,6 +537,7 @@ for message_name, fields in (
             ("success_trace_sample_percent", 21, True),
             ("observer_frame_rate_fps", 22, True),
             ("video_recording_enabled", 23, True),
+            ("success_screenshot_sample_percent", 24, True),
         ),
     ),
     (
@@ -539,6 +559,8 @@ for message_name, fields in (
             ("new_observer_frame_rate_fps", 34, True),
             ("old_video_recording_enabled", 35, True),
             ("new_video_recording_enabled", 36, True),
+            ("old_success_screenshot_sample_percent", 37, True),
+            ("new_success_screenshot_sample_percent", 38, True),
         ),
     ),
 ):
@@ -556,6 +578,31 @@ for message_name, fields in (
         assert actual_tag == expected_tag
         if must_be_optional:
             assert qualifier.strip() == "optional"
+
+evidence_event = proto.split("message SessionEvidenceCapturedEvent {", 1)[1].split("}", 1)[0]
+evidence_event_tags = {
+    name: int(tag)
+    for name, tag in re.findall(
+        r"^\s*[A-Za-z0-9_.]+\s+([a-z0-9_]+)\s*=\s*(\d+);",
+        evidence_event,
+        flags=re.MULTILINE,
+    )
+}
+assert evidence_event_tags == {
+    "session_id": 1,
+    "evidence_id": 2,
+    "evidence_kind": 3,
+    "task_id": 4,
+    "step_id": 5,
+    "command_id": 6,
+    "content_sha256": 7,
+    "content_bytes": 8,
+    "object_key": 9,
+    "captured_at_ms": 10,
+    "mandatory": 11,
+    "result": 12,
+    "error_code": 13,
+}
 
 openapi = read("packages/contracts/openapi/session-api.yaml")
 register = openapi.split("    RegisterBrowserNodeRequest:", 1)[1].split(
@@ -617,8 +664,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V048 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-36,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,recovery-extension-tag-6",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V049 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,evidence-event-tags-1-13,recovery-extension-tag-6",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

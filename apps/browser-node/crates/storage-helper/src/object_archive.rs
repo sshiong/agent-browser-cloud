@@ -57,6 +57,16 @@ struct RecordingCommitMarker<'a> {
     ended_at_ms: u64,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EvidenceCommitMarker<'a> {
+    evidence_id: &'a str,
+    evidence_kind: &'a str,
+    content_sha256: &'a str,
+    content_bytes: u64,
+    captured_at_ms: u64,
+}
+
 impl ObjectArchive {
     pub fn s3(config: S3ArchiveConfig) -> anyhow::Result<Self> {
         anyhow::ensure!(
@@ -205,6 +215,40 @@ impl ObjectArchive {
         Ok(object_key)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub async fn commit_evidence(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        evidence_id: &str,
+        evidence_kind: &str,
+        content: Bytes,
+        content_sha256: &str,
+        captured_at_ms: u64,
+    ) -> anyhow::Result<String> {
+        anyhow::ensure!(
+            hex_sha256(&content) == content_sha256,
+            "evidence integrity verification failed"
+        );
+        let base = self.evidence_key_for(tenant_id, profile_id, session_id, evidence_id);
+        let object_key = format!("{base}/screenshot.jpeg");
+        self.put(&object_key, content.clone()).await?;
+        let marker = EvidenceCommitMarker {
+            evidence_id,
+            evidence_kind,
+            content_sha256,
+            content_bytes: content.len() as u64,
+            captured_at_ms,
+        };
+        self.put(
+            &format!("{base}/COMMITTED"),
+            Bytes::from(serde_json::to_vec(&marker)?),
+        )
+        .await?;
+        Ok(object_key)
+    }
+
     async fn put(&self, key: &str, payload: Bytes) -> anyhow::Result<()> {
         tokio::time::timeout(
             self.operation_timeout,
@@ -257,6 +301,23 @@ impl ObjectArchive {
     ) -> String {
         let suffix = format!(
             "tenants/{tenant_id}/profiles/{profile_id}/sessions/{session_id}/recordings/{recording_id}"
+        );
+        if self.prefix.is_empty() {
+            suffix
+        } else {
+            format!("{}/{}", self.prefix, suffix)
+        }
+    }
+
+    fn evidence_key_for(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        evidence_id: &str,
+    ) -> String {
+        let suffix = format!(
+            "tenants/{tenant_id}/profiles/{profile_id}/sessions/{session_id}/evidence/{evidence_id}"
         );
         if self.prefix.is_empty() {
             suffix
@@ -399,6 +460,33 @@ mod tests {
                 .await
                 .unwrap();
             archive.store.get(&Path::from(completed_key)).await.unwrap();
+            let evidence_content = Bytes::from_static(&[0xff, 0xd8, 0xff, 0xd9]);
+            let evidence_hash = hex_sha256(&evidence_content);
+            let evidence_key = archive
+                .commit_evidence(
+                    "tenant-test",
+                    "profile-test",
+                    "session-test",
+                    "evd-test",
+                    "AGENT_ACTION_FAILURE",
+                    evidence_content,
+                    &evidence_hash,
+                    3,
+                )
+                .await
+                .unwrap();
+            archive
+                .store
+                .get(&Path::from(evidence_key.as_str()))
+                .await
+                .unwrap();
+            let evidence_base =
+                archive.evidence_key_for("tenant-test", "profile-test", "session-test", "evd-test");
+            archive
+                .store
+                .get(&Path::from(format!("{evidence_base}/COMMITTED")))
+                .await
+                .unwrap();
         }
         let _ = fs::remove_dir_all(root);
     }

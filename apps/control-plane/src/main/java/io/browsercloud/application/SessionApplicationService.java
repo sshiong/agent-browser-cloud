@@ -265,6 +265,7 @@ public class SessionApplicationService {
                     placement.newTabsBlocked(),
                     placement.pausedExtensionIds(),
                     placement.successTraceSamplePercent(),
+                    placement.successScreenshotSamplePercent(),
                     placement.observerFrameRateFps(),
                     placement.videoRecordingRequested(),
                     placement.requiresDesktop(),

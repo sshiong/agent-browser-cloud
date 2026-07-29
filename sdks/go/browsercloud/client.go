@@ -43,7 +43,7 @@ func (e *APIError) Error() string {
 type CreateSessionInput struct {
 	ProfileID             string            `json:"profileId"`
 	Region                string            `json:"region"`
-	ResourceClass         string            `json:"resourceClass"`
+	ResourcePolicy        map[string]any    `json:"resourcePolicy"`
 	RequestedTabs         int               `json:"requestedTabs"`
 	AgentActionsPerMinute int               `json:"agentActionsPerMinute"`
 	ExtensionIDs          []string          `json:"extensionIds"`
@@ -81,15 +81,15 @@ func (c *Client) ListSessions(ctx context.Context, limit, offset int) (map[strin
 }
 
 func (c *Client) CreateSession(ctx context.Context, input CreateSessionInput) (map[string]any, error) {
-	if input.ResourceClass == "" {
-		input.ResourceClass = "L2"
+	if input.ResourcePolicy == nil {
+		input.ResourcePolicy = map[string]any{"mode": "AUTO"}
 	}
 	if input.RequestedTabs == 0 {
 		input.RequestedTabs = 1
 	}
 	payload := map[string]any{
 		"tenantId": c.tenantID, "profileId": input.ProfileID, "region": input.Region,
-		"resourceClass": input.ResourceClass, "requestedTabs": input.RequestedTabs,
+		"resourcePolicy": input.ResourcePolicy, "requestedTabs": input.RequestedTabs,
 		"agentActionsPerMinute": input.AgentActionsPerMinute, "extensionIds": input.ExtensionIDs,
 		"remoteDesktop": input.RemoteDesktop, "web3Workload": input.Web3Workload,
 		"mediaWorkload": input.MediaWorkload, "requestedMediaStreams": input.RequestedMediaStreams,

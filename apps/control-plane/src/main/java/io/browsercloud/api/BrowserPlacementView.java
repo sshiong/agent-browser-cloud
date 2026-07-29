@@ -1,5 +1,8 @@
 package io.browsercloud.api;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.browsercloud.domain.capacity.ResourceTemplate;
 import io.browsercloud.domain.session.ResourceClass;
 import java.time.Instant;
 import java.util.List;
@@ -8,8 +11,8 @@ public record BrowserPlacementView(
     String sessionId,
     String tenantId,
     String nodeId,
-    ResourceClass requestedResourceClass,
-    ResourceClass effectiveResourceClass,
+    @JsonIgnore ResourceClass requestedResourceClass,
+    @JsonIgnore ResourceClass effectiveResourceClass,
     List<String> extensionIds,
     int unknownExtensionCount,
     int cpuMillis,
@@ -40,4 +43,15 @@ public record BrowserPlacementView(
     List<String> reasonCodes,
     Instant reservedAt,
     Instant activatedAt,
-    Instant releasedAt) {}
+    Instant releasedAt) {
+
+  @JsonProperty("requestedTemplate")
+  public String requestedTemplate() {
+    return ResourceTemplate.from(requestedResourceClass).id();
+  }
+
+  @JsonProperty("resolvedTemplate")
+  public String resolvedTemplate() {
+    return ResourceTemplate.from(effectiveResourceClass).id();
+  }
+}

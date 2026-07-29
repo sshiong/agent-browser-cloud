@@ -1,7 +1,6 @@
 package io.browsercloud.api;
 
 import io.browsercloud.domain.agent.AgentPolicy;
-import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
 import java.util.List;
@@ -18,7 +17,7 @@ public record SessionView(
     AgentPolicy agentPolicy,
     List<String> extensionIds,
     String region,
-    ResourceClass resourceClass,
+    String resourceTemplate,
     SessionState state,
     String nodeId,
     String runtimeBuildId,

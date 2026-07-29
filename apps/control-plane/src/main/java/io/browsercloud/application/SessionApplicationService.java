@@ -5,6 +5,7 @@ import io.browsercloud.coordinator.*;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.agent.AgentPolicy;
+import io.browsercloud.domain.capacity.ResourceTemplate;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
@@ -302,8 +303,8 @@ public class SessionApplicationService {
                 runtimeBuildId,
                 "nodeId",
                 placement.nodeId(),
-                "effectiveResourceClass",
-                placement.effectiveResourceClass().name()),
+                "resolvedTemplate",
+                placement.resolvedTemplate()),
         result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
@@ -529,7 +530,7 @@ public class SessionApplicationService {
         descriptor.agentPolicy(),
         descriptor.extensionIds(),
         descriptor.region(),
-        context.resourceClass(),
+        ResourceTemplate.from(context.resourceClass()).id(),
         context.state(),
         context.nodeId(),
         context.runtimeBuildId(),
@@ -561,7 +562,7 @@ public class SessionApplicationService {
         context.contextEpoch(),
         context.browserGeneration(),
         context.networkRevision(),
-        context.resourceClass(),
+        ResourceTemplate.from(context.resourceClass()).id(),
         context.state(),
         context.policyHash(),
         context.createdAt(),

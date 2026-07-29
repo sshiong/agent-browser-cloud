@@ -22,7 +22,7 @@ export interface RuntimeValidationView {
 export interface CostRateView {
   pricingVersion: string;
   region: string;
-  resourceClass: string;
+  resourceTemplate: string;
   baseHourlyUsd: number;
   cpuCoreHourlyUsd: number;
   memoryGibHourlyUsd: number;

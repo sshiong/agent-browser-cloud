@@ -39,7 +39,7 @@ export interface Session {
   agent: AgentInfo;
   node: string;
   extensions: number;
-  resourceClass: string;
+  resourceTemplate: string;
   lastActivity: string;
   createdAt: string;
   browserGeneration: number;

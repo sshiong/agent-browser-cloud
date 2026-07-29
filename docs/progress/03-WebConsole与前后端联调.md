@@ -41,7 +41,7 @@
 - 活跃 Operation 期间每两秒刷新详情；Node Event 闭环后页面可自动观察到
   `RUNNING/TERMINATED` 终态，后续仍需用 SSE 替换轮询。
 - Session `GET/List` 正式契约新增 `displayName`、`profileId`、`region` 和
-  `resourceClass`。
+  `resourceTemplate`；旧 `resourceClass` 公开字段已由进度 71 移除。
 - 新增受控 `SessionDescriptor` 查询投影：只从 metadata 白名单提取
   `displayName`，不会把任意 metadata 返回前端；缺失、空白或非法值回退到 Session ID。
 - 环境列表现在显示名称、Session ID、Profile、租户、区域、资源等级、

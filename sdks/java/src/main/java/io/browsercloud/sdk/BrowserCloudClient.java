@@ -24,7 +24,7 @@ public final class BrowserCloudClient {
   public record CreateSessionInput(
       String profileId,
       String region,
-      String resourceClass,
+      Map<String, Object> resourcePolicy,
       int requestedTabs,
       int agentActionsPerMinute,
       List<String> extensionIds,
@@ -39,7 +39,7 @@ public final class BrowserCloudClient {
     public CreateSessionInput(
         String profileId,
         String region,
-        String resourceClass,
+        Map<String, Object> resourcePolicy,
         int requestedTabs,
         int agentActionsPerMinute,
         List<String> extensionIds,
@@ -53,7 +53,7 @@ public final class BrowserCloudClient {
       this(
           profileId,
           region,
-          resourceClass,
+          resourcePolicy,
           requestedTabs,
           agentActionsPerMinute,
           extensionIds,
@@ -129,11 +129,11 @@ public final class BrowserCloudClient {
             + ","
             + field("region", input.region())
             + ","
-            + field(
-                "resourceClass",
-                input.resourceClass() == null || input.resourceClass().isBlank()
-                    ? "L2"
-                    : input.resourceClass())
+            + objectMap(
+                "resourcePolicy",
+                input.resourcePolicy() == null
+                    ? Map.of("mode", "AUTO")
+                    : input.resourcePolicy())
             + ",\"requestedTabs\":"
             + (input.requestedTabs() == 0 ? 1 : input.requestedTabs())
             + ",\"agentActionsPerMinute\":"
@@ -240,6 +240,25 @@ public final class BrowserCloudClient {
         .sorted(Map.Entry.comparingByKey())
         .map(entry -> field(entry.getKey(), entry.getValue()))
         .collect(java.util.stream.Collectors.joining(",", "{", "}"));
+  }
+
+  private static String objectMap(String name, Map<String, Object> values) {
+    var body =
+        values.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .map(entry -> "\"" + escape(entry.getKey()) + "\":" + jsonValue(entry.getValue()))
+            .collect(java.util.stream.Collectors.joining(",", "{", "}"));
+    return "\"" + escape(name) + "\":" + body;
+  }
+
+  private static String jsonValue(Object value) {
+    if (value instanceof String text) {
+      return "\"" + escape(text) + "\"";
+    }
+    if (value instanceof Number || value instanceof Boolean) {
+      return value.toString();
+    }
+    throw new IllegalArgumentException("resource policy values must be strings, numbers or booleans");
   }
 
   private static String escape(String value) {

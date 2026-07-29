@@ -1,6 +1,5 @@
 package io.browsercloud.api;
 
-import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
 
@@ -17,7 +16,7 @@ public record SessionContextView(
     long contextEpoch,
     long browserGeneration,
     long networkRevision,
-    ResourceClass resourceClass,
+    String resourceTemplate,
     SessionState state,
     String policyHash,
     Instant createdAt,

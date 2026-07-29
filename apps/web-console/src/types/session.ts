@@ -13,7 +13,7 @@ export interface SessionContext {
   contextEpoch: number;
   browserGeneration: number;
   networkRevision: number;
-  resourceClass: ResourceClass;
+  resourceTemplate: string;
   state: SessionState;
   policyHash: string;
   createdAt: string;
@@ -34,11 +34,6 @@ export type SessionState =
   | 'TERMINATING'
   | 'TERMINATED'
   | 'FAILED';
-
-/**
- * 资源等级。
- */
-export type ResourceClass = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
 
 export type ExecutionEnvironment =
   'SYSTEM_MANAGED' | 'CONTAINER' | 'ENHANCED_SANDBOX' | 'MICROVM' | 'NATIVE_OS';
@@ -104,7 +99,7 @@ export interface SessionView {
   agentPolicy?: AgentPolicy;
   extensionIds?: string[];
   region: string;
-  resourceClass: ResourceClass;
+  resourceTemplate: string;
   state: SessionState;
   nodeId?: string;
   runtimeBuildId?: string;
@@ -149,8 +144,6 @@ export interface CreateSessionRequest {
   tagIds?: string[];
   region?: string;
   resourcePolicy?: ResourcePolicyRequest;
-  /** @deprecated Legacy SDK compatibility. Web UI must use resourcePolicy=AUTO. */
-  resourceClass?: ResourceClass;
   requestedTabs?: number;
   agentActionsPerMinute?: number;
   remoteDesktop?: boolean;

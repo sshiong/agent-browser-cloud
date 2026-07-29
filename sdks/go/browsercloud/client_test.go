@@ -23,6 +23,13 @@ func TestCreateMediaSessionPreservesIdentityAndIdempotency(t *testing.T) {
 		if body["mediaWorkload"] != true || body["requestedMediaStreams"] != float64(1) {
 			t.Fatal("media resource demand was not encoded")
 		}
+		policy, ok := body["resourcePolicy"].(map[string]any)
+		if !ok || policy["mode"] != "AUTO" {
+			t.Fatal("AUTO resource policy was not encoded")
+		}
+		if _, leaked := body["resourceClass"]; leaked {
+			t.Fatal("legacy resource class leaked")
+		}
 		response.Header().Set("Content-Type", "application/json")
 		_, _ = response.Write([]byte(`{"sessionId":"ses_1234567890abcdef"}`))
 	}))

@@ -669,7 +669,7 @@ components:
         networkRevision:
           type: integer
           format: int64
-        resourceClass:
+        resourceTemplate:
           type: string
         state:
           $ref: '#/components/schemas/SessionState'
@@ -944,7 +944,7 @@ export interface SessionContext {
   contextEpoch: number;
   browserGeneration: number;
   networkRevision: number;
-  resourceClass: ResourceClass;
+  resourceTemplate: ResourceTemplate;
   state: SessionState;
   policyHash: string;
   createdAt: string;
@@ -963,11 +963,18 @@ export type SessionState =
   | 'TERMINATED'
   | 'FAILED';
 
-export type ResourceClass = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+export type ResourceTemplate =
+  | 'suspended-v1'
+  | 'standard-lite-v1'
+  | 'standard-v1'
+  | 'interactive-v1'
+  | 'heavy-v1'
+  | 'native-standard-v1';
 
 export interface SessionView {
   sessionId: string;
   tenantId: string;
+  resourceTemplate: ResourceTemplate;
   state: SessionState;
   nodeId?: string;
   runtimeBuildId?: string;

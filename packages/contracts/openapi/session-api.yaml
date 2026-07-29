@@ -3310,9 +3310,15 @@ components:
         - TERMINATING
         - TERMINATED
         - FAILED
-    ResourceClass:
+    ResourceTemplate:
       type: string
-      enum: [L0, L1, L2, L3, L4, L5]
+      enum:
+        - suspended-v1
+        - standard-lite-v1
+        - standard-v1
+        - interactive-v1
+        - heavy-v1
+        - native-standard-v1
     RegisterBrowserNodeRequest:
       type: object
       additionalProperties: false
@@ -3725,8 +3731,8 @@ components:
         - sessionId
         - tenantId
         - nodeId
-        - requestedResourceClass
-        - effectiveResourceClass
+        - requestedTemplate
+        - resolvedTemplate
         - extensionIds
         - unknownExtensionCount
         - cpuMillis
@@ -3763,10 +3769,10 @@ components:
           type: string
         nodeId:
           type: string
-        requestedResourceClass:
-          $ref: "#/components/schemas/ResourceClass"
-        effectiveResourceClass:
-          $ref: "#/components/schemas/ResourceClass"
+        requestedTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
+        resolvedTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
         extensionIds:
           type: array
           items:
@@ -4271,10 +4277,6 @@ components:
           pattern: "^[a-z0-9-]{1,32}$"
         resourcePolicy:
           $ref: "#/components/schemas/ResourcePolicyRequest"
-        resourceClass:
-          $ref: "#/components/schemas/ResourceClass"
-          deprecated: true
-          description: Legacy SDK field. New clients submit resourcePolicy.mode=AUTO.
         requestedTabs:
           type: integer
           minimum: 0
@@ -4831,7 +4833,7 @@ components:
         - contextEpoch
         - browserGeneration
         - networkRevision
-        - resourceClass
+        - resourceTemplate
         - state
         - policyHash
         - createdAt
@@ -4863,8 +4865,8 @@ components:
         networkRevision:
           type: integer
           format: int64
-        resourceClass:
-          $ref: "#/components/schemas/ResourceClass"
+        resourceTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
         state:
           $ref: "#/components/schemas/SessionState"
         policyHash:
@@ -4884,7 +4886,7 @@ components:
         - tenantId
         - profileId
         - region
-        - resourceClass
+        - resourceTemplate
         - state
         - contextEpoch
         - browserGeneration
@@ -4924,8 +4926,8 @@ components:
             pattern: "^[a-zA-Z0-9_.-]{1,128}$"
         region:
           type: string
-        resourceClass:
-          $ref: "#/components/schemas/ResourceClass"
+        resourceTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
         state:
           $ref: "#/components/schemas/SessionState"
         nodeId:
@@ -6064,7 +6066,7 @@ components:
       additionalProperties: false
       required:
         - region
-        - resourceClass
+        - resourceTemplate
         - baseHourlyUsd
         - cpuCoreHourlyUsd
         - memoryGibHourlyUsd
@@ -6076,8 +6078,8 @@ components:
         region:
           type: string
           pattern: "^[a-z0-9-]{1,32}$"
-        resourceClass:
-          $ref: "#/components/schemas/ResourceClass"
+        resourceTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
         baseHourlyUsd:
           type: number
           minimum: 0
@@ -6105,7 +6107,7 @@ components:
       required:
         - pricingVersion
         - region
-        - resourceClass
+        - resourceTemplate
         - baseHourlyUsd
         - cpuCoreHourlyUsd
         - memoryGibHourlyUsd
@@ -6120,8 +6122,8 @@ components:
           type: string
         region:
           type: string
-        resourceClass:
-          $ref: "#/components/schemas/ResourceClass"
+        resourceTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
         baseHourlyUsd:
           type: number
         cpuCoreHourlyUsd:
@@ -6149,7 +6151,7 @@ components:
         - sessionId
         - nodeId
         - region
-        - resourceClass
+        - resourceTemplate
         - pricingVersion
         - cpuMillis
         - memoryRequestMib
@@ -6171,8 +6173,8 @@ components:
           type: string
         region:
           type: string
-        resourceClass:
-          $ref: "#/components/schemas/ResourceClass"
+        resourceTemplate:
+          $ref: "#/components/schemas/ResourceTemplate"
         pricingVersion:
           type: string
         cpuMillis:

@@ -22,6 +22,10 @@ describe('BrowserCloudClient', () => {
       idempotencyKey: 'idem-test',
     });
 
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.resourcePolicy).toEqual({ mode: 'AUTO' });
+    expect(body).not.toHaveProperty('resourceClass');
     expect(fetchMock).toHaveBeenCalledWith(
       'https://browsercloud.example/api/v1/sessions',
       expect.objectContaining({

@@ -41,8 +41,9 @@
   - `session_resource_samples`
   - `session_resource_events`
 - V023 为 V022 前已存在的 Session 回填 AUTO Policy，避免升级后出现资源详情 404。
-- Resource Class 和 `standard-v1`、`interactive-v1`、`heavy-v1`、
-  `native-standard-v1` 继续保留为内部 Placement 实现，不要求普通用户提交。
+- `standard-v1`、`interactive-v1`、`heavy-v1`、`native-standard-v1` 作为
+  Placement 模板；V048/进度 71 已使公开 API、Web 和 SDK 只使用模板名，Legacy
+  Resource Class 仅保留为 N−1 内部兼容维度。
 - 创建 Session 时同步创建 AUTO Policy 和已提交的真实
   `RESOURCE_ADJUSTMENT` Operation。
 - Placement 完成后将实际 Node、CPU、内存上限和内部模板写入资源事件。

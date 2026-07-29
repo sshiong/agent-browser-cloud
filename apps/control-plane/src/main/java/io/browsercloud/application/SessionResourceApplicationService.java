@@ -11,6 +11,7 @@ import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.coordinator.OperationFactory;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.capacity.ResourceTemplate;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.resource.*;
@@ -171,7 +172,7 @@ public class SessionResourceApplicationService {
         .ifPresent(
             policy -> {
               var old = policyMap(policy);
-              var template = templateFor(placement.effectiveResourceClass());
+              var template = placement.resolvedTemplate();
               policy.resolveTemplate(template, Instant.now());
               policies.save(policy);
               appendEvent(
@@ -1386,7 +1387,7 @@ public class SessionResourceApplicationService {
 
   private Map<String, Object> allocationMap(BrowserPlacementView placement) {
     return Map.ofEntries(
-        Map.entry("template", templateFor(placement.effectiveResourceClass())),
+        Map.entry("template", placement.resolvedTemplate()),
         Map.entry("cpuMillis", placement.cpuMillis()),
         Map.entry("memoryLimitMib", placement.memoryLimitMib()),
         Map.entry("stateCollectorBudgetPercent", placement.stateCollectorBudgetPercent()),
@@ -1492,12 +1493,7 @@ public class SessionResourceApplicationService {
   }
 
   private static String templateFor(ResourceClass resourceClass) {
-    return switch (resourceClass) {
-      case L0, L1, L2 -> "standard-v1";
-      case L3 -> "interactive-v1";
-      case L4 -> "heavy-v1";
-      case L5 -> "native-standard-v1";
-    };
+    return ResourceTemplate.from(resourceClass).id();
   }
 
   private static String newId(String prefix) {

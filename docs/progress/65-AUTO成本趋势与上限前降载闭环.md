@@ -46,7 +46,7 @@
 
 ```text
 真实 Placement
-→ Region + Effective Resource Class
+→ Region + Resolved Resource Template
 → 生效中的版本化 Cost Rate
 → CPU / Memory / Desktop / GPU / Media 分项
 → 持久 Cost Snapshot
@@ -122,8 +122,8 @@ REQUESTED
    [进度 69](69-AUTO-Observer帧率在线执行闭环.md)关闭；视频录制停止已由
    [进度 70](70-AUTO独立像素录制与停止执行闭环.md)关闭，Level 1 尚未覆盖截图
    频率；逐 Extension 后台暂停已由进度 67 关闭；
-2. 企业成本模型仍以内部 Legacy Resource Class 关联费率；应在兼容窗口内迁移为内部
-   Template/容量维度，避免在企业 UI 暴露 L1−L5；
+2. V048/进度 71 已将企业费率、成本解释和 UI 迁移为 Resource Template；旧
+   Resource Class 列只作为 N−1 滚动兼容保留，后续破坏性版本再删除；
 3. 目标云真实费率、账单校准、租户预算来源和长期成本准确性证书；
 4. 成本越界后的低成本 Node 选择与安全点迁移需要目标多 Node/多 Region 验收；
 5. Session Coordinator HTTP/Timer/Workflow 物理 Shard Pod 路由仍未完成。

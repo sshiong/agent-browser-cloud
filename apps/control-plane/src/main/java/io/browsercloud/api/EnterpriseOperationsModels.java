@@ -56,7 +56,11 @@ public final class EnterpriseOperationsModels {
 
   public record CreateCostRateRequest(
       @NotBlank @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,
-      @NotBlank @Pattern(regexp = "^L[0-5]$") String resourceClass,
+      @NotBlank
+          @Pattern(
+              regexp =
+                  "^(suspended-v1|standard-lite-v1|standard-v1|interactive-v1|heavy-v1|native-standard-v1)$")
+          String resourceTemplate,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal baseHourlyUsd,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal cpuCoreHourlyUsd,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal memoryGibHourlyUsd,
@@ -68,7 +72,7 @@ public final class EnterpriseOperationsModels {
   public record CostRateView(
       String pricingVersion,
       String region,
-      String resourceClass,
+      String resourceTemplate,
       BigDecimal baseHourlyUsd,
       BigDecimal cpuCoreHourlyUsd,
       BigDecimal memoryGibHourlyUsd,
@@ -83,7 +87,7 @@ public final class EnterpriseOperationsModels {
       String sessionId,
       String nodeId,
       String region,
-      String resourceClass,
+      String resourceTemplate,
       String pricingVersion,
       int cpuMillis,
       int memoryRequestMib,

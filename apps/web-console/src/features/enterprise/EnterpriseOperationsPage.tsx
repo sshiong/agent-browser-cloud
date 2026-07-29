@@ -282,7 +282,7 @@ function EnterpriseOverview({
             {data.costRates.slice(0, 6).map((rate) => (
               <Row
                 key={rate.pricingVersion}
-                title={`${rate.region} / ${rate.resourceClass}`}
+                title={`${rate.region} / ${rate.resourceTemplate}`}
                 subtitle={rate.pricingVersion}
                 value={`$${rate.baseHourlyUsd.toFixed(3)}/h`}
                 detail={relativeTime(rate.effectiveAt)}

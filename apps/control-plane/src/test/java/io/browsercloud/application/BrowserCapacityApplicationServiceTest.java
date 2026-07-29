@@ -51,7 +51,7 @@ class BrowserCapacityApplicationServiceTest {
 
   @BeforeEach
   void setUp() {
-    objectMapper = new ObjectMapper();
+    objectMapper = new ObjectMapper().findAndRegisterModules();
     service =
         new BrowserCapacityApplicationService(
             nodeRepository,
@@ -100,6 +100,11 @@ class BrowserCapacityApplicationServiceTest {
     assertThat(placement.reasonCodes()).contains("UNKNOWN_EXTENSION_PROBATION");
     assertThat(placement.cpuMillis()).isEqualTo(750);
     assertThat(placement.memoryRequestMib()).isEqualTo(1024);
+    var publicJson = objectMapper.writeValueAsString(placement);
+    assertThat(publicJson).contains("\"requestedTemplate\":\"standard-lite-v1\"");
+    assertThat(publicJson).contains("\"resolvedTemplate\":\"standard-v1\"");
+    assertThat(publicJson).doesNotContain("requestedResourceClass");
+    assertThat(publicJson).doesNotContain("effectiveResourceClass");
     assertThat(node.getActiveSessions()).isEqualTo(1);
     assertThat(node.getReservedMemoryMib()).isEqualTo(1024);
 

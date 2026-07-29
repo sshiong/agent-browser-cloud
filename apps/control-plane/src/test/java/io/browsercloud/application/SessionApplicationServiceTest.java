@@ -117,7 +117,7 @@ class SessionApplicationServiceTest {
     assertThat(view.agentPolicy()).isEqualTo(AgentPolicy.BALANCED);
     assertThat(view.extensionIds()).containsExactly("automation.extension");
     assertThat(view.region()).isEqualTo("local");
-    assertThat(view.resourceClass()).isEqualTo(ResourceClass.L2);
+    assertThat(view.resourceTemplate()).isEqualTo("standard-v1");
   }
 
   @Test

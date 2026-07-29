@@ -7,6 +7,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.browsercloud.application.AuditApplicationService.AuditRecord;
+import io.browsercloud.domain.capacity.ResourceTemplate;
+import io.browsercloud.domain.session.ResourceClass;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -182,17 +184,19 @@ public class EnterpriseOperationsApplicationService {
         "SELECT count(*) FROM enterprise_regions WHERE region_id = ?", request.region(), "Region");
     var version = "price_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
     var now = Instant.now();
+    var template = ResourceTemplate.parse(request.resourceTemplate());
     jdbc.update(
         """
         INSERT INTO enterprise_cost_rates(
-          pricing_version, region, resource_class, base_hourly_usd,
+          pricing_version, region, resource_class, resource_template, base_hourly_usd,
           cpu_core_hourly_usd, memory_gib_hourly_usd, desktop_hourly_usd,
           gpu_hourly_usd, media_hourly_usd, effective_at, created_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         version,
         request.region(),
-        request.resourceClass(),
+        template.legacyClass().name(),
+        template.id(),
         request.baseHourlyUsd(),
         request.cpuCoreHourlyUsd(),
         request.memoryGibHourlyUsd(),
@@ -235,12 +239,14 @@ public class EnterpriseOperationsApplicationService {
             .query(
                 """
                 SELECT * FROM enterprise_cost_rates
-                WHERE region = ? AND resource_class = ? AND effective_at <= ?
+                WHERE region = ? AND resource_template = ? AND effective_at <= ?
                 ORDER BY effective_at DESC LIMIT 1
                 """,
                 this::costRate,
                 placement.get("region"),
-                placement.get("effective_resource_class"),
+                ResourceTemplate.from(
+                        ResourceClass.valueOf((String) placement.get("effective_resource_class")))
+                    .id(),
                 placement.get("reserved_at"))
             .stream()
             .findFirst()
@@ -273,7 +279,7 @@ public class EnterpriseOperationsApplicationService {
         sessionId,
         (String) placement.get("node_id"),
         (String) placement.get("region"),
-        (String) placement.get("effective_resource_class"),
+        rate.resourceTemplate(),
         rate.pricingVersion(),
         cpuMillis,
         memoryMib,
@@ -925,18 +931,19 @@ public class EnterpriseOperationsApplicationService {
   /** 隔离/能力 Gate 先执行后才加入成本分，成本永远不能使不合格 Node 变为可选。 */
   @Transactional(readOnly = true)
   public int placementCostScore(String region, String resourceClass) {
+    var resourceTemplate = ResourceTemplate.from(ResourceClass.valueOf(resourceClass)).id();
     return jdbc
         .query(
             """
             SELECT base_hourly_usd + cpu_core_hourly_usd + memory_gib_hourly_usd AS score
             FROM enterprise_cost_rates
-            WHERE region = ? AND resource_class = ? AND effective_at <= now()
+            WHERE region = ? AND resource_template = ? AND effective_at <= now()
             ORDER BY effective_at DESC LIMIT 1
             """,
             (result, row) ->
                 result.getBigDecimal("score").multiply(BigDecimal.valueOf(1000)).intValue(),
             region,
-            resourceClass)
+            resourceTemplate)
         .stream()
         .findFirst()
         .orElse(0);
@@ -1170,7 +1177,7 @@ public class EnterpriseOperationsApplicationService {
     return new CostRateView(
         result.getString("pricing_version"),
         result.getString("region"),
-        result.getString("resource_class"),
+        result.getString("resource_template"),
         result.getBigDecimal("base_hourly_usd"),
         result.getBigDecimal("cpu_core_hourly_usd"),
         result.getBigDecimal("memory_gib_hourly_usd"),

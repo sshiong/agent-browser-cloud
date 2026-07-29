@@ -18,6 +18,10 @@ public final class BrowserCloudClientTest {
           require(uri.getPath().equals("/api/v1/sessions"), "unexpected path");
           require(headers.get("X-Tenant-Id").equals("tenant-a"), "missing tenant identity");
           require(headers.get("Idempotency-Key").equals("idem-1"), "missing idempotency");
+          require(
+              body.contains("\"resourcePolicy\":{\"mode\":\"AUTO\"}"),
+              "missing AUTO resource policy");
+          require(!body.contains("resourceClass"), "legacy resource class leaked");
           require(body.contains("\"mediaWorkload\":true"), "missing media flag");
           require(body.contains("\"requestedMediaStreams\":1"), "missing stream count");
           return new BrowserCloudClient.Response(200, "{\"sessionId\":\"ses_1234567890abcdef\"}");
@@ -29,7 +33,7 @@ public final class BrowserCloudClientTest {
             new BrowserCloudClient.CreateSessionInput(
                 "profile-a",
                 "local",
-                "L1",
+                Map.of("mode", "AUTO"),
                 1,
                 10,
                 List.of(),

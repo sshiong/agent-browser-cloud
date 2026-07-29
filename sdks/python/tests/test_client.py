@@ -32,6 +32,8 @@ class BrowserCloudClientTest(unittest.TestCase):
         self.assertEqual(headers["X-Actor-Id"], "operator-a")
         self.assertEqual(headers["Idempotency-Key"], "idem-test")
         self.assertEqual(body["profileId"], "profile-a")
+        self.assertEqual(body["resourcePolicy"], {"mode": "AUTO"})
+        self.assertNotIn("resourceClass", body)
 
     def test_preserves_structured_errors(self):
         def transport(method, url, headers, body):

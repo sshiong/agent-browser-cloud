@@ -9,7 +9,20 @@ export interface BrowserCloudClientOptions {
 export interface CreateSessionInput {
   profileId: string;
   region: string;
-  resourceClass?: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+  resourcePolicy?: {
+    mode: 'AUTO';
+    minimumTemplate?: 'standard-v1' | 'interactive-v1' | 'heavy-v1' | 'native-standard-v1';
+    maximumCpuMillis?: number;
+    maximumMemoryMib?: number;
+    maximumCostPerHour?: number;
+    allowMigration?: boolean;
+    allowHibernate?: boolean;
+    onMaximumReached?:
+      | 'PAUSE_AGENT'
+      | 'WAIT_SAFE_POINT_MIGRATE'
+      | 'HIBERNATE'
+      | 'TERMINATE_STRICT';
+  };
   requestedTabs?: number;
   agentActionsPerMinute?: number;
   extensionIds?: string[];
@@ -75,7 +88,7 @@ export class BrowserCloudClient {
         tenantId: this.tenantId,
         profileId: input.profileId,
         region: input.region,
-        resourceClass: input.resourceClass ?? 'L2',
+        resourcePolicy: input.resourcePolicy ?? { mode: 'AUTO' },
         requestedTabs: input.requestedTabs ?? 1,
         agentActionsPerMinute: input.agentActionsPerMinute ?? 0,
         extensionIds: input.extensionIds ?? [],

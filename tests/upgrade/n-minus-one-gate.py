@@ -419,6 +419,24 @@ for invariant in (
         f"video recording migration lacks rolling invariant: {invariant}"
     )
 
+resource_template_migration = read(
+    "database/migrations/V048__public_resource_template_pricing.sql"
+)
+resource_template_upper = resource_template_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE"):
+    assert forbidden not in resource_template_upper
+for invariant in (
+    "ADD COLUMN RESOURCE_TEMPLATE TEXT",
+    "CREATE TRIGGER TRG_ENTERPRISE_COST_RESOURCE_TEMPLATE",
+    "BEFORE INSERT OR UPDATE OF RESOURCE_CLASS, RESOURCE_TEMPLATE",
+    "ALTER COLUMN RESOURCE_TEMPLATE SET NOT NULL",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_ENTERPRISE_COST_RESOURCE_TEMPLATE",
+):
+    assert invariant in resource_template_upper, (
+        f"resource template migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -561,6 +579,9 @@ for optional in (
     "videoRecording",
 ):
     assert optional not in create_required
+assert "resourceClass" not in create
+assert "ResourceClass" not in openapi
+assert "enum: [L0, L1, L2, L3, L4, L5]" not in openapi
 
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
@@ -596,9 +617,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V047 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V048 additive",
     "protobuf": "unknown-fields-13-16,optional-28-36,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,recovery-extension-tag-6",
-    "json": "new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-optional",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

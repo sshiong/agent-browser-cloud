@@ -6,6 +6,9 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractApprovalNotFoundException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractApprovalRejectedException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractApprovalRequiredException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractNotFoundException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractVersionConflictException;
@@ -485,6 +488,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({
     RecoveryContractNotFoundException.class,
+    RecoveryContractApprovalNotFoundException.class,
     BusinessRecoveryValidationNotFoundException.class
   })
   ResponseEntity<ApiError> businessRecoveryNotFound(
@@ -515,6 +519,28 @@ public class GlobalExceptionHandler {
         HttpStatus.UNPROCESSABLE_ENTITY,
         "RECOVERY_CONTRACT_REJECTED",
         "Application Recovery Contract is invalid",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(RecoveryContractApprovalRequiredException.class)
+  ResponseEntity<ApiError> recoveryContractApprovalRequired(
+      RecoveryContractApprovalRequiredException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RECOVERY_CONTRACT_APPROVAL_REQUIRED",
+        "The exact Application Recovery Contract version is not approved",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecoveryContractApprovalRejectedException.class)
+  ResponseEntity<ApiError> recoveryContractApprovalRejected(
+      RecoveryContractApprovalRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RECOVERY_CONTRACT_APPROVAL_REJECTED",
+        "Application Recovery Contract approval cannot proceed",
         Map.of("reason", exception.getMessage()),
         request);
   }

@@ -171,6 +171,9 @@ export type BusinessRecoveryAction =
   | 'REFRESH_SESSION'
   | 'RESTART_EXTENSION';
 
+export type RecoveryContractApprovalState =
+  'DRAFT' | 'REQUESTED' | 'APPROVED' | 'REJECTED';
+
 export interface RecoveryContractView {
   contractId: string;
   applicationId: string;
@@ -188,6 +191,12 @@ export interface RecoveryContractView {
   recoveryExtensionId?: string;
   maximumAutoRecovery: number;
   enabled: boolean;
+  approvalState?: RecoveryContractApprovalState;
+  approvalId?: string;
+  approvalRequestedBy?: string;
+  approvedBy?: string;
+  approvalRequestedAt?: string;
+  approvalDecidedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -212,6 +221,26 @@ export interface UpsertRecoveryContractRequest {
   recoveryExtensionId?: string;
   maximumAutoRecovery: number;
   enabled: boolean;
+}
+
+export interface RequestRecoveryContractApprovalRequest {
+  expectedVersion: number;
+  reason: string;
+}
+
+export interface RecoveryContractApprovalView {
+  approvalId: string;
+  contractId: string;
+  applicationId: string;
+  contractVersion: number;
+  reason: string;
+  state: Exclude<RecoveryContractApprovalState, 'DRAFT'>;
+  requestedBy: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  requestedAt: string;
+  decidedAt?: string;
+  evidenceHash?: string;
 }
 
 export type BusinessRecoveryVerdict =

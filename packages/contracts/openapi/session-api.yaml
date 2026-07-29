@@ -526,6 +526,74 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/applications/{applicationId}/recovery-contract:request-approval:
+    post:
+      operationId: requestApplicationRecoveryContractApproval
+      summary: Request dual-control approval for the exact current contract version
+      description: >
+        Replays return the existing pending or approved decision for the same version.
+        Editing the contract creates a new version and invalidates the prior approval.
+      tags: [Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestRecoveryContractApprovalRequest"
+      responses:
+        "200":
+          description: Current approval request for the exact contract version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryContractApproval"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/applications/{applicationId}/recovery-contract-approvals/{approvalId}:approve:
+    post:
+      operationId: approveApplicationRecoveryContract
+      summary: Approve an exact contract version using a second administrator
+      tags: [Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/RecoveryContractApprovalId"
+      responses:
+        "200":
+          description: Approved contract-version evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryContractApproval"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/applications/{applicationId}/recovery-contract-approvals/{approvalId}:reject:
+    post:
+      operationId: rejectApplicationRecoveryContract
+      summary: Reject a pending exact-version contract approval
+      tags: [Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/RecoveryContractApprovalId"
+      responses:
+        "200":
+          description: Rejected contract-version decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryContractApproval"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}/resource-policy:
     patch:
       operationId: updateSessionResourcePolicy
@@ -2466,6 +2534,13 @@ components:
       schema:
         type: string
         pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+    RecoveryContractApprovalId:
+      name: approvalId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^ara_[a-zA-Z0-9]{20}$"
     ProfileId:
       name: profileId
       in: path
@@ -4198,6 +4273,22 @@ components:
           maximum: 10
         enabled:
           type: boolean
+        approvalState:
+          type: string
+          enum: [DRAFT, REQUESTED, APPROVED, REJECTED]
+        approvalId:
+          type: [string, "null"]
+          pattern: "^ara_[a-zA-Z0-9]{20}$"
+        approvalRequestedBy:
+          type: [string, "null"]
+        approvedBy:
+          type: [string, "null"]
+        approvalRequestedAt:
+          type: [string, "null"]
+          format: date-time
+        approvalDecidedAt:
+          type: [string, "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -4217,6 +4308,66 @@ components:
           type: integer
           format: int64
           minimum: 0
+    RequestRecoveryContractApprovalRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    RecoveryContractApproval:
+      type: object
+      additionalProperties: false
+      required:
+        - approvalId
+        - contractId
+        - applicationId
+        - contractVersion
+        - reason
+        - state
+        - requestedBy
+        - requestedAt
+      properties:
+        approvalId:
+          type: string
+          pattern: "^ara_[a-zA-Z0-9]{20}$"
+        contractId:
+          type: string
+          pattern: "^arc_[a-zA-Z0-9]{20}$"
+        applicationId:
+          type: string
+          pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+        contractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          maxLength: 500
+        state:
+          type: string
+          enum: [REQUESTED, APPROVED, REJECTED]
+        requestedBy:
+          type: string
+        approvedBy:
+          type: [string, "null"]
+        rejectedBy:
+          type: [string, "null"]
+        requestedAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: [string, "null"]
+          format: date-time
+        evidenceHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
     BusinessRecoveryValidation:
       type: object
       additionalProperties: false

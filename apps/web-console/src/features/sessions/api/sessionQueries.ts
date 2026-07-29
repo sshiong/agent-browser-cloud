@@ -19,6 +19,8 @@ import {
   streamSessionResourceChanges,
   listRecoveryContracts,
   upsertRecoveryContract,
+  requestRecoveryContractApproval,
+  decideRecoveryContractApproval,
   getBusinessRecovery,
   validateBusinessRecovery,
 } from '@/api/session';
@@ -29,6 +31,7 @@ import type {
   StateResyncRequest,
   ResourcePolicyRequest,
   UpsertRecoveryContractRequest,
+  RequestRecoveryContractApprovalRequest,
 } from '@/types/session';
 
 export const sessionKeys = {
@@ -184,6 +187,44 @@ export function useUpsertRecoveryContract() {
       applicationId: string;
       body: UpsertRecoveryContractRequest;
     }) => upsertRecoveryContract(applicationId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.recoveryContracts,
+      });
+    },
+  });
+}
+
+export function useRequestRecoveryContractApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      applicationId,
+      body,
+    }: {
+      applicationId: string;
+      body: RequestRecoveryContractApprovalRequest;
+    }) => requestRecoveryContractApproval(applicationId, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.recoveryContracts,
+      });
+    },
+  });
+}
+
+export function useDecideRecoveryContractApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      applicationId,
+      approvalId,
+      decision,
+    }: {
+      applicationId: string;
+      approvalId: string;
+      decision: 'approve' | 'reject';
+    }) => decideRecoveryContractApproval(applicationId, approvalId, decision),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: sessionKeys.recoveryContracts,

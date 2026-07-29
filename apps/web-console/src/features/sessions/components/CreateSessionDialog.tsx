@@ -802,7 +802,7 @@ export function CreateSessionDialog({
 
                   <Field
                     label="业务恢复契约"
-                    hint="可选。绑定后，迁移只有通过该应用的 Ready Gate 才会恢复 Agent。"
+                    hint="可选。仅展示已完成双人审批的精确版本；迁移通过该应用 Ready Gate 后才恢复 Agent。"
                   >
                     {recoveryContractsQuery.isLoading ? (
                       <LoadingBlock label="正在读取 Recovery Contracts" />
@@ -815,7 +815,11 @@ export function CreateSessionDialog({
                       >
                         <option value="">通用保守验证器</option>
                         {(recoveryContractsQuery.data?.items ?? [])
-                          .filter((contract) => contract.enabled)
+                          .filter(
+                            (contract) =>
+                              contract.enabled &&
+                              contract.approvalState === 'APPROVED'
+                          )
                           .map((contract) => (
                             <option
                               key={contract.contractId}

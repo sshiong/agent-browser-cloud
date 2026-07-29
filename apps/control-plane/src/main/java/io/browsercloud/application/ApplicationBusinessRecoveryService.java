@@ -12,6 +12,7 @@ import io.browsercloud.persistence.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class ApplicationBusinessRecoveryService {
   private static final TypeReference<List<TargetIndicator>> TARGET_LIST = new TypeReference<>() {};
 
   private final ApplicationRecoveryContractJpaRepository contracts;
+  private final ApplicationRecoveryContractApprovalJpaRepository approvals;
   private final SessionApplicationBindingJpaRepository bindings;
   private final BusinessRecoveryValidationJpaRepository validations;
   private final SessionRepository sessions;
@@ -37,10 +39,12 @@ public class ApplicationBusinessRecoveryService {
   private final BrowserCapacityApplicationService capacity;
   private final BusinessRecoveryValidator defaultValidator;
   private final IdempotencyService idempotency;
+  private final AuditApplicationService audit;
   private final ObjectMapper objectMapper;
 
   public ApplicationBusinessRecoveryService(
       ApplicationRecoveryContractJpaRepository contracts,
+      ApplicationRecoveryContractApprovalJpaRepository approvals,
       SessionApplicationBindingJpaRepository bindings,
       BusinessRecoveryValidationJpaRepository validations,
       SessionRepository sessions,
@@ -48,8 +52,10 @@ public class ApplicationBusinessRecoveryService {
       BrowserCapacityApplicationService capacity,
       BusinessRecoveryValidator defaultValidator,
       IdempotencyService idempotency,
+      AuditApplicationService audit,
       ObjectMapper objectMapper) {
     this.contracts = contracts;
+    this.approvals = approvals;
     this.bindings = bindings;
     this.validations = validations;
     this.sessions = sessions;
@@ -57,12 +63,24 @@ public class ApplicationBusinessRecoveryService {
     this.capacity = capacity;
     this.defaultValidator = defaultValidator;
     this.idempotency = idempotency;
+    this.audit = audit;
     this.objectMapper = objectMapper;
   }
 
   @Transactional
   public RecoveryContractView upsertContract(
       String tenantId, String applicationId, UpsertRecoveryContractRequest request, Instant now) {
+    return upsertContract(tenantId, applicationId, request, "system:internal", "", now);
+  }
+
+  @Transactional
+  public RecoveryContractView upsertContract(
+      String tenantId,
+      String applicationId,
+      UpsertRecoveryContractRequest request,
+      String actorId,
+      String requestId,
+      Instant now) {
     validateApplicationId(applicationId);
     var normalized = normalize(request);
     var existing = contracts.findForUpdate(tenantId, applicationId);
@@ -89,13 +107,15 @@ public class ApplicationBusinessRecoveryService {
               normalized.maximumAutoRecovery(),
               normalized.enabled(),
               now);
-      return toView(contracts.saveAndFlush(entity));
+      var saved = contracts.saveAndFlush(entity);
+      appendContractAudit(saved, actorId, requestId, "RECOVERY_CONTRACT_CREATED");
+      return toView(saved, Optional.empty());
     }
 
     var entity = existing.orElseThrow();
     if (entity.getVersion() != request.expectedVersion()) {
       if (sameConfiguration(entity, normalized)) {
-        return toView(entity);
+        return toView(entity, currentApproval(entity));
       }
       throw new RecoveryContractVersionConflictException();
     }
@@ -114,27 +134,157 @@ public class ApplicationBusinessRecoveryService {
         normalized.maximumAutoRecovery(),
         normalized.enabled(),
         now);
-    return toView(contracts.saveAndFlush(entity));
+    var saved = contracts.saveAndFlush(entity);
+    appendContractAudit(saved, actorId, requestId, "RECOVERY_CONTRACT_VERSION_PUBLISHED");
+    return toView(saved, currentApproval(saved));
   }
 
   @Transactional(readOnly = true)
   public RecoveryContractView getContract(String tenantId, String applicationId) {
-    return contracts
-        .findByTenantIdAndApplicationId(tenantId, applicationId)
-        .map(this::toView)
-        .orElseThrow(RecoveryContractNotFoundException::new);
+    var contract =
+        contracts
+            .findByTenantIdAndApplicationId(tenantId, applicationId)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    return toView(contract, currentApproval(contract));
   }
 
   @Transactional(readOnly = true)
   public RecoveryContractListResponse listContracts(String tenantId) {
+    var latestApprovals =
+        new HashMap<ContractVersionKey, ApplicationRecoveryContractApprovalEntity>();
+    approvals.findAllByTenantIdOrderByRequestedAtDesc(tenantId).stream()
+        .forEach(
+            approval ->
+                latestApprovals.putIfAbsent(
+                    new ContractVersionKey(approval.getContractId(), approval.getContractVersion()),
+                    approval));
     var items =
         contracts.findAllByTenantIdOrderByApplicationIdAsc(tenantId).stream()
-            .map(this::toView)
+            .map(
+                contract ->
+                    toView(
+                        contract,
+                        Optional.ofNullable(
+                            latestApprovals.get(
+                                new ContractVersionKey(
+                                    contract.getContractId(), contract.getVersion())))))
             .toList();
     return new RecoveryContractListResponse(items, items.size());
   }
 
-  /** Binds a Session to an enabled contract in the same transaction as Session creation. */
+  @Transactional
+  public RecoveryContractApprovalView requestApproval(
+      String tenantId,
+      String applicationId,
+      RequestRecoveryContractApprovalRequest request,
+      String actorId,
+      String requestId,
+      Instant now) {
+    validateApplicationId(applicationId);
+    var contract =
+        contracts
+            .findForUpdate(tenantId, applicationId)
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    if (contract.getVersion() != request.expectedVersion()) {
+      throw new RecoveryContractVersionConflictException();
+    }
+    if (!contract.isEnabled()) {
+      throw new RecoveryContractApprovalRejectedException("DISABLED_CONTRACT_CANNOT_BE_APPROVED");
+    }
+    var approved =
+        approvals.findByTenantIdAndContractIdAndContractVersionAndState(
+            tenantId, contract.getContractId(), contract.getVersion(), "APPROVED");
+    if (approved.isPresent()) {
+      return toApprovalView(approved.orElseThrow());
+    }
+    var pending =
+        approvals.findByTenantIdAndContractIdAndContractVersionAndState(
+            tenantId, contract.getContractId(), contract.getVersion(), "REQUESTED");
+    if (pending.isPresent()) {
+      return toApprovalView(pending.orElseThrow());
+    }
+    var approval =
+        new ApplicationRecoveryContractApprovalEntity(
+            newId("ara_"),
+            tenantId,
+            contract.getContractId(),
+            applicationId,
+            contract.getVersion(),
+            AgentDataMinimizer.redact(request.reason().strip()),
+            actorId,
+            now.truncatedTo(ChronoUnit.MICROS));
+    approval = approvals.saveAndFlush(approval);
+    appendApprovalAudit(
+        approval, actorId, requestId, "RECOVERY_CONTRACT_APPROVAL_REQUESTED", "PENDING");
+    return toApprovalView(approval);
+  }
+
+  @Transactional
+  public RecoveryContractApprovalView approve(
+      String tenantId,
+      String applicationId,
+      String approvalId,
+      String actorId,
+      String requestId,
+      Instant now) {
+    var approval = requireApprovalForUpdate(tenantId, applicationId, approvalId);
+    if ("APPROVED".equals(approval.getState())) {
+      return toApprovalView(approval);
+    }
+    requireRequested(approval);
+    if (approval.getRequestedBy().equals(actorId)) {
+      audit.appendIndependent(
+          approvalAuditRecord(
+              approval,
+              actorId,
+              requestId,
+              "RECOVERY_CONTRACT_APPROVAL_DENIED",
+              "SEPARATION_OF_DUTIES"));
+      throw new RecoveryContractApprovalRejectedException("REQUESTER_CANNOT_APPROVE");
+    }
+    var contract =
+        contracts
+            .findForUpdate(tenantId, applicationId)
+            .filter(item -> item.getContractId().equals(approval.getContractId()))
+            .orElseThrow(RecoveryContractNotFoundException::new);
+    if (!contract.isEnabled() || contract.getVersion() != approval.getContractVersion()) {
+      audit.appendIndependent(
+          approvalAuditRecord(
+              approval,
+              actorId,
+              requestId,
+              "RECOVERY_CONTRACT_APPROVAL_DENIED",
+              "CONTRACT_VERSION_CHANGED"));
+      throw new RecoveryContractApprovalRejectedException("CONTRACT_VERSION_CHANGED");
+    }
+    var decidedAt = now.truncatedTo(ChronoUnit.MICROS);
+    approval.approve(
+        actorId, approvalEvidenceHash(contract, approval, actorId, decidedAt), decidedAt);
+    approvals.save(approval);
+    appendApprovalAudit(approval, actorId, requestId, "RECOVERY_CONTRACT_APPROVED", "APPROVED");
+    return toApprovalView(approval);
+  }
+
+  @Transactional
+  public RecoveryContractApprovalView reject(
+      String tenantId,
+      String applicationId,
+      String approvalId,
+      String actorId,
+      String requestId,
+      Instant now) {
+    var approval = requireApprovalForUpdate(tenantId, applicationId, approvalId);
+    if ("REJECTED".equals(approval.getState())) {
+      return toApprovalView(approval);
+    }
+    requireRequested(approval);
+    approval.reject(actorId, now.truncatedTo(ChronoUnit.MICROS));
+    approvals.save(approval);
+    appendApprovalAudit(approval, actorId, requestId, "RECOVERY_CONTRACT_REJECTED", "REJECTED");
+    return toApprovalView(approval);
+  }
+
+  /** Binds a Session to an enabled, approved contract version in the creation transaction. */
   @Transactional
   public void bind(String sessionId, String tenantId, String applicationId, Instant now) {
     if (applicationId == null || applicationId.isBlank()) {
@@ -146,9 +296,15 @@ public class ApplicationBusinessRecoveryService {
             .findByTenantIdAndApplicationId(tenantId, applicationId)
             .filter(ApplicationRecoveryContractEntity::isEnabled)
             .orElseThrow(RecoveryContractNotFoundException::new);
+    requireApproved(contract);
     bindings.save(
         new SessionApplicationBindingEntity(
-            sessionId, tenantId, applicationId, contract.getContractId(), now));
+            sessionId,
+            tenantId,
+            applicationId,
+            contract.getContractId(),
+            contract.getVersion(),
+            now));
   }
 
   @Transactional
@@ -180,7 +336,9 @@ public class ApplicationBusinessRecoveryService {
                 contracts
                     .findById(binding.getContractId())
                     .filter(item -> item.getTenantId().equals(tenantId))
-                    .filter(ApplicationRecoveryContractEntity::isEnabled))
+                    .filter(ApplicationRecoveryContractEntity::isEnabled)
+                    .filter(item -> item.getVersion() == binding.getContractVersion())
+                    .filter(this::isApproved))
         .map(
             contract ->
                 new AutoRecoveryPolicy(
@@ -240,12 +398,7 @@ public class ApplicationBusinessRecoveryService {
       evaluation = evaluateDefault(snapshot.state());
     } else {
       var currentBinding = binding.orElseThrow();
-      contract =
-          contracts
-              .findById(currentBinding.getContractId())
-              .filter(item -> item.getTenantId().equals(tenantId))
-              .filter(ApplicationRecoveryContractEntity::isEnabled)
-              .orElseThrow(RecoveryContractNotFoundException::new);
+      contract = requireApprovedBindingContract(currentBinding, tenantId);
       evaluation = evaluateContract(contract, snapshot.state(), sessionId, tenantId);
     }
     var entity =
@@ -422,7 +575,10 @@ public class ApplicationBusinessRecoveryService {
         && entity.isEnabled() == value.enabled();
   }
 
-  private RecoveryContractView toView(ApplicationRecoveryContractEntity entity) {
+  private RecoveryContractView toView(
+      ApplicationRecoveryContractEntity entity,
+      Optional<ApplicationRecoveryContractApprovalEntity> approval) {
+    var currentApproval = approval.orElse(null);
     return new RecoveryContractView(
         entity.getContractId(),
         entity.getApplicationId(),
@@ -440,8 +596,164 @@ public class ApplicationBusinessRecoveryService {
         entity.getRecoveryExtensionId(),
         entity.getMaximumAutoRecovery(),
         entity.isEnabled(),
+        currentApproval == null
+            ? RecoveryContractApprovalState.DRAFT
+            : RecoveryContractApprovalState.valueOf(currentApproval.getState()),
+        currentApproval == null ? null : currentApproval.getApprovalId(),
+        currentApproval == null ? null : currentApproval.getRequestedBy(),
+        currentApproval == null ? null : currentApproval.getApprovedBy(),
+        currentApproval == null ? null : currentApproval.getRequestedAt(),
+        currentApproval == null ? null : currentApproval.getDecidedAt(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
+  }
+
+  private Optional<ApplicationRecoveryContractApprovalEntity> currentApproval(
+      ApplicationRecoveryContractEntity contract) {
+    return approvals.findFirstByTenantIdAndContractIdAndContractVersionOrderByRequestedAtDesc(
+        contract.getTenantId(), contract.getContractId(), contract.getVersion());
+  }
+
+  private boolean isApproved(ApplicationRecoveryContractEntity contract) {
+    return approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+        contract.getTenantId(), contract.getContractId(), contract.getVersion(), "APPROVED");
+  }
+
+  private void requireApproved(ApplicationRecoveryContractEntity contract) {
+    if (!isApproved(contract)) {
+      throw new RecoveryContractApprovalRequiredException();
+    }
+  }
+
+  private ApplicationRecoveryContractEntity requireApprovedBindingContract(
+      SessionApplicationBindingEntity binding, String tenantId) {
+    var contract =
+        contracts
+            .findById(binding.getContractId())
+            .filter(item -> item.getTenantId().equals(tenantId))
+            .filter(ApplicationRecoveryContractEntity::isEnabled)
+            .filter(item -> item.getVersion() == binding.getContractVersion())
+            .orElseThrow(RecoveryContractApprovalRequiredException::new);
+    requireApproved(contract);
+    return contract;
+  }
+
+  private ApplicationRecoveryContractApprovalEntity requireApprovalForUpdate(
+      String tenantId, String applicationId, String approvalId) {
+    validateApplicationId(applicationId);
+    return approvals
+        .findForUpdate(approvalId, tenantId, applicationId)
+        .orElseThrow(RecoveryContractApprovalNotFoundException::new);
+  }
+
+  private static void requireRequested(ApplicationRecoveryContractApprovalEntity approval) {
+    if (!"REQUESTED".equals(approval.getState())) {
+      throw new RecoveryContractApprovalRejectedException(
+          "INVALID_APPROVAL_STATE_" + approval.getState());
+    }
+  }
+
+  private void appendContractAudit(
+      ApplicationRecoveryContractEntity contract, String actorId, String requestId, String action) {
+    audit.append(
+        new AuditApplicationService.AuditRecord(
+            contract.getTenantId(),
+            null,
+            "RECOVERY_CONTRACT",
+            "USER",
+            actorId,
+            "APPLICATION_RECOVERY_CONTRACT",
+            contract.getContractId(),
+            action,
+            "SUCCESS",
+            Map.of(
+                "applicationId", contract.getApplicationId(),
+                "contractVersion", contract.getVersion(),
+                "enabled", contract.isEnabled()),
+            requestId));
+  }
+
+  private void appendApprovalAudit(
+      ApplicationRecoveryContractApprovalEntity approval,
+      String actorId,
+      String requestId,
+      String action,
+      String result) {
+    audit.append(approvalAuditRecord(approval, actorId, requestId, action, result));
+  }
+
+  private static AuditApplicationService.AuditRecord approvalAuditRecord(
+      ApplicationRecoveryContractApprovalEntity approval,
+      String actorId,
+      String requestId,
+      String action,
+      String result) {
+    return new AuditApplicationService.AuditRecord(
+        approval.getTenantId(),
+        null,
+        "RECOVERY_CONTRACT_APPROVAL",
+        "USER",
+        actorId,
+        "APPLICATION_RECOVERY_CONTRACT",
+        approval.getContractId(),
+        action,
+        result,
+        Map.of(
+            "approvalId", approval.getApprovalId(),
+            "applicationId", approval.getApplicationId(),
+            "contractVersion", approval.getContractVersion(),
+            "requestedBy", approval.getRequestedBy()),
+        requestId);
+  }
+
+  private static String approvalEvidenceHash(
+      ApplicationRecoveryContractEntity contract,
+      ApplicationRecoveryContractApprovalEntity approval,
+      String actorId,
+      Instant decidedAt) {
+    return PromptSecurityService.sha256(
+        String.join(
+            "|",
+            approval.getApprovalId(),
+            contract.getTenantId(),
+            contract.getContractId(),
+            contract.getApplicationId(),
+            Long.toString(contract.getVersion()),
+            contract.getExpectedOrigins(),
+            contract.getReadyRoutePrefixes(),
+            contract.getLoginRoutePrefixes(),
+            contract.getRequiredTargets(),
+            contract.getLoginTargets(),
+            contract.getPermissionDeniedTargets(),
+            contract.getAccountMismatchTargets(),
+            contract.getRequiredExtensionIds(),
+            Boolean.toString(contract.isAllowDepthLimited()),
+            contract.getRecoveryAction(),
+            Objects.toString(contract.getRecoveryExtensionId(), ""),
+            Integer.toString(contract.getMaximumAutoRecovery()),
+            Boolean.toString(contract.isEnabled()),
+            approval.getReason(),
+            approval.getRequestedBy(),
+            actorId,
+            approval.getRequestedAt().toString(),
+            decidedAt.toString()));
+  }
+
+  private static RecoveryContractApprovalView toApprovalView(
+      ApplicationRecoveryContractApprovalEntity approval) {
+    return new RecoveryContractApprovalView(
+        approval.getApprovalId(),
+        approval.getContractId(),
+        approval.getApplicationId(),
+        approval.getContractVersion(),
+        approval.getReason(),
+        RecoveryContractApprovalState.valueOf(approval.getState()),
+        approval.getRequestedBy(),
+        approval.getApprovedBy(),
+        approval.getRejectedBy(),
+        approval.getRequestedAt(),
+        approval.getDecidedAt(),
+        approval.getEvidenceHash());
   }
 
   private BusinessRecoveryValidationView toValidationView(BusinessRecoveryValidationEntity entity) {
@@ -629,6 +941,8 @@ public class ApplicationBusinessRecoveryService {
 
   private record Evaluation(Verdict verdict, boolean ready, List<String> evidence) {}
 
+  private record ContractVersionKey(String contractId, long contractVersion) {}
+
   private record NormalizedContract(
       List<String> expectedOrigins,
       List<String> readyRoutePrefixes,
@@ -663,6 +977,16 @@ public class ApplicationBusinessRecoveryService {
   public static final class RecoveryContractNotFoundException extends RuntimeException {}
 
   public static final class RecoveryContractVersionConflictException extends RuntimeException {}
+
+  public static final class RecoveryContractApprovalRequiredException extends RuntimeException {}
+
+  public static final class RecoveryContractApprovalNotFoundException extends RuntimeException {}
+
+  public static final class RecoveryContractApprovalRejectedException extends RuntimeException {
+    public RecoveryContractApprovalRejectedException(String message) {
+      super(message);
+    }
+  }
 
   public static final class RecoveryContractRejectedException extends RuntimeException {
     public RecoveryContractRejectedException(String message) {

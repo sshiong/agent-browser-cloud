@@ -1,7 +1,8 @@
 # Application Recovery Contract 作者工作区
 
 > 完成日期：2026-07-28
-> 状态：正式 API Client、版本化作者 UI、前端边界校验、错误状态与浏览器验收已完成
+> 状态：正式 API Client、版本化作者 UI、前端边界校验、错误状态与浏览器验收已完成；
+> 双人审批、精确版本固定与审计后续已在进度 73 关闭
 
 ## 本轮关闭的缺口
 
@@ -68,8 +69,11 @@ PUT /api/v1/applications/{applicationId}/recovery-contract
 
 ## 明确未完成
 
-1. Contract 双人审批、发布状态与变更审计事件；
-2. 版本差异预览、回滚到历史版本和独立 Business Recovery 事件流；
+Contract 双人审批、发布状态、精确 Session 版本固定和变更审计已在
+[进度 73](73-Application-Recovery-Contract版本审批与审计闭环.md)关闭。当前仍缺：
+
+1. 不可变历史正文、版本差异预览、回滚和既有 Session 显式 Rebind Operation；
+2. 独立 Business Recovery 统一事件流；
 3. 支付、账号安全、SPA/Form、关键业务事务等站点 Adapter/SDK 实际接入；
 4. Provider/API 级账号、权限和业务实体恢复证明；
 5. 真实双 Browser Node、Object Storage、网络分区和目标云长期验收。

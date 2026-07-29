@@ -9,6 +9,8 @@ import {
   listRecoveryContracts,
   listSessions,
   requestHumanTakeover,
+  requestRecoveryContractApproval,
+  decideRecoveryContractApproval,
   releaseSessionSafetyLease,
   resyncBrowserState,
   SessionApiError,
@@ -283,6 +285,7 @@ describe('session API', () => {
       recoveryAction: 'RELOAD',
       maximumAutoRecovery: 1,
       enabled: true,
+      approvalState: 'DRAFT',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -323,6 +326,57 @@ describe('session API', () => {
           'X-Tenant-Id': 'tenant-test',
         }),
       })
+    );
+  });
+
+  it('requests and decides an exact-version recovery contract approval', async () => {
+    const approval = {
+      approvalId: 'ara_1234567890abcdefghij',
+      contractId: 'arc_1234567890abcdefghij',
+      applicationId: 'crm.singapore',
+      contractVersion: 3,
+      reason: 'Production gate',
+      state: 'REQUESTED',
+      requestedBy: 'admin-a',
+      requestedAt: new Date().toISOString(),
+    };
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(approval), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await requestRecoveryContractApproval(
+      'crm.singapore',
+      { expectedVersion: 3, reason: 'Production gate' },
+      'tenant-test'
+    );
+    await decideRecoveryContractApproval(
+      'crm.singapore',
+      approval.approvalId,
+      'approve',
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/applications/crm.singapore/recovery-contract:request-approval',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          expectedVersion: 3,
+          reason: 'Production gate',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/applications/crm.singapore/recovery-contract-approvals/ara_1234567890abcdefghij:approve',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 

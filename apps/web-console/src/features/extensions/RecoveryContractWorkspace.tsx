@@ -8,17 +8,22 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Send,
   ShieldCheck,
   Trash2,
+  XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { isSessionApiError } from '@/api/session';
 import {
+  useDecideRecoveryContractApproval,
   useRecoveryContracts,
+  useRequestRecoveryContractApproval,
   useUpsertRecoveryContract,
 } from '@/features/sessions/api/sessionQueries';
+import { useAuth } from '@/auth/AuthProvider';
 import {
   EmptyState,
   ErrorState,
@@ -44,6 +49,27 @@ import {
 const applicationIdPattern = /^[a-zA-Z0-9_.-]{1,128}$/;
 const extensionIdPattern = /^[a-zA-Z0-9_.-]{1,128}$/;
 const targetRolePattern = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+
+function approvalStateLabel(state: RecoveryContractView['approvalState']) {
+  switch (state) {
+    case 'APPROVED':
+      return 'APPROVED';
+    case 'REQUESTED':
+      return 'PENDING APPROVAL';
+    case 'REJECTED':
+      return 'REJECTED';
+    default:
+      return 'DRAFT · NOT APPROVED';
+  }
+}
+
+function formatApprovalTime(value?: string) {
+  if (!value) return 'TIME UNAVAILABLE';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? 'TIME UNAVAILABLE'
+    : parsed.toLocaleString();
+}
 
 const targetSchema = z.object({
   role: z
@@ -333,6 +359,20 @@ function ContractIndex({
                     </span>
                     <span>{contract.maximumAutoRecovery} ATTEMPT</span>
                   </span>
+                  <span
+                    className={cn(
+                      'mt-1 inline-flex px-1.5 py-0.5 font-mono text-[8px]',
+                      contract.approvalState === 'APPROVED'
+                        ? 'bg-success/10 text-success'
+                        : contract.approvalState === 'REQUESTED'
+                          ? 'bg-warning/10 text-warning'
+                          : contract.approvalState === 'REJECTED'
+                            ? 'bg-danger/10 text-danger'
+                            : 'bg-surface-3 text-text-muted'
+                    )}
+                  >
+                    {approvalStateLabel(contract.approvalState)}
+                  </span>
                   <span className="mt-1 block truncate text-[9px] text-text-muted">
                     {contract.expectedOrigins.join(', ')}
                   </span>
@@ -359,6 +399,10 @@ function ContractEditor({
   onSaved: (contract: RecoveryContractView) => void;
   onConflictRefresh: () => void;
 }) {
+  const auth = useAuth();
+  const approvalRequest = useRequestRecoveryContractApproval();
+  const approvalDecision = useDecideRecoveryContractApproval();
+  const [approvalReason, setApprovalReason] = useState('');
   const {
     register,
     handleSubmit,
@@ -404,8 +448,31 @@ function ContractEditor({
       body: recoveryContractRequest(formValues, contract?.version ?? 0),
     });
     reset(recoveryContractToForm(saved));
+    approvalRequest.reset();
+    approvalDecision.reset();
     onSaved(saved);
   });
+
+  const requestApproval = async () => {
+    if (!contract || !approvalReason.trim()) return;
+    await approvalRequest.mutateAsync({
+      applicationId: contract.applicationId,
+      body: {
+        expectedVersion: contract.version,
+        reason: approvalReason.trim(),
+      },
+    });
+    setApprovalReason('');
+  };
+
+  const decideApproval = async (decision: 'approve' | 'reject') => {
+    if (!contract?.approvalId) return;
+    await approvalDecision.mutateAsync({
+      applicationId: contract.applicationId,
+      approvalId: contract.approvalId,
+      decision,
+    });
+  };
 
   const setTargets = (
     field:
@@ -427,6 +494,22 @@ function ContractEditor({
                 ? `${contract.applicationId} / v${contract.version}`
                 : 'NEW_CONTRACT / v0'}
             </span>
+            {contract && (
+              <span
+                className={cn(
+                  'px-2 py-0.5 font-mono text-[9px]',
+                  contract.approvalState === 'APPROVED'
+                    ? 'bg-success/10 text-success'
+                    : contract.approvalState === 'REQUESTED'
+                      ? 'bg-warning/10 text-warning'
+                      : contract.approvalState === 'REJECTED'
+                        ? 'bg-danger/10 text-danger'
+                        : 'bg-surface-3 text-text-muted'
+                )}
+              >
+                {approvalStateLabel(contract.approvalState)}
+              </span>
+            )}
             {isDirty && (
               <span className="bg-warning/10 px-2 py-0.5 text-[9px] text-warning">
                 UNSAVED
@@ -452,6 +535,143 @@ function ContractEditor({
       </header>
 
       <div className="space-y-5 p-4 sm:p-5">
+        {contract && (
+          <section
+            aria-label="恢复契约审批"
+            className="border border-border-subtle bg-surface-2"
+          >
+            <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-accent" />
+                  <h3 className="text-[11px] font-semibold text-text-primary">
+                    版本审批与审计 Gate
+                  </h3>
+                </div>
+                <p className="mt-1 max-w-2xl text-[9px] leading-4 text-text-muted">
+                  Session
+                  只能绑定当前已审批版本。发布任何修改都会形成新版本并恢复为
+                  DRAFT；申请人与审批人必须是不同管理员。
+                </p>
+              </div>
+              <span className="font-mono text-[9px] text-text-muted">
+                VERSION {contract.version}
+              </span>
+            </div>
+
+            <div className="space-y-3 px-4 py-3">
+              {contract.approvalState === 'APPROVED' ? (
+                <div className="flex items-start gap-3 bg-success/8 px-3 py-2.5">
+                  <CheckCircle2 size={15} className="mt-0.5 text-success" />
+                  <div className="text-[10px]">
+                    <p className="font-semibold text-success">
+                      当前版本已批准，可供新 Session 固化绑定
+                    </p>
+                    <p className="mt-1 font-mono text-[9px] text-text-muted">
+                      APPROVED BY {contract.approvedBy ?? 'UNKNOWN'} ·{' '}
+                      {formatApprovalTime(contract.approvalDecidedAt)}
+                    </p>
+                  </div>
+                </div>
+              ) : contract.approvalState === 'REQUESTED' ? (
+                <div className="space-y-3">
+                  <div className="bg-warning/8 px-3 py-2.5 text-[10px]">
+                    <p className="font-semibold text-warning">
+                      等待第二位管理员审批
+                    </p>
+                    <p className="mt-1 font-mono text-[9px] text-text-muted">
+                      REQUESTED BY {contract.approvalRequestedBy ?? 'UNKNOWN'} ·{' '}
+                      {formatApprovalTime(contract.approvalRequestedAt)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        approvalDecision.isPending ||
+                        contract.approvalRequestedBy === auth.identity?.actorId
+                      }
+                      onClick={() => void decideApproval('approve')}
+                      title={
+                        contract.approvalRequestedBy === auth.identity?.actorId
+                          ? '申请人不能批准自己的版本'
+                          : '批准当前精确版本'
+                      }
+                      className="inline-flex h-9 items-center gap-2 bg-success px-3 text-[10px] font-semibold text-canvas disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {approvalDecision.isPending ? (
+                        <LoaderCircle size={13} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={13} />
+                      )}
+                      批准当前版本
+                    </button>
+                    <button
+                      type="button"
+                      disabled={approvalDecision.isPending}
+                      onClick={() => void decideApproval('reject')}
+                      className="inline-flex h-9 items-center gap-2 border border-danger/40 px-3 text-[10px] font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <XCircle size={13} />
+                      拒绝
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <Field
+                    label={
+                      contract.approvalState === 'REJECTED'
+                        ? '重新申请原因'
+                        : '审批原因'
+                    }
+                    hint="最多 500 字；写入持久审批记录和哈希审计链。"
+                  >
+                    <textarea
+                      value={approvalReason}
+                      onChange={(event) =>
+                        setApprovalReason(event.target.value.slice(0, 500))
+                      }
+                      disabled={isDirty || approvalRequest.isPending}
+                      className="min-h-20 w-full resize-y border border-border-subtle bg-surface-1 px-3 py-2 text-[11px] text-text-primary outline-none focus:border-accent disabled:opacity-55"
+                      placeholder="说明目标站点、验证证据和上线范围"
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    disabled={
+                      isDirty ||
+                      approvalRequest.isPending ||
+                      !approvalReason.trim()
+                    }
+                    onClick={() => void requestApproval()}
+                    className="inline-flex h-9 self-end items-center justify-center gap-2 bg-accent px-4 text-[10px] font-semibold text-canvas disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {approvalRequest.isPending ? (
+                      <LoaderCircle size={13} className="animate-spin" />
+                    ) : (
+                      <Send size={13} />
+                    )}
+                    提交双人审批
+                  </button>
+                </div>
+              )}
+
+              {(approvalRequest.error || approvalDecision.error) && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 border border-danger/30 bg-danger/8 px-3 py-2 text-[10px] text-danger"
+                >
+                  <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                  <span>
+                    {(approvalRequest.error ?? approvalDecision.error)?.message}
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="grid gap-4 lg:grid-cols-2">
           <Field
             label="Application ID"

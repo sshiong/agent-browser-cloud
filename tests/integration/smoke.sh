@@ -134,6 +134,26 @@ python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
   "$proxy_port" "$temp_dir/proxy-events.jsonl" \
   >"$temp_dir/proxy.log" 2>&1 &
 proxy_pid=$!
+proxy_ready="false"
+for _ in $(seq 1 40); do
+  if python3 - "$proxy_port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.2):
+    pass
+PY
+  then
+    proxy_ready="true"
+    break
+  fi
+  if ! kill -0 "$proxy_pid" 2>/dev/null; then break; fi
+  sleep 0.1
+done
+if [[ "$proxy_ready" != "true" ]]; then
+  echo "Fake HTTP proxy did not become ready." >&2
+  exit 1
+fi
 
 start_network_helper() {
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
@@ -703,7 +723,7 @@ recovery_contract="$(curl -fsS -X PUT \
   -H 'X-Roles: TENANT_ADMIN' \
   -d "$recovery_contract_body")"
 printf '%s' "$recovery_contract" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1'
+  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["approvalState"] == "DRAFT"'
 recovery_contract_replay="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -717,6 +737,62 @@ recovery_contract_cross_tenant_status="$(curl -sS \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'X-Tenant-Id: different-tenant')"
 test "$recovery_contract_cross_tenant_status" = "404"
+
+unapproved_contract_session_status="$(curl -sS \
+  -o "$temp_dir/unapproved-contract-session.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-unapproved-contract-001' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-unapproved-contract","runtimeBuildId":"runtime_local_chromium","applicationId":"crm.integration"}')"
+test "$unapproved_contract_session_status" = "409"
+python3 - "$temp_dir/unapproved-contract-session.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    error = json.load(handle)
+assert error["code"] == "RECOVERY_CONTRACT_APPROVAL_REQUIRED"
+PY
+
+recovery_approval_request="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract:request-approval" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":1,"reason":"Integration production recovery gate"}')"
+recovery_approval_id="$(printf '%s' "$recovery_approval_request" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["contractVersion"] == 1; assert item["state"] == "REQUESTED"; assert item["requestedBy"] == "contract-author"; print(item["approvalId"])')"
+recovery_approval_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract:request-approval" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":1,"reason":"Integration production recovery gate"}')"
+replayed_recovery_approval_id="$(printf '%s' "$recovery_approval_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["approvalId"])')"
+test "$recovery_approval_id" = "$replayed_recovery_approval_id"
+same_actor_approval_status="$(curl -sS \
+  -o "$temp_dir/same-actor-recovery-approval.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract-approvals/${recovery_approval_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$same_actor_approval_status" = "409"
+approved_recovery_contract="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract-approvals/${recovery_approval_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-approver' \
+  -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$approved_recovery_contract" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "APPROVED"; assert item["approvedBy"] == "contract-approver"; assert len(item["evidenceHash"]) == 64'
+approved_contract_view="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$approved_contract_view" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['approvalState'] == 'APPROVED'; assert item['approvalId'] == '${recovery_approval_id}'; assert item['approvalRequestedBy'] == 'contract-author'; assert item['approvedBy'] == 'contract-approver'"
 
 workspace_group="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -1314,12 +1390,87 @@ auto_recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-author' \
   -H 'X-Roles: TENANT_ADMIN' \
   -d "$auto_recovery_contract_body")"
 printf '%s' "$auto_recovery_contract" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 2; assert item["recoveryAction"] == "RESTART_EXTENSION"; assert item["recoveryExtensionId"] == "jdgnleokimdbblcflcfcohbinohmmmlb"; assert item["maximumAutoRecovery"] == 1; assert item["requiredTargets"] == [{"role":"status","name":"Recovered workspace"}]'
+  'import json,sys; item=json.load(sys.stdin); assert item["version"] == 2; assert item["approvalState"] == "DRAFT"; assert item["recoveryAction"] == "RESTART_EXTENSION"; assert item["recoveryExtensionId"] == "jdgnleokimdbblcflcfcohbinohmmmlb"; assert item["maximumAutoRecovery"] == 1; assert item["requiredTargets"] == [{"role":"status","name":"Recovered workspace"}]'
+version_two_approval="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract:request-approval" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-author' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"expectedVersion":2,"reason":"Approve trusted Extension recovery action"}')"
+version_two_approval_id="$(printf '%s' "$version_two_approval" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["approvalId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract-approvals/${version_two_approval_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: contract-approver' \
+  -H 'X-Roles: TENANT_ADMIN' >/dev/null
+version_pinning_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select binding.contract_version || ':' || contract.version
+   from session_application_bindings binding
+   join application_recovery_contracts contract on contract.contract_id=binding.contract_id
+   where binding.session_id='${session_one}'")"
+test "$version_pinning_summary" = "1:2"
+stale_binding_validation_status="$(curl -sS \
+  -o "$temp_dir/stale-binding-validation.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/business-recovery:validate" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: recovery-adapter' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-stale-contract-binding-001')"
+test "$stale_binding_validation_status" = "409"
+python3 - "$temp_dir/stale-binding-validation.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    error = json.load(handle)
+assert error["code"] == "RECOVERY_CONTRACT_APPROVAL_REQUIRED"
+PY
+
+auto_recovery_session_response="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-auto-recovery-session-001' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-auto-recovery","runtimeBuildId":"runtime_local_chromium","applicationId":"crm.integration","region":"local","resourcePolicy":{"mode":"AUTO"},"extensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb"],"metadata":{"displayName":"Auto recovery version 2"}}')"
+auto_recovery_session="$(printf '%s' "$auto_recovery_session_response" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' >/dev/null
+auto_recovery_session_state=""
+auto_recovery_browser_state=""
+for _ in $(seq 1 120); do
+  auto_recovery_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  if [[ "$(printf '%s' "$auto_recovery_session_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')" = "RUNNING" ]]; then
+    if auto_recovery_browser_state="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/state" \
+      -H 'X-Tenant-Id: tenant-integration' 2>/dev/null)"; then
+      auto_recovery_context_epoch="$(printf '%s' "$auto_recovery_session_state" | python3 -c \
+        'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+      if [[ -n "$auto_recovery_browser_state" ]] \
+        && printf '%s' "$auto_recovery_browser_state" | python3 -c \
+          'import json,sys; state=json.load(sys.stdin); assert state["stateQuality"] == "COMPLETE"; assert str(state["contextEpoch"]) == sys.argv[1]' \
+          "$auto_recovery_context_epoch" 2>/dev/null; then
+        break
+      fi
+    fi
+  fi
+  sleep 0.25
+done
+printf '%s' "$auto_recovery_session_state" | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["state"] == "RUNNING"'
+printf '%s' "$auto_recovery_browser_state" | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["stateQuality"] == "COMPLETE"'
 auto_recovery_epoch="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}" \
   -H 'X-Tenant-Id: tenant-integration' | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
 auto_recovery_migration_id="mig_autorecovery0001"
@@ -1328,7 +1479,7 @@ docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_ST
      migration_id, session_id, tenant_id, source_node_id, source_context_epoch,
      target_node_id, target_context_epoch, phase, created_at, updated_at
    ) values (
-     '${auto_recovery_migration_id}', '${session_one}', 'tenant-integration',
+     '${auto_recovery_migration_id}', '${auto_recovery_session}', 'tenant-integration',
      'node_integration', ${auto_recovery_epoch}, 'node_integration',
      ${auto_recovery_epoch}, 'BUSINESS_VALIDATION', now(), now()
    );" >/dev/null
@@ -1336,7 +1487,7 @@ auto_recovery_migration=""
 auto_recovery_phase=""
 for _ in $(seq 1 120); do
   auto_recovery_migration="$(curl -fsS \
-    "http://localhost:${control_port}/api/v1/sessions/${session_one}/migration" \
+    "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/migration" \
     -H 'X-Tenant-Id: tenant-integration')"
   auto_recovery_phase="$(printf '%s' "$auto_recovery_migration" | python3 -c \
     'import json,sys; print(json.load(sys.stdin)["phase"])')"
@@ -1351,6 +1502,9 @@ auto_recovery_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d
    from business_recovery_actions
    where migration_id='${auto_recovery_migration_id}'")"
 test "$auto_recovery_db_summary" = "COMMITTED:RESTART_EXTENSION:jdgnleokimdbblcflcfcohbinohmmmlb:1"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration' >/dev/null
 
 resource_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=61)).isoformat().replace("+00:00","Z"))')"
 resource_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
@@ -1381,6 +1535,48 @@ non_cgroup_adjustment_events="$(docker exec "$postgres_name" psql -U browserclou
      and (new_resources->>'extensionCpuWeight')::integer = 100
      and result='COMMITTED'")"
 test "$non_cgroup_adjustment_events" = "1"
+
+# Verify the real screenshot evidence pipeline while the success sampling policy is
+# still 100%. The maximum-resource mitigation below intentionally lowers it to
+# 10%, so requiring a later single successful action to be sampled would be
+# nondeterministic.
+evidence_capture_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-evidence-capture-task-001' \
+  -d '{"goal":"Open the authorized page for evidence capture","startUrl":"https://example.test/evidence-capture","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+evidence_capture_task_id="$(printf '%s' "$evidence_capture_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; print(task["taskId"])')"
+evidence_capture_execute="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${evidence_capture_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-evidence-capture-execute-001')"
+printf '%s' "$evidence_capture_execute" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] in ("RUNNING", "COMPLETED"); assert task["operationId"].startswith("op_")'
+evidence_capture_state=""
+for _ in $(seq 1 40); do
+  evidence_capture_result="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${evidence_capture_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  evidence_capture_state="$(printf '%s' "$evidence_capture_result" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$evidence_capture_state" = "COMPLETED" ]]; then break; fi
+  sleep 0.25
+done
+test "$evidence_capture_state" = "COMPLETED"
+evidence_capture_count=""
+for _ in $(seq 1 40); do
+  evidence_capture_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select count(*) from session_evidence
+     where tenant_id='tenant-integration'
+       and session_id='${session_one}'
+       and task_id='${evidence_capture_task_id}'
+       and evidence_kind='AGENT_NAVIGATION_SUCCESS'")"
+  if [[ "$evidence_capture_count" -ge "1" ]]; then break; fi
+  sleep 0.25
+done
+test "$evidence_capture_count" -ge "1"
 
 curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
@@ -2098,7 +2294,7 @@ agent_tasks="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/agent-tasks?limit=10&offset=0" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$agent_tasks" | python3 -c \
-  'import json,sys; tasks=json.load(sys.stdin); assert tasks["total"] == 4; assert len(tasks["items"]) == 4'
+  'import json,sys; tasks=json.load(sys.stdin); assert tasks["total"] == 5; assert len(tasks["items"]) == 5'
 read_agent_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
   -H 'Content-Type: application/json' \
@@ -2351,7 +2547,7 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "12"
+test "$committed_operations" = "13"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "4"
@@ -2394,7 +2590,7 @@ printf '%s' "$proxy_after_terminate" | python3 -c \
 profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$profile_list" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 6; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 7; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
 profile_forbidden_status="$(curl -sS -o "$temp_dir/profile-forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
   -H 'X-Tenant-Id: different-tenant')"
@@ -2464,10 +2660,10 @@ printf '%s' "$profile_after_restore" | python3 -c \
 
 completed_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from durable_workflows where tenant_id='tenant-integration' and state='COMPLETED' and length(commit_marker)=64")"
-test "$completed_workflows" = "13"
+test "$completed_workflows" = "15"
 linked_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations operation join sessions session on session.id=operation.session_id where operation.workflow_id is not null and session.tenant_id='tenant-integration'")"
-test "$linked_workflows" = "15"
+test "$linked_workflows" = "17"
 
 kill -TERM "$network_helper_pid"
 wait "$network_helper_pid" 2>/dev/null || true
@@ -2908,7 +3104,7 @@ audit_result="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: SECURITY_ADMIN')"
 audit_total="$(printf '%s' "$audit_result" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; required={"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE","HUMAN_AUTHORIZATION","SECURITY_EVENT","PROFILE_RESTORE","ADMIN_ACCESS"}; assert required.issubset(types), required-types; assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert len(result["headHash"]) == 64; types={item["eventType"] for item in result["items"]}; required={"SESSION_LIFECYCLE","SESSION_OPERATION_TRANSITION","SESSION_CONTEXT_COMMIT","HUMAN_GOVERNANCE","HUMAN_AUTHORIZATION","SECURITY_EVENT","PROFILE_RESTORE","ADMIN_ACCESS","RECOVERY_CONTRACT","RECOVERY_CONTRACT_APPROVAL"}; assert required.issubset(types), required-types; assert all(len(item["eventHash"]) == 64 for item in result["items"]); print(result["total"])')"
 test "$audit_total" -ge "20"
 runtime_audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?eventType=RUNTIME_RELEASE&limit=50" \

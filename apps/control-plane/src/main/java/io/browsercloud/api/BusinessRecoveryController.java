@@ -47,9 +47,64 @@ public class BusinessRecoveryController {
   @PreAuthorize(PlatformRoles.ADMIN)
   public RecoveryContractView upsertContract(
       @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
-      @Valid @RequestBody UpsertRecoveryContractRequest request) {
+      @Valid @RequestBody UpsertRecoveryContractRequest request,
+      HttpServletRequest httpRequest) {
+    var principal = identity.current();
     return service.upsertContract(
-        identity.current().tenantId(), applicationId, request, Instant.now());
+        principal.tenantId(),
+        applicationId,
+        request,
+        principal.actorId(),
+        requestId(httpRequest),
+        Instant.now());
+  }
+
+  @PostMapping("/applications/{applicationId}/recovery-contract:request-approval")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryContractApprovalView requestApproval(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
+      @Valid @RequestBody RequestRecoveryContractApprovalRequest request,
+      HttpServletRequest httpRequest) {
+    var principal = identity.current();
+    return service.requestApproval(
+        principal.tenantId(),
+        applicationId,
+        request,
+        principal.actorId(),
+        requestId(httpRequest),
+        Instant.now());
+  }
+
+  @PostMapping("/applications/{applicationId}/recovery-contract-approvals/{approvalId}:approve")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryContractApprovalView approve(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
+      @PathVariable @Pattern(regexp = "^ara_[A-Za-z0-9]{20}$") String approvalId,
+      HttpServletRequest httpRequest) {
+    var principal = identity.current();
+    return service.approve(
+        principal.tenantId(),
+        applicationId,
+        approvalId,
+        principal.actorId(),
+        requestId(httpRequest),
+        Instant.now());
+  }
+
+  @PostMapping("/applications/{applicationId}/recovery-contract-approvals/{approvalId}:reject")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryContractApprovalView reject(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String applicationId,
+      @PathVariable @Pattern(regexp = "^ara_[A-Za-z0-9]{20}$") String approvalId,
+      HttpServletRequest httpRequest) {
+    var principal = identity.current();
+    return service.reject(
+        principal.tenantId(),
+        applicationId,
+        approvalId,
+        principal.actorId(),
+        requestId(httpRequest),
+        Instant.now());
   }
 
   @PostMapping("/sessions/{sessionId}/business-recovery:validate")
@@ -74,5 +129,10 @@ public class BusinessRecoveryController {
   public BusinessRecoveryValidationView latest(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
     return service.latest(sessionId, identity.current().tenantId());
+  }
+
+  private static String requestId(HttpServletRequest request) {
+    var value = (String) request.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE);
+    return value == null ? "" : value;
   }
 }

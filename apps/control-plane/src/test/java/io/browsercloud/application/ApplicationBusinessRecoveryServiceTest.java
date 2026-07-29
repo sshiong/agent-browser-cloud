@@ -19,6 +19,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,6 +32,7 @@ class ApplicationBusinessRecoveryServiceTest {
   private static final Instant NOW = Instant.parse("2026-07-28T01:00:00Z");
 
   @Mock private ApplicationRecoveryContractJpaRepository contracts;
+  @Mock private ApplicationRecoveryContractApprovalJpaRepository approvals;
   @Mock private SessionApplicationBindingJpaRepository bindings;
   @Mock private BusinessRecoveryValidationJpaRepository validations;
   @Mock private SessionRepository sessions;
@@ -38,6 +40,7 @@ class ApplicationBusinessRecoveryServiceTest {
   @Mock private BrowserCapacityApplicationService capacity;
   @Mock private BusinessRecoveryValidator defaultValidator;
   @Mock private IdempotencyService idempotency;
+  @Mock private AuditApplicationService audit;
 
   private ObjectMapper objectMapper;
   private ApplicationBusinessRecoveryService service;
@@ -48,6 +51,7 @@ class ApplicationBusinessRecoveryServiceTest {
     service =
         new ApplicationBusinessRecoveryService(
             contracts,
+            approvals,
             bindings,
             validations,
             sessions,
@@ -55,6 +59,7 @@ class ApplicationBusinessRecoveryServiceTest {
             capacity,
             defaultValidator,
             idempotency,
+            audit,
             objectMapper);
   }
 
@@ -376,6 +381,126 @@ class ApplicationBusinessRecoveryServiceTest {
     verifyNoInteractions(validations);
   }
 
+  @Test
+  void bindsOnlyTheExactApprovedContractVersion() throws Exception {
+    var contract =
+        contract(
+            List.of("https://crm.example.test"),
+            List.of("/customers"),
+            List.of(),
+            List.of(),
+            List.of());
+    when(contracts.findByTenantIdAndApplicationId(TENANT_ID, "crm"))
+        .thenReturn(Optional.of(contract));
+
+    assertThatThrownBy(() -> service.bind(SESSION_ID, TENANT_ID, "crm", NOW))
+        .isInstanceOf(
+            ApplicationBusinessRecoveryService.RecoveryContractApprovalRequiredException.class);
+    verify(bindings, never()).save(any());
+
+    when(approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+            TENANT_ID, contract.getContractId(), contract.getVersion(), "APPROVED"))
+        .thenReturn(true);
+    service.bind(SESSION_ID, TENANT_ID, "crm", NOW);
+
+    var binding = ArgumentCaptor.forClass(SessionApplicationBindingEntity.class);
+    verify(bindings).save(binding.capture());
+    assertThat(binding.getValue().getContractVersion()).isEqualTo(contract.getVersion());
+  }
+
+  @Test
+  void requiresASecondAdministratorToApproveTheExactCurrentVersion() throws Exception {
+    var contract =
+        contract(
+            List.of("https://crm.example.test"),
+            List.of("/customers"),
+            List.of(),
+            List.of(),
+            List.of());
+    when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.of(contract));
+    when(approvals.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var requested =
+        service.requestApproval(
+            TENANT_ID,
+            "crm",
+            new RequestRecoveryContractApprovalRequest(contract.getVersion(), "Production gate"),
+            "admin-a",
+            "request-approval",
+            NOW);
+    assertThat(requested.state()).isEqualTo(RecoveryContractApprovalState.REQUESTED);
+    assertThat(requested.requestedBy()).isEqualTo("admin-a");
+
+    var entity = ArgumentCaptor.forClass(ApplicationRecoveryContractApprovalEntity.class);
+    verify(approvals).saveAndFlush(entity.capture());
+    when(approvals.findForUpdate(entity.getValue().getApprovalId(), TENANT_ID, "crm"))
+        .thenReturn(Optional.of(entity.getValue()));
+
+    assertThatThrownBy(
+            () ->
+                service.approve(
+                    TENANT_ID,
+                    "crm",
+                    entity.getValue().getApprovalId(),
+                    "admin-a",
+                    "same-admin",
+                    NOW))
+        .isInstanceOf(
+            ApplicationBusinessRecoveryService.RecoveryContractApprovalRejectedException.class)
+        .hasMessage("REQUESTER_CANNOT_APPROVE");
+    verify(audit).appendIndependent(any());
+
+    var approved =
+        service.approve(
+            TENANT_ID,
+            "crm",
+            entity.getValue().getApprovalId(),
+            "admin-b",
+            "second-admin",
+            NOW.plusSeconds(1));
+    assertThat(approved.state()).isEqualTo(RecoveryContractApprovalState.APPROVED);
+    assertThat(approved.approvedBy()).isEqualTo("admin-b");
+    assertThat(approved.evidenceHash()).hasSize(64);
+  }
+
+  @Test
+  void rejectsApprovalWhenContractChangedAfterRequest() throws Exception {
+    var contract =
+        contract(
+            List.of("https://crm.example.test"),
+            List.of("/customers"),
+            List.of(),
+            List.of(),
+            List.of());
+    var approval =
+        new ApplicationRecoveryContractApprovalEntity(
+            "ara_1234567890abcdefghij",
+            TENANT_ID,
+            contract.getContractId(),
+            "crm",
+            contract.getVersion() - 1,
+            "Review",
+            "admin-a",
+            NOW);
+    when(approvals.findForUpdate(approval.getApprovalId(), TENANT_ID, "crm"))
+        .thenReturn(Optional.of(approval));
+    when(contracts.findForUpdate(TENANT_ID, "crm")).thenReturn(Optional.of(contract));
+
+    assertThatThrownBy(
+            () ->
+                service.approve(
+                    TENANT_ID,
+                    "crm",
+                    approval.getApprovalId(),
+                    "admin-b",
+                    "stale-approval",
+                    NOW.plusSeconds(1)))
+        .isInstanceOf(
+            ApplicationBusinessRecoveryService.RecoveryContractApprovalRejectedException.class)
+        .hasMessage("CONTRACT_VERSION_CHANGED");
+    verify(audit).appendIndependent(any());
+  }
+
   private void arrangeValidation(
       ApplicationRecoveryContractEntity contract, NodeEvent.StateUpdated state) {
     when(sessions.require(SESSION_ID)).thenReturn(session());
@@ -387,8 +512,16 @@ class ApplicationBusinessRecoveryServiceTest {
         .thenReturn(
             Optional.of(
                 new SessionApplicationBindingEntity(
-                    SESSION_ID, TENANT_ID, "crm", contract.getContractId(), NOW)));
+                    SESSION_ID,
+                    TENANT_ID,
+                    "crm",
+                    contract.getContractId(),
+                    contract.getVersion(),
+                    NOW)));
     when(contracts.findById(contract.getContractId())).thenReturn(Optional.of(contract));
+    when(approvals.existsByTenantIdAndContractIdAndContractVersionAndState(
+            TENANT_ID, contract.getContractId(), contract.getVersion(), "APPROVED"))
+        .thenReturn(true);
     when(validations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
   }
 

@@ -455,6 +455,28 @@ for invariant in (
         f"screenshot evidence migration lacks rolling invariant: {invariant}"
     )
 
+recovery_approval_migration = read(
+    "database/migrations/V050__application_recovery_contract_approval.sql"
+)
+recovery_approval_upper = recovery_approval_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE"):
+    assert forbidden not in recovery_approval_upper
+for invariant in (
+    "CREATE TABLE APPLICATION_RECOVERY_CONTRACT_APPROVALS",
+    "STATE IN ('REQUESTED', 'APPROVED', 'REJECTED')",
+    "CREATE UNIQUE INDEX UQ_RECOVERY_CONTRACT_PENDING_APPROVAL",
+    "CREATE UNIQUE INDEX UQ_RECOVERY_CONTRACT_APPROVED_VERSION",
+    "ADD COLUMN CONTRACT_VERSION BIGINT",
+    "CREATE TRIGGER TRG_SESSION_APPLICATION_CONTRACT_VERSION",
+    "BEFORE INSERT ON SESSION_APPLICATION_BINDINGS",
+    "ALTER COLUMN CONTRACT_VERSION SET NOT NULL",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_SESSION_APPLICATION_CONTRACT_VERSION",
+):
+    assert invariant in recovery_approval_upper, (
+        f"recovery approval migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -664,9 +686,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V049 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V050 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,evidence-event-tags-1-13,recovery-extension-tag-6",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-optional",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

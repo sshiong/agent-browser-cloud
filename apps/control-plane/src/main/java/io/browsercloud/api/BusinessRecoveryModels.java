@@ -35,6 +35,13 @@ public final class BusinessRecoveryModels {
     RESTART_EXTENSION
   }
 
+  public enum RecoveryContractApprovalState {
+    DRAFT,
+    REQUESTED,
+    APPROVED,
+    REJECTED
+  }
+
   public record TargetIndicator(
       @NotBlank @Pattern(regexp = "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$") String role,
       @NotBlank @Size(max = 160) String name) {}
@@ -73,10 +80,33 @@ public final class BusinessRecoveryModels {
       String recoveryExtensionId,
       int maximumAutoRecovery,
       boolean enabled,
+      RecoveryContractApprovalState approvalState,
+      String approvalId,
+      String approvalRequestedBy,
+      String approvedBy,
+      Instant approvalRequestedAt,
+      Instant approvalDecidedAt,
       Instant createdAt,
       Instant updatedAt) {}
 
   public record RecoveryContractListResponse(List<RecoveryContractView> items, long total) {}
+
+  public record RequestRecoveryContractApprovalRequest(
+      @Min(1) long expectedVersion, @NotBlank @Size(max = 500) String reason) {}
+
+  public record RecoveryContractApprovalView(
+      String approvalId,
+      String contractId,
+      String applicationId,
+      long contractVersion,
+      String reason,
+      RecoveryContractApprovalState state,
+      String requestedBy,
+      String approvedBy,
+      String rejectedBy,
+      Instant requestedAt,
+      Instant decidedAt,
+      String evidenceHash) {}
 
   public record BusinessRecoveryValidationView(
       String validationId,

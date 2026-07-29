@@ -24,6 +24,8 @@ import type {
   RecoveryContractListResponse,
   RecoveryContractView,
   UpsertRecoveryContractRequest,
+  RequestRecoveryContractApprovalRequest,
+  RecoveryContractApprovalView,
   BusinessRecoveryValidationView,
   SessionEvidenceListResponse,
 } from '../types/session';
@@ -522,6 +524,37 @@ export async function upsertRecoveryContract(
       body: JSON.stringify(data),
       signal,
     },
+    tenantId
+  );
+}
+
+export async function requestRecoveryContractApproval(
+  applicationId: string,
+  data: RequestRecoveryContractApprovalRequest,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<RecoveryContractApprovalView> {
+  return request<RecoveryContractApprovalView>(
+    `/applications/${encodeURIComponent(applicationId)}/recovery-contract:request-approval`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+    },
+    tenantId
+  );
+}
+
+export async function decideRecoveryContractApproval(
+  applicationId: string,
+  approvalId: string,
+  decision: 'approve' | 'reject',
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<RecoveryContractApprovalView> {
+  return request<RecoveryContractApprovalView>(
+    `/applications/${encodeURIComponent(applicationId)}/recovery-contract-approvals/${encodeURIComponent(approvalId)}:${decision}`,
+    { method: 'POST', signal },
     tenantId
   );
 }

@@ -74,6 +74,7 @@ public final class NodeCommands {
             .setObserverFrameRateFps(limits.observerFrameRateFps())
             .setVideoRecordingEnabled(limits.videoRecordingEnabled())
             .setSuccessScreenshotSamplePercent(limits.successScreenshotSamplePercent())
+            .setMinimumBrowserGeneration(session.browserGeneration())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

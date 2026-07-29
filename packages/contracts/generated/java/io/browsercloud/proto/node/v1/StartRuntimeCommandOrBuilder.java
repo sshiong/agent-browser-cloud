@@ -385,4 +385,15 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The successScreenshotSamplePercent.
    */
   int getSuccessScreenshotSamplePercent();
+
+  /**
+   * <pre>
+   * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+   * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+   * </pre>
+   *
+   * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+   * @return The minimumBrowserGeneration.
+   */
+  long getMinimumBrowserGeneration();
 }

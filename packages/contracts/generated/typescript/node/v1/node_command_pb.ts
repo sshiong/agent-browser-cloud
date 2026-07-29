@@ -228,6 +228,182 @@ export class DispatchResponse extends Message<DispatchResponse> {
 }
 
 /**
+ * @generated from message browsercloud.node.v1.UploadProfileImportRequest
+ */
+export class UploadProfileImportRequest extends Message<UploadProfileImportRequest> {
+  /**
+   * @generated from field: string import_id = 1;
+   */
+  importId = "";
+
+  /**
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string checkpoint_id = 4;
+   */
+  checkpointId = "";
+
+  /**
+   * @generated from field: string runtime_build_id = 5;
+   */
+  runtimeBuildId = "";
+
+  /**
+   * @generated from field: string archive_sha256 = 6;
+   */
+  archiveSha256 = "";
+
+  /**
+   * @generated from field: uint64 archive_size_bytes = 7;
+   */
+  archiveSizeBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 offset = 8;
+   */
+  offset = protoInt64.zero;
+
+  /**
+   * @generated from field: bytes data = 9;
+   */
+  data = new Uint8Array(0);
+
+  constructor(data?: PartialMessage<UploadProfileImportRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.UploadProfileImportRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "import_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "runtime_build_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "archive_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "archive_size_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "offset", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "data", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UploadProfileImportRequest {
+    return new UploadProfileImportRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UploadProfileImportRequest {
+    return new UploadProfileImportRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UploadProfileImportRequest {
+    return new UploadProfileImportRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UploadProfileImportRequest | PlainMessage<UploadProfileImportRequest> | undefined, b: UploadProfileImportRequest | PlainMessage<UploadProfileImportRequest> | undefined): boolean {
+    return proto3.util.equals(UploadProfileImportRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.UploadProfileImportResponse
+ */
+export class UploadProfileImportResponse extends Message<UploadProfileImportResponse> {
+  /**
+   * @generated from field: string import_id = 1;
+   */
+  importId = "";
+
+  /**
+   * @generated from field: string node_id = 2;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string checkpoint_id = 4;
+   */
+  checkpointId = "";
+
+  /**
+   * @generated from field: uint64 checkpoint_epoch = 5;
+   */
+  checkpointEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 profile_write_epoch = 6;
+   */
+  profileWriteEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 core_size_bytes = 7;
+   */
+  coreSizeBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 checkpoint_file_count = 8;
+   */
+  checkpointFileCount = protoInt64.zero;
+
+  /**
+   * @generated from field: string archive_sha256 = 9;
+   */
+  archiveSha256 = "";
+
+  /**
+   * @generated from field: uint64 archive_size_bytes = 10;
+   */
+  archiveSizeBytes = protoInt64.zero;
+
+  constructor(data?: PartialMessage<UploadProfileImportResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.UploadProfileImportResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "import_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "checkpoint_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "profile_write_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "core_size_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "checkpoint_file_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "archive_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "archive_size_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UploadProfileImportResponse {
+    return new UploadProfileImportResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UploadProfileImportResponse {
+    return new UploadProfileImportResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UploadProfileImportResponse {
+    return new UploadProfileImportResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UploadProfileImportResponse | PlainMessage<UploadProfileImportResponse> | undefined, b: UploadProfileImportResponse | PlainMessage<UploadProfileImportResponse> | undefined): boolean {
+    return proto3.util.equals(UploadProfileImportResponse, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.PublishRequest
  */
 export class PublishRequest extends Message<PublishRequest> {
@@ -1157,6 +1333,14 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   successScreenshotSamplePercent?: number;
 
+  /**
+   * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+   * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+   *
+   * @generated from field: uint64 minimum_browser_generation = 30;
+   */
+  minimumBrowserGeneration = protoInt64.zero;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1194,6 +1378,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 27, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 28, name: "video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 29, name: "success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 30, name: "minimum_browser_generation", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {

@@ -1990,6 +1990,12 @@ impl NodeControlService {
                             }
                         };
                         let runtime_build_id = payload.runtime_build_id;
+                        self.runtime_supervisor
+                            .ensure_generation_at_least(
+                                &command.session_id,
+                                payload.minimum_browser_generation,
+                            )
+                            .await;
                         let desktop_processes_required =
                             payload.desktop_required || media_encoder_slots > 0;
                         let (display, vnc_port) = if self.desktop_enabled

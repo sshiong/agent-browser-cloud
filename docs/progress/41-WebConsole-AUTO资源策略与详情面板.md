@@ -2,7 +2,8 @@
 
 > 日期：2026-07-27
 > 状态：AUTO 创建、策略持久化、基础真实遥测、同节点在线资源执行器、安全点/迁移详情
-> UI 和可恢复资源 SSE 已完成；完整指标与真实双 Node E2E 待完成
+> UI、可恢复资源 SSE 和仓库级双 Node/Object Storage 迁移集成证书已完成；目标环境
+> 长稳待完成
 
 ## 本轮目标
 
@@ -120,13 +121,16 @@
 4. Safe Point 已覆盖真实 Input Ledger/Drag、HumanTakeover、Agent Task、Snapshot/Profile
    Durable Workflow；上传下载、表单、支付、安全和应用关键事务仍缺对应业务 Producer。
 5. Checkpoint → 排除源 Node Placement → S3 Restore → State Resync → 默认 Business
-   Recovery Validation 已实现；真实双 Node + S3 + Chromium 故障矩阵仍待验收。
+   Recovery Validation 已实现；进度 80 已用两个独立 Browser Node、两套 Storage
+   Helper、共享 MinIO 和 CDP 数据面关闭仓库级全链路证书。正式 Chromium/目标 Linux
+   的网络分区、节点故障和长期压力矩阵仍待验收。
 6. 自动休眠和严格预算终止已接入真实 Operation/Node 执行链。
    V042 已使 `maximumCostPerHour` 进入真实五分钟成本决策；V043 已补齐后台 Tab
    冻结、新建 Tab 阻断、Node ACK 和详情状态；V044/进度 67 已补齐非特权 Extension
    后台暂停；V045/进度 68 已补齐成功 Trace 动态采样；V046/进度 69 已补齐真实
    Observer 帧率 Gateway 执行、回滚和 ACK；V047/进度 70 已补齐独立录制数据面、
-   Storage Helper 提交、上限停止和 ACK。截图频率执行器仍待实现。
+   Storage Helper 提交、上限停止和 ACK；V049/进度 72 已补齐 Agent 成功截图采样与
+   Level 1 100%→10% 执行。仍缺 Observer 手动截图及其 Purpose-bound 下载治理。
 7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
    Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
    层仍未实现。
@@ -135,8 +139,9 @@
 
 ## 下一步建议
 
-1. 补齐截图频率 Level 1 Node Actuator 与 ACK；录制停止已由
-   [进度 70](70-AUTO独立像素录制与停止执行闭环.md)关闭，Observer 帧率已由
+1. 补齐 Observer 手动截图、Purpose-bound 下载与敏感区域模糊；Agent 截图采样
+   Level 1 Node Actuator 已由[进度 72](72-AUTO截图证据与采样执行闭环.md)关闭，
+   录制停止已由[进度 70](70-AUTO独立像素录制与停止执行闭环.md)关闭，Observer 帧率已由
    [进度 69](69-AUTO-Observer帧率在线执行闭环.md)关闭；后台
    Tab/新建 Tab 已由进度 66 关闭，非特权 Extension 后台暂停已由进度 67 关闭，
    成功 Trace 动态采样已由

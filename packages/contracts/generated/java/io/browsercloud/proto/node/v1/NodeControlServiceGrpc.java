@@ -81,6 +81,37 @@ public final class NodeControlServiceGrpc {
     return getDispatchMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+      io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "UploadProfileImport",
+      requestType = io.browsercloud.proto.node.v1.UploadProfileImportRequest.class,
+      responseType = io.browsercloud.proto.node.v1.UploadProfileImportResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
+  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+      io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod() {
+    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest, io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod;
+    if ((getUploadProfileImportMethod = NodeControlServiceGrpc.getUploadProfileImportMethod) == null) {
+      synchronized (NodeControlServiceGrpc.class) {
+        if ((getUploadProfileImportMethod = NodeControlServiceGrpc.getUploadProfileImportMethod) == null) {
+          NodeControlServiceGrpc.getUploadProfileImportMethod = getUploadProfileImportMethod =
+              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.UploadProfileImportRequest, io.browsercloud.proto.node.v1.UploadProfileImportResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.CLIENT_STREAMING)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "UploadProfileImport"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.UploadProfileImportRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.UploadProfileImportResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("UploadProfileImport"))
+              .build();
+        }
+      }
+    }
+    return getUploadProfileImportMethod;
+  }
+
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -146,6 +177,18 @@ public final class NodeControlServiceGrpc {
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getDispatchMethod(), responseObserver);
     }
+
+    /**
+     * <pre>
+     * mTLS-authenticated, bounded Profile archive ingress. The Control Plane
+     * streams bytes without durable business persistence; the Node delegates validation and
+     * checkpoint/object-store commit to the isolated Storage Helper.
+     * </pre>
+     */
+    default io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportRequest> uploadProfileImport(
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse> responseObserver) {
+      return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall(getUploadProfileImportMethod(), responseObserver);
+    }
   }
 
   /**
@@ -197,6 +240,19 @@ public final class NodeControlServiceGrpc {
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getDispatchMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     * <pre>
+     * mTLS-authenticated, bounded Profile archive ingress. The Control Plane
+     * streams bytes without durable business persistence; the Node delegates validation and
+     * checkpoint/object-store commit to the isolated Storage Helper.
+     * </pre>
+     */
+    public io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportRequest> uploadProfileImport(
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse> responseObserver) {
+      return io.grpc.stub.ClientCalls.asyncClientStreamingCall(
+          getChannel().newCall(getUploadProfileImportMethod(), getCallOptions()), responseObserver);
     }
   }
 
@@ -274,6 +330,7 @@ public final class NodeControlServiceGrpc {
 
   private static final int METHODID_PING = 0;
   private static final int METHODID_DISPATCH = 1;
+  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 2;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -310,6 +367,9 @@ public final class NodeControlServiceGrpc {
     public io.grpc.stub.StreamObserver<Req> invoke(
         io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
+        case METHODID_UPLOAD_PROFILE_IMPORT:
+          return (io.grpc.stub.StreamObserver<Req>) serviceImpl.uploadProfileImport(
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse>) responseObserver);
         default:
           throw new AssertionError();
       }
@@ -332,6 +392,13 @@ public final class NodeControlServiceGrpc {
               io.browsercloud.proto.node.v1.DispatchRequest,
               io.browsercloud.proto.node.v1.DispatchResponse>(
                 service, METHODID_DISPATCH)))
+        .addMethod(
+          getUploadProfileImportMethod(),
+          io.grpc.stub.ServerCalls.asyncClientStreamingCall(
+            new MethodHandlers<
+              io.browsercloud.proto.node.v1.UploadProfileImportRequest,
+              io.browsercloud.proto.node.v1.UploadProfileImportResponse>(
+                service, METHODID_UPLOAD_PROFILE_IMPORT)))
         .build();
   }
 
@@ -382,6 +449,7 @@ public final class NodeControlServiceGrpc {
               .setSchemaDescriptor(new NodeControlServiceFileDescriptorSupplier())
               .addMethod(getPingMethod())
               .addMethod(getDispatchMethod())
+              .addMethod(getUploadProfileImportMethod())
               .build();
         }
       }

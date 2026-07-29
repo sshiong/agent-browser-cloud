@@ -70,4 +70,5 @@ make test-integration
 3. Remote Desktop Gateway 的 Kbps 是传输限速，不等于编码器动态码率；真正的编码参数、
    独立 CDP Pixel Recording、有界录制队列和 Storage Helper 提交已由进度 70
    实现；编码器级封装、播放和目标环境 Media Storage Backpressure 仍需完成。
-4. 仍缺双真实 Browser Node + Chromium + Object Storage 的迁移、恢复和长稳证书。
+4. 仓库级无桌面双 Node + Object Storage 迁移恢复已由进度 80 完成；仍缺双真实桌面
+   Browser Node + 正式 Chromium 的 Media 迁移、恢复和长稳证书。

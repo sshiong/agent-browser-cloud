@@ -86,7 +86,8 @@ make test-integration
    进度 70 完成，编码器动态码率与封装仍未完成。
 3. Long Tasks/页面主线程阻塞的更精确采集；当前使用 CDP `TaskDuration` 差值。
 4. 目标 Linux 的多 Session 5 秒遥测长稳、缩容抖动和 OOM/磁盘满即时保护证书。
-5. 双真实 Browser Node + S3 + Chromium 的迁移故障注入与长稳证书。
+5. 仓库级双 Node + MinIO + CDP 数据面迁移已由进度 80 完成；仍缺目标 Linux 正式
+   Chromium 的故障注入与长稳证书。
 6. 上传下载、表单、支付、账号安全和应用关键事务的 Safe Point 信号生产者。
 
 ## 下一步

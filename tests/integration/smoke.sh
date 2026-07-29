@@ -30,7 +30,8 @@ fi
 
 ./gradlew -p apps/control-plane bootJar
 cargo build --locked --manifest-path apps/browser-node/Cargo.toml \
-  --bin network-helper --bin storage-helper --bin node-agent
+  --bin network-helper --bin storage-helper --bin node-agent \
+  --example report_session_safety
 
 run_id="$(date +%s)-$$"
 postgres_name="agentbrowser-postgres-it-${run_id}"
@@ -43,10 +44,13 @@ minio_bucket="profile-checkpoints"
 temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
+node_b_pid=""
 network_helper_pid=""
 storage_helper_pid=""
+storage_helper_b_pid=""
 proxy_pid=""
 resource_stream_pid=""
+dual_node_safety_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
   -subj '/CN=BrowserCloud Integration CA' \
@@ -79,10 +83,15 @@ cleanup() {
   exit_code=$?
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
+  if [[ -n "$node_b_pid" ]]; then kill "$node_b_pid" 2>/dev/null || true; fi
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_pid" ]]; then kill "$storage_helper_pid" 2>/dev/null || true; fi
+  if [[ -n "$storage_helper_b_pid" ]]; then kill "$storage_helper_b_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
+  if [[ -n "$dual_node_safety_pid" ]]; then
+    kill "$dual_node_safety_pid" 2>/dev/null || true
+  fi
   if [[ "$exit_code" -ne 0 ]]; then
     if [[ -f "$temp_dir/resource-stream-live.sse" ]]; then
       echo '--- resource-stream-live.sse ---' >&2
@@ -101,12 +110,35 @@ cleanup() {
          from session_resource_events where session_id='${session_one}' order by stream_sequence;" \
         >&2 2>/dev/null || true
     fi
+    if [[ -n "${dual_node_session:-}" ]]; then
+      echo '--- dual Node migration state ---' >&2
+      docker exec "$postgres_name" psql -U browsercloud -d browsercloud -x -c \
+        "select session_id, status, status_reason, last_evaluated_at, last_adjusted_at,
+                maximum_mitigation_at, maximum_mitigation_operation_id
+           from session_resource_policies where session_id='${dual_node_session}';
+         select session_id, node_id, state, cpu_millis, memory_limit_mib,
+                state_collector_budget_percent, background_tabs_frozen, new_tabs_blocked
+           from browser_placements where session_id='${dual_node_session}';
+         select migration_id, source_node_id, target_node_id, phase, checkpoint_id,
+                recovery_result, failure_reason
+           from session_migrations where session_id='${dual_node_session}';
+         select observed_at, cpu_percent, memory_rss_mib
+           from session_resource_samples
+          where session_id='${dual_node_session}' order by observed_at;
+         select event_type, reason, result
+           from session_resource_events
+          where session_id='${dual_node_session}' order by stream_sequence;" \
+        >&2 2>/dev/null || true
+    fi
     grep -E 'Runtime health|Chromium runtime|orphan Runtime|Node reconciliation|Browser crash' \
       "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/browser-node.log" 2>/dev/null || true
+    tail -n 240 "$temp_dir/browser-node-b.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/storage-helper-b.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/dual-node-safety.log" 2>/dev/null || true
     echo '--- postgres container log ---' >&2
     docker logs "$postgres_name" >&2 2>/dev/null || true
     echo '--- redis container log ---' >&2
@@ -139,9 +171,11 @@ postgres_port="$(docker port "$postgres_name" 5432/tcp | sed -E 's/.*:([0-9]+)$/
 redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 minio_port="$(docker port "$minio_name" 9000/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+node_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
 python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
@@ -207,6 +241,27 @@ start_storage_helper() {
   exit 1
 }
 
+start_storage_helper_b() {
+  APP_ENVIRONMENT=local \
+  OBJECT_STORAGE_ENABLED=true \
+  OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${minio_port}" \
+  OBJECT_STORAGE_BUCKET="$minio_bucket" \
+  OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
+  OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
+  STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-b.sock" \
+  PROFILE_STORAGE_ROOT="$temp_dir/runtime-b/profile-storage" \
+  NODE_AGENT_UID="$(id -u)" \
+    apps/browser-node/target/debug/storage-helper >>"$temp_dir/storage-helper-b.log" 2>&1 &
+  storage_helper_b_pid=$!
+  for _ in $(seq 1 40); do
+    if [[ -S "$temp_dir/storage-helper-b.sock" ]]; then return; fi
+    if ! kill -0 "$storage_helper_b_pid" 2>/dev/null; then exit 1; fi
+    sleep 0.1
+  done
+  echo "Second Storage Helper did not create its IPC socket." >&2
+  exit 1
+}
+
 start_browser_node() {
   CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
   NODE_AGENT_PORT="$node_port" \
@@ -239,6 +294,37 @@ start_browser_node() {
   NODE_SUPPORTS_MEDIA=true \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node.log" 2>&1 &
   node_pid=$!
+}
+
+start_browser_node_b() {
+  CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
+  NODE_AGENT_PORT="$node_b_port" \
+  NODE_ID=node_integration_b \
+  NODE_ADVERTISED_GRPC_TARGET="127.0.0.1:${node_b_port}" \
+  CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
+  GRPC_TLS_ENABLED=true \
+  GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+  GRPC_TLS_CERT="$node_certificate_path" \
+  GRPC_TLS_KEY="$node_private_key_path" \
+  CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
+  NODE_PRESSURE_ROOT="$temp_dir/pressure" \
+  REMOTE_DESKTOP_GATEWAY_PORT="$desktop_b_port" \
+  XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
+  X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
+  RUNTIME_ROOT="$temp_dir/runtime-b" \
+  NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
+  PROFILE_STORAGE_ROOT="$temp_dir/runtime-b/profile-storage" \
+  STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-b.sock" \
+  OBJECT_STORAGE_ENABLED=true \
+  NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
+  FAKE_CHROMIUM_REQUIRE_PROXY=true \
+  FAKE_CHROMIUM_ARGUMENT_LOG="$temp_dir/fake-chromium-b-args.log" \
+  SESSION_RESOURCE_REPORT_INTERVAL_SECONDS=300 \
+  RUST_LOG=info \
+  NODE_CERTIFIED_MEDIA_SLOTS=2 \
+  NODE_SUPPORTS_MEDIA=true \
+    apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node-b.log" 2>&1 &
+  node_b_pid=$!
 }
 
 wait_for_postgres() {
@@ -3374,6 +3460,229 @@ expired_break_glass_state="$(docker exec "$postgres_name" psql -U browsercloud -
   "select state from break_glass_requests where request_id='${expired_break_glass_id}'")"
 test "$expired_break_glass_state" = "EXPIRED"
 
+# Start a second, independently rooted Browser Node and Storage Helper against the same
+# S3-compatible Object Storage. This exercises the real checkpoint/restore data plane instead of
+# mutating the Placement row or replaying a same-Node restart.
+start_storage_helper_b
+start_browser_node_b
+dual_node_inventory=""
+for _ in $(seq 1 80); do
+  dual_node_inventory="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/browser-nodes" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
+  if printf '%s' "$dual_node_inventory" | python3 -c \
+    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" for item in data["items"])' \
+    2>/dev/null; then
+    break
+  fi
+  if ! kill -0 "$node_b_pid" 2>/dev/null; then
+    echo "Second Browser Node exited before registration." >&2
+    exit 1
+  fi
+  sleep 0.25
+done
+printf '%s' "$dual_node_inventory" | python3 -c \
+  'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b"}'
+
+dual_node_created="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-dual-node-migration-create-001' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-dual-node-migration","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO","onMaximumReached":"WAIT_SAFE_POINT_MIGRATE","allowMigration":true,"allowHibernate":true},"metadata":{"displayName":"Dual Node Migration"}}')"
+dual_node_session="$(printf '%s' "$dual_node_created" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  >"$temp_dir/dual-node-start.json"
+dual_node_session_view=""
+for _ in $(seq 1 120); do
+  dual_node_session_view="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  dual_node_state="$(printf '%s' "$dual_node_session_view" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$dual_node_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$dual_node_state" = "RUNNING"
+dual_node_source="$(printf '%s' "$dual_node_session_view" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] in {"node_integration","node_integration_b"}; print(item["nodeId"])')"
+dual_node_context_epoch="$(printf '%s' "$dual_node_session_view" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+
+report_dual_node_safety() {
+  CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
+  GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+  GRPC_TLS_CERT="$node_certificate_path" \
+  GRPC_TLS_KEY="$node_private_key_path" \
+  CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
+  NODE_ID="$dual_node_source" \
+  TENANT_ID=tenant-integration \
+  SESSION_ID="$dual_node_session" \
+  CONTEXT_EPOCH="$dual_node_context_epoch" \
+    apps/browser-node/target/debug/examples/report_session_safety \
+    >>"$temp_dir/dual-node-safety.log" 2>&1
+}
+report_dual_node_safety
+
+dual_node_safe_point=""
+for _ in $(seq 1 80); do
+  dual_node_safe_point="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/safe-point" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  dual_node_safe="$(printf '%s' "$dual_node_safe_point" | python3 -c \
+    'import json,sys; print(str(json.load(sys.stdin)["safe"]).lower())')"
+  if [[ "$dual_node_safe" = "true" ]]; then break; fi
+  sleep 0.25
+done
+test "$dual_node_safe" = "true"
+
+dual_node_allocation="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select cpu_millis || ':' || memory_limit_mib
+   from browser_placements where session_id='${dual_node_session}'")"
+dual_node_cpu="${dual_node_allocation%%:*}"
+dual_node_memory="${dual_node_allocation#*:}"
+curl -fsS -X PATCH \
+  "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/resource-policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: dual-node-resource-policy' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -H 'Idempotency-Key: smoke-dual-node-migration-policy-001' \
+  -d "{\"mode\":\"AUTO\",\"maximumCpuMillis\":${dual_node_cpu},\"maximumMemoryMib\":${dual_node_memory},\"onMaximumReached\":\"WAIT_SAFE_POINT_MIGRATE\",\"allowMigration\":true,\"allowHibernate\":true}" \
+  >"$temp_dir/dual-node-policy.json"
+
+dual_node_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=62)).isoformat().replace("+00:00","Z"))')"
+dual_node_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
+for observed_at in "$dual_node_pressure_start" "$dual_node_pressure_end"; do
+  curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/resource-samples" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: PLATFORM_ADMIN' \
+    -d "{\"nodeId\":\"${dual_node_source}\",\"cpuPercent\":100.0,\"memoryRssMib\":${dual_node_memory},\"memoryPsiSomeAvg10\":0.02,\"observedAt\":\"${observed_at}\"}" \
+    >/dev/null
+done
+
+# The first maximum decision must complete the Level 1 mitigation through the real Node ACK before
+# migration can be considered. Isolate the second decision window from the initial low baseline
+# sample so the E2E proves two distinct policy decisions deterministically.
+dual_node_maximum_mitigation=""
+for _ in $(seq 1 180); do
+  dual_node_maximum_mitigation="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select
+       (maximum_mitigation_at is not null)::text || ':' ||
+       p.state_collector_budget_percent || ':' ||
+       p.background_tabs_frozen::text || ':' ||
+       p.new_tabs_blocked::text || ':' ||
+       (select count(*) from exclusive_operations o
+         where o.session_id=r.session_id and o.state in ('REQUESTED','EXECUTING'))
+     from session_resource_policies r
+     join browser_placements p on p.session_id=r.session_id
+     where r.session_id='${dual_node_session}'")"
+  if [[ "$dual_node_maximum_mitigation" = "true:25:true:true:0" ]]; then break; fi
+  sleep 0.5
+done
+test "$dual_node_maximum_mitigation" = "true:25:true:true:0"
+
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "delete from session_resource_samples where session_id='${dual_node_session}';
+   update session_resource_policies
+      set last_evaluated_at=now()-interval '30 seconds'
+    where session_id='${dual_node_session}';" \
+  >/dev/null
+dual_node_pressure_start="$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(seconds=62)).isoformat().replace("+00:00","Z"))')"
+dual_node_pressure_end="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
+for observed_at in "$dual_node_pressure_start" "$dual_node_pressure_end"; do
+  curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/resource-samples" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: PLATFORM_ADMIN' \
+    -d "{\"nodeId\":\"${dual_node_source}\",\"cpuPercent\":100.0,\"memoryRssMib\":${dual_node_memory},\"memoryPsiSomeAvg10\":0.02,\"observedAt\":\"${observed_at}\"}" \
+    >/dev/null
+done
+
+# Refresh only the Node safety observation over the real mTLS gRPC endpoint. Resource fields remain
+# absent, so this does not dilute or fabricate the separately injected sustained-pressure window.
+# The reporter stops as soon as the durable migration row exists.
+(
+  for _ in $(seq 1 60); do
+    report_dual_node_safety || exit 1
+    sleep 5
+  done
+) &
+dual_node_safety_pid=$!
+
+dual_node_migration=""
+dual_node_migration_phase=""
+for _ in $(seq 1 360); do
+  dual_node_migration_status="$(curl -sS \
+    -o "$temp_dir/dual-node-migration.json" -w '%{http_code}' \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/migration" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  if [[ "$dual_node_migration_status" = "200" ]]; then
+    dual_node_migration="$(<"$temp_dir/dual-node-migration.json")"
+    if [[ -n "$dual_node_safety_pid" ]]; then
+      kill "$dual_node_safety_pid" 2>/dev/null || true
+      wait "$dual_node_safety_pid" 2>/dev/null || true
+      dual_node_safety_pid=""
+    fi
+    dual_node_migration_phase="$(printf '%s' "$dual_node_migration" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["phase"])')"
+    if [[ "$dual_node_migration_phase" = "COMPLETED" ]] \
+      || [[ "$dual_node_migration_phase" = "DEGRADED" ]] \
+      || [[ "$dual_node_migration_phase" = "FAILED" ]]; then
+      break
+    fi
+  fi
+  sleep 0.5
+done
+test "$dual_node_migration_phase" = "COMPLETED"
+dual_node_target="$(printf '%s' "$dual_node_migration" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["sourceNodeId"] != item["targetNodeId"]; assert item["checkpointId"]; assert item["resyncRequestId"]; assert item["recoveryResult"] == "READY"; print(item["targetNodeId"])')"
+dual_node_checkpoint="$(printf '%s' "$dual_node_migration" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["checkpointId"])')"
+test "$dual_node_source" != "$dual_node_target"
+
+if [[ "$dual_node_source" = "node_integration" ]]; then
+  dual_node_source_storage="$temp_dir/runtime/profile-storage"
+  dual_node_target_storage="$temp_dir/runtime-b/profile-storage"
+else
+  dual_node_source_storage="$temp_dir/runtime-b/profile-storage"
+  dual_node_target_storage="$temp_dir/runtime/profile-storage"
+fi
+dual_node_checkpoint_relative="tenants/tenant-integration/profiles/profile-dual-node-migration/checkpoints/${dual_node_checkpoint}/COMMITTED"
+test -f "$dual_node_source_storage/$dual_node_checkpoint_relative"
+test -f "$dual_node_target_storage/$dual_node_checkpoint_relative"
+dual_node_final_session="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$dual_node_final_session" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['state'] == 'RUNNING'; assert item['nodeId'] == '${dual_node_target}'; assert item['contextEpoch'] > 1"
+dual_node_resource_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from session_resource_events
+   where session_id='${dual_node_session}'
+     and event_type in ('MIGRATION_CHECKPOINTING','MIGRATION_RESTORING','MIGRATION_STATE_RESYNC','MIGRATION_BUSINESS_VALIDATION','MIGRATION_COMPLETED')")"
+test "$dual_node_resource_events" -ge "5"
+
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  >"$temp_dir/dual-node-terminate.json"
+for _ in $(seq 1 120); do
+  dual_node_terminal_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$dual_node_terminal_state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$dual_node_terminal_state" = "TERMINATED"
+
 runtime_disable_request="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/runtime-builds/runtime_local_chromium:disable" \
   -H 'Content-Type: application/json' \
@@ -3648,6 +3957,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

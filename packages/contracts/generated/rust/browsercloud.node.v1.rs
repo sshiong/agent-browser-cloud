@@ -43,6 +43,52 @@ pub struct DispatchResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UploadProfileImportRequest {
+    #[prost(string, tag="1")]
+    pub import_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub checkpoint_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub runtime_build_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub archive_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="7")]
+    pub archive_size_bytes: u64,
+    #[prost(uint64, tag="8")]
+    pub offset: u64,
+    #[prost(bytes="vec", tag="9")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UploadProfileImportResponse {
+    #[prost(string, tag="1")]
+    pub import_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub checkpoint_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub checkpoint_epoch: u64,
+    #[prost(uint64, tag="6")]
+    pub profile_write_epoch: u64,
+    #[prost(uint64, tag="7")]
+    pub core_size_bytes: u64,
+    #[prost(uint64, tag="8")]
+    pub checkpoint_file_count: u64,
+    #[prost(string, tag="9")]
+    pub archive_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="10")]
+    pub archive_size_bytes: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishRequest {
     #[prost(message, optional, tag="1")]
     pub event: ::core::option::Option<EventEnvelope>,
@@ -318,6 +364,10 @@ pub struct StartRuntimeCommand {
     /// 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
     #[prost(uint32, optional, tag="29")]
     pub success_screenshot_sample_percent: ::core::option::Option<u32>,
+    /// Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+    /// N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+    #[prost(uint64, tag="30")]
+    pub minimum_browser_generation: u64,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]

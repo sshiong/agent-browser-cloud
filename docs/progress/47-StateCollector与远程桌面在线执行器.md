@@ -60,7 +60,8 @@
    Helper、编码器级动态码率和目标 Linux 长稳。
 2. Extension Resource Weight 和进程级 CPU/内存生产者已在进度 52 完成，仍需目标
    Linux 真实企业扩展长稳。
-3. 双真实桌面 Browser Node + Chromium + S3 下的码率调整、迁移与故障注入 E2E。
+3. 仓库级无桌面双 Node 迁移已由进度 80 完成；仍缺双真实桌面 Browser Node +
+   正式 Chromium + S3 下的码率调整、迁移与故障注入 E2E。
 4. 目标 Linux 多 Session 的 5 秒采集、扩缩容抖动、OOM/磁盘满即时保护和长稳证书。
 5. 当前 Remote Desktop 能力控制网关传输速率，Media Slot 控制独立 Cgroup CPU 权重；
    编码器级动态码率仍属于 Media 深度缺口。

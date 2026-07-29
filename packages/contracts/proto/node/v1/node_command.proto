@@ -239,6 +239,9 @@ message StartRuntimeCommand {
   optional bool video_recording_enabled = 28;
   // 成功 Agent 动作的截图证据采样率；失败证据不受此字段影响并始终尝试捕获。
   optional uint32 success_screenshot_sample_percent = 29;
+  // Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+  // N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+  uint64 minimum_browser_generation = 30;
 }
 
 // Runtime 启动事件

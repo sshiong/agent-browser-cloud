@@ -773,6 +773,22 @@ private static final long serialVersionUID = 0L;
     return successScreenshotSamplePercent_;
   }
 
+  public static final int MINIMUM_BROWSER_GENERATION_FIELD_NUMBER = 30;
+  private long minimumBrowserGeneration_ = 0L;
+  /**
+   * <pre>
+   * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+   * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+   * </pre>
+   *
+   * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+   * @return The minimumBrowserGeneration.
+   */
+  @java.lang.Override
+  public long getMinimumBrowserGeneration() {
+    return minimumBrowserGeneration_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -873,6 +889,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000400) != 0)) {
       output.writeUInt32(29, successScreenshotSamplePercent_);
+    }
+    if (minimumBrowserGeneration_ != 0L) {
+      output.writeUInt64(30, minimumBrowserGeneration_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -996,6 +1015,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(29, successScreenshotSamplePercent_);
     }
+    if (minimumBrowserGeneration_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(30, minimumBrowserGeneration_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1102,6 +1125,8 @@ private static final long serialVersionUID = 0L;
       if (getSuccessScreenshotSamplePercent()
           != other.getSuccessScreenshotSamplePercent()) return false;
     }
+    if (getMinimumBrowserGeneration()
+        != other.getMinimumBrowserGeneration()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1202,6 +1227,9 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER;
       hash = (53 * hash) + getSuccessScreenshotSamplePercent();
     }
+    hash = (37 * hash) + MINIMUM_BROWSER_GENERATION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getMinimumBrowserGeneration());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1377,6 +1405,7 @@ private static final long serialVersionUID = 0L;
       observerFrameRateFps_ = 0;
       videoRecordingEnabled_ = false;
       successScreenshotSamplePercent_ = 0;
+      minimumBrowserGeneration_ = 0L;
       return this;
     }
 
@@ -1511,6 +1540,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x10000000) != 0)) {
         result.successScreenshotSamplePercent_ = successScreenshotSamplePercent_;
         to_bitField0_ |= 0x00000400;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.minimumBrowserGeneration_ = minimumBrowserGeneration_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1666,6 +1698,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasSuccessScreenshotSamplePercent()) {
         setSuccessScreenshotSamplePercent(other.getSuccessScreenshotSamplePercent());
+      }
+      if (other.getMinimumBrowserGeneration() != 0L) {
+        setMinimumBrowserGeneration(other.getMinimumBrowserGeneration());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1841,6 +1876,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x10000000;
               break;
             } // case 232
+            case 240: {
+              minimumBrowserGeneration_ = input.readUInt64();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 240
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3494,6 +3534,53 @@ private static final long serialVersionUID = 0L;
     public Builder clearSuccessScreenshotSamplePercent() {
       bitField0_ = (bitField0_ & ~0x10000000);
       successScreenshotSamplePercent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private long minimumBrowserGeneration_ ;
+    /**
+     * <pre>
+     * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+     * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+     * </pre>
+     *
+     * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+     * @return The minimumBrowserGeneration.
+     */
+    @java.lang.Override
+    public long getMinimumBrowserGeneration() {
+      return minimumBrowserGeneration_;
+    }
+    /**
+     * <pre>
+     * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+     * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+     * </pre>
+     *
+     * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+     * @param value The minimumBrowserGeneration to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMinimumBrowserGeneration(long value) {
+
+      minimumBrowserGeneration_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
+     * N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
+     * </pre>
+     *
+     * <code>uint64 minimum_browser_generation = 30 [json_name = "minimumBrowserGeneration"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMinimumBrowserGeneration() {
+      bitField0_ = (bitField0_ & ~0x20000000);
+      minimumBrowserGeneration_ = 0L;
       onChanged();
       return this;
     }

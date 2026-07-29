@@ -1,7 +1,9 @@
 # Safe Point、自动休眠与跨节点迁移闭环
 
 > 日期：2026-07-28
-> 状态：仓库内核心执行链和单元/契约/数据库验收完成；CDP 浏览器活动、应用事务短 Lease 与声明式应用 Ready Gate 已补齐，真实双 Browser Node + S3 全链路 E2E、业务 Adapter 和 Provider 级证明待完成
+> 状态：仓库内核心执行链和双 Browser Node/Object Storage/CDP 数据面集成证书完成；
+> CDP 浏览器活动、应用事务短 Lease、声明式应用 Ready Gate 和 Provider Evidence
+> 平台协议已补齐；目标业务 Adapter 与目标环境长稳待完成
 
 ## 本轮完成
 
@@ -90,6 +92,10 @@
 - `make test-integration` 通过，实际覆盖 Storage Helper 重启、两次 Checkpoint、
   四次 Profile 恢复、Coordinator 多轮故障接管、Node 重启和 Runtime Crash Recovery；
   新增 Checkpoint ID 契约没有破坏现有恢复链。
+- 进度 80 进一步启动两个独立 Browser Node、两套 Storage Helper/Runtime/Profile 根
+  和共享 MinIO，验证 Level 1 ACK → Safe Point → Checkpoint → 跨 Node Restore →
+  State Resync → Business Validation → Completed；源/目标 `COMMITTED` Marker、
+  Placement 和 Context Epoch 均有持久化断言。
 - Web 全量测试和生产 Build 通过。
 - OpenAPI、Buf、N/N-1 Expand-only Gate 通过。
 - 本里程碑最初由 PostgreSQL 17 从 V023 实际迁移到 V025；后续应用安全 Lease 已通过
@@ -104,11 +110,13 @@
 3. File Upload/Download 和导航级 Form Submission 的 CDP Signal Producer 已完成；
    Payment/Security、SPA 应用语义和关键事务的通用 Lease API 已完成。仍缺目标业务
    Adapter/自动埋点；未接入的业务不会被伪装成已识别。
-4. 两个真实 Browser Node + S3-compatible Object Storage + 真实 Chromium 的迁移
-   E2E、断点重试、源/目标 Node 故障注入和长期稳定性证书。
+4. 仓库级两个独立 Browser Node + S3-compatible Object Storage + CDP 数据面迁移
+   E2E 已完成；仍缺正式 Chromium/目标 Linux 下的断点重试、源/目标 Node 故障注入、
+   网络分区和长期稳定性证书。
 5. Application-aware 声明式 Validator、迁移 Ready Gate 和有界低风险动作执行器已
-   完成；V039 又补齐受信 Extension 重启，进度 62 已完成契约作者 UI；仍缺目标站点
-   Adapter、Provider/API 级证明和契约审批/审计。
+   完成；V039 又补齐受信 Extension 重启，进度 62 已完成契约作者 UI，进度 73—76
+   已完成审批、不可变历史和 Provider Evidence 平台协议；仍缺目标站点 Adapter 与
+   真实 Provider/API 凭据联调。
 6. PostgreSQL Resource/Migration Event SSE、`Last-Event-ID` 和断线恢复已完成；
    State/Audit 通用事件层与跨 Region Event Bus 尚未完成。
 7. Tauri 2 容器与 OS 安全存储已完成；仍缺签名发行、真实 Updater/IdP 和桌面端

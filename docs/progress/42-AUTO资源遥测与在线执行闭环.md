@@ -6,7 +6,8 @@
 > 遥测，同节点 Cgroup、State Collector Budget、Remote Desktop Bitrate 在线调整、
 > Safe Point、休眠、持久跨 Node 迁移、可恢复资源 SSE 和 Browser/Profile I/O
 > 指标已完成；Extension 进程级指标/Weight 与 x11vnc Media 编码指标/Slot 执行器已完成，
-> 目标 Linux 长稳、硬件编码 Helper 和双 Node E2E 待完成
+> 仓库级双 Node/Object Storage 迁移集成证书已完成；目标 Linux 长稳和硬件编码
+> Helper 待完成
 
 ## 本轮完成
 
@@ -100,7 +101,8 @@
    上限停止已由进度 70 完成，编码器级动态码率与封装仍未完成。
 3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；
    上传下载、表单、支付、安全和应用关键事务仍缺真实信号生产者。
-4. 跨 Node 核心链已实现；仍缺双真实 Browser Node + S3 + Chromium 的故障注入和长稳证书。
+4. 跨 Node 核心链与仓库级双 Browser Node + MinIO + CDP 数据面集成证书已由进度 80
+   完成；仍缺正式 Chromium/目标 Linux 的节点故障、网络分区和长稳证书。
 5. `WAIT_SAFE_POINT_MIGRATE`、`HIBERNATE` 和 `TERMINATE_STRICT` 已进入真实执行链；
    业务恢复非 READY 时继续保持 Agent 暂停。
 6. Resource Event SSE、断线游标与 Web 资源轮询替换已完成；State/Audit 通用事件层

@@ -3503,6 +3503,28 @@ impl NodeControlService {
                             .lock()
                             .await
                             .remove(&session_id);
+                        if let Some(input) = service.input_brokers.lock().await.remove(&session_id)
+                        {
+                            if let Err(error) = input.release_all().await {
+                                tracing::debug!(
+                                    session_id,
+                                    error = %error,
+                                    "Failed to release Browser input after crash"
+                                );
+                            }
+                        }
+                        service
+                            .state_collector
+                            .unregister_runtime(&session_id)
+                            .await;
+                        if let Err(error) = service.session_recorders.unregister(&session_id).await
+                        {
+                            tracing::error!(
+                                session_id,
+                                error = %error,
+                                "Failed to finalize Session recording after Browser crash"
+                            );
+                        }
                         if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
                             gateway.unregister_session(&session_id);
                         }

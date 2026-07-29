@@ -26,7 +26,9 @@
 7. `MAXIMUM_NON_CORE_MITIGATION` 将当前录制状态设为 false；Node 等待 CDP
    `Page.stopScreencast`、队列排空、剩余段提交和 Recording 最终标记成功后才 ACK；
 8. 任一步失败，资源调整返回失败并尝试恢复调整前的录制、Cgroup、State、桌面和
-   Tab 策略；Control Plane 在 ACK 前不修改 Placement。
+   Tab 策略；Control Plane 在 ACK 前不修改 Placement；
+9. Chromium Crash 清理会先注销旧 CDP、释放失效输入代理并 finalize 录制注册项，
+   再允许 Control Plane 使用新的 Browser Generation 恢复 Runtime。
 
 ## 数据格式和边界
 
@@ -85,7 +87,8 @@ Panel 区分“正在录制”“创建时请求但已由资源策略停止”�
 - OpenAPI、Buf、V047 N/N−1 Gate；Evidence Hash：
   `fe0c16ea985f381579c22905109f4efa3ac8e5c9aae6a64092a040ea9ffa666b`；
 - PostgreSQL/Browser Node Integration 验证 V047 默认、Start/Adjust ACK、
-  Placement、Resource API 和 Resource Event 使用同一状态。
+  Placement、Resource API 和 Resource Event 使用同一状态，并覆盖 SIGKILL 后
+  Browser Generation 恢复时不会复用旧录制注册项。
 
 ## 仍需完成
 

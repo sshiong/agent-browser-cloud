@@ -33,8 +33,40 @@ public final class BrowserCloudClient {
       boolean mediaWorkload,
       int requestedMediaStreams,
       int mediaBitrateKbps,
+      boolean videoRecording,
       Map<String, String> metadata,
-      String idempotencyKey) {}
+      String idempotencyKey) {
+    public CreateSessionInput(
+        String profileId,
+        String region,
+        String resourceClass,
+        int requestedTabs,
+        int agentActionsPerMinute,
+        List<String> extensionIds,
+        boolean remoteDesktop,
+        boolean web3Workload,
+        boolean mediaWorkload,
+        int requestedMediaStreams,
+        int mediaBitrateKbps,
+        Map<String, String> metadata,
+        String idempotencyKey) {
+      this(
+          profileId,
+          region,
+          resourceClass,
+          requestedTabs,
+          agentActionsPerMinute,
+          extensionIds,
+          remoteDesktop,
+          web3Workload,
+          mediaWorkload,
+          requestedMediaStreams,
+          mediaBitrateKbps,
+          false,
+          metadata,
+          idempotencyKey);
+    }
+  }
 
   public static final class ApiException extends RuntimeException {
     private final int status;
@@ -118,6 +150,8 @@ public final class BrowserCloudClient {
             + input.requestedMediaStreams()
             + ",\"mediaBitrateKbps\":"
             + input.mediaBitrateKbps()
+            + ",\"videoRecording\":"
+            + input.videoRecording()
             + ",\"metadata\":"
             + stringMap(input.metadata())
             + "}";

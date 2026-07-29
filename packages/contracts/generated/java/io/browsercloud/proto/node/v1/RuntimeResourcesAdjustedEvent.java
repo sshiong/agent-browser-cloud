@@ -758,6 +758,44 @@ private static final long serialVersionUID = 0L;
     return newObserverFrameRateFps_;
   }
 
+  public static final int OLD_VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 35;
+  private boolean oldVideoRecordingEnabled_ = false;
+  /**
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * @return Whether the oldVideoRecordingEnabled field is set.
+   */
+  @java.lang.Override
+  public boolean hasOldVideoRecordingEnabled() {
+    return ((bitField0_ & 0x00040000) != 0);
+  }
+  /**
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * @return The oldVideoRecordingEnabled.
+   */
+  @java.lang.Override
+  public boolean getOldVideoRecordingEnabled() {
+    return oldVideoRecordingEnabled_;
+  }
+
+  public static final int NEW_VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 36;
+  private boolean newVideoRecordingEnabled_ = false;
+  /**
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * @return Whether the newVideoRecordingEnabled field is set.
+   */
+  @java.lang.Override
+  public boolean hasNewVideoRecordingEnabled() {
+    return ((bitField0_ & 0x00080000) != 0);
+  }
+  /**
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * @return The newVideoRecordingEnabled.
+   */
+  @java.lang.Override
+  public boolean getNewVideoRecordingEnabled() {
+    return newVideoRecordingEnabled_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -873,6 +911,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00020000) != 0)) {
       output.writeUInt32(34, newObserverFrameRateFps_);
+    }
+    if (((bitField0_ & 0x00040000) != 0)) {
+      output.writeBool(35, oldVideoRecordingEnabled_);
+    }
+    if (((bitField0_ & 0x00080000) != 0)) {
+      output.writeBool(36, newVideoRecordingEnabled_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1013,6 +1057,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(34, newObserverFrameRateFps_);
     }
+    if (((bitField0_ & 0x00040000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(35, oldVideoRecordingEnabled_);
+    }
+    if (((bitField0_ & 0x00080000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(36, newVideoRecordingEnabled_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1150,6 +1202,16 @@ private static final long serialVersionUID = 0L;
       if (getNewObserverFrameRateFps()
           != other.getNewObserverFrameRateFps()) return false;
     }
+    if (hasOldVideoRecordingEnabled() != other.hasOldVideoRecordingEnabled()) return false;
+    if (hasOldVideoRecordingEnabled()) {
+      if (getOldVideoRecordingEnabled()
+          != other.getOldVideoRecordingEnabled()) return false;
+    }
+    if (hasNewVideoRecordingEnabled() != other.hasNewVideoRecordingEnabled()) return false;
+    if (hasNewVideoRecordingEnabled()) {
+      if (getNewVideoRecordingEnabled()
+          != other.getNewVideoRecordingEnabled()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1268,6 +1330,16 @@ private static final long serialVersionUID = 0L;
     if (hasNewObserverFrameRateFps()) {
       hash = (37 * hash) + NEW_OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER;
       hash = (53 * hash) + getNewObserverFrameRateFps();
+    }
+    if (hasOldVideoRecordingEnabled()) {
+      hash = (37 * hash) + OLD_VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getOldVideoRecordingEnabled());
+    }
+    if (hasNewVideoRecordingEnabled()) {
+      hash = (37 * hash) + NEW_VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getNewVideoRecordingEnabled());
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1454,6 +1526,8 @@ private static final long serialVersionUID = 0L;
       newSuccessTraceSamplePercent_ = 0;
       oldObserverFrameRateFps_ = 0;
       newObserverFrameRateFps_ = 0;
+      oldVideoRecordingEnabled_ = false;
+      newVideoRecordingEnabled_ = false;
       return this;
     }
 
@@ -1619,6 +1693,14 @@ private static final long serialVersionUID = 0L;
         result.newObserverFrameRateFps_ = newObserverFrameRateFps_;
         to_bitField0_ |= 0x00020000;
       }
+      if (((from_bitField1_ & 0x00000004) != 0)) {
+        result.oldVideoRecordingEnabled_ = oldVideoRecordingEnabled_;
+        to_bitField0_ |= 0x00040000;
+      }
+      if (((from_bitField1_ & 0x00000008) != 0)) {
+        result.newVideoRecordingEnabled_ = newVideoRecordingEnabled_;
+        to_bitField0_ |= 0x00080000;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -1779,6 +1861,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasNewObserverFrameRateFps()) {
         setNewObserverFrameRateFps(other.getNewObserverFrameRateFps());
+      }
+      if (other.hasOldVideoRecordingEnabled()) {
+        setOldVideoRecordingEnabled(other.getOldVideoRecordingEnabled());
+      }
+      if (other.hasNewVideoRecordingEnabled()) {
+        setNewVideoRecordingEnabled(other.getNewVideoRecordingEnabled());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1980,6 +2068,16 @@ private static final long serialVersionUID = 0L;
               bitField1_ |= 0x00000002;
               break;
             } // case 272
+            case 280: {
+              oldVideoRecordingEnabled_ = input.readBool();
+              bitField1_ |= 0x00000004;
+              break;
+            } // case 280
+            case 288: {
+              newVideoRecordingEnabled_ = input.readBool();
+              bitField1_ |= 0x00000008;
+              break;
+            } // case 288
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3644,6 +3742,86 @@ private static final long serialVersionUID = 0L;
     public Builder clearNewObserverFrameRateFps() {
       bitField1_ = (bitField1_ & ~0x00000002);
       newObserverFrameRateFps_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean oldVideoRecordingEnabled_ ;
+    /**
+     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * @return Whether the oldVideoRecordingEnabled field is set.
+     */
+    @java.lang.Override
+    public boolean hasOldVideoRecordingEnabled() {
+      return ((bitField1_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * @return The oldVideoRecordingEnabled.
+     */
+    @java.lang.Override
+    public boolean getOldVideoRecordingEnabled() {
+      return oldVideoRecordingEnabled_;
+    }
+    /**
+     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * @param value The oldVideoRecordingEnabled to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOldVideoRecordingEnabled(boolean value) {
+
+      oldVideoRecordingEnabled_ = value;
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOldVideoRecordingEnabled() {
+      bitField1_ = (bitField1_ & ~0x00000004);
+      oldVideoRecordingEnabled_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean newVideoRecordingEnabled_ ;
+    /**
+     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * @return Whether the newVideoRecordingEnabled field is set.
+     */
+    @java.lang.Override
+    public boolean hasNewVideoRecordingEnabled() {
+      return ((bitField1_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * @return The newVideoRecordingEnabled.
+     */
+    @java.lang.Override
+    public boolean getNewVideoRecordingEnabled() {
+      return newVideoRecordingEnabled_;
+    }
+    /**
+     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * @param value The newVideoRecordingEnabled to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNewVideoRecordingEnabled(boolean value) {
+
+      newVideoRecordingEnabled_ = value;
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNewVideoRecordingEnabled() {
+      bitField1_ = (bitField1_ & ~0x00000008);
+      newVideoRecordingEnabled_ = false;
       onChanged();
       return this;
     }

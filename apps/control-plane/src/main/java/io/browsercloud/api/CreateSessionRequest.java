@@ -34,6 +34,7 @@ import java.util.Map;
  * @param mediaWorkload 是否申请独立 Media/Encoder 资源
  * @param requestedMediaStreams 同时编码流数量
  * @param mediaBitrateKbps 聚合码率预算
+ * @param videoRecording 是否启用独立于 Observer 的像素录制
  * @param extensionIds Extension ID 集合；未知 ID 自动进入 Probation
  * @param metadata 扩展元数据
  */
@@ -56,6 +57,7 @@ public record CreateSessionRequest(
     boolean mediaWorkload,
     @Min(0) @Max(32) int requestedMediaStreams,
     @Min(0) @Max(1_000_000) int mediaBitrateKbps,
+    boolean videoRecording,
     @Size(max = 32)
         List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> extensionIds,
     @Size(max = 32)

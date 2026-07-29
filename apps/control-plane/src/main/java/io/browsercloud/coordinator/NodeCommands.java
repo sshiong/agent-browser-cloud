@@ -72,6 +72,7 @@ public final class NodeCommands {
                     .addAllPausedExtensionIds(limits.pausedExtensionIds()))
             .setSuccessTraceSamplePercent(limits.successTraceSamplePercent())
             .setObserverFrameRateFps(limits.observerFrameRateFps())
+            .setVideoRecordingEnabled(limits.videoRecordingEnabled())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
@@ -111,6 +112,7 @@ public final class NodeCommands {
         java.util.List.of(),
         100,
         budget.desktopAllowed() ? 30 : 0,
+        false,
         budget.desktopAllowed(),
         budget.gpuRequired(),
         budget.nativeOsRequired(),
@@ -153,6 +155,7 @@ public final class NodeCommands {
                     .addAllPausedExtensionIds(limits.pausedExtensionIds()))
             .setSuccessTraceSamplePercent(limits.successTraceSamplePercent())
             .setObserverFrameRateFps(limits.observerFrameRateFps())
+            .setVideoRecordingEnabled(limits.videoRecordingEnabled())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

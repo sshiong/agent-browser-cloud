@@ -206,6 +206,8 @@ message StartRuntimeCommand {
   optional uint32 success_trace_sample_percent = 26;
   // 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
   optional uint32 observer_frame_rate_fps = 27;
+  // 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+  optional bool video_recording_enabled = 28;
 }
 
 // Runtime 启动事件
@@ -274,6 +276,8 @@ message AdjustRuntimeResourcesCommand {
   optional uint32 success_trace_sample_percent = 21;
   // 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
   optional uint32 observer_frame_rate_fps = 22;
+  // Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+  optional bool video_recording_enabled = 23;
 }
 
 // Browser Node 通过各 Extension background/service-worker Target 的 Debugger
@@ -319,6 +323,8 @@ message RuntimeResourcesAdjustedEvent {
   optional uint32 new_success_trace_sample_percent = 32;
   optional uint32 old_observer_frame_rate_fps = 33;
   optional uint32 new_observer_frame_rate_fps = 34;
+  optional bool old_video_recording_enabled = 35;
+  optional bool new_video_recording_enabled = 36;
 }
 
 // Browser Crash 事件

@@ -18,6 +18,7 @@ export interface CreateSessionInput {
   mediaWorkload?: boolean;
   requestedMediaStreams?: number;
   mediaBitrateKbps?: number;
+  videoRecording?: boolean;
   metadata?: Record<string, string>;
   idempotencyKey?: string;
 }
@@ -83,6 +84,7 @@ export class BrowserCloudClient {
         mediaWorkload: input.mediaWorkload ?? false,
         requestedMediaStreams: input.requestedMediaStreams ?? 0,
         mediaBitrateKbps: input.mediaBitrateKbps ?? 0,
+        videoRecording: input.videoRecording ?? false,
         metadata: input.metadata ?? {},
       },
     });

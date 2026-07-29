@@ -86,6 +86,7 @@ const schema = z
     agentActionsPerMinute: z.coerce.number().int().min(0).max(600),
     remoteDesktop: z.boolean(),
     mediaClass: z.enum(['M0', 'M1', 'M2', 'M3', 'M4']),
+    videoRecording: z.boolean(),
     extensionIds: z.array(z.string().max(128)).max(32),
     agentEnabled: z.boolean(),
     agentPolicy: z.enum(['balanced', 'restricted', 'interactive']),
@@ -163,6 +164,7 @@ const stepFields: Record<Step, (keyof FormValues)[]> = {
     'agentActionsPerMinute',
     'remoteDesktop',
     'mediaClass',
+    'videoRecording',
   ],
   5: [
     'extensionIds',
@@ -242,6 +244,7 @@ export function CreateSessionDialog({
       scaleDownWindowSeconds: 1200,
       remoteDesktop: false,
       mediaClass: 'M0',
+      videoRecording: false,
       extensionIds: [],
       agentEnabled: true,
       agentPolicy: 'balanced',
@@ -405,6 +408,7 @@ export function CreateSessionDialog({
         mediaWorkload: budget.mediaWorkload,
         requestedMediaStreams: budget.streams,
         mediaBitrateKbps: budget.bitrate,
+        videoRecording: form.videoRecording,
         extensionIds: form.extensionIds,
         metadata: {
           displayName: form.name,
@@ -654,6 +658,18 @@ export function CreateSessionDialog({
                       )}
                     </div>
                   </fieldset>
+
+                  <SwitchRow
+                    checked={values.videoRecording}
+                    onChange={(checked) =>
+                      setValue('videoRecording', checked, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    title="启用独立像素录制"
+                    detail="通过 CDP 独立采集并由 Storage Helper 分段提交；达到资源上限时会优先停止录制。"
+                  />
                 </WizardStep>
               )}
 
@@ -1399,7 +1415,7 @@ export function CreateSessionDialog({
                         />
                         <ReviewItem
                           label="交互 / 媒体"
-                          value={`${values.remoteDesktop ? 'Remote Desktop' : 'No Desktop'} · ${values.mediaClass}`}
+                          value={`${values.remoteDesktop ? 'Remote Desktop' : 'No Desktop'} · ${values.mediaClass} · ${values.videoRecording ? 'Recording On' : 'Recording Off'}`}
                         />
                         <ReviewItem
                           label="Agent"

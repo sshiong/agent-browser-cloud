@@ -1,7 +1,8 @@
 use anyhow::Context;
+use bytes::Bytes;
 use helper_contracts::{
-    read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageRequest, StorageResponse,
-    StorageRestoreStatus, StorageWorkspace, SCHEMA_VERSION,
+    read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageRecording, StorageRequest,
+    StorageResponse, StorageRestoreStatus, StorageWorkspace, SCHEMA_VERSION,
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
@@ -11,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use storage_helper::object_archive::{ObjectArchive, S3ArchiveConfig};
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
+use tokio::io::AsyncReadExt;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -33,9 +35,13 @@ impl StorageService {
     async fn execute(
         &self,
         command: &StorageCommand,
-    ) -> anyhow::Result<(Option<StorageWorkspace>, Option<StorageCheckpoint>)> {
+    ) -> anyhow::Result<(
+        Option<StorageWorkspace>,
+        Option<StorageCheckpoint>,
+        Option<StorageRecording>,
+    )> {
         let Some((tenant_id, profile_id)) = command_profile(command) else {
-            return Ok((None, None));
+            return Ok((None, None, None));
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
@@ -98,12 +104,13 @@ async fn serve_connection(
         )
     } else {
         match service.execute(&request.command).await {
-            Ok((workspace, checkpoint)) => StorageResponse {
+            Ok((workspace, checkpoint, recording)) => StorageResponse {
                 schema_version: SCHEMA_VERSION,
                 request_id: request.request_id,
                 ok: true,
                 workspace,
                 checkpoint,
+                recording,
                 error_code: None,
                 error_message: None,
             },
@@ -124,9 +131,13 @@ async fn execute_storage_operation(
     store: &LocalProfileStore,
     archive: Option<&ObjectArchive>,
     command: &StorageCommand,
-) -> anyhow::Result<(Option<StorageWorkspace>, Option<StorageCheckpoint>)> {
+) -> anyhow::Result<(
+    Option<StorageWorkspace>,
+    Option<StorageCheckpoint>,
+    Option<StorageRecording>,
+)> {
     match command {
-        StorageCommand::Ping => Ok((None, None)),
+        StorageCommand::Ping => Ok((None, None, None)),
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -151,7 +162,7 @@ async fn execute_storage_operation(
             let workspace = store
                 .acquire_workspace(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((Some(workspace_response(workspace)), None))
+            Ok((Some(workspace_response(workspace)), None, None))
         }
         StorageCommand::Checkpoint {
             tenant_id,
@@ -175,6 +186,171 @@ async fn execute_storage_operation(
                     core_size_bytes: checkpoint.core_size_bytes,
                     checkpoint_file_count: checkpoint.files.len() as u64,
                 }),
+                None,
+            ))
+        }
+        StorageCommand::PrepareRecording {
+            tenant_id,
+            profile_id,
+            session_id,
+            recording_id,
+        } => {
+            validate_recording_identifier("recording_id", recording_id)?;
+            anyhow::ensure!(
+                archive.is_some(),
+                "recording requires configured Object Storage"
+            );
+            let workspace = store
+                .resume_workspace(tenant_id, profile_id, session_id)
+                .await?;
+            verified_recording_directory(&workspace.ephemeral_dir, recording_id, true).await?;
+            Ok((
+                None,
+                None,
+                Some(StorageRecording {
+                    recording_id: recording_id.clone(),
+                    segment_sequence: None,
+                    object_key: None,
+                    content_bytes: 0,
+                    frame_count: 0,
+                    completed: false,
+                }),
+            ))
+        }
+        StorageCommand::CommitRecordingSegment {
+            tenant_id,
+            profile_id,
+            session_id,
+            recording_id,
+            segment_sequence,
+            content_sha256,
+            content_bytes,
+            frame_count,
+            started_at_ms,
+            ended_at_ms,
+        } => {
+            validate_recording_identifier("recording_id", recording_id)?;
+            anyhow::ensure!(
+                content_sha256.len() == 64
+                    && content_sha256
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit()),
+                "recording segment SHA-256 is invalid"
+            );
+            anyhow::ensure!(
+                *content_bytes > 0 && *content_bytes <= 16 * 1024 * 1024,
+                "recording segment size is invalid"
+            );
+            anyhow::ensure!(
+                *frame_count > 0 && *ended_at_ms >= *started_at_ms,
+                "recording segment metadata is invalid"
+            );
+            let archive =
+                archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
+            let workspace = store
+                .resume_workspace(tenant_id, profile_id, session_id)
+                .await?;
+            let directory =
+                verified_recording_directory(&workspace.ephemeral_dir, recording_id, false).await?;
+            let path = directory.join(format!("segment-{segment_sequence:020}.ndjson"));
+            let metadata = tokio::fs::symlink_metadata(&path).await?;
+            anyhow::ensure!(
+                metadata.is_file() && !metadata.file_type().is_symlink(),
+                "recording segment is not a regular file"
+            );
+            anyhow::ensure!(
+                metadata.len() == *content_bytes,
+                "recording segment size does not match command"
+            );
+            let canonical_path = tokio::fs::canonicalize(&path).await?;
+            anyhow::ensure!(
+                canonical_path.parent() == Some(directory.as_path()),
+                "recording segment escaped its isolated directory"
+            );
+            let mut file = tokio::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(nix::libc::O_NOFOLLOW)
+                .open(&canonical_path)
+                .await?;
+            let opened_metadata = file.metadata().await?;
+            anyhow::ensure!(
+                opened_metadata.is_file() && opened_metadata.len() == *content_bytes,
+                "recording segment changed before secure open"
+            );
+            let mut content = Vec::with_capacity(*content_bytes as usize);
+            file.read_to_end(&mut content).await?;
+            anyhow::ensure!(
+                content.len() as u64 == *content_bytes,
+                "recording segment changed while being read"
+            );
+            let object_key = archive
+                .commit_recording_segment(
+                    tenant_id,
+                    profile_id,
+                    session_id,
+                    recording_id,
+                    *segment_sequence,
+                    Bytes::from(content),
+                    content_sha256,
+                    *frame_count,
+                    *started_at_ms,
+                    *ended_at_ms,
+                )
+                .await?;
+            tokio::fs::remove_file(&canonical_path).await?;
+            Ok((
+                None,
+                None,
+                Some(StorageRecording {
+                    recording_id: recording_id.clone(),
+                    segment_sequence: Some(*segment_sequence),
+                    object_key: Some(object_key),
+                    content_bytes: *content_bytes,
+                    frame_count: *frame_count,
+                    completed: false,
+                }),
+            ))
+        }
+        StorageCommand::CompleteRecording {
+            tenant_id,
+            profile_id,
+            session_id,
+            recording_id,
+            segment_count,
+            frame_count,
+            started_at_ms,
+            ended_at_ms,
+        } => {
+            validate_recording_identifier("recording_id", recording_id)?;
+            anyhow::ensure!(
+                *ended_at_ms >= *started_at_ms,
+                "recording completion timestamps are invalid"
+            );
+            let archive =
+                archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
+            let object_key = archive
+                .complete_recording(
+                    tenant_id,
+                    profile_id,
+                    session_id,
+                    recording_id,
+                    *segment_count,
+                    *frame_count,
+                    *started_at_ms,
+                    *ended_at_ms,
+                )
+                .await?;
+            Ok((
+                None,
+                None,
+                Some(StorageRecording {
+                    recording_id: recording_id.clone(),
+                    segment_sequence: None,
+                    object_key: Some(object_key),
+                    content_bytes: 0,
+                    frame_count: *frame_count,
+                    completed: true,
+                }),
             ))
         }
         StorageCommand::Release {
@@ -185,7 +361,7 @@ async fn execute_storage_operation(
             store
                 .release_writer_by_identity(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((None, None))
+            Ok((None, None, None))
         }
     }
 }
@@ -242,12 +418,84 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             profile_id,
             ..
         }
+        | StorageCommand::PrepareRecording {
+            tenant_id,
+            profile_id,
+            ..
+        }
+        | StorageCommand::CommitRecordingSegment {
+            tenant_id,
+            profile_id,
+            ..
+        }
+        | StorageCommand::CompleteRecording {
+            tenant_id,
+            profile_id,
+            ..
+        }
         | StorageCommand::Release {
             tenant_id,
             profile_id,
             ..
         } => Some((tenant_id, profile_id)),
     }
+}
+
+async fn verified_recording_directory(
+    ephemeral_dir: &Path,
+    recording_id: &str,
+    create: bool,
+) -> anyhow::Result<PathBuf> {
+    let canonical_ephemeral = tokio::fs::canonicalize(ephemeral_dir).await?;
+    let recordings = ephemeral_dir.join("recordings");
+    if create {
+        match tokio::fs::create_dir(&recordings).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let recordings_metadata = tokio::fs::symlink_metadata(&recordings).await?;
+    anyhow::ensure!(
+        recordings_metadata.is_dir() && !recordings_metadata.file_type().is_symlink(),
+        "recordings root is not a regular directory"
+    );
+    let canonical_recordings = tokio::fs::canonicalize(&recordings).await?;
+    anyhow::ensure!(
+        canonical_recordings.parent() == Some(canonical_ephemeral.as_path()),
+        "recordings root escaped the Session ephemeral directory"
+    );
+    let directory = recordings.join(recording_id);
+    if create {
+        match tokio::fs::create_dir(&directory).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let metadata = tokio::fs::symlink_metadata(&directory).await?;
+    anyhow::ensure!(
+        metadata.is_dir() && !metadata.file_type().is_symlink(),
+        "recording path is not a regular directory"
+    );
+    let canonical_directory = tokio::fs::canonicalize(&directory).await?;
+    anyhow::ensure!(
+        canonical_directory.parent() == Some(canonical_recordings.as_path()),
+        "recording directory escaped the recordings root"
+    );
+    Ok(canonical_directory)
+}
+
+fn validate_recording_identifier(name: &str, value: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        !value.is_empty()
+            && value.len() <= 128
+            && value.chars().all(
+                |character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+            ),
+        "{name} is invalid"
+    );
+    Ok(())
 }
 
 fn profile_lock_stripe(tenant_id: &str, profile_id: &str, stripes: usize) -> usize {
@@ -281,6 +529,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         ok: false,
         workspace: None,
         checkpoint: None,
+        recording: None,
         error_code: Some(code.to_owned()),
         error_message: Some(message.to_owned()),
     }
@@ -351,6 +600,7 @@ async fn prepare_socket_path(socket_path: &Path) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::symlink;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -382,6 +632,28 @@ mod tests {
         assert!(error.to_string().contains("UID is not authorized"));
         drop(connected_client);
         drop(listener);
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_a_recording_root_symlink_escape() {
+        let sequence = TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "browsercloud-storage-helper-recording-{}-{sequence}",
+            std::process::id()
+        ));
+        let ephemeral = root.join("ephemeral");
+        let escaped = root.join("escaped");
+        tokio::fs::create_dir_all(&ephemeral).await.unwrap();
+        tokio::fs::create_dir_all(&escaped).await.unwrap();
+        symlink(&escaped, ephemeral.join("recordings")).unwrap();
+
+        let error = verified_recording_directory(&ephemeral, "rec-test", true)
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("recordings root is not a regular directory"));
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 }

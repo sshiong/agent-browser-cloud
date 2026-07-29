@@ -175,6 +175,7 @@ public class SessionApplicationService {
         request.mediaWorkload(),
         request.requestedMediaStreams(),
         request.mediaBitrateKbps(),
+        request.videoRecording(),
         extensionIds,
         now);
     var resourceOperation =
@@ -264,6 +265,7 @@ public class SessionApplicationService {
                     placement.pausedExtensionIds(),
                     placement.successTraceSamplePercent(),
                     placement.observerFrameRateFps(),
+                    placement.videoRecordingRequested(),
                     placement.requiresDesktop(),
                     placement.requiresGpu(),
                     placement.requiresNativeOs(),

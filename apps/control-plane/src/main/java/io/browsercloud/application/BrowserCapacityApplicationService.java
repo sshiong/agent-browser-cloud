@@ -288,6 +288,7 @@ public class BrowserCapacityApplicationService {
       boolean mediaWorkload,
       int requestedMediaStreams,
       int mediaBitrateKbps,
+      boolean videoRecording,
       List<String> extensionIds,
       Instant now) {
     if (mediaWorkload != (requestedMediaStreams > 0 && mediaBitrateKbps > 0)) {
@@ -307,6 +308,7 @@ public class BrowserCapacityApplicationService {
             mediaWorkload,
             requestedMediaStreams,
             mediaBitrateKbps,
+            videoRecording,
             writeJson(normalizedExtensions),
             now));
   }
@@ -382,6 +384,7 @@ public class BrowserCapacityApplicationService {
             calculated.requiresMedia(),
             calculated.mediaSlots(),
             calculated.mediaBitrateKbps(),
+            demand.isVideoRecordingRequested(),
             chosen.score(),
             writeJson(calculated.reasonCodes()),
             now);
@@ -716,6 +719,8 @@ public class BrowserCapacityApplicationService {
         readStringList(placement.getPausedExtensionIds()),
         placement.getSuccessTraceSamplePercent(),
         placement.getObserverFrameRateFps(),
+        placement.isVideoRecordingRequested(),
+        placement.isVideoRecordingEnabled(),
         placement.getMediaBitrateKbps(),
         placement.getPlacementScore(),
         placement.getState(),

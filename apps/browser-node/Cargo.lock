@@ -1238,6 +1238,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "session-recorder",
  "state-collector",
  "tokio",
  "tonic",
@@ -2140,6 +2141,23 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "session-recorder"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "helper-client",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -160,6 +160,7 @@ export interface CreateSessionRequest {
   mediaWorkload?: boolean;
   requestedMediaStreams?: number;
   mediaBitrateKbps?: number;
+  videoRecording?: boolean;
   extensionIds?: string[];
   metadata?: Record<string, string>;
 }
@@ -276,6 +277,8 @@ export interface SessionResourceView {
     pausedExtensionIds?: string[];
     successTraceSamplePercent?: number;
     observerFrameRateFps?: number;
+    videoRecordingRequested?: boolean;
+    videoRecordingEnabled?: boolean;
     placementState: string;
   };
   usage?: {

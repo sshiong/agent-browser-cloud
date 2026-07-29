@@ -198,6 +198,7 @@ class SessionResourceCostAndMaximumPolicyTest {
         .containsExactly("extension.noncritical");
     assertThat(payload.getSuccessTraceSamplePercent()).isEqualTo(10);
     assertThat(payload.getObserverFrameRateFps()).isEqualTo(5);
+    assertThat(payload.getVideoRecordingEnabled()).isFalse();
   }
 
   @Test
@@ -294,6 +295,7 @@ class SessionResourceCostAndMaximumPolicyTest {
             true,
             2,
             8_000,
+            true,
             100,
             "[]",
             now);

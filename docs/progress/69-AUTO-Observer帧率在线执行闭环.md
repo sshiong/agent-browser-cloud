@@ -88,8 +88,8 @@ Input 不经过该节流器。Web 不根据状态推算 FPS，也不使用定时
 
 ## 仍需完成
 
-1. 当前没有真实 Recording Worker、独立录制队列和对象存储提交链；停止非必要视频录制
-   必须建立在该数据面之上，不能用 `recording=false` 状态伪造；
+1. 真实 Recording Worker、独立有界录制队列、Storage Helper 对象提交和达到上限
+   停止已由[进度 70](70-AUTO独立像素录制与停止执行闭环.md)完成；
 2. Agent/Observer 成功截图采集与频率执行器；
 3. WebRTC/H.264 编码器级 `target_fps`、Latest Frame Wins、关键帧恢复、音频与 GPU
    Helper；

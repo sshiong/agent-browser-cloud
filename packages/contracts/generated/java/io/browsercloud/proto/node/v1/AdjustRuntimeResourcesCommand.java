@@ -552,6 +552,33 @@ private static final long serialVersionUID = 0L;
     return observerFrameRateFps_;
   }
 
+  public static final int VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 23;
+  private boolean videoRecordingEnabled_ = false;
+  /**
+   * <pre>
+   * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+   * @return Whether the videoRecordingEnabled field is set.
+   */
+  @java.lang.Override
+  public boolean hasVideoRecordingEnabled() {
+    return ((bitField0_ & 0x00000200) != 0);
+  }
+  /**
+   * <pre>
+   * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+   * @return The videoRecordingEnabled.
+   */
+  @java.lang.Override
+  public boolean getVideoRecordingEnabled() {
+    return videoRecordingEnabled_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -631,6 +658,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000100) != 0)) {
       output.writeUInt32(22, observerFrameRateFps_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      output.writeBool(23, videoRecordingEnabled_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -730,6 +760,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(22, observerFrameRateFps_);
     }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(23, videoRecordingEnabled_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -816,6 +850,11 @@ private static final long serialVersionUID = 0L;
       if (getObserverFrameRateFps()
           != other.getObserverFrameRateFps()) return false;
     }
+    if (hasVideoRecordingEnabled() != other.hasVideoRecordingEnabled()) return false;
+    if (hasVideoRecordingEnabled()) {
+      if (getVideoRecordingEnabled()
+          != other.getVideoRecordingEnabled()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -896,6 +935,11 @@ private static final long serialVersionUID = 0L;
     if (hasObserverFrameRateFps()) {
       hash = (37 * hash) + OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER;
       hash = (53 * hash) + getObserverFrameRateFps();
+    }
+    if (hasVideoRecordingEnabled()) {
+      hash = (37 * hash) + VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getVideoRecordingEnabled());
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1065,6 +1109,7 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       successTraceSamplePercent_ = 0;
       observerFrameRateFps_ = 0;
+      videoRecordingEnabled_ = false;
       return this;
     }
 
@@ -1176,6 +1221,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00200000) != 0)) {
         result.observerFrameRateFps_ = observerFrameRateFps_;
         to_bitField0_ |= 0x00000100;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.videoRecordingEnabled_ = videoRecordingEnabled_;
+        to_bitField0_ |= 0x00000200;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1302,6 +1351,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasObserverFrameRateFps()) {
         setObserverFrameRateFps(other.getObserverFrameRateFps());
+      }
+      if (other.hasVideoRecordingEnabled()) {
+        setVideoRecordingEnabled(other.getVideoRecordingEnabled());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1442,6 +1494,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00200000;
               break;
             } // case 176
+            case 184: {
+              videoRecordingEnabled_ = input.readBool();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 184
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2659,6 +2716,62 @@ private static final long serialVersionUID = 0L;
     public Builder clearObserverFrameRateFps() {
       bitField0_ = (bitField0_ & ~0x00200000);
       observerFrameRateFps_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean videoRecordingEnabled_ ;
+    /**
+     * <pre>
+     * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+     * @return Whether the videoRecordingEnabled field is set.
+     */
+    @java.lang.Override
+    public boolean hasVideoRecordingEnabled() {
+      return ((bitField0_ & 0x00400000) != 0);
+    }
+    /**
+     * <pre>
+     * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+     * @return The videoRecordingEnabled.
+     */
+    @java.lang.Override
+    public boolean getVideoRecordingEnabled() {
+      return videoRecordingEnabled_;
+    }
+    /**
+     * <pre>
+     * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+     * @param value The videoRecordingEnabled to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVideoRecordingEnabled(boolean value) {
+
+      videoRecordingEnabled_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearVideoRecordingEnabled() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      videoRecordingEnabled_ = false;
       onChanged();
       return this;
     }

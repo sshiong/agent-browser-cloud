@@ -4,7 +4,9 @@ use helper_contracts::{
     read_frame, write_frame, NetworkCommand, NetworkRequest, NetworkResponse, ObservedNetwork,
     StorageCommand, StorageRequest, StorageResponse, SCHEMA_VERSION,
 };
-pub use helper_contracts::{StorageCheckpoint, StorageRestoreStatus, StorageWorkspace};
+pub use helper_contracts::{
+    StorageCheckpoint, StorageRecording, StorageRestoreStatus, StorageWorkspace,
+};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::net::UnixStream;
@@ -196,6 +198,97 @@ impl StorageHelperClient {
         .await?
         .checkpoint
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted checkpoint"))
+    }
+
+    pub async fn prepare_recording(
+        &self,
+        workspace: &StorageWorkspace,
+        recording_id: &str,
+    ) -> anyhow::Result<StorageRecording> {
+        self.validate_workspace(
+            workspace,
+            &workspace.tenant_id,
+            &workspace.profile_id,
+            &workspace.session_id,
+        )?;
+        validate_identifier("recording_id", recording_id)?;
+        self.call(StorageCommand::PrepareRecording {
+            tenant_id: workspace.tenant_id.clone(),
+            profile_id: workspace.profile_id.clone(),
+            session_id: workspace.session_id.clone(),
+            recording_id: recording_id.to_owned(),
+        })
+        .await?
+        .recording
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording preparation"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn commit_recording_segment(
+        &self,
+        workspace: &StorageWorkspace,
+        recording_id: &str,
+        segment_sequence: u64,
+        content_sha256: &str,
+        content_bytes: u64,
+        frame_count: u64,
+        started_at_ms: u64,
+        ended_at_ms: u64,
+    ) -> anyhow::Result<StorageRecording> {
+        self.validate_workspace(
+            workspace,
+            &workspace.tenant_id,
+            &workspace.profile_id,
+            &workspace.session_id,
+        )?;
+        validate_identifier("recording_id", recording_id)?;
+        self.call(StorageCommand::CommitRecordingSegment {
+            tenant_id: workspace.tenant_id.clone(),
+            profile_id: workspace.profile_id.clone(),
+            session_id: workspace.session_id.clone(),
+            recording_id: recording_id.to_owned(),
+            segment_sequence,
+            content_sha256: content_sha256.to_owned(),
+            content_bytes,
+            frame_count,
+            started_at_ms,
+            ended_at_ms,
+        })
+        .await?
+        .recording
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording segment result"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn complete_recording(
+        &self,
+        workspace: &StorageWorkspace,
+        recording_id: &str,
+        segment_count: u64,
+        frame_count: u64,
+        started_at_ms: u64,
+        ended_at_ms: u64,
+    ) -> anyhow::Result<StorageRecording> {
+        self.validate_workspace(
+            workspace,
+            &workspace.tenant_id,
+            &workspace.profile_id,
+            &workspace.session_id,
+        )?;
+        validate_identifier("recording_id", recording_id)?;
+        self.call(StorageCommand::CompleteRecording {
+            tenant_id: workspace.tenant_id.clone(),
+            profile_id: workspace.profile_id.clone(),
+            session_id: workspace.session_id.clone(),
+            recording_id: recording_id.to_owned(),
+            segment_count,
+            frame_count,
+            started_at_ms,
+            ended_at_ms,
+        })
+        .await?
+        .recording
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted recording completion"))
     }
 
     pub async fn release(&self, workspace: &StorageWorkspace) -> anyhow::Result<()> {

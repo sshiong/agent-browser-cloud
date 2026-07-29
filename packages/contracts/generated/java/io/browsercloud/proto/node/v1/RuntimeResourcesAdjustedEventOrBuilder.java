@@ -353,4 +353,26 @@ public interface RuntimeResourcesAdjustedEventOrBuilder extends
    * @return The newObserverFrameRateFps.
    */
   int getNewObserverFrameRateFps();
+
+  /**
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * @return Whether the oldVideoRecordingEnabled field is set.
+   */
+  boolean hasOldVideoRecordingEnabled();
+  /**
+   * <code>optional bool old_video_recording_enabled = 35 [json_name = "oldVideoRecordingEnabled"];</code>
+   * @return The oldVideoRecordingEnabled.
+   */
+  boolean getOldVideoRecordingEnabled();
+
+  /**
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * @return Whether the newVideoRecordingEnabled field is set.
+   */
+  boolean hasNewVideoRecordingEnabled();
+  /**
+   * <code>optional bool new_video_recording_enabled = 36 [json_name = "newVideoRecordingEnabled"];</code>
+   * @return The newVideoRecordingEnabled.
+   */
+  boolean getNewVideoRecordingEnabled();
 }

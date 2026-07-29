@@ -31,6 +31,44 @@ class BrowserPlacementEntityTest {
         .hasMessageContaining("Media Encoder Slot");
   }
 
+  @Test
+  void recordingBecomesCurrentOnlyAfterRuntimeActivationAndCanBeStopped() {
+    var placement =
+        new BrowserPlacementEntity(
+            "ses_recording",
+            "tenant-test",
+            "node-test",
+            ResourceClass.L2,
+            ResourceClass.L2,
+            "[]",
+            0,
+            600,
+            768,
+            1_280,
+            192,
+            8,
+            false,
+            false,
+            false,
+            false,
+            false,
+            0,
+            0,
+            true,
+            100,
+            "[]",
+            Instant.parse("2026-07-29T00:00:00Z"));
+
+    assertThat(placement.isVideoRecordingRequested()).isTrue();
+    assertThat(placement.isVideoRecordingEnabled()).isFalse();
+    placement.activate(Instant.parse("2026-07-29T00:00:01Z"));
+    assertThat(placement.isVideoRecordingEnabled()).isTrue();
+
+    placement.applyResourceAdjustment(
+        600, 768, 1_280, 192, 8, 50, 0, 100, 0, true, true, "[]", 10, 0, false);
+    assertThat(placement.isVideoRecordingEnabled()).isFalse();
+  }
+
   private static BrowserPlacementEntity mediaPlacement(int reservedSlots) {
     return new BrowserPlacementEntity(
         "ses_media_slots",

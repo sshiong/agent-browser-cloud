@@ -719,6 +719,33 @@ private static final long serialVersionUID = 0L;
     return observerFrameRateFps_;
   }
 
+  public static final int VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 28;
+  private boolean videoRecordingEnabled_ = false;
+  /**
+   * <pre>
+   * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   * @return Whether the videoRecordingEnabled field is set.
+   */
+  @java.lang.Override
+  public boolean hasVideoRecordingEnabled() {
+    return ((bitField0_ & 0x00000200) != 0);
+  }
+  /**
+   * <pre>
+   * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   * @return The videoRecordingEnabled.
+   */
+  @java.lang.Override
+  public boolean getVideoRecordingEnabled() {
+    return videoRecordingEnabled_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -813,6 +840,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000100) != 0)) {
       output.writeUInt32(27, observerFrameRateFps_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      output.writeBool(28, videoRecordingEnabled_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -928,6 +958,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(27, observerFrameRateFps_);
     }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(28, videoRecordingEnabled_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1024,6 +1058,11 @@ private static final long serialVersionUID = 0L;
       if (getObserverFrameRateFps()
           != other.getObserverFrameRateFps()) return false;
     }
+    if (hasVideoRecordingEnabled() != other.hasVideoRecordingEnabled()) return false;
+    if (hasVideoRecordingEnabled()) {
+      if (getVideoRecordingEnabled()
+          != other.getVideoRecordingEnabled()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1114,6 +1153,11 @@ private static final long serialVersionUID = 0L;
     if (hasObserverFrameRateFps()) {
       hash = (37 * hash) + OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER;
       hash = (53 * hash) + getObserverFrameRateFps();
+    }
+    if (hasVideoRecordingEnabled()) {
+      hash = (37 * hash) + VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getVideoRecordingEnabled());
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1288,6 +1332,7 @@ private static final long serialVersionUID = 0L;
       }
       successTraceSamplePercent_ = 0;
       observerFrameRateFps_ = 0;
+      videoRecordingEnabled_ = false;
       return this;
     }
 
@@ -1414,6 +1459,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x04000000) != 0)) {
         result.observerFrameRateFps_ = observerFrameRateFps_;
         to_bitField0_ |= 0x00000100;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.videoRecordingEnabled_ = videoRecordingEnabled_;
+        to_bitField0_ |= 0x00000200;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1563,6 +1612,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasObserverFrameRateFps()) {
         setObserverFrameRateFps(other.getObserverFrameRateFps());
+      }
+      if (other.hasVideoRecordingEnabled()) {
+        setVideoRecordingEnabled(other.getVideoRecordingEnabled());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1728,6 +1780,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x04000000;
               break;
             } // case 216
+            case 224: {
+              videoRecordingEnabled_ = input.readBool();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 224
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3269,6 +3326,62 @@ private static final long serialVersionUID = 0L;
     public Builder clearObserverFrameRateFps() {
       bitField0_ = (bitField0_ & ~0x04000000);
       observerFrameRateFps_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean videoRecordingEnabled_ ;
+    /**
+     * <pre>
+     * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * @return Whether the videoRecordingEnabled field is set.
+     */
+    @java.lang.Override
+    public boolean hasVideoRecordingEnabled() {
+      return ((bitField0_ & 0x08000000) != 0);
+    }
+    /**
+     * <pre>
+     * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * @return The videoRecordingEnabled.
+     */
+    @java.lang.Override
+    public boolean getVideoRecordingEnabled() {
+      return videoRecordingEnabled_;
+    }
+    /**
+     * <pre>
+     * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * @param value The videoRecordingEnabled to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVideoRecordingEnabled(boolean value) {
+
+      videoRecordingEnabled_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+     * </pre>
+     *
+     * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearVideoRecordingEnabled() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      videoRecordingEnabled_ = false;
       onChanged();
       return this;
     }

@@ -96,7 +96,8 @@
    State Diff、Remote Desktop Frame Age、Extension CPU/内存和 x11vnc Media CPU
    已完成；仍缺硬件 Codec/GPU 编码 Helper 和目标 Linux 长稳证书。
 2. State Collector Budget、Remote Desktop Bitrate、Extension Resource Weight 和
-   Media Encoder Slot 在线执行器已完成；编码器级动态码率与录制队列仍未完成。
+   Media Encoder Slot 在线执行器已完成；独立 CDP Pixel Recording、有界队列和
+   上限停止已由进度 70 完成，编码器级动态码率与封装仍未完成。
 3. Safe Point 已覆盖 Input/Drag、HumanTakeover、Agent Task 和 Durable Workflow；
    上传下载、表单、支付、安全和应用关键事务仍缺真实信号生产者。
 4. 跨 Node 核心链已实现；仍缺双真实 Browser Node + S3 + Chromium 的故障注入和长稳证书。

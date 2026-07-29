@@ -66,6 +66,7 @@ class BrowserCloudClient:
         media_workload: bool = False,
         requested_media_streams: int = 0,
         media_bitrate_kbps: int = 0,
+        video_recording: bool = False,
         metadata: Mapping[str, str] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -85,6 +86,7 @@ class BrowserCloudClient:
                 "mediaWorkload": media_workload,
                 "requestedMediaStreams": requested_media_streams,
                 "mediaBitrateKbps": media_bitrate_kbps,
+                "videoRecording": video_recording,
                 "metadata": dict(metadata or {}),
             },
             {"Idempotency-Key": idempotency_key or str(uuid.uuid4())},

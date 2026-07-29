@@ -31,6 +31,7 @@ use runtime_supervisor::{
     CgroupV2Config, ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeResourceLimits,
     RuntimeSpec, RuntimeSupervisor,
 };
+use session_recorder::{RecordingSpec, SessionRecorderRegistry};
 use state_collector::{
     diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
     StateQuality, TabResourcePolicy,
@@ -74,6 +75,7 @@ struct NodeControlService {
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
     pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
     success_trace_sampler: SuccessTraceSampler,
+    session_recorders: SessionRecorderRegistry,
     resource_report_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
@@ -1151,6 +1153,7 @@ impl NodeControlService {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn rollback_resource_adjustment(
         &self,
         session_id: &str,
@@ -1158,8 +1161,20 @@ impl NodeControlService {
         previous_state_collector_budget_percent: u32,
         previous_remote_desktop_bitrate_kbps: u32,
         previous_observer_frame_rate_fps: u32,
+        previous_video_recording_enabled: bool,
         previous_tab_resource_policy: TabResourcePolicy,
     ) {
+        if let Err(error) = self
+            .session_recorders
+            .set_enabled(session_id, previous_video_recording_enabled)
+            .await
+        {
+            tracing::error!(
+                session_id,
+                error = %error,
+                "Video recording rollback failed"
+            );
+        }
         if let Err(error) = self
             .state_collector
             .set_tab_resource_policy(session_id, previous_tab_resource_policy)
@@ -1663,6 +1678,8 @@ impl NodeControlService {
                         let observer_frame_rate_fps = payload
                             .observer_frame_rate_fps
                             .unwrap_or(if payload.desktop_required { 30 } else { 0 });
+                        let video_recording_enabled =
+                            payload.video_recording_enabled.unwrap_or(false);
                         let paused_extension_ids = payload
                             .extension_background_policy
                             .as_ref()
@@ -2002,6 +2019,30 @@ impl NodeControlService {
                                         .await;
                                     return self.failed(command, error);
                                 }
+                                if let Err(error) = self
+                                    .session_recorders
+                                    .register(
+                                        RecordingSpec {
+                                            session_id: command.session_id.clone(),
+                                            cdp_endpoint: handle.cdp_endpoint.clone(),
+                                            workspace: workspace.clone(),
+                                            storage_helper: Arc::clone(storage_helper),
+                                        },
+                                        video_recording_enabled,
+                                    )
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
                                 let input = match CdpDesktopInput::connect(&handle.cdp_endpoint)
                                     .await
                                 {
@@ -2013,6 +2054,10 @@ impl NodeControlService {
                                         }
                                         self.state_collector
                                             .unregister_runtime(&command.session_id)
+                                            .await;
+                                        let _ = self
+                                            .session_recorders
+                                            .unregister(&command.session_id)
                                             .await;
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
@@ -2058,6 +2103,10 @@ impl NodeControlService {
                                         self.input_brokers.lock().await.remove(&command.session_id);
                                         self.state_collector
                                             .unregister_runtime(&command.session_id)
+                                            .await;
+                                        let _ = self
+                                            .session_recorders
+                                            .unregister(&command.session_id)
                                             .await;
                                         let _ =
                                             self.runtime_supervisor.stop(&command.session_id).await;
@@ -2110,6 +2159,10 @@ impl NodeControlService {
                                     self.state_collector
                                         .unregister_runtime(&command.session_id)
                                         .await;
+                                    let _ = self
+                                        .session_recorders
+                                        .unregister(&command.session_id)
+                                        .await;
                                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                                     self.profile_workspaces
                                         .lock()
@@ -2145,6 +2198,10 @@ impl NodeControlService {
                         if let Err(error) = input.release_all().await {
                             return self.failed(command, error);
                         }
+                    }
+                    if let Err(error) = self.session_recorders.unregister(&command.session_id).await
+                    {
+                        return self.failed(command, error);
                     }
                     self.state_collector
                         .unregister_runtime(&command.session_id)
@@ -2353,6 +2410,19 @@ impl NodeControlService {
                         let next_observer_frame_rate_fps = payload
                             .observer_frame_rate_fps
                             .unwrap_or(previous_observer_frame_rate_fps);
+                        let previous_video_recording_enabled =
+                            match self.session_recorders.enabled(&command.session_id).await {
+                                Some(enabled) => enabled,
+                                None => {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!("Video recording actuator is unavailable"),
+                                    )
+                                }
+                            };
+                        let next_video_recording_enabled = payload
+                            .video_recording_enabled
+                            .unwrap_or(previous_video_recording_enabled);
                         let next_tab_resource_policy = TabResourcePolicy {
                             tab_budget: payload.tab_budget,
                             freeze_background_tabs: payload
@@ -2452,6 +2522,7 @@ impl NodeControlService {
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
+                                previous_video_recording_enabled,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2472,6 +2543,7 @@ impl NodeControlService {
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
                                     previous_observer_frame_rate_fps,
+                                    previous_video_recording_enabled,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2487,6 +2559,7 @@ impl NodeControlService {
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
                                     previous_observer_frame_rate_fps,
+                                    previous_video_recording_enabled,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2507,6 +2580,24 @@ impl NodeControlService {
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
+                                previous_video_recording_enabled,
+                                previous_tab_resource_policy.clone(),
+                            )
+                            .await;
+                            return self.failed(command, error);
+                        }
+                        if let Err(error) = self
+                            .session_recorders
+                            .set_enabled(&command.session_id, next_video_recording_enabled)
+                            .await
+                        {
+                            self.rollback_resource_adjustment(
+                                &command.session_id,
+                                previous.clone(),
+                                previous_state_collector_budget_percent,
+                                previous_remote_desktop_bitrate_kbps,
+                                previous_observer_frame_rate_fps,
+                                previous_video_recording_enabled,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2521,6 +2612,7 @@ impl NodeControlService {
                                     previous_state_collector_budget_percent,
                                     previous_remote_desktop_bitrate_kbps,
                                     previous_observer_frame_rate_fps,
+                                    previous_video_recording_enabled,
                                     previous_tab_resource_policy.clone(),
                                 )
                                 .await;
@@ -2538,6 +2630,7 @@ impl NodeControlService {
                                 previous_state_collector_budget_percent,
                                 previous_remote_desktop_bitrate_kbps,
                                 previous_observer_frame_rate_fps,
+                                previous_video_recording_enabled,
                                 previous_tab_resource_policy.clone(),
                             )
                             .await;
@@ -2606,6 +2699,8 @@ impl NodeControlService {
                                 ),
                                 old_observer_frame_rate_fps: Some(previous_observer_frame_rate_fps),
                                 new_observer_frame_rate_fps: Some(next_observer_frame_rate_fps),
+                                old_video_recording_enabled: Some(previous_video_recording_enabled),
+                                new_video_recording_enabled: Some(next_video_recording_enabled),
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -3868,6 +3963,7 @@ impl NodeControlServiceRpc for NodeControlService {
                     self.state_collector
                         .unregister_runtime(&command.session_id)
                         .await;
+                    let _ = self.session_recorders.unregister(&command.session_id).await;
                     let _ = self.runtime_supervisor.stop(&command.session_id).await;
                     self.success_trace_sampler.remove(&command.session_id).await;
                 }
@@ -4295,6 +4391,7 @@ async fn main() -> Result<()> {
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
         pending_state_events: Arc::new(Mutex::new(HashMap::new())),
         success_trace_sampler: SuccessTraceSampler::default(),
+        session_recorders: SessionRecorderRegistry::default(),
         resource_report_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
@@ -4636,6 +4733,7 @@ mod tests {
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
             pending_state_events: Arc::new(Mutex::new(HashMap::new())),
             success_trace_sampler: SuccessTraceSampler::default(),
+            session_recorders: SessionRecorderRegistry::default(),
             resource_report_interval_probes: 5,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),

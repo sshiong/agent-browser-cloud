@@ -52,6 +52,7 @@ type CreateSessionInput struct {
 	MediaWorkload         bool              `json:"mediaWorkload"`
 	RequestedMediaStreams int               `json:"requestedMediaStreams"`
 	MediaBitrateKbps      int               `json:"mediaBitrateKbps"`
+	VideoRecording        bool              `json:"videoRecording"`
 	Metadata              map[string]string `json:"metadata"`
 	IdempotencyKey        string            `json:"-"`
 }
@@ -93,6 +94,7 @@ func (c *Client) CreateSession(ctx context.Context, input CreateSessionInput) (m
 		"remoteDesktop": input.RemoteDesktop, "web3Workload": input.Web3Workload,
 		"mediaWorkload": input.MediaWorkload, "requestedMediaStreams": input.RequestedMediaStreams,
 		"mediaBitrateKbps": input.MediaBitrateKbps, "metadata": input.Metadata,
+		"videoRecording": input.VideoRecording,
 	}
 	return c.request(ctx, http.MethodPost, "/sessions", payload, input.IdempotencyKey)
 }

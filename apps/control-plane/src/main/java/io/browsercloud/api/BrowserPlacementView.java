@@ -32,6 +32,8 @@ public record BrowserPlacementView(
     List<String> pausedExtensionIds,
     int successTraceSamplePercent,
     int observerFrameRateFps,
+    boolean videoRecordingRequested,
+    boolean videoRecordingEnabled,
     int mediaBitrateKbps,
     int placementScore,
     String state,

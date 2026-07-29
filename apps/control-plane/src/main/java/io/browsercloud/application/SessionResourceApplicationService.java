@@ -787,6 +787,7 @@ public class SessionResourceApplicationService {
             : List.<String>of();
     var successTraceSamplePercent = maximumMitigation ? 10 : 100;
     var observerFrameRateFps = placement.isRequiresDesktop() ? (maximumMitigation ? 5 : 30) : 0;
+    var videoRecordingEnabled = placement.isVideoRecordingRequested() && !maximumMitigation;
     if (!maximumMitigation) {
       policy.clearMaximumMitigation();
     }
@@ -811,6 +812,7 @@ public class SessionResourceApplicationService {
             pausedExtensionIds,
             successTraceSamplePercent,
             observerFrameRateFps,
+            videoRecordingEnabled,
             placement.isRequiresDesktop(),
             placement.isRequiresGpu(),
             placement.isRequiresNativeOs(),
@@ -840,7 +842,8 @@ public class SessionResourceApplicationService {
             maximumMitigation,
             pausedExtensionIds,
             successTraceSamplePercent,
-            observerFrameRateFps),
+            observerFrameRateFps,
+            videoRecordingEnabled),
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -886,7 +889,9 @@ public class SessionResourceApplicationService {
         || (adjusted.oldSuccessTraceSamplePercent() != null
             && placement.getSuccessTraceSamplePercent() != adjusted.oldSuccessTraceSamplePercent())
         || (adjusted.oldObserverFrameRateFps() != null
-            && placement.getObserverFrameRateFps() != adjusted.oldObserverFrameRateFps())) {
+            && placement.getObserverFrameRateFps() != adjusted.oldObserverFrameRateFps())
+        || (adjusted.oldVideoRecordingEnabled() != null
+            && placement.isVideoRecordingEnabled() != adjusted.oldVideoRecordingEnabled())) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
     }
     var nextStateCollectorBudgetPercent =
@@ -925,6 +930,10 @@ public class SessionResourceApplicationService {
         adjusted.newObserverFrameRateFps() == null
             ? placement.getObserverFrameRateFps()
             : adjusted.newObserverFrameRateFps();
+    var nextVideoRecordingEnabled =
+        adjusted.newVideoRecordingEnabled() == null
+            ? placement.isVideoRecordingEnabled()
+            : adjusted.newVideoRecordingEnabled();
     var policy = requirePolicy(adjusted.sessionId(), tenantId);
     if (adjusted.newCpuMillis() <= 0
         || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
@@ -943,6 +952,9 @@ public class SessionResourceApplicationService {
         || (!placement.isRequiresDesktop() && nextRemoteDesktopBitrateKbps != 0)
         || (placement.isRequiresDesktop() && nextObserverFrameRateFps < 1)
         || (!placement.isRequiresDesktop() && nextObserverFrameRateFps != 0)) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
+    if (nextVideoRecordingEnabled && !placement.isVideoRecordingRequested()) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
@@ -971,7 +983,8 @@ public class SessionResourceApplicationService {
         nextNewTabsBlocked,
         writeStringList(nextPausedExtensionIds),
         nextSuccessTraceSamplePercent,
-        nextObserverFrameRateFps);
+        nextObserverFrameRateFps,
+        nextVideoRecordingEnabled);
     placements.save(placement);
     var now = Instant.now();
     var template =
@@ -1290,6 +1303,8 @@ public class SessionResourceApplicationService {
         readExtensionIds(placement.getPausedExtensionIds()),
         placement.getSuccessTraceSamplePercent(),
         placement.getObserverFrameRateFps(),
+        placement.isVideoRecordingRequested(),
+        placement.isVideoRecordingEnabled(),
         placement.getState());
   }
 
@@ -1384,6 +1399,8 @@ public class SessionResourceApplicationService {
         Map.entry("pausedExtensionIds", placement.pausedExtensionIds()),
         Map.entry("successTraceSamplePercent", placement.successTraceSamplePercent()),
         Map.entry("observerFrameRateFps", placement.observerFrameRateFps()),
+        Map.entry("videoRecordingRequested", placement.videoRecordingRequested()),
+        Map.entry("videoRecordingEnabled", placement.videoRecordingEnabled()),
         Map.entry("nodeId", placement.nodeId()));
   }
 
@@ -1401,7 +1418,8 @@ public class SessionResourceApplicationService {
         placement.isNewTabsBlocked(),
         readExtensionIds(placement.getPausedExtensionIds()),
         placement.getSuccessTraceSamplePercent(),
-        placement.getObserverFrameRateFps());
+        placement.getObserverFrameRateFps(),
+        placement.isVideoRecordingEnabled());
   }
 
   private Map<String, Object> allocationMap(
@@ -1417,7 +1435,8 @@ public class SessionResourceApplicationService {
       boolean newTabsBlocked,
       List<String> pausedExtensionIds,
       int successTraceSamplePercent,
-      int observerFrameRateFps) {
+      int observerFrameRateFps,
+      boolean videoRecordingEnabled) {
     return Map.ofEntries(
         Map.entry("template", templateFor(placement.effectiveResourceClass())),
         Map.entry("cpuMillis", cpuMillis),
@@ -1433,6 +1452,8 @@ public class SessionResourceApplicationService {
         Map.entry("pausedExtensionIds", pausedExtensionIds),
         Map.entry("successTraceSamplePercent", successTraceSamplePercent),
         Map.entry("observerFrameRateFps", observerFrameRateFps),
+        Map.entry("videoRecordingRequested", placement.isVideoRecordingRequested()),
+        Map.entry("videoRecordingEnabled", videoRecordingEnabled),
         Map.entry("nodeId", placement.getNodeId()));
   }
 

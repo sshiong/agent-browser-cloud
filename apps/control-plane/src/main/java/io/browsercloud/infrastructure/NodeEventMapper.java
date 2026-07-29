@@ -190,6 +190,10 @@ public class NodeEventMapper {
               payload.hasOldObserverFrameRateFps() ? payload.getOldObserverFrameRateFps() : null;
           var newObserverFrameRateFps =
               payload.hasNewObserverFrameRateFps() ? payload.getNewObserverFrameRateFps() : null;
+          var oldVideoRecordingEnabled =
+              payload.hasOldVideoRecordingEnabled() ? payload.getOldVideoRecordingEnabled() : null;
+          var newVideoRecordingEnabled =
+              payload.hasNewVideoRecordingEnabled() ? payload.getNewVideoRecordingEnabled() : null;
           if ((oldStateCollectorBudget == null) != (newStateCollectorBudget == null)
               || (oldRemoteDesktopBitrate == null) != (newRemoteDesktopBitrate == null)
               || (oldExtensionCpuWeight == null) != (newExtensionCpuWeight == null)
@@ -199,6 +203,7 @@ public class NodeEventMapper {
               || (oldPausedExtensionIds == null) != (newPausedExtensionIds == null)
               || (oldSuccessTraceSamplePercent == null) != (newSuccessTraceSamplePercent == null)
               || (oldObserverFrameRateFps == null) != (newObserverFrameRateFps == null)
+              || (oldVideoRecordingEnabled == null) != (newVideoRecordingEnabled == null)
               || !validExtensionPolicy(oldPausedExtensionIds)
               || !validExtensionPolicy(newPausedExtensionIds)
               || (oldSuccessTraceSamplePercent != null
@@ -266,6 +271,8 @@ public class NodeEventMapper {
               newSuccessTraceSamplePercent,
               oldObserverFrameRateFps,
               newObserverFrameRateFps,
+              oldVideoRecordingEnabled,
+              newVideoRecordingEnabled,
               payload.getReason(),
               payload.getOperationId());
         }

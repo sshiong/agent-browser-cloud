@@ -297,4 +297,23 @@ public interface AdjustRuntimeResourcesCommandOrBuilder extends
    * @return The observerFrameRateFps.
    */
   int getObserverFrameRateFps();
+
+  /**
+   * <pre>
+   * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+   * @return Whether the videoRecordingEnabled field is set.
+   */
+  boolean hasVideoRecordingEnabled();
+  /**
+   * <pre>
+   * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 23 [json_name = "videoRecordingEnabled"];</code>
+   * @return The videoRecordingEnabled.
+   */
+  boolean getVideoRecordingEnabled();
 }

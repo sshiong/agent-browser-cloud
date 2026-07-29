@@ -11,7 +11,8 @@ members = [
   "crates/state-collector",
   "crates/node-journal",
   "crates/node-contracts",
-  "crates/remote-desktop-gateway"
+  "crates/remote-desktop-gateway",
+  "crates/session-recorder"
 ]
 resolver = "2"
 

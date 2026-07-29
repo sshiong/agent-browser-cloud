@@ -3749,6 +3749,8 @@ components:
         - pausedExtensionIds
         - successTraceSamplePercent
         - observerFrameRateFps
+        - videoRecordingRequested
+        - videoRecordingEnabled
         - mediaBitrateKbps
         - placementScore
         - state
@@ -3832,6 +3834,11 @@ components:
           minimum: 0
           maximum: 60
           description: Node-acknowledged maximum Observer forwarding rate. It is zero only for Sessions without a desktop data plane.
+        videoRecordingRequested:
+          type: boolean
+        videoRecordingEnabled:
+          type: boolean
+          description: Current Node-acknowledged state of the independent CDP recording actuator.
         mediaBitrateKbps:
           type: integer
           minimum: 0
@@ -4303,6 +4310,10 @@ components:
           minimum: 0
           maximum: 1000000
           default: 0
+        videoRecording:
+          type: boolean
+          default: false
+          description: Enables independent CDP pixel recording. Segments are committed through Storage Helper and Object Storage.
         extensionIds:
           type: array
           maxItems: 32
@@ -4428,6 +4439,8 @@ components:
             - pausedExtensionIds
             - successTraceSamplePercent
             - observerFrameRateFps
+            - videoRecordingRequested
+            - videoRecordingEnabled
             - placementState
           properties:
             nodeId:
@@ -4485,6 +4498,10 @@ components:
               type: integer
               minimum: 0
               maximum: 60
+            videoRecordingRequested:
+              type: boolean
+            videoRecordingEnabled:
+              type: boolean
             placementState:
               type: string
         usage:

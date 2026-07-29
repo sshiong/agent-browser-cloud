@@ -21,6 +21,7 @@ public record RuntimeResourceLimits(
     List<String> pausedExtensionIds,
     int successTraceSamplePercent,
     int observerFrameRateFps,
+    boolean videoRecordingEnabled,
     boolean desktop,
     boolean gpu,
     boolean nativeOs,

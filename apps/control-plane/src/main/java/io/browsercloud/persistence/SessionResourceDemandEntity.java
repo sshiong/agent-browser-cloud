@@ -44,6 +44,9 @@ public class SessionResourceDemandEntity {
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
+  @Column(name = "video_recording_requested", nullable = false)
+  private boolean videoRecordingRequested;
+
   @Column(name = "extension_ids", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String extensionIds;
@@ -69,6 +72,36 @@ public class SessionResourceDemandEntity {
       int mediaBitrateKbps,
       String extensionIds,
       Instant now) {
+    this(
+        sessionId,
+        tenantId,
+        requestedResourceClass,
+        requestedTabs,
+        agentActionsPerMinute,
+        remoteDesktop,
+        web3Workload,
+        mediaWorkload,
+        requestedMediaStreams,
+        mediaBitrateKbps,
+        false,
+        extensionIds,
+        now);
+  }
+
+  public SessionResourceDemandEntity(
+      String sessionId,
+      String tenantId,
+      ResourceClass requestedResourceClass,
+      int requestedTabs,
+      int agentActionsPerMinute,
+      boolean remoteDesktop,
+      boolean web3Workload,
+      boolean mediaWorkload,
+      int requestedMediaStreams,
+      int mediaBitrateKbps,
+      boolean videoRecordingRequested,
+      String extensionIds,
+      Instant now) {
     this.sessionId = sessionId;
     this.tenantId = tenantId;
     this.requestedResourceClass = requestedResourceClass.name();
@@ -79,6 +112,7 @@ public class SessionResourceDemandEntity {
     this.mediaWorkload = mediaWorkload;
     this.requestedMediaStreams = requestedMediaStreams;
     this.mediaBitrateKbps = mediaBitrateKbps;
+    this.videoRecordingRequested = videoRecordingRequested;
     this.extensionIds = extensionIds;
     this.createdAt = now;
     this.updatedAt = now;
@@ -122,6 +156,10 @@ public class SessionResourceDemandEntity {
 
   public int getMediaBitrateKbps() {
     return mediaBitrateKbps;
+  }
+
+  public boolean isVideoRecordingRequested() {
+    return videoRecordingRequested;
   }
 
   public String getExtensionIds() {

@@ -134,7 +134,8 @@ message CreateSessionRequest {
   string tenant_id = 1;
   string profile_id = 2;
   string region = 3;
-  string resource_class = 4;
+  ResourcePolicy resource_policy = 4;
+  bool video_recording = 5;
   map<string, string> metadata = 10;
 }
 
@@ -621,11 +622,13 @@ components:
         region:
           type: string
           description: 部署区域
-        resourceClass:
-          type: string
-          enum: [L0, L1, L2, L3, L4, L5]
-          default: L2
-          description: 资源等级
+        resourcePolicy:
+          $ref: '#/components/schemas/ResourcePolicyRequest'
+          description: 普通客户端提交 AUTO；内部 Resource Template 不作为用户等级暴露
+        videoRecording:
+          type: boolean
+          default: false
+          description: 启用独立 CDP Pixel Recording；由 Storage Helper 提交对象存储
         metadata:
           type: object
           additionalProperties:
@@ -987,7 +990,8 @@ export interface CreateSessionRequest {
   tenantId: string;
   profileId: string;
   region?: string;
-  resourceClass?: ResourceClass;
+  resourcePolicy?: ResourcePolicyRequest;
+  videoRecording?: boolean;
   metadata?: Record<string, string>;
 }
 

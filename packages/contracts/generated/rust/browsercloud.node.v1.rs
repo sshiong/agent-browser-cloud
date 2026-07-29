@@ -312,6 +312,9 @@ pub struct StartRuntimeCommand {
     /// 受控 Observer/VNC Server → Client 转发上限；无桌面为 0，有桌面为 1..60。
     #[prost(uint32, optional, tag="27")]
     pub observer_frame_rate_fps: ::core::option::Option<u32>,
+    /// 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+    #[prost(bool, optional, tag="28")]
+    pub video_recording_enabled: ::core::option::Option<bool>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -428,6 +431,9 @@ pub struct AdjustRuntimeResourcesCommand {
     /// 0 表示无桌面；有桌面时 1..60。缺失时保持当前值。
     #[prost(uint32, optional, tag="22")]
     pub observer_frame_rate_fps: ::core::option::Option<u32>,
+    /// Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+    #[prost(bool, optional, tag="23")]
+    pub video_recording_enabled: ::core::option::Option<bool>,
 }
 /// Browser Node 通过各 Extension background/service-worker Target 的 Debugger
 /// pause/resume 执行，避免直接卸载扩展或修改扩展集合。
@@ -510,6 +516,10 @@ pub struct RuntimeResourcesAdjustedEvent {
     pub old_observer_frame_rate_fps: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="34")]
     pub new_observer_frame_rate_fps: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag="35")]
+    pub old_video_recording_enabled: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="36")]
+    pub new_video_recording_enabled: ::core::option::Option<bool>,
 }
 /// Browser Crash 事件
 #[allow(clippy::derive_partial_eq_without_eq)]

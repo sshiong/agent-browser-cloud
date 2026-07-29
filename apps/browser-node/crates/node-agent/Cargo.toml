@@ -14,6 +14,7 @@ state-collector = { path = "../state-collector" }
 node-journal = { path = "../node-journal" }
 node-contracts = { path = "../node-contracts" }
 remote-desktop-gateway = { path = "../remote-desktop-gateway" }
+session-recorder = { path = "../session-recorder" }
 helper-client = { path = "../helper-client" }
 async-trait.workspace = true
 anyhow.workspace = true

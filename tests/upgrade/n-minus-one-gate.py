@@ -403,6 +403,22 @@ for invariant in (
         f"Observer frame-rate migration lacks rolling invariant: {invariant}"
     )
 
+video_recording_migration = read(
+    "database/migrations/V047__session_video_recording_actuator.sql"
+)
+video_recording_upper = video_recording_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in video_recording_upper
+for invariant in (
+    "ADD COLUMN VIDEO_RECORDING_REQUESTED BOOLEAN NOT NULL DEFAULT FALSE",
+    "ADD COLUMN VIDEO_RECORDING_ENABLED BOOLEAN NOT NULL DEFAULT FALSE",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_BROWSER_PLACEMENTS_VIDEO_RECORDING_STATE",
+):
+    assert invariant in video_recording_upper, (
+        f"video recording migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -469,6 +485,7 @@ for message_name, fields in (
             ("extension_background_policy", 25, False),
             ("success_trace_sample_percent", 26, True),
             ("observer_frame_rate_fps", 27, True),
+            ("video_recording_enabled", 28, True),
         ),
     ),
     (
@@ -482,6 +499,7 @@ for message_name, fields in (
             ("extension_ids", 20, False),
             ("success_trace_sample_percent", 21, True),
             ("observer_frame_rate_fps", 22, True),
+            ("video_recording_enabled", 23, True),
         ),
     ),
     (
@@ -501,6 +519,8 @@ for message_name, fields in (
             ("new_success_trace_sample_percent", 32, True),
             ("old_observer_frame_rate_fps", 33, True),
             ("new_observer_frame_rate_fps", 34, True),
+            ("old_video_recording_enabled", 35, True),
+            ("new_video_recording_enabled", 36, True),
         ),
     ),
 ):
@@ -538,6 +558,7 @@ for optional in (
     "mediaWorkload",
     "requestedMediaStreams",
     "mediaBitrateKbps",
+    "videoRecording",
 ):
     assert optional not in create_required
 
@@ -575,9 +596,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V046 additive",
-    "protobuf": "unknown-fields-13-16,optional-28-34,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recovery-extension-tag-6",
-    "json": "new-media-and-application-recovery-fields-optional,recoveryExtensionId-optional",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V047 additive",
+    "protobuf": "unknown-fields-13-16,optional-28-36,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,recovery-extension-tag-6",
+    "json": "new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

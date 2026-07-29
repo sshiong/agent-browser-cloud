@@ -124,8 +124,8 @@
    V042 已使 `maximumCostPerHour` 进入真实五分钟成本决策；V043 已补齐后台 Tab
    冻结、新建 Tab 阻断、Node ACK 和详情状态；V044/进度 67 已补齐非特权 Extension
    后台暂停；V045/进度 68 已补齐成功 Trace 动态采样；V046/进度 69 已补齐真实
-   Observer 帧率 Gateway 执行、回滚和 ACK。录制停止和截图频率等 Level 1 Node
-   Actuator 仍待实现。
+   Observer 帧率 Gateway 执行、回滚和 ACK；V047/进度 70 已补齐独立录制数据面、
+   Storage Helper 提交、上限停止和 ACK。截图频率执行器仍待实现。
 7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
    Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
    层仍未实现。
@@ -134,7 +134,8 @@
 
 ## 下一步建议
 
-1. 补齐录制停止和截图频率等 Level 1 Node Actuator 与 ACK；Observer 帧率已由
+1. 补齐截图频率 Level 1 Node Actuator 与 ACK；录制停止已由
+   [进度 70](70-AUTO独立像素录制与停止执行闭环.md)关闭，Observer 帧率已由
    [进度 69](69-AUTO-Observer帧率在线执行闭环.md)关闭；后台
    Tab/新建 Tab 已由进度 66 关闭，非特权 Extension 后台暂停已由进度 67 关闭，
    成功 Trace 动态采样已由

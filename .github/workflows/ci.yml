@@ -82,6 +82,9 @@ jobs:
       - name: Integration smoke test
         run: make test-integration
 
+      - name: Object Storage checkpoint and recording GameDay
+        run: make test-object-storage
+
   kubernetes-operator-e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

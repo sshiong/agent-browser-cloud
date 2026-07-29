@@ -98,6 +98,12 @@ public class BrowserPlacementEntity {
   @Column(name = "observer_frame_rate_fps", nullable = false)
   private int observerFrameRateFps;
 
+  @Column(name = "video_recording_requested", nullable = false)
+  private boolean videoRecordingRequested;
+
+  @Column(name = "video_recording_enabled", nullable = false)
+  private boolean videoRecordingEnabled;
+
   @Column(name = "media_bitrate_kbps", nullable = false)
   private int mediaBitrateKbps;
 
@@ -149,6 +155,56 @@ public class BrowserPlacementEntity {
       int placementScore,
       String reasonCodes,
       Instant now) {
+    this(
+        sessionId,
+        tenantId,
+        nodeId,
+        requestedResourceClass,
+        effectiveResourceClass,
+        extensionIds,
+        unknownExtensionCount,
+        cpuMillis,
+        memoryRequestMib,
+        memoryLimitMib,
+        pidLimit,
+        tabBudget,
+        requiresDesktop,
+        requiresGpu,
+        requiresNativeOs,
+        requiresIsolation,
+        requiresMedia,
+        mediaSlots,
+        mediaBitrateKbps,
+        false,
+        placementScore,
+        reasonCodes,
+        now);
+  }
+
+  public BrowserPlacementEntity(
+      String sessionId,
+      String tenantId,
+      String nodeId,
+      ResourceClass requestedResourceClass,
+      ResourceClass effectiveResourceClass,
+      String extensionIds,
+      int unknownExtensionCount,
+      int cpuMillis,
+      int memoryRequestMib,
+      int memoryLimitMib,
+      int pidLimit,
+      int tabBudget,
+      boolean requiresDesktop,
+      boolean requiresGpu,
+      boolean requiresNativeOs,
+      boolean requiresIsolation,
+      boolean requiresMedia,
+      int mediaSlots,
+      int mediaBitrateKbps,
+      boolean videoRecordingRequested,
+      int placementScore,
+      String reasonCodes,
+      Instant now) {
     this.sessionId = sessionId;
     this.tenantId = tenantId;
     this.nodeId = nodeId;
@@ -176,6 +232,8 @@ public class BrowserPlacementEntity {
     this.pausedExtensionIds = "[]";
     this.successTraceSamplePercent = 100;
     this.observerFrameRateFps = requiresDesktop ? 30 : 0;
+    this.videoRecordingRequested = videoRecordingRequested;
+    this.videoRecordingEnabled = false;
     this.mediaBitrateKbps = mediaBitrateKbps;
     this.placementScore = placementScore;
     this.state = "RESERVED";
@@ -188,6 +246,7 @@ public class BrowserPlacementEntity {
       throw new IllegalStateException("released placement cannot be activated");
     }
     state = "ACTIVE";
+    videoRecordingEnabled = videoRecordingRequested;
     activatedAt = now;
   }
 
@@ -232,7 +291,8 @@ public class BrowserPlacementEntity {
       boolean nextNewTabsBlocked,
       String nextPausedExtensionIds,
       int nextSuccessTraceSamplePercent,
-      int nextObserverFrameRateFps) {
+      int nextObserverFrameRateFps,
+      boolean nextVideoRecordingEnabled) {
     if (!state.equals("ACTIVE")) {
       throw new IllegalStateException("only an active placement can be adjusted");
     }
@@ -254,6 +314,9 @@ public class BrowserPlacementEntity {
         || (requiresDesktop && nextObserverFrameRateFps < 1)
         || (!requiresDesktop && nextObserverFrameRateFps != 0)) {
       throw new IllegalArgumentException("resource adjustment is invalid");
+    }
+    if (nextVideoRecordingEnabled && !videoRecordingRequested) {
+      throw new IllegalArgumentException("video recording was not requested");
     }
     if (nextExtensionCpuWeight < 1 || nextExtensionCpuWeight > 10_000) {
       throw new IllegalArgumentException("extension CPU weight is invalid");
@@ -279,6 +342,40 @@ public class BrowserPlacementEntity {
     pausedExtensionIds = nextPausedExtensionIds;
     successTraceSamplePercent = nextSuccessTraceSamplePercent;
     observerFrameRateFps = nextObserverFrameRateFps;
+    videoRecordingEnabled = nextVideoRecordingEnabled;
+  }
+
+  public void applyResourceAdjustment(
+      int nextCpuMillis,
+      int nextMemoryRequestMib,
+      int nextMemoryLimitMib,
+      int nextPidLimit,
+      int nextTabBudget,
+      int nextStateCollectorBudgetPercent,
+      int nextRemoteDesktopBitrateKbps,
+      int nextExtensionCpuWeight,
+      int nextMediaEncoderSlots,
+      boolean nextBackgroundTabsFrozen,
+      boolean nextNewTabsBlocked,
+      String nextPausedExtensionIds,
+      int nextSuccessTraceSamplePercent,
+      int nextObserverFrameRateFps) {
+    applyResourceAdjustment(
+        nextCpuMillis,
+        nextMemoryRequestMib,
+        nextMemoryLimitMib,
+        nextPidLimit,
+        nextTabBudget,
+        nextStateCollectorBudgetPercent,
+        nextRemoteDesktopBitrateKbps,
+        nextExtensionCpuWeight,
+        nextMediaEncoderSlots,
+        nextBackgroundTabsFrozen,
+        nextNewTabsBlocked,
+        nextPausedExtensionIds,
+        nextSuccessTraceSamplePercent,
+        nextObserverFrameRateFps,
+        videoRecordingEnabled);
   }
 
   public String getSessionId() {
@@ -387,6 +484,14 @@ public class BrowserPlacementEntity {
 
   public int getObserverFrameRateFps() {
     return observerFrameRateFps;
+  }
+
+  public boolean isVideoRecordingRequested() {
+    return videoRecordingRequested;
+  }
+
+  public boolean isVideoRecordingEnabled() {
+    return videoRecordingEnabled;
   }
 
   public int getMediaBitrateKbps() {

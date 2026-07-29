@@ -1143,6 +1143,13 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   observerFrameRateFps?: number;
 
+  /**
+   * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+   *
+   * @generated from field: optional bool video_recording_enabled = 28;
+   */
+  videoRecordingEnabled?: boolean;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1178,6 +1185,7 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 25, name: "extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
     { no: 26, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 27, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 28, name: "video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -1560,6 +1568,13 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
    */
   observerFrameRateFps?: number;
 
+  /**
+   * Node 必须等待真实 CDP start/stop 与 Storage Helper 提交完成后才 ACK。
+   *
+   * @generated from field: optional bool video_recording_enabled = 23;
+   */
+  videoRecordingEnabled?: boolean;
+
   constructor(data?: PartialMessage<AdjustRuntimeResourcesCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1590,6 +1605,7 @@ export class AdjustRuntimeResourcesCommand extends Message<AdjustRuntimeResource
     { no: 20, name: "extension_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 21, name: "success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 22, name: "observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 23, name: "video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AdjustRuntimeResourcesCommand {
@@ -1827,6 +1843,16 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
    */
   newObserverFrameRateFps?: number;
 
+  /**
+   * @generated from field: optional bool old_video_recording_enabled = 35;
+   */
+  oldVideoRecordingEnabled?: boolean;
+
+  /**
+   * @generated from field: optional bool new_video_recording_enabled = 36;
+   */
+  newVideoRecordingEnabled?: boolean;
+
   constructor(data?: PartialMessage<RuntimeResourcesAdjustedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1869,6 +1895,8 @@ export class RuntimeResourcesAdjustedEvent extends Message<RuntimeResourcesAdjus
     { no: 32, name: "new_success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 33, name: "old_observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 34, name: "new_observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 35, name: "old_video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 36, name: "new_video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RuntimeResourcesAdjustedEvent {

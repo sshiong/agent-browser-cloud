@@ -76,6 +76,34 @@ pub enum StorageCommand {
         session_id: String,
         runtime_build_id: String,
     },
+    PrepareRecording {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        recording_id: String,
+    },
+    CommitRecordingSegment {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        recording_id: String,
+        segment_sequence: u64,
+        content_sha256: String,
+        content_bytes: u64,
+        frame_count: u64,
+        started_at_ms: u64,
+        ended_at_ms: u64,
+    },
+    CompleteRecording {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        recording_id: String,
+        segment_count: u64,
+        frame_count: u64,
+        started_at_ms: u64,
+        ended_at_ms: u64,
+    },
     Release {
         tenant_id: String,
         profile_id: String,
@@ -91,6 +119,8 @@ pub struct StorageResponse {
     pub ok: bool,
     pub workspace: Option<StorageWorkspace>,
     pub checkpoint: Option<StorageCheckpoint>,
+    #[serde(default)]
+    pub recording: Option<StorageRecording>,
     pub error_code: Option<String>,
     pub error_message: Option<String>,
 }
@@ -123,6 +153,17 @@ pub struct StorageCheckpoint {
     pub profile_write_epoch: u64,
     pub core_size_bytes: u64,
     pub checkpoint_file_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageRecording {
+    pub recording_id: String,
+    pub segment_sequence: Option<u64>,
+    pub object_key: Option<String>,
+    pub content_bytes: u64,
+    pub frame_count: u64,
+    pub completed: bool,
 }
 
 pub async fn write_frame<T, W>(writer: &mut W, value: &T) -> anyhow::Result<()>

@@ -68,5 +68,6 @@ make test-integration
 2. 当前 Slot 执行器通过独立 Media Cgroup CPU 权重约束真实编码进程；还需目标 Linux
    多 Session 验证权重效果、CPU 抢占、OOM/PSI 和编码质量/帧龄关联。
 3. Remote Desktop Gateway 的 Kbps 是传输限速，不等于编码器动态码率；真正的编码参数、
-   录制队列和 Media Storage Backpressure 仍需独立实现。
+   独立 CDP Pixel Recording、有界录制队列和 Storage Helper 提交已由进度 70
+   实现；编码器级封装、播放和目标环境 Media Storage Backpressure 仍需完成。
 4. 仍缺双真实 Browser Node + Chromium + Object Storage 的迁移、恢复和长稳证书。

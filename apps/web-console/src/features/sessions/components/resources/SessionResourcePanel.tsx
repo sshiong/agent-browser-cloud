@@ -236,6 +236,21 @@ export function SessionResourcePanel({
                   Human Input 不经过此节流器
                 </p>
               </div>
+              <div className="bg-surface-2 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  像素录制
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  {resource.allocation.videoRecordingEnabled
+                    ? 'Node 正在录制'
+                    : resource.allocation.videoRecordingRequested
+                      ? '已由资源策略停止'
+                      : '创建时未请求'}
+                </p>
+                <p className="mt-1 text-[9px] text-text-muted">
+                  独立 CDP 数据面 · Storage Helper 提交
+                </p>
+              </div>
             </div>
           ) : null}
 

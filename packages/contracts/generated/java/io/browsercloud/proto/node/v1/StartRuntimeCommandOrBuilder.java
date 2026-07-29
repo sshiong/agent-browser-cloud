@@ -347,4 +347,23 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The observerFrameRateFps.
    */
   int getObserverFrameRateFps();
+
+  /**
+   * <pre>
+   * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   * @return Whether the videoRecordingEnabled field is set.
+   */
+  boolean hasVideoRecordingEnabled();
+  /**
+   * <pre>
+   * 独立于 Observer 的 CDP Pixel Recording；缺失表示关闭。
+   * </pre>
+   *
+   * <code>optional bool video_recording_enabled = 28 [json_name = "videoRecordingEnabled"];</code>
+   * @return The videoRecordingEnabled.
+   */
+  boolean getVideoRecordingEnabled();
 }

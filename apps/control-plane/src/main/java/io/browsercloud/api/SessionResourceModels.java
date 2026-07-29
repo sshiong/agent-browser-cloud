@@ -51,6 +51,8 @@ public final class SessionResourceModels {
       List<String> pausedExtensionIds,
       Integer successTraceSamplePercent,
       Integer observerFrameRateFps,
+      Boolean videoRecordingRequested,
+      Boolean videoRecordingEnabled,
       String placementState) {}
 
   public record UsageView(

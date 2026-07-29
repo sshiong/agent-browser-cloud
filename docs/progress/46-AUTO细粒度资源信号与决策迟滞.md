@@ -82,7 +82,8 @@ make test-integration
 1. Browser/Profile I/O、Extension 聚合和 x11vnc Media Encoder CPU 已由 Linux
    Cgroup v2 子组真实生产者补齐；硬件 Codec/GPU 指标仍缺目标实现。
 2. State Collector Budget、Remote Desktop Bitrate、Extension Weight、Media Slot、
-   回滚和 Node ACK 语义已完成；编码器动态码率与录制队列仍未完成。
+   回滚和 Node ACK 语义已完成；独立 CDP Pixel Recording、有界队列和上限停止已由
+   进度 70 完成，编码器动态码率与封装仍未完成。
 3. Long Tasks/页面主线程阻塞的更精确采集；当前使用 CDP `TaskDuration` 差值。
 4. 目标 Linux 的多 Session 5 秒遥测长稳、缩容抖动和 OOM/磁盘满即时保护证书。
 5. 双真实 Browser Node + S3 + Chromium 的迁移故障注入与长稳证书。

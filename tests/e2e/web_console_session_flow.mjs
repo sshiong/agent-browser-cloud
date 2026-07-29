@@ -104,9 +104,7 @@ try {
       response.url().includes("recovery-contract:restore") &&
       response.request().method() === "POST",
   );
-  await page
-    .getByRole("button", { name: "确认创建 v3 DRAFT" })
-    .click();
+  await page.getByRole("button", { name: "确认创建 v3 DRAFT" }).click();
   const restoreResponse = await restoreResponsePromise;
   if (restoreResponse.status() !== 200) {
     throw new Error(
@@ -133,6 +131,75 @@ try {
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "环境管理" })).toBeVisible();
 
+  const personalSavedViewName = `E2E Personal View ${runSuffix}`;
+  const workspaceSavedViewName = `E2E Workspace View ${runSuffix}`;
+  await page.getByRole("button", { name: "保存视图" }).click();
+  const savedViewsPanel = page.getByRole("region", {
+    name: "环境 Saved Views",
+  });
+  await expect(savedViewsPanel).toBeVisible();
+  await savedViewsPanel
+    .getByPlaceholder("视图名称，例如：新加坡运行环境")
+    .fill(personalSavedViewName);
+  const personalSavedViewResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/environment-saved-views") &&
+      response.request().method() === "POST",
+  );
+  await savedViewsPanel.getByRole("button", { name: "保存" }).click();
+  const personalSavedViewResponse = await personalSavedViewResponsePromise;
+  if (personalSavedViewResponse.status() !== 201) {
+    throw new Error(
+      `Personal Saved View failed with ${personalSavedViewResponse.status()}: ${await personalSavedViewResponse.text()}`,
+    );
+  }
+  await expect(
+    savedViewsPanel.getByText(personalSavedViewName, { exact: true }),
+  ).toBeVisible();
+
+  await savedViewsPanel.getByRole("button", { name: "Workspace" }).click();
+  await savedViewsPanel
+    .getByPlaceholder("视图名称，例如：新加坡运行环境")
+    .fill(workspaceSavedViewName);
+  const workspaceSavedViewResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/environment-saved-views") &&
+      response.request().method() === "POST",
+  );
+  await savedViewsPanel.getByRole("button", { name: "保存" }).click();
+  const workspaceSavedViewResponse = await workspaceSavedViewResponsePromise;
+  if (workspaceSavedViewResponse.status() !== 201) {
+    throw new Error(
+      `Workspace Saved View failed with ${workspaceSavedViewResponse.status()}: ${await workspaceSavedViewResponse.text()}`,
+    );
+  }
+  await expect(
+    savedViewsPanel.getByText(workspaceSavedViewName, { exact: true }),
+  ).toBeVisible();
+  await savedViewsPanel
+    .getByRole("button", { name: `删除 ${personalSavedViewName}` })
+    .click();
+  const personalSavedViewDeletePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/environment-saved-views/") &&
+      response.request().method() === "DELETE",
+  );
+  await savedViewsPanel
+    .getByRole("button", { name: `删除 ${personalSavedViewName}` })
+    .click();
+  const personalSavedViewDeleteResponse = await personalSavedViewDeletePromise;
+  if (personalSavedViewDeleteResponse.status() !== 204) {
+    throw new Error(
+      `Personal Saved View delete failed with ${personalSavedViewDeleteResponse.status()}: ${await personalSavedViewDeleteResponse.text()}`,
+    );
+  }
+  await expect(
+    savedViewsPanel.getByText(personalSavedViewName, { exact: true }),
+  ).toHaveCount(0);
+  await savedViewsPanel
+    .getByRole("button", { name: "关闭 Saved Views" })
+    .click();
+
   await page.getByRole("button", { name: "新建环境" }).first().click();
   await expect(
     page.getByRole("heading", { name: "新建浏览器环境" }),
@@ -152,9 +219,11 @@ try {
   await expect(
     page.getByText("自动分配", { exact: true }).first(),
   ).toBeVisible();
-  await page.getByRole("checkbox", {
-    name: "需要远程桌面 / 人工交互",
-  }).check();
+  await page
+    .getByRole("checkbox", {
+      name: "需要远程桌面 / 人工交互",
+    })
+    .check();
   await page.getByRole("button", { name: "下一步" }).click();
   await page
     .locator("label")

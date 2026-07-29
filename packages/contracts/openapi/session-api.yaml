@@ -2406,6 +2406,105 @@ paths:
                 $ref: "#/components/schemas/ComplianceSnapshot"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/environment-saved-views:
+    get:
+      operationId: listEnvironmentSavedViews
+      summary: List Workspace views and the current actor's Personal views
+      tags: [Session, SavedView]
+      responses:
+        "200":
+          description: Tenant-scoped visible Environment Saved Views.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvironmentSavedViewListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createEnvironmentSavedView
+      summary: Create an audited Environment filter and column preset
+      description: Operators may create Personal views. Workspace views require an administrator role.
+      tags: [Session, SavedView]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnvironmentSavedViewRequest"
+      responses:
+        "201":
+          description: Saved View created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvironmentSavedView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/environment-saved-views/{savedViewId}:
+    parameters:
+      - name: savedViewId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^svw_[a-zA-Z0-9]{16,32}$"
+    put:
+      operationId: updateEnvironmentSavedView
+      summary: Update a Personal owner view or an administrator-governed Workspace view
+      tags: [Session, SavedView]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEnvironmentSavedViewRequest"
+      responses:
+        "200":
+          description: Saved View updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvironmentSavedView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteEnvironmentSavedView
+      summary: Delete a Saved View with optimistic concurrency
+      tags: [Session, SavedView]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: expectedVersion
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "204":
+          description: Saved View deleted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/groups:
     get:
       operationId: listWorkspaceGroups
@@ -5745,6 +5844,143 @@ components:
         updatedAt:
           type: string
           format: date-time
+    EnvironmentSavedViewScope:
+      type: string
+      enum: [PERSONAL, WORKSPACE]
+    EnvironmentPrimaryView:
+      type: string
+      enum: [ALL, RUNNING, STOPPED, ABNORMAL]
+    CreateEnvironmentSavedViewRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - scope
+        - primaryView
+        - showRuntimeColumn
+        - showContextColumn
+        - showOperationColumn
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        scope:
+          $ref: "#/components/schemas/EnvironmentSavedViewScope"
+        primaryView:
+          $ref: "#/components/schemas/EnvironmentPrimaryView"
+        sessionState:
+          oneOf:
+            - $ref: "#/components/schemas/SessionState"
+            - type: "null"
+        searchQuery:
+          type: string
+          maxLength: 128
+          default: ""
+        showRuntimeColumn:
+          type: boolean
+        showContextColumn:
+          type: boolean
+        showOperationColumn:
+          type: boolean
+    UpdateEnvironmentSavedViewRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expectedVersion
+        - name
+        - primaryView
+        - showRuntimeColumn
+        - showContextColumn
+        - showOperationColumn
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        primaryView:
+          $ref: "#/components/schemas/EnvironmentPrimaryView"
+        sessionState:
+          oneOf:
+            - $ref: "#/components/schemas/SessionState"
+            - type: "null"
+        searchQuery:
+          type: string
+          maxLength: 128
+          default: ""
+        showRuntimeColumn:
+          type: boolean
+        showContextColumn:
+          type: boolean
+        showOperationColumn:
+          type: boolean
+    EnvironmentSavedView:
+      type: object
+      additionalProperties: false
+      required:
+        - savedViewId
+        - name
+        - scope
+        - ownerActorId
+        - primaryView
+        - sessionState
+        - searchQuery
+        - showRuntimeColumn
+        - showContextColumn
+        - showOperationColumn
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        savedViewId:
+          type: string
+          pattern: "^svw_[a-zA-Z0-9]{16,32}$"
+        name:
+          type: string
+        scope:
+          $ref: "#/components/schemas/EnvironmentSavedViewScope"
+        ownerActorId:
+          type: string
+        primaryView:
+          $ref: "#/components/schemas/EnvironmentPrimaryView"
+        sessionState:
+          oneOf:
+            - $ref: "#/components/schemas/SessionState"
+            - type: "null"
+        searchQuery:
+          type: string
+        showRuntimeColumn:
+          type: boolean
+        showContextColumn:
+          type: boolean
+        showOperationColumn:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    EnvironmentSavedViewListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnvironmentSavedView"
+        total:
+          type: integer
+          minimum: 0
     WorkspaceGroupRequest:
       type: object
       additionalProperties: false

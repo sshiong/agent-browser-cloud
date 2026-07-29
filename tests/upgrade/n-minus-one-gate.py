@@ -523,6 +523,23 @@ for invariant in (
         f"Provider evidence migration lacks rolling invariant: {invariant}"
     )
 
+saved_view_migration = read("database/migrations/V053__environment_saved_views.sql")
+saved_view_upper = saved_view_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE", "ALTER COLUMN"):
+    assert forbidden not in saved_view_upper
+for invariant in (
+    "CREATE TABLE ENVIRONMENT_SAVED_VIEWS",
+    "SCOPE IN ('PERSONAL', 'WORKSPACE')",
+    "PRIMARY_VIEW IN ('ALL', 'RUNNING', 'STOPPED', 'ABNORMAL')",
+    "CREATE UNIQUE INDEX UQ_ENVIRONMENT_SAVED_VIEW_PERSONAL_NAME",
+    "WHERE SCOPE = 'PERSONAL'",
+    "CREATE UNIQUE INDEX UQ_ENVIRONMENT_SAVED_VIEW_WORKSPACE_NAME",
+    "WHERE SCOPE = 'WORKSPACE'",
+):
+    assert invariant in saved_view_upper, (
+        f"Environment Saved View migration lacks rolling invariant: {invariant}"
+    )
+
 proto = read("packages/contracts/proto/node/v1/node_command.proto")
 command_envelope = proto.split("message CommandEnvelope {", 1)[1].split("}", 1)[0]
 command_tags = {
@@ -714,6 +731,11 @@ assert "/api/v1/sessions/{sessionId}/business-recovery/provider-evidence:" in op
 assert "ProviderEvidenceRequirement:" in openapi
 assert "SubmitProviderEvidenceRequest:" in openapi
 assert "ProviderEvidenceListResponse:" in openapi
+assert "/api/v1/environment-saved-views:" in openapi
+assert "/api/v1/environment-saved-views/{savedViewId}:" in openapi
+assert "CreateEnvironmentSavedViewRequest:" in openapi
+assert "UpdateEnvironmentSavedViewRequest:" in openapi
+assert "EnvironmentSavedViewListResponse:" in openapi
 
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
@@ -750,7 +772,7 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V052 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V053 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,evidence-event-tags-1-13,recovery-extension-tag-6",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional",
     "rolling": "leased-rendezvous-shard-dispatch,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

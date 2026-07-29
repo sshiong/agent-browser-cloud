@@ -67,6 +67,7 @@ DELETE /api/v1/tags/{tagId}/sessions/{sessionId}
 
 1. 按 Group/Tags 批量 Start、Pause Agent、Migrate、Hibernate 与风险确认 Operation；
 2. Groups/Tags 页面目前仍会按实体读取成员，规模化租户需要批量查询投影以关闭 N+1；
-3. Environment Saved View、按 Tag 服务端组合过滤和批量选择；
+3. Environment Saved View 已在[进度 77](77-Environment-Saved-Views正式闭环.md)
+   关闭；仍缺按 Tag 服务端组合过滤和批量选择；
 4. 全局搜索、通知中心和主题；Workspace Settings 核心持久化已在进度 58 关闭；
 5. OpenAPI 自动生成 TypeScript Client；本轮 API Client 仍是手写、契约测试覆盖。

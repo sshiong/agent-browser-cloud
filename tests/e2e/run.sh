@@ -278,6 +278,7 @@ DESKTOP_FAULT_PROXY_PID="$desktop_fault_proxy_pid" \
 
 VITE_AUTH_MODE=local \
 VITE_LOCAL_ROLES=TENANT_VIEWER \
+VITE_ACTOR_ID=viewer-local \
 VITE_ENABLE_FIXTURES=false \
 VITE_DEV_PROXY_TARGET="http://127.0.0.1:${control_port}" \
 VITE_DESKTOP_PROXY_TARGET="http://127.0.0.1:${desktop_fault_port}" \

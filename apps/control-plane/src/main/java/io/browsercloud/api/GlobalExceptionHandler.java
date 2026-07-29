@@ -23,6 +23,8 @@ import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionPr
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.GovernanceRejectedException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.MediaQuotaRejectedException;
+import io.browsercloud.application.EnvironmentSavedViewApplicationService.EnvironmentSavedViewNotFoundException;
+import io.browsercloud.application.EnvironmentSavedViewApplicationService.EnvironmentSavedViewRejectedException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotFoundException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
@@ -81,6 +83,28 @@ import org.springframework.web.context.request.async.AsyncRequestTimeoutExceptio
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(EnvironmentSavedViewNotFoundException.class)
+  ResponseEntity<ApiError> environmentSavedViewNotFound(
+      EnvironmentSavedViewNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "ENVIRONMENT_SAVED_VIEW_NOT_FOUND",
+        "Environment Saved View was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(EnvironmentSavedViewRejectedException.class)
+  ResponseEntity<ApiError> environmentSavedViewRejected(
+      EnvironmentSavedViewRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "ENVIRONMENT_SAVED_VIEW_REJECTED",
+        "Environment Saved View cannot be changed",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(TenantRouteRejectedException.class)
   ResponseEntity<ApiError> tenantRouteRejected(

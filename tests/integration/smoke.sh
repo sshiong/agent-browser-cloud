@@ -794,6 +794,135 @@ approved_contract_view="$(curl -fsS \
 printf '%s' "$approved_contract_view" | python3 -c \
   "import json,sys; item=json.load(sys.stdin); assert item['approvalState'] == 'APPROVED'; assert item['approvalId'] == '${recovery_approval_id}'; assert item['approvalRequestedBy'] == 'contract-author'; assert item['approvedBy'] == 'contract-approver'"
 
+personal_saved_view_body='{"name":"  Runtime Watch  ","scope":"PERSONAL","primaryView":"RUNNING","sessionState":"RUNNING","searchQuery":"  crm  ","showRuntimeColumn":true,"showContextColumn":false,"showOperationColumn":true}'
+personal_saved_view="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-create-001' \
+  -d "$personal_saved_view_body")"
+personal_saved_view_id="$(printf '%s' "$personal_saved_view" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["name"] == "Runtime Watch"; assert item["scope"] == "PERSONAL"; assert item["primaryView"] == "RUNNING"; assert item["sessionState"] == "RUNNING"; assert item["searchQuery"] == "crm"; assert item["showRuntimeColumn"] is True; assert item["showContextColumn"] is False; assert item["showOperationColumn"] is True; assert item["version"] == 0; print(item["savedViewId"])')"
+personal_saved_view_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-create-001' \
+  -d "$personal_saved_view_body")"
+replayed_personal_saved_view_id="$(printf '%s' "$personal_saved_view_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["savedViewId"])')"
+test "$personal_saved_view_id" = "$replayed_personal_saved_view_id"
+
+operator_workspace_saved_view_status="$(curl -sS \
+  -o "$temp_dir/operator-workspace-saved-view.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-workspace-denied-001' \
+  -d '{"name":"Denied Workspace View","scope":"WORKSPACE","primaryView":"ALL","showRuntimeColumn":true,"showContextColumn":true,"showOperationColumn":true}')"
+test "$operator_workspace_saved_view_status" = "403"
+
+workspace_saved_view="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-saved-view-create-002' \
+  -d '{"name":"Workspace Operations","scope":"WORKSPACE","primaryView":"ABNORMAL","searchQuery":"","showRuntimeColumn":false,"showContextColumn":true,"showOperationColumn":true}')"
+workspace_saved_view_id="$(printf '%s' "$workspace_saved_view" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["scope"] == "WORKSPACE"; assert item["primaryView"] == "ABNORMAL"; assert item["searchQuery"] == ""; assert item["version"] == 0; print(item["savedViewId"])')"
+
+owner_visible_saved_views="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+printf '%s' "$owner_visible_saved_views" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 2; assert {item["scope"] for item in result["items"]} == {"PERSONAL","WORKSPACE"}'
+viewer_visible_saved_views="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-viewer' \
+  -H 'X-Roles: TENANT_VIEWER')"
+printf '%s' "$viewer_visible_saved_views" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 1; assert result['items'][0]['savedViewId'] == '${workspace_saved_view_id}'; assert result['items'][0]['scope'] == 'WORKSPACE'"
+cross_tenant_saved_views="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'X-Tenant-Id: tenant-other' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+printf '%s' "$cross_tenant_saved_views" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 0; assert result["items"] == []'
+
+updated_personal_saved_view="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/environment-saved-views/${personal_saved_view_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-update-001' \
+  -d '{"expectedVersion":0,"name":"Runtime and Context","primaryView":"ALL","searchQuery":"operation","showRuntimeColumn":true,"showContextColumn":true,"showOperationColumn":true}')"
+printf '%s' "$updated_personal_saved_view" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["name"] == "Runtime and Context"; assert item["primaryView"] == "ALL"; assert item["sessionState"] is None; assert item["searchQuery"] == "operation"; assert item["version"] == 1'
+stale_saved_view_status="$(curl -sS \
+  -o "$temp_dir/stale-saved-view.json" -w '%{http_code}' \
+  -X PUT "http://localhost:${control_port}/api/v1/environment-saved-views/${personal_saved_view_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-update-stale-001' \
+  -d '{"expectedVersion":0,"name":"Stale View","primaryView":"ALL","showRuntimeColumn":true,"showContextColumn":true,"showOperationColumn":true}')"
+test "$stale_saved_view_status" = "409"
+grep -q 'SAVED_VIEW_VERSION_MISMATCH' "$temp_dir/stale-saved-view.json"
+foreign_saved_view_update_status="$(curl -sS \
+  -o "$temp_dir/foreign-saved-view-update.json" -w '%{http_code}' \
+  -X PUT "http://localhost:${control_port}/api/v1/environment-saved-views/${personal_saved_view_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-other' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-update-foreign-001' \
+  -d '{"expectedVersion":1,"name":"Foreign View","primaryView":"ALL","showRuntimeColumn":true,"showContextColumn":true,"showOperationColumn":true}')"
+test "$foreign_saved_view_update_status" = "404"
+operator_workspace_delete_status="$(curl -sS \
+  -o "$temp_dir/operator-workspace-saved-view-delete.json" -w '%{http_code}' \
+  -X DELETE "http://localhost:${control_port}/api/v1/environment-saved-views/${workspace_saved_view_id}?expectedVersion=0" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-delete-denied-001')"
+test "$operator_workspace_delete_status" = "403"
+personal_saved_view_delete_status="$(curl -sS \
+  -o /dev/null -w '%{http_code}' \
+  -X DELETE "http://localhost:${control_port}/api/v1/environment-saved-views/${personal_saved_view_id}?expectedVersion=1" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-delete-001')"
+test "$personal_saved_view_delete_status" = "204"
+personal_saved_view_delete_replay_status="$(curl -sS \
+  -o /dev/null -w '%{http_code}' \
+  -X DELETE "http://localhost:${control_port}/api/v1/environment-saved-views/${personal_saved_view_id}?expectedVersion=1" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-delete-001')"
+test "$personal_saved_view_delete_replay_status" = "204"
+saved_view_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from environment_saved_views where tenant_id='tenant-integration'")"
+test "$saved_view_rows" = "1"
+saved_view_audits="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from audit_events where tenant_id='tenant-integration' and event_type='ENVIRONMENT_SAVED_VIEW'")"
+test "$saved_view_audits" = "4"
+
 workspace_group="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/groups" \
   -H 'Content-Type: application/json' \

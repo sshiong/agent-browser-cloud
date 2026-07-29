@@ -66,8 +66,9 @@ L3/M2，但 Placement 和 Node 能力仍拥有最终裁决权。
 - Viewer 不挂载创建向导，因此不会提前请求 Runtime/Enterprise/Extension 等管理数据；
 - 只读角色继续隐藏创建、启动、终止、Agent、接管及管理导航；
 - 创建向导仅在有操作权限时加载真实数据；
-- Import、Saved View、复用既有 Proxy Binding 等未接 API 的功能保持禁用并说明原因，
-  不使用 Local Storage 或前端假数据伪造成功。
+- Saved View 后续已在[进度 77](77-Environment-Saved-Views正式闭环.md)接入正式
+  PostgreSQL/API/RBAC/CAS/审计；Import、复用既有 Proxy Binding 等未接 API 的功能
+  继续保持禁用并说明原因，不使用 Local Storage 或前端假数据伪造成功。
 
 ## 当前真实执行边界
 
@@ -87,7 +88,7 @@ UI 在检查页明确展示上述边界，没有把治理偏好描述为已经�
 
 ## 仍未完成
 
-1. Saved View 领域模型、API、租户共享与权限；
+1. Saved View 领域模型、API、租户共享与权限后续已在进度 77 关闭；
 2. Environment Import 和 Profile Import 上传、校验、审计链；
 3. 可安全复用的独立 Proxy Binding API；现有 Allocation 与 Session 绑定，不能跨环境复用；
 4. Runtime Build、Resource Template、Execution Environment 和 Agent Policy 的一等

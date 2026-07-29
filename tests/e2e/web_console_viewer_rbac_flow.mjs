@@ -41,6 +41,23 @@ try {
   await expect(page.getByRole("link", { name: "Browser Node" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "扩展与应用" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "企业运营" })).toHaveCount(0);
+  await page.getByRole("button", { name: /E2E Workspace View/ }).click();
+  const savedViewsPanel = page.getByRole("region", {
+    name: "环境 Saved Views",
+  });
+  await expect(savedViewsPanel).toBeVisible();
+  await expect(
+    savedViewsPanel.getByText(/E2E Workspace View/, { exact: false }),
+  ).toBeVisible();
+  await expect(
+    savedViewsPanel.getByPlaceholder("视图名称，例如：新加坡运行环境"),
+  ).toHaveCount(0);
+  await expect(
+    savedViewsPanel.getByRole("button", { name: /删除 E2E Workspace View/ }),
+  ).toHaveCount(0);
+  await savedViewsPanel
+    .getByRole("button", { name: /E2E Workspace View/ })
+    .click();
 
   if (sessionRequestHeaders?.["x-roles"] !== "TENANT_VIEWER") {
     throw new Error(

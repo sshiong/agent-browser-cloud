@@ -1,7 +1,6 @@
 import { useDeferredValue, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
-  Bookmark,
   Box,
   ChevronLeft,
   ChevronRight,
@@ -30,6 +29,11 @@ import {
 import { cn } from '@/shared/lib/utils';
 import type { SessionState, SessionView } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
+import { EnvironmentSavedViews } from './EnvironmentSavedViews';
+import type {
+  EnvironmentPrimaryView,
+  EnvironmentSavedView,
+} from '@/types/savedView';
 
 const PAGE_SIZE = 20;
 const primaryViews = [
@@ -53,6 +57,31 @@ const exactStates: { value: SessionState; label: string }[] = [
 
 type View = (typeof primaryViews)[number]['value'];
 type OptionalColumn = 'runtime' | 'context' | 'operation';
+
+function applySavedView(
+  savedView: EnvironmentSavedView,
+  controls: {
+    setOptionalColumns: (value: Record<OptionalColumn, boolean>) => void;
+    setShowAdvanced: (value: boolean) => void;
+    setShowColumns: (value: boolean) => void;
+    updateParams: (updates: Record<string, string | undefined>) => void;
+  }
+) {
+  const nextView = savedView.primaryView.toLowerCase() as View;
+  controls.setOptionalColumns({
+    runtime: savedView.showRuntimeColumn,
+    context: savedView.showContextColumn,
+    operation: savedView.showOperationColumn,
+  });
+  controls.setShowAdvanced(Boolean(savedView.sessionState));
+  controls.setShowColumns(false);
+  controls.updateParams({
+    view: nextView === 'all' ? undefined : nextView,
+    state: savedView.sessionState ?? undefined,
+    q: savedView.searchQuery || undefined,
+    page: undefined,
+  });
+}
 
 export function EnvironmentsPage() {
   const auth = useAuth();
@@ -197,6 +226,7 @@ export function EnvironmentsPage() {
                   type="search"
                   placeholder="搜索名称、Session、Profile、区域…"
                   value={search}
+                  maxLength={128}
                   onChange={(event) =>
                     updateParams({
                       q: event.target.value || undefined,
@@ -252,15 +282,24 @@ export function EnvironmentsPage() {
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                disabled
-                title="等待 Saved View API 接入"
-                className="hidden h-10 items-center gap-2 rounded-[7px] border border-border-subtle px-3 text-[12px] text-text-muted opacity-45 lg:inline-flex"
-              >
-                <Bookmark size={14} />
-                保存视图
-              </button>
+              <EnvironmentSavedViews
+                current={{
+                  primaryView: view.toUpperCase() as EnvironmentPrimaryView,
+                  sessionState: exactState,
+                  searchQuery: search,
+                  showRuntimeColumn: optionalColumns.runtime,
+                  showContextColumn: optionalColumns.context,
+                  showOperationColumn: optionalColumns.operation,
+                }}
+                onApply={(savedView) => {
+                  applySavedView(savedView, {
+                    setOptionalColumns,
+                    setShowAdvanced,
+                    setShowColumns,
+                    updateParams,
+                  });
+                }}
+              />
             </div>
           </div>
 

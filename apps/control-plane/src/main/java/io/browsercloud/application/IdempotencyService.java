@@ -238,6 +238,36 @@ public class IdempotencyService {
         candidateMutationId);
   }
 
+  String claimEnvironmentSavedViewCreate(
+      String tenantId,
+      String actorId,
+      String idempotencyKey,
+      Object request,
+      String candidateSavedViewId) {
+    return claim(
+        tenantId,
+        "CREATE_ENVIRONMENT_SAVED_VIEW:" + actorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateSavedViewId);
+  }
+
+  String claimEnvironmentSavedViewMutation(
+      String tenantId,
+      String savedViewId,
+      String actorId,
+      String mutation,
+      String idempotencyKey,
+      Object request,
+      String candidateMutationId) {
+    return claim(
+        tenantId,
+        mutation + "_ENVIRONMENT_SAVED_VIEW:" + savedViewId + ":" + actorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateMutationId);
+  }
+
   String claimTenantRouteMigration(
       String tenantId, String idempotencyKey, Object request, String candidateMigrationId) {
     return claim(

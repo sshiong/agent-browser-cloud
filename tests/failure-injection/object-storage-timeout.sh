@@ -4,6 +4,7 @@ set -euo pipefail
 minio_image="${MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z}"
 mc_image="${MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-04-16T18-13-26Z}"
 container_name="browsercloud-minio-$RANDOM-$$"
+network_name="${container_name}-network"
 access_key="browsercloud-test"
 secret_key="browsercloud-test-secret"
 bucket="profile-checkpoints"
@@ -12,10 +13,13 @@ port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); p
 cleanup() {
   docker unpause "$container_name" >/dev/null 2>&1 || true
   docker rm -f "$container_name" >/dev/null 2>&1 || true
+  docker network rm "$network_name" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
+docker network create "$network_name" >/dev/null
 docker run -d --name "$container_name" \
+  --network "$network_name" \
   -p "127.0.0.1:${port}:9000" \
   -e "MINIO_ROOT_USER=${access_key}" \
   -e "MINIO_ROOT_PASSWORD=${secret_key}" \
@@ -31,8 +35,8 @@ for _ in $(seq 1 60); do
 done
 test "$ready" = "true"
 
-docker run --rm --entrypoint /bin/sh --add-host host.docker.internal:host-gateway "$mc_image" \
-  -c "mc alias set acceptance http://host.docker.internal:${port} '${access_key}' '${secret_key}' >/dev/null && mc mb acceptance/${bucket} >/dev/null"
+docker run --rm --network "$network_name" --entrypoint /bin/sh "$mc_image" \
+  -c "mc alias set acceptance http://${container_name}:9000 '${access_key}' '${secret_key}' >/dev/null && mc mb acceptance/${bucket} >/dev/null"
 
 TEST_OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${port}" \
 TEST_OBJECT_STORAGE_BUCKET="$bucket" \

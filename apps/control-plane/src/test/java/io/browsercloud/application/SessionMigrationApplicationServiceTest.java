@@ -1,9 +1,10 @@
 package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -127,6 +128,60 @@ class SessionMigrationApplicationServiceTest {
     verify(resources)
         .recordMigrationPhase(
             SESSION_ID, migration.getMigrationId(), "COMPLETED", "READY", true, true);
+  }
+
+  @Test
+  void migrationWaitsForTrustedProviderEvidenceWithoutResumingAgent() {
+    var now = Instant.now();
+    var migration =
+        new io.browsercloud.persistence.SessionMigrationEntity(
+            "mig_providerwait001", SESSION_ID, TENANT_ID, "node-a", 6, now);
+    migration.targetPlaced("node-b", 7, "checkpoint-a", now);
+    migration.stateResync("resync-a", now);
+    migration.businessValidation(now);
+    var state =
+        new NodeEvent.StateUpdated(
+            SESSION_ID,
+            10,
+            10,
+            "https://crm.example.test/customers",
+            "Customers",
+            "hash",
+            "COMPLETE",
+            List.of());
+    when(migrations.findById(migration.getMigrationId())).thenReturn(Optional.of(migration));
+    when(browserStates.find(SESSION_ID))
+        .thenReturn(Optional.of(new BrowserStateRepository.Snapshot(TENANT_ID, 7, state)));
+    when(recoveryService.validateForMigration(SESSION_ID, TENANT_ID, migration.getMigrationId(), 0))
+        .thenReturn(
+            new BusinessRecoveryValidationView(
+                "brv_providerwait0001",
+                SESSION_ID,
+                "crm",
+                2L,
+                7,
+                10,
+                Verdict.MANUAL_RECOVERY_REQUIRED,
+                false,
+                List.of("PROVIDER_EVIDENCE_MISSING:ACCOUNT:current-account:crm-provider"),
+                "MIGRATION",
+                migration.getMigrationId(),
+                now));
+    when(recoveryActions.request(any(), any())).thenReturn(false);
+
+    service.reconcile(migration.getMigrationId());
+
+    assertThat(migration.getPhase()).isEqualTo("BUSINESS_VALIDATION");
+    assertThat(migration.getRecoveryResult()).isNull();
+    verify(migrations, never()).save(migration);
+    verify(resources, never())
+        .recordMigrationPhase(
+            eq(SESSION_ID),
+            eq(migration.getMigrationId()),
+            any(),
+            any(),
+            anyBoolean(),
+            anyBoolean());
   }
 
   private static SessionContext session() {

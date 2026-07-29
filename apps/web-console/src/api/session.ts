@@ -30,6 +30,7 @@ import type {
   RecoveryContractDiffView,
   RestoreRecoveryContractRevisionRequest,
   BusinessRecoveryValidationView,
+  ProviderEvidenceListResponse,
   SessionApplicationBindingView,
   RebindSessionApplicationRequest,
   SessionApplicationRebindView,
@@ -613,6 +614,18 @@ export async function validateBusinessRecovery(
       signal,
       headers: { 'Idempotency-Key': idempotencyKey },
     },
+    tenantId
+  );
+}
+
+export async function getBusinessRecoveryProviderEvidence(
+  sessionId: string,
+  tenantId = currentTenantId(),
+  signal?: AbortSignal
+): Promise<ProviderEvidenceListResponse> {
+  return request<ProviderEvidenceListResponse>(
+    `/sessions/${sessionId}/business-recovery/provider-evidence`,
+    { signal },
     tenantId
   );
 }

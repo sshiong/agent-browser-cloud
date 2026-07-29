@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.browsercloud.api.CreateAgentTaskRequest;
 import io.browsercloud.api.CreateSessionRequest;
 import io.browsercloud.api.StateResyncRequest;
@@ -30,6 +31,7 @@ public class IdempotencyService {
     this.repository = repository;
     this.canonicalMapper =
         JsonMapper.builder()
+            .addModule(new JavaTimeModule())
             .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .build();
@@ -139,6 +141,21 @@ public class IdempotencyService {
         idempotencyKey,
         hashRequest(source),
         candidateValidationId);
+  }
+
+  String claimBusinessRecoveryProviderEvidence(
+      String tenantId,
+      String sessionId,
+      String adapterActorId,
+      String idempotencyKey,
+      Object request,
+      String candidateEvidenceId) {
+    return claim(
+        tenantId,
+        "BUSINESS_RECOVERY_PROVIDER_EVIDENCE:" + sessionId + ":" + adapterActorId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateEvidenceId);
   }
 
   String claimApplicationBindingRebind(

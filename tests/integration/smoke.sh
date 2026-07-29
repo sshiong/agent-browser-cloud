@@ -1394,7 +1394,8 @@ rebind_session_response="$(curl -fsS -X POST \
 rebind_session="$(printf '%s' "$rebind_session_response" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
 
-auto_recovery_contract_body='{"expectedVersion":1,"expectedOrigins":["https://example.test"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"status","name":"Recovered workspace"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb"],"allowDepthLimited":false,"recoveryAction":"RESTART_EXTENSION","recoveryExtensionId":"jdgnleokimdbblcflcfcohbinohmmmlb","maximumAutoRecovery":1,"enabled":true}'
+provider_expected_hash="$(python3 -c 'print("c" * 64)')"
+auto_recovery_contract_body="{\"expectedVersion\":1,\"expectedOrigins\":[\"https://example.test\"],\"readyRoutePrefixes\":[\"/runtime\"],\"loginRoutePrefixes\":[\"/sign-in\"],\"requiredTargets\":[{\"role\":\"status\",\"name\":\"Recovered workspace\"}],\"loginTargets\":[{\"role\":\"textbox\",\"name\":\"Email\"}],\"permissionDeniedTargets\":[],\"accountMismatchTargets\":[],\"requiredExtensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"requiredProviderEvidence\":[{\"type\":\"ACCOUNT\",\"key\":\"current-account\",\"providerId\":\"crm-provider\",\"expectedValueHash\":\"${provider_expected_hash}\",\"maxAgeSeconds\":300}],\"allowDepthLimited\":false,\"recoveryAction\":\"RESTART_EXTENSION\",\"recoveryExtensionId\":\"jdgnleokimdbblcflcfcohbinohmmmlb\",\"maximumAutoRecovery\":1,\"enabled\":true}"
 auto_recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -1540,6 +1541,85 @@ for _ in $(seq 1 120); do
     -H 'X-Tenant-Id: tenant-integration')"
   auto_recovery_phase="$(printf '%s' "$auto_recovery_migration" | python3 -c \
     'import json,sys; print(json.load(sys.stdin)["phase"])')"
+  if [[ "$auto_recovery_phase" = "BUSINESS_VALIDATION" ]] \
+    && printf '%s' "$auto_recovery_migration" | python3 -c \
+      'import json,sys; item=json.load(sys.stdin); action=item.get("latestRecoveryAction"); raise SystemExit(0 if action and action["state"] == "COMMITTED" else 1)' \
+      2>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+test "$auto_recovery_phase" = "BUSINESS_VALIDATION"
+waiting_provider_validation=""
+for _ in $(seq 1 40); do
+  waiting_provider_validation="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  if printf '%s' "$waiting_provider_validation" | python3 -c \
+    'import json,sys; item=json.load(sys.stdin); raise SystemExit(0 if item.get("evidence") == ["PROVIDER_EVIDENCE_MISSING:ACCOUNT:current-account:crm-provider"] else 1)' \
+    2>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$waiting_provider_validation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["verdict"] == "MANUAL_RECOVERY_REQUIRED"; assert item["ready"] is False; assert item["evidence"] == ["PROVIDER_EVIDENCE_MISSING:ACCOUNT:current-account:crm-provider"]'
+provider_state="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/state" \
+  -H 'X-Tenant-Id: tenant-integration')"
+provider_context_epoch="$(printf '%s' "$provider_state" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+provider_state_version="$(printf '%s' "$provider_state" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+provider_observed_at="$(python3 -c 'from datetime import datetime, timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))')"
+provider_evidence_body="{\"contextEpoch\":${provider_context_epoch},\"stateVersion\":${provider_state_version},\"type\":\"ACCOUNT\",\"key\":\"current-account\",\"providerId\":\"crm-provider\",\"observedValueHash\":\"${provider_expected_hash}\",\"outcome\":\"MATCH\",\"providerReference\":\"crm-check-48392\",\"observedAt\":\"${provider_observed_at}\"}"
+provider_operator_status="$(curl -sS \
+  -o "$temp_dir/provider-evidence-operator.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: ordinary-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-provider-evidence-forbidden-001' \
+  -d "$provider_evidence_body")"
+test "$provider_operator_status" = "403"
+provider_evidence="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: crm-application-adapter' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
+  -H 'Idempotency-Key: smoke-provider-evidence-001' \
+  -d "$provider_evidence_body")"
+provider_evidence_id="$(printf '%s' "$provider_evidence" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["type"] == "ACCOUNT"; assert item["outcome"] == "MATCH"; assert item["valueHashMatched"] is True; assert len(item["providerReferenceHash"]) == 64; assert "providerReference" not in item; print(item["evidenceId"])')"
+provider_evidence_replay="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: crm-application-adapter' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
+  -H 'Idempotency-Key: smoke-provider-evidence-001' \
+  -d "$provider_evidence_body")"
+test "$(printf '%s' "$provider_evidence_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["evidenceId"])')" = "$provider_evidence_id"
+provider_cross_tenant_status="$(curl -sS \
+  -o "$temp_dir/provider-evidence-cross-tenant.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
+  -H 'X-Tenant-Id: different-tenant')"
+test "$provider_cross_tenant_status" = "404"
+provider_evidence_list="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$provider_evidence_list" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 1; assert result['items'][0]['evidenceId'] == '${provider_evidence_id}'"
+
+for _ in $(seq 1 120); do
+  auto_recovery_migration="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/migration" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  auto_recovery_phase="$(printf '%s' "$auto_recovery_migration" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["phase"])')"
   if [[ "$auto_recovery_phase" = "COMPLETED" ]]; then break; fi
   sleep 0.25
 done
@@ -1547,10 +1627,25 @@ test "$auto_recovery_phase" = "COMPLETED"
 printf '%s' "$auto_recovery_migration" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["recoveryResult"] == "READY"; assert item["autoRecoveryAttempts"] == 1; assert item["autoRecoveryMaximum"] == 1; action=item["latestRecoveryAction"]; assert action["action"] == "RESTART_EXTENSION"; assert action["targetExtensionId"] == "jdgnleokimdbblcflcfcohbinohmmmlb"; assert action["state"] == "COMMITTED"; assert action["resultingStateVersion"] > action["baseStateVersion"]'
 auto_recovery_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select state || ':' || action_type || ':' || target_extension_id || ':' || attempt_number
-   from business_recovery_actions
-   where migration_id='${auto_recovery_migration_id}'")"
-test "$auto_recovery_db_summary" = "COMMITTED:RESTART_EXTENSION:jdgnleokimdbblcflcfcohbinohmmmlb:1"
+  "select
+     (select state || ':' || action_type || ':' || target_extension_id || ':' || attempt_number
+      from business_recovery_actions
+      where migration_id='${auto_recovery_migration_id}') || ':' ||
+     (select count(*) from business_recovery_provider_evidence
+      where evidence_id='${provider_evidence_id}' and tenant_id='tenant-integration'
+        and session_id='${auto_recovery_session}') || ':' ||
+     (select count(*) from audit_events
+      where tenant_id='tenant-integration'
+        and action='BUSINESS_RECOVERY_PROVIDER_EVIDENCE_RECORDED'
+        and resource_id='${auto_recovery_session}')")"
+test "$auto_recovery_db_summary" = "COMMITTED:RESTART_EXTENSION:jdgnleokimdbblcflcfcohbinohmmmlb:1:1:1"
+if docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "update business_recovery_provider_evidence
+   set outcome='UNKNOWN'
+   where evidence_id='${provider_evidence_id}'" >/dev/null 2>&1; then
+  echo "Provider Evidence immutable trigger accepted an update" >&2
+  exit 1
+fi
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}:terminate" \
   -H 'X-Tenant-Id: tenant-integration' >/dev/null

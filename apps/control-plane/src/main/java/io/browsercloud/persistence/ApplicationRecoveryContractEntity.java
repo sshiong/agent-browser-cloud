@@ -55,6 +55,10 @@ public class ApplicationRecoveryContractEntity {
   @Column(name = "required_extension_ids", nullable = false, columnDefinition = "jsonb")
   private String requiredExtensionIds;
 
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "required_provider_evidence", nullable = false, columnDefinition = "jsonb")
+  private String requiredProviderEvidence;
+
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
@@ -78,6 +82,7 @@ public class ApplicationRecoveryContractEntity {
 
   protected ApplicationRecoveryContractEntity() {}
 
+  /** N-1 constructor retained for tests and rolling writers that predate Provider requirements. */
   public ApplicationRecoveryContractEntity(
       String contractId,
       String tenantId,
@@ -90,6 +95,46 @@ public class ApplicationRecoveryContractEntity {
       String permissionDeniedTargets,
       String accountMismatchTargets,
       String requiredExtensionIds,
+      boolean allowDepthLimited,
+      String recoveryAction,
+      String recoveryExtensionId,
+      int maximumAutoRecovery,
+      boolean enabled,
+      Instant now) {
+    this(
+        contractId,
+        tenantId,
+        applicationId,
+        expectedOrigins,
+        readyRoutePrefixes,
+        loginRoutePrefixes,
+        requiredTargets,
+        loginTargets,
+        permissionDeniedTargets,
+        accountMismatchTargets,
+        requiredExtensionIds,
+        "[]",
+        allowDepthLimited,
+        recoveryAction,
+        recoveryExtensionId,
+        maximumAutoRecovery,
+        enabled,
+        now);
+  }
+
+  public ApplicationRecoveryContractEntity(
+      String contractId,
+      String tenantId,
+      String applicationId,
+      String expectedOrigins,
+      String readyRoutePrefixes,
+      String loginRoutePrefixes,
+      String requiredTargets,
+      String loginTargets,
+      String permissionDeniedTargets,
+      String accountMismatchTargets,
+      String requiredExtensionIds,
+      String requiredProviderEvidence,
       boolean allowDepthLimited,
       String recoveryAction,
       String recoveryExtensionId,
@@ -109,6 +154,7 @@ public class ApplicationRecoveryContractEntity {
         permissionDeniedTargets,
         accountMismatchTargets,
         requiredExtensionIds,
+        requiredProviderEvidence,
         allowDepthLimited,
         recoveryAction,
         recoveryExtensionId,
@@ -127,6 +173,7 @@ public class ApplicationRecoveryContractEntity {
       String permissionDeniedTargets,
       String accountMismatchTargets,
       String requiredExtensionIds,
+      String requiredProviderEvidence,
       boolean allowDepthLimited,
       String recoveryAction,
       String recoveryExtensionId,
@@ -142,6 +189,41 @@ public class ApplicationRecoveryContractEntity {
         permissionDeniedTargets,
         accountMismatchTargets,
         requiredExtensionIds,
+        requiredProviderEvidence,
+        allowDepthLimited,
+        recoveryAction,
+        recoveryExtensionId,
+        maximumAutoRecovery,
+        enabled,
+        now);
+  }
+
+  /** N-1 update retained so old writers produce an empty additive Provider requirement list. */
+  public void update(
+      String expectedOrigins,
+      String readyRoutePrefixes,
+      String loginRoutePrefixes,
+      String requiredTargets,
+      String loginTargets,
+      String permissionDeniedTargets,
+      String accountMismatchTargets,
+      String requiredExtensionIds,
+      boolean allowDepthLimited,
+      String recoveryAction,
+      String recoveryExtensionId,
+      int maximumAutoRecovery,
+      boolean enabled,
+      Instant now) {
+    update(
+        expectedOrigins,
+        readyRoutePrefixes,
+        loginRoutePrefixes,
+        requiredTargets,
+        loginTargets,
+        permissionDeniedTargets,
+        accountMismatchTargets,
+        requiredExtensionIds,
+        "[]",
         allowDepthLimited,
         recoveryAction,
         recoveryExtensionId,
@@ -159,6 +241,7 @@ public class ApplicationRecoveryContractEntity {
       String permissionDeniedTargets,
       String accountMismatchTargets,
       String requiredExtensionIds,
+      String requiredProviderEvidence,
       boolean allowDepthLimited,
       String recoveryAction,
       String recoveryExtensionId,
@@ -173,6 +256,7 @@ public class ApplicationRecoveryContractEntity {
     this.permissionDeniedTargets = permissionDeniedTargets;
     this.accountMismatchTargets = accountMismatchTargets;
     this.requiredExtensionIds = requiredExtensionIds;
+    this.requiredProviderEvidence = requiredProviderEvidence;
     this.allowDepthLimited = allowDepthLimited;
     this.recoveryAction = recoveryAction;
     this.recoveryExtensionId = recoveryExtensionId;
@@ -227,6 +311,10 @@ public class ApplicationRecoveryContractEntity {
 
   public String getRequiredExtensionIds() {
     return requiredExtensionIds;
+  }
+
+  public String getRequiredProviderEvidence() {
+    return requiredProviderEvidence;
   }
 
   public boolean isAllowDepthLimited() {

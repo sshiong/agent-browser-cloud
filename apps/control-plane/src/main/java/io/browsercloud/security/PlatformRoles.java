@@ -8,6 +8,8 @@ public final class PlatformRoles {
   public static final String OPERATE =
       "hasAnyRole('TENANT_OPERATOR','TENANT_ADMIN','SECURITY_ADMIN','PLATFORM_ADMIN')";
   public static final String ADMIN = "hasAnyRole('TENANT_ADMIN','SECURITY_ADMIN','PLATFORM_ADMIN')";
+  public static final String APPLICATION_ADAPTER =
+      "hasAnyRole('APPLICATION_ADAPTER','PLATFORM_ADMIN')";
   public static final String SECURITY_ADMIN = "hasRole('SECURITY_ADMIN')";
   public static final String PLATFORM_ADMIN = "hasRole('PLATFORM_ADMIN')";
 

@@ -39,6 +39,7 @@ class ApplicationBusinessRecoveryServiceTest {
   @Mock private SessionApplicationBindingJpaRepository bindings;
   @Mock private SessionApplicationRebindJpaRepository rebinds;
   @Mock private BusinessRecoveryValidationJpaRepository validations;
+  @Mock private BusinessRecoveryProviderEvidenceJpaRepository providerEvidence;
   @Mock private SessionRepository sessions;
   @Mock private OperationRepository operations;
   @Mock private BrowserStateRepository browserStates;
@@ -61,6 +62,7 @@ class ApplicationBusinessRecoveryServiceTest {
             bindings,
             rebinds,
             validations,
+            providerEvidence,
             sessions,
             operations,
             browserStates,
@@ -287,6 +289,85 @@ class ApplicationBusinessRecoveryServiceTest {
     assertThat(result.ready()).isTrue();
     assertThat(result.evidence()).containsExactly("APPLICATION_CONTRACT_SATISFIED");
     verify(validations).save(any(BusinessRecoveryValidationEntity.class));
+  }
+
+  @Test
+  void providerRequirementFailsClosedUntilTrustedEvidenceMatches() throws Exception {
+    var expectedHash = "a".repeat(64);
+    var requirement =
+        new ProviderEvidenceRequirement(
+            ProviderEvidenceType.ACCOUNT, "current-account", "crm-provider", expectedHash, 300);
+    var contract = contractWithProviderEvidence(List.of(requirement));
+    arrangeValidation(contract, state("https://crm.example.test/customers", "COMPLETE", List.of()));
+
+    var result =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-provider-missing", "request-provider");
+
+    assertThat(result.verdict()).isEqualTo(Verdict.MANUAL_RECOVERY_REQUIRED);
+    assertThat(result.ready()).isFalse();
+    assertThat(result.evidence())
+        .containsExactly("PROVIDER_EVIDENCE_MISSING:ACCOUNT:current-account:crm-provider");
+  }
+
+  @Test
+  void trustedProviderEvidenceIsBoundToExactStateAndUnlocksReadyGate() throws Exception {
+    var expectedHash = "b".repeat(64);
+    var requirement =
+        new ProviderEvidenceRequirement(
+            ProviderEvidenceType.ACCOUNT, "current-account", "crm-provider", expectedHash, 300);
+    var contract = contractWithProviderEvidence(List.of(requirement));
+    arrangeValidation(contract, state("https://crm.example.test/customers", "COMPLETE", List.of()));
+    var persisted = new AtomicReference<BusinessRecoveryProviderEvidenceEntity>();
+    when(idempotency.claimBusinessRecoveryProviderEvidence(
+            any(), any(), any(), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(5));
+    when(providerEvidence.saveAndFlush(any()))
+        .thenAnswer(
+            invocation -> {
+              var entity = (BusinessRecoveryProviderEvidenceEntity) invocation.getArgument(0);
+              persisted.set(entity);
+              return entity;
+            });
+    when(providerEvidence
+            .findFirstByTenantIdAndSessionIdAndContractIdAndContractVersionAndContextEpochAndStateVersionAndEvidenceTypeAndEvidenceKeyAndProviderIdOrderByObservedAtDesc(
+                any(), any(), any(), anyLong(), anyLong(), anyLong(), any(), any(), any()))
+        .thenAnswer(invocation -> Optional.ofNullable(persisted.get()));
+    var now = Instant.now();
+
+    var evidence =
+        service.submitProviderEvidence(
+            SESSION_ID,
+            TENANT_ID,
+            "crm-adapter",
+            "provider-evidence-1",
+            "request-evidence-1",
+            new SubmitProviderEvidenceRequest(
+                7,
+                12,
+                ProviderEvidenceType.ACCOUNT,
+                "current-account",
+                "crm-provider",
+                expectedHash,
+                ProviderEvidenceOutcome.MATCH,
+                "provider-check-48392",
+                now.minusSeconds(1)),
+            now);
+
+    assertThat(evidence.valueHashMatched()).isTrue();
+    assertThat(evidence.providerReferenceHash()).hasSize(64);
+    assertThat(evidence.adapterActorId()).isEqualTo("crm-adapter");
+
+    var result =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-provider-ready", "request-ready");
+
+    assertThat(result.verdict()).isEqualTo(Verdict.READY);
+    assertThat(result.ready()).isTrue();
+    assertThat(result.evidence().get(0))
+        .startsWith("PROVIDER_EVIDENCE_MATCHED:ACCOUNT:current-account:crm-provider:bre_");
+    assertThat(result.evidence().get(1)).isEqualTo("APPLICATION_CONTRACT_SATISFIED");
+    verify(audit).append(any());
   }
 
   @Test
@@ -564,6 +645,7 @@ class ApplicationBusinessRecoveryServiceTest {
     var sourcePermissionTargets = source.getPermissionDeniedTargets();
     var sourceAccountTargets = source.getAccountMismatchTargets();
     var sourceExtensionIds = source.getRequiredExtensionIds();
+    var sourceProviderEvidence = source.getRequiredProviderEvidence();
     var sourceAction = source.getRecoveryAction();
     var sourceMaximumRecovery = source.getMaximumAutoRecovery();
     when(restored.getExpectedOrigins()).thenReturn(sourceExpectedOrigins);
@@ -574,6 +656,7 @@ class ApplicationBusinessRecoveryServiceTest {
     when(restored.getPermissionDeniedTargets()).thenReturn(sourcePermissionTargets);
     when(restored.getAccountMismatchTargets()).thenReturn(sourceAccountTargets);
     when(restored.getRequiredExtensionIds()).thenReturn(sourceExtensionIds);
+    when(restored.getRequiredProviderEvidence()).thenReturn(sourceProviderEvidence);
     when(restored.getRecoveryAction()).thenReturn(sourceAction);
     when(restored.getMaximumAutoRecovery()).thenReturn(sourceMaximumRecovery);
     when(restored.getCreatedAt()).thenReturn(NOW.minusSeconds(3600));
@@ -612,6 +695,7 @@ class ApplicationBusinessRecoveryServiceTest {
             source.getPermissionDeniedTargets(),
             source.getAccountMismatchTargets(),
             source.getRequiredExtensionIds(),
+            source.getRequiredProviderEvidence(),
             source.isAllowDepthLimited(),
             source.getRecoveryAction(),
             source.getRecoveryExtensionId(),
@@ -850,6 +934,7 @@ class ApplicationBusinessRecoveryServiceTest {
     when(revision.getPermissionDeniedTargets()).thenReturn(contract.getPermissionDeniedTargets());
     when(revision.getAccountMismatchTargets()).thenReturn(contract.getAccountMismatchTargets());
     when(revision.getRequiredExtensionIds()).thenReturn(contract.getRequiredExtensionIds());
+    when(revision.getRequiredProviderEvidence()).thenReturn(contract.getRequiredProviderEvidence());
     when(revision.isAllowDepthLimited()).thenReturn(contract.isAllowDepthLimited());
     when(revision.getRecoveryAction()).thenReturn(contract.getRecoveryAction());
     when(revision.getRecoveryExtensionId()).thenReturn(contract.getRecoveryExtensionId());
@@ -870,6 +955,7 @@ class ApplicationBusinessRecoveryServiceTest {
     var permissionDeniedTargets = source.getPermissionDeniedTargets();
     var accountMismatchTargets = source.getAccountMismatchTargets();
     var requiredExtensionIds = source.getRequiredExtensionIds();
+    var requiredProviderEvidence = source.getRequiredProviderEvidence();
     var allowDepthLimited = source.isAllowDepthLimited();
     var recoveryAction = source.getRecoveryAction();
     var recoveryExtensionId = source.getRecoveryExtensionId();
@@ -888,6 +974,7 @@ class ApplicationBusinessRecoveryServiceTest {
     when(revision.getPermissionDeniedTargets()).thenReturn(permissionDeniedTargets);
     when(revision.getAccountMismatchTargets()).thenReturn(accountMismatchTargets);
     when(revision.getRequiredExtensionIds()).thenReturn(requiredExtensionIds);
+    when(revision.getRequiredProviderEvidence()).thenReturn(requiredProviderEvidence);
     when(revision.isAllowDepthLimited()).thenReturn(allowDepthLimited);
     when(revision.getRecoveryAction()).thenReturn(recoveryAction);
     when(revision.getRecoveryExtensionId()).thenReturn(recoveryExtensionId);
@@ -959,6 +1046,29 @@ class ApplicationBusinessRecoveryServiceTest {
     } catch (Exception exception) {
       throw new AssertionError(exception);
     }
+  }
+
+  private ApplicationRecoveryContractEntity contractWithProviderEvidence(
+      List<ProviderEvidenceRequirement> requirements) throws Exception {
+    return new ApplicationRecoveryContractEntity(
+        "arc_1234567890abcdefghij",
+        TENANT_ID,
+        "crm",
+        "[\"https://crm.example.test\"]",
+        "[\"/customers\"]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        objectMapper.writeValueAsString(requirements),
+        false,
+        RecoveryAction.NONE.name(),
+        null,
+        0,
+        true,
+        NOW);
   }
 
   private static NodeEvent.StateUpdated state(

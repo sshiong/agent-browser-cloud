@@ -41,6 +41,7 @@ import {
   isValidExpectedOrigin,
   isValidRoutePrefix,
   parseContractLines,
+  parseProviderEvidenceRequirements,
   recoveryContractRequest,
   recoveryContractToForm,
   type RecoveryContractFormValues,
@@ -95,6 +96,7 @@ const formSchema = z
     permissionDeniedTargets: z.array(targetSchema).max(32),
     accountMismatchTargets: z.array(targetSchema).max(32),
     requiredExtensionIds: z.string(),
+    requiredProviderEvidence: z.string(),
     allowDepthLimited: z.boolean(),
     recoveryAction: z.enum([
       'NONE',
@@ -147,6 +149,30 @@ const formSchema = z
         code: 'custom',
         path: ['requiredExtensionIds'],
         message: '最多 32 项；Extension ID 格式不合法',
+      });
+    }
+
+    try {
+      const requirements = parseProviderEvidenceRequirements(
+        values.requiredProviderEvidence
+      );
+      if (requirements.length > 16) {
+        throw new Error('TOO_MANY_PROVIDER_REQUIREMENTS');
+      }
+      const unique = new Set(
+        requirements.map(
+          (item) => `${item.type}:${item.key}:${item.providerId}`
+        )
+      );
+      if (unique.size !== requirements.length) {
+        throw new Error('DUPLICATE_PROVIDER_REQUIREMENT');
+      }
+    } catch {
+      context.addIssue({
+        code: 'custom',
+        path: ['requiredProviderEvidence'],
+        message:
+          '每行：TYPE | key | provider | 64位SHA-256 | TTL(30—900)，最多16项且不得重复',
       });
     }
 
@@ -880,6 +906,23 @@ function ContractEditor({
                 className="min-h-20 w-full resize-y border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[11px] text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
                 placeholder="jdgnleokimdbblcflcfcohbinohmmmlb"
               />
+            </Field>
+
+            <Field
+              label="Provider Evidence Requirements"
+              hint="账号、Workspace、权限和业务实体的可信 API 证明；只保存期望值 Hash。"
+              error={errors.requiredProviderEvidence?.message}
+            >
+              <textarea
+                {...register('requiredProviderEvidence')}
+                className="min-h-24 w-full resize-y border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[10px] leading-5 text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+                placeholder={`ACCOUNT | current-account | crm-provider | ${'a'.repeat(64)} | 300`}
+              />
+              <p className="mt-1.5 text-[9px] leading-4 text-text-muted">
+                TYPE：ACCOUNT / TENANT_WORKSPACE / PERMISSION /
+                BUSINESS_ENTITY。受信 Adapter 必须为当前 Context 与 State
+                提交短期证明。
+              </p>
             </Field>
 
             {action === 'RESTART_EXTENSION' ? (

@@ -58,6 +58,10 @@ public class ApplicationRecoveryContractRevisionEntity {
   @Column(name = "required_extension_ids", nullable = false, columnDefinition = "jsonb")
   private String requiredExtensionIds;
 
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "required_provider_evidence", nullable = false, columnDefinition = "jsonb")
+  private String requiredProviderEvidence;
+
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
@@ -127,6 +131,10 @@ public class ApplicationRecoveryContractRevisionEntity {
 
   public String getRequiredExtensionIds() {
     return requiredExtensionIds;
+  }
+
+  public String getRequiredProviderEvidence() {
+    return requiredProviderEvidence;
   }
 
   public boolean isAllowDepthLimited() {

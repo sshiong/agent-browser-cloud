@@ -5,6 +5,7 @@ import {
   isValidExpectedOrigin,
   isValidRoutePrefix,
   parseContractLines,
+  parseProviderEvidenceRequirements,
   recoveryContractRequest,
 } from './recoveryContractForm';
 
@@ -24,6 +25,7 @@ describe('recovery contract form', () => {
         requiredTargets: [{ role: ' Status ', name: ' Recovered workspace ' }],
         requiredExtensionIds:
           'jdgnleokimdbblcflcfcohbinohmmmlb\njdgnleokimdbblcflcfcohbinohmmmlb',
+        requiredProviderEvidence: `ACCOUNT | current-account | crm-provider | ${'a'.repeat(64)} | 300`,
         recoveryAction: 'RESTART_EXTENSION',
         recoveryExtensionId: 'jdgnleokimdbblcflcfcohbinohmmmlb',
         maximumAutoRecovery: 1,
@@ -37,10 +39,40 @@ describe('recovery contract form', () => {
       readyRoutePrefixes: ['/workspace'],
       requiredTargets: [{ role: 'status', name: 'Recovered workspace' }],
       requiredExtensionIds: ['jdgnleokimdbblcflcfcohbinohmmmlb'],
+      requiredProviderEvidence: [
+        {
+          type: 'ACCOUNT',
+          key: 'current-account',
+          providerId: 'crm-provider',
+          expectedValueHash: 'a'.repeat(64),
+          maxAgeSeconds: 300,
+        },
+      ],
       recoveryAction: 'RESTART_EXTENSION',
       recoveryExtensionId: 'jdgnleokimdbblcflcfcohbinohmmmlb',
       maximumAutoRecovery: 1,
     });
+  });
+
+  it('rejects unbounded or unhashed Provider evidence requirements', () => {
+    expect(
+      parseProviderEvidenceRequirements(
+        `PERMISSION | admin-scope | crm-provider | ${'b'.repeat(64)} | 120`
+      )
+    ).toEqual([
+      {
+        type: 'PERMISSION',
+        key: 'admin-scope',
+        providerId: 'crm-provider',
+        expectedValueHash: 'b'.repeat(64),
+        maxAgeSeconds: 120,
+      },
+    ]);
+    expect(() =>
+      parseProviderEvidenceRequirements(
+        'ACCOUNT | current | crm-provider | raw-account-id | 300'
+      )
+    ).toThrow('PROVIDER_EVIDENCE_REQUIREMENT_INVALID');
   });
 
   it('uses the same origin, route and Chromium ID boundaries as the API', () => {

@@ -16,6 +16,7 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,8 @@ public class ApplicationBusinessRecoveryService {
 
   private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
   private static final TypeReference<List<TargetIndicator>> TARGET_LIST = new TypeReference<>() {};
+  private static final TypeReference<List<ProviderEvidenceRequirement>> PROVIDER_REQUIREMENT_LIST =
+      new TypeReference<>() {};
 
   private final ApplicationRecoveryContractJpaRepository contracts;
   private final ApplicationRecoveryContractRevisionJpaRepository revisions;
@@ -38,6 +41,7 @@ public class ApplicationBusinessRecoveryService {
   private final SessionApplicationBindingJpaRepository bindings;
   private final SessionApplicationRebindJpaRepository rebinds;
   private final BusinessRecoveryValidationJpaRepository validations;
+  private final BusinessRecoveryProviderEvidenceJpaRepository providerEvidence;
   private final SessionRepository sessions;
   private final OperationRepository operations;
   private final BrowserStateRepository browserStates;
@@ -54,6 +58,7 @@ public class ApplicationBusinessRecoveryService {
       SessionApplicationBindingJpaRepository bindings,
       SessionApplicationRebindJpaRepository rebinds,
       BusinessRecoveryValidationJpaRepository validations,
+      BusinessRecoveryProviderEvidenceJpaRepository providerEvidence,
       SessionRepository sessions,
       OperationRepository operations,
       BrowserStateRepository browserStates,
@@ -68,6 +73,7 @@ public class ApplicationBusinessRecoveryService {
     this.bindings = bindings;
     this.rebinds = rebinds;
     this.validations = validations;
+    this.providerEvidence = providerEvidence;
     this.sessions = sessions;
     this.operations = operations;
     this.browserStates = browserStates;
@@ -112,6 +118,7 @@ public class ApplicationBusinessRecoveryService {
               write(normalized.permissionDeniedTargets()),
               write(normalized.accountMismatchTargets()),
               write(normalized.requiredExtensionIds()),
+              write(normalized.requiredProviderEvidence()),
               normalized.allowDepthLimited(),
               normalized.recoveryAction().name(),
               normalized.recoveryExtensionId(),
@@ -139,6 +146,7 @@ public class ApplicationBusinessRecoveryService {
         write(normalized.permissionDeniedTargets()),
         write(normalized.accountMismatchTargets()),
         write(normalized.requiredExtensionIds()),
+        write(normalized.requiredProviderEvidence()),
         normalized.allowDepthLimited(),
         normalized.recoveryAction().name(),
         normalized.recoveryExtensionId(),
@@ -285,6 +293,7 @@ public class ApplicationBusinessRecoveryService {
         source.getPermissionDeniedTargets(),
         source.getAccountMismatchTargets(),
         source.getRequiredExtensionIds(),
+        source.getRequiredProviderEvidence(),
         source.isAllowDepthLimited(),
         source.getRecoveryAction(),
         source.getRecoveryExtensionId(),
@@ -597,11 +606,17 @@ public class ApplicationBusinessRecoveryService {
   @Transactional
   public BusinessRecoveryValidationView validateForMigration(
       String sessionId, String tenantId, String migrationId, int recoveryAttempt) {
+    var evidenceRevision = providerEvidence.countByTenantIdAndSessionId(tenantId, sessionId);
     return validate(
         sessionId,
         tenantId,
         "system:migration",
-        "business-recovery:" + migrationId + ":" + recoveryAttempt,
+        "business-recovery:"
+            + migrationId
+            + ":"
+            + recoveryAttempt
+            + ":provider-"
+            + evidenceRevision,
         migrationId,
         "MIGRATION",
         Instant.now());
@@ -653,6 +668,140 @@ public class ApplicationBusinessRecoveryService {
         .orElseThrow(BusinessRecoveryValidationNotFoundException::new);
   }
 
+  @Transactional
+  public ProviderEvidenceView submitProviderEvidence(
+      String sessionId,
+      String tenantId,
+      String adapterActorId,
+      String idempotencyKey,
+      String requestId,
+      SubmitProviderEvidenceRequest request,
+      Instant now) {
+    var session = requireTenant(sessionId, tenantId);
+    var snapshot =
+        browserStates
+            .find(sessionId)
+            .filter(value -> value.tenantId().equals(tenantId))
+            .filter(value -> value.contextEpoch() == session.contextEpoch())
+            .orElseThrow(BusinessRecoveryStateUnavailableException::new);
+    if (request.contextEpoch() != session.contextEpoch()
+        || request.stateVersion() != snapshot.state().stateVersion()) {
+      throw new ProviderEvidenceRejectedException("STALE_SESSION_STATE");
+    }
+    var binding =
+        bindings
+            .findBySessionIdAndTenantId(sessionId, tenantId)
+            .orElseThrow(SessionApplicationBindingNotFoundException::new);
+    var contract = requireApprovedBindingContract(binding, tenantId);
+    var requirement =
+        readProviderRequirements(contract.getRequiredProviderEvidence()).stream()
+            .filter(item -> item.type() == request.type())
+            .filter(item -> item.key().equals(request.key()))
+            .filter(item -> item.providerId().equals(request.providerId()))
+            .findFirst()
+            .orElseThrow(
+                () -> new ProviderEvidenceRejectedException("REQUIREMENT_NOT_IN_BOUND_CONTRACT"));
+
+    var evaluatedAt = now.truncatedTo(ChronoUnit.MICROS);
+    var observedAt = request.observedAt().truncatedTo(ChronoUnit.MICROS);
+    if (observedAt.isAfter(evaluatedAt.plusSeconds(30))
+        || observedAt.isBefore(evaluatedAt.minusSeconds(requirement.maxAgeSeconds()))) {
+      throw new ProviderEvidenceRejectedException("EVIDENCE_OBSERVATION_OUTSIDE_ALLOWED_WINDOW");
+    }
+    var observedValueHash = request.observedValueHash().toLowerCase(Locale.ROOT);
+    if (request.outcome() == ProviderEvidenceOutcome.MATCH
+        && !requirement.expectedValueHash().equals(observedValueHash)) {
+      throw new ProviderEvidenceRejectedException("MATCH_OUTCOME_HASH_MISMATCH");
+    }
+
+    var candidateEvidenceId = newId("bre_");
+    var evidenceId =
+        idempotency.claimBusinessRecoveryProviderEvidence(
+            tenantId, sessionId, adapterActorId, idempotencyKey, request, candidateEvidenceId);
+    if (!candidateEvidenceId.equals(evidenceId)) {
+      return providerEvidence
+          .findById(evidenceId)
+          .filter(item -> item.getTenantId().equals(tenantId))
+          .filter(item -> item.getSessionId().equals(sessionId))
+          .map(ApplicationBusinessRecoveryService::toProviderEvidenceView)
+          .orElseThrow(
+              () ->
+                  new IllegalStateException(
+                      "Provider Evidence idempotency claim has no durable evidence"));
+    }
+
+    var referenceHash = PromptSecurityService.sha256(request.providerReference().strip());
+    var entity =
+        providerEvidence.saveAndFlush(
+            new BusinessRecoveryProviderEvidenceEntity(
+                evidenceId,
+                tenantId,
+                sessionId,
+                binding.getApplicationId(),
+                contract.getContractId(),
+                contract.getContractVersion(),
+                session.contextEpoch(),
+                snapshot.state().stateVersion(),
+                request.type().name(),
+                request.key(),
+                request.providerId(),
+                requirement.expectedValueHash(),
+                observedValueHash,
+                request.outcome().name(),
+                referenceHash,
+                adapterActorId,
+                requestId,
+                observedAt,
+                observedAt.plusSeconds(requirement.maxAgeSeconds()),
+                evaluatedAt));
+    audit.append(
+        new AuditApplicationService.AuditRecord(
+            tenantId,
+            sessionId,
+            "BUSINESS_RECOVERY_PROVIDER_EVIDENCE",
+            "APPLICATION_ADAPTER",
+            adapterActorId,
+            "SESSION",
+            sessionId,
+            "BUSINESS_RECOVERY_PROVIDER_EVIDENCE_RECORDED",
+            request.outcome().name(),
+            Map.of(
+                "evidenceId",
+                evidenceId,
+                "applicationId",
+                binding.getApplicationId(),
+                "contractVersion",
+                contract.getContractVersion(),
+                "contextEpoch",
+                session.contextEpoch(),
+                "stateVersion",
+                snapshot.state().stateVersion(),
+                "evidenceType",
+                request.type().name(),
+                "evidenceKey",
+                request.key(),
+                "providerId",
+                request.providerId(),
+                "providerReferenceHash",
+                referenceHash),
+            requestId));
+    return toProviderEvidenceView(entity);
+  }
+
+  @Transactional(readOnly = true)
+  public ProviderEvidenceListResponse listProviderEvidence(String sessionId, String tenantId) {
+    requireTenant(sessionId, tenantId);
+    var items =
+        providerEvidence
+            .findAllByTenantIdAndSessionIdOrderByCreatedAtDesc(
+                tenantId, sessionId, PageRequest.of(0, 100))
+            .stream()
+            .map(ApplicationBusinessRecoveryService::toProviderEvidenceView)
+            .toList();
+    return new ProviderEvidenceListResponse(
+        items, providerEvidence.countByTenantIdAndSessionId(tenantId, sessionId));
+  }
+
   private BusinessRecoveryValidationView validate(
       String sessionId,
       String tenantId,
@@ -691,7 +840,7 @@ public class ApplicationBusinessRecoveryService {
     } else {
       var currentBinding = binding.orElseThrow();
       contract = requireApprovedBindingContract(currentBinding, tenantId);
-      evaluation = evaluateContract(contract, snapshot.state(), sessionId, tenantId);
+      evaluation = evaluateContract(contract, snapshot.state(), sessionId, tenantId, now);
     }
     var entity =
         validations.save(
@@ -731,7 +880,8 @@ public class ApplicationBusinessRecoveryService {
       ApplicationRecoveryContractRevisionEntity contract,
       NodeEvent.StateUpdated state,
       String sessionId,
-      String tenantId) {
+      String tenantId,
+      Instant now) {
     if (state.url() == null || state.url().isBlank()) {
       return rejected(Verdict.MANUAL_RECOVERY_REQUIRED, "RECOVERED_URL_MISSING");
     }
@@ -796,10 +946,78 @@ public class ApplicationBusinessRecoveryService {
             "REQUIRED_EXTENSIONS_MISSING:" + String.join(",", missing));
       }
     }
-    if ("DEPTH_LIMITED".equals(state.stateQuality())) {
-      return new Evaluation(Verdict.READY_WITH_WARNING, true, List.of("READY_DEPTH_LIMITED_STATE"));
+    var providerAssessment =
+        evaluateProviderEvidence(contract, sessionId, tenantId, state.stateVersion(), now);
+    if (!providerAssessment.ready()) {
+      return providerAssessment;
     }
-    return new Evaluation(Verdict.READY, true, List.of("APPLICATION_CONTRACT_SATISFIED"));
+    var readyEvidence = new ArrayList<>(providerAssessment.evidence());
+    if ("DEPTH_LIMITED".equals(state.stateQuality())) {
+      readyEvidence.add("READY_DEPTH_LIMITED_STATE");
+      return new Evaluation(Verdict.READY_WITH_WARNING, true, List.copyOf(readyEvidence));
+    }
+    readyEvidence.add("APPLICATION_CONTRACT_SATISFIED");
+    return new Evaluation(Verdict.READY, true, List.copyOf(readyEvidence));
+  }
+
+  private Evaluation evaluateProviderEvidence(
+      ApplicationRecoveryContractRevisionEntity contract,
+      String sessionId,
+      String tenantId,
+      long stateVersion,
+      Instant now) {
+    var requirements = readProviderRequirements(contract.getRequiredProviderEvidence());
+    if (requirements.isEmpty()) {
+      return new Evaluation(Verdict.READY, true, List.of());
+    }
+    var session = requireTenant(sessionId, tenantId);
+    var matched = new ArrayList<String>();
+    for (var requirement : requirements) {
+      var evidence =
+          providerEvidence
+              .findFirstByTenantIdAndSessionIdAndContractIdAndContractVersionAndContextEpochAndStateVersionAndEvidenceTypeAndEvidenceKeyAndProviderIdOrderByObservedAtDesc(
+                  tenantId,
+                  sessionId,
+                  contract.getContractId(),
+                  contract.getContractVersion(),
+                  session.contextEpoch(),
+                  stateVersion,
+                  requirement.type().name(),
+                  requirement.key(),
+                  requirement.providerId())
+              .orElse(null);
+      var requirementCode =
+          requirement.type() + ":" + requirement.key() + ":" + requirement.providerId();
+      if (evidence == null) {
+        return rejected(
+            Verdict.MANUAL_RECOVERY_REQUIRED, "PROVIDER_EVIDENCE_MISSING:" + requirementCode);
+      }
+      if (evidence.getExpiresAt().isBefore(now)
+          || evidence.getObservedAt().isBefore(now.minusSeconds(requirement.maxAgeSeconds()))) {
+        return rejected(
+            Verdict.MANUAL_RECOVERY_REQUIRED, "PROVIDER_EVIDENCE_EXPIRED:" + requirementCode);
+      }
+      if ("UNKNOWN".equals(evidence.getOutcome())) {
+        return rejected(
+            Verdict.MANUAL_RECOVERY_REQUIRED, "PROVIDER_EVIDENCE_UNKNOWN:" + requirementCode);
+      }
+      if ("MISMATCH".equals(evidence.getOutcome())
+          || !requirement.expectedValueHash().equals(evidence.getObservedValueHash())) {
+        return rejected(
+            providerMismatchVerdict(requirement.type()),
+            "PROVIDER_EVIDENCE_MISMATCH:" + requirementCode);
+      }
+      matched.add("PROVIDER_EVIDENCE_MATCHED:" + requirementCode + ":" + evidence.getEvidenceId());
+    }
+    return new Evaluation(Verdict.READY, true, List.copyOf(matched));
+  }
+
+  private static Verdict providerMismatchVerdict(ProviderEvidenceType type) {
+    return switch (type) {
+      case ACCOUNT, TENANT_WORKSPACE -> Verdict.ACCOUNT_MISMATCH;
+      case PERMISSION -> Verdict.PERMISSION_CHANGED;
+      case BUSINESS_ENTITY -> Verdict.STATE_CHANGED;
+    };
   }
 
   private NormalizedContract normalize(UpsertRecoveryContractRequest request) {
@@ -843,6 +1061,7 @@ public class ApplicationBusinessRecoveryService {
         targetList(request.permissionDeniedTargets()),
         targetList(request.accountMismatchTargets()),
         requiredExtensionIds,
+        providerRequirementList(request.requiredProviderEvidence()),
         request.allowDepthLimited(),
         recoveryAction,
         recoveryExtensionId,
@@ -860,6 +1079,8 @@ public class ApplicationBusinessRecoveryService {
         && readTargets(entity.getPermissionDeniedTargets()).equals(value.permissionDeniedTargets())
         && readTargets(entity.getAccountMismatchTargets()).equals(value.accountMismatchTargets())
         && readStrings(entity.getRequiredExtensionIds()).equals(value.requiredExtensionIds())
+        && readProviderRequirements(entity.getRequiredProviderEvidence())
+            .equals(value.requiredProviderEvidence())
         && entity.isAllowDepthLimited() == value.allowDepthLimited()
         && entity.getRecoveryAction().equals(value.recoveryAction().name())
         && java.util.Objects.equals(entity.getRecoveryExtensionId(), value.recoveryExtensionId())
@@ -883,6 +1104,7 @@ public class ApplicationBusinessRecoveryService {
         readTargets(entity.getPermissionDeniedTargets()),
         readTargets(entity.getAccountMismatchTargets()),
         readStrings(entity.getRequiredExtensionIds()),
+        readProviderRequirements(entity.getRequiredProviderEvidence()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getRecoveryExtensionId(),
@@ -916,6 +1138,7 @@ public class ApplicationBusinessRecoveryService {
         readTargets(entity.getPermissionDeniedTargets()),
         readTargets(entity.getAccountMismatchTargets()),
         readStrings(entity.getRequiredExtensionIds()),
+        readProviderRequirements(entity.getRequiredProviderEvidence()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getRecoveryExtensionId(),
@@ -992,6 +1215,11 @@ public class ApplicationBusinessRecoveryService {
         "requiredExtensionIds",
         from.getRequiredExtensionIds(),
         to.getRequiredExtensionIds());
+    addChange(
+        changes,
+        "requiredProviderEvidence",
+        from.getRequiredProviderEvidence(),
+        to.getRequiredProviderEvidence());
     addChange(
         changes,
         "allowDepthLimited",
@@ -1153,6 +1381,7 @@ public class ApplicationBusinessRecoveryService {
             contract.getPermissionDeniedTargets(),
             contract.getAccountMismatchTargets(),
             contract.getRequiredExtensionIds(),
+            contract.getRequiredProviderEvidence(),
             Boolean.toString(contract.isAllowDepthLimited()),
             contract.getRecoveryAction(),
             Objects.toString(contract.getRecoveryExtensionId(), ""),
@@ -1212,6 +1441,28 @@ public class ApplicationBusinessRecoveryService {
         entity.getEvaluatedAt());
   }
 
+  private static ProviderEvidenceView toProviderEvidenceView(
+      BusinessRecoveryProviderEvidenceEntity entity) {
+    return new ProviderEvidenceView(
+        entity.getEvidenceId(),
+        entity.getSessionId(),
+        entity.getApplicationId(),
+        entity.getContractVersion(),
+        entity.getContextEpoch(),
+        entity.getStateVersion(),
+        ProviderEvidenceType.valueOf(entity.getEvidenceType()),
+        entity.getEvidenceKey(),
+        entity.getProviderId(),
+        ProviderEvidenceOutcome.valueOf(entity.getOutcome()),
+        entity.getExpectedValueHash().equals(entity.getObservedValueHash()),
+        entity.getProviderReferenceHash(),
+        entity.getAdapterActorId(),
+        entity.getRequestId(),
+        entity.getObservedAt(),
+        entity.getExpiresAt(),
+        entity.getCreatedAt());
+  }
+
   private io.browsercloud.domain.session.SessionContext requireTenant(
       String sessionId, String tenantId) {
     var session = sessions.require(sessionId);
@@ -1242,6 +1493,15 @@ public class ApplicationBusinessRecoveryService {
       return objectMapper.readValue(value, TARGET_LIST);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("Stored Business Recovery target list is invalid", exception);
+    }
+  }
+
+  private List<ProviderEvidenceRequirement> readProviderRequirements(String value) {
+    try {
+      return objectMapper.readValue(value, PROVIDER_REQUIREMENT_LIST);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException(
+          "Stored Business Recovery Provider requirement list is invalid", exception);
     }
   }
 
@@ -1337,6 +1597,34 @@ public class ApplicationBusinessRecoveryService {
         .toList();
   }
 
+  private static List<ProviderEvidenceRequirement> providerRequirementList(
+      List<ProviderEvidenceRequirement> values) {
+    if (values == null) return List.of();
+    var normalized =
+        values.stream()
+            .map(
+                value ->
+                    new ProviderEvidenceRequirement(
+                        value.type(),
+                        value.key().strip(),
+                        value.providerId().strip(),
+                        value.expectedValueHash().strip().toLowerCase(Locale.ROOT),
+                        value.maxAgeSeconds()))
+            .sorted(
+                Comparator.comparing((ProviderEvidenceRequirement value) -> value.type().name())
+                    .thenComparing(ProviderEvidenceRequirement::key)
+                    .thenComparing(ProviderEvidenceRequirement::providerId))
+            .toList();
+    var keys = new HashSet<String>();
+    for (var value : normalized) {
+      var key = value.type() + ":" + value.key() + ":" + value.providerId();
+      if (!keys.add(key)) {
+        throw new RecoveryContractRejectedException("PROVIDER_EVIDENCE_REQUIREMENT_DUPLICATE");
+      }
+    }
+    return normalized;
+  }
+
   private static List<String> stringList(List<String> values) {
     if (values == null) return List.of();
     return values.stream().map(String::strip).filter(value -> !value.isBlank()).toList();
@@ -1392,6 +1680,7 @@ public class ApplicationBusinessRecoveryService {
       List<TargetIndicator> permissionDeniedTargets,
       List<TargetIndicator> accountMismatchTargets,
       List<String> requiredExtensionIds,
+      List<ProviderEvidenceRequirement> requiredProviderEvidence,
       boolean allowDepthLimited,
       RecoveryAction recoveryAction,
       String recoveryExtensionId,
@@ -1430,6 +1719,12 @@ public class ApplicationBusinessRecoveryService {
 
   public static final class RecoveryContractRejectedException extends RuntimeException {
     public RecoveryContractRejectedException(String message) {
+      super(message);
+    }
+  }
+
+  public static final class ProviderEvidenceRejectedException extends RuntimeException {
+    public ProviderEvidenceRejectedException(String message) {
       super(message);
     }
   }

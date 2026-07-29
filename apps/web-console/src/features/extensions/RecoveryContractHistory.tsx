@@ -29,6 +29,7 @@ const fieldLabels: Record<string, string> = {
   permissionDeniedTargets: 'Permission Denied 目标',
   accountMismatchTargets: 'Account Mismatch 目标',
   requiredExtensionIds: 'Required Extensions',
+  requiredProviderEvidence: 'Provider Evidence Requirements',
   allowDepthLimited: '接受受限状态',
   recoveryAction: '恢复动作',
   recoveryExtensionId: '恢复 Extension',

@@ -6,6 +6,7 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
+import io.browsercloud.application.ApplicationBusinessRecoveryService.ProviderEvidenceRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractApprovalNotFoundException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractApprovalRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.RecoveryContractApprovalRequiredException;
@@ -565,6 +566,17 @@ public class GlobalExceptionHandler {
         "BUSINESS_RECOVERY_STATE_UNAVAILABLE",
         "Current authoritative Browser State is not available",
         Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ProviderEvidenceRejectedException.class)
+  ResponseEntity<ApiError> providerEvidenceRejected(
+      ProviderEvidenceRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "BUSINESS_RECOVERY_PROVIDER_EVIDENCE_REJECTED",
+        "Provider evidence cannot be accepted for the current Session state",
+        Map.of("reason", exception.getMessage()),
         request);
   }
 

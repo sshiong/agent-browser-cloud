@@ -163,6 +163,17 @@ export interface RecoveryTargetIndicator {
   name: string;
 }
 
+export type ProviderEvidenceType =
+  'ACCOUNT' | 'TENANT_WORKSPACE' | 'PERMISSION' | 'BUSINESS_ENTITY';
+
+export interface ProviderEvidenceRequirement {
+  type: ProviderEvidenceType;
+  key: string;
+  providerId: string;
+  expectedValueHash: string;
+  maxAgeSeconds: number;
+}
+
 export type BusinessRecoveryAction =
   | 'NONE'
   | 'RELOAD'
@@ -186,6 +197,7 @@ export interface RecoveryContractView {
   permissionDeniedTargets: RecoveryTargetIndicator[];
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string[];
+  requiredProviderEvidence?: ProviderEvidenceRequirement[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId?: string;
@@ -244,6 +256,7 @@ export interface UpsertRecoveryContractRequest {
   permissionDeniedTargets: RecoveryTargetIndicator[];
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string[];
+  requiredProviderEvidence?: ProviderEvidenceRequirement[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId?: string;
@@ -324,6 +337,31 @@ export interface BusinessRecoveryValidationView {
   source: 'API' | 'MIGRATION';
   requestId: string;
   evaluatedAt: string;
+}
+
+export interface ProviderEvidenceView {
+  evidenceId: string;
+  sessionId: string;
+  applicationId: string;
+  contractVersion: number;
+  contextEpoch: number;
+  stateVersion: number;
+  type: ProviderEvidenceType;
+  key: string;
+  providerId: string;
+  outcome: 'MATCH' | 'MISMATCH' | 'UNKNOWN';
+  valueHashMatched: boolean;
+  providerReferenceHash: string;
+  adapterActorId: string;
+  requestId: string;
+  observedAt: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ProviderEvidenceListResponse {
+  items: ProviderEvidenceView[];
+  total: number;
 }
 
 /**

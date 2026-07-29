@@ -31,6 +31,7 @@ import {
   useSessionSafePoint,
   useSessionMigration,
   useBusinessRecovery,
+  useBusinessRecoveryProviderEvidence,
   useSessionApplicationBinding,
   useRebindSessionApplication,
   useValidateBusinessRecovery,
@@ -73,6 +74,7 @@ export function SessionDetailPage() {
   const safePointQuery = useSessionSafePoint(id);
   const migrationQuery = useSessionMigration(id);
   const businessRecoveryQuery = useBusinessRecovery(id);
+  const providerEvidenceQuery = useBusinessRecoveryProviderEvidence(id);
   const businessRecoveryMutation = useValidateBusinessRecovery(id);
   const applicationBindingQuery = useSessionApplicationBinding(id);
   const applicationRebindMutation = useRebindSessionApplication(id);
@@ -350,18 +352,21 @@ export function SessionDetailPage() {
 
                 <BusinessRecoveryCard
                   validation={businessRecoveryQuery.data}
+                  providerEvidence={providerEvidenceQuery.data?.items}
                   binding={applicationBindingQuery.data}
                   migration={migrationQuery.data}
                   loading={
                     businessRecoveryQuery.isLoading ||
                     applicationBindingQuery.isLoading
                   }
+                  providerEvidenceLoading={providerEvidenceQuery.isLoading}
                   error={
                     applicationRebindMutation.error ??
                     businessRecoveryMutation.error ??
                     businessRecoveryQuery.error ??
                     applicationBindingQuery.error
                   }
+                  providerEvidenceError={providerEvidenceQuery.error}
                   canValidate={
                     auth.canOperate &&
                     ['RUNNING', 'DEGRADED'].includes(session.state) &&
@@ -388,6 +393,9 @@ export function SessionDetailPage() {
                     });
                   }}
                   onRetry={() => void businessRecoveryQuery.refetch()}
+                  onProviderEvidenceRetry={() =>
+                    void providerEvidenceQuery.refetch()
+                  }
                 />
 
                 <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">

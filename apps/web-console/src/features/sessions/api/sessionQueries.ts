@@ -25,6 +25,7 @@ import {
   getRecoveryContractDiff,
   restoreRecoveryContractRevision,
   getBusinessRecovery,
+  getBusinessRecoveryProviderEvidence,
   validateBusinessRecovery,
   getSessionApplicationBinding,
   rebindSessionApplication,
@@ -65,6 +66,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'migration'] as const,
   businessRecovery: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'business-recovery'] as const,
+  providerEvidence: (sessionId: string) =>
+    [...sessionKeys.businessRecovery(sessionId), 'provider-evidence'] as const,
   applicationBinding: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'application-binding'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
@@ -325,6 +328,15 @@ export function useBusinessRecovery(sessionId: string) {
   return useQuery({
     queryKey: sessionKeys.businessRecovery(sessionId),
     queryFn: ({ signal }) => getBusinessRecovery(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useBusinessRecoveryProviderEvidence(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.providerEvidence(sessionId),
+    queryFn: ({ signal }) =>
+      getBusinessRecoveryProviderEvidence(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
   });
 }

@@ -471,6 +471,54 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/business-recovery/provider-evidence:
+    get:
+      operationId: listBusinessRecoveryProviderEvidence
+      summary: List recent trusted Provider evidence for a Session
+      tags: [Session, Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped Provider evidence with raw Provider references removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderEvidenceListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: submitBusinessRecoveryProviderEvidence
+      summary: Submit a short-lived Application Adapter attestation
+      description: >
+        Requires the APPLICATION_ADAPTER role. Evidence is accepted only for a requirement
+        in the exact approved contract revision and the current Context Epoch and Browser
+        State version. Raw Provider references are hashed before persistence.
+      tags: [Session, Business Recovery]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitProviderEvidenceRequest"
+      responses:
+        "201":
+          description: Durable Provider evidence accepted for the exact Session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderEvidence"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}/application-binding:
     get:
       operationId: getSessionApplicationBinding
@@ -4240,6 +4288,28 @@ components:
           type: string
           minLength: 1
           maxLength: 160
+    ProviderEvidenceRequirement:
+      type: object
+      additionalProperties: false
+      required: [type, key, providerId, expectedValueHash, maxAgeSeconds]
+      properties:
+        type:
+          type: string
+          enum: [ACCOUNT, TENANT_WORKSPACE, PERMISSION, BUSINESS_ENTITY]
+        key:
+          type: string
+          pattern: "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+        providerId:
+          type: string
+          pattern: "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+        expectedValueHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+          description: SHA-256 of the expected minimized account, scope, workspace or entity value.
+        maxAgeSeconds:
+          type: integer
+          minimum: 30
+          maximum: 900
     UpsertRecoveryContractRequest:
       type: object
       additionalProperties: false
@@ -4310,6 +4380,11 @@ components:
           items:
             type: string
             pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+        requiredProviderEvidence:
+          type: array
+          maxItems: 16
+          items:
+            $ref: "#/components/schemas/ProviderEvidenceRequirement"
         allowDepthLimited:
           type: boolean
         recoveryAction:
@@ -4397,6 +4472,11 @@ components:
           maxItems: 32
           items:
             type: string
+        requiredProviderEvidence:
+          type: array
+          maxItems: 16
+          items:
+            $ref: "#/components/schemas/ProviderEvidenceRequirement"
         allowDepthLimited:
           type: boolean
         recoveryAction:
@@ -4479,6 +4559,7 @@ components:
             - permissionDeniedTargets
             - accountMismatchTargets
             - requiredExtensionIds
+            - requiredProviderEvidence
             - allowDepthLimited
             - recoveryAction
             - recoveryExtensionId
@@ -4759,6 +4840,136 @@ components:
         evaluatedAt:
           type: string
           format: date-time
+    SubmitProviderEvidenceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - contextEpoch
+        - stateVersion
+        - type
+        - key
+        - providerId
+        - observedValueHash
+        - outcome
+        - providerReference
+        - observedAt
+      properties:
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        stateVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        type:
+          type: string
+          enum: [ACCOUNT, TENANT_WORKSPACE, PERMISSION, BUSINESS_ENTITY]
+        key:
+          type: string
+          pattern: "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+        providerId:
+          type: string
+          pattern: "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+        observedValueHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        outcome:
+          type: string
+          enum: [MATCH, MISMATCH, UNKNOWN]
+        providerReference:
+          type: string
+          minLength: 1
+          maxLength: 512
+          writeOnly: true
+        observedAt:
+          type: string
+          format: date-time
+    ProviderEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - evidenceId
+        - sessionId
+        - applicationId
+        - contractVersion
+        - contextEpoch
+        - stateVersion
+        - type
+        - key
+        - providerId
+        - outcome
+        - valueHashMatched
+        - providerReferenceHash
+        - adapterActorId
+        - requestId
+        - observedAt
+        - expiresAt
+        - createdAt
+      properties:
+        evidenceId:
+          type: string
+          pattern: "^bre_[a-zA-Z0-9]{20}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        applicationId:
+          type: string
+          pattern: "^[a-zA-Z0-9_.-]{1,128}$"
+        contractVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        stateVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        type:
+          type: string
+          enum: [ACCOUNT, TENANT_WORKSPACE, PERMISSION, BUSINESS_ENTITY]
+        key:
+          type: string
+        providerId:
+          type: string
+        outcome:
+          type: string
+          enum: [MATCH, MISMATCH, UNKNOWN]
+        valueHashMatched:
+          type: boolean
+        providerReferenceHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        adapterActorId:
+          type: string
+        requestId:
+          type: string
+        observedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    ProviderEvidenceListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ProviderEvidence"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
     CreateSessionRequest:
       type: object
       additionalProperties: false

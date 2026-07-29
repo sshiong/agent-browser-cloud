@@ -1,6 +1,7 @@
 import type {
   BusinessRecoveryAction,
   RecoveryContractView,
+  ProviderEvidenceRequirement,
   RecoveryTargetIndicator,
   UpsertRecoveryContractRequest,
 } from '@/types/session';
@@ -15,6 +16,7 @@ export interface RecoveryContractFormValues {
   permissionDeniedTargets: RecoveryTargetIndicator[];
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string;
+  requiredProviderEvidence: string;
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId: string;
@@ -32,6 +34,7 @@ export const emptyRecoveryContractForm: RecoveryContractFormValues = {
   permissionDeniedTargets: [],
   accountMismatchTargets: [],
   requiredExtensionIds: '',
+  requiredProviderEvidence: '',
   allowDepthLimited: false,
   recoveryAction: 'NONE',
   recoveryExtensionId: '',
@@ -74,6 +77,62 @@ export function isChromiumExtensionId(value: string): boolean {
   return /^[a-p]{32}$/.test(value);
 }
 
+export function parseProviderEvidenceRequirements(
+  value: string
+): ProviderEvidenceRequirement[] {
+  return parseContractLines(value)
+    .map((line) => {
+      const [
+        type = '',
+        key = '',
+        providerId = '',
+        expectedValueHash = '',
+        maxAge = '',
+      ] = line.split('|').map((item) => item.trim());
+      const maxAgeSeconds = Number(maxAge);
+      if (
+        ![
+          'ACCOUNT',
+          'TENANT_WORKSPACE',
+          'PERMISSION',
+          'BUSINESS_ENTITY',
+        ].includes(type) ||
+        !/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(key) ||
+        !/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(providerId) ||
+        !/^[0-9a-f]{64}$/.test(expectedValueHash) ||
+        !Number.isInteger(maxAgeSeconds) ||
+        maxAgeSeconds < 30 ||
+        maxAgeSeconds > 900
+      ) {
+        throw new Error('PROVIDER_EVIDENCE_REQUIREMENT_INVALID');
+      }
+      return {
+        type: type as ProviderEvidenceRequirement['type'],
+        key,
+        providerId,
+        expectedValueHash,
+        maxAgeSeconds,
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.type.localeCompare(right.type) ||
+        left.key.localeCompare(right.key) ||
+        left.providerId.localeCompare(right.providerId)
+    );
+}
+
+function serializeProviderEvidenceRequirements(
+  values: ProviderEvidenceRequirement[] | undefined
+): string {
+  return (values ?? [])
+    .map(
+      (item) =>
+        `${item.type} | ${item.key} | ${item.providerId} | ${item.expectedValueHash} | ${item.maxAgeSeconds}`
+    )
+    .join('\n');
+}
+
 export function recoveryContractToForm(
   contract: RecoveryContractView
 ): RecoveryContractFormValues {
@@ -87,6 +146,9 @@ export function recoveryContractToForm(
     permissionDeniedTargets: contract.permissionDeniedTargets,
     accountMismatchTargets: contract.accountMismatchTargets,
     requiredExtensionIds: contract.requiredExtensionIds.join('\n'),
+    requiredProviderEvidence: serializeProviderEvidenceRequirements(
+      contract.requiredProviderEvidence
+    ),
     allowDepthLimited: contract.allowDepthLimited,
     recoveryAction: contract.recoveryAction,
     recoveryExtensionId: contract.recoveryExtensionId ?? '',
@@ -109,6 +171,9 @@ export function recoveryContractRequest(
     permissionDeniedTargets: normalizeTargets(values.permissionDeniedTargets),
     accountMismatchTargets: normalizeTargets(values.accountMismatchTargets),
     requiredExtensionIds: parseContractLines(values.requiredExtensionIds),
+    requiredProviderEvidence: parseProviderEvidenceRequirements(
+      values.requiredProviderEvidence
+    ),
     allowDepthLimited: values.allowDepthLimited,
     recoveryAction: values.recoveryAction,
     recoveryExtensionId:

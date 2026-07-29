@@ -245,6 +245,18 @@ public class SessionMigrationApplicationService {
     if (!verdict.ready() && recoveryActions.request(migration, verdict)) {
       return;
     }
+    if (!verdict.ready()
+        && verdict.evidence().stream()
+            .anyMatch(
+                item ->
+                    item.startsWith("PROVIDER_EVIDENCE_MISSING:")
+                        || item.startsWith("PROVIDER_EVIDENCE_EXPIRED:")
+                        || item.startsWith("PROVIDER_EVIDENCE_UNKNOWN:"))) {
+      // Keep the Browser and Agent paused in BUSINESS_VALIDATION. A trusted Adapter submission
+      // changes the evidence revision in the validation idempotency key, so the scheduler can
+      // evaluate a fresh verdict without replaying the stale missing-evidence result.
+      return;
+    }
     migration.complete(verdict.verdict().name(), verdict.ready(), Instant.now());
     migrations.save(migration);
     resources.recordMigrationPhase(

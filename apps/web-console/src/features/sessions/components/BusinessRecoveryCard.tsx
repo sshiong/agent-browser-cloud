@@ -1,6 +1,7 @@
 import {
   CircleAlert,
   CircleCheck,
+  Fingerprint,
   LoaderCircle,
   RefreshCw,
   ShieldCheck,
@@ -9,16 +10,20 @@ import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { cn } from '@/shared/lib/utils';
 import type {
   BusinessRecoveryValidationView,
+  ProviderEvidenceView,
   SessionApplicationBindingView,
   SessionMigrationView,
 } from '@/types/session';
 
 export function BusinessRecoveryCard({
   validation,
+  providerEvidence,
   binding,
   migration,
   loading,
+  providerEvidenceLoading,
   error,
+  providerEvidenceError,
   canValidate,
   validating,
   canRebind,
@@ -26,12 +31,16 @@ export function BusinessRecoveryCard({
   onValidate,
   onRebind,
   onRetry,
+  onProviderEvidenceRetry,
 }: {
   validation: BusinessRecoveryValidationView | null | undefined;
+  providerEvidence: ProviderEvidenceView[] | undefined;
   binding: SessionApplicationBindingView | null | undefined;
   migration: SessionMigrationView | null | undefined;
   loading: boolean;
+  providerEvidenceLoading: boolean;
   error: unknown;
+  providerEvidenceError: unknown;
   canValidate: boolean;
   validating: boolean;
   rebinding: boolean;
@@ -39,6 +48,7 @@ export function BusinessRecoveryCard({
   onValidate: () => void;
   onRebind: () => void;
   onRetry: () => void;
+  onProviderEvidenceRetry: () => void;
 }) {
   return (
     <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">
@@ -170,6 +180,13 @@ export function BusinessRecoveryCard({
             <Metric label="Request" value={validation.requestId || 'system'} />
           </dl>
 
+          <ProviderEvidenceLedger
+            items={providerEvidence}
+            loading={providerEvidenceLoading}
+            error={providerEvidenceError}
+            onRetry={onProviderEvidenceRetry}
+          />
+
           {migration?.latestRecoveryAction && (
             <div className="border border-border-subtle bg-surface-2 px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,6 +228,113 @@ export function BusinessRecoveryCard({
         </div>
       )}
     </section>
+  );
+}
+
+function ProviderEvidenceLedger({
+  items,
+  loading,
+  error,
+  onRetry,
+}: {
+  items: ProviderEvidenceView[] | undefined;
+  loading: boolean;
+  error: unknown;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="border border-border-subtle bg-surface-2">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border-subtle px-3 py-2.5">
+        <div className="flex items-start gap-2">
+          <Fingerprint size={14} className="mt-0.5 text-accent" />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-primary">
+              Provider Attestation Ledger
+            </p>
+            <p className="mt-0.5 text-[10px] leading-4 text-text-muted">
+              仅接受 APPLICATION_ADAPTER；原始 Provider 引用不进入控制台。
+            </p>
+          </div>
+        </div>
+        <span className="font-mono text-[9px] text-text-muted">
+          {items?.length ?? 0} / LAST 100
+        </span>
+      </div>
+
+      {loading ? (
+        <p className="px-3 py-3 text-[10px] text-text-muted">
+          正在读取 Provider 证明…
+        </p>
+      ) : error ? (
+        <div className="flex items-center justify-between gap-3 px-3 py-3">
+          <p className="text-[10px] text-danger">Provider 证明读取失败</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-[10px] text-accent hover:text-text-primary"
+          >
+            重试
+          </button>
+        </div>
+      ) : !items?.length ? (
+        <div className="px-3 py-3">
+          <p className="text-[10px] text-text-secondary">
+            当前没有受信 Provider 证明
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-text-muted">
+            若绑定契约要求账号、权限或业务实体证明，Ready Gate 将保持
+            MANUAL_RECOVERY_REQUIRED。
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border-subtle">
+          {items.slice(0, 8).map((item) => {
+            const expired = Date.parse(item.expiresAt) <= Date.now();
+            const accepted =
+              item.outcome === 'MATCH' && item.valueHashMatched && !expired;
+            return (
+              <div
+                key={item.evidenceId}
+                className="grid gap-2 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto]"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-mono text-[10px] text-text-primary">
+                      {item.type} · {item.key}
+                    </span>
+                    <span className="font-mono text-[9px] text-text-muted">
+                      {item.providerId}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate font-mono text-[9px] text-text-muted">
+                    {item.evidenceId} · REF{' '}
+                    {item.providerReferenceHash.slice(0, 12)}… · STATE{' '}
+                    {item.contextEpoch}/{item.stateVersion}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 sm:justify-end">
+                  <span
+                    className={cn(
+                      'font-mono text-[9px]',
+                      accepted
+                        ? 'text-success'
+                        : expired
+                          ? 'text-warning'
+                          : 'text-danger'
+                    )}
+                  >
+                    {expired ? 'EXPIRED' : item.outcome}
+                  </span>
+                  <span className="font-mono text-[9px] text-text-muted">
+                    {new Date(item.expiresAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

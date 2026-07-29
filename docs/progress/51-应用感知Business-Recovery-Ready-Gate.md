@@ -3,8 +3,8 @@
 > 日期：2026-07-28
 > 状态：声明式契约、PostgreSQL 权威状态、迁移 Ready Gate、有界低风险自动动作、
 > API/Web 展示和真实集成已完成；受信 Extension 重启已在 V039/进度 61 完成，
-> 契约作者 UI 已在进度 62 完成；站点专用 Adapter、Provider 级证明、契约审批/审计
-> 和目标双 Node 长稳仍待完成
+> 契约作者 UI、审批/审计与 Provider Evidence 平台协议已分别在进度 62、73、76
+> 完成；目标站点 Adapter、真实 Provider 集成和双 Node 长稳仍待完成
 
 ## 目标和边界
 
@@ -75,15 +75,17 @@ GET  /api/v1/sessions/{id}/business-recovery
 
 ## 仍未完成
 
-1. 契约作者 UI 已在进度 62 完成；支付/账号安全/SPA Adapter、可信业务埋点、SDK
-   包装以及契约审批/审计仍待完成。平台仍不会自动理解任意网页业务语义。
+1. 契约作者 UI 与审批/审计已在进度 62、73 完成；支付/账号安全/SPA Adapter、可信
+   业务埋点和 SDK 包装仍待完成。平台仍不会自动理解任意网页业务语义。
 2. `maximumAutoRecovery` 已在 V034 接入持久尝试预算、Reload/Refresh/受限导航、
    Node State ACK 与二次 Ready Gate，详见
    [进度 56](56-Business-Recovery有界自动动作闭环.md)。当前仍不自动点击或终止，
    受信 `RESTART_EXTENSION` 动作已在
    [进度 61](61-受信Extension自动恢复动作闭环.md)实现。
-3. Account、Permission 和 Business Entity 的 Provider/API 级证明；当前仅支持契约中
-   配置的 Route/Target/Extension 证据。
+3. Account、Tenant/Workspace、Permission 和 Business Entity 的 Provider Evidence
+   平台协议、受信 Adapter 身份、短 TTL、精确状态绑定与迁移 Gate 已在
+   [进度 76](76-Business-Recovery-Provider-Evidence可信证明闭环.md)完成；真实
+   CRM/支付 Provider 凭据和目标业务 Adapter 接入仍未完成。
 4. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发、网络分区、
    源/目标故障注入和长期稳定性证书。
 5. State/Audit/Agent Step 统一事件层与跨 Region Event Bus；当前最新结果通过正式 API

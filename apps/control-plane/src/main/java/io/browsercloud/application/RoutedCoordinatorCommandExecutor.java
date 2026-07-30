@@ -86,6 +86,17 @@ public class RoutedCoordinatorCommandExecutor {
         migrations.reconcileRouted(command.migrationId(), command.observedAt());
         yield CommandAck.committed();
       }
+      case PROXY_REBIND_REQUEST -> {
+        var command = read(payload, ProxyRebindRequestCommand.class);
+        yield migrations.requestProxyRebind(
+            sessionId,
+            command.tenantId(),
+            command.actorId(),
+            command.targetBindingProfileId(),
+            command.reason(),
+            command.idempotencyKey(),
+            command.requestId());
+      }
       default ->
           throw new RoutedCommandExecutionException("UNSUPPORTED_ROUTED_COORDINATOR_COMMAND");
     };

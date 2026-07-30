@@ -32,7 +32,7 @@ public class RoutedCoordinatorCommandWorker {
         processor.process(commandId);
       } catch (RuntimeException exception) {
         var failureCode = stableFailureCode(exception);
-        log.warn("Routed Coordinator command {} failed with {}", commandId, failureCode);
+        log.warn("Routed Coordinator command {} failed with {}", commandId, failureCode, exception);
         queue.retryOrFail(commandId, failureCode, Instant.now(), MAXIMUM_ATTEMPTS);
       }
     }

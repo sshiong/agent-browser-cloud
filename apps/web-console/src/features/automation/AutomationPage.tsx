@@ -29,6 +29,7 @@ import {
 } from '@/components/feedback/AsyncStates';
 import {
   useBrowserState,
+  useSessionResourceStream,
   useSessions,
 } from '@/features/sessions/api/sessionQueries';
 import {
@@ -126,6 +127,7 @@ export function AutomationPage() {
     useState<InstructionSourceType>('WEB_CONTENT');
   const [actions, setActions] = useState<DraftAction[]>([]);
   const browserState = useBrowserState(sessionId, Boolean(sessionId));
+  useSessionResourceStream(sessionId, Boolean(sessionId));
 
   const tasks = tasksQuery.data?.items ?? [];
   const selectedTask =

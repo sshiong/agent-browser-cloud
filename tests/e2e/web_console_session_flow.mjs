@@ -505,7 +505,9 @@ try {
   });
 
   await page.goto(`${baseUrl}/automation/tasks`);
-  await page.waitForLoadState("networkidle");
+  // Automation keeps the authoritative Session event stream open so Browser
+  // State target revisions cannot silently go stale while a plan is drafted.
+  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("heading", { name: "Agent 执行控制台" }),
   ).toBeVisible();

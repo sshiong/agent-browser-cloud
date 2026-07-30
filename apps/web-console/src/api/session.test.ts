@@ -8,6 +8,7 @@ import {
   getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
+  getSessionProxyRebind,
   listRecoveryContracts,
   listRecoveryContractRevisions,
   listSessions,
@@ -17,6 +18,7 @@ import {
   releaseSessionSafetyLease,
   restoreRecoveryContractRevision,
   rebindSessionApplication,
+  rebindSessionProxy,
   resyncBrowserState,
   SessionApiError,
   startSession,
@@ -343,6 +345,83 @@ describe('session API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
           'Idempotency-Key': 'application-rebind-1',
+        }),
+      })
+    );
+  });
+
+  it('creates and reads a Safe Point controlled proxy rebind workflow', async () => {
+    const operation = {
+      workflowId: 'prb_1234567890abcdef1234567890abcdef',
+      operationId: 'op_1234567890abcdefghij',
+      phase: 'CHECKPOINTING',
+      createdAt: new Date().toISOString(),
+    };
+    const workflow = {
+      ...operation,
+      sessionId: 'ses_1234567890abcdef',
+      sourceBindingProfileId: 'pbind_source1234567890',
+      targetBindingProfileId: 'pbind_target1234567890',
+      targetBindingVersion: 2,
+      hibernateOperationId: operation.operationId,
+      restoreOperationId: null,
+      resyncRequestId: null,
+      recoveryResult: null,
+      failureReason: null,
+      requestedBy: 'admin-test',
+      reason: 'Approved egress rotation',
+      requestId: 'request-test',
+      updatedAt: operation.createdAt,
+      completedAt: null,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(operation), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(workflow), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await rebindSessionProxy(
+      'ses_1234567890abcdef',
+      {
+        targetBindingProfileId: 'pbind_target1234567890',
+        reason: 'Approved egress rotation',
+      },
+      'proxy-rebind-1',
+      'tenant-test'
+    );
+    await getSessionProxyRebind('ses_1234567890abcdef', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/sessions/ses_1234567890abcdef/proxy-binding:rebind',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          targetBindingProfileId: 'pbind_target1234567890',
+          reason: 'Approved egress rotation',
+        }),
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'Idempotency-Key': 'proxy-rebind-1',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/sessions/ses_1234567890abcdef/proxy-rebind',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
         }),
       })
     );

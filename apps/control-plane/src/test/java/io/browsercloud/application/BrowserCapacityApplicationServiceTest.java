@@ -152,6 +152,37 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   @Test
+  void proxyPlacementRejectsAnNMinusOneNodeThatCannotConsumeProviderDescriptor() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L2,
+            1,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            "[]",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any()))
+        .thenReturn(List.of(standardNode(now)));
+
+    assertThatThrownBy(
+            () ->
+                service.reserve(
+                    session(ResourceClass.L2).withProxyBinding("pxy_1234567890abcdef"), "local"))
+        .isInstanceOf(BrowserCapacityUnavailableException.class)
+        .hasMessage("NO_PROXY_DESCRIPTOR_CAPABLE_NODE");
+  }
+
+  @Test
   void mediaWorkloadUsesIndependentEncoderSlotsWithoutRequiringGpu() throws Exception {
     var now = Instant.now();
     var demand =

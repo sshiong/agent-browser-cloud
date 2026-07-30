@@ -12,7 +12,11 @@ public interface SessionMigrationJpaRepository
   Optional<SessionMigrationEntity> findFirstBySessionIdAndPhaseInOrderByCreatedAtDesc(
       String sessionId, Collection<String> phases);
 
-  Optional<SessionMigrationEntity> findFirstBySessionIdOrderByCreatedAtDesc(String sessionId);
+  Optional<SessionMigrationEntity> findByTenantIdAndWorkflowTypeAndIdempotencyKey(
+      String tenantId, String workflowType, String idempotencyKey);
+
+  Optional<SessionMigrationEntity> findFirstBySessionIdAndWorkflowTypeOrderByCreatedAtDesc(
+      String sessionId, String workflowType);
 
   List<SessionMigrationEntity> findAllByPhaseInOrderByUpdatedAtAsc(
       Collection<String> phases, Pageable pageable);

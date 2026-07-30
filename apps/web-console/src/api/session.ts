@@ -36,6 +36,11 @@ import type {
   SessionApplicationRebindView,
   SessionEvidenceListResponse,
 } from '../types/session';
+import type {
+  ProxyRebindOperation,
+  ProxyRebindRequest,
+  ProxyRebindView,
+} from '@/types/proxy';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
 
 /**
@@ -295,6 +300,35 @@ export async function getSessionMigration(
   return requestOptional<SessionMigrationView>(
     `/sessions/${sessionId}/migration`,
     { signal },
+    tenantId
+  );
+}
+
+export async function getSessionProxyRebind(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ProxyRebindView | null> {
+  return requestOptional<ProxyRebindView>(
+    `/sessions/${sessionId}/proxy-rebind`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function rebindSessionProxy(
+  sessionId: string,
+  data: ProxyRebindRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID
+): Promise<ProxyRebindOperation> {
+  return request<ProxyRebindOperation>(
+    `/sessions/${sessionId}/proxy-binding:rebind`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
     tenantId
   );
 }

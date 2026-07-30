@@ -51,6 +51,8 @@ public class BrowserCapacityApplicationService {
   private static final int UNKNOWN_EXTENSION_PER_NODE_LIMIT = 2;
   private static final String GENERATION_FLOOR_CAPABILITY = "startRuntimeGenerationFloor";
   private static final String GENERATION_FLOOR_CAPABILITY_VERSION = "v1";
+  private static final String PROXY_DESCRIPTOR_CAPABILITY = "proxyProviderDescriptor";
+  private static final String PROXY_DESCRIPTOR_CAPABILITY_VERSION = "v1";
   private static final Set<String> ACTIVE_PLACEMENT_STATES =
       Set.of("RESERVED", "ACTIVE", "WAITING_SAFE_POINT");
 
@@ -318,7 +320,14 @@ public class BrowserCapacityApplicationService {
   /** 在同一事务内锁定候选 Node、执行反亲和打分、预留资源并提交 Session Context。 */
   @Transactional
   public BrowserPlacementView reserve(SessionContext session, String region) {
-    return reserveInternal(session, region, Set.of(), false);
+    return reserveInternal(session, region, Set.of(), false, null);
+  }
+
+  /** Safe restart prefers the source Node but may fall back to another eligible Node. */
+  @Transactional
+  public BrowserPlacementView reserveRestartTarget(
+      SessionContext session, String region, String preferredNodeId) {
+    return reserveInternal(session, region, Set.of(), false, preferredNodeId);
   }
 
   /**
@@ -335,14 +344,15 @@ public class BrowserCapacityApplicationService {
   @Transactional
   public BrowserPlacementView reserveMigrationTarget(
       SessionContext session, String region, Set<String> excludedNodeIds) {
-    return reserveInternal(session, region, Set.copyOf(excludedNodeIds), true);
+    return reserveInternal(session, region, Set.copyOf(excludedNodeIds), true, null);
   }
 
   private BrowserPlacementView reserveInternal(
       SessionContext session,
       String region,
       Set<String> excludedNodeIds,
-      boolean requireGenerationFloorCapability) {
+      boolean requireGenerationFloorCapability,
+      String preferredNodeId) {
     var existing = placementRepository.findForUpdate(session.sessionId());
     if (existing.isPresent() && !existing.orElseThrow().getState().equals("RELEASED")) {
       return toPlacementView(existing.orElseThrow());
@@ -355,6 +365,8 @@ public class BrowserCapacityApplicationService {
       throw new BrowserCapacityUnavailableException("RESOURCE_DEMAND_TENANT_MISMATCH");
     }
     var calculated = calculateDemand(demand);
+    var requiresProxyDescriptor =
+        session.proxyBindingId() != null && !session.proxyBindingId().isBlank();
     enterpriseOperationsService.requireResidency(session.tenantId(), region);
     enterpriseOperationsService.requireMediaQuota(
         session.tenantId(), calculated.mediaSlots(), calculated.mediaBitrateKbps());
@@ -371,15 +383,28 @@ public class BrowserCapacityApplicationService {
                     !requireGenerationFloorCapability
                         || nodeHasLabel(
                             node, GENERATION_FLOOR_CAPABILITY, GENERATION_FLOOR_CAPABILITY_VERSION))
+            .filter(
+                node ->
+                    !requiresProxyDescriptor
+                        || nodeHasLabel(
+                            node, PROXY_DESCRIPTOR_CAPABILITY, PROXY_DESCRIPTOR_CAPABILITY_VERSION))
             .map(node -> scoreCandidate(node, session.tenantId(), calculated))
             .filter(Candidate::eligible)
-            .sorted(Comparator.comparingInt(Candidate::score))
+            .sorted(
+                preferredNodeId == null
+                    ? Comparator.comparingInt(Candidate::score)
+                    : Comparator.comparing(
+                            (Candidate candidate) ->
+                                !preferredNodeId.equals(candidate.node().getNodeId()))
+                        .thenComparingInt(Candidate::score))
             .toList();
     if (candidates.isEmpty()) {
       throw new BrowserCapacityUnavailableException(
-          requireGenerationFloorCapability
-              ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
-              : "NO_ELIGIBLE_BROWSER_NODE");
+          requiresProxyDescriptor
+              ? "NO_PROXY_DESCRIPTOR_CAPABLE_NODE"
+              : requireGenerationFloorCapability
+                  ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
+                  : "NO_ELIGIBLE_BROWSER_NODE");
     }
     var chosen = candidates.getFirst();
     var node = chosen.node();

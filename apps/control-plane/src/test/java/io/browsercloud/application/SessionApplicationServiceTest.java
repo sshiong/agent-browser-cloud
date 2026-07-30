@@ -49,6 +49,9 @@ class SessionApplicationServiceTest {
 
   @BeforeEach
   void setUp() {
+    org.mockito.Mockito.lenient()
+        .when(proxyApplicationService.ensureBinding(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(invocation -> invocation.getArgument(0));
     service =
         new SessionApplicationService(
             coordinator,

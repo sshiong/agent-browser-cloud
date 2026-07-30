@@ -22,6 +22,12 @@ pub enum NetworkCommand {
     Bind {
         binding_id: String,
         session_id: String,
+        #[serde(default)]
+        provider_id: String,
+        #[serde(default)]
+        expected_exit_ip: String,
+        #[serde(default)]
+        credential_ref: String,
     },
     Verify {
         session_id: String,

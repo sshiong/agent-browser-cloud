@@ -218,11 +218,34 @@ if [[ "$proxy_ready" != "true" ]]; then
   exit 1
 fi
 
+python3 - "$temp_dir/proxy-provider-config.json" "$proxy_port" <<'PY'
+import json
+import os
+import sys
+
+path, port = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(
+        {
+            "version": 1,
+            "providers": [
+                {
+                    "providerId": "static-local",
+                    "endpoint": f"http://127.0.0.1:{port}",
+                    "expectedExitIp": "203.0.113.10",
+                    "credentialRef": "vault://tenant-integration/proxy/primary",
+                }
+            ],
+        },
+        handle,
+    )
+os.chmod(path, 0o640)
+PY
+
 start_network_helper() {
   NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
   NODE_AGENT_UID="$(id -u)" \
-  STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-  STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+  PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
   PROXY_EXIT_CHECK_URL="http://browsercloud.invalid/exit" \
     apps/browser-node/target/debug/network-helper >>"$temp_dir/network-helper.log" 2>&1 &
   network_helper_pid=$!
@@ -599,8 +622,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-a \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -1629,8 +1651,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-b \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -2592,8 +2613,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-b \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -2851,8 +2871,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-c \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -3023,6 +3042,22 @@ coordinator_c_reconcile_metrics="$(
 printf '%s' "$coordinator_c_reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 3; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") >= 3; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
+# Keep the caller-cancellation fault injection deterministic. The dispatcher
+# claims up to 100 rows and processes them serially, so a fixed sleep after
+# stopping the Node can otherwise leave this command queued behind unrelated
+# work and never exercise the Node Journal path at all.
+pending_node_commands=""
+for _ in $(seq 1 300); do
+  pending_node_commands="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select count(*) from outbox_events where event_type='NodeCommand' and published_at is null and dead_lettered_at is null")"
+  if [[ "$pending_node_commands" = "0" ]]; then break; fi
+  sleep 0.1
+done
+if [[ "$pending_node_commands" != "0" ]]; then
+  echo "Node Command outbox did not drain before caller-cancellation injection: ${pending_node_commands:-unknown}" >&2
+  exit 1
+fi
+
 side_effect_state="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -3075,7 +3110,20 @@ for _ in $(seq 1 40); do
   sleep 0.1
 done
 test -n "$side_effect_command_id"
-sleep 1
+side_effect_dispatch_owner=""
+for _ in $(seq 1 100); do
+  side_effect_dispatch_owner="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select coalesce(dispatch_owner, '') from outbox_events where payload::jsonb->>'messageId'='${side_effect_command_id}'")"
+  if [[ -n "$side_effect_dispatch_owner" ]]; then break; fi
+  sleep 0.1
+done
+if [[ -z "$side_effect_dispatch_owner" ]]; then
+  echo "side-effect command was not claimed by a Control Plane dispatcher" >&2
+  exit 1
+fi
+# The target command is now the only claimed row and the Node is stopped, so
+# the blocking dispatch is waiting on this exact RPC before the caller dies.
+sleep 0.25
 kill -STOP "$control_pid"
 kill -CONT "$node_pid"
 side_effect_event_delivered=""
@@ -3107,8 +3155,7 @@ GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
 GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
 GRPC_TLS_KEY="$temp_dir/control-plane.key" \
 BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
-STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
-STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
 COORDINATOR_INSTANCE_ID=coordinator-integration-d \
 COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
@@ -3628,6 +3675,141 @@ for _ in $(seq 1 60); do
 done
 test "$helper_recovered_state" = "TERMINATED"
 
+proxy_rebind_source="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-rebind-source-001' \
+  -d '{"name":"Rebind source","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","credentialRef":"vault://tenant-integration/proxy/primary","enabled":true}')"
+proxy_rebind_source_id="$(printf '%s' "$proxy_rebind_source" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["bindingProfileId"])')"
+proxy_rebind_target="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-rebind-target-001' \
+  -d '{"name":"Rebind target","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","credentialRef":"vault://tenant-integration/proxy/primary","enabled":true}')"
+proxy_rebind_target_id="$(printf '%s' "$proxy_rebind_target" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["bindingProfileId"])')"
+proxy_rebind_created="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-proxy-rebind-session-001' \
+  -d "{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-proxy-rebind\",\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_rebind_source_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"metadata\":{\"displayName\":\"Proxy Rebind Workflow\"}}")"
+proxy_rebind_session="$(printf '%s' "$proxy_rebind_created" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  >/dev/null
+proxy_rebind_session_state=""
+for _ in $(seq 1 120); do
+  proxy_rebind_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$proxy_rebind_session_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$proxy_rebind_session_state" = "RUNNING"
+proxy_rebind_safe="false"
+for _ in $(seq 1 80); do
+  proxy_rebind_safe="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/safe-point" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(str(json.load(sys.stdin)["safe"]).lower())')"
+  if [[ "$proxy_rebind_safe" = "true" ]]; then break; fi
+  sleep 0.25
+done
+test "$proxy_rebind_safe" = "true"
+proxy_rebind_operator_status="$(curl -sS \
+  -o "$temp_dir/proxy-rebind-operator.json" -w '%{http_code}' \
+  -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/proxy-binding:rebind" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-proxy-rebind-forbidden-001' \
+  -d "{\"targetBindingProfileId\":\"${proxy_rebind_target_id}\",\"reason\":\"Operator must not change network identity\"}")"
+test "$proxy_rebind_operator_status" = "403"
+proxy_rebind_operation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/proxy-binding:rebind" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-rebind-001' \
+  -d "{\"targetBindingProfileId\":\"${proxy_rebind_target_id}\",\"reason\":\"Move to approved replacement exit\"}")"
+proxy_rebind_workflow_id="$(printf '%s' "$proxy_rebind_operation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["phase"] == "CHECKPOINTING"; assert item["operationId"]; print(item["workflowId"])')"
+proxy_rebind_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/proxy-binding:rebind" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-rebind-001' \
+  -d "{\"targetBindingProfileId\":\"${proxy_rebind_target_id}\",\"reason\":\"Move to approved replacement exit\"}")"
+replayed_proxy_rebind_workflow_id="$(printf '%s' "$proxy_rebind_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["workflowId"])')"
+test "$proxy_rebind_workflow_id" = "$replayed_proxy_rebind_workflow_id"
+proxy_rebind_phase=""
+for _ in $(seq 1 240); do
+  proxy_rebind_view="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/proxy-rebind" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  proxy_rebind_phase="$(printf '%s' "$proxy_rebind_view" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["phase"])')"
+  if [[ "$proxy_rebind_phase" = "COMPLETED" ]] \
+    || [[ "$proxy_rebind_phase" = "DEGRADED" ]] \
+    || [[ "$proxy_rebind_phase" = "FAILED" ]]; then
+    break
+  fi
+  sleep 0.25
+done
+test "$proxy_rebind_phase" = "COMPLETED"
+printf '%s' "$proxy_rebind_view" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['workflowId'] == '${proxy_rebind_workflow_id}'; assert item['sourceBindingProfileId'] == '${proxy_rebind_source_id}'; assert item['targetBindingProfileId'] == '${proxy_rebind_target_id}'; assert item['hibernateOperationId']; assert item['restoreOperationId']; assert item['resyncRequestId']; assert item['failureReason'] is None"
+proxy_rebind_migration_status="$(curl -sS \
+  -o "$temp_dir/proxy-rebind-migration.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}/migration" \
+  -H 'X-Tenant-Id: tenant-integration')"
+test "$proxy_rebind_migration_status" = "204"
+proxy_rebind_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+     (select count(*) from session_proxy_binding_assignments
+       where session_id='${proxy_rebind_session}'
+         and binding_profile_id='${proxy_rebind_target_id}') || ':' ||
+     (select count(*) from proxy_allocations
+       where session_id='${proxy_rebind_session}' and state='RELEASED') || ':' ||
+     (select count(*) from proxy_allocations
+       where session_id='${proxy_rebind_session}' and state='BOUND'
+         and binding_profile_id='${proxy_rebind_target_id}') || ':' ||
+     (select count(*) from session_migrations
+       where migration_id='${proxy_rebind_workflow_id}'
+         and workflow_type='PROXY_REBIND' and phase='COMPLETED')")"
+test "$proxy_rebind_db_summary" = "1:1:1:1"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  >/dev/null
+for _ in $(seq 1 80); do
+  proxy_rebind_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${proxy_rebind_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$proxy_rebind_session_state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$proxy_rebind_session_state" = "TERMINATED"
+
 docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
   "insert into durable_workflows(workflow_id,tenant_id,session_id,operation_id,workflow_type,attempt,priority,state,phase,coordinator_term,context_epoch,operation_epoch,phase_deadline,operation_deadline,idempotency_key,compensation_action,created_at,updated_at) values ('wf_smoke_deadletter','tenant-integration','${second_session}','op_missing_fault','FAULT_INJECTION',1,1,'RUNNING','PREPARING',0,0,999,now()-interval '1 second',now()-interval '1 second','smoke-deadletter','NONE',now(),now())" \
   >/dev/null
@@ -3773,7 +3955,7 @@ for _ in $(seq 1 80); do
     -H 'X-Tenant-Id: tenant-integration' \
     -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
   if printf '%s' "$dual_node_inventory" | python3 -c \
-    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b","node_integration_c"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" and item["labels"]["startRuntimeGenerationFloor"] == "v1" for item in data["items"])' \
+    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b","node_integration_c"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" and item["labels"]["startRuntimeGenerationFloor"] == "v1" and item["labels"]["proxyProviderDescriptor"] == "v1" for item in data["items"])' \
     2>/dev/null; then
     break
   fi
@@ -3900,7 +4082,7 @@ curl -fsS -X PUT \
   -d '{"region":"local","grpcTarget":"127.0.0.1:1","certifiedCpuMillis":10000,"certifiedMemoryMib":16384,"certifiedPidCount":4096,"certifiedGpuSlots":0,"certifiedMediaSlots":0,"safetyMarginPercent":20,"maxSessions":10,"supportsDesktop":true,"supportsGpu":false,"supportsMedia":false,"supportsNativeOs":false,"isolationCapable":true,"labels":{"runtime":"chromium","environment":"n-minus-one-integration"}}' \
   >"$temp_dir/legacy-node-registration.json"
 printf '%s' "$(<"$temp_dir/legacy-node-registration.json")" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin); assert node["nodeId"] == "node_000_legacy"; assert "startRuntimeGenerationFloor" not in node["labels"]'
+  'import json,sys; node=json.load(sys.stdin); assert node["nodeId"] == "node_000_legacy"; assert "startRuntimeGenerationFloor" not in node["labels"]; assert "proxyProviderDescriptor" not in node["labels"]'
 
 # Remove Storage Helper availability from both possible targets while keeping the source checkpoint
 # path healthy. The first restore must therefore fail before a Browser runtime can become active.
@@ -3951,19 +4133,31 @@ dual_node_safety_pid=$!
 
 dual_node_migration=""
 dual_node_migration_phase=""
-# Observe the first persisted target before expiring its real START_RUNTIME workflow. Bring back
-# only the third Node's Storage Helper so the retry cannot reuse either source or failed target.
-for _ in $(seq 1 240); do
+# Resource evaluation and checkpoint/restore are independent asynchronous stages. Give creation of
+# the durable migration its own budget so a late policy decision cannot consume the restore budget.
+dual_node_migration_status=""
+for _ in $(seq 1 360); do
   dual_node_migration_status="$(curl -sS \
     -o "$temp_dir/dual-node-migration.json" -w '%{http_code}' \
     "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/migration" \
     -H 'X-Tenant-Id: tenant-integration')"
   if [[ "$dual_node_migration_status" = "200" ]]; then
     dual_node_migration="$(<"$temp_dir/dual-node-migration.json")"
-    dual_node_migration_phase="$(printf '%s' "$dual_node_migration" | python3 -c \
-      'import json,sys; print(json.load(sys.stdin)["phase"])')"
-    if [[ "$dual_node_migration_phase" = "RESTORING" ]]; then break; fi
+    break
   fi
+  sleep 0.5
+done
+test "$dual_node_migration_status" = "200"
+
+# Observe the first persisted target before expiring its real START_RUNTIME workflow. Bring back
+# only the third Node's Storage Helper so the retry cannot reuse either source or failed target.
+for _ in $(seq 1 240); do
+  dual_node_migration="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/migration" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  dual_node_migration_phase="$(printf '%s' "$dual_node_migration" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["phase"])')"
+  if [[ "$dual_node_migration_phase" = "RESTORING" ]]; then break; fi
   sleep 0.5
 done
 test "$dual_node_migration_phase" = "RESTORING"

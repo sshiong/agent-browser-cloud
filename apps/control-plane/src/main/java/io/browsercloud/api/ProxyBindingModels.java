@@ -53,4 +53,30 @@ public final class ProxyBindingModels {
       Instant updatedAt) {}
 
   public record ProxyBindingListResponse(List<ProxyBindingView> items, int total) {}
+
+  public record ProxyRebindRequest(
+      @NotBlank @Pattern(regexp = "^pbind_[a-zA-Z0-9]{16,32}$") String targetBindingProfileId,
+      @NotBlank @Size(max = 240) String reason) {}
+
+  public record ProxyRebindOperationResponse(
+      String workflowId, String operationId, String phase, Instant createdAt) {}
+
+  public record ProxyRebindView(
+      String workflowId,
+      String sessionId,
+      String sourceBindingProfileId,
+      String targetBindingProfileId,
+      long targetBindingVersion,
+      String hibernateOperationId,
+      String restoreOperationId,
+      String resyncRequestId,
+      String phase,
+      String recoveryResult,
+      String failureReason,
+      String requestedBy,
+      String reason,
+      String requestId,
+      Instant createdAt,
+      Instant updatedAt,
+      Instant completedAt) {}
 }

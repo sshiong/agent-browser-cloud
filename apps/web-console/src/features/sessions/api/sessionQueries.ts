@@ -8,6 +8,7 @@ import {
   getSessionResources,
   getSessionSafePoint,
   getSessionMigration,
+  getSessionProxyRebind,
   getSession,
   listSessions,
   releaseHumanTakeover,
@@ -29,6 +30,7 @@ import {
   validateBusinessRecovery,
   getSessionApplicationBinding,
   rebindSessionApplication,
+  rebindSessionProxy,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -41,6 +43,7 @@ import type {
   RebindSessionApplicationRequest,
   RestoreRecoveryContractRevisionRequest,
 } from '@/types/session';
+import type { ProxyRebindRequest } from '@/types/proxy';
 
 export const sessionKeys = {
   all: ['sessions'] as const,
@@ -64,6 +67,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'safe-point'] as const,
   migration: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'migration'] as const,
+  proxyRebind: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'proxy-rebind'] as const,
   businessRecovery: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'business-recovery'] as const,
   providerEvidence: (sessionId: string) =>
@@ -177,6 +182,40 @@ export function useSessionMigration(sessionId: string) {
     queryKey: sessionKeys.migration(sessionId),
     queryFn: ({ signal }) => getSessionMigration(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
+  });
+}
+
+export function useSessionProxyRebind(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.proxyRebind(sessionId),
+    queryFn: ({ signal }) =>
+      getSessionProxyRebind(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useRebindSessionProxy(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ProxyRebindRequest) =>
+      rebindSessionProxy(
+        sessionId,
+        body,
+        `proxy-rebind-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.proxyRebind(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.detail(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.safePoint(sessionId),
+        }),
+      ]);
+    },
   });
 }
 
@@ -342,6 +381,9 @@ export function useValidateBusinessRecovery(sessionId: string) {
         queryClient.invalidateQueries({
           queryKey: sessionKeys.migration(sessionId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.proxyRebind(sessionId),
+        }),
       ]);
     },
   });
@@ -417,6 +459,9 @@ export function useSessionResourceStream(
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.migration(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.proxyRebind(sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.businessRecovery(sessionId),

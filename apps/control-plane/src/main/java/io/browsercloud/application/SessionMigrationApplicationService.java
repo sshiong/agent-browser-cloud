@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.OperationResponse;
+import io.browsercloud.api.ProxyBindingModels.ProxyRebindOperationResponse;
+import io.browsercloud.api.ProxyBindingModels.ProxyRebindView;
 import io.browsercloud.api.SessionMigrationView;
 import io.browsercloud.api.StateResyncRequest;
 import io.browsercloud.coordinator.BrowserStateRepository;
@@ -45,6 +47,7 @@ public class SessionMigrationApplicationService {
   private final ApplicationBusinessRecoveryService recoveryService;
   private final BusinessRecoveryActionApplicationService recoveryActions;
   private final SessionResourceApplicationService resources;
+  private final StaticProxyApplicationService proxies;
   private final ObjectMapper objectMapper;
 
   public SessionMigrationApplicationService(
@@ -59,6 +62,7 @@ public class SessionMigrationApplicationService {
       ApplicationBusinessRecoveryService recoveryService,
       BusinessRecoveryActionApplicationService recoveryActions,
       SessionResourceApplicationService resources,
+      StaticProxyApplicationService proxies,
       ObjectMapper objectMapper) {
     this.migrations = migrations;
     this.sessions = sessions;
@@ -71,7 +75,84 @@ public class SessionMigrationApplicationService {
     this.recoveryService = recoveryService;
     this.recoveryActions = recoveryActions;
     this.resources = resources;
+    this.proxies = proxies;
     this.objectMapper = objectMapper;
+  }
+
+  @Transactional
+  public ProxyRebindOperationResponse requestProxyRebind(
+      String sessionId,
+      String tenantId,
+      String actorId,
+      String targetBindingProfileId,
+      String reason,
+      String idempotencyKey,
+      String requestId) {
+    var replay =
+        migrations.findByTenantIdAndWorkflowTypeAndIdempotencyKey(
+            tenantId, "PROXY_REBIND", idempotencyKey);
+    if (replay.isPresent()) {
+      var existing = replay.orElseThrow();
+      if (!existing.getSessionId().equals(sessionId)
+          || !existing.getTargetProxyBindingProfileId().equals(targetBindingProfileId)) {
+        throw new MigrationRejectedException("IDEMPOTENCY_KEY_REUSED");
+      }
+      return toProxyRebindOperation(existing);
+    }
+    var session = requireTenantForUpdate(sessionId, tenantId);
+    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+      throw new MigrationRejectedException("PROXY_REBIND_REQUIRES_RUNNING_SESSION");
+    }
+    if (migrations
+        .findFirstBySessionIdAndPhaseInOrderByCreatedAtDesc(sessionId, ACTIVE_PHASES)
+        .isPresent()) {
+      throw new MigrationRejectedException("SESSION_WORKFLOW_ALREADY_ACTIVE");
+    }
+    var safePoint = safePoints.assess(sessionId, tenantId);
+    if (!safePoint.safe()) {
+      throw new MigrationRejectedException("SAFE_POINT_NOT_REACHED");
+    }
+    var descriptor = sessions.describe(sessionId);
+    var target =
+        proxies.validateRebindTarget(
+            sessionId, tenantId, targetBindingProfileId, descriptor.region());
+    var now = Instant.now();
+    var workflow =
+        migrations.save(
+            SessionMigrationEntity.proxyRebind(
+                "prb_" + UUID.randomUUID().toString().replace("-", ""),
+                sessionId,
+                tenantId,
+                session.nodeId(),
+                session.contextEpoch(),
+                session.proxyBindingId(),
+                target.sourceBindingProfileId(),
+                target.targetBindingProfileId(),
+                target.targetBindingVersion(),
+                actorId,
+                reason.strip(),
+                idempotencyKey,
+                requestId,
+                now));
+    var operation = sessionService.hibernateForProxyRebind(sessionId, tenantId, actorId);
+    workflow.hibernateDispatched(operation.operationId(), now);
+    migrations.save(workflow);
+    resources.recordMigrationPhase(
+        sessionId,
+        workflow.getMigrationId(),
+        "CHECKPOINTING",
+        "PROXY_REBIND_SOURCE_CHECKPOINT_DISPATCHED",
+        false,
+        false);
+    return toProxyRebindOperation(workflow);
+  }
+
+  @Transactional(readOnly = true)
+  public java.util.Optional<ProxyRebindView> latestProxyRebind(String sessionId, String tenantId) {
+    requireTenant(sessionId, tenantId);
+    return migrations
+        .findFirstBySessionIdAndWorkflowTypeOrderByCreatedAtDesc(sessionId, "PROXY_REBIND")
+        .map(this::toProxyRebindView);
   }
 
   @Transactional
@@ -133,7 +214,9 @@ public class SessionMigrationApplicationService {
   @Transactional(readOnly = true)
   public java.util.Optional<SessionMigrationView> latest(String sessionId, String tenantId) {
     requireTenant(sessionId, tenantId);
-    return migrations.findFirstBySessionIdOrderByCreatedAtDesc(sessionId).map(this::toView);
+    return migrations
+        .findFirstBySessionIdAndWorkflowTypeOrderByCreatedAtDesc(sessionId, "NODE_MIGRATION")
+        .map(this::toView);
   }
 
   @Transactional
@@ -191,6 +274,10 @@ public class SessionMigrationApplicationService {
   }
 
   private void placeAndRestore(SessionMigrationEntity migration) {
+    if (migration.isProxyRebind()) {
+      rebindAndRestore(migration);
+      return;
+    }
     var session = requireTenant(migration.getSessionId(), migration.getTenantId());
     if (session.state() == SessionState.HIBERNATING) return;
     if (session.state() != SessionState.HIBERNATED) {
@@ -219,6 +306,49 @@ public class SessionMigrationApplicationService {
         migration.getMigrationId(),
         "RESTORING",
         "TARGET_NODE:" + placement.nodeId(),
+        false,
+        false);
+  }
+
+  private void rebindAndRestore(SessionMigrationEntity migration) {
+    var session = requireTenant(migration.getSessionId(), migration.getTenantId());
+    if (session.state() == SessionState.HIBERNATING) return;
+    if (session.state() != SessionState.HIBERNATED) {
+      throw new MigrationRejectedException("SOURCE_DID_NOT_HIBERNATE");
+    }
+    var profile = profiles.get(migration.getTenantId(), session.profileId());
+    if (profile.latestCheckpointId() == null || profile.latestCheckpointId().isBlank()) {
+      throw new MigrationRejectedException("SOURCE_CHECKPOINT_MISSING");
+    }
+    var descriptor = sessions.describe(session.sessionId());
+    var rebound =
+        proxies.commitRebindAfterHibernate(
+            migration.getSessionId(),
+            migration.getTenantId(),
+            migration.getTargetProxyBindingProfileId(),
+            migration.getTargetProxyBindingVersion(),
+            migration.getRequestedBy(),
+            migration.getRequestId(),
+            migration.getMigrationId(),
+            descriptor.region());
+    var placement =
+        capacity.reserveRestartTarget(rebound, descriptor.region(), migration.getSourceNodeId());
+    var operation =
+        sessionService.start(
+            migration.getSessionId(), migration.getTenantId(), "system:proxy-rebind");
+    var placedSession = sessions.require(session.sessionId());
+    migration.targetPlaced(
+        placement.nodeId(),
+        placedSession.contextEpoch(),
+        profile.latestCheckpointId(),
+        Instant.now());
+    migration.restoreDispatched(operation.operationId(), Instant.now());
+    migrations.save(migration);
+    resources.recordMigrationPhase(
+        migration.getSessionId(),
+        migration.getMigrationId(),
+        "RESTORING",
+        "PROXY_REBIND_TARGET_NODE:" + placement.nodeId(),
         false,
         false);
   }
@@ -406,6 +536,35 @@ public class SessionMigrationApplicationService {
         migration.getCreatedAt(),
         migration.getUpdatedAt(),
         migration.getCompletedAt());
+  }
+
+  private ProxyRebindOperationResponse toProxyRebindOperation(SessionMigrationEntity workflow) {
+    return new ProxyRebindOperationResponse(
+        workflow.getMigrationId(),
+        workflow.getHibernateOperationId(),
+        workflow.getPhase(),
+        workflow.getCreatedAt());
+  }
+
+  private ProxyRebindView toProxyRebindView(SessionMigrationEntity workflow) {
+    return new ProxyRebindView(
+        workflow.getMigrationId(),
+        workflow.getSessionId(),
+        workflow.getSourceProxyBindingProfileId(),
+        workflow.getTargetProxyBindingProfileId(),
+        workflow.getTargetProxyBindingVersion(),
+        workflow.getHibernateOperationId(),
+        workflow.getRestoreOperationId(),
+        workflow.getResyncRequestId(),
+        workflow.getPhase(),
+        workflow.getRecoveryResult(),
+        workflow.getFailureReason(),
+        workflow.getRequestedBy(),
+        workflow.getRequestReason(),
+        workflow.getRequestId(),
+        workflow.getCreatedAt(),
+        workflow.getUpdatedAt(),
+        workflow.getCompletedAt());
   }
 
   private List<String> readFailedTargetNodeIds(SessionMigrationEntity migration) {

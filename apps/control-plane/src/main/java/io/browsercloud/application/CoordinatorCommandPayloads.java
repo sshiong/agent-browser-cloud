@@ -17,6 +17,7 @@ public final class CoordinatorCommandPayloads {
   public static final String AGENT_RECOVER = "AGENT_RECOVER_V1";
   public static final String RESOURCE_POLICY_EVALUATE = "RESOURCE_POLICY_EVALUATE_V1";
   public static final String MIGRATION_RECONCILE = "MIGRATION_RECONCILE_V1";
+  public static final String PROXY_REBIND_REQUEST = "PROXY_REBIND_REQUEST_V1";
 
   public record SessionActor(String tenantId, String actorId) {}
 
@@ -33,6 +34,14 @@ public final class CoordinatorCommandPayloads {
   public record ResourceEvaluation(String tenantId) {}
 
   public record MigrationReconcile(String migrationId, Instant observedAt) {}
+
+  public record ProxyRebindRequestCommand(
+      String tenantId,
+      String actorId,
+      String targetBindingProfileId,
+      String reason,
+      String idempotencyKey,
+      String requestId) {}
 
   public record CommandAck(String state) {
     public static CommandAck committed() {

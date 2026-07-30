@@ -178,6 +178,10 @@ public class ProxyAllocationEntity {
     return expectedExitIp;
   }
 
+  public String getCredentialRef() {
+    return credentialRef;
+  }
+
   public void bind(String observedExitIp, String observedCountry, String observedAsn, Instant now) {
     this.exitIp = observedExitIp;
     this.country = observedCountry;

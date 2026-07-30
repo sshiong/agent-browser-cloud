@@ -244,9 +244,9 @@ public class SessionApplicationService {
             : session.runtimeBuildId();
     runtimeBuildPolicy.requireApproved(runtimeBuildId);
     var descriptor = sessionRepository.describe(sessionId);
+    session = proxyApplicationService.ensureBinding(session);
     var placement = browserCapacityService.reserve(session, descriptor.region());
     session = sessionRepository.require(sessionId);
-    proxyApplicationService.ensureBinding(session);
     var result =
         coordinator.handle(
             new StartSession(
@@ -338,9 +338,30 @@ public class SessionApplicationService {
   /** Resource-policy hibernation after the Safe Point Aggregator has returned SAFE. */
   @Transactional
   public OperationResponse hibernateForResourcePolicy(String sessionId, String tenantId) {
+    return hibernateForWorkflow(
+        sessionId,
+        tenantId,
+        "system:resource-policy",
+        "resource_policy_maximum_reached",
+        "maximum_reached");
+  }
+
+  /** Proxy rebind hibernation after the Safe Point Aggregator has returned SAFE. */
+  @Transactional
+  public OperationResponse hibernateForProxyRebind(
+      String sessionId, String tenantId, String actorId) {
+    return hibernateForWorkflow(
+        sessionId, tenantId, actorId, "proxy_rebind_safe_restart", "proxy_rebind");
+  }
+
+  private OperationResponse hibernateForWorkflow(
+      String sessionId,
+      String tenantId,
+      String actorId,
+      String coordinatorReason,
+      String auditReason) {
     var session = requireTenant(sessionId, tenantId);
-    var result =
-        coordinator.handle(new HibernateSession(sessionId, "resource_policy_maximum_reached"));
+    var result = coordinator.handle(new HibernateSession(sessionId, coordinatorReason));
     var operation = operationRepository.findActive(sessionId).orElseThrow();
     var workflowId =
         workflowService.start(
@@ -353,10 +374,10 @@ public class SessionApplicationService {
     appendAudit(
         session,
         "SESSION_OPERATION_TRANSITION",
-        "system:resource-policy",
+        actorId,
         "HIBERNATE_RUNTIME",
         "ACCEPTED",
-        Map.of("operationId", result.operationId(), "reason", "maximum_reached"),
+        Map.of("operationId", result.operationId(), "reason", auditReason),
         result.operationId());
     return new OperationResponse(
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);

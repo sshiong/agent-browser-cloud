@@ -50,11 +50,17 @@ impl NetworkHelperClient {
         &self,
         binding_id: &str,
         session_id: &str,
+        provider_id: &str,
+        expected_exit_ip: &str,
+        credential_ref: &str,
     ) -> anyhow::Result<(ObservedNetwork, String)> {
         let response = self
             .call(NetworkCommand::Bind {
                 binding_id: binding_id.to_owned(),
                 session_id: session_id.to_owned(),
+                provider_id: provider_id.to_owned(),
+                expected_exit_ip: expected_exit_ip.to_owned(),
+                credential_ref: credential_ref.to_owned(),
             })
             .await?;
         Ok((

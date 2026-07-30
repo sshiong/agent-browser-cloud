@@ -106,6 +106,32 @@ for invariant in (
         f"unified Session stream lacks rolling invariant: {invariant}"
     )
 
+proxy_rebind_migration = read(
+    "database/migrations/V060__safe_proxy_rebind_workflow.sql"
+)
+proxy_rebind_upper = proxy_rebind_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in proxy_rebind_upper, (
+        f"proxy rebind migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "ADD COLUMN WORKFLOW_TYPE TEXT NOT NULL DEFAULT 'NODE_MIGRATION'",
+    "ADD COLUMN TARGET_PROXY_BINDING_PROFILE_ID TEXT",
+    "ADD COLUMN TARGET_PROXY_BINDING_VERSION BIGINT",
+    "CHECK (WORKFLOW_TYPE IN ('NODE_MIGRATION', 'PROXY_REBIND')) NOT VALID",
+    "SESSION_MIGRATIONS_PROXY_REBIND_SNAPSHOT_CHECK",
+    "SESSION_MIGRATIONS_TARGET_PROXY_BINDING_FK",
+    "ON DELETE RESTRICT NOT VALID",
+    "VALIDATE CONSTRAINT SESSION_MIGRATIONS_WORKFLOW_TYPE_CHECK",
+    "VALIDATE CONSTRAINT SESSION_MIGRATIONS_PROXY_REBIND_SNAPSHOT_CHECK",
+    "VALIDATE CONSTRAINT SESSION_MIGRATIONS_TARGET_PROXY_BINDING_FK",
+    "CREATE UNIQUE INDEX UQ_SESSION_PROXY_REBIND_IDEMPOTENCY",
+    "WHERE WORKFLOW_TYPE = 'PROXY_REBIND'",
+):
+    assert invariant in proxy_rebind_upper, (
+        f"proxy rebind migration lacks rolling invariant: {invariant}"
+    )
+
 browser_activity_migration = read(
     "database/migrations/V028__browser_activity_safety_signals.sql"
 )
@@ -713,6 +739,12 @@ assert "labels->>'startRuntimeGenerationFloor' = 'v1'" in capacity_repository
 assert "lockMigrationPlacementCandidates" in capacity_repository
 assert "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY" in capacity_service
 assert "reserveMigrationTarget" in migration_service
+assert '"proxyProviderDescriptor".to_owned()' in node_agent
+assert "PROXY_DESCRIPTOR_CAPABILITY" in capacity_service
+assert "NO_PROXY_DESCRIPTOR_CAPABLE_NODE" in capacity_service
+assert '"COMMAND_IN_PROGRESS"' in node_agent
+assert "dispatch_durable(command)" in node_agent
+assert "tokio::spawn(async move" in node_agent
 
 resource_report = proto.split("message ReportSessionResourcesRequest {", 1)[1].split(
     "}", 1
@@ -753,6 +785,9 @@ for message_name, fields in (
             ("video_recording_enabled", 28, True),
             ("success_screenshot_sample_percent", 29, True),
             ("minimum_browser_generation", 30, False),
+            ("proxy_provider_id", 31, True),
+            ("proxy_expected_exit_ip", 32, True),
+            ("proxy_credential_ref", 33, True),
         ),
     ),
     (
@@ -894,6 +929,11 @@ assert "/api/v1/proxy-bindings:" in openapi
 assert "/api/v1/proxy-bindings/{bindingProfileId}:" in openapi
 assert "ProxyBindingRequest:" in openapi
 assert "ProxyBindingList:" in openapi
+assert "/api/v1/sessions/{sessionId}/proxy-binding:rebind:" in openapi
+assert "/api/v1/sessions/{sessionId}/proxy-rebind:" in openapi
+assert "ProxyRebindRequest:" in openapi
+assert "ProxyRebindOperation:" in openapi
+assert "ProxyRebind:" in openapi
 environment_import_migration = read(
     "database/migrations/V054__environment_import_jobs.sql"
 )
@@ -973,7 +1013,7 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V059 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

@@ -242,6 +242,11 @@ message StartRuntimeCommand {
   // Control Plane 已提交的 Browser 世代下界；跨 Node 恢复必须从更大世代启动。
   // N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
   uint64 minimum_browser_generation = 30;
+  // 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+  // 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+  optional string proxy_provider_id = 31;
+  optional string proxy_expected_exit_ip = 32;
+  optional string proxy_credential_ref = 33;
 }
 
 // Runtime 启动事件

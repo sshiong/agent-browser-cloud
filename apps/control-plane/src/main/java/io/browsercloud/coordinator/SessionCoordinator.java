@@ -42,6 +42,7 @@ public final class SessionCoordinator {
   private final CoordinatorOwnershipService ownershipService;
   private final CoordinatorReconciliationMetrics reconciliationMetrics;
   private final RuntimeResourceLimitsRepository resourceLimitsRepository;
+  private final ProxyRuntimeBindingRepository proxyBindingRepository;
   private final CoordinatorRouteAuthority routeAuthority;
   private final CoordinatorShardLocality shardLocality;
 
@@ -53,6 +54,7 @@ public final class SessionCoordinator {
       CoordinatorOwnershipService ownershipService,
       CoordinatorReconciliationMetrics reconciliationMetrics,
       RuntimeResourceLimitsRepository resourceLimitsRepository,
+      ProxyRuntimeBindingRepository proxyBindingRepository,
       CoordinatorRouteAuthority routeAuthority,
       CoordinatorShardLocality shardLocality) {
     this.sessionRepository = sessionRepository;
@@ -62,6 +64,7 @@ public final class SessionCoordinator {
     this.ownershipService = ownershipService;
     this.reconciliationMetrics = reconciliationMetrics;
     this.resourceLimitsRepository = resourceLimitsRepository;
+    this.proxyBindingRepository = proxyBindingRepository;
     this.routeAuthority = routeAuthority;
     this.shardLocality = shardLocality;
   }
@@ -84,8 +87,33 @@ public final class SessionCoordinator {
         ownershipService,
         reconciliationMetrics,
         resourceLimitsRepository,
+        (sessionId, bindingId) -> Optional.empty(),
         routeAuthority,
         ignored -> true);
+  }
+
+  /** Compatibility constructor for tests that supply physical shard membership explicitly. */
+  public SessionCoordinator(
+      SessionRepository sessionRepository,
+      OperationRepository operationRepository,
+      NodeCommandGateway nodeCommandGateway,
+      OutboxPublisher outboxPublisher,
+      CoordinatorOwnershipService ownershipService,
+      CoordinatorReconciliationMetrics reconciliationMetrics,
+      RuntimeResourceLimitsRepository resourceLimitsRepository,
+      CoordinatorRouteAuthority routeAuthority,
+      CoordinatorShardLocality shardLocality) {
+    this(
+        sessionRepository,
+        operationRepository,
+        nodeCommandGateway,
+        outboxPublisher,
+        ownershipService,
+        reconciliationMetrics,
+        resourceLimitsRepository,
+        (sessionId, bindingId) -> Optional.empty(),
+        routeAuthority,
+        shardLocality);
   }
 
   /**
@@ -267,7 +295,10 @@ public final class SessionCoordinator {
             operation,
             command.requestedRuntimeBuildId(),
             command.resourceLimits(),
-            command.profileCheckpointId()));
+            command.profileCheckpointId(),
+            proxyBindingRepository
+                .find(session.sessionId(), session.proxyBindingId())
+                .orElse(null)));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.STARTING));
 
     log.info(
@@ -569,7 +600,11 @@ public final class SessionCoordinator {
                 session,
                 recovery,
                 session.runtimeBuildId(),
-                resourceLimitsRepository.require(session.sessionId())));
+                resourceLimitsRepository.require(session.sessionId()),
+                null,
+                proxyBindingRepository
+                    .find(session.sessionId(), session.proxyBindingId())
+                    .orElse(null)));
         outboxPublisher.append(
             new SessionStateChanged(session.sessionId(), SessionState.RECOVERING));
 

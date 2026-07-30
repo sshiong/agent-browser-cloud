@@ -6,6 +6,7 @@ use helper_contracts::{
 use network_helper::{NetworkHelper, StaticProxyConfig, StaticProxyNetworkHelper};
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
+use serde::Deserialize;
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -25,22 +26,7 @@ async fn main() -> anyhow::Result<()> {
     let socket_path = required_absolute_path("NETWORK_HELPER_SOCKET")?;
     prepare_socket_path(&socket_path).await?;
     let allowed_uid = configured_node_agent_uid()?;
-    let helper = Arc::new(StaticProxyNetworkHelper::new(StaticProxyConfig {
-        endpoint: required_environment("STATIC_PROXY_ENDPOINT")?,
-        expected_exit_ip: required_environment("STATIC_PROXY_EXPECTED_EXIT_IP")?,
-        exit_check_url: std::env::var("PROXY_EXIT_CHECK_URL")
-            .unwrap_or_else(|_| "http://browsercloud.invalid/exit".to_owned()),
-        failure_threshold: std::env::var("PROXY_FAILURE_THRESHOLD")
-            .unwrap_or_else(|_| "3".to_owned())
-            .parse()
-            .context("PROXY_FAILURE_THRESHOLD must be a positive integer")?,
-        open_duration: Duration::from_secs(
-            std::env::var("PROXY_CIRCUIT_OPEN_SECONDS")
-                .unwrap_or_else(|_| "30".to_owned())
-                .parse()
-                .context("PROXY_CIRCUIT_OPEN_SECONDS must be a positive integer")?,
-        ),
-    })?);
+    let helper = Arc::new(StaticProxyNetworkHelper::new_many(load_provider_configs()?)?);
 
     let listener = UnixListener::bind(&socket_path)
         .with_context(|| format!("failed to bind {}", socket_path.display()))?;
@@ -110,8 +96,17 @@ async fn execute_request(
         NetworkCommand::Bind {
             binding_id,
             session_id,
+            provider_id,
+            expected_exit_ip,
+            credential_ref,
         } => {
-            let spec = helper.binding_spec(binding_id, session_id);
+            let spec = helper.binding_spec(
+                binding_id,
+                session_id,
+                provider_id,
+                expected_exit_ip,
+                credential_ref,
+            )?;
             let observed = helper.bind_proxy(spec).await?;
             Ok((
                 Some(ObservedNetwork {
@@ -119,7 +114,7 @@ async fn execute_request(
                     country: observed.country,
                     asn: observed.asn,
                 }),
-                Some(helper.proxy_server()),
+                Some(helper.proxy_server_for(session_id).await?),
             ))
         }
         NetworkCommand::Verify { session_id } => {
@@ -195,6 +190,100 @@ fn required_absolute_path(name: &str) -> anyhow::Result<PathBuf> {
     Ok(path)
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProviderConfigDocument {
+    version: u32,
+    providers: Vec<ProviderConfigEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProviderConfigEntry {
+    provider_id: String,
+    endpoint: String,
+    expected_exit_ip: String,
+    #[serde(default)]
+    credential_ref: String,
+    #[serde(default)]
+    exit_check_url: Option<String>,
+}
+
+fn load_provider_configs() -> anyhow::Result<Vec<StaticProxyConfig>> {
+    let failure_threshold = std::env::var("PROXY_FAILURE_THRESHOLD")
+        .unwrap_or_else(|_| "3".to_owned())
+        .parse()
+        .context("PROXY_FAILURE_THRESHOLD must be a positive integer")?;
+    let open_duration = Duration::from_secs(
+        std::env::var("PROXY_CIRCUIT_OPEN_SECONDS")
+            .unwrap_or_else(|_| "30".to_owned())
+            .parse()
+            .context("PROXY_CIRCUIT_OPEN_SECONDS must be a positive integer")?,
+    );
+    let default_exit_check_url = std::env::var("PROXY_EXIT_CHECK_URL")
+        .unwrap_or_else(|_| "http://browsercloud.invalid/exit".to_owned());
+
+    let Ok(config_path) = std::env::var("PROXY_PROVIDER_CONFIG_FILE") else {
+        return Ok(vec![StaticProxyConfig {
+            provider_id: std::env::var("STATIC_PROXY_PROVIDER_ID")
+                .unwrap_or_else(|_| "static-local".to_owned()),
+            endpoint: required_environment("STATIC_PROXY_ENDPOINT")?,
+            expected_exit_ip: required_environment("STATIC_PROXY_EXPECTED_EXIT_IP")?,
+            credential_ref: std::env::var("STATIC_PROXY_CREDENTIAL_REF").unwrap_or_default(),
+            exit_check_url: default_exit_check_url,
+            failure_threshold,
+            open_duration,
+        }]);
+    };
+
+    let path = PathBuf::from(config_path);
+    anyhow::ensure!(
+        path.is_absolute(),
+        "PROXY_PROVIDER_CONFIG_FILE must be an absolute path"
+    );
+    let metadata = std::fs::symlink_metadata(&path)
+        .with_context(|| format!("cannot inspect proxy provider config {}", path.display()))?;
+    anyhow::ensure!(
+        metadata.file_type().is_file() && !metadata.file_type().is_symlink(),
+        "proxy provider config must be a regular file, not a symlink"
+    );
+    anyhow::ensure!(
+        metadata.len() <= 1024 * 1024,
+        "proxy provider config exceeds 1 MiB"
+    );
+    anyhow::ensure!(
+        metadata.permissions().mode() & 0o007 == 0,
+        "proxy provider config must not be accessible by other users"
+    );
+    let body = std::fs::read(&path)
+        .with_context(|| format!("cannot read proxy provider config {}", path.display()))?;
+    let document: ProviderConfigDocument =
+        serde_json::from_slice(&body).context("proxy provider config is invalid JSON")?;
+    anyhow::ensure!(
+        document.version == 1,
+        "unsupported proxy provider config version"
+    );
+    anyhow::ensure!(
+        !document.providers.is_empty() && document.providers.len() <= 256,
+        "proxy provider config must contain between 1 and 256 providers"
+    );
+    Ok(document
+        .providers
+        .into_iter()
+        .map(|provider| StaticProxyConfig {
+            provider_id: provider.provider_id,
+            endpoint: provider.endpoint,
+            expected_exit_ip: provider.expected_exit_ip,
+            credential_ref: provider.credential_ref,
+            exit_check_url: provider
+                .exit_check_url
+                .unwrap_or_else(|| default_exit_check_url.clone()),
+            failure_threshold,
+            open_duration,
+        })
+        .collect())
+}
+
 async fn prepare_socket_path(socket_path: &Path) -> anyhow::Result<()> {
     let parent = socket_path
         .parent()
@@ -235,8 +324,10 @@ mod tests {
         let connected_client = client.await.unwrap();
         let helper = Arc::new(
             StaticProxyNetworkHelper::new(StaticProxyConfig {
+                provider_id: "static-test".to_owned(),
                 endpoint: "http://127.0.0.1:9".to_owned(),
                 expected_exit_ip: "203.0.113.10".to_owned(),
+                credential_ref: String::new(),
                 exit_check_url: "http://browsercloud.invalid/exit".to_owned(),
                 failure_threshold: 1,
                 open_duration: Duration::from_secs(1),

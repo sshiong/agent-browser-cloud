@@ -18,17 +18,22 @@ import io.browsercloud.persistence.ProxyBindingProfileEntity;
 import io.browsercloud.persistence.ProxyBindingProfileJpaRepository;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentEntity;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentJpaRepository;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class StaticProxyApplicationServiceTest {
+
+  @TempDir Path tempDir;
 
   @Mock private ProxyAllocationJpaRepository repository;
   @Mock private ProxyBindingProfileJpaRepository bindingProfiles;
@@ -52,6 +57,7 @@ class StaticProxyApplicationServiceTest {
             "static-test",
             "http://127.0.0.1:8081",
             "203.0.113.10",
+            "vault://tenant-test/proxy/primary",
             false,
             "test");
   }
@@ -72,6 +78,32 @@ class StaticProxyApplicationServiceTest {
     assertThat(allocation.getValue().getSessionId()).isEqualTo("ses_test");
     assertThat(allocation.getValue().getState()).isEqualTo("ALLOCATED");
     verify(sessionRepository).updateWithExpectedEpoch(bound, 3);
+  }
+
+  @Test
+  void shouldReplaceReleasedRuntimeBindingFromDurableAssignmentOnRestart() {
+    var released =
+        new ProxyAllocationEntity(
+            "pxy_released",
+            "tenant-test",
+            "ses_test",
+            "static-test",
+            "http://127.0.0.1:8081",
+            Instant.parse("2026-07-26T00:00:00Z"));
+    released.release(Instant.parse("2026-07-26T00:01:00Z"));
+    var session = session().withProxyBinding("pxy_released");
+    when(repository.findById("pxy_released")).thenReturn(Optional.of(released));
+    when(repository.findFirstBySessionIdAndStateIn(any(), any())).thenReturn(Optional.empty());
+
+    var rebound = service.ensureBinding(session);
+
+    assertThat(rebound.proxyBindingId()).startsWith("pxy_").isNotEqualTo("pxy_released");
+    assertThat(rebound.contextEpoch()).isEqualTo(session.contextEpoch() + 1);
+    var replacement = ArgumentCaptor.forClass(ProxyAllocationEntity.class);
+    verify(repository).save(replacement.capture());
+    assertThat(replacement.getValue().getAllocationId()).isEqualTo(rebound.proxyBindingId());
+    assertThat(replacement.getValue().getState()).isEqualTo("ALLOCATED");
+    verify(sessionRepository).updateWithExpectedEpoch(rebound, session.contextEpoch());
   }
 
   @Test
@@ -188,6 +220,51 @@ class StaticProxyApplicationServiceTest {
   }
 
   @Test
+  void shouldRetainConfiguredCredentialReferenceWhenAnUpdateOmitsIt() {
+    var profile =
+        new ProxyBindingProfileEntity(
+            "pbind_1234567890123456",
+            "tenant-test",
+            "Primary exit",
+            null,
+            "static-test",
+            "singapore",
+            "203.0.113.10",
+            "vault://tenant-test/proxy/primary",
+            true,
+            "admin-test",
+            Instant.parse("2026-07-26T00:00:00Z"));
+    when(bindingProfiles.findByBindingProfileIdAndTenantId("pbind_1234567890123456", "tenant-test"))
+        .thenReturn(Optional.of(profile));
+    when(idempotency.claimProxyBindingMutation(any(), any(), any(), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(5));
+    when(bindingProfiles.findAllByTenantIdOrderByUpdatedAtDesc("tenant-test"))
+        .thenReturn(java.util.List.of(profile));
+    when(bindingProfiles.saveAndFlush(profile)).thenReturn(profile);
+
+    var view =
+        service.updateBinding(
+            "tenant-test",
+            "admin-test",
+            "pbind_1234567890123456",
+            "idem-update",
+            "req-update",
+            new ProxyBindingRequest(
+                "Primary exit",
+                "Disabled after Session snapshot",
+                "static-test",
+                "singapore",
+                "203.0.113.10",
+                null,
+                false,
+                0L));
+
+    assertThat(view.enabled()).isFalse();
+    assertThat(view.credentialConfigured()).isTrue();
+    assertThat(profile.getCredentialRef()).isEqualTo("vault://tenant-test/proxy/primary");
+  }
+
+  @Test
   void shouldSnapshotBindingConfigurationForNewSession() {
     var profile =
         new ProxyBindingProfileEntity(
@@ -198,7 +275,7 @@ class StaticProxyApplicationServiceTest {
             "static-test",
             "singapore",
             "203.0.113.10",
-            "vault://tenant-test/proxy/sg",
+            "vault://tenant-test/proxy/primary",
             true,
             "admin-test",
             Instant.parse("2026-07-26T00:00:00Z"));
@@ -212,7 +289,8 @@ class StaticProxyApplicationServiceTest {
     assertThat(assignment.getValue().getSessionId()).isEqualTo("ses_test");
     assertThat(assignment.getValue().getBindingProfileId()).isEqualTo("pbind_1234567890123456");
     assertThat(assignment.getValue().getExpectedExitIp()).isEqualTo("203.0.113.10");
-    assertThat(assignment.getValue().getCredentialRef()).isEqualTo("vault://tenant-test/proxy/sg");
+    assertThat(assignment.getValue().getCredentialRef())
+        .isEqualTo("vault://tenant-test/proxy/primary");
   }
 
   @Test
@@ -226,7 +304,7 @@ class StaticProxyApplicationServiceTest {
             "static-test",
             "singapore",
             "203.0.113.10",
-            "vault://tenant-test/proxy/sg",
+            "vault://tenant-test/proxy/primary",
             true,
             "admin-test",
             Instant.parse("2026-07-26T00:00:00Z"));
@@ -239,6 +317,125 @@ class StaticProxyApplicationServiceTest {
                     session(), "pbind_1234567890123456", "frankfurt", "admin-test"))
         .isInstanceOf(StaticProxyApplicationService.ProxyBindingRejectedException.class)
         .hasMessage("BINDING_REGION_MISMATCH");
+  }
+
+  @Test
+  void shouldAllocateFromTheConfiguredProviderCatalogWithoutExposingSecretMaterial()
+      throws Exception {
+    var catalog = tempDir.resolve("proxy-providers.json");
+    Files.writeString(
+        catalog,
+        """
+        {
+          "version": 1,
+          "providers": [
+            {
+              "providerId": "provider-a",
+              "endpoint": "http://127.0.0.1:8101",
+              "expectedExitIp": "203.0.113.10",
+              "credentialRef": "vault://tenant-test/proxy/a"
+            },
+            {
+              "providerId": "provider-b",
+              "endpoint": "http://127.0.0.1:8102",
+              "expectedExitIp": "203.0.113.20",
+              "credentialRef": "vault://tenant-test/proxy/b"
+            }
+          ]
+        }
+        """);
+    Files.setPosixFilePermissions(
+        catalog, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+    var catalogService =
+        new StaticProxyApplicationService(
+            repository,
+            bindingProfiles,
+            bindingAssignments,
+            sessionRepository,
+            idempotency,
+            audit,
+            "unused-fallback",
+            "",
+            "",
+            "",
+            catalog.toString(),
+            false,
+            "test");
+    when(repository.findFirstBySessionIdAndStateIn(any(), any())).thenReturn(Optional.empty());
+    when(bindingAssignments.findBySessionIdAndTenantId("ses_test", "tenant-test"))
+        .thenReturn(
+            Optional.of(
+                new SessionProxyBindingAssignmentEntity(
+                    "ses_test",
+                    "tenant-test",
+                    "pbind_provider_b",
+                    4,
+                    "provider-b",
+                    "singapore",
+                    "203.0.113.20",
+                    "vault://tenant-test/proxy/b",
+                    "admin-test",
+                    Instant.parse("2026-07-26T00:00:00Z"))));
+
+    catalogService.ensureBinding(session());
+
+    var allocation = ArgumentCaptor.forClass(ProxyAllocationEntity.class);
+    verify(repository).save(allocation.capture());
+    assertThat(allocation.getValue().getProvider()).isEqualTo("provider-b");
+    assertThat(allocation.getValue().getEndpoint()).isEqualTo("http://127.0.0.1:8102");
+    assertThat(allocation.getValue().getExpectedExitIp()).isEqualTo("203.0.113.20");
+    assertThat(allocation.getValue().getCredentialRef()).isEqualTo("vault://tenant-test/proxy/b");
+  }
+
+  @Test
+  void shouldCommitRebindOnlyAfterSourceAllocationWasReleasedAndSessionHibernated() {
+    var now = Instant.parse("2026-07-26T00:00:00Z");
+    var hibernated = session().withState(SessionState.HIBERNATED).withProxyBinding("pxy_source");
+    var source =
+        new ProxyAllocationEntity(
+            "pxy_source", "tenant-test", "ses_test", "static-test", "http://127.0.0.1:8081", now);
+    source.release(now);
+    var target =
+        new ProxyBindingProfileEntity(
+            "pbind_target0000000001",
+            "tenant-test",
+            "Approved target",
+            null,
+            "static-test",
+            "singapore",
+            "203.0.113.10",
+            "vault://tenant-test/proxy/primary",
+            true,
+            "admin-test",
+            now);
+    when(sessionRepository.requireForUpdate("ses_test")).thenReturn(hibernated);
+    when(repository.findById("pxy_source")).thenReturn(Optional.of(source));
+    when(bindingProfiles.findByBindingProfileIdAndTenantId("pbind_target0000000001", "tenant-test"))
+        .thenReturn(Optional.of(target));
+
+    var rebound =
+        service.commitRebindAfterHibernate(
+            "ses_test",
+            "tenant-test",
+            "pbind_target0000000001",
+            0,
+            "admin-test",
+            "req-test",
+            "prb-test",
+            "singapore");
+
+    assertThat(rebound.proxyBindingId()).isNull();
+    assertThat(rebound.contextEpoch()).isEqualTo(hibernated.contextEpoch() + 1);
+    verify(bindingAssignments)
+        .save(
+            org.mockito.ArgumentMatchers.argThat(
+                assignment ->
+                    assignment.getBindingProfileId().equals("pbind_target0000000001")
+                        && assignment
+                            .getCredentialRef()
+                            .equals("vault://tenant-test/proxy/primary")));
+    verify(sessionRepository).updateWithExpectedEpoch(rebound, hibernated.contextEpoch());
+    verify(audit).append(any());
   }
 
   private static SessionContext session() {

@@ -72,6 +72,33 @@ public class SessionMigrationEntity {
   @Column(name = "failure_reason")
   private String failureReason;
 
+  @Column(name = "workflow_type", nullable = false)
+  private String workflowType;
+
+  @Column(name = "source_proxy_allocation_id")
+  private String sourceProxyAllocationId;
+
+  @Column(name = "source_proxy_binding_profile_id")
+  private String sourceProxyBindingProfileId;
+
+  @Column(name = "target_proxy_binding_profile_id")
+  private String targetProxyBindingProfileId;
+
+  @Column(name = "target_proxy_binding_version")
+  private Long targetProxyBindingVersion;
+
+  @Column(name = "requested_by")
+  private String requestedBy;
+
+  @Column(name = "request_reason")
+  private String requestReason;
+
+  @Column(name = "idempotency_key")
+  private String idempotencyKey;
+
+  @Column(name = "request_id")
+  private String requestId;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -97,11 +124,42 @@ public class SessionMigrationEntity {
     this.tenantId = tenantId;
     this.sourceNodeId = sourceNodeId;
     this.sourceContextEpoch = sourceContextEpoch;
+    this.workflowType = "NODE_MIGRATION";
     this.phase = "CHECKPOINTING";
     this.maximumTargetAttempts = 3;
     this.failedTargetNodeIds = "[]";
     this.createdAt = now;
     this.updatedAt = now;
+  }
+
+  public static SessionMigrationEntity proxyRebind(
+      String migrationId,
+      String sessionId,
+      String tenantId,
+      String sourceNodeId,
+      long sourceContextEpoch,
+      String sourceProxyAllocationId,
+      String sourceProxyBindingProfileId,
+      String targetProxyBindingProfileId,
+      long targetProxyBindingVersion,
+      String requestedBy,
+      String requestReason,
+      String idempotencyKey,
+      String requestId,
+      Instant now) {
+    var workflow =
+        new SessionMigrationEntity(
+            migrationId, sessionId, tenantId, sourceNodeId, sourceContextEpoch, now);
+    workflow.workflowType = "PROXY_REBIND";
+    workflow.sourceProxyAllocationId = sourceProxyAllocationId;
+    workflow.sourceProxyBindingProfileId = sourceProxyBindingProfileId;
+    workflow.targetProxyBindingProfileId = targetProxyBindingProfileId;
+    workflow.targetProxyBindingVersion = targetProxyBindingVersion;
+    workflow.requestedBy = requestedBy;
+    workflow.requestReason = requestReason;
+    workflow.idempotencyKey = idempotencyKey;
+    workflow.requestId = requestId;
+    return workflow;
   }
 
   public void hibernateDispatched(String operationId, Instant now) {
@@ -248,6 +306,46 @@ public class SessionMigrationEntity {
 
   public String getFailureReason() {
     return failureReason;
+  }
+
+  public String getWorkflowType() {
+    return workflowType;
+  }
+
+  public boolean isProxyRebind() {
+    return "PROXY_REBIND".equals(workflowType);
+  }
+
+  public String getSourceProxyAllocationId() {
+    return sourceProxyAllocationId;
+  }
+
+  public String getSourceProxyBindingProfileId() {
+    return sourceProxyBindingProfileId;
+  }
+
+  public String getTargetProxyBindingProfileId() {
+    return targetProxyBindingProfileId;
+  }
+
+  public Long getTargetProxyBindingVersion() {
+    return targetProxyBindingVersion;
+  }
+
+  public String getRequestedBy() {
+    return requestedBy;
+  }
+
+  public String getRequestReason() {
+    return requestReason;
+  }
+
+  public String getIdempotencyKey() {
+    return idempotencyKey;
+  }
+
+  public String getRequestId() {
+    return requestId;
   }
 
   public Instant getUpdatedAt() {

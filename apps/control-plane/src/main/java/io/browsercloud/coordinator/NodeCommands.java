@@ -33,7 +33,7 @@ public final class NodeCommands {
       ExclusiveOperation operation,
       String requestedRuntimeBuildId,
       RuntimeResourceLimits requestedLimits) {
-    return startRuntime(session, operation, requestedRuntimeBuildId, requestedLimits, null);
+    return startRuntime(session, operation, requestedRuntimeBuildId, requestedLimits, null, null);
   }
 
   public static NodeCommand startRuntime(
@@ -42,6 +42,17 @@ public final class NodeCommands {
       String requestedRuntimeBuildId,
       RuntimeResourceLimits requestedLimits,
       String profileCheckpointId) {
+    return startRuntime(
+        session, operation, requestedRuntimeBuildId, requestedLimits, profileCheckpointId, null);
+  }
+
+  public static NodeCommand startRuntime(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String requestedRuntimeBuildId,
+      RuntimeResourceLimits requestedLimits,
+      String profileCheckpointId,
+      ProxyRuntimeBinding proxyBinding) {
     var limits = requestedLimits == null ? defaultLimits(session) : requestedLimits;
     if (limits.resourceClass() != session.resourceClass()) {
       throw new IllegalArgumentException("Runtime limits do not match committed Resource Class");
@@ -79,9 +90,17 @@ public final class NodeCommands {
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
             .setIsolationRequired(limits.isolated())
-            .setProfileCheckpointId(profileCheckpointId == null ? "" : profileCheckpointId)
-            .build()
-            .toByteArray();
+            .setProfileCheckpointId(profileCheckpointId == null ? "" : profileCheckpointId);
+    if (proxyBinding != null) {
+      if (!proxyBinding.bindingId().equals(session.proxyBindingId())) {
+        throw new IllegalArgumentException(
+            "Runtime proxy descriptor does not match committed Session binding");
+      }
+      payload
+          .setProxyProviderId(proxyBinding.providerId())
+          .setProxyExpectedExitIp(proxyBinding.expectedExitIp())
+          .setProxyCredentialRef(proxyBinding.credentialRef());
+    }
     return new NodeCommand(
         newId("cmd_"),
         "StartRuntime",
@@ -92,7 +111,7 @@ public final class NodeCommands {
         session.contextEpoch(),
         operation.operationEpoch(),
         operation.operationId(),
-        payload);
+        payload.build().toByteArray());
   }
 
   private static RuntimeResourceLimits defaultLimits(SessionContext session) {

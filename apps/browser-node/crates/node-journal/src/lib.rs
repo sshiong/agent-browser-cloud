@@ -487,6 +487,22 @@ impl SqliteNodeJournal {
         .await
     }
 
+    pub async fn is_event_delivered(&self, event_id: &str) -> anyhow::Result<bool> {
+        let event_id = event_id.to_owned();
+        self.with_connection(move |connection| {
+            connection
+                .query_row(
+                    "SELECT event_delivered FROM command_results WHERE event_id = ?1",
+                    params![event_id],
+                    |row| row.get::<_, bool>(0),
+                )
+                .optional()
+                .map(|delivered| delivered.unwrap_or(false))
+                .context("read persisted event delivery state")
+        })
+        .await
+    }
+
     pub async fn mark_event_delivered(&self, event_id: &str) -> anyhow::Result<()> {
         let event_id = event_id.to_owned();
         self.with_connection(move |connection| {
@@ -769,7 +785,10 @@ mod tests {
         let result = reopened.command_result("msg_1").await.unwrap().unwrap();
         assert_eq!(result.event_payload, Some(vec![1, 2, 3]));
         assert_eq!(reopened.pending_events(10).await.unwrap().len(), 1);
+        assert!(!reopened.is_event_delivered("evt_1").await.unwrap());
+        assert!(!reopened.is_event_delivered("evt_unknown").await.unwrap());
         reopened.mark_event_delivered("evt_1").await.unwrap();
+        assert!(reopened.is_event_delivered("evt_1").await.unwrap());
         assert!(reopened.pending_events(10).await.unwrap().is_empty());
         let _ = std::fs::remove_file(path);
     }

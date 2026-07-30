@@ -7,6 +7,7 @@ import io.browsercloud.coordinator.CoordinatorShardLocality;
 import io.browsercloud.coordinator.NodeCommandGateway;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.OutboxPublisher;
+import io.browsercloud.coordinator.ProxyRuntimeBindingRepository;
 import io.browsercloud.coordinator.RuntimeResourceLimitsRepository;
 import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.coordinator.SessionRepository;
@@ -27,6 +28,7 @@ public class CoordinatorConfiguration {
       CoordinatorOwnershipService ownershipService,
       CoordinatorReconciliationMetrics reconciliationMetrics,
       RuntimeResourceLimitsRepository resourceLimitsRepository,
+      ProxyRuntimeBindingRepository proxyBindingRepository,
       CoordinatorRouteAuthority routeAuthority,
       CoordinatorShardLocality shardLocality) {
     return new SessionCoordinator(
@@ -37,6 +39,7 @@ public class CoordinatorConfiguration {
         ownershipService,
         reconciliationMetrics,
         resourceLimitsRepository,
+        proxyBindingRepository,
         routeAuthority,
         shardLocality);
   }

@@ -18,6 +18,7 @@ import {
   useBrowserState,
   useReleaseHumanTakeover,
   useSession,
+  useSessionResourceStream,
 } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
 import { NoVncViewport, type DesktopConnectionState } from './NoVncViewport';
@@ -26,6 +27,7 @@ export function RemoteDesktopPage() {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session') ?? '';
   const sessionQuery = useSession(sessionId);
+  useSessionResourceStream(sessionId, Boolean(sessionId));
   const stateQuery = useBrowserState(
     sessionId,
     sessionQuery.data?.state === 'RUNNING'

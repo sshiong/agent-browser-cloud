@@ -4,7 +4,7 @@ export interface ProxyProviderView {
   endpoint: string;
   expectedExitIp: string;
   directFallbackAllowed: boolean;
-  state: 'CONFIGURED' | 'UNCONFIGURED';
+  state: 'CONFIGURED' | 'CATALOG_CONFIGURED' | 'UNCONFIGURED';
 }
 
 export interface ProxyAllocationView {
@@ -64,4 +64,48 @@ export interface ProxyBindingRequest {
   credentialRef?: string;
   enabled: boolean;
   expectedVersion?: number;
+}
+
+export type ProxyRebindPhase =
+  | 'CHECKPOINTING'
+  | 'PLACING_TARGET'
+  | 'RESTORING'
+  | 'TARGET_CLEANUP'
+  | 'STATE_RESYNC'
+  | 'BUSINESS_VALIDATION'
+  | 'BUSINESS_RECOVERY_ACTION'
+  | 'COMPLETED'
+  | 'DEGRADED'
+  | 'FAILED';
+
+export interface ProxyRebindRequest {
+  targetBindingProfileId: string;
+  reason: string;
+}
+
+export interface ProxyRebindOperation {
+  workflowId: string;
+  operationId: string;
+  phase: ProxyRebindPhase;
+  createdAt: string;
+}
+
+export interface ProxyRebindView {
+  workflowId: string;
+  sessionId: string;
+  sourceBindingProfileId: string | null;
+  targetBindingProfileId: string;
+  targetBindingVersion: number;
+  hibernateOperationId: string | null;
+  restoreOperationId: string | null;
+  resyncRequestId: string | null;
+  phase: ProxyRebindPhase;
+  recoveryResult: string | null;
+  failureReason: string | null;
+  requestedBy: string;
+  reason: string;
+  requestId: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
 }

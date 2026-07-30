@@ -30,6 +30,8 @@ import {
   useSessionResources,
   useSessionSafePoint,
   useSessionMigration,
+  useSessionProxyRebind,
+  useRebindSessionProxy,
   useBusinessRecovery,
   useBusinessRecoveryProviderEvidence,
   useSessionApplicationBinding,
@@ -51,6 +53,8 @@ import { useAuth } from '@/auth/AuthProvider';
 import { SessionResourcePanel } from '@/features/sessions/components/resources/SessionResourcePanel';
 import { BusinessRecoveryCard } from '@/features/sessions/components/BusinessRecoveryCard';
 import { SessionEvidenceCard } from '@/features/sessions/components/SessionEvidenceCard';
+import { ProxyRebindPanel } from '@/features/sessions/components/ProxyRebindPanel';
+import { useProxyBindings } from '@/features/proxies/proxyQueries';
 
 export function SessionDetailPage() {
   const auth = useAuth();
@@ -73,6 +77,9 @@ export function SessionDetailPage() {
   );
   const safePointQuery = useSessionSafePoint(id);
   const migrationQuery = useSessionMigration(id);
+  const proxyRebindQuery = useSessionProxyRebind(id);
+  const proxyRebindMutation = useRebindSessionProxy(id);
+  const proxyBindingsQuery = useProxyBindings();
   const businessRecoveryQuery = useBusinessRecovery(id);
   const providerEvidenceQuery = useBusinessRecoveryProviderEvidence(id);
   const businessRecoveryMutation = useValidateBusinessRecovery(id);
@@ -226,6 +233,8 @@ export function SessionDetailPage() {
                         resourceEventsQuery.refetch(),
                         safePointQuery.refetch(),
                         migrationQuery.refetch(),
+                        proxyRebindQuery.refetch(),
+                        proxyBindingsQuery.refetch(),
                         businessRecoveryQuery.refetch(),
                       ])
                     }
@@ -447,7 +456,11 @@ export function SessionDetailPage() {
                     />
                     <ContextMetric
                       label="状态同步"
-                      value={session.state === 'RUNNING' ? '每 2 秒' : '已暂停'}
+                      value={
+                        resourceStreamState === 'LIVE'
+                          ? 'Session Event Stream'
+                          : resourceStreamState
+                      }
                     />
                   </div>
                 </section>
@@ -506,6 +519,28 @@ export function SessionDetailPage() {
 
               <aside className="space-y-4">
                 <OperationPanel operation={session.currentOperation} />
+                <ProxyRebindPanel
+                  sessionId={session.sessionId}
+                  sessionState={session.state}
+                  sessionRegion={session.region}
+                  currentBindingProfileId={session.proxyBindingProfileId}
+                  hasActiveOperation={Boolean(session.currentOperation)}
+                  safePoint={safePointQuery.data}
+                  bindings={proxyBindingsQuery.data?.items ?? []}
+                  bindingsLoading={proxyBindingsQuery.isLoading}
+                  latest={proxyRebindQuery.data}
+                  latestLoading={proxyRebindQuery.isLoading}
+                  canAdminister={auth.hasAnyRole([
+                    'TENANT_ADMIN',
+                    'SECURITY_ADMIN',
+                    'PLATFORM_ADMIN',
+                  ])}
+                  pending={proxyRebindMutation.isPending}
+                  error={proxyRebindMutation.error ?? proxyBindingsQuery.error}
+                  onRebind={(request) =>
+                    proxyRebindMutation.mutateAsync(request)
+                  }
+                />
                 <section className="rounded-[10px] border border-border-subtle bg-surface-1 p-5">
                   <h2 className="text-[13px] font-semibold text-text-primary">
                     状态时间线

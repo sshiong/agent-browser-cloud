@@ -44,6 +44,7 @@ import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotF
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
 import io.browsercloud.application.SessionApplicationService.HumanTakeoverDisabledException;
+import io.browsercloud.application.SessionMigrationApplicationService.MigrationRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
@@ -557,6 +558,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "PROXY_BINDING_REJECTED",
         "Proxy Binding operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(MigrationRejectedException.class)
+  ResponseEntity<ApiError> migrationRejected(
+      MigrationRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "SESSION_WORKFLOW_REJECTED",
+        "Session migration or proxy rebind was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

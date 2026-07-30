@@ -324,6 +324,54 @@ public class SessionController {
         .orElseGet(() -> ResponseEntity.noContent().build());
   }
 
+  /**
+   * Checkpoint, stop, switch the durable proxy assignment, restore, resync and validate business
+   * recovery. The endpoint never claims an in-place or connection-transparent proxy change.
+   */
+  @PostMapping("/{sessionId}/proxy-binding:rebind")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public ResponseEntity<ProxyBindingModels.ProxyRebindOperationResponse> rebindProxy(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody ProxyBindingModels.ProxyRebindRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    var requestId = requestId(request);
+    return ResponseEntity.accepted()
+        .body(
+            commandRouting.execute(
+                sessionId,
+                principal.tenantId(),
+                PROXY_REBIND_REQUEST,
+                requestId,
+                new ProxyRebindRequestCommand(
+                    principal.tenantId(),
+                    principal.actorId(),
+                    body.targetBindingProfileId(),
+                    body.reason(),
+                    idempotencyKey,
+                    requestId),
+                ProxyBindingModels.ProxyRebindOperationResponse.class,
+                () ->
+                    migrationService.requestProxyRebind(
+                        sessionId,
+                        principal.tenantId(),
+                        principal.actorId(),
+                        body.targetBindingProfileId(),
+                        body.reason(),
+                        idempotencyKey,
+                        requestId)));
+  }
+
+  @GetMapping("/{sessionId}/proxy-rebind")
+  public ResponseEntity<ProxyBindingModels.ProxyRebindView> getLatestProxyRebind(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+    return migrationService
+        .latestProxyRebind(sessionId, identity.current().tenantId())
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
   @PatchMapping("/{sessionId}/resource-policy")
   @PreAuthorize(PlatformRoles.OPERATE)
   public ResponseEntity<ResourcePolicyOperationResponse> updateResourcePolicy(

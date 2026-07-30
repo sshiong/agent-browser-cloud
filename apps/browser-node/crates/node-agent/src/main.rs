@@ -70,6 +70,7 @@ struct NodeControlService {
     journal: Arc<SqliteNodeJournal>,
     require_route_epoch: bool,
     inflight: Arc<Mutex<HashSet<String>>>,
+    event_delivery_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     runtime_monitors: Arc<Mutex<HashMap<String, String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_extension_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
@@ -407,6 +408,7 @@ impl NodeCapacityReporter {
             "cdp-extension-restart-v1".to_owned(),
         );
         labels.insert("startRuntimeGenerationFloor".to_owned(), "v1".to_owned());
+        labels.insert("proxyProviderDescriptor".to_owned(), "v1".to_owned());
         labels.insert(
             "profileImport".to_owned(),
             if std::env::var("STORAGE_HELPER_SOCKET")
@@ -1039,30 +1041,36 @@ impl NodeControlService {
     }
 
     async fn publish_event_receipt(&self, event: EventEnvelope) -> anyhow::Result<PublishResponse> {
-        let secure = self.grpc_tls.is_some();
-        let target = if self.control_plane_event_target.starts_with("http://")
-            || self.control_plane_event_target.starts_with("https://")
-        {
-            self.control_plane_event_target.clone()
-        } else {
-            format!(
-                "{}://{}",
-                if secure { "https" } else { "http" },
-                self.control_plane_event_target
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let secure = self.grpc_tls.is_some();
+            let target = if self.control_plane_event_target.starts_with("http://")
+                || self.control_plane_event_target.starts_with("https://")
+            {
+                self.control_plane_event_target.clone()
+            } else {
+                format!(
+                    "{}://{}",
+                    if secure { "https" } else { "http" },
+                    self.control_plane_event_target
+                )
+            };
+            let mut endpoint = tonic::transport::Endpoint::from_shared(target)?
+                .connect_timeout(Duration::from_secs(2))
+                .timeout(Duration::from_secs(2));
+            if let Some(material) = self.grpc_tls.as_ref() {
+                endpoint = endpoint.tls_config(material.client_config())?;
+            }
+            let channel = endpoint.connect().await?;
+            let mut client = NodeEventServiceClient::new(channel);
+            Ok::<_, anyhow::Error>(
+                client
+                    .publish(PublishRequest { event: Some(event) })
+                    .await?
+                    .into_inner(),
             )
-        };
-        let mut endpoint = tonic::transport::Endpoint::from_shared(target)?
-            .connect_timeout(Duration::from_secs(2))
-            .timeout(Duration::from_secs(2));
-        if let Some(material) = self.grpc_tls.as_ref() {
-            endpoint = endpoint.tls_config(material.client_config())?;
-        }
-        let channel = endpoint.connect().await?;
-        let mut client = NodeEventServiceClient::new(channel);
-        Ok(client
-            .publish(PublishRequest { event: Some(event) })
-            .await?
-            .into_inner())
+        })
+        .await
+        .context("Node Event publish timed out")?
     }
 
     async fn report_session_resources(
@@ -1411,23 +1419,64 @@ impl NodeControlService {
 
     async fn publish_and_mark(&self, event: EventEnvelope) -> anyhow::Result<()> {
         let event_id = event.event_id.clone();
+        let delivery_lock = {
+            let mut locks = self.event_delivery_locks.lock().await;
+            locks
+                .entry(event_id.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(())))
+                .clone()
+        };
+        let delivery_guard = delivery_lock.lock().await;
+        match self.journal.is_event_delivered(&event_id).await {
+            Ok(true) => {
+                drop(delivery_guard);
+                self.release_event_delivery_lock(&event_id, &delivery_lock)
+                    .await;
+                return Ok(());
+            }
+            Ok(false) => {}
+            Err(error) => {
+                drop(delivery_guard);
+                self.release_event_delivery_lock(&event_id, &delivery_lock)
+                    .await;
+                return Err(error);
+            }
+        }
         let backlog_session =
             Self::is_state_backlog_event(&event).then(|| event.session_id.clone());
-        let acknowledgement = self.publish_event_receipt(event).await?;
-        anyhow::ensure!(
-            acknowledgement.accepted
-                || matches!(
-                    acknowledgement.error_code.as_str(),
-                    "STALE_HUMAN_TAKEOVER" | "STALE_COORDINATOR_TERM"
-                ),
-            "Control Plane rejected Node Event: {}",
-            acknowledgement.error_code
-        );
-        self.journal.mark_event_delivered(&event_id).await?;
-        if let Some(session_id) = backlog_session {
-            self.decrement_pending_state_event(&session_id).await;
+        let result = async {
+            let acknowledgement = self.publish_event_receipt(event).await?;
+            anyhow::ensure!(
+                acknowledgement.accepted
+                    || matches!(
+                        acknowledgement.error_code.as_str(),
+                        "STALE_HUMAN_TAKEOVER" | "STALE_COORDINATOR_TERM"
+                    ),
+                "Control Plane rejected Node Event: {}",
+                acknowledgement.error_code
+            );
+            self.journal.mark_event_delivered(&event_id).await?;
+            if let Some(session_id) = backlog_session {
+                self.decrement_pending_state_event(&session_id).await;
+            }
+            Ok(())
         }
-        Ok(())
+        .await;
+        drop(delivery_guard);
+        self.release_event_delivery_lock(&event_id, &delivery_lock)
+            .await;
+        result
+    }
+
+    async fn release_event_delivery_lock(&self, event_id: &str, delivery_lock: &Arc<Mutex<()>>) {
+        let mut locks = self.event_delivery_locks.lock().await;
+        if Arc::strong_count(delivery_lock) == 2
+            && locks
+                .get(event_id)
+                .is_some_and(|current| Arc::ptr_eq(current, delivery_lock))
+        {
+            locks.remove(event_id);
+        }
     }
 
     fn is_state_backlog_event(event: &EventEnvelope) -> bool {
@@ -1969,7 +2018,16 @@ impl NodeControlService {
                                     );
                             };
                             match network_helper
-                                .bind_proxy(&payload.proxy_binding_id, &command.session_id)
+                                .bind_proxy(
+                                    &payload.proxy_binding_id,
+                                    &command.session_id,
+                                    payload.proxy_provider_id.as_deref().unwrap_or_default(),
+                                    payload
+                                        .proxy_expected_exit_ip
+                                        .as_deref()
+                                        .unwrap_or_default(),
+                                    payload.proxy_credential_ref.as_deref().unwrap_or_default(),
+                                )
                                 .await
                             {
                                 Ok((observed, proxy_server)) => {
@@ -2432,11 +2490,20 @@ impl NodeControlService {
                         .remove(&command.session_id);
                     match self.runtime_supervisor.stop(&command.session_id).await {
                         Ok(()) => {
+                            tracing::info!(
+                                session_id = %command.session_id,
+                                "Runtime stopped; beginning durable cleanup"
+                            );
                             let sequence = match self.next_event_sequence(&command.session_id).await
                             {
                                 Ok(sequence) => sequence,
                                 Err(error) => return self.failed(command, error),
                             };
+                            tracing::info!(
+                                session_id = %command.session_id,
+                                sequence,
+                                "Reserved RuntimeStopped event sequence"
+                            );
                             let active_profile = self
                                 .profile_workspaces
                                 .lock()
@@ -2459,6 +2526,10 @@ impl NodeControlService {
                                             anyhow::anyhow!("storage helper is not configured"),
                                         );
                                     };
+                                    tracing::info!(
+                                        session_id = %command.session_id,
+                                        "Creating durable Profile checkpoint"
+                                    );
                                     let checkpoint = match storage_helper
                                         .checkpoint(
                                             &active_profile.workspace,
@@ -2469,6 +2540,11 @@ impl NodeControlService {
                                         Ok(checkpoint) => checkpoint,
                                         Err(error) => return self.failed(command, error),
                                     };
+                                    tracing::info!(
+                                        session_id = %command.session_id,
+                                        checkpoint_id = %checkpoint.checkpoint_id,
+                                        "Durable Profile checkpoint committed"
+                                    );
                                     if let Err(error) =
                                         storage_helper.release(&active_profile.workspace).await
                                     {
@@ -2504,6 +2580,10 @@ impl NodeControlService {
                                     return self.failed(command, error);
                                 }
                             }
+                            tracing::info!(
+                                session_id = %command.session_id,
+                                "Runtime cleanup committed; emitting RuntimeStopped"
+                            );
                             let event = Self::event(
                                 command,
                                 "RuntimeStopped",
@@ -4025,98 +4105,10 @@ impl NodeControlService {
         Ok(())
     }
 
-    async fn reconcile_runtime_leases(&self) {
-        let leases = match self.journal.active_runtime_leases().await {
-            Ok(leases) => leases,
-            Err(error) => {
-                tracing::error!(error = %error, "Failed to read Runtime leases for reconciliation");
-                return;
-            }
-        };
-        for lease in leases {
-            self.runtime_supervisor
-                .ensure_generation_at_least(&lease.session_id, lease.browser_generation)
-                .await;
-            match self
-                .runtime_supervisor
-                .terminate_orphan(lease.pid, lease.process_started_at)
-                .await
-            {
-                Ok(true) => tracing::warn!(
-                    session_id = %lease.session_id,
-                    pid = lease.pid,
-                    "Terminated orphan Runtime during Node reconciliation"
-                ),
-                Ok(false) => {}
-                Err(error) => tracing::warn!(
-                    session_id = %lease.session_id,
-                    pid = lease.pid,
-                    error = %error,
-                    "Skipped orphan Runtime termination"
-                ),
-            }
-            let reason = format!(
-                "Node restarted while Runtime lease for pid {} was active",
-                lease.pid
-            );
-            let result = match self
-                .current_coordinator_term(&lease.session_id, lease.coordinator_term)
-                .await
-            {
-                Ok(current_term) => {
-                    self.record_and_publish_crash(
-                        &lease.tenant_id,
-                        &lease.session_id,
-                        current_term,
-                        lease.context_epoch,
-                        &reason,
-                    )
-                    .await
-                }
-                Err(error) => Err(error),
-            };
-            if let Err(error) = result {
-                tracing::error!(
-                    session_id = %lease.session_id,
-                    error = %error,
-                    "Runtime lease reconciliation failed"
-                );
-            }
-        }
-    }
-}
-
-#[tonic::async_trait]
-impl NodeControlServiceRpc for NodeControlService {
-    async fn ping(&self, _request: Request<PingRequest>) -> Result<Response<PingResponse>, Status> {
-        let unix_time_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| Status::internal("system clock before unix epoch"))?
-            .as_millis() as i64;
-        Ok(Response::new(PingResponse {
-            node_id: self.node_id.clone(),
-            service_version: env!("CARGO_PKG_VERSION").to_owned(),
-            unix_time_ms,
-        }))
-    }
-
-    async fn dispatch(
+    async fn dispatch_durable(
         &self,
-        request: Request<DispatchRequest>,
+        command: CommandEnvelope,
     ) -> Result<Response<DispatchResponse>, Status> {
-        let command = request
-            .into_inner()
-            .command
-            .ok_or_else(|| Status::invalid_argument("command is required"))?;
-        if !Self::is_valid_session_id(&command.session_id) {
-            return Err(Status::invalid_argument("invalid session_id"));
-        }
-        if command.message_id.is_empty() || command.idempotency_key.is_empty() {
-            return Err(Status::invalid_argument(
-                "message_id and idempotency_key are required",
-            ));
-        }
-
         let previous = self
             .journal
             .command_result(&command.message_id)
@@ -4192,14 +4184,27 @@ impl NodeControlServiceRpc for NodeControlService {
         {
             let mut inflight = self.inflight.lock().await;
             if !inflight.insert(command.message_id.clone()) {
-                let mut acknowledgement = Self::ack(&command.message_id, true, "", "");
-                acknowledgement.duplicate = true;
                 return Ok(Response::new(DispatchResponse {
-                    acknowledgement: Some(acknowledgement),
+                    acknowledgement: Some(Self::ack(
+                        &command.message_id,
+                        false,
+                        "COMMAND_IN_PROGRESS",
+                        "command side effects are still being committed",
+                    )),
                 }));
             }
         }
 
+        let message_id = command.message_id.clone();
+        let result = self.execute_and_commit_dispatch(command).await;
+        self.inflight.lock().await.remove(&message_id);
+        result
+    }
+
+    async fn execute_and_commit_dispatch(
+        &self,
+        command: CommandEnvelope,
+    ) -> Result<Response<DispatchResponse>, Status> {
         if command.command_type == "StopRuntime" {
             self.runtime_monitors
                 .lock()
@@ -4236,7 +4241,6 @@ impl NodeControlServiceRpc for NodeControlService {
         }
         let result = self.execute(&command).await;
         let evidence_request = Self::evidence_request(&command, &result);
-        self.inflight.lock().await.remove(&command.message_id);
         if result.acknowledgement.accepted
             || result.acknowledgement.error_code == "UNSUPPORTED_COMMAND"
         {
@@ -4341,6 +4345,107 @@ impl NodeControlServiceRpc for NodeControlService {
         Ok(Response::new(DispatchResponse {
             acknowledgement: Some(acknowledgement),
         }))
+    }
+
+    async fn reconcile_runtime_leases(&self) {
+        let leases = match self.journal.active_runtime_leases().await {
+            Ok(leases) => leases,
+            Err(error) => {
+                tracing::error!(error = %error, "Failed to read Runtime leases for reconciliation");
+                return;
+            }
+        };
+        for lease in leases {
+            self.runtime_supervisor
+                .ensure_generation_at_least(&lease.session_id, lease.browser_generation)
+                .await;
+            match self
+                .runtime_supervisor
+                .terminate_orphan(lease.pid, lease.process_started_at)
+                .await
+            {
+                Ok(true) => tracing::warn!(
+                    session_id = %lease.session_id,
+                    pid = lease.pid,
+                    "Terminated orphan Runtime during Node reconciliation"
+                ),
+                Ok(false) => {}
+                Err(error) => tracing::warn!(
+                    session_id = %lease.session_id,
+                    pid = lease.pid,
+                    error = %error,
+                    "Skipped orphan Runtime termination"
+                ),
+            }
+            let reason = format!(
+                "Node restarted while Runtime lease for pid {} was active",
+                lease.pid
+            );
+            let result = match self
+                .current_coordinator_term(&lease.session_id, lease.coordinator_term)
+                .await
+            {
+                Ok(current_term) => {
+                    self.record_and_publish_crash(
+                        &lease.tenant_id,
+                        &lease.session_id,
+                        current_term,
+                        lease.context_epoch,
+                        &reason,
+                    )
+                    .await
+                }
+                Err(error) => Err(error),
+            };
+            if let Err(error) = result {
+                tracing::error!(
+                    session_id = %lease.session_id,
+                    error = %error,
+                    "Runtime lease reconciliation failed"
+                );
+            }
+        }
+    }
+}
+
+#[tonic::async_trait]
+impl NodeControlServiceRpc for NodeControlService {
+    async fn ping(&self, _request: Request<PingRequest>) -> Result<Response<PingResponse>, Status> {
+        let unix_time_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| Status::internal("system clock before unix epoch"))?
+            .as_millis() as i64;
+        Ok(Response::new(PingResponse {
+            node_id: self.node_id.clone(),
+            service_version: env!("CARGO_PKG_VERSION").to_owned(),
+            unix_time_ms,
+        }))
+    }
+
+    async fn dispatch(
+        &self,
+        request: Request<DispatchRequest>,
+    ) -> Result<Response<DispatchResponse>, Status> {
+        let command = request
+            .into_inner()
+            .command
+            .ok_or_else(|| Status::invalid_argument("command is required"))?;
+        if !Self::is_valid_session_id(&command.session_id) {
+            return Err(Status::invalid_argument("invalid session_id"));
+        }
+        if command.message_id.is_empty() || command.idempotency_key.is_empty() {
+            return Err(Status::invalid_argument(
+                "message_id and idempotency_key are required",
+            ));
+        }
+
+        let service = self.clone();
+        tokio::spawn(async move { service.dispatch_durable(command).await })
+            .await
+            .map_err(|error| {
+                tracing::error!(error = %error, "Node command execution task failed");
+                Status::internal("node command execution failed")
+            })?
     }
 
     async fn upload_profile_import(
@@ -4905,6 +5010,7 @@ async fn main() -> Result<()> {
         journal,
         require_route_epoch,
         inflight: Arc::new(Mutex::new(HashSet::new())),
+        event_delivery_locks: Arc::new(Mutex::new(HashMap::new())),
         runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
@@ -5250,6 +5356,7 @@ mod tests {
             journal: reopened.clone(),
             require_route_epoch: false,
             inflight: Arc::new(Mutex::new(HashSet::new())),
+            event_delivery_locks: Arc::new(Mutex::new(HashMap::new())),
             runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),

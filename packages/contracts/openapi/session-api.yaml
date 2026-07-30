@@ -476,6 +476,58 @@ paths:
           description: The Session has no migration history.
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/proxy-binding:rebind:
+    post:
+      operationId: rebindSessionProxy
+      summary: Safely restart a Session on a new Proxy Binding
+      description: >
+        Requires a durable Safe Point, checkpoints and stops the Browser, commits the target
+        binding snapshot only after the source allocation is released, restores the Browser,
+        performs State Resync and then validates Business Recovery. This is not an in-place or
+        connection-transparent proxy change.
+      tags: [Session, Proxy]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProxyRebindRequest"
+      responses:
+        "202":
+          description: Durable proxy rebind workflow accepted or idempotently replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyRebindOperation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/proxy-rebind:
+    get:
+      operationId: getLatestSessionProxyRebind
+      summary: Get the latest durable proxy rebind workflow
+      tags: [Session, Proxy]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Latest Safe Point controlled proxy rebind status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyRebind"
+        "204":
+          description: The Session has no proxy rebind history.
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/business-recovery:
     get:
       operationId: getBusinessRecoveryValidation
@@ -4053,7 +4105,7 @@ components:
           type: string
         type:
           type: string
-          enum: [STATIC_HTTP]
+          enum: [STATIC_HTTP, STATIC_HTTP_CATALOG]
         endpoint:
           type: string
         expectedExitIp:
@@ -4062,7 +4114,7 @@ components:
           type: boolean
         state:
           type: string
-          enum: [CONFIGURED, UNCONFIGURED]
+          enum: [CONFIGURED, CATALOG_CONFIGURED, UNCONFIGURED]
     ProxyAllocation:
       type: object
       additionalProperties: false
@@ -4227,6 +4279,84 @@ components:
         total:
           type: integer
           minimum: 0
+    ProxyRebindRequest:
+      type: object
+      additionalProperties: false
+      required: [targetBindingProfileId, reason]
+      properties:
+        targetBindingProfileId:
+          type: string
+          pattern: "^pbind_[A-Za-z0-9]{16,32}$"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 240
+    ProxyRebindOperation:
+      type: object
+      additionalProperties: false
+      required: [workflowId, operationId, phase, createdAt]
+      properties:
+        workflowId:
+          type: string
+          pattern: "^prb_[A-Za-z0-9]{32}$"
+        operationId:
+          type: string
+        phase:
+          type: string
+          enum: [CHECKPOINTING, PLACING_TARGET, RESTORING, TARGET_CLEANUP, STATE_RESYNC,
+                 BUSINESS_VALIDATION, BUSINESS_RECOVERY_ACTION, COMPLETED, DEGRADED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+    ProxyRebind:
+      type: object
+      additionalProperties: false
+      required:
+        [workflowId, sessionId, targetBindingProfileId, targetBindingVersion,
+         phase, requestedBy, reason, requestId, createdAt, updatedAt]
+      properties:
+        workflowId:
+          type: string
+          pattern: "^prb_[A-Za-z0-9]{32}$"
+        sessionId:
+          type: string
+        sourceBindingProfileId:
+          type: [string, "null"]
+        targetBindingProfileId:
+          type: string
+        targetBindingVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        hibernateOperationId:
+          type: [string, "null"]
+        restoreOperationId:
+          type: [string, "null"]
+        resyncRequestId:
+          type: [string, "null"]
+        phase:
+          type: string
+          enum: [CHECKPOINTING, PLACING_TARGET, RESTORING, TARGET_CLEANUP, STATE_RESYNC,
+                 BUSINESS_VALIDATION, BUSINESS_RECOVERY_ACTION, COMPLETED, DEGRADED, FAILED]
+        recoveryResult:
+          type: [string, "null"]
+        failureReason:
+          type: [string, "null"]
+        requestedBy:
+          type: string
+        reason:
+          type: string
+        requestId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
     SessionState:
       type: string
       enum:

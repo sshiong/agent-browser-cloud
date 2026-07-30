@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,6 +16,7 @@ import io.browsercloud.api.OperationResponse;
 import io.browsercloud.api.SafePointModels.SessionSafePointView;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.session.ResourceClass;
@@ -48,6 +50,7 @@ class SessionMigrationApplicationServiceTest {
       mock(BusinessRecoveryActionApplicationService.class);
   private final SessionResourceApplicationService resources =
       mock(SessionResourceApplicationService.class);
+  private final StaticProxyApplicationService proxies = mock(StaticProxyApplicationService.class);
   private final SessionMigrationApplicationService service =
       new SessionMigrationApplicationService(
           migrations,
@@ -61,6 +64,7 @@ class SessionMigrationApplicationServiceTest {
           recoveryService,
           recoveryActions,
           resources,
+          proxies,
           new ObjectMapper());
 
   @Test
@@ -81,6 +85,62 @@ class SessionMigrationApplicationServiceTest {
     order.verify(sessions).requireForUpdate(SESSION_ID);
     order.verify(safePoints).assess(SESSION_ID, TENANT_ID);
     order.verify(sessionService).hibernateForResourcePolicy(SESSION_ID, TENANT_ID);
+  }
+
+  @Test
+  void proxyRebindSnapshotsTargetAndDispatchesCheckpointOnlyAtSafePoint() {
+    var now = Instant.now();
+    var descriptor = mock(SessionDescriptor.class);
+    when(descriptor.region()).thenReturn("singapore");
+    when(migrations.findByTenantIdAndWorkflowTypeAndIdempotencyKey(
+            TENANT_ID, "PROXY_REBIND", "idem-rebind"))
+        .thenReturn(Optional.empty());
+    when(migrations.findFirstBySessionIdAndPhaseInOrderByCreatedAtDesc(any(), any()))
+        .thenReturn(Optional.empty());
+    when(sessions.requireForUpdate(SESSION_ID)).thenReturn(session());
+    when(sessions.describe(SESSION_ID)).thenReturn(descriptor);
+    when(safePoints.assess(SESSION_ID, TENANT_ID))
+        .thenReturn(
+            new SessionSafePointView(
+                SESSION_ID, true, "SAFE", "LIVE", "node-a", 7, now, now, List.of()));
+    when(proxies.validateRebindTarget(SESSION_ID, TENANT_ID, "pbind_target0000000001", "singapore"))
+        .thenReturn(
+            new StaticProxyApplicationService.RebindTargetSnapshot(
+                "pbind_source0000000001", "pbind_target0000000001", 4));
+    when(migrations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(sessionService.hibernateForProxyRebind(SESSION_ID, TENANT_ID, "admin-a"))
+        .thenReturn(new OperationResponse("op_hibernate00000001", OperationState.ACTIVE));
+
+    var response =
+        service.requestProxyRebind(
+            SESSION_ID,
+            TENANT_ID,
+            "admin-a",
+            "pbind_target0000000001",
+            "Move to the approved Singapore exit",
+            "idem-rebind",
+            "req-rebind");
+
+    assertThat(response.workflowId()).startsWith("prb_");
+    assertThat(response.operationId()).isEqualTo("op_hibernate00000001");
+    verify(migrations, atLeastOnce())
+        .save(
+            argThat(
+                workflow ->
+                    workflow.isProxyRebind()
+                        && workflow.getSourceProxyAllocationId().equals("proxy-a")
+                        && workflow
+                            .getTargetProxyBindingProfileId()
+                            .equals("pbind_target0000000001")
+                        && workflow.getTargetProxyBindingVersion() == 4
+                        && workflow.getPhase().equals("CHECKPOINTING")));
+    var order = inOrder(sessions, safePoints, proxies, sessionService);
+    order.verify(sessions).requireForUpdate(SESSION_ID);
+    order.verify(safePoints).assess(SESSION_ID, TENANT_ID);
+    order
+        .verify(proxies)
+        .validateRebindTarget(SESSION_ID, TENANT_ID, "pbind_target0000000001", "singapore");
+    order.verify(sessionService).hibernateForProxyRebind(SESSION_ID, TENANT_ID, "admin-a");
   }
 
   @Test
@@ -130,6 +190,76 @@ class SessionMigrationApplicationServiceTest {
     verify(resources)
         .recordMigrationPhase(
             SESSION_ID, migration.getMigrationId(), "COMPLETED", "READY", true, true);
+  }
+
+  @Test
+  void proxyRebindCommitsAssignmentOnlyAfterHibernateThenPrefersSourceNodeForRestore() {
+    var now = Instant.now();
+    var workflow =
+        io.browsercloud.persistence.SessionMigrationEntity.proxyRebind(
+            "prb_1234567890abcdef",
+            SESSION_ID,
+            TENANT_ID,
+            "node-a",
+            7,
+            "proxy-a",
+            "pbind_source0000000001",
+            "pbind_target0000000001",
+            4,
+            "admin-a",
+            "Approved network change",
+            "idem-rebind",
+            "req-rebind",
+            now);
+    workflow.hibernateDispatched("op_hibernate00000001", now);
+    var descriptor = mock(SessionDescriptor.class);
+    when(descriptor.region()).thenReturn("singapore");
+    var profile = mock(io.browsercloud.api.ProfileView.class);
+    when(profile.latestCheckpointId()).thenReturn("checkpoint-a");
+    var placement = mock(io.browsercloud.api.BrowserPlacementView.class);
+    when(placement.nodeId()).thenReturn("node-a");
+    var hibernated = session(SessionState.HIBERNATED, "node-a");
+    var rebound = hibernated.withProxyBinding(null);
+    var restored =
+        session(SessionState.RUNNING, "node-a").nextContextEpoch("node-a", "runtime-a", 2);
+    when(migrations.findById(workflow.getMigrationId())).thenReturn(Optional.of(workflow));
+    when(sessions.require(SESSION_ID)).thenReturn(hibernated, restored);
+    when(sessions.describe(SESSION_ID)).thenReturn(descriptor);
+    when(profiles.get(TENANT_ID, "profile-a")).thenReturn(profile);
+    when(proxies.commitRebindAfterHibernate(
+            SESSION_ID,
+            TENANT_ID,
+            "pbind_target0000000001",
+            4,
+            "admin-a",
+            "req-rebind",
+            workflow.getMigrationId(),
+            "singapore"))
+        .thenReturn(rebound);
+    when(capacity.reserveRestartTarget(rebound, "singapore", "node-a")).thenReturn(placement);
+    when(sessionService.start(SESSION_ID, TENANT_ID, "system:proxy-rebind"))
+        .thenReturn(new OperationResponse("op_restore000000001", OperationState.ACTIVE));
+
+    service.reconcile(workflow.getMigrationId());
+
+    assertThat(workflow.getPhase()).isEqualTo("RESTORING");
+    assertThat(workflow.getTargetNodeId()).isEqualTo("node-a");
+    assertThat(workflow.getCheckpointId()).isEqualTo("checkpoint-a");
+    assertThat(workflow.getRestoreOperationId()).isEqualTo("op_restore000000001");
+    var order = inOrder(proxies, capacity, sessionService);
+    order
+        .verify(proxies)
+        .commitRebindAfterHibernate(
+            SESSION_ID,
+            TENANT_ID,
+            "pbind_target0000000001",
+            4,
+            "admin-a",
+            "req-rebind",
+            workflow.getMigrationId(),
+            "singapore");
+    order.verify(capacity).reserveRestartTarget(rebound, "singapore", "node-a");
+    order.verify(sessionService).start(SESSION_ID, TENANT_ID, "system:proxy-rebind");
   }
 
   @Test

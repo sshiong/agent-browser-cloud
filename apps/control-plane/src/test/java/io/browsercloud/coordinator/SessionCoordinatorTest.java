@@ -11,6 +11,7 @@ import io.browsercloud.domain.operation.*;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
+import io.browsercloud.proto.node.v1.StartRuntimeCommand;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Optional;
@@ -35,6 +36,7 @@ class SessionCoordinatorTest {
   @Mock private CoordinatorOwnershipService ownershipService;
 
   @Mock private RuntimeResourceLimitsRepository resourceLimitsRepository;
+  @Mock private ProxyRuntimeBindingRepository proxyBindingRepository;
   @Mock private CoordinatorRouteAuthority routeAuthority;
   @Mock private CoordinatorShardLocality shardLocality;
 
@@ -53,6 +55,7 @@ class SessionCoordinatorTest {
             ownershipService,
             new CoordinatorReconciliationMetrics(meterRegistry),
             resourceLimitsRepository,
+            proxyBindingRepository,
             routeAuthority,
             shardLocality);
     lenient().when(shardLocality.owns(anyInt())).thenReturn(true);
@@ -90,6 +93,33 @@ class SessionCoordinatorTest {
     assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
     verify(operationRepository).insert(any(ExclusiveOperation.class));
     verify(nodeCommandGateway).send(any(NodeCommand.class));
+  }
+
+  @Test
+  void shouldDeliverTheCommittedNonSecretProxyDescriptorToTheNode() throws Exception {
+    var session =
+        createSession("ses-1", SessionState.CREATED).withProxyBinding("pxy_provider_binding");
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(1L);
+    when(proxyBindingRepository.find("ses-1", "pxy_provider_binding"))
+        .thenReturn(
+            Optional.of(
+                new ProxyRuntimeBinding(
+                    "pxy_provider_binding",
+                    "provider-a",
+                    "203.0.113.10",
+                    "vault://tenant-test/proxy/a")));
+
+    var result = coordinator.handle(new StartSession("ses-1", "runtime-1", "idem-proxy"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    var command = org.mockito.ArgumentCaptor.forClass(NodeCommand.class);
+    verify(nodeCommandGateway).send(command.capture());
+    var payload = StartRuntimeCommand.parseFrom(command.getValue().payload());
+    assertThat(payload.getProxyBindingId()).isEqualTo("pxy_provider_binding");
+    assertThat(payload.getProxyProviderId()).isEqualTo("provider-a");
+    assertThat(payload.getProxyExpectedExitIp()).isEqualTo("203.0.113.10");
+    assertThat(payload.getProxyCredentialRef()).isEqualTo("vault://tenant-test/proxy/a");
   }
 
   @Test

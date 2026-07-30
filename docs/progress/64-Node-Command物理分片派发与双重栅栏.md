@@ -2,7 +2,7 @@
 
 > 完成日期：2026-07-29
 > 状态：仓库内实现与完整故障切换集成已通过；Session Coordinator 入口的物理
-> shard-specific Pod 路由和目标集群长稳仍待完成
+> Owner 路由后续已由进度 83 完成，目标集群长稳仍待完成
 
 ## 本轮关闭的缺口
 
@@ -121,7 +121,8 @@ Lease 新鲜度：
 ## 仍需完成
 
 1. 当前关闭的是 **Node Command Outbox 的物理分片派发**；HTTP/API、Timer、Workflow
-   等 Session Coordinator 命令仍未被强制路由到 shard-specific Pod；
+   等 Session Coordinator 命令的物理 Owner 路由后续已由
+   [进度 83](83-Session-Coordinator物理Shard命令路由闭环.md)完成；
 2. 双/多 Control Plane、热点 Tenant、大量 Shard、数据库高延迟、Pod 抖动和滚动升级的
    长时间容量/公平性证书；
 3. 目标 Kubernetes 集群上的跨 Pod gRPC、CNI 单向分区、时钟偏差和 Claim Lease

@@ -1,8 +1,9 @@
 package io.browsercloud.application;
 
-import io.browsercloud.coordinator.OperationTimedOut;
-import io.browsercloud.coordinator.SessionCoordinator;
+import static io.browsercloud.application.CoordinatorCommandPayloads.*;
+
 import io.browsercloud.infrastructure.ExclusiveOperationJpaRepository;
+import java.time.Duration;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,12 +19,12 @@ public class ExclusiveOperationDeadlineScanner {
       LoggerFactory.getLogger(ExclusiveOperationDeadlineScanner.class);
 
   private final ExclusiveOperationJpaRepository operations;
-  private final SessionCoordinator coordinator;
+  private final CoordinatorCommandRoutingService commandRouting;
 
   public ExclusiveOperationDeadlineScanner(
-      ExclusiveOperationJpaRepository operations, SessionCoordinator coordinator) {
+      ExclusiveOperationJpaRepository operations, CoordinatorCommandRoutingService commandRouting) {
     this.operations = operations;
-    this.coordinator = coordinator;
+    this.commandRouting = commandRouting;
   }
 
   @Scheduled(fixedDelayString = "${operation.deadline-scan-interval-ms:1000}")
@@ -31,10 +32,14 @@ public class ExclusiveOperationDeadlineScanner {
     for (var operation :
         operations.findExpiredWithoutWorkflow(Instant.now(), PageRequest.of(0, 100))) {
       try {
-        coordinator.handle(
-            new OperationTimedOut(operation.getSessionId(), operation.getOperationId()));
+        commandRouting.enqueueAsync(
+            operation.getSessionId(),
+            OPERATION_TIMEOUT,
+            "operation-timeout:" + operation.getOperationId(),
+            new OperationTimeout(operation.getOperationId()),
+            Duration.ofMinutes(5));
       } catch (RuntimeException exception) {
-        log.warn("Operation {} timeout processing failed", operation.getOperationId(), exception);
+        log.warn("Operation {} timeout routing failed", operation.getOperationId(), exception);
       }
     }
   }

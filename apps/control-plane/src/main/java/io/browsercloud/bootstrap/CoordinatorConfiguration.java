@@ -3,6 +3,7 @@ package io.browsercloud.bootstrap;
 import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.CoordinatorReconciliationMetrics;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
+import io.browsercloud.coordinator.CoordinatorShardLocality;
 import io.browsercloud.coordinator.NodeCommandGateway;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.OutboxPublisher;
@@ -26,7 +27,8 @@ public class CoordinatorConfiguration {
       CoordinatorOwnershipService ownershipService,
       CoordinatorReconciliationMetrics reconciliationMetrics,
       RuntimeResourceLimitsRepository resourceLimitsRepository,
-      CoordinatorRouteAuthority routeAuthority) {
+      CoordinatorRouteAuthority routeAuthority,
+      CoordinatorShardLocality shardLocality) {
     return new SessionCoordinator(
         sessionRepository,
         operationRepository,
@@ -35,7 +37,8 @@ public class CoordinatorConfiguration {
         ownershipService,
         reconciliationMetrics,
         resourceLimitsRepository,
-        routeAuthority);
+        routeAuthority,
+        shardLocality);
   }
 
   @Bean

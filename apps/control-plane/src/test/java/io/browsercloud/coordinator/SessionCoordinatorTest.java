@@ -36,6 +36,7 @@ class SessionCoordinatorTest {
 
   @Mock private RuntimeResourceLimitsRepository resourceLimitsRepository;
   @Mock private CoordinatorRouteAuthority routeAuthority;
+  @Mock private CoordinatorShardLocality shardLocality;
 
   private SessionCoordinator coordinator;
   private SimpleMeterRegistry meterRegistry;
@@ -52,13 +53,27 @@ class SessionCoordinatorTest {
             ownershipService,
             new CoordinatorReconciliationMetrics(meterRegistry),
             resourceLimitsRepository,
-            routeAuthority);
+            routeAuthority,
+            shardLocality);
+    lenient().when(shardLocality.owns(anyInt())).thenReturn(true);
     lenient()
         .when(routeAuthority.resolve(anyString()))
         .thenAnswer(
             invocation ->
                 new CoordinatorRouteAuthority.SessionRoute(
                     invocation.getArgument(0), "tenant-test", 1, 0, 0));
+  }
+
+  @Test
+  void rejectsLifecycleCommandOnNonOwningPhysicalShard() {
+    when(shardLocality.owns(0)).thenReturn(false);
+
+    assertThatThrownBy(() -> coordinator.handle(new StartSession("ses-1", "runtime-1", "idem-1")))
+        .isInstanceOf(SessionCoordinator.CoordinatorShardNotLocalException.class)
+        .hasMessageContaining("COORDINATOR_SHARD_NOT_LOCAL");
+
+    verify(sessionRepository, never()).lockForUpdate(anyString());
+    verify(ownershipService, never()).acquireSession(anyString(), anyLong());
   }
 
   @Test

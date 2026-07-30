@@ -1,5 +1,6 @@
 package io.browsercloud.infrastructure;
 
+import io.browsercloud.coordinator.CoordinatorShardLocality;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * worker crashes recoverable.
  */
 @Service
-public class NodeCommandDispatchClaimService {
+public class NodeCommandDispatchClaimService implements CoordinatorShardLocality {
 
   private static final int BATCH_SIZE = 100;
 
@@ -104,6 +105,42 @@ public class NodeCommandDispatchClaimService {
         """,
         parameters,
         (resultSet, rowNumber) -> resultSet.getString("event_id"));
+  }
+
+  /**
+   * Returns whether this physical Control Plane worker currently owns the supplied logical Shard.
+   *
+   * <p>The heartbeat and selection happen in one transaction so an API request cannot choose a
+   * worker that has not made itself visible to the same PostgreSQL authority used by background
+   * claims.
+   */
+  @Transactional
+  public boolean ownsShard(int shardId, Instant now) {
+    heartbeat(now);
+    var selected =
+        jdbc.query(
+            """
+            SELECT worker.worker_id
+              FROM coordinator_dispatch_workers worker
+             WHERE worker.lease_until >= :now
+             ORDER BY
+               hashtextextended(worker.worker_id || ':' || CAST(:shardId AS text), 0) DESC,
+               worker.worker_id
+             LIMIT 1
+            """,
+            Map.of("now", Timestamp.from(now), "shardId", shardId),
+            (resultSet, rowNumber) -> resultSet.getString("worker_id"));
+    return !selected.isEmpty() && workerId.equals(selected.getFirst());
+  }
+
+  @Override
+  public boolean owns(int shardId) {
+    return ownsShard(shardId, Instant.now());
+  }
+
+  @Transactional
+  public void heartbeatWorker(Instant now) {
+    heartbeat(now);
   }
 
   private void heartbeat(Instant now) {

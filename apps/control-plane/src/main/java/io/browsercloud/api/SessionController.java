@@ -1,7 +1,9 @@
 package io.browsercloud.api;
 
 import static io.browsercloud.api.SessionResourceModels.*;
+import static io.browsercloud.application.CoordinatorCommandPayloads.*;
 
+import io.browsercloud.application.CoordinatorCommandRoutingService;
 import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SessionApplicationService;
 import io.browsercloud.application.SessionEvidenceApplicationService;
@@ -48,6 +50,7 @@ public class SessionController {
   private final SessionMigrationApplicationService migrationService;
   private final SessionResourceEventStreamService resourceEventStream;
   private final SessionEvidenceApplicationService evidenceService;
+  private final CoordinatorCommandRoutingService commandRouting;
 
   public SessionController(
       SessionApplicationService service,
@@ -58,7 +61,8 @@ public class SessionController {
       SessionSafetyLeaseApplicationService safetyLeaseService,
       SessionMigrationApplicationService migrationService,
       SessionResourceEventStreamService resourceEventStream,
-      SessionEvidenceApplicationService evidenceService) {
+      SessionEvidenceApplicationService evidenceService,
+      CoordinatorCommandRoutingService commandRouting) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
@@ -68,6 +72,7 @@ public class SessionController {
     this.migrationService = migrationService;
     this.resourceEventStream = resourceEventStream;
     this.evidenceService = evidenceService;
+    this.commandRouting = commandRouting;
   }
 
   /**
@@ -107,10 +112,19 @@ public class SessionController {
   @PostMapping("/{sessionId}:start")
   @PreAuthorize(PlatformRoles.OPERATE)
   public ResponseEntity<OperationResponse> start(
-      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      HttpServletRequest request) {
     var principal = identity.current();
     return ResponseEntity.accepted()
-        .body(service.start(sessionId, principal.tenantId(), principal.actorId()));
+        .body(
+            commandRouting.execute(
+                sessionId,
+                principal.tenantId(),
+                SESSION_START,
+                requestId(request),
+                new SessionActor(principal.tenantId(), principal.actorId()),
+                OperationResponse.class,
+                () -> service.start(sessionId, principal.tenantId(), principal.actorId())));
   }
 
   /**
@@ -122,30 +136,59 @@ public class SessionController {
   @PostMapping("/{sessionId}:terminate")
   @PreAuthorize(PlatformRoles.OPERATE)
   public ResponseEntity<OperationResponse> terminate(
-      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      HttpServletRequest request) {
     var principal = identity.current();
     return ResponseEntity.accepted()
-        .body(service.terminate(sessionId, principal.tenantId(), principal.actorId()));
+        .body(
+            commandRouting.execute(
+                sessionId,
+                principal.tenantId(),
+                SESSION_TERMINATE,
+                requestId(request),
+                new SessionActor(principal.tenantId(), principal.actorId()),
+                OperationResponse.class,
+                () -> service.terminate(sessionId, principal.tenantId(), principal.actorId())));
   }
 
   /** 获取排他人工接管权，并在 Browser Node 建立输入释放屏障。 */
   @PostMapping("/{sessionId}:takeover")
   @PreAuthorize(PlatformRoles.OPERATE)
   public ResponseEntity<OperationResponse> requestTakeover(
-      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      HttpServletRequest request) {
     var principal = identity.current();
     return ResponseEntity.accepted()
-        .body(service.requestTakeover(sessionId, principal.tenantId(), principal.actorId()));
+        .body(
+            commandRouting.execute(
+                sessionId,
+                principal.tenantId(),
+                SESSION_TAKEOVER,
+                requestId(request),
+                new SessionActor(principal.tenantId(), principal.actorId()),
+                OperationResponse.class,
+                () ->
+                    service.requestTakeover(sessionId, principal.tenantId(), principal.actorId())));
   }
 
   /** 释放人工接管权；完成 All-keys-up 和 State Resync 后 Operation 才会提交。 */
   @PostMapping("/{sessionId}:release-takeover")
   @PreAuthorize(PlatformRoles.OPERATE)
   public ResponseEntity<OperationResponse> releaseTakeover(
-      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      HttpServletRequest request) {
     var principal = identity.current();
     return ResponseEntity.accepted()
-        .body(service.releaseTakeover(sessionId, principal.tenantId(), principal.actorId()));
+        .body(
+            commandRouting.execute(
+                sessionId,
+                principal.tenantId(),
+                SESSION_RELEASE_TAKEOVER,
+                requestId(request),
+                new SessionActor(principal.tenantId(), principal.actorId()),
+                OperationResponse.class,
+                () ->
+                    service.releaseTakeover(sessionId, principal.tenantId(), principal.actorId())));
   }
 
   /** 为当前 HumanTakeover Actor 签发短期、单次使用的 noVNC 数据面票据。 */
@@ -324,5 +367,9 @@ public class SessionController {
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return service.list(identity.current().tenantId(), state, query, limit, offset);
+  }
+
+  private static String requestId(HttpServletRequest request) {
+    return String.valueOf(request.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE));
   }
 }

@@ -148,5 +148,7 @@
    [进度 68](68-AUTO成功Trace动态采样闭环.md)关闭。
 2. 接入目标站点支付/账号安全/关键事务 Adapter 和 Provider 级恢复证明。
 3. 增加 State/Audit 统一事件流和跨 Region Event Bus。
-4. 完成 Session Coordinator HTTP/Timer/Workflow 的物理 Shard Pod 路由。
+4. Session Coordinator HTTP/Timer/Workflow 的物理 Shard Owner 路由已由
+   [进度 83](83-Session-Coordinator物理Shard命令路由闭环.md)关闭；继续完成其目标
+   集群长稳、指标告警和跨 Region Gate。
 5. 执行目标 Linux/云压力、成本校准、HumanTakeover 与危险事件长稳矩阵。

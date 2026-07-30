@@ -889,6 +889,24 @@ for invariant in (
 ):
     assert invariant in proxy_binding_upper
 
+routed_command_migration = read(
+    "database/migrations/V058__routed_coordinator_command_inbox.sql"
+)
+routed_command_upper = routed_command_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in routed_command_upper
+for invariant in (
+    "CREATE TABLE COORDINATOR_COMMANDS",
+    "UNIQUE (TENANT_ID, DEDUPLICATION_KEY)",
+    "FOREIGN KEY (SESSION_ID, TENANT_ID)",
+    "REFERENCES SESSIONS(ID, TENANT_ID)",
+    "ON DELETE CASCADE NOT VALID",
+    "'PENDING', 'EXECUTING', 'COMMITTED', 'FAILED'",
+    "VALIDATE CONSTRAINT COORDINATOR_COMMANDS_SESSION_FK",
+    "CREATE INDEX IDX_COORDINATOR_COMMANDS_READY",
+):
+    assert invariant in routed_command_upper
+
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
 )[1].split("    RecoveryContract:", 1)[0]
@@ -924,10 +942,10 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V057 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V058 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
-    "rolling": "leased-rendezvous-shard-dispatch,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
+    "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
 print(

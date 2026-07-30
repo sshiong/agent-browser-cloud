@@ -126,4 +126,6 @@ REQUESTED
    Resource Class 列只作为 N−1 滚动兼容保留，后续破坏性版本再删除；
 3. 目标云真实费率、账单校准、租户预算来源和长期成本准确性证书；
 4. 成本越界后的低成本 Node 选择与安全点迁移需要目标多 Node/多 Region 验收；
-5. Session Coordinator HTTP/Timer/Workflow 物理 Shard Pod 路由仍未完成。
+5. Session Coordinator HTTP/Timer/Workflow 物理 Shard Owner 路由已由
+   [进度 83](83-Session-Coordinator物理Shard命令路由闭环.md)关闭；目标集群长稳和
+   指标告警仍待完成。

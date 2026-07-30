@@ -43,6 +43,7 @@ public final class SessionCoordinator {
   private final CoordinatorReconciliationMetrics reconciliationMetrics;
   private final RuntimeResourceLimitsRepository resourceLimitsRepository;
   private final CoordinatorRouteAuthority routeAuthority;
+  private final CoordinatorShardLocality shardLocality;
 
   public SessionCoordinator(
       SessionRepository sessionRepository,
@@ -52,7 +53,8 @@ public final class SessionCoordinator {
       CoordinatorOwnershipService ownershipService,
       CoordinatorReconciliationMetrics reconciliationMetrics,
       RuntimeResourceLimitsRepository resourceLimitsRepository,
-      CoordinatorRouteAuthority routeAuthority) {
+      CoordinatorRouteAuthority routeAuthority,
+      CoordinatorShardLocality shardLocality) {
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.nodeCommandGateway = nodeCommandGateway;
@@ -61,6 +63,29 @@ public final class SessionCoordinator {
     this.reconciliationMetrics = reconciliationMetrics;
     this.resourceLimitsRepository = resourceLimitsRepository;
     this.routeAuthority = routeAuthority;
+    this.shardLocality = shardLocality;
+  }
+
+  /** Compatibility constructor for isolated domain tests without physical worker membership. */
+  public SessionCoordinator(
+      SessionRepository sessionRepository,
+      OperationRepository operationRepository,
+      NodeCommandGateway nodeCommandGateway,
+      OutboxPublisher outboxPublisher,
+      CoordinatorOwnershipService ownershipService,
+      CoordinatorReconciliationMetrics reconciliationMetrics,
+      RuntimeResourceLimitsRepository resourceLimitsRepository,
+      CoordinatorRouteAuthority routeAuthority) {
+    this(
+        sessionRepository,
+        operationRepository,
+        nodeCommandGateway,
+        outboxPublisher,
+        ownershipService,
+        reconciliationMetrics,
+        resourceLimitsRepository,
+        routeAuthority,
+        ignored -> true);
   }
 
   /**
@@ -71,6 +96,10 @@ public final class SessionCoordinator {
    */
   public CoordinatorResult handle(SessionCommand command) {
     var route = routeAuthority.resolve(command.sessionId());
+    if (!(command instanceof NodeEventReceived) && !shardLocality.owns(route.shardId())) {
+      throw new CoordinatorShardNotLocalException(
+          command.sessionId(), route.routeEpoch(), route.shardId());
+    }
     // Keep the global lock order aligned with route migration:
     // Session row -> Coordinator ownership. Handler-specific lookups reuse this row lock.
     sessionRepository.lockForUpdate(command.sessionId());
@@ -97,6 +126,12 @@ public final class SessionCoordinator {
       case OperationTimedOut timeout -> handleTimeout(timeout);
       default -> CoordinatorResult.rejected("UNSUPPORTED_COMMAND");
     };
+  }
+
+  public static final class CoordinatorShardNotLocalException extends RuntimeException {
+    public CoordinatorShardNotLocalException(String sessionId, long routeEpoch, int shardId) {
+      super("COORDINATOR_SHARD_NOT_LOCAL:" + sessionId + ":" + routeEpoch + ":" + shardId);
+    }
   }
 
   /**

@@ -11,6 +11,7 @@ import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.SessionMigrationEntity;
 import io.browsercloud.persistence.SessionMigrationJpaRepository;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -147,6 +148,28 @@ public class SessionMigrationApplicationService {
       case "BUSINESS_VALIDATION" -> validateBusinessRecovery(migration);
       case "BUSINESS_RECOVERY_ACTION" -> recoveryActions.reconcile(migration);
       default -> {}
+    }
+  }
+
+  /**
+   * Routed scheduler entry. Rejections and the ten-minute phase budget are committed inside the
+   * same transaction instead of escaping through a transactional proxy and marking the command
+   * transaction rollback-only.
+   */
+  @Transactional
+  public void reconcileRouted(String migrationId, Instant observedAt) {
+    try {
+      reconcile(migrationId);
+    } catch (MigrationRejectedException exception) {
+      fail(migrationId, exception.getMessage());
+    } catch (RuntimeException exception) {
+      var migration = migrations.findById(migrationId).orElse(null);
+      if (migration != null
+          && Duration.between(migration.getUpdatedAt(), observedAt).toMinutes() >= 10) {
+        fail(migrationId, "MIGRATION_PHASE_TIMEOUT");
+        return;
+      }
+      throw exception;
     }
   }
 

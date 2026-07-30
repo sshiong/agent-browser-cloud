@@ -1,8 +1,9 @@
 package io.browsercloud.application;
 
-import io.browsercloud.coordinator.OperationTimedOut;
-import io.browsercloud.coordinator.SessionCoordinator;
+import static io.browsercloud.application.CoordinatorCommandPayloads.*;
+
 import io.browsercloud.persistence.DurableWorkflowJpaRepository;
+import java.time.Duration;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,49 +18,27 @@ public class DurableWorkflowDeadlineScanner {
   private static final Logger log = LoggerFactory.getLogger(DurableWorkflowDeadlineScanner.class);
 
   private final DurableWorkflowJpaRepository repository;
-  private final DurableWorkflowApplicationService workflowService;
-  private final SessionCoordinator coordinator;
-  private final StaticProxyApplicationService proxyService;
+  private final CoordinatorCommandRoutingService commandRouting;
 
   public DurableWorkflowDeadlineScanner(
-      DurableWorkflowJpaRepository repository,
-      DurableWorkflowApplicationService workflowService,
-      SessionCoordinator coordinator,
-      StaticProxyApplicationService proxyService) {
+      DurableWorkflowJpaRepository repository, CoordinatorCommandRoutingService commandRouting) {
     this.repository = repository;
-    this.workflowService = workflowService;
-    this.coordinator = coordinator;
-    this.proxyService = proxyService;
+    this.commandRouting = commandRouting;
   }
 
   @Scheduled(fixedDelayString = "${workflow.deadline-scan-interval-ms:1000}")
   public void scan() {
     for (var candidate : repository.findExpired(Instant.now(), PageRequest.of(0, 100))) {
       try {
-        var decision = workflowService.timeout(candidate, "PHASE_DEADLINE_EXCEEDED");
-        if (!decision.timedOut()) {
-          continue;
-        }
-        var workflow = decision.workflow();
-        coordinator.handle(
-            new OperationTimedOut(workflow.getSessionId(), workflow.getOperationId()));
-        if ("RELEASE_PROXY".equals(workflow.getCompensationAction())) {
-          proxyService.release(workflow.getSessionId());
-          workflowService.markCompensated(workflow, "proxy-released");
-        } else {
-          workflowService.deadLetter(workflow, "NO_SAFE_AUTOMATIC_COMPENSATION");
-        }
+        commandRouting.enqueueAsync(
+            candidate.getSessionId(),
+            WORKFLOW_TIMEOUT,
+            "workflow-timeout:" + candidate.getWorkflowId(),
+            new WorkflowTimeout(candidate.getWorkflowId()),
+            Duration.ofMinutes(5));
       } catch (RuntimeException exception) {
         log.warn(
-            "Durable workflow {} timeout processing failed", candidate.getWorkflowId(), exception);
-        try {
-          workflowService.deadLetter(candidate, "COMPENSATION_FAILED");
-        } catch (RuntimeException deadLetterFailure) {
-          log.error(
-              "Durable workflow {} could not enter DLQ",
-              candidate.getWorkflowId(),
-              deadLetterFailure);
-        }
+            "Durable workflow {} timeout routing failed", candidate.getWorkflowId(), exception);
       }
     }
   }

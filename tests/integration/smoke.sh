@@ -43,6 +43,7 @@ minio_secret_key="browsercloud-integration-secret"
 minio_bucket="profile-checkpoints"
 temp_dir="$(mktemp -d)"
 control_pid=""
+control_b_pid=""
 node_pid=""
 node_b_pid=""
 node_c_pid=""
@@ -84,6 +85,7 @@ node_private_key_path="$temp_dir/node.key"
 cleanup() {
   exit_code=$?
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
+  if [[ -n "$control_b_pid" ]]; then kill "$control_b_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
   if [[ -n "$node_b_pid" ]]; then kill "$node_b_pid" 2>/dev/null || true; fi
   if [[ -n "$node_c_pid" ]]; then kill "$node_c_pid" 2>/dev/null || true; fi
@@ -139,6 +141,7 @@ cleanup() {
     grep -E 'Runtime health|Chromium runtime|orphan Runtime|Node reconciliation|Browser crash' \
       "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/control-plane.log" 2>/dev/null || true
+    tail -n 240 "$temp_dir/control-plane-b.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/browser-node-b.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/browser-node-c.log" 2>/dev/null || true
@@ -182,7 +185,9 @@ node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); prin
 node_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 node_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+control_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+event_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
@@ -551,6 +556,25 @@ test "$(<"$temp_dir/sharded-dispatch-upgrade.txt")" = "2:2:2"
 docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
   -U browsercloud -d browsercloud \
   -c 'DROP SCHEMA sharded_dispatch_upgrade_test CASCADE;' >/dev/null
+
+{
+  printf '%s\n' \
+    'CREATE SCHEMA routed_command_upgrade_test;' \
+    'SET search_path TO routed_command_upgrade_test;' \
+    'CREATE TABLE sessions (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL);' \
+    'CREATE UNIQUE INDEX uq_sessions_id_tenant ON sessions(id, tenant_id);' \
+    "INSERT INTO sessions VALUES ('ses_legacy1234567890', 'tenant-legacy');"
+  sed -n '1,$p' database/migrations/V058__routed_coordinator_command_inbox.sql
+  printf '%s\n' \
+    "INSERT INTO coordinator_commands(command_id, tenant_id, session_id, route_epoch, coordinator_shard_id, command_type, deduplication_key, payload, deadline_at) VALUES ('ccmd_upgrade1234567890', 'tenant-legacy', 'ses_legacy1234567890', 1, 7, 'SESSION_START_V1', 'start:legacy-request', '{\"tenantId\":\"tenant-legacy\",\"actorId\":\"upgrade-test\"}', now() + interval '1 minute');" \
+    "INSERT INTO sessions VALUES ('ses_nminusone123456', 'tenant-legacy');" \
+    "SELECT (SELECT count(*) FROM coordinator_commands) || ':' || (SELECT count(*) FROM sessions);"
+} | docker exec -i "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud >"$temp_dir/routed-command-upgrade.txt"
+test "$(<"$temp_dir/routed-command-upgrade.txt")" = "1:2"
+docker exec "$postgres_name" psql -qAt -v ON_ERROR_STOP=1 \
+  -U browsercloud -d browsercloud \
+  -c 'DROP SCHEMA routed_command_upgrade_test CASCADE;' >/dev/null
 
 mkdir -p "$temp_dir/pressure"
 for pressure_resource in memory cpu io; do
@@ -1570,6 +1594,153 @@ test "$tenant_virtual_partition" -lt 8
 test "$tenant_shard_id" -ge 0
 test "$tenant_shard_id" -lt 16
 
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/profiles" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-routing-integration' \
+  -H 'X-Actor-Id: routed-command-probe' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"profileId":"profile-routed-command","name":"Routed command probe"}' \
+  >"$temp_dir/routed-command-profile.json"
+routed_session_request='{"tenantId":"tenant-routing-integration","profileId":"profile-routed-command","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"requestedTabs":1,"agentActionsPerMinute":10,"metadata":{"displayName":"Routed command probe"}}'
+routed_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-routing-integration' \
+  -H 'Idempotency-Key: smoke-routed-command-session-001' \
+  -d "$routed_session_request")"
+routed_session_id="$(printf '%s' "$routed_session" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+routed_route_db="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select route_epoch || ':' || shard_id from coordinator_session_routes
+    where session_id='${routed_session_id}'")"
+IFS=: read -r routed_route_epoch routed_shard_id <<<"$routed_route_db"
+
+DATABASE_URL="jdbc:postgresql://localhost:${postgres_port}/browsercloud" \
+DATABASE_USER=browsercloud \
+DATABASE_PASSWORD=browsercloud \
+REDIS_HOST=localhost \
+REDIS_PORT="$redis_port" \
+BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
+CONTROL_PLANE_NODE_EVENT_PORT="$event_b_port" \
+GRPC_TLS_ENABLED=true \
+GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
+GRPC_TLS_KEY="$temp_dir/control-plane.key" \
+BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
+STATIC_PROXY_ENDPOINT="http://127.0.0.1:${proxy_port}" \
+STATIC_PROXY_EXPECTED_EXIT_IP="203.0.113.10" \
+COORDINATOR_INSTANCE_ID=coordinator-integration-b \
+COORDINATOR_LEASE_SECONDS=3 \
+AGENT_EXECUTOR_LEASE_SECONDS=2 \
+RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
+SERVER_PORT="$control_b_port" \
+  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  >"$temp_dir/control-plane-b.log" 2>&1 &
+control_b_pid=$!
+
+control_b_health=""
+for _ in $(seq 1 90); do
+  control_b_health="$(curl -fsS \
+    "http://localhost:${control_b_port}/actuator/health" 2>/dev/null || true)"
+  if printf '%s' "$control_b_health" | grep -q '"status":"UP"'; then break; fi
+  if ! kill -0 "$control_b_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.5
+done
+printf '%s' "$control_b_health" | grep -q '"status":"UP"'
+
+active_coordinator_workers=""
+for _ in $(seq 1 40); do
+  active_coordinator_workers="$(docker exec "$postgres_name" psql \
+    -U browsercloud -d browsercloud -Atc \
+    "select count(*) from coordinator_dispatch_workers where lease_until >= now()")"
+  if [[ "$active_coordinator_workers" = "2" ]]; then break; fi
+  sleep 0.25
+done
+test "$active_coordinator_workers" = "2"
+
+routed_owner="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select worker_id
+     from coordinator_dispatch_workers
+    where lease_until >= now()
+    order by hashtextextended(worker_id || ':' || '${routed_shard_id}', 0) desc, worker_id
+    limit 1")"
+if [[ "$routed_owner" = "coordinator-integration-a" ]]; then
+  routed_non_owner_port="$control_b_port"
+else
+  test "$routed_owner" = "coordinator-integration-b"
+  routed_non_owner_port="$control_port"
+fi
+
+routed_start="$(curl -fsS -X POST \
+  "http://localhost:${routed_non_owner_port}/api/v1/sessions/${routed_session_id}:start" \
+  -H 'X-Tenant-Id: tenant-routing-integration' \
+  -H 'X-Actor-Id: routed-command-probe')"
+routed_start_operation="$(printf '%s' "$routed_start" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+routed_session_state=""
+for _ in $(seq 1 80); do
+  routed_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${routed_session_id}" \
+    -H 'X-Tenant-Id: tenant-routing-integration')"
+  if printf '%s' "$routed_session_state" | python3 -c \
+    'import json,sys; raise SystemExit(0 if json.load(sys.stdin)["state"] == "RUNNING" else 1)'; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$routed_session_state" | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["state"] == "RUNNING"'
+
+routed_terminate="$(curl -fsS -X POST \
+  "http://localhost:${routed_non_owner_port}/api/v1/sessions/${routed_session_id}:terminate" \
+  -H 'X-Tenant-Id: tenant-routing-integration' \
+  -H 'X-Actor-Id: routed-command-probe')"
+routed_terminate_operation="$(printf '%s' "$routed_terminate" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["operationId"])')"
+for _ in $(seq 1 80); do
+  routed_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${routed_session_id}" \
+    -H 'X-Tenant-Id: tenant-routing-integration')"
+  if printf '%s' "$routed_session_state" | python3 -c \
+    'import json,sys; raise SystemExit(0 if json.load(sys.stdin)["state"] == "TERMINATED" else 1)'; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$routed_session_state" | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["state"] == "TERMINATED"'
+
+routed_command_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' ||
+          count(*) filter (where state='COMMITTED') || ':' ||
+          count(*) filter (
+            where route_epoch=${routed_route_epoch}
+              and coordinator_shard_id=${routed_shard_id}
+          ) || ':' ||
+          count(*) filter (
+            where result->>'operationId' in (
+              '${routed_start_operation}', '${routed_terminate_operation}'
+            )
+          )
+     from coordinator_commands
+    where session_id='${routed_session_id}'
+      and command_type in ('SESSION_START_V1','SESSION_TERMINATE_V1')")"
+test "$routed_command_summary" = "2:2:2:2"
+
+kill "$control_b_pid" 2>/dev/null || true
+wait "$control_b_pid" 2>/dev/null || true
+control_b_pid=""
+for _ in $(seq 1 40); do
+  active_coordinator_workers="$(docker exec "$postgres_name" psql \
+    -U browsercloud -d browsercloud -Atc \
+    "select count(*) from coordinator_dispatch_workers where lease_until >= now()")"
+  if [[ "$active_coordinator_workers" = "1" ]]; then break; fi
+  sleep 0.25
+done
+test "$active_coordinator_workers" = "1"
+
 start_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:start" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -1836,7 +2007,7 @@ printf '%s' "$(<"$temp_dir/resource-sample.json")" | python3 -c \
 proxy_overview="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_overview" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["provider"]["directFallbackAllowed"] is False; assert result["total"] == 1; item=result["allocations"][0]; assert item["state"] == "BOUND"; assert item["exitIp"] == "203.0.113.10"; assert item["country"] == "TEST"; assert item["asn"] == "AS64500"'
+  "import json,sys; result=json.load(sys.stdin); assert result['provider']['directFallbackAllowed'] is False; assert result['total'] == 1; item=result['allocations'][0]; assert item['sessionId'] == '${session_one}'; assert item['state'] == 'BOUND'; assert item['exitIp'] == '203.0.113.10'; assert item['country'] == 'TEST'; assert item['asn'] == 'AS64500'"
 proxy_bindings_after_start="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/proxy-bindings" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -4159,6 +4330,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

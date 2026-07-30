@@ -20,6 +20,7 @@ import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapa
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserNodeNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserPlacementNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionProfileRejectedException;
+import io.browsercloud.application.CoordinatorCommandRoutingService.RoutedCoordinatorCommandException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.GovernanceRejectedException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.MediaQuotaRejectedException;
@@ -59,6 +60,7 @@ import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGro
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupRejectedException;
 import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagNotFoundException;
 import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagRejectedException;
+import io.browsercloud.coordinator.SessionCoordinator.CoordinatorShardNotLocalException;
 import io.browsercloud.coordinator.exceptions.ActiveOperationExistsException;
 import io.browsercloud.coordinator.exceptions.CoordinatorNotOwnerException;
 import io.browsercloud.coordinator.exceptions.IdempotencyConflictException;
@@ -149,6 +151,33 @@ public class GlobalExceptionHandler {
         "TENANT_ROUTE_REJECTED",
         "Tenant Coordinator route operation was rejected",
         Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(RoutedCoordinatorCommandException.class)
+  ResponseEntity<ApiError> routedCoordinatorCommand(
+      RoutedCoordinatorCommandException exception, HttpServletRequest request) {
+    var details = new java.util.LinkedHashMap<String, Object>();
+    details.put("reason", exception.getMessage());
+    if (exception.commandId() != null) {
+      details.put("commandId", exception.commandId());
+    }
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "COORDINATOR_COMMAND_UNAVAILABLE",
+        "The Session command could not be committed by its Coordinator shard",
+        details,
+        request);
+  }
+
+  @ExceptionHandler(CoordinatorShardNotLocalException.class)
+  ResponseEntity<ApiError> coordinatorShardNotLocal(
+      CoordinatorShardNotLocalException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "COORDINATOR_SHARD_NOT_LOCAL",
+        "The Session command reached a non-owning Coordinator worker",
+        Map.of(),
         request);
   }
 

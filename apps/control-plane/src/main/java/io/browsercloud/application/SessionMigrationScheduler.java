@@ -1,5 +1,7 @@
 package io.browsercloud.application;
 
+import static io.browsercloud.application.CoordinatorCommandPayloads.*;
+
 import io.browsercloud.persistence.SessionMigrationJpaRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,34 +27,34 @@ public class SessionMigrationScheduler {
           "BUSINESS_RECOVERY_ACTION");
 
   private final SessionMigrationJpaRepository migrations;
-  private final SessionMigrationApplicationService service;
+  private final CoordinatorCommandRoutingService commandRouting;
 
   public SessionMigrationScheduler(
-      SessionMigrationJpaRepository migrations, SessionMigrationApplicationService service) {
+      SessionMigrationJpaRepository migrations, CoordinatorCommandRoutingService commandRouting) {
     this.migrations = migrations;
-    this.service = service;
+    this.commandRouting = commandRouting;
   }
 
   @Scheduled(fixedDelayString = "${session-migration.reconcile-interval-ms:2000}")
   public void reconcile() {
+    var now = Instant.now();
+    var reconcileBucket = now.getEpochSecond() / 2;
     migrations
         .findAllByPhaseInOrderByUpdatedAtAsc(RECONCILABLE, PageRequest.of(0, 100))
         .forEach(
             migration -> {
               try {
-                service.reconcile(migration.getMigrationId());
-              } catch (SessionMigrationApplicationService.MigrationRejectedException exception) {
-                log.warn(
-                    "Session migration {} was rejected", migration.getMigrationId(), exception);
-                service.fail(migration.getMigrationId(), exception.getMessage());
+                commandRouting.enqueueAsync(
+                    migration.getSessionId(),
+                    MIGRATION_RECONCILE,
+                    "migration-reconcile:" + migration.getMigrationId() + ":" + reconcileBucket,
+                    new MigrationReconcile(migration.getMigrationId(), now),
+                    Duration.ofMinutes(2));
               } catch (RuntimeException exception) {
                 log.warn(
-                    "Session migration {} reconciliation will retry",
+                    "Session migration {} routing will retry",
                     migration.getMigrationId(),
                     exception);
-                if (Duration.between(migration.getUpdatedAt(), Instant.now()).toMinutes() >= 10) {
-                  service.fail(migration.getMigrationId(), "MIGRATION_PHASE_TIMEOUT");
-                }
               }
             });
   }

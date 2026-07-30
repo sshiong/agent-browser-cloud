@@ -101,6 +101,10 @@ coordinator:
   lease-seconds: ${COORDINATOR_LEASE_SECONDS:30}
   dispatch-lease-seconds: ${COORDINATOR_DISPATCH_LEASE_SECONDS:6}
   dispatch-worker-lease-seconds: ${COORDINATOR_DISPATCH_WORKER_LEASE_SECONDS:3}
+  command-dispatch-interval-ms: ${COORDINATOR_COMMAND_DISPATCH_INTERVAL_MS:100}
+  command-claim-lease-seconds: ${COORDINATOR_COMMAND_CLAIM_LEASE_SECONDS:30}
+  command-api-deadline-seconds: ${COORDINATOR_COMMAND_API_DEADLINE_SECONDS:30}
+  command-api-wait-seconds: ${COORDINATOR_COMMAND_API_WAIT_SECONDS:20}
 
 resource-policy:
   decision-interval-ms: ${RESOURCE_POLICY_DECISION_INTERVAL_MS:30000}

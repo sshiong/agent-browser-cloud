@@ -1,9 +1,13 @@
 package io.browsercloud.api;
 
+import static io.browsercloud.application.CoordinatorCommandPayloads.*;
+
 import io.browsercloud.application.AgentApplicationService;
 import io.browsercloud.application.AgentHumanGovernanceService;
+import io.browsercloud.application.CoordinatorCommandRoutingService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -31,16 +35,19 @@ public class AgentController {
   private final AgentApplicationService service;
   private final io.browsercloud.application.AgentExecutionService executionService;
   private final AgentHumanGovernanceService governanceService;
+  private final CoordinatorCommandRoutingService commandRouting;
   private final PlatformIdentity identity;
 
   public AgentController(
       AgentApplicationService service,
       io.browsercloud.application.AgentExecutionService executionService,
       AgentHumanGovernanceService governanceService,
+      CoordinatorCommandRoutingService commandRouting,
       PlatformIdentity identity) {
     this.service = service;
     this.executionService = executionService;
     this.governanceService = governanceService;
+    this.commandRouting = commandRouting;
     this.identity = identity;
   }
 
@@ -72,7 +79,16 @@ public class AgentController {
   public AgentTaskView execute(
       @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
-    return executionService.execute(taskId, identity.current().tenantId(), idempotencyKey);
+    var principal = identity.current();
+    var task = service.get(taskId, principal.tenantId());
+    return commandRouting.execute(
+        task.sessionId(),
+        principal.tenantId(),
+        AGENT_EXECUTE,
+        idempotencyKey,
+        new AgentExecute(principal.tenantId(), taskId, idempotencyKey),
+        AgentTaskView.class,
+        () -> executionService.execute(taskId, principal.tenantId(), idempotencyKey));
   }
 
   @PostMapping("/agent-tasks/{taskId}:approve")
@@ -94,9 +110,18 @@ public class AgentController {
   @PostMapping("/agent-tasks/{taskId}:accept-handoff")
   @PreAuthorize(PlatformRoles.OPERATE)
   public AgentTaskView acceptHandoff(
-      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId) {
+      @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
+      HttpServletRequest request) {
     var principal = identity.current();
-    return governanceService.acceptHandoff(taskId, principal.tenantId(), principal.actorId());
+    var task = service.get(taskId, principal.tenantId());
+    return commandRouting.execute(
+        task.sessionId(),
+        principal.tenantId(),
+        AGENT_ACCEPT_HANDOFF,
+        String.valueOf(request.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE)),
+        new AgentHandoff(principal.tenantId(), taskId, principal.actorId()),
+        AgentTaskView.class,
+        () -> governanceService.acceptHandoff(taskId, principal.tenantId(), principal.actorId()));
   }
 
   @PostMapping("/agent-tasks/{taskId}:reject-handoff")

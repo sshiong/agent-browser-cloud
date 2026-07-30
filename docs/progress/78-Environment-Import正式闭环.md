@@ -102,7 +102,8 @@ Environment Import 的核心闭环已关闭。以下仍是独立缺口：
 
 1. Profile 内容导入、Checkpoint 上传与对象存储审计链已由
    [进度 79](79-Profile-Checkpoint-Import正式闭环.md)关闭；
-2. 可复用 Proxy Binding 的 Secret 引用、健康检查、租户权限和绑定 Operation；
+2. 创建时可复用 Proxy Binding 已在进度 82 关闭；多 Provider、目标云 Secret
+   解引用、主动健康探测和运行中 Rebind Operation 仍未完成；
 3. 导入超大清单的异步分批策略；当前有意限制为最多 25 个并采用全事务语义；
 4. Group/Tags 批量生命周期、服务端组合过滤和列表批量投影；
 5. 全局搜索、通知、主题、环境更多操作和 OpenAPI 自动生成 TypeScript Client；

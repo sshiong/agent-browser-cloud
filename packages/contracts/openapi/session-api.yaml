@@ -1135,6 +1135,91 @@ paths:
                 $ref: "#/components/schemas/ProxyOverview"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/proxy-bindings:
+    get:
+      operationId: listProxyBindings
+      summary: List reusable tenant Proxy Binding profiles
+      tags: [Proxy]
+      responses:
+        "200":
+          description: Tenant-scoped reusable configuration. Secret references are never returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyBindingList"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createProxyBinding
+      summary: Create a reusable tenant Proxy Binding profile
+      tags: [Proxy]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProxyBindingRequest"
+      responses:
+        "201":
+          description: Binding profile created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyBinding"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/proxy-bindings/{bindingProfileId}:
+    parameters:
+      - name: bindingProfileId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^pbind_[A-Za-z0-9]{16,32}$"
+    put:
+      operationId: updateProxyBinding
+      summary: Update a reusable Proxy Binding profile using version compare-and-swap
+      tags: [Proxy]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProxyBindingRequest"
+      responses:
+        "200":
+          description: Binding profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProxyBinding"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteProxyBinding
+      summary: Delete an unused Proxy Binding profile
+      tags: [Proxy]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Binding profile deleted. Profiles referenced by Session snapshots are rejected.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}/agent-tasks:
     post:
       operationId: createAgentTask
@@ -3987,6 +4072,114 @@ components:
         total:
           type: integer
           minimum: 0
+    ProxyBindingHealth:
+      type: string
+      enum: [UNVERIFIED, HEALTHY, UNHEALTHY, DISABLED]
+    ProxyBindingRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - providerId
+        - expectedExitIp
+        - enabled
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 96
+        description:
+          type: [string, "null"]
+          maxLength: 512
+        providerId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,128}$"
+        region:
+          type: [string, "null"]
+          pattern: "^[a-z0-9-]{1,32}$"
+        expectedExitIp:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Must resolve to an exit configured for the selected provider.
+        credentialRef:
+          type: [string, "null"]
+          maxLength: 512
+          pattern: "^(vault|secret|aws-sm|gcp-sm|azure-kv)://[^\\s]+$"
+          description: Required on create. Omit on update to preserve the write-only Secret Manager reference.
+        enabled:
+          type: boolean
+        expectedVersion:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+          description: Required on update for compare-and-swap.
+    ProxyBinding:
+      type: object
+      additionalProperties: false
+      required:
+        - bindingProfileId
+        - name
+        - providerId
+        - expectedExitIp
+        - credentialConfigured
+        - enabled
+        - healthState
+        - version
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        bindingProfileId:
+          type: string
+          pattern: "^pbind_[A-Za-z0-9]{16,32}$"
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        providerId:
+          type: string
+        region:
+          type: [string, "null"]
+        expectedExitIp:
+          type: string
+        credentialConfigured:
+          type: boolean
+        enabled:
+          type: boolean
+        healthState:
+          $ref: "#/components/schemas/ProxyBindingHealth"
+        lastVerifiedExitIp:
+          type: [string, "null"]
+        lastHealthCheckedAt:
+          type: [string, "null"]
+          format: date-time
+        lastFailureReason:
+          type: [string, "null"]
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProxyBindingList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProxyBinding"
+        total:
+          type: integer
+          minimum: 0
     SessionState:
       type: string
       enum:
@@ -5404,6 +5597,10 @@ components:
         region:
           type: string
           pattern: "^[a-z0-9-]{1,32}$"
+        proxyBindingProfileId:
+          type: string
+          pattern: "^pbind_[a-zA-Z0-9]{16,32}$"
+          description: Optional tenant Binding profile snapshotted immutably at Session creation.
         resourcePolicy:
           $ref: "#/components/schemas/ResourcePolicyRequest"
         requestedTabs:
@@ -6060,6 +6257,7 @@ components:
           type: [string, "null"]
         proxyBindingId:
           type: [string, "null"]
+          description: Runtime allocation identity. It is never reusable across Sessions.
         coordinatorTerm:
           type: integer
           format: int64
@@ -6143,6 +6341,11 @@ components:
           type: [string, "null"]
         proxyBindingId:
           type: [string, "null"]
+          description: Runtime allocation identity. It is never reusable across Sessions.
+        proxyBindingProfileId:
+          type: [string, "null"]
+          pattern: "^pbind_[a-zA-Z0-9]{16,32}$"
+          description: Reusable management profile selected at creation; distinct from proxyBindingId.
         contextEpoch:
           type: integer
           format: int64

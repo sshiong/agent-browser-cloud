@@ -59,6 +59,15 @@ public class ProxyAllocationEntity {
   @Column(name = "failure_reason")
   private String failureReason;
 
+  @Column(name = "binding_profile_id")
+  private String bindingProfileId;
+
+  @Column(name = "binding_version")
+  private Long bindingVersion;
+
+  @Column(name = "expected_exit_ip")
+  private String expectedExitIp;
+
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
@@ -71,6 +80,20 @@ public class ProxyAllocationEntity {
       String provider,
       String endpoint,
       Instant now) {
+    this(allocationId, tenantId, sessionId, provider, endpoint, null, null, null, "", now);
+  }
+
+  public ProxyAllocationEntity(
+      String allocationId,
+      String tenantId,
+      String sessionId,
+      String provider,
+      String endpoint,
+      String bindingProfileId,
+      Long bindingVersion,
+      String expectedExitIp,
+      String credentialRef,
+      Instant now) {
     this.allocationId = allocationId;
     this.tenantId = tenantId;
     this.sessionId = sessionId;
@@ -78,7 +101,10 @@ public class ProxyAllocationEntity {
     this.endpoint = endpoint;
     this.protocol = "HTTP";
     this.ipType = "STATIC";
-    this.credentialRef = "";
+    this.credentialRef = credentialRef == null ? "" : credentialRef;
+    this.bindingProfileId = bindingProfileId;
+    this.bindingVersion = bindingVersion;
+    this.expectedExitIp = expectedExitIp;
     this.state = "ALLOCATED";
     this.allocatedAt = now;
     this.updatedAt = now;
@@ -138,6 +164,18 @@ public class ProxyAllocationEntity {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  public String getBindingProfileId() {
+    return bindingProfileId;
+  }
+
+  public Long getBindingVersion() {
+    return bindingVersion;
+  }
+
+  public String getExpectedExitIp() {
+    return expectedExitIp;
   }
 
   public void bind(String observedExitIp, String observedCountry, String observedAsn, Instant now) {

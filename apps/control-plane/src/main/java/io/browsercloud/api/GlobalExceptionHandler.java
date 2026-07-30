@@ -51,6 +51,8 @@ import io.browsercloud.application.SessionResourceEventStreamService.ResourceStr
 import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseNotFoundException;
 import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseRejectedException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
+import io.browsercloud.application.StaticProxyApplicationService.ProxyBindingNotFoundException;
+import io.browsercloud.application.StaticProxyApplicationService.ProxyBindingRejectedException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.application.TenantRouteApplicationService.TenantRouteRejectedException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupNotFoundException;
@@ -505,6 +507,28 @@ public class GlobalExceptionHandler {
         "PROXY_UNAVAILABLE",
         "A verified network exit is unavailable",
         Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ProxyBindingNotFoundException.class)
+  ResponseEntity<ApiError> proxyBindingNotFound(
+      ProxyBindingNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "PROXY_BINDING_NOT_FOUND",
+        "Proxy Binding not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ProxyBindingRejectedException.class)
+  ResponseEntity<ApiError> proxyBindingRejected(
+      ProxyBindingRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "PROXY_BINDING_REJECTED",
+        "Proxy Binding operation was rejected",
+        Map.of("reason", exception.getMessage()),
         request);
   }
 

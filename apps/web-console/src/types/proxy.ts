@@ -27,3 +27,41 @@ export interface ProxyOverviewResponse {
   allocations: ProxyAllocationView[];
   total: number;
 }
+
+export type ProxyBindingHealth =
+  'UNVERIFIED' | 'HEALTHY' | 'UNHEALTHY' | 'DISABLED';
+
+export interface ProxyBindingView {
+  bindingProfileId: string;
+  name: string;
+  description: string | null;
+  providerId: string;
+  region: string | null;
+  expectedExitIp: string;
+  credentialConfigured: boolean;
+  enabled: boolean;
+  healthState: ProxyBindingHealth;
+  lastVerifiedExitIp: string | null;
+  lastHealthCheckedAt: string | null;
+  lastFailureReason: string | null;
+  version: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProxyBindingListResponse {
+  items: ProxyBindingView[];
+  total: number;
+}
+
+export interface ProxyBindingRequest {
+  name: string;
+  description?: string;
+  providerId: string;
+  region?: string;
+  expectedExitIp: string;
+  credentialRef?: string;
+  enabled: boolean;
+  expectedVersion?: number;
+}

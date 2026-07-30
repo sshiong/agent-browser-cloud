@@ -30,7 +30,10 @@ import { useProfiles } from '@/features/profiles/profileQueries';
 import { ProfileImportDrawer } from '@/features/profiles/ProfileImportDrawer';
 import { useWorkspaceGroups } from '@/features/groups/groupQueries';
 import { useWorkspaceTags } from '@/features/groups/tagQueries';
-import { useProxyOverview } from '@/features/proxies/proxyQueries';
+import {
+  useProxyBindings,
+  useProxyOverview,
+} from '@/features/proxies/proxyQueries';
 import { useRuntimeBuilds } from '@/features/security/platformQueries';
 import { useWorkspaceSettings } from '@/features/settings/settingsQueries';
 import {
@@ -51,6 +54,7 @@ const schema = z
     profileMode: z.enum(['empty', 'existing', 'checkpoint']),
     profileId: z.string().trim().max(128),
     networkMode: z.enum(['managed', 'direct']),
+    proxyBindingProfileId: z.string().trim().max(38),
     region: z.string().trim().min(1, '请选择部署区域').max(32),
     executionEnvironment: z.enum([
       'SYSTEM_MANAGED',
@@ -152,7 +156,7 @@ const mediaBudgets = {
 const stepFields: Record<Step, (keyof FormValues)[]> = {
   1: ['name', 'groupId', 'tagIds', 'description', 'accent'],
   2: ['runtimeBuildId', 'applicationId', 'profileMode', 'profileId'],
-  3: ['networkMode', 'region'],
+  3: ['networkMode', 'proxyBindingProfileId', 'region'],
   4: [
     'executionEnvironment',
     'onMaximumReached',
@@ -192,6 +196,7 @@ export function CreateSessionDialog({
   const runtimeQuery = useRuntimeBuilds();
   const profilesQuery = useProfiles();
   const proxyQuery = useProxyOverview();
+  const proxyBindingsQuery = useProxyBindings();
   const enterpriseQuery = useEnterpriseOverview();
   const extensionsQuery = useExtensionProfiles();
   const recoveryContractsQuery = useRecoveryContracts();
@@ -229,6 +234,7 @@ export function CreateSessionDialog({
       profileMode: 'empty',
       profileId: '',
       networkMode: 'managed',
+      proxyBindingProfileId: '',
       region: '',
       requestedTabs: 4,
       agentActionsPerMinute: 60,
@@ -303,6 +309,26 @@ export function CreateSessionDialog({
   }, [regions, setValue, settingsQuery.data?.defaultRegion, values.region]);
 
   useEffect(() => {
+    if (!values.proxyBindingProfileId) return;
+    const selected = proxyBindingsQuery.data?.items.find(
+      (binding) => binding.bindingProfileId === values.proxyBindingProfileId
+    );
+    if (
+      values.networkMode !== 'managed' ||
+      !selected?.enabled ||
+      (selected.region && selected.region !== values.region)
+    ) {
+      setValue('proxyBindingProfileId', '');
+    }
+  }, [
+    proxyBindingsQuery.data?.items,
+    setValue,
+    values.networkMode,
+    values.proxyBindingProfileId,
+    values.region,
+  ]);
+
+  useEffect(() => {
     if (
       settingsQuery.data &&
       !dirtyFields.humanTakeover &&
@@ -373,6 +399,10 @@ export function CreateSessionDialog({
         groupId: form.groupId || undefined,
         tagIds: form.tagIds,
         region: form.region,
+        proxyBindingProfileId:
+          form.networkMode === 'managed' && form.proxyBindingProfileId
+            ? form.proxyBindingProfileId
+            : undefined,
         resourcePolicy: {
           mode: 'AUTO',
           onMaximumReached: form.onMaximumReached,
@@ -873,10 +903,40 @@ export function CreateSessionDialog({
                     />
                   </div>
 
-                  <UnavailableOption
-                    title="复用现有 Proxy Binding"
-                    detail="现有 allocation 与 Session 绑定，不允许在 UI 中跨 Session 复用。"
-                  />
+                  <Field
+                    label="Proxy Binding"
+                    hint="可复用的是租户配置档案；创建后会固化版本，并为本 Session 单独生成 allocation。"
+                  >
+                    {proxyBindingsQuery.isLoading ? (
+                      <LoadingBlock label="正在读取 Proxy Bindings" />
+                    ) : proxyBindingsQuery.isError ? (
+                      <QueryError label="无法读取 Proxy Bindings" />
+                    ) : (
+                      <select
+                        {...register('proxyBindingProfileId')}
+                        className="field-input"
+                        disabled={values.networkMode !== 'managed'}
+                      >
+                        <option value="">系统托管出口（默认）</option>
+                        {(proxyBindingsQuery.data?.items ?? [])
+                          .filter(
+                            (binding) =>
+                              binding.enabled &&
+                              (!binding.region ||
+                                binding.region === values.region)
+                          )
+                          .map((binding) => (
+                            <option
+                              key={binding.bindingProfileId}
+                              value={binding.bindingProfileId}
+                            >
+                              {binding.name} · {binding.healthState} ·{' '}
+                              {binding.region || 'ANY'}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </Field>
 
                   <Field
                     label="部署区域"
@@ -1408,6 +1468,11 @@ export function CreateSessionDialog({
                           label="网络 / 区域"
                           value={`${values.networkMode} · ${values.region}`}
                           mono
+                          detail={
+                            values.proxyBindingProfileId
+                              ? `Binding ${values.proxyBindingProfileId}`
+                              : '系统托管出口'
+                          }
                         />
                         <ReviewItem
                           label="资源策略"

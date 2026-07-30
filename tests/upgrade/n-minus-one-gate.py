@@ -823,6 +823,7 @@ for optional in (
     "requestedMediaStreams",
     "mediaBitrateKbps",
     "videoRecording",
+    "proxyBindingProfileId",
 ):
     assert optional not in create_required
 assert "resourceClass" not in create
@@ -858,12 +859,35 @@ assert "/api/v1/profile-imports:" in openapi
 assert "/api/v1/profile-imports/{importId}:" in openapi
 assert "ProfileImport:" in openapi
 assert "ProfileImportListResponse:" in openapi
+assert "/api/v1/proxy-bindings:" in openapi
+assert "/api/v1/proxy-bindings/{bindingProfileId}:" in openapi
+assert "ProxyBindingRequest:" in openapi
+assert "ProxyBindingList:" in openapi
 environment_import_migration = read(
     "database/migrations/V054__environment_import_jobs.sql"
 )
 assert "CREATE TABLE environment_import_jobs" in environment_import_migration
 assert "CREATE TABLE environment_import_items" in environment_import_migration
 assert "DROP " not in environment_import_migration.upper()
+
+proxy_binding_migration = read(
+    "database/migrations/V057__reusable_proxy_binding_profiles.sql"
+)
+proxy_binding_upper = proxy_binding_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in proxy_binding_upper
+for invariant in (
+    "CREATE TABLE PROXY_BINDING_PROFILES",
+    "CREATE TABLE SESSION_PROXY_BINDING_ASSIGNMENTS",
+    "FOREIGN KEY (SESSION_ID, TENANT_ID)",
+    "FOREIGN KEY (BINDING_PROFILE_ID, TENANT_ID)",
+    "ON DELETE RESTRICT NOT VALID",
+    "ADD COLUMN BINDING_PROFILE_ID TEXT",
+    "ADD COLUMN BINDING_VERSION BIGINT",
+    "ADD COLUMN EXPECTED_EXIT_IP TEXT",
+    "VALIDATE CONSTRAINT PROXY_ALLOCATIONS_BINDING_PROFILE_FK",
+):
+    assert invariant in proxy_binding_upper
 
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
@@ -900,9 +924,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V056 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V057 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-additive-endpoints",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

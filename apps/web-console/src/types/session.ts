@@ -104,6 +104,7 @@ export interface SessionView {
   nodeId?: string;
   runtimeBuildId?: string;
   proxyBindingId?: string;
+  proxyBindingProfileId?: string;
   contextEpoch: number;
   browserGeneration: number;
   currentOperation?: OperationView;
@@ -143,6 +144,7 @@ export interface CreateSessionRequest {
   groupId?: string;
   tagIds?: string[];
   region?: string;
+  proxyBindingProfileId?: string;
   resourcePolicy?: ResourcePolicyRequest;
   requestedTabs?: number;
   agentActionsPerMinute?: number;

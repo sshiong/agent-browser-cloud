@@ -152,14 +152,18 @@ public class SessionApplicationService {
             now,
             now);
 
+    var effectiveRegion =
+        request.region() == null ? workspaceDefaults.defaultRegion() : request.region();
     sessionRepository.insert(
         context,
-        request.region() == null ? workspaceDefaults.defaultRegion() : request.region(),
+        effectiveRegion,
         request.metadata() == null ? java.util.Map.of() : request.metadata(),
         request.groupId(),
         humanTakeoverEnabled,
         agentPolicy,
         extensionIds);
+    proxyApplicationService.assignBindingProfile(
+        context, request.proxyBindingProfileId(), effectiveRegion, actorId);
     tenantRouteService.bindNewSession(context.sessionId(), context.tenantId());
     workspaceTagService.assignInitial(
         context.tenantId(), actorId, context.sessionId(), request.tagIds(), requestId);
@@ -565,6 +569,7 @@ public class SessionApplicationService {
         context.nodeId(),
         context.runtimeBuildId(),
         context.proxyBindingId(),
+        proxyApplicationService.assignedBindingProfileId(context.sessionId(), context.tenantId()),
         context.contextEpoch(),
         context.browserGeneration(),
         operation,

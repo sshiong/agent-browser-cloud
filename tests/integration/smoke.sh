@@ -1334,6 +1334,38 @@ temporary_tag="$(curl -fsS -X POST \
 temporary_tag_id="$(printf '%s' "$temporary_tag" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["tagId"])')"
 
+proxy_binding_body='{"name":"Integration managed exit","description":"Immutable Session binding snapshot","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","credentialRef":"vault://tenant-integration/proxy/primary","enabled":true}'
+proxy_binding="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-binding-create-001' \
+  -d "$proxy_binding_body")"
+proxy_binding_id="$(printf '%s' "$proxy_binding" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["credentialConfigured"] is True; assert item["healthState"] == "UNVERIFIED"; assert item["version"] == 0; assert "credentialRef" not in item; print(item["bindingProfileId"])')"
+proxy_binding_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-binding-create-001' \
+  -d "$proxy_binding_body")"
+replayed_proxy_binding_id="$(printf '%s' "$proxy_binding_replay" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["bindingProfileId"])')"
+test "$proxy_binding_id" = "$replayed_proxy_binding_id"
+proxy_binding_viewer_write_status="$(curl -sS \
+  -o "$temp_dir/proxy-binding-viewer-write.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -H 'Idempotency-Key: smoke-proxy-binding-viewer-001' \
+  -d "$proxy_binding_body")"
+test "$proxy_binding_viewer_write_status" = "403"
+
 duplicate_extension_status="$(curl -sS -o "$temp_dir/duplicate-extension.json" -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
@@ -1342,7 +1374,7 @@ duplicate_extension_status="$(curl -sS -o "$temp_dir/duplicate-extension.json" -
   -d '{"tenantId":"tenant-integration","profileId":"profile-duplicate-extension","extensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb","jdgnleokimdbblcflcfcohbinohmmmlb"]}')"
 test "$duplicate_extension_status" = "400"
 
-request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_binding_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -1373,7 +1405,17 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['proxyBindingProfileId'] == '${proxy_binding_id}'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+updated_proxy_binding="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/proxy-bindings/${proxy_binding_id}" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: proxy-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-proxy-binding-update-001' \
+  -d '{"name":"Integration managed exit","description":"Disabled for new Sessions after snapshot","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","enabled":false,"expectedVersion":0}')"
+printf '%s' "$updated_proxy_binding" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["enabled"] is False; assert item["healthState"] == "DISABLED"; assert item["credentialConfigured"] is True; assert item["version"] == 1; assert "credentialRef" not in item'
 workspace_group_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/group-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/groups" \
@@ -1470,7 +1512,7 @@ list_result="$(curl -fsS "http://localhost:${control_port}/api/v1/sessions" \
 total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total"])')"
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceTemplate'] == 'standard-v1'; assert 'resourceClass' not in item"
+  "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['proxyBindingProfileId'] == '${proxy_binding_id}'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceTemplate'] == 'standard-v1'; assert 'resourceClass' not in item"
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
@@ -1795,6 +1837,21 @@ proxy_overview="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_overview" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["provider"]["directFallbackAllowed"] is False; assert result["total"] == 1; item=result["allocations"][0]; assert item["state"] == "BOUND"; assert item["exitIp"] == "203.0.113.10"; assert item["country"] == "TEST"; assert item["asn"] == "AS64500"'
+proxy_bindings_after_start="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/proxy-bindings" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$proxy_bindings_after_start" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 1; item=result['items'][0]; assert item['bindingProfileId'] == '${proxy_binding_id}'; assert item['healthState'] == 'DISABLED'; assert item['lastVerifiedExitIp'] == '203.0.113.10'; assert item['lastHealthCheckedAt']; assert 'credentialRef' not in item"
+proxy_binding_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+     (select count(*) from session_proxy_binding_assignments
+      where tenant_id='tenant-integration' and session_id='${session_one}'
+        and binding_profile_id='${proxy_binding_id}' and binding_version=0) || ':' ||
+     (select count(*) from proxy_allocations
+      where tenant_id='tenant-integration' and session_id='${session_one}'
+        and binding_profile_id='${proxy_binding_id}' and binding_version=0
+        and expected_exit_ip='203.0.113.10' and state='BOUND')")"
+test "$proxy_binding_db_summary" = "1:1"
 grep -q 'http://browsercloud.invalid/exit' "$temp_dir/proxy-events.jsonl"
 
 browser_state=""

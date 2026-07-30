@@ -238,6 +238,31 @@ public class IdempotencyService {
         candidateMutationId);
   }
 
+  String claimProxyBindingCreate(
+      String tenantId, String idempotencyKey, Object request, String candidateBindingProfileId) {
+    return claim(
+        tenantId,
+        "CREATE_PROXY_BINDING",
+        idempotencyKey,
+        hashRequest(request),
+        candidateBindingProfileId);
+  }
+
+  String claimProxyBindingMutation(
+      String tenantId,
+      String bindingProfileId,
+      String mutation,
+      String idempotencyKey,
+      Object request,
+      String candidateMutationId) {
+    return claim(
+        tenantId,
+        mutation + "_PROXY_BINDING:" + bindingProfileId,
+        idempotencyKey,
+        hashRequest(request),
+        candidateMutationId);
+  }
+
   String claimEnvironmentSavedViewCreate(
       String tenantId,
       String actorId,

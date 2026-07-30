@@ -1,17 +1,44 @@
-import { Ban, Cable, Network, ShieldCheck } from 'lucide-react';
+import {
+  Ban,
+  Cable,
+  KeyRound,
+  Network,
+  Pencil,
+  Plus,
+  ShieldCheck,
+} from 'lucide-react';
+import { useState } from 'react';
+import { useAuth } from '@/auth/AuthProvider';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import {
   EmptyState,
   ErrorState,
   LoadingRows,
 } from '@/components/feedback/AsyncStates';
-import { useProxyOverview } from '@/features/proxies/proxyQueries';
+import { ProxyBindingEditor } from '@/features/proxies/ProxyBindingEditor';
+import {
+  useProxyBindings,
+  useProxyOverview,
+} from '@/features/proxies/proxyQueries';
 import { cn } from '@/shared/lib/utils';
-import type { ProxyAllocationView } from '@/types/proxy';
+import type {
+  ProxyAllocationView,
+  ProxyBindingHealth,
+  ProxyBindingView,
+} from '@/types/proxy';
 
 export function ProxiesPage() {
+  const auth = useAuth();
   const query = useProxyOverview();
+  const bindingsQuery = useProxyBindings();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingBinding, setEditingBinding] = useState<ProxyBindingView>();
   const provider = query.data?.provider;
+  const canAdminister = auth.hasAnyRole([
+    'TENANT_ADMIN',
+    'SECURITY_ADMIN',
+    'PLATFORM_ADMIN',
+  ]);
   const active =
     query.data?.allocations.filter((item) =>
       ['ALLOCATED', 'BOUND'].includes(item.state)
@@ -107,6 +134,61 @@ export function ProxiesPage() {
               </div>
             </section>
 
+            <section className="mb-4 overflow-hidden border border-border-subtle bg-surface-1">
+              <div className="flex flex-col gap-3 border-b border-border-subtle bg-surface-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-[12px] font-semibold text-text-primary">
+                    Proxy Bindings
+                  </h2>
+                  <p className="mt-0.5 text-[10px] text-text-muted">
+                    租户级可复用配置；创建 Session 时固化版本，Secret
+                    引用不会回传到浏览器。
+                  </p>
+                </div>
+                {canAdminister && provider && (
+                  <button
+                    className="btn-primary self-start"
+                    onClick={() => {
+                      setEditingBinding(undefined);
+                      setEditorOpen(true);
+                    }}
+                    disabled={provider.state !== 'CONFIGURED'}
+                  >
+                    <Plus size={14} />
+                    新建 Binding
+                  </button>
+                )}
+              </div>
+              {bindingsQuery.isLoading ? (
+                <LoadingRows rows={3} />
+              ) : bindingsQuery.isError ? (
+                <ErrorState
+                  error={bindingsQuery.error}
+                  onRetry={() => bindingsQuery.refetch()}
+                  title="无法加载 Proxy Bindings"
+                />
+              ) : !bindingsQuery.data?.items.length ? (
+                <EmptyState
+                  title="尚无可复用 Binding"
+                  description="管理员可创建一个引用 Secret Manager 的租户出口配置；系统托管出口仍可继续使用。"
+                />
+              ) : (
+                <div className="grid gap-px bg-border-subtle md:grid-cols-2 xl:grid-cols-3">
+                  {bindingsQuery.data.items.map((binding) => (
+                    <BindingCard
+                      key={binding.bindingProfileId}
+                      binding={binding}
+                      canEdit={canAdminister}
+                      onEdit={() => {
+                        setEditingBinding(binding);
+                        setEditorOpen(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
             <section className="overflow-hidden border border-border-subtle bg-surface-1">
               <div className="border-b border-border-subtle bg-surface-2 px-4 py-3">
                 <h2 className="text-[12px] font-semibold text-text-primary">
@@ -171,7 +253,95 @@ export function ProxiesPage() {
           </>
         )}
       </main>
+      {provider && (
+        <ProxyBindingEditor
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          binding={editingBinding}
+          provider={provider}
+        />
+      )}
     </div>
+  );
+}
+
+function BindingCard({
+  binding,
+  canEdit,
+  onEdit,
+}: {
+  binding: ProxyBindingView;
+  canEdit: boolean;
+  onEdit: () => void;
+}) {
+  return (
+    <article className="min-w-0 bg-surface-1 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-[12px] font-semibold text-text-primary">
+              {binding.name}
+            </h3>
+            <HealthChip state={binding.healthState} />
+          </div>
+          <p className="mt-1 truncate font-mono text-[10px] text-text-muted">
+            {binding.bindingProfileId} · v{binding.version}
+          </p>
+        </div>
+        {canEdit && (
+          <button
+            className="flex h-8 w-8 shrink-0 items-center justify-center border border-border-subtle text-text-muted hover:bg-surface-2 hover:text-text-primary"
+            onClick={onEdit}
+            aria-label={`编辑 ${binding.name}`}
+          >
+            <Pencil size={13} />
+          </button>
+        )}
+      </div>
+      <p className="mt-3 line-clamp-2 min-h-8 text-[10px] leading-4 text-text-muted">
+        {binding.description || '未添加说明'}
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-px bg-border-subtle">
+        <div className="bg-surface-2 p-2.5">
+          <dt className="text-[9px] uppercase tracking-[0.1em] text-text-muted">
+            Region
+          </dt>
+          <dd className="mt-1 truncate font-mono text-[10px] text-text-secondary">
+            {binding.region || 'ANY'}
+          </dd>
+        </div>
+        <div className="bg-surface-2 p-2.5">
+          <dt className="flex items-center gap-1 text-[9px] uppercase tracking-[0.1em] text-text-muted">
+            <KeyRound size={10} /> Secret ref
+          </dt>
+          <dd className="mt-1 font-mono text-[10px] text-text-secondary">
+            {binding.credentialConfigured ? 'CONFIGURED' : 'MISSING'}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-3 font-mono text-[10px] text-text-muted">
+        Expected {binding.expectedExitIp}
+      </p>
+    </article>
+  );
+}
+
+function HealthChip({ state }: { state: ProxyBindingHealth }) {
+  const colors: Record<ProxyBindingHealth, string> = {
+    HEALTHY: 'border-success/25 bg-success/10 text-success',
+    UNVERIFIED: 'border-warning/25 bg-warning/10 text-warning',
+    UNHEALTHY: 'border-danger/25 bg-danger/10 text-danger',
+    DISABLED: 'border-border-default bg-surface-2 text-text-muted',
+  };
+  return (
+    <span
+      className={cn(
+        'border px-1.5 py-0.5 font-mono text-[9px] font-semibold',
+        colors[state]
+      )}
+    >
+      {state}
+    </span>
   );
 }
 

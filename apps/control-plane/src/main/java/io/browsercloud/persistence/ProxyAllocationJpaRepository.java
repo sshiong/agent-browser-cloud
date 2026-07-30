@@ -10,4 +10,6 @@ public interface ProxyAllocationJpaRepository extends JpaRepository<ProxyAllocat
       String sessionId, List<String> states);
 
   List<ProxyAllocationEntity> findAllByTenantIdOrderByAllocatedAtDesc(String tenantId);
+
+  boolean existsByTenantIdAndBindingProfileId(String tenantId, String bindingProfileId);
 }

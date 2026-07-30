@@ -99,7 +99,8 @@ PUT /api/v1/workspace-settings
 
 ## 明确未完成
 
-1. Proxy Binding 和环境更多操作；Saved View 已在
+1. 创建时 Proxy Binding 已在进度 82 关闭；运行中 Rebind、多 Provider、主动探测、
+   目标云 Secret 解引用和环境更多操作仍未完成；Saved View 已在
    [进度 77](77-Environment-Saved-Views正式闭环.md)关闭，Environment Import 已在
    [进度 78](78-Environment-Import正式闭环.md)关闭，Profile Import 已在
    [进度 79](79-Profile-Checkpoint-Import正式闭环.md)关闭；

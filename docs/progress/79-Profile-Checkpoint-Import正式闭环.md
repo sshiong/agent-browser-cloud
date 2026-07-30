@@ -86,7 +86,8 @@ make test-integration
 
 Profile / Checkpoint Import 的仓库内核心闭环已关闭。以下是独立剩余项：
 
-1. 可复用 Proxy Binding 的 Secret 引用、健康检查、租户权限和绑定 Operation；
+1. 创建时可复用 Proxy Binding 已在进度 82 关闭；多 Provider、目标云 Secret
+   解引用、后台主动健康探测和运行中 Rebind Operation 仍未完成；
 2. Profile 导出下载、Purpose-bound 授权、敏感内容提示、保留期和 Legal Hold；
 3. Multipart Resume、Warm Tier Delta Journal、跨 Region Restore、目标云 KMS/IAM；
 4. Group/Tags 批量生命周期、服务端组合过滤和大列表批量投影；

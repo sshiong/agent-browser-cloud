@@ -67,8 +67,9 @@ L3/M2，但 Placement 和 Node 能力仍拥有最终裁决权。
 - 只读角色继续隐藏创建、启动、终止、Agent、接管及管理导航；
 - 创建向导仅在有操作权限时加载真实数据；
 - Saved View 后续已在[进度 77](77-Environment-Saved-Views正式闭环.md)接入正式
-  PostgreSQL/API/RBAC/CAS/审计；Import、复用既有 Proxy Binding 等未接 API 的功能
-  继续保持禁用并说明原因，不使用 Local Storage 或前端假数据伪造成功。
+  PostgreSQL/API/RBAC/CAS/审计；创建时复用 Proxy Binding 配置后续已在
+  [进度 82](82-可复用Proxy-Binding创建时闭环.md)接入正式 PostgreSQL/API/UI，
+  Allocation 仍保持每 Session 独立，不使用 Local Storage 或前端假数据伪造成功。
 
 ## 当前真实执行边界
 
@@ -91,7 +92,8 @@ UI 在检查页明确展示上述边界，没有把治理偏好描述为已经�
 1. Saved View 领域模型、API、租户共享与权限后续已在进度 77 关闭；
 2. Environment Import 已在进度 78 关闭；Profile/Checkpoint Import 已在进度 79
    关闭，不再属于未完成项；
-3. 可安全复用的独立 Proxy Binding API；现有 Allocation 与 Session 绑定，不能跨环境复用；
+3. 创建时可安全复用的 Proxy Binding 配置已在进度 82 关闭；运行中 Rebind
+   Operation、多 Provider、后台主动探测和目标云 Secret 解引用仍未完成；
 4. Runtime Build、Resource Template、Execution Environment 和 Agent Policy 的一等
    Create Session 契约及调度强制执行；
 5. Session 列表的 Group/Tags/Agent/Extension/Template 受控投影；

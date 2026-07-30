@@ -336,6 +336,7 @@ public class EnvironmentImportApplicationService {
         specification.groupId(),
         specification.tagIds(),
         specification.region(),
+        null,
         specification.resourcePolicy() == null
             ? new ResourcePolicyRequest(
                 ResourcePolicyMode.AUTO,

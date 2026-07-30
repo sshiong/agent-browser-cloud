@@ -514,23 +514,23 @@ export function ResourceUsageChart({
       <div className="h-44 border border-border-subtle bg-surface-2 p-2">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
-            <CartesianGrid stroke="rgba(126, 151, 163, .10)" vertical={false} />
+            <CartesianGrid stroke="var(--color-chart-grid)" vertical={false} />
             <XAxis
               dataKey="time"
-              tick={{ fill: '#78909c', fontSize: 9 }}
+              tick={{ fill: 'var(--color-chart-axis)', fontSize: 9 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               domain={[0, 100]}
-              tick={{ fill: '#78909c', fontSize: 9 }}
+              tick={{ fill: 'var(--color-chart-axis)', fontSize: 9 }}
               axisLine={false}
               tickLine={false}
             />
             <Tooltip
               contentStyle={{
-                background: '#101a22',
-                border: '1px solid rgba(126,151,163,.25)',
+                background: 'var(--color-surface-1)',
+                border: '1px solid var(--color-border-default)',
                 fontSize: 11,
               }}
             />
@@ -538,7 +538,7 @@ export function ResourceUsageChart({
               type="monotone"
               dataKey="cpuPercent"
               name="CPU %"
-              stroke="#54d6c3"
+              stroke="var(--color-accent)"
               dot={false}
               isAnimationActive={false}
             />
@@ -546,7 +546,7 @@ export function ResourceUsageChart({
               type="monotone"
               dataKey="memoryPercentOfLimit"
               name="Memory %"
-              stroke="#77a8ff"
+              stroke="var(--color-accent-secondary)"
               dot={false}
               isAnimationActive={false}
             />

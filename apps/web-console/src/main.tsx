@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './app/App';
 import { AuthProvider } from './auth/AuthProvider';
+import { ThemeProvider } from './features/theme/ThemeProvider';
 import { createPlatformAdapter } from './platform';
 import { PlatformProvider } from './platform/PlatformProvider';
 import './index.css';
@@ -24,9 +25,11 @@ async function bootstrap() {
       <PlatformProvider adapter={platform}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
+            <ThemeProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </ThemeProvider>
           </AuthProvider>
         </QueryClientProvider>
       </PlatformProvider>

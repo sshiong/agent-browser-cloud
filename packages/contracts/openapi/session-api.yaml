@@ -169,6 +169,47 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/user-preferences:
+    get:
+      operationId: getUserPreferences
+      summary: Get the authenticated actor's durable UI preferences
+      description: >
+        Returns tenant-and-actor scoped preferences shared by Web and Tauri clients.
+        Actors without a stored row resolve to SYSTEM without requiring a database backfill.
+      tags: [UserPreference]
+      responses:
+        "200":
+          description: Current actor preference or the system default.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferences"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: updateUserPreferences
+      summary: Persist the authenticated actor's UI preferences
+      description: >
+        The tenant and actor are always derived from the authenticated identity. Repeating
+        the same theme mode is idempotent and does not advance the persisted version.
+      tags: [UserPreference]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserPreferencesRequest"
+      responses:
+        "200":
+          description: Persisted actor preference.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferences"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/sessions:
     post:
       operationId: createSession
@@ -3714,6 +3755,33 @@ components:
         updatedAt:
           type: string
           format: date-time
+    ThemeMode:
+      type: string
+      enum: [SYSTEM, DARK, LIGHT]
+    UpdateUserPreferencesRequest:
+      type: object
+      additionalProperties: false
+      required: [themeMode]
+      properties:
+        themeMode:
+          $ref: "#/components/schemas/ThemeMode"
+    UserPreferences:
+      type: object
+      additionalProperties: false
+      required: [themeMode, source, updatedAt, version]
+      properties:
+        themeMode:
+          $ref: "#/components/schemas/ThemeMode"
+        source:
+          type: string
+          enum: [SYSTEM_DEFAULT, USER_OVERRIDE]
+        updatedAt:
+          type: [string, "null"]
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
     TenantRoute:
       type: object
       additionalProperties: false

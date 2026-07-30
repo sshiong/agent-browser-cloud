@@ -1,8 +1,9 @@
-import { Sun, User, Wifi, LogOut } from 'lucide-react';
+import { User, Wifi, LogOut } from 'lucide-react';
 import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import { useAuth } from '@/auth/AuthProvider';
 import { GlobalSearchDialog } from '@/features/search/GlobalSearchDialog';
 import { WorkspaceNotificationCenter } from '@/features/notifications/WorkspaceNotificationCenter';
+import { ThemeSwitcher } from '@/features/theme/ThemeSwitcher';
 
 interface TopContextBarProps {
   title: string;
@@ -62,16 +63,7 @@ export function TopContextBar({
 
         <WorkspaceNotificationCenter />
 
-        {/* Theme Toggle */}
-        <button
-          type="button"
-          aria-label="浅色主题（尚未实现）"
-          title="浅色主题（尚未实现）"
-          disabled
-          className="hidden h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-text-muted opacity-45 md:flex"
-        >
-          <Sun size={16} />
-        </button>
+        <ThemeSwitcher />
 
         <div
           className="hidden max-w-[230px] items-center gap-2 border-l border-border-subtle pl-3 sm:flex"

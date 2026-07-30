@@ -8,10 +8,7 @@ import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/**
- * Reads the durable Session change feed shared by resource samples, adjustment events and
- * application Safe Point lease events.
- */
+/** Reads the canonical durable Session change feed. */
 @Repository
 public class SessionResourceStreamStore {
 
@@ -45,41 +42,12 @@ public class SessionResourceStreamStore {
     return jdbc.query(
         """
         SELECT stream_sequence, change_type, entity_id, occurred_at
-        FROM (
-            SELECT
-                stream_sequence,
-                'RESOURCE_SAMPLE' AS change_type,
-                sample_id AS entity_id,
-                observed_at AS occurred_at
-            FROM session_resource_samples
-            WHERE tenant_id = ? AND session_id = ? AND stream_sequence > ?
-            UNION ALL
-            SELECT
-                stream_sequence,
-                'RESOURCE_EVENT' AS change_type,
-                event_id AS entity_id,
-                occurred_at
-            FROM session_resource_events
-            WHERE tenant_id = ? AND session_id = ? AND stream_sequence > ?
-            UNION ALL
-            SELECT
-                stream_sequence,
-                'SAFETY_LEASE_EVENT' AS change_type,
-                event_id AS entity_id,
-                occurred_at
-            FROM session_safety_lease_events
-            WHERE tenant_id = ? AND session_id = ? AND stream_sequence > ?
-        ) durable_changes
+        FROM session_event_envelopes
+        WHERE tenant_id = ? AND session_id = ? AND stream_sequence > ?
         ORDER BY stream_sequence
         LIMIT ?
         """,
         SessionResourceStreamStore::mapChange,
-        tenantId,
-        sessionId,
-        afterSequence,
-        tenantId,
-        sessionId,
-        afterSequence,
         tenantId,
         sessionId,
         afterSequence,

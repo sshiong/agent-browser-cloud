@@ -20,6 +20,7 @@ import {
   resyncBrowserState,
   SessionApiError,
   startSession,
+  streamSessionChanges,
   streamSessionResourceChanges,
   upsertRecoveryContract,
   validateBusinessRecovery,
@@ -756,6 +757,55 @@ describe('session API', () => {
         headers: expect.objectContaining({
           Accept: 'text/event-stream',
           'Last-Event-ID': '3',
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('consumes lifecycle and Browser State changes from the unified Session SSE', async () => {
+    const encoder = new TextEncoder();
+    const payload =
+      'id: 20\nevent: session-stream-ready\ndata: {"cursor":20,"resetRequired":false,"connectedAt":"2026-07-30T00:00:00Z"}\n\n' +
+      'id: 21\nevent: session-change\ndata: {"sequence":21,"changeType":"SESSION","entityId":"ses_1234567890abcdef","occurredAt":"2026-07-30T00:00:01Z","replayed":false}\n\n' +
+      'id: 22\nevent: session-change\ndata: {"sequence":22,"changeType":"BROWSER_STATE","entityId":"ses_1234567890abcdef:1:8","occurredAt":"2026-07-30T00:00:02Z","replayed":false}\n\n' +
+      'id: 23\nevent: session-change\ndata: {"sequence":23,"changeType":"AUDIT_EVENT","entityId":"aud_1234567890abcdef","occurredAt":"2026-07-30T00:00:03Z","replayed":false}\n\n' +
+      'id: 24\nevent: session-change\ndata: {"sequence":24,"changeType":"OPERATION","entityId":"op_1234567890abcdef","occurredAt":"2026-07-30T00:00:04Z","replayed":false}\n\n' +
+      'id: 25\nevent: session-change\ndata: {"sequence":25,"changeType":"AGENT_TASK","entityId":"agt_1234567890abcdef","occurredAt":"2026-07-30T00:00:05Z","replayed":false}\n\n';
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(payload));
+        controller.close();
+      },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(body, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const changes: string[] = [];
+
+    await streamSessionChanges({
+      sessionId: 'ses_1234567890abcdef',
+      tenantId: 'tenant-test',
+      lastEventId: '19',
+      signal: new AbortController().signal,
+      onOpen: vi.fn(),
+      onControl: vi.fn(),
+      onChange: (change) => changes.push(change.changeType),
+    });
+
+    expect(changes).toEqual([
+      'SESSION',
+      'BROWSER_STATE',
+      'AUDIT_EVENT',
+      'OPERATION',
+      'AGENT_TASK',
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef/event-stream',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Last-Event-ID': '19',
           'X-Tenant-Id': 'tenant-test',
         }),
       })

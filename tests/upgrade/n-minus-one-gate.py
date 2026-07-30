@@ -75,6 +75,37 @@ for invariant in (
         f"resource stream migration lacks commit-ordered invariant: {invariant}"
     )
 
+unified_session_stream_migration = read(
+    "database/migrations/V059__unified_session_event_stream.sql"
+)
+unified_session_stream_upper = unified_session_stream_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in unified_session_stream_upper, (
+        f"unified Session stream migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "CREATE TABLE SESSION_EVENT_ENVELOPES",
+    "PRIMARY KEY (TENANT_ID, SESSION_ID, STREAM_SEQUENCE)",
+    "FOREIGN KEY (SESSION_ID, TENANT_ID)",
+    "REFERENCES SESSIONS(ID, TENANT_ID) ON DELETE CASCADE",
+    "ON CONFLICT (TENANT_ID, SESSION_ID)",
+    "AFTER INSERT ON SESSION_RESOURCE_SAMPLES",
+    "AFTER INSERT ON SESSION_RESOURCE_EVENTS",
+    "AFTER INSERT ON SESSION_SAFETY_LEASE_EVENTS",
+    "AFTER INSERT OR UPDATE ON BROWSER_STATES",
+    "AFTER INSERT ON AUDIT_EVENTS",
+    "AFTER INSERT OR UPDATE ON SESSIONS",
+    "AFTER INSERT OR UPDATE ON EXCLUSIVE_OPERATIONS",
+    "AFTER INSERT OR UPDATE ON AGENT_TASKS",
+    "'BROWSER_STATE'",
+    "'AUDIT_EVENT'",
+    "'OPERATION'",
+    "'AGENT_TASK'",
+):
+    assert invariant in unified_session_stream_upper, (
+        f"unified Session stream lacks rolling invariant: {invariant}"
+    )
+
 browser_activity_migration = read(
     "database/migrations/V028__browser_activity_safety_signals.sql"
 )
@@ -942,7 +973,7 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V058 additive",
+    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V059 additive",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

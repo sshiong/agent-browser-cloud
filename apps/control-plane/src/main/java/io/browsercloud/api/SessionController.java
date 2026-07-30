@@ -254,6 +254,18 @@ public class SessionController {
     return resourceEventStream.subscribe(sessionId, identity.current().tenantId(), lastEventId);
   }
 
+  /** 获取统一、可续传的 Session 生命周期、状态、审计与资源变更流。 */
+  @GetMapping(value = "/{sessionId}/event-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamSessionChanges(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader(name = "Last-Event-ID", required = false) String lastEventId,
+      HttpServletResponse response) {
+    response.setHeader("Cache-Control", "no-cache, no-transform");
+    response.setHeader("X-Accel-Buffering", "no");
+    return resourceEventStream.subscribeSessionEvents(
+        sessionId, identity.current().tenantId(), lastEventId);
+  }
+
   @GetMapping("/{sessionId}/safe-point")
   public SafePointModels.SessionSafePointView getSafePoint(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {

@@ -60,6 +60,19 @@ class SessionResourceEventStreamServiceTest {
   }
 
   @Test
+  void exposesUnifiedSessionProtocolFromTheSameDurableCursor() {
+    when(store.latestSequence("tenant-a", SESSION_ID)).thenReturn(20L);
+    when(store.readAfter("tenant-a", SESSION_ID, 20L, 500)).thenReturn(List.of());
+    var service = new SessionResourceEventStreamService(sessions, store, 10, 2, 60_000);
+
+    service.subscribeSessionEvents(SESSION_ID, "tenant-a", "20");
+    service.publishDurableChanges();
+
+    verify(store, atLeastOnce()).readAfter("tenant-a", SESSION_ID, 20L, 500);
+    assertThat(service.activeSubscriberCount()).isEqualTo(1);
+  }
+
+  @Test
   void rejectsInvalidCursorAndBoundsSubscribersPerSession() {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> SessionResourceEventStreamService.parseCursor("other-session"));

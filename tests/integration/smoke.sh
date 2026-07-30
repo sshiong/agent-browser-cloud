@@ -1907,26 +1907,24 @@ application_lease_event_summary="$(docker exec "$postgres_name" psql -U browserc
 test "$application_lease_event_summary" = "ACQUIRED,RENEWED,RELEASED"
 
 resource_stream_cursor="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
-  "select greatest(
-      coalesce((select max(stream_sequence) from session_resource_samples where session_id='${session_one}'), 0),
-      coalesce((select max(stream_sequence) from session_resource_events where session_id='${session_one}'), 0),
-      coalesce((select max(stream_sequence) from session_safety_lease_events where session_id='${session_one}'), 0)
-   )")"
+  "select last_sequence
+   from session_resource_stream_cursors
+   where tenant_id='tenant-integration' and session_id='${session_one}'")"
 test -n "$resource_stream_cursor"
 curl -fsS --no-buffer --max-time 8 \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-stream" \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/event-stream" \
   -H 'Accept: text/event-stream' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H "Last-Event-ID: ${resource_stream_cursor}" \
   >"$temp_dir/resource-stream-live.sse" &
 resource_stream_pid=$!
 for _ in $(seq 1 40); do
-  if grep -q 'event:resource-stream-ready' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
+  if grep -q 'event:session-stream-ready' "$temp_dir/resource-stream-live.sse" 2>/dev/null; then
     break
   fi
   sleep 0.1
 done
-grep -q 'event:resource-stream-ready' "$temp_dir/resource-stream-live.sse"
+grep -q 'event:session-stream-ready' "$temp_dir/resource-stream-live.sse"
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases" \
   -H 'Content-Type: application/json' \
@@ -1967,7 +1965,7 @@ for _ in $(seq 1 50); do
   fi
   sleep 0.1
 done
-grep -q 'event:session-resource-change' "$temp_dir/resource-stream-live.sse"
+grep -q 'event:session-change' "$temp_dir/resource-stream-live.sse"
 grep -q '"changeType":"RESOURCE_SAMPLE"' "$temp_dir/resource-stream-live.sse"
 grep -q '"replayed":false' "$temp_dir/resource-stream-live.sse"
 resource_stream_sequence="$(awk -F: '/^id:/{gsub(/[[:space:]]/,"",$2); value=$2} END{print value}' \
@@ -1978,7 +1976,7 @@ wait "$resource_stream_pid" 2>/dev/null || true
 resource_stream_pid=""
 
 curl -fsS --no-buffer --max-time 8 \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-stream" \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/event-stream" \
   -H 'Accept: text/event-stream' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H "Last-Event-ID: ${resource_stream_cursor}" \
@@ -1998,7 +1996,7 @@ resource_stream_pid=""
 
 resource_stream_cross_tenant_status="$(curl -sS --max-time 2 \
   -o "$temp_dir/resource-stream-cross-tenant.json" -w '%{http_code}' \
-  "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-stream" \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/event-stream" \
   -H 'X-Tenant-Id: different-tenant')"
 test "$resource_stream_cross_tenant_status" = "404"
 printf '%s' "$(<"$temp_dir/resource-sample.json")" | python3 -c \
@@ -2043,6 +2041,18 @@ grep -Fq -- \
   "$temp_dir/fake-chromium-args.log"
 printf '%s' "$browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
+session_event_envelope_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select
+     count(*) filter (where change_type='SESSION') || ':' ||
+     count(*) filter (where change_type='BROWSER_STATE') || ':' ||
+     count(*) filter (where change_type='AUDIT_EVENT') || ':' ||
+     count(*) filter (where change_type='OPERATION') || ':' ||
+     count(*) filter (where change_type='RESOURCE_SAMPLE') || ':' ||
+     count(*) filter (where change_type='SAFETY_LEASE_EVENT')
+   from session_event_envelopes
+   where tenant_id='tenant-integration' and session_id='${session_one}'")"
+printf '%s' "$session_event_envelope_summary" | python3 -c \
+  'import sys; counts=[int(value) for value in sys.stdin.read().strip().split(":")]; assert all(value > 0 for value in counts), counts'
 
 initial_state_version="$(printf '%s' "$browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
 initial_target_name="$(printf '%s' "$browser_state" | python3 -c 'import json,sys; item=json.load(sys.stdin); print(item["targets"][0]["name"] if item["targets"] else "")')"

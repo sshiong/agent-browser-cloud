@@ -16,7 +16,7 @@ import {
   startSession,
   terminateSession,
   updateSessionResourcePolicy,
-  streamSessionResourceChanges,
+  streamSessionChanges,
   listRecoveryContracts,
   upsertRecoveryContract,
   requestRecoveryContractApproval,
@@ -117,20 +117,6 @@ export function useSession(sessionId: string) {
     queryKey: sessionKeys.detail(sessionId),
     queryFn: ({ signal }) => getSession(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: (query) => {
-      const session = query.state.data;
-      if (!session) return false;
-      return session.currentOperation?.state === 'ACTIVE' ||
-        [
-          'STARTING',
-          'RUNNING',
-          'DEGRADED',
-          'RECOVERING',
-          'TERMINATING',
-        ].includes(session.state)
-        ? 2_000
-        : false;
-    },
   });
 }
 
@@ -139,7 +125,6 @@ export function useBrowserState(sessionId: string, enabled: boolean) {
     queryKey: sessionKeys.browserState(sessionId),
     queryFn: ({ signal }) => getBrowserState(sessionId, undefined, signal),
     enabled: Boolean(sessionId) && enabled,
-    refetchInterval: enabled ? 2_000 : false,
   });
 }
 
@@ -413,10 +398,13 @@ export function useSessionResourceStream(
     let lastEventId: string | undefined;
     let reconnectAttempt = 0;
 
-    const invalidateAllResourceViews = () =>
+    const invalidateAllSessionViews = () =>
       Promise.all([
         queryClient.invalidateQueries({
           queryKey: sessionKeys.detail(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.browserState(sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.resources(sessionId),
@@ -433,6 +421,12 @@ export function useSessionResourceStream(
         queryClient.invalidateQueries({
           queryKey: sessionKeys.businessRecovery(sessionId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.evidence(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.applicationBinding(sessionId),
+        }),
       ]);
 
     const run = async () => {
@@ -446,7 +440,7 @@ export function useSessionResourceStream(
           reconnectAttempt === 0 ? 'CONNECTING' : 'RECONNECTING'
         );
         try {
-          await streamSessionResourceChanges({
+          await streamSessionChanges({
             sessionId,
             lastEventId,
             signal: controller.signal,
@@ -459,11 +453,24 @@ export function useSessionResourceStream(
               reconnectAttempt = 0;
               lastEventId = String(control.cursor);
               setConnectionState('LIVE');
-              void invalidateAllResourceViews();
+              void invalidateAllSessionViews();
             },
             onChange: (change) => {
               lastEventId = String(change.sequence);
-              if (change.changeType === 'RESOURCE_SAMPLE') {
+              if (change.changeType === 'BROWSER_STATE') {
+                void queryClient.invalidateQueries({
+                  queryKey: sessionKeys.browserState(sessionId),
+                });
+              } else if (change.changeType === 'SESSION') {
+                void Promise.all([
+                  queryClient.invalidateQueries({
+                    queryKey: sessionKeys.detail(sessionId),
+                  }),
+                  queryClient.invalidateQueries({
+                    queryKey: sessionKeys.all,
+                  }),
+                ]);
+              } else if (change.changeType === 'RESOURCE_SAMPLE') {
                 void Promise.all([
                   queryClient.invalidateQueries({
                     queryKey: sessionKeys.resources(sessionId),
@@ -473,7 +480,7 @@ export function useSessionResourceStream(
                   }),
                 ]);
               } else {
-                void invalidateAllResourceViews();
+                void invalidateAllSessionViews();
               }
             },
           });

@@ -487,7 +487,15 @@ export interface ResourceEventListResponse {
 
 export interface ResourceStreamEvent {
   sequence: number;
-  changeType: 'RESOURCE_SAMPLE' | 'RESOURCE_EVENT' | 'SAFETY_LEASE_EVENT';
+  changeType:
+    | 'SESSION'
+    | 'BROWSER_STATE'
+    | 'AUDIT_EVENT'
+    | 'OPERATION'
+    | 'AGENT_TASK'
+    | 'RESOURCE_SAMPLE'
+    | 'RESOURCE_EVENT'
+    | 'SAFETY_LEASE_EVENT';
   entityId: string;
   occurredAt: string;
   replayed: boolean;

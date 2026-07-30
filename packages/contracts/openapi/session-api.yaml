@@ -293,6 +293,53 @@ paths:
                 $ref: "#/components/schemas/Error"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/sessions/{sessionId}/event-stream:
+    get:
+      operationId: streamSessionChanges
+      summary: Stream the canonical durable Session change feed with resumable SSE
+      description: >
+        Emits payload-free invalidation envelopes for Session lifecycle, Browser Current
+        State, audit, Operation, Agent task, resource and application safety lease
+        changes. Reconnect with
+        Last-Event-ID to replay committed envelopes after the last processed per-Session
+        monotonic sequence. Clients refresh the corresponding authoritative REST view;
+        the stream never duplicates Browser state or audit details.
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: Last successfully processed numeric Session stream sequence.
+          schema:
+            type: string
+            pattern: "^[0-9]+$"
+      responses:
+        "200":
+          description: >
+            SSE stream. Events are session-stream-ready, session-stream-reset and
+            session-change; keepalive comments do not advance the cursor.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: Per-process or per-Session live subscriber bound reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/sessions/{sessionId}/safe-point:
     get:
       operationId: getSessionSafePoint

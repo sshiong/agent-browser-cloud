@@ -1,8 +1,9 @@
 # 资源事件 SSE 与断点恢复
 
 > 日期：2026-07-28
-> 状态：资源样本、调整、应用安全 Lease、安全点通知屏障和迁移状态的 PostgreSQL 持久事件流已完成；
-> State/Audit 统一流和跨 Region 事件总线仍待完成
+> 状态：资源样本、调整、应用安全 Lease、安全点通知屏障和迁移状态的 PostgreSQL
+> 持久事件流已完成；State/Audit/Operation/Agent Task 统一流后续已由
+> [进度 84](84-Session统一事件流与轮询替换.md)关闭，跨 Region 事件总线仍待完成
 
 ## 本轮完成
 
@@ -78,10 +79,8 @@
 
 ## 仍未完成
 
-1. Browser State、Audit、Agent Step 和通用 Operation 的统一事件流；本轮只关闭
-   Resource/Migration 详情的轮询缺口。
-2. PostgreSQL Polling 之外的跨 Region Event Bus、分区消费和灾备切换。
-3. 大规模并发订阅、慢客户端、代理 Idle Timeout、背压和目标云 Ingress 长稳证书。
-4. Web 列表级批量资源摘要流；当前流按打开的 Session 详情页建立。
-5. Tauri 2 已打包复用同一 Fetch/SSE Client；仍缺桌面端断网、网络切换和休眠唤醒
+1. PostgreSQL Polling 之外的跨 Region Event Bus、分区消费和灾备切换。
+2. 大规模并发订阅、慢客户端、代理 Idle Timeout、背压和目标云 Ingress 长稳证书。
+3. Web 列表级批量资源摘要流；当前流按打开的 Session 详情页建立。
+4. Tauri 2 已打包复用同一 Fetch/SSE Client；仍缺桌面端断网、网络切换和休眠唤醒
    的长期恢复验收。

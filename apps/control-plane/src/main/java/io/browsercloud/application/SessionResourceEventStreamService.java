@@ -23,9 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Cross-instance resumable SSE backed exclusively by PostgreSQL resource samples, resource events
- * and application safety lease events. The in-memory registry only owns live sockets and is never a
- * source of business state.
+ * Cross-instance resumable SSE backed by the canonical PostgreSQL Session event envelope. The
+ * in-memory registry only owns live sockets and is never a source of business state.
  */
 @Service
 public class SessionResourceEventStreamService {
@@ -58,6 +57,15 @@ public class SessionResourceEventStreamService {
   }
 
   public SseEmitter subscribe(String sessionId, String tenantId, String lastEventId) {
+    return subscribe(sessionId, tenantId, lastEventId, StreamProtocol.LEGACY_RESOURCE);
+  }
+
+  public SseEmitter subscribeSessionEvents(String sessionId, String tenantId, String lastEventId) {
+    return subscribe(sessionId, tenantId, lastEventId, StreamProtocol.SESSION_EVENT);
+  }
+
+  private SseEmitter subscribe(
+      String sessionId, String tenantId, String lastEventId, StreamProtocol protocol) {
     requireTenant(sessionId, tenantId);
     var key = new StreamKey(tenantId, sessionId);
     var channel = channels.computeIfAbsent(key, ignored -> new StreamChannel());
@@ -77,14 +85,15 @@ public class SessionResourceEventStreamService {
         throw new ResourceStreamCapacityException();
       }
       var emitter = new SseEmitter(connectionTimeoutMillis);
-      var subscriber = new StreamSubscriber(emitter, cursor, replayThrough, Instant.now());
+      var subscriber =
+          new StreamSubscriber(emitter, cursor, replayThrough, Instant.now(), protocol);
       channel.subscribers.add(subscriber);
       registerLifecycle(key, channel, subscriber);
       try {
         emitter.send(
             SseEmitter.event()
                 .id(Long.toString(cursor))
-                .name(resetRequired ? "resource-stream-reset" : "resource-stream-ready")
+                .name(protocol.controlEventName(resetRequired))
                 .reconnectTime(1_000)
                 .data(
                     Map.of(
@@ -135,7 +144,7 @@ public class SessionResourceEventStreamService {
     try {
       changes = streamStore.readAfter(key.tenantId(), key.sessionId(), after, REPLAY_BATCH_SIZE);
     } catch (RuntimeException exception) {
-      log.warn("Resource stream source unavailable for Session {}", key.sessionId(), exception);
+      log.warn("Session stream source unavailable for Session {}", key.sessionId(), exception);
       channel.subscribers.forEach(subscriber -> fail(key, channel, subscriber, exception));
       return;
     }
@@ -164,7 +173,7 @@ public class SessionResourceEventStreamService {
           .send(
               SseEmitter.event()
                   .id(Long.toString(change.sequence()))
-                  .name("session-resource-change")
+                  .name(subscriber.protocol().changeEventName())
                   .data(
                       new ResourceStreamEventView(
                           change.sequence(),
@@ -187,7 +196,7 @@ public class SessionResourceEventStreamService {
             return;
           }
           try {
-            subscriber.emitter().send(SseEmitter.event().comment("resource-stream-keepalive"));
+            subscriber.emitter().send(SseEmitter.event().comment("session-stream-keepalive"));
             subscriber.wroteAt(now);
           } catch (IOException | IllegalStateException exception) {
             fail(key, channel, subscriber, exception);
@@ -234,7 +243,7 @@ public class SessionResourceEventStreamService {
       if (cursor < 0) throw new IllegalArgumentException("Last-Event-ID must be non-negative");
       return cursor;
     } catch (NumberFormatException exception) {
-      throw new IllegalArgumentException("Last-Event-ID must be a numeric resource cursor");
+      throw new IllegalArgumentException("Last-Event-ID must be a numeric Session cursor");
     }
   }
 
@@ -253,6 +262,35 @@ public class SessionResourceEventStreamService {
 
   private record StreamKey(String tenantId, String sessionId) {}
 
+  private enum StreamProtocol {
+    LEGACY_RESOURCE {
+      @Override
+      String controlEventName(boolean resetRequired) {
+        return resetRequired ? "resource-stream-reset" : "resource-stream-ready";
+      }
+
+      @Override
+      String changeEventName() {
+        return "session-resource-change";
+      }
+    },
+    SESSION_EVENT {
+      @Override
+      String controlEventName(boolean resetRequired) {
+        return resetRequired ? "session-stream-reset" : "session-stream-ready";
+      }
+
+      @Override
+      String changeEventName() {
+        return "session-change";
+      }
+    };
+
+    abstract String controlEventName(boolean resetRequired);
+
+    abstract String changeEventName();
+  }
+
   private static final class StreamChannel {
     private final CopyOnWriteArrayList<StreamSubscriber> subscribers = new CopyOnWriteArrayList<>();
     private final AtomicBoolean publishing = new AtomicBoolean();
@@ -262,15 +300,21 @@ public class SessionResourceEventStreamService {
     private final SseEmitter emitter;
     private final AtomicLong cursor;
     private final long replayThrough;
+    private final StreamProtocol protocol;
     private final AtomicBoolean active = new AtomicBoolean(true);
     private volatile Instant lastWriteAt;
 
     private StreamSubscriber(
-        SseEmitter emitter, long cursor, long replayThrough, Instant lastWriteAt) {
+        SseEmitter emitter,
+        long cursor,
+        long replayThrough,
+        Instant lastWriteAt,
+        StreamProtocol protocol) {
       this.emitter = emitter;
       this.cursor = new AtomicLong(cursor);
       this.replayThrough = replayThrough;
       this.lastWriteAt = lastWriteAt;
+      this.protocol = protocol;
     }
 
     private SseEmitter emitter() {
@@ -283,6 +327,10 @@ public class SessionResourceEventStreamService {
 
     private long replayThrough() {
       return replayThrough;
+    }
+
+    private StreamProtocol protocol() {
+      return protocol;
     }
 
     private boolean active() {

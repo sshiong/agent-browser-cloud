@@ -299,15 +299,7 @@ export async function getSessionMigration(
   );
 }
 
-export async function streamSessionResourceChanges({
-  sessionId,
-  tenantId = DEFAULT_TENANT_ID,
-  lastEventId,
-  signal,
-  onOpen,
-  onControl,
-  onChange,
-}: {
+type SessionStreamCallbacks = {
   sessionId: string;
   tenantId?: string;
   lastEventId?: string;
@@ -315,9 +307,46 @@ export async function streamSessionResourceChanges({
   onOpen: () => void;
   onControl: (control: ResourceStreamControl) => void;
   onChange: (change: ResourceStreamEvent) => void;
-}): Promise<void> {
+};
+
+export async function streamSessionResourceChanges(
+  callbacks: SessionStreamCallbacks
+): Promise<void> {
+  return streamSessionChangesFromEndpoint(
+    callbacks,
+    'resource-stream',
+    ['resource-stream-ready', 'resource-stream-reset'],
+    'session-resource-change'
+  );
+}
+
+export async function streamSessionChanges(
+  callbacks: SessionStreamCallbacks
+): Promise<void> {
+  return streamSessionChangesFromEndpoint(
+    callbacks,
+    'event-stream',
+    ['session-stream-ready', 'session-stream-reset'],
+    'session-change'
+  );
+}
+
+async function streamSessionChangesFromEndpoint(
+  {
+    sessionId,
+    tenantId = DEFAULT_TENANT_ID,
+    lastEventId,
+    signal,
+    onOpen,
+    onControl,
+    onChange,
+  }: SessionStreamCallbacks,
+  endpoint: 'resource-stream' | 'event-stream',
+  controlEvents: readonly string[],
+  changeEvent: 'session-resource-change' | 'session-change'
+): Promise<void> {
   const response = await fetch(
-    `${API_BASE}/sessions/${sessionId}/resource-stream`,
+    `${API_BASE}/sessions/${sessionId}/${endpoint}`,
     {
       signal,
       headers: {
@@ -329,22 +358,19 @@ export async function streamSessionResourceChanges({
   );
   if (!response.ok) {
     const body = await response.json().catch(() => ({
-      code: 'RESOURCE_STREAM_UNAVAILABLE',
-      message: `Resource stream failed with status ${response.status}`,
+      code: 'SESSION_STREAM_UNAVAILABLE',
+      message: `Session stream failed with status ${response.status}`,
     }));
     throw new SessionApiError(response.status, body);
   }
   if (!response.body) {
-    throw new Error('Resource stream response body is unavailable');
+    throw new Error('Session stream response body is unavailable');
   }
   onOpen();
   let acceptedCursor: number | undefined;
   await consumeEventStream(response.body, ({ id, event, data }) => {
     const parsed: unknown = JSON.parse(data);
-    if (
-      event === 'resource-stream-ready' ||
-      event === 'resource-stream-reset'
-    ) {
+    if (controlEvents.includes(event)) {
       if (!isResourceStreamControl(parsed)) {
         throw new Error('Resource stream control event is invalid');
       }
@@ -353,7 +379,7 @@ export async function streamSessionResourceChanges({
       onControl(parsed);
       return;
     }
-    if (event === 'session-resource-change') {
+    if (event === changeEvent) {
       if (!isResourceStreamEvent(parsed)) {
         throw new Error('Resource stream change event is invalid');
       }
@@ -437,7 +463,12 @@ function isResourceStreamEvent(value: unknown): value is ResourceStreamEvent {
     Number.isSafeInteger(change.sequence) &&
     (change.changeType === 'RESOURCE_SAMPLE' ||
       change.changeType === 'RESOURCE_EVENT' ||
-      change.changeType === 'SAFETY_LEASE_EVENT') &&
+      change.changeType === 'SAFETY_LEASE_EVENT' ||
+      change.changeType === 'SESSION' ||
+      change.changeType === 'BROWSER_STATE' ||
+      change.changeType === 'AUDIT_EVENT' ||
+      change.changeType === 'OPERATION' ||
+      change.changeType === 'AGENT_TASK') &&
     typeof change.entityId === 'string' &&
     typeof change.occurredAt === 'string' &&
     typeof change.replayed === 'boolean'

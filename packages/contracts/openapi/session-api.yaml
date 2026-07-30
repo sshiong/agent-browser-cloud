@@ -109,6 +109,66 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/notifications:
+    get:
+      operationId: listWorkspaceNotifications
+      summary: List the authenticated actor's workspace notifications
+      description: >
+        Returns a bounded tenant-scoped projection of high-signal immutable audit events.
+        Read state is held in PostgreSQL per authenticated actor and is shared by Web and
+        Tauri clients. The feed starts at feature deployment and retains entries for 90 days.
+      tags: [Notification]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 30
+        - name: beforeSequence
+          in: query
+          description: Exclusive audit sequence cursor for older entries.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: Current notification page and durable actor read state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceNotificationListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/notifications/read-cursor:
+    patch:
+      operationId: updateWorkspaceNotificationReadCursor
+      summary: Monotonically advance the authenticated actor's notification read cursor
+      description: >
+        The requested sequence must not exceed the current tenant notification head.
+        Repeated or older cursor updates are idempotent and never make notifications unread.
+      tags: [Notification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationReadCursorRequest"
+      responses:
+        "200":
+          description: Committed read cursor and remaining unread count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceNotificationReadState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/sessions:
     post:
       operationId: createSession
@@ -3542,6 +3602,118 @@ components:
           type: integer
         truncated:
           type: boolean
+    NotificationCategory:
+      type: string
+      enum: [SECURITY, RESOURCE, AGENT, RELEASE, SYSTEM]
+    NotificationSeverity:
+      type: string
+      enum: [INFO, WARNING, CRITICAL]
+    WorkspaceNotification:
+      type: object
+      additionalProperties: false
+      required:
+        - notificationId
+        - sequence
+        - category
+        - severity
+        - title
+        - body
+        - eventType
+        - sessionId
+        - resourceType
+        - resourceId
+        - requestId
+        - route
+        - read
+        - occurredAt
+      properties:
+        notificationId:
+          type: string
+          pattern: "^ntf_[a-zA-Z0-9]{20}$"
+        sequence:
+          type: integer
+          format: int64
+          minimum: 1
+        category:
+          $ref: "#/components/schemas/NotificationCategory"
+        severity:
+          $ref: "#/components/schemas/NotificationSeverity"
+        title:
+          type: string
+        body:
+          type: string
+        eventType:
+          type: string
+        sessionId:
+          type: [string, "null"]
+        resourceType:
+          type: [string, "null"]
+        resourceId:
+          type: [string, "null"]
+        requestId:
+          type: [string, "null"]
+        route:
+          type: string
+        read:
+          type: boolean
+        occurredAt:
+          type: string
+          format: date-time
+    WorkspaceNotificationListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - unreadCount
+        - lastReadSequence
+        - headSequence
+        - nextBeforeSequence
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceNotification"
+        unreadCount:
+          type: integer
+          format: int64
+          minimum: 0
+        lastReadSequence:
+          type: integer
+          format: int64
+          minimum: 0
+        headSequence:
+          type: integer
+          format: int64
+          minimum: 0
+        nextBeforeSequence:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+    UpdateNotificationReadCursorRequest:
+      type: object
+      additionalProperties: false
+      required: [readThroughSequence]
+      properties:
+        readThroughSequence:
+          type: integer
+          format: int64
+          minimum: 0
+    WorkspaceNotificationReadState:
+      type: object
+      additionalProperties: false
+      required: [lastReadSequence, unreadCount, updatedAt]
+      properties:
+        lastReadSequence:
+          type: integer
+          format: int64
+          minimum: 0
+        unreadCount:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAt:
+          type: string
+          format: date-time
     TenantRoute:
       type: object
       additionalProperties: false

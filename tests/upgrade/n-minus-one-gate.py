@@ -981,6 +981,33 @@ for invariant in (
         f"evidence redaction migration lacks rolling invariant: {invariant}"
     )
 
+notification_migration = read(
+    "database/migrations/V064__workspace_notification_center.sql"
+)
+notification_upper = notification_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN", "DROP TABLE"):
+    assert forbidden not in notification_upper, (
+        f"workspace notification migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "CREATE TABLE WORKSPACE_NOTIFICATIONS",
+    "CREATE TABLE WORKSPACE_NOTIFICATION_READ_CURSORS",
+    "UNIQUE (TENANT_ID, AUDIT_SEQUENCE_NO)",
+    "CHECK (AUDIT_SEQUENCE_NO > 0) NOT VALID",
+    "CHECK (CATEGORY IN ('SECURITY', 'RESOURCE', 'AGENT', 'RELEASE', 'SYSTEM')) NOT VALID",
+    "CHECK (SEVERITY IN ('INFO', 'WARNING', 'CRITICAL')) NOT VALID",
+    "VALIDATE CONSTRAINT CHK_WORKSPACE_NOTIFICATION_SEQUENCE",
+    "VALIDATE CONSTRAINT CHK_WORKSPACE_NOTIFICATION_CATEGORY",
+    "VALIDATE CONSTRAINT CHK_WORKSPACE_NOTIFICATION_SEVERITY",
+    "CREATE TRIGGER APPEND_WORKSPACE_NOTIFICATION",
+    "AFTER INSERT ON AUDIT_EVENTS",
+    "NEW.CREATED_AT + INTERVAL '90 DAYS'",
+):
+    assert invariant in notification_upper, (
+        f"workspace notification migration lacks rolling invariant: {invariant}"
+    )
+assert "INSERT INTO AUDIT_EVENTS" not in notification_upper
+
 openapi = read("packages/contracts/openapi/session-api.yaml")
 for evidence_path in (
     "/sessions/{sessionId}/evidence:capture:",
@@ -989,6 +1016,13 @@ for evidence_path in (
     "/sessions/{sessionId}/evidence-access-grants/{grantId}:redeem:",
 ):
     assert evidence_path in openapi
+for notification_contract in (
+    "/api/v1/notifications:",
+    "/api/v1/notifications/read-cursor:",
+    "WorkspaceNotificationListResponse:",
+    "WorkspaceNotificationReadState:",
+):
+    assert notification_contract in openapi
 register = openapi.split("    RegisterBrowserNodeRequest:", 1)[1].split(
     "    RecordNodePressureRequest:", 1
 )[0]
@@ -1135,7 +1169,7 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V063 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive,V061 concurrent-trigram-index",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V064 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive,V061 concurrent-trigram-index",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",

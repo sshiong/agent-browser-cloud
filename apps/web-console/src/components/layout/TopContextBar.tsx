@@ -1,7 +1,8 @@
-import { Bell, Sun, User, Wifi, LogOut } from 'lucide-react';
+import { Sun, User, Wifi, LogOut } from 'lucide-react';
 import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import { useAuth } from '@/auth/AuthProvider';
 import { GlobalSearchDialog } from '@/features/search/GlobalSearchDialog';
+import { WorkspaceNotificationCenter } from '@/features/notifications/WorkspaceNotificationCenter';
 
 interface TopContextBarProps {
   title: string;
@@ -59,17 +60,7 @@ export function TopContextBar({
 
         <GlobalSearchDialog />
 
-        {/* Notifications */}
-        <button
-          type="button"
-          aria-label="通知中心（尚未实现）"
-          title="通知中心（尚未实现）"
-          disabled
-          className="relative hidden h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-text-muted opacity-45 md:flex"
-        >
-          <Bell size={16} />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-danger" />
-        </button>
+        <WorkspaceNotificationCenter />
 
         {/* Theme Toggle */}
         <button

@@ -1,19 +1,31 @@
 use crate::{LocalProfileStore, ProfileCheckpointManifest};
 use anyhow::Context;
 use bytes::Bytes;
-use object_store::aws::AmazonS3Builder;
+use http::Method;
+use object_store::aws::{AmazonS3, AmazonS3Builder};
 use object_store::path::Path;
-use object_store::{ClientOptions, ObjectStore, ObjectStoreExt, PutPayload};
+use object_store::signer::Signer;
+use object_store::{ClientOptions, ObjectStoreExt, PutPayload};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
 pub struct ObjectArchive {
-    store: Arc<dyn ObjectStore>,
+    store: Arc<AmazonS3>,
     prefix: String,
     operation_timeout: Duration,
+}
+
+pub struct EvidenceDownloadRequest<'a> {
+    pub tenant_id: &'a str,
+    pub profile_id: &'a str,
+    pub session_id: &'a str,
+    pub evidence_id: &'a str,
+    pub content_sha256: &'a str,
+    pub content_bytes: u64,
+    pub expires_in: Duration,
 }
 
 #[derive(Debug, Serialize)]
@@ -65,6 +77,14 @@ struct EvidenceCommitMarker<'a> {
     content_sha256: &'a str,
     content_bytes: u64,
     captured_at_ms: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredEvidenceCommitMarker {
+    evidence_id: String,
+    content_sha256: String,
+    content_bytes: u64,
 }
 
 impl ObjectArchive {
@@ -247,6 +267,54 @@ impl ObjectArchive {
         )
         .await?;
         Ok(object_key)
+    }
+
+    pub async fn sign_evidence_download(
+        &self,
+        request: EvidenceDownloadRequest<'_>,
+    ) -> anyhow::Result<(String, u64)> {
+        anyhow::ensure!(
+            (Duration::from_secs(30)..=Duration::from_secs(120)).contains(&request.expires_in),
+            "evidence access duration must be between 30 and 120 seconds"
+        );
+        let base = self.evidence_key_for(
+            request.tenant_id,
+            request.profile_id,
+            request.session_id,
+            request.evidence_id,
+        );
+        let marker_bytes = self.get(&format!("{base}/COMMITTED")).await?;
+        let marker: StoredEvidenceCommitMarker = serde_json::from_slice(&marker_bytes)?;
+        anyhow::ensure!(
+            marker.evidence_id == request.evidence_id
+                && marker.content_sha256 == request.content_sha256
+                && marker.content_bytes == request.content_bytes,
+            "evidence commit marker does not match the access request"
+        );
+        let object_key = format!("{base}/screenshot.jpeg");
+        let object_path = Path::from(object_key.as_str());
+        let metadata = tokio::time::timeout(self.operation_timeout, self.store.head(&object_path))
+            .await
+            .context("Object Storage operation timed out")?
+            .with_context(|| format!("Object Storage HEAD failed for {object_key}"))?;
+        anyhow::ensure!(
+            metadata.size == request.content_bytes,
+            "evidence object size does not match its commit marker"
+        );
+        let signed_url = tokio::time::timeout(
+            self.operation_timeout,
+            self.store
+                .signed_url(Method::GET, &object_path, request.expires_in),
+        )
+        .await
+        .context("Object Storage signing timed out")?
+        .context("Object Storage evidence signing failed")?;
+        let expires_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .checked_add(request.expires_in)
+            .ok_or_else(|| anyhow::anyhow!("evidence access expiry overflow"))?
+            .as_millis() as u64;
+        Ok((signed_url.to_string(), expires_at_ms))
     }
 
     async fn put(&self, key: &str, payload: Bytes) -> anyhow::Result<()> {
@@ -487,6 +555,34 @@ mod tests {
                 .get(&Path::from(format!("{evidence_base}/COMMITTED")))
                 .await
                 .unwrap();
+            let (download_url, expires_at_ms) = archive
+                .sign_evidence_download(EvidenceDownloadRequest {
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    session_id: "session-test",
+                    evidence_id: "evd-test",
+                    content_sha256: &evidence_hash,
+                    content_bytes: 4,
+                    expires_in: Duration::from_secs(60),
+                })
+                .await
+                .unwrap();
+            let downloaded = reqwest::get(download_url)
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert_eq!(downloaded.as_ref(), &[0xff, 0xd8, 0xff, 0xd9]);
+            assert!(
+                expires_at_ms
+                    > SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64
+            );
         }
         let _ = fs::remove_dir_all(root);
     }

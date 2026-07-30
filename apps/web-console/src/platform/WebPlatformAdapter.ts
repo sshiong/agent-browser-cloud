@@ -95,8 +95,17 @@ export class WebPlatformAdapter implements PlatformAdapter {
 
 function requireHttpsUrl(value: string) {
   const parsed = new URL(value);
-  if (parsed.protocol !== 'https:') {
-    throw new Error('External navigation only permits HTTPS URLs');
+  const loopback =
+    parsed.hostname === 'localhost' ||
+    parsed.hostname === '127.0.0.1' ||
+    parsed.hostname === '[::1]';
+  if (
+    parsed.protocol !== 'https:' &&
+    !(loopback && parsed.protocol === 'http:')
+  ) {
+    throw new Error(
+      'External navigation only permits HTTPS or local development URLs'
+    );
   }
   return parsed;
 }

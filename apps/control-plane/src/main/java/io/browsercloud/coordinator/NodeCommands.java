@@ -10,6 +10,7 @@ import io.browsercloud.proto.node.v1.AgentActionCommand;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
+import io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
 import io.browsercloud.proto.node.v1.ReleaseAllInputCommand;
@@ -329,6 +330,27 @@ public final class NodeCommands {
         session.contextEpoch(),
         0,
         "business-recovery:" + actionId,
+        payload);
+  }
+
+  public static NodeCommand captureObserverScreenshot(
+      SessionContext session, String captureId, String commandId) {
+    var payload =
+        CaptureObserverScreenshotCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setCaptureId(captureId)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        commandId,
+        "CaptureObserverScreenshot",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        "observer-evidence:" + captureId,
         payload);
   }
 

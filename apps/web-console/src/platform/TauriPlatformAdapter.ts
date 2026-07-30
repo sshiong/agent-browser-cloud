@@ -21,8 +21,17 @@ class TauriPlatformAdapter implements PlatformAdapter {
 
   async openExternal(url: string) {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') {
-      throw new Error('Desktop external navigation only permits HTTPS URLs');
+    const loopback =
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]';
+    if (
+      parsed.protocol !== 'https:' &&
+      !(loopback && parsed.protocol === 'http:')
+    ) {
+      throw new Error(
+        'Desktop external navigation only permits HTTPS or local development URLs'
+      );
     }
     const { openUrl } = await import('@tauri-apps/plugin-opener');
     await openUrl(parsed.href);

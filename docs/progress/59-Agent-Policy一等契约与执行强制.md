@@ -72,7 +72,7 @@ Restricted/Disabled 不构成安全边界。
 1. Network/Toast/Dialog/Visual/Login/Business Entity Validator 与组合 DSL；
 2. 独立无宿主权限 Agent Worker、Reviewer Agent、真实模型 Provider/治理和大规模 Replay；
 3. Challenge Detection、一次性 HumanAssist、协作取消和跨 Region Workflow；
-4. 完整 State 分类、截图敏感区模糊和 Purpose 绑定访问控制；
+4. Purpose-bound 截图访问后续已由进度 87 关闭；仍缺完整 State 分类和截图敏感区模糊；
 5. Extension Session 基础投影已在
    [进度 60](60-Session-Extension正式绑定与投影.md)完成；仍缺 Session Ownership、
    Group/Tags 和 Agent 大列表批量查询与 N+1 优化；

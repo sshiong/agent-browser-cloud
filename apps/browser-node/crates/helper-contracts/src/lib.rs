@@ -129,6 +129,15 @@ pub enum StorageCommand {
         content_bytes: u64,
         captured_at_ms: u64,
     },
+    SignEvidenceDownload {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+        evidence_id: String,
+        content_sha256: String,
+        content_bytes: u64,
+        expires_in_seconds: u32,
+    },
     Release {
         tenant_id: String,
         profile_id: String,
@@ -148,6 +157,8 @@ pub struct StorageResponse {
     pub recording: Option<StorageRecording>,
     #[serde(default)]
     pub evidence: Option<StorageEvidence>,
+    #[serde(default)]
+    pub evidence_access: Option<StorageEvidenceAccess>,
     pub error_code: Option<String>,
     pub error_message: Option<String>,
 }
@@ -202,6 +213,14 @@ pub struct StorageEvidence {
     pub content_bytes: u64,
     pub captured_at_ms: u64,
     pub committed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageEvidenceAccess {
+    pub evidence_id: String,
+    pub download_url: String,
+    pub expires_at_ms: u64,
 }
 
 pub async fn write_frame<T, W>(writer: &mut W, value: &T) -> anyhow::Result<()>

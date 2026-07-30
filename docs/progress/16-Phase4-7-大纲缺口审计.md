@@ -37,7 +37,8 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 4. Challenge Detection 与一次性 HumanAssist。现有 HumanTakeover 是完整人工接管，
    不能代替 `allowed_action_count=1` 的挑战单击授权。
 5. 已下发 Node 动作的协作取消协议、复杂补偿和跨 Region Agent Workflow。
-6. 完整 State 数据分类、截图敏感区域模糊、Purpose 绑定访问控制。
+6. Purpose-bound 截图访问后续已由进度 87 关闭；仍缺完整 State 数据分类和截图敏感
+   区域模糊。
 
 ## Phase 5：生产 Exit Gate 缺口
 

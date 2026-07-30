@@ -87,7 +87,8 @@ Web 不根据压力状态猜测百分比，也不在前端执行随机采样。
    [进度 69](69-AUTO-Observer帧率在线执行闭环.md)关闭；真实 Recording Worker、
    有界队列、Storage Helper 提交和视频录制停止已由进度 70 关闭；
 2. Agent Navigate/Action 成功截图采样已由
-   [进度 72](72-AUTO截图证据与采样执行闭环.md)关闭；Observer 手动截图仍未实现；
+   [进度 72](72-AUTO截图证据与采样执行闭环.md)关闭；Observer 手动截图已由
+   [进度 87](87-Observer手动截图与受控证据访问闭环.md)关闭；
 3. 正式 OpenTelemetry Collector/Exporter、Tail Sampling 和跨服务 Trace Context
    属于完整 Observability 平台能力；本轮关闭的是 Browser Node Session 级成功命令
    Trace 背压执行器；

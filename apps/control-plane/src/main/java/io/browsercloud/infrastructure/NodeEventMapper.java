@@ -392,7 +392,8 @@ public class NodeEventMapper {
                   "AGENT_ACTION_SUCCESS",
                   "AGENT_ACTION_FAILURE",
                   "AGENT_NAVIGATION_SUCCESS",
-                  "AGENT_NAVIGATION_FAILURE")
+                  "AGENT_NAVIGATION_FAILURE",
+                  "OBSERVER_MANUAL")
               .contains(payload.getEvidenceKind())) {
             throw new IllegalArgumentException("unsupported evidence_kind");
           }

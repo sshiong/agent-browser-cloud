@@ -35,6 +35,10 @@ import type {
   RebindSessionApplicationRequest,
   SessionApplicationRebindView,
   SessionEvidenceListResponse,
+  EvidencePurpose,
+  EvidenceCaptureView,
+  EvidenceAccessGrantView,
+  RedeemEvidenceAccessResponse,
 } from '../types/session';
 import type {
   ProxyRebindOperation,
@@ -206,6 +210,71 @@ export async function getSessionEvidence(
   return request<SessionEvidenceListResponse>(
     `/sessions/${sessionId}/evidence?limit=20`,
     { signal },
+    tenantId
+  );
+}
+
+export async function captureSessionEvidence(
+  sessionId: string,
+  purpose: EvidencePurpose,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<EvidenceCaptureView> {
+  return request<EvidenceCaptureView>(
+    `/sessions/${sessionId}/evidence:capture`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ purpose }),
+    },
+    tenantId
+  );
+}
+
+export async function getSessionEvidenceCapture(
+  sessionId: string,
+  captureId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<EvidenceCaptureView> {
+  return request<EvidenceCaptureView>(
+    `/sessions/${sessionId}/evidence-captures/${captureId}`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function createSessionEvidenceAccessGrant(
+  sessionId: string,
+  evidenceId: string,
+  purpose: EvidencePurpose,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<EvidenceAccessGrantView> {
+  return request<EvidenceAccessGrantView>(
+    `/sessions/${sessionId}/evidence/${evidenceId}/access-grants`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ purpose }),
+    },
+    tenantId
+  );
+}
+
+export async function redeemSessionEvidenceAccessGrant(
+  sessionId: string,
+  grantId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<RedeemEvidenceAccessResponse> {
+  return request<RedeemEvidenceAccessResponse>(
+    `/sessions/${sessionId}/evidence-access-grants/${grantId}:redeem`,
+    { method: 'POST', signal },
     tenantId
   );
 }

@@ -448,7 +448,8 @@ export interface SessionEvidenceView {
     | 'AGENT_ACTION_SUCCESS'
     | 'AGENT_ACTION_FAILURE'
     | 'AGENT_NAVIGATION_SUCCESS'
-    | 'AGENT_NAVIGATION_FAILURE';
+    | 'AGENT_NAVIGATION_FAILURE'
+    | 'OBSERVER_MANUAL';
   taskId: string;
   stepId: string;
   commandId: string;
@@ -464,6 +465,45 @@ export interface SessionEvidenceListResponse {
   items: SessionEvidenceView[];
   limit: number;
   offset: number;
+}
+
+export type EvidencePurpose =
+  | 'INCIDENT_RESPONSE'
+  | 'CHANGE_VALIDATION'
+  | 'SUPPORT_DIAGNOSTICS'
+  | 'COMPLIANCE_AUDIT';
+
+export interface EvidenceCaptureView {
+  captureId: string;
+  sessionId: string;
+  purpose: EvidencePurpose;
+  state: 'EXECUTING' | 'COMMITTED' | 'FAILED';
+  evidenceId?: string;
+  errorCode?: string;
+  commandId: string;
+  requestId?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface EvidenceAccessGrantView {
+  grantId: string;
+  sessionId: string;
+  evidenceId: string;
+  purpose: EvidencePurpose;
+  state: 'ISSUED' | 'REDEEMING' | 'REDEEMED' | 'FAILED';
+  expiresAt: string;
+  createdAt: string;
+  redeemedAt?: string;
+  errorCode?: string;
+  requestId?: string;
+}
+
+export interface RedeemEvidenceAccessResponse {
+  grantId: string;
+  evidenceId: string;
+  downloadUrl: string;
+  expiresAt: string;
 }
 
 export interface ResourceEventView {

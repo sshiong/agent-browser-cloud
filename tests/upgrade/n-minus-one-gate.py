@@ -159,6 +159,31 @@ global_search_config = read(
 )
 assert "executeInTransaction=false" in global_search_config
 
+observer_evidence_migration = read(
+    "database/migrations/V062__observer_evidence_access_governance.sql"
+)
+observer_evidence_upper = observer_evidence_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in observer_evidence_upper, (
+        f"Observer evidence migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "ADD CONSTRAINT CHK_SESSION_EVIDENCE_KIND_V2",
+    "'OBSERVER_MANUAL'",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_SESSION_EVIDENCE_KIND_V2",
+    "RENAME CONSTRAINT CHK_SESSION_EVIDENCE_KIND_V2 TO CHK_SESSION_EVIDENCE_KIND",
+    "CREATE TABLE SESSION_EVIDENCE_CAPTURE_REQUESTS",
+    "CREATE TABLE SESSION_EVIDENCE_ACCESS_GRANTS",
+    "UNIQUE (TENANT_ID, ACTOR_ID, IDEMPOTENCY_KEY)",
+    "STATE IN ('ISSUED', 'REDEEMING', 'REDEEMED', 'FAILED')",
+    "EXPIRES_AT <= CREATED_AT + INTERVAL '5 MINUTES'",
+    "EXECUTE FUNCTION ENFORCE_SESSION_EVIDENCE_SCOPE()",
+):
+    assert invariant in observer_evidence_upper, (
+        f"Observer evidence migration lacks rolling invariant: {invariant}"
+    )
+
 browser_activity_migration = read(
     "database/migrations/V028__browser_activity_safety_signals.sql"
 )
@@ -679,6 +704,11 @@ assert (
     "rpc UploadProfileImport(stream UploadProfileImportRequest) returns (UploadProfileImportResponse);"
     in service
 )
+assert (
+    "rpc PresignEvidenceDownload(PresignEvidenceDownloadRequest)"
+    in service
+    and "returns (PresignEvidenceDownloadResponse);" in service
+)
 for message_name, expected_tags in (
     (
         "UploadProfileImportRequest",
@@ -707,6 +737,36 @@ for message_name, expected_tags in (
             "checkpoint_file_count": 8,
             "archive_sha256": 9,
             "archive_size_bytes": 10,
+        },
+    ),
+    (
+        "PresignEvidenceDownloadRequest",
+        {
+            "grant_id": 1,
+            "tenant_id": 2,
+            "profile_id": 3,
+            "session_id": 4,
+            "evidence_id": 5,
+            "content_sha256": 6,
+            "content_bytes": 7,
+            "expires_in_seconds": 8,
+        },
+    ),
+    (
+        "PresignEvidenceDownloadResponse",
+        {
+            "grant_id": 1,
+            "node_id": 2,
+            "evidence_id": 3,
+            "download_url": 4,
+            "expires_at_ms": 5,
+        },
+    ),
+    (
+        "CaptureObserverScreenshotCommand",
+        {
+            "session_id": 1,
+            "capture_id": 2,
         },
     ),
 ):
@@ -897,6 +957,13 @@ assert evidence_event_tags == {
 }
 
 openapi = read("packages/contracts/openapi/session-api.yaml")
+for evidence_path in (
+    "/sessions/{sessionId}/evidence:capture:",
+    "/sessions/{sessionId}/evidence-captures/{captureId}:",
+    "/sessions/{sessionId}/evidence/{evidenceId}/access-grants:",
+    "/sessions/{sessionId}/evidence-access-grants/{grantId}:redeem:",
+):
+    assert evidence_path in openapi
 register = openapi.split("    RegisterBrowserNodeRequest:", 1)[1].split(
     "    RecordNodePressureRequest:", 1
 )[0]
@@ -1043,8 +1110,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive,V061 concurrent-trigram-index",
-    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive,V061 concurrent-trigram-index",
+    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

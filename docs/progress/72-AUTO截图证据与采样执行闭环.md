@@ -59,7 +59,9 @@ SessionEvidenceCaptured(FAILED, stable error code)
 ```
 
 失败证据事件不会令已经完成的 Agent 动作回滚，但缺失像素会被真实记录并展示。原始像素
-下载尚未开放，因此 API 不返回对象坐标，也没有临时 URL。
+访问已由[进度 87](87-Observer手动截图与受控证据访问闭环.md)补齐 Purpose-bound
+五分钟 Grant、同操作者一次性领取和 60 秒短期签名 URL；常规 Evidence API 仍不返回
+对象坐标。
 
 ## Operation 与滚动升级
 
@@ -110,8 +112,9 @@ Storage checkpoint/recording/evidence GameDay 和 Kubernetes Operator E2E，补�
 
 ## 仍需完成
 
-1. Purpose-bound 原始截图下载/短期签名 URL、访问审计和管理员权限 Gate；
-2. Screenshot 保留期、Legal Hold、WORM Manifest、删除 Receipt 和租户配额；
+1. Purpose-bound 原始截图访问与 Observer 手动截图已由
+   [进度 87](87-Observer手动截图与受控证据访问闭环.md)关闭；
+2. Screenshot 保留期、Legal Hold、WORM Manifest、删除 Receipt 和租户配额的对象
+   生命周期深度联动；
 3. 敏感区域识别、截图模糊/遮罩和站点级隐私策略；
-4. Observer 手动截图与截图频率执行器；本轮只闭环 Agent Navigate/Action；
-5. 目标 Linux 多 Session 长稳、磁盘满、Object Storage 背压/网络分区和告警矩阵。
+4. 目标 Linux 多 Session 长稳、磁盘满、Object Storage 背压/网络分区和告警矩阵。

@@ -26,6 +26,10 @@ import {
   useResyncBrowserState,
   useSessionResourceEvents,
   useSessionEvidence,
+  useEvidenceCapture,
+  useCaptureSessionEvidence,
+  useCreateEvidenceAccessGrant,
+  useRedeemEvidenceAccessGrant,
   useSessionResourceStream,
   useSessionResources,
   useSessionSafePoint,
@@ -71,10 +75,12 @@ export function SessionDetailPage() {
   const resyncMutation = useResyncBrowserState(id);
   const resourceQuery = useSessionResources(id);
   const resourceEventsQuery = useSessionResourceEvents(id);
-  const evidenceQuery = useSessionEvidence(
-    id,
-    sessionQuery.data?.state === 'RUNNING'
-  );
+  const evidenceQuery = useSessionEvidence(id);
+  const [captureId, setCaptureId] = useState<string>();
+  const captureMutation = useCaptureSessionEvidence(id);
+  const captureQuery = useEvidenceCapture(id, captureId);
+  const evidenceGrantMutation = useCreateEvidenceAccessGrant(id);
+  const evidenceRedeemMutation = useRedeemEvidenceAccessGrant(id);
   const safePointQuery = useSessionSafePoint(id);
   const migrationQuery = useSessionMigration(id);
   const proxyRebindQuery = useSessionProxyRebind(id);
@@ -336,9 +342,36 @@ export function SessionDetailPage() {
 
                 <SessionEvidenceCard
                   items={evidenceQuery.data?.items ?? []}
+                  capture={captureQuery.data ?? captureMutation.data}
                   loading={evidenceQuery.isLoading}
                   error={evidenceQuery.error}
+                  canAdminister={auth.hasAnyRole([
+                    'TENANT_ADMIN',
+                    'SECURITY_ADMIN',
+                    'PLATFORM_ADMIN',
+                  ])}
+                  running={
+                    session.state === 'RUNNING' || session.state === 'DEGRADED'
+                  }
+                  humanTakeover={Boolean(takeoverActive)}
+                  capturing={captureMutation.isPending}
+                  captureError={captureMutation.error ?? captureQuery.error}
+                  granting={evidenceGrantMutation.isPending}
+                  grantError={evidenceGrantMutation.error}
+                  redeeming={evidenceRedeemMutation.isPending}
+                  redeemError={evidenceRedeemMutation.error}
                   onRetry={() => evidenceQuery.refetch()}
+                  onCapture={async (purpose) => {
+                    const capture = await captureMutation.mutateAsync(purpose);
+                    setCaptureId(capture.captureId);
+                    return capture;
+                  }}
+                  onCreateAccessGrant={(evidenceId, purpose) =>
+                    evidenceGrantMutation.mutateAsync({ evidenceId, purpose })
+                  }
+                  onRedeem={(grantId) =>
+                    evidenceRedeemMutation.mutateAsync(grantId)
+                  }
                 />
 
                 <BrowserStatePanel

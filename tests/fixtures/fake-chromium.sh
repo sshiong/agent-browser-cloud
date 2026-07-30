@@ -227,6 +227,21 @@ class Handler(BaseHTTPRequestHandler):
                         ]
                     },
                 }
+            elif method == "Page.captureScreenshot":
+                if command.get("params", {}).get("format") != "jpeg":
+                    response = {
+                        "id": command["id"],
+                        "error": {"code": -32602, "message": "only JPEG is supported"},
+                    }
+                else:
+                    response = {
+                        "id": command["id"],
+                        "result": {
+                            "data": base64.b64encode(
+                                bytes([0xFF, 0xD8, 0xFF, 0xD9])
+                            ).decode()
+                        },
+                    }
             elif method == "Page.reload":
                 business_recovery_completed = True
                 response = {"id": command["id"], "result": {}}

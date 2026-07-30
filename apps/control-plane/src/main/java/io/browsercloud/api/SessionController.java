@@ -7,6 +7,7 @@ import io.browsercloud.application.CoordinatorCommandRoutingService;
 import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SessionApplicationService;
 import io.browsercloud.application.SessionEvidenceApplicationService;
+import io.browsercloud.application.SessionEvidenceGovernanceService;
 import io.browsercloud.application.SessionMigrationApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceEventStreamService;
@@ -50,6 +51,7 @@ public class SessionController {
   private final SessionMigrationApplicationService migrationService;
   private final SessionResourceEventStreamService resourceEventStream;
   private final SessionEvidenceApplicationService evidenceService;
+  private final SessionEvidenceGovernanceService evidenceGovernance;
   private final CoordinatorCommandRoutingService commandRouting;
 
   public SessionController(
@@ -62,6 +64,7 @@ public class SessionController {
       SessionMigrationApplicationService migrationService,
       SessionResourceEventStreamService resourceEventStream,
       SessionEvidenceApplicationService evidenceService,
+      SessionEvidenceGovernanceService evidenceGovernance,
       CoordinatorCommandRoutingService commandRouting) {
     this.service = service;
     this.stateGateway = stateGateway;
@@ -72,6 +75,7 @@ public class SessionController {
     this.migrationService = migrationService;
     this.resourceEventStream = resourceEventStream;
     this.evidenceService = evidenceService;
+    this.evidenceGovernance = evidenceGovernance;
     this.commandRouting = commandRouting;
   }
 
@@ -242,6 +246,68 @@ public class SessionController {
       @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return evidenceService.list(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  /** Requests a real Browser screenshot. Completion arrives through SessionEvidenceCaptured. */
+  @PostMapping("/{sessionId}/evidence:capture")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public ResponseEntity<SessionEvidenceModels.EvidenceCaptureView> captureEvidence(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody SessionEvidenceModels.CaptureEvidenceRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.accepted()
+        .body(
+            evidenceGovernance.capture(
+                sessionId,
+                principal.tenantId(),
+                principal.actorId(),
+                idempotencyKey,
+                requestId(request),
+                body));
+  }
+
+  @GetMapping("/{sessionId}/evidence-captures/{captureId}")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public SessionEvidenceModels.EvidenceCaptureView getEvidenceCapture(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^cap_[a-zA-Z0-9]{16,}$") String captureId) {
+    return evidenceGovernance.getCapture(sessionId, captureId, identity.current().tenantId());
+  }
+
+  /** Creates a purpose-bound five-minute grant without exposing raw storage coordinates. */
+  @PostMapping("/{sessionId}/evidence/{evidenceId}/access-grants")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public ResponseEntity<SessionEvidenceModels.EvidenceAccessGrantView> createEvidenceAccessGrant(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^evd_[a-zA-Z0-9]{16,}$") String evidenceId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+      @Valid @RequestBody SessionEvidenceModels.CreateEvidenceAccessGrantRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.status(201)
+        .body(
+            evidenceGovernance.createAccessGrant(
+                sessionId,
+                evidenceId,
+                principal.tenantId(),
+                principal.actorId(),
+                idempotencyKey,
+                requestId(request),
+                body));
+  }
+
+  /** Redeems the grant exactly once and returns an ephemeral 60-second signed download URL. */
+  @PostMapping("/{sessionId}/evidence-access-grants/{grantId}:redeem")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public SessionEvidenceModels.RedeemEvidenceAccessResponse redeemEvidenceAccessGrant(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @PathVariable @Pattern(regexp = "^egr_[a-zA-Z0-9]{16,}$") String grantId,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return evidenceGovernance.redeem(
+        sessionId, grantId, principal.tenantId(), principal.actorId(), requestId(request));
   }
 
   @GetMapping(value = "/{sessionId}/resource-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

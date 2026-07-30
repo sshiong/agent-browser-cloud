@@ -17,10 +17,13 @@ public class SessionEvidenceApplicationService {
 
   private final JdbcTemplate jdbc;
   private final SessionRepository sessions;
+  private final SessionEvidenceGovernanceStore governance;
 
-  public SessionEvidenceApplicationService(JdbcTemplate jdbc, SessionRepository sessions) {
+  public SessionEvidenceApplicationService(
+      JdbcTemplate jdbc, SessionRepository sessions, SessionEvidenceGovernanceStore governance) {
     this.jdbc = jdbc;
     this.sessions = sessions;
+    this.governance = governance;
   }
 
   @Transactional
@@ -49,6 +52,16 @@ public class SessionEvidenceApplicationService {
         nullable(evidence.objectKey()),
         nullable(evidence.errorCode()),
         Timestamp.from(Instant.ofEpochMilli(evidence.capturedAtMs())));
+    if ("OBSERVER_MANUAL".equals(evidence.evidenceKind())) {
+      governance.completeCaptureFromEvidence(
+          tenantId,
+          evidence.sessionId(),
+          evidence.commandId(),
+          evidence.evidenceId(),
+          evidence.result(),
+          evidence.errorCode(),
+          Instant.ofEpochMilli(evidence.capturedAtMs()));
+    }
   }
 
   @Transactional(readOnly = true)

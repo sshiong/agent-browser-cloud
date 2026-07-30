@@ -14,6 +14,10 @@ service NodeControlService {
   // streams bytes without durable business persistence; the Node delegates validation and
   // checkpoint/object-store commit to the isolated Storage Helper.
   rpc UploadProfileImport(stream UploadProfileImportRequest) returns (UploadProfileImportResponse);
+  // Purpose-bound evidence access. The Browser Node delegates signing to the isolated
+  // Storage Helper and never returns Object Storage credentials.
+  rpc PresignEvidenceDownload(PresignEvidenceDownloadRequest)
+      returns (PresignEvidenceDownloadResponse);
 }
 
 // Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
@@ -77,6 +81,25 @@ message UploadProfileImportResponse {
   uint64 checkpoint_file_count = 8;
   string archive_sha256 = 9;
   uint64 archive_size_bytes = 10;
+}
+
+message PresignEvidenceDownloadRequest {
+  string grant_id = 1;
+  string tenant_id = 2;
+  string profile_id = 3;
+  string session_id = 4;
+  string evidence_id = 5;
+  string content_sha256 = 6;
+  uint64 content_bytes = 7;
+  uint32 expires_in_seconds = 8;
+}
+
+message PresignEvidenceDownloadResponse {
+  string grant_id = 1;
+  string node_id = 2;
+  string evidence_id = 3;
+  string download_url = 4;
+  int64 expires_at_ms = 5;
 }
 
 message PublishRequest {
@@ -509,6 +532,13 @@ message AgentActionFailedEvent {
   string step_id = 3;
   string tool_id = 4;
   string error_code = 5;
+}
+
+// Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
+// method or Object Storage coordinate.
+message CaptureObserverScreenshotCommand {
+  string session_id = 1;
+  string capture_id = 2;
 }
 
 // Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，

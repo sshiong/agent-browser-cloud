@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.SessionEvidenceGovernanceStore;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeEntity;
@@ -105,6 +106,7 @@ class NodeCommandMultiNodeRoutingTest {
             claimService,
             mapper,
             mock(AgentActionPayloadService.class),
+            mock(SessionEvidenceGovernanceStore.class),
             routeAuthority,
             nodeRepository,
             new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
@@ -158,6 +160,7 @@ class NodeCommandMultiNodeRoutingTest {
             claimService,
             mapper,
             mock(AgentActionPayloadService.class),
+            mock(SessionEvidenceGovernanceStore.class),
             routeAuthority,
             mock(BrowserNodeJpaRepository.class),
             new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),

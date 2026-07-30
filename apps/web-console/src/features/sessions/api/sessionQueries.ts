@@ -2,9 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
   createSession,
+  captureSessionEvidence,
+  createSessionEvidenceAccessGrant,
   getBrowserState,
   getSessionResourceEvents,
   getSessionEvidence,
+  getSessionEvidenceCapture,
   getSessionResources,
   getSessionSafePoint,
   getSessionMigration,
@@ -12,6 +15,7 @@ import {
   getSession,
   listSessions,
   releaseHumanTakeover,
+  redeemSessionEvidenceAccessGrant,
   requestHumanTakeover,
   resyncBrowserState,
   startSession,
@@ -42,6 +46,7 @@ import type {
   RequestRecoveryContractApprovalRequest,
   RebindSessionApplicationRequest,
   RestoreRecoveryContractRevisionRequest,
+  EvidencePurpose,
 } from '@/types/session';
 import type { ProxyRebindRequest } from '@/types/proxy';
 
@@ -63,6 +68,10 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'resource-events'] as const,
   evidence: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'evidence'] as const,
+  evidenceCaptures: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'evidence-captures'] as const,
+  evidenceCapture: (sessionId: string, captureId: string) =>
+    [...sessionKeys.evidenceCaptures(sessionId), captureId] as const,
   safePoint: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'safe-point'] as const,
   migration: (sessionId: string) =>
@@ -150,12 +159,68 @@ export function useSessionResourceEvents(sessionId: string) {
   });
 }
 
-export function useSessionEvidence(sessionId: string, running: boolean) {
+export function useSessionEvidence(sessionId: string) {
   return useQuery({
     queryKey: sessionKeys.evidence(sessionId),
     queryFn: ({ signal }) => getSessionEvidence(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: running ? 5_000 : false,
+  });
+}
+
+export function useEvidenceCapture(sessionId: string, captureId?: string) {
+  return useQuery({
+    queryKey: sessionKeys.evidenceCapture(sessionId, captureId ?? ''),
+    queryFn: ({ signal }) =>
+      getSessionEvidenceCapture(sessionId, captureId ?? '', undefined, signal),
+    enabled: Boolean(sessionId && captureId),
+    refetchInterval: (query) =>
+      query.state.data?.state === 'EXECUTING' ? 2_000 : false,
+  });
+}
+
+export function useCaptureSessionEvidence(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (purpose: EvidencePurpose) =>
+      captureSessionEvidence(
+        sessionId,
+        purpose,
+        `observer-capture-${crypto.randomUUID()}`
+      ),
+    onSuccess: async (capture) => {
+      queryClient.setQueryData(
+        sessionKeys.evidenceCapture(sessionId, capture.captureId),
+        capture
+      );
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.evidence(sessionId),
+      });
+    },
+  });
+}
+
+export function useCreateEvidenceAccessGrant(sessionId: string) {
+  return useMutation({
+    mutationFn: ({
+      evidenceId,
+      purpose,
+    }: {
+      evidenceId: string;
+      purpose: EvidencePurpose;
+    }) =>
+      createSessionEvidenceAccessGrant(
+        sessionId,
+        evidenceId,
+        purpose,
+        `evidence-access-${crypto.randomUUID()}`
+      ),
+  });
+}
+
+export function useRedeemEvidenceAccessGrant(sessionId: string) {
+  return useMutation({
+    mutationFn: (grantId: string) =>
+      redeemSessionEvidenceAccessGrant(sessionId, grantId),
   });
 }
 
@@ -468,6 +533,9 @@ export function useSessionResourceStream(
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.evidence(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.evidenceCaptures(sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.applicationBinding(sessionId),

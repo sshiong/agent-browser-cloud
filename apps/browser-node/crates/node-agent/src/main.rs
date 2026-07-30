@@ -12,14 +12,16 @@ use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent,
     AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
-    BrowserStateDiffEvent, BrowserStateEvent, BusinessRecoveryActionCommand, CommandAck,
-    CommandEnvelope, DiffTruncatedEvent, DispatchRequest, DispatchResponse,
-    EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand, ExtensionBackgroundPolicy,
-    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
-    PingResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
-    ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
-    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand,
-    StopRuntimeCommand, TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
+    BrowserStateDiffEvent, BrowserStateEvent, BusinessRecoveryActionCommand,
+    CaptureObserverScreenshotCommand, CommandAck, CommandEnvelope, DiffTruncatedEvent,
+    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
+    ExtensionBackgroundPolicy, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
+    InteractiveTargetState, PingRequest, PingResponse, PresignEvidenceDownloadRequest,
+    PresignEvidenceDownloadResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand,
+    ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
+    RuntimeResourcesAdjustedEvent, RuntimeStartedEvent, RuntimeStoppedEvent,
+    SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -67,6 +69,7 @@ struct NodeControlService {
     diff_max_bytes: usize,
     diff_max_changes: usize,
     input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
+    active_human_takeovers: Arc<Mutex<HashSet<String>>>,
     journal: Arc<SqliteNodeJournal>,
     require_route_epoch: bool,
     inflight: Arc<Mutex<HashSet<String>>>,
@@ -422,6 +425,28 @@ impl NodeCapacityReporter {
             }
             .to_owned(),
         );
+        let evidence_storage_available = std::env::var("STORAGE_HELPER_SOCKET")
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+            && Self::bool_env("OBJECT_STORAGE_ENABLED", false);
+        labels.insert(
+            "observerEvidence".to_owned(),
+            if evidence_storage_available {
+                "cdp-s3-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "evidenceAccess".to_owned(),
+            if evidence_storage_available {
+                "presigned-get-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
         Ok(Self {
             node_id,
             region,
@@ -630,6 +655,19 @@ impl NodeControlService {
         command: &CommandEnvelope,
         result: &CommandResult,
     ) -> Option<EvidenceRequest> {
+        if command.command_type == "CaptureObserverScreenshot" {
+            if !result.acknowledgement.accepted {
+                return None;
+            }
+            let payload =
+                CaptureObserverScreenshotCommand::decode(command.payload.as_slice()).ok()?;
+            return Some(EvidenceRequest {
+                evidence_kind: "OBSERVER_MANUAL",
+                task_id: payload.capture_id,
+                step_id: "observer".to_owned(),
+                mandatory: true,
+            });
+        }
         let event_type = result.event.as_ref()?.event_type.as_str();
         match command.command_type.as_str() {
             "AgentAction" => {
@@ -1614,6 +1652,17 @@ impl NodeControlService {
             Ok(sequence) => sequence,
             Err(error) => return self.failed(command, error),
         };
+        if begin {
+            self.active_human_takeovers
+                .lock()
+                .await
+                .insert(command.session_id.clone());
+        } else {
+            self.active_human_takeovers
+                .lock()
+                .await
+                .remove(&command.session_id);
+        }
         let event = if begin {
             Self::event(
                 command,
@@ -1690,6 +1739,10 @@ impl NodeControlService {
         let state = state.ok_or_else(|| {
             last_error.unwrap_or_else(|| anyhow::anyhow!("desktop disconnect barrier failed"))
         })?;
+        self.active_human_takeovers
+            .lock()
+            .await
+            .remove(&claims.session_id);
         let sequence = self.next_event_sequence(&claims.session_id).await?;
         let event_id = format!("evt_desktop_disconnect_{}", uuid::Uuid::new_v4().simple());
         let message_id = format!("desktop_disconnect_{}", uuid::Uuid::new_v4().simple());
@@ -3478,6 +3531,42 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "CaptureObserverScreenshot" => {
+                match CaptureObserverScreenshotCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id
+                            || !payload.capture_id.starts_with("cap_")
+                            || payload.capture_id.len() > 128
+                            || !payload.capture_id.chars().all(|character| {
+                                character.is_ascii_alphanumeric() || character == '_'
+                            })
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Observer screenshot payload is invalid"),
+                            );
+                        }
+                        if self
+                            .active_human_takeovers
+                            .lock()
+                            .await
+                            .contains(&command.session_id)
+                        {
+                            return Self::result(
+                                Self::ack(
+                                    &command.message_id,
+                                    false,
+                                    "HUMAN_TAKEOVER_ACTIVE",
+                                    "Observer screenshot is disabled during HumanTakeover",
+                                ),
+                                None,
+                            );
+                        }
+                        Self::result(Self::ack(&command.message_id, true, "", ""), None)
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "ReleaseAllInput" => match ReleaseAllInputCommand::decode(command.payload.as_slice()) {
                 Ok(payload) => {
                     if payload.session_id != command.session_id {
@@ -4583,6 +4672,76 @@ impl NodeControlServiceRpc for NodeControlService {
             .remove(&inflight_import_id);
         result.map(Response::new)
     }
+
+    async fn presign_evidence_download(
+        &self,
+        request: Request<PresignEvidenceDownloadRequest>,
+    ) -> Result<Response<PresignEvidenceDownloadResponse>, Status> {
+        let request = request.into_inner();
+        let valid_identifier = |value: &str, prefix: Option<&str>| {
+            !value.is_empty()
+                && value.len() <= 128
+                && prefix
+                    .map(|expected| value.starts_with(expected))
+                    .unwrap_or(true)
+                && value.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        };
+        if !valid_identifier(&request.grant_id, Some("egr_"))
+            || !valid_identifier(&request.tenant_id, None)
+            || !valid_identifier(&request.profile_id, None)
+            || !valid_identifier(&request.session_id, Some("ses_"))
+            || !valid_identifier(&request.evidence_id, Some("evd_"))
+            || request.content_sha256.len() != 64
+            || !request
+                .content_sha256
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+            || request.content_bytes == 0
+            || request.content_bytes > 8 * 1024 * 1024
+            || !(30..=120).contains(&request.expires_in_seconds)
+        {
+            return Err(Status::invalid_argument(
+                "Evidence access request is invalid",
+            ));
+        }
+        let storage_helper = self.storage_helper.as_ref().ok_or_else(|| {
+            Status::failed_precondition("Evidence access requires the Storage Helper")
+        })?;
+        let access = storage_helper
+            .sign_evidence_download(
+                &request.tenant_id,
+                &request.profile_id,
+                &request.session_id,
+                &request.evidence_id,
+                &request.content_sha256.to_ascii_lowercase(),
+                request.content_bytes,
+                request.expires_in_seconds,
+            )
+            .await
+            .map_err(|error| {
+                tracing::warn!(
+                    grant_id = %request.grant_id,
+                    evidence_id = %request.evidence_id,
+                    error = %error,
+                    "Storage Helper rejected evidence access"
+                );
+                Status::failed_precondition("Evidence object is unavailable or invalid")
+            })?;
+        if access.evidence_id != request.evidence_id || access.download_url.len() > 8192 {
+            return Err(Status::internal(
+                "Storage Helper evidence access acknowledgement mismatch",
+            ));
+        }
+        Ok(Response::new(PresignEvidenceDownloadResponse {
+            grant_id: request.grant_id,
+            node_id: self.node_id.clone(),
+            evidence_id: access.evidence_id,
+            download_url: access.download_url,
+            expires_at_ms: access.expires_at_ms as i64,
+        }))
+    }
 }
 
 #[derive(Clone)]
@@ -5007,6 +5166,7 @@ async fn main() -> Result<()> {
         diff_max_bytes,
         diff_max_changes,
         input_brokers,
+        active_human_takeovers: Arc::new(Mutex::new(HashSet::new())),
         journal,
         require_route_epoch,
         inflight: Arc::new(Mutex::new(HashSet::new())),
@@ -5353,6 +5513,7 @@ mod tests {
             diff_max_bytes: 60_000,
             diff_max_changes: 200,
             input_brokers: Arc::new(Mutex::new(HashMap::new())),
+            active_human_takeovers: Arc::new(Mutex::new(HashSet::new())),
             journal: reopened.clone(),
             require_route_epoch: false,
             inflight: Arc::new(Mutex::new(HashSet::new())),

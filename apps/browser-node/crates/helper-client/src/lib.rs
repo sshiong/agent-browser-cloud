@@ -5,7 +5,8 @@ use helper_contracts::{
     StorageCommand, StorageRequest, StorageResponse, SCHEMA_VERSION,
 };
 pub use helper_contracts::{
-    StorageCheckpoint, StorageEvidence, StorageRecording, StorageRestoreStatus, StorageWorkspace,
+    StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
+    StorageRestoreStatus, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -364,6 +365,50 @@ impl StorageHelperClient {
         .await?
         .evidence
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted evidence result"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_evidence_download(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        session_id: &str,
+        evidence_id: &str,
+        content_sha256: &str,
+        content_bytes: u64,
+        expires_in_seconds: u32,
+    ) -> anyhow::Result<StorageEvidenceAccess> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("session_id", session_id)?;
+        validate_identifier("evidence_id", evidence_id)?;
+        anyhow::ensure!(
+            content_sha256.len() == 64
+                && content_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit()),
+            "evidence SHA-256 is invalid"
+        );
+        anyhow::ensure!(
+            content_bytes > 0 && content_bytes <= 8 * 1024 * 1024,
+            "evidence size is invalid"
+        );
+        anyhow::ensure!(
+            (30..=120).contains(&expires_in_seconds),
+            "evidence access duration is invalid"
+        );
+        self.call(StorageCommand::SignEvidenceDownload {
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            session_id: session_id.to_owned(),
+            evidence_id: evidence_id.to_owned(),
+            content_sha256: content_sha256.to_ascii_lowercase(),
+            content_bytes,
+            expires_in_seconds,
+        })
+        .await?
+        .evidence_access
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted evidence access result"))
     }
 
     pub async fn release(&self, workspace: &StorageWorkspace) -> anyhow::Result<()> {

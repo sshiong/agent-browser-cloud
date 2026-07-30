@@ -44,6 +44,10 @@ import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotF
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
 import io.browsercloud.application.SessionApplicationService.CapacityUnavailableException;
 import io.browsercloud.application.SessionApplicationService.HumanTakeoverDisabledException;
+import io.browsercloud.application.SessionEvidenceAccessNodeGateway.EvidenceAccessNodeRejectedException;
+import io.browsercloud.application.SessionEvidenceAccessNodeGateway.EvidenceAccessNodeUnavailableException;
+import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceNotFoundException;
+import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceRejectedException;
 import io.browsercloud.application.SessionMigrationApplicationService.MigrationRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
@@ -253,6 +257,50 @@ public class GlobalExceptionHandler {
       SessionNotFoundException exception, HttpServletRequest request) {
     return response(
         HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session not found", Map.of(), request);
+  }
+
+  @ExceptionHandler(EvidenceGovernanceNotFoundException.class)
+  ResponseEntity<ApiError> evidenceGovernanceNotFound(
+      EvidenceGovernanceNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "SESSION_EVIDENCE_NOT_FOUND",
+        "Session evidence resource was not found",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(EvidenceGovernanceRejectedException.class)
+  ResponseEntity<ApiError> evidenceGovernanceRejected(
+      EvidenceGovernanceRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "SESSION_EVIDENCE_REQUEST_REJECTED",
+        "Session evidence request cannot be completed",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(EvidenceAccessNodeRejectedException.class)
+  ResponseEntity<ApiError> evidenceAccessNodeRejected(
+      EvidenceAccessNodeRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.BAD_GATEWAY,
+        "EVIDENCE_ACCESS_NODE_REJECTED",
+        "Browser Node rejected the evidence access request",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(EvidenceAccessNodeUnavailableException.class)
+  ResponseEntity<ApiError> evidenceAccessNodeUnavailable(
+      EvidenceAccessNodeUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "EVIDENCE_ACCESS_NODE_UNAVAILABLE",
+        "Browser Node evidence access service is unavailable",
+        Map.of(),
+        request);
   }
 
   @ExceptionHandler(HumanTakeoverDisabledException.class)

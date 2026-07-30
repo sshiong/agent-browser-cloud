@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.SessionEvidenceGovernanceStore;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
@@ -42,6 +43,7 @@ public class NodeCommandOutboxDispatcher {
   private final NodeCommandDispatchClaimService claimService;
   private final ObjectMapper objectMapper;
   private final AgentActionPayloadService actionPayloadService;
+  private final SessionEvidenceGovernanceStore evidenceGovernance;
   private final CoordinatorRouteAuthority routeAuthority;
   private final BrowserNodeJpaRepository browserNodeRepository;
   private final GrpcTransportFactory transportFactory;
@@ -53,6 +55,7 @@ public class NodeCommandOutboxDispatcher {
       NodeCommandDispatchClaimService claimService,
       ObjectMapper objectMapper,
       AgentActionPayloadService actionPayloadService,
+      SessionEvidenceGovernanceStore evidenceGovernance,
       CoordinatorRouteAuthority routeAuthority,
       BrowserNodeJpaRepository browserNodeRepository,
       GrpcTransportFactory transportFactory,
@@ -61,6 +64,7 @@ public class NodeCommandOutboxDispatcher {
     this.claimService = claimService;
     this.objectMapper = objectMapper;
     this.actionPayloadService = actionPayloadService;
+    this.evidenceGovernance = evidenceGovernance;
     this.routeAuthority = routeAuthority;
     this.browserNodeRepository = browserNodeRepository;
     this.transportFactory = transportFactory;
@@ -94,6 +98,7 @@ public class NodeCommandOutboxDispatcher {
               event,
               acknowledgement.getErrorCode(),
               TERMINAL_REJECTIONS.contains(acknowledgement.getErrorCode()));
+          failEvidenceCaptureIfDeadLettered(event, acknowledgement.getErrorCode());
           log.warn(
               "Browser Node rejected command {} with code {}",
               command.messageId(),
@@ -101,12 +106,14 @@ public class NodeCommandOutboxDispatcher {
         }
       } catch (StaleRouteException exception) {
         recordFailure(event, exception.errorCode(), true);
+        failEvidenceCaptureIfDeadLettered(event, exception.errorCode());
         log.warn(
             "Rejected stale routed Node Command event {} with code {}",
             event.getEventId(),
             exception.errorCode());
       } catch (Exception exception) {
         recordFailure(event, "NODE_UNAVAILABLE", false);
+        failEvidenceCaptureIfDeadLettered(event, "NODE_UNAVAILABLE");
         log.debug(
             "Browser Node command dispatch deferred for event {}: {}",
             event.getEventId(),
@@ -220,6 +227,24 @@ public class NodeCommandOutboxDispatcher {
       return payload.toBuilder().clearSealedText().setText(plaintext).build().toByteArray();
     } catch (com.google.protobuf.InvalidProtocolBufferException exception) {
       throw new IllegalArgumentException("Agent action payload is invalid protobuf", exception);
+    }
+  }
+
+  private void failEvidenceCaptureIfDeadLettered(
+      io.browsercloud.persistence.OutboxEventEntity event, String errorCode) {
+    if (event.getDeadLetteredAt() == null) {
+      return;
+    }
+    try {
+      var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
+      if ("CaptureObserverScreenshot".equals(command.commandType())) {
+        evidenceGovernance.failCaptureDispatch(command.messageId(), errorCode, Instant.now());
+      }
+    } catch (Exception exception) {
+      log.debug(
+          "Could not reconcile dead-lettered evidence command for event {}",
+          event.getEventId(),
+          exception);
     }
   }
 

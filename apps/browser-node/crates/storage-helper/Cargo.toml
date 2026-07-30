@@ -12,6 +12,7 @@ async-trait.workspace = true
 anyhow.workspace = true
 bytes.workspace = true
 helper-contracts = { path = "../helper-contracts" }
+http.workspace = true
 nix.workspace = true
 object_store.workspace = true
 serde.workspace = true
@@ -23,3 +24,6 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 zstd.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true

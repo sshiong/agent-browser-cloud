@@ -292,6 +292,135 @@ paths:
                 $ref: "#/components/schemas/EvidenceList"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/evidence:capture:
+    post:
+      operationId: captureSessionEvidence
+      summary: Request an administrator-governed real Observer screenshot
+      description: >
+        Requires a tenant/security/platform administrator. The request is durable and
+        idempotent; EXECUTING becomes COMMITTED or FAILED only after the Browser Node
+        submits real evidence or the command is dead-lettered. Capture is rejected during
+        HumanTakeover. No screenshot bytes cross this API.
+      tags: [Session, Evidence]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaptureEvidenceRequest"
+      responses:
+        "202":
+          description: Durable capture request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceCapture"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/evidence-captures/{captureId}:
+    get:
+      operationId: getSessionEvidenceCapture
+      summary: Read the durable Observer capture request state
+      tags: [Session, Evidence]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: captureId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^cap_[a-zA-Z0-9]{16,}$"
+      responses:
+        "200":
+          description: Current capture request state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceCapture"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/evidence/{evidenceId}/access-grants:
+    post:
+      operationId: createSessionEvidenceAccessGrant
+      summary: Create a purpose-bound one-time evidence access grant
+      description: >
+        Requires a tenant/security/platform administrator. The grant is bound to the
+        authenticated actor, Session, immutable evidence object and declared purpose, and
+        expires within five minutes. It does not contain storage coordinates or a signed URL.
+      tags: [Session, Evidence]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: evidenceId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^evd_[a-zA-Z0-9]{16,}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEvidenceAccessGrantRequest"
+      responses:
+        "201":
+          description: One-time access grant issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceAccessGrant"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/evidence-access-grants/{grantId}:redeem:
+    post:
+      operationId: redeemSessionEvidenceAccessGrant
+      summary: Redeem an evidence access grant exactly once
+      description: >
+        Only the actor who created the unexpired grant may redeem it. The Browser Node signs
+        one exact immutable screenshot object for 60 seconds over internal mTLS. The returned
+        URL is ephemeral and is never persisted or written to audit logs.
+      tags: [Session, Evidence]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: grantId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^egr_[a-zA-Z0-9]{16,}$"
+      responses:
+        "200":
+          description: Ephemeral exact-object access.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedeemEvidenceAccessResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/sessions/{sessionId}/resource-stream:
     get:
       operationId: streamSessionResourceChanges
@@ -6183,7 +6312,8 @@ components:
           type: string
           enum:
             [AGENT_ACTION_SUCCESS, AGENT_ACTION_FAILURE,
-             AGENT_NAVIGATION_SUCCESS, AGENT_NAVIGATION_FAILURE]
+             AGENT_NAVIGATION_SUCCESS, AGENT_NAVIGATION_FAILURE,
+             OBSERVER_MANUAL]
         taskId:
           type: string
         stepId:
@@ -6224,6 +6354,105 @@ components:
         offset:
           type: integer
           minimum: 0
+    EvidencePurpose:
+      type: string
+      enum:
+        [INCIDENT_RESPONSE, CHANGE_VALIDATION, SUPPORT_DIAGNOSTICS, COMPLIANCE_AUDIT]
+    CaptureEvidenceRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          $ref: "#/components/schemas/EvidencePurpose"
+    EvidenceCapture:
+      type: object
+      additionalProperties: false
+      required:
+        [captureId, sessionId, purpose, state, commandId, createdAt]
+      properties:
+        captureId:
+          type: string
+          pattern: "^cap_[a-zA-Z0-9]{16,}$"
+        sessionId:
+          type: string
+        purpose:
+          $ref: "#/components/schemas/EvidencePurpose"
+        state:
+          type: string
+          enum: [EXECUTING, COMMITTED, FAILED]
+        evidenceId:
+          type: [string, "null"]
+          pattern: "^evd_[a-zA-Z0-9]{16,}$"
+        errorCode:
+          type: [string, "null"]
+        commandId:
+          type: string
+        requestId:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    CreateEvidenceAccessGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          $ref: "#/components/schemas/EvidencePurpose"
+    EvidenceAccessGrant:
+      type: object
+      additionalProperties: false
+      required:
+        [grantId, sessionId, evidenceId, purpose, state, expiresAt, createdAt]
+      properties:
+        grantId:
+          type: string
+          pattern: "^egr_[a-zA-Z0-9]{16,}$"
+        sessionId:
+          type: string
+        evidenceId:
+          type: string
+          pattern: "^evd_[a-zA-Z0-9]{16,}$"
+        purpose:
+          $ref: "#/components/schemas/EvidencePurpose"
+        state:
+          type: string
+          enum: [ISSUED, REDEEMING, REDEEMED, FAILED]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: [string, "null"]
+          format: date-time
+        errorCode:
+          type: [string, "null"]
+        requestId:
+          type: [string, "null"]
+    RedeemEvidenceAccessResponse:
+      type: object
+      additionalProperties: false
+      required: [grantId, evidenceId, downloadUrl, expiresAt]
+      properties:
+        grantId:
+          type: string
+          pattern: "^egr_[a-zA-Z0-9]{16,}$"
+        evidenceId:
+          type: string
+          pattern: "^evd_[a-zA-Z0-9]{16,}$"
+        downloadUrl:
+          type: string
+          format: uri
+          description: Ephemeral exact-object URL; never persisted by the Control Plane.
+        expiresAt:
+          type: string
+          format: date-time
     SessionSafePoint:
       type: object
       additionalProperties: false

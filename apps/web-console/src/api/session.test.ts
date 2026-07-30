@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   acquireSessionSafetyLease,
+  captureSessionEvidence,
+  createSessionEvidenceAccessGrant,
   createSession,
   getBrowserState,
   getBusinessRecovery,
@@ -16,6 +18,7 @@ import {
   requestRecoveryContractApproval,
   decideRecoveryContractApproval,
   releaseSessionSafetyLease,
+  redeemSessionEvidenceAccessGrant,
   restoreRecoveryContractRevision,
   rebindSessionApplication,
   rebindSessionProxy,
@@ -76,6 +79,100 @@ describe('session API', () => {
           'X-Tenant-Id': 'tenant-test',
         }),
       })
+    );
+  });
+
+  it('captures and redeems purpose-bound screenshot evidence through distinct requests', async () => {
+    const capture = {
+      captureId: 'cap_1234567890abcdef',
+      sessionId: 'ses_1234567890abcdef',
+      purpose: 'SUPPORT_DIAGNOSTICS',
+      state: 'EXECUTING',
+      commandId: 'cmd_1234567890abcdef',
+      createdAt: new Date().toISOString(),
+    };
+    const grant = {
+      grantId: 'egr_1234567890abcdef',
+      sessionId: capture.sessionId,
+      evidenceId: 'evd_1234567890abcdef',
+      purpose: capture.purpose,
+      state: 'ISSUED',
+      expiresAt: new Date(Date.now() + 300_000).toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    const access = {
+      grantId: grant.grantId,
+      evidenceId: grant.evidenceId,
+      downloadUrl: 'https://objects.example.test/evidence?signature=redacted',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(capture), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(grant), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(access), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await captureSessionEvidence(
+      capture.sessionId,
+      'SUPPORT_DIAGNOSTICS',
+      'capture-idempotency',
+      'tenant-test'
+    );
+    await createSessionEvidenceAccessGrant(
+      grant.sessionId,
+      grant.evidenceId,
+      'SUPPORT_DIAGNOSTICS',
+      'grant-idempotency',
+      'tenant-test'
+    );
+    await redeemSessionEvidenceAccessGrant(
+      grant.sessionId,
+      grant.grantId,
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `/api/v1/sessions/${capture.sessionId}/evidence:capture`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ purpose: 'SUPPORT_DIAGNOSTICS' }),
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'capture-idempotency',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/sessions/${grant.sessionId}/evidence/${grant.evidenceId}/access-grants`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ purpose: 'SUPPORT_DIAGNOSTICS' }),
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'grant-idempotency',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `/api/v1/sessions/${grant.sessionId}/evidence-access-grants/${grant.grantId}:redeem`,
+      expect.objectContaining({ method: 'POST' })
     );
   });
 

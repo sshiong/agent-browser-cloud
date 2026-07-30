@@ -93,7 +93,8 @@ Panel 区分“正在录制”“创建时请求但已由资源策略停止”�
 ## 仍需完成
 
 1. Agent Navigate/Action 截图与成功采样执行器已由
-   [进度 72](72-AUTO截图证据与采样执行闭环.md)关闭；Observer 手动截图仍未实现；
+   [进度 72](72-AUTO截图证据与采样执行闭环.md)关闭；Observer 手动截图已由
+   [进度 87](87-Observer手动截图与受控证据访问闭环.md)关闭；
 2. MP4/WebM 封装、硬件 Codec、WebRTC/音频、Latest Frame Wins 和关键帧恢复；
 3. Recording 索引、播放、下载、保留期、Legal Hold、WORM Manifest、敏感区模糊和
    Purpose-bound 访问审计；

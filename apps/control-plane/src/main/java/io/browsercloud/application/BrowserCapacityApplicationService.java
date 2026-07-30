@@ -318,7 +318,7 @@ public class BrowserCapacityApplicationService {
   /** 在同一事务内锁定候选 Node、执行反亲和打分、预留资源并提交 Session Context。 */
   @Transactional
   public BrowserPlacementView reserve(SessionContext session, String region) {
-    return reserveInternal(session, region, null, false);
+    return reserveInternal(session, region, Set.of(), false);
   }
 
   /**
@@ -328,13 +328,20 @@ public class BrowserCapacityApplicationService {
   @Transactional
   public BrowserPlacementView reserveMigrationTarget(
       SessionContext session, String region, String sourceNodeId) {
-    return reserveInternal(session, region, sourceNodeId, true);
+    return reserveMigrationTarget(session, region, Set.of(sourceNodeId));
+  }
+
+  /** Retry placement excludes the source and every target whose fenced cleanup has committed. */
+  @Transactional
+  public BrowserPlacementView reserveMigrationTarget(
+      SessionContext session, String region, Set<String> excludedNodeIds) {
+    return reserveInternal(session, region, Set.copyOf(excludedNodeIds), true);
   }
 
   private BrowserPlacementView reserveInternal(
       SessionContext session,
       String region,
-      String excludedNodeId,
+      Set<String> excludedNodeIds,
       boolean requireGenerationFloorCapability) {
     var existing = placementRepository.findForUpdate(session.sessionId());
     if (existing.isPresent() && !existing.orElseThrow().getState().equals("RELEASED")) {
@@ -358,7 +365,7 @@ public class BrowserCapacityApplicationService {
             : nodeRepository.lockPlacementCandidates(region, now.minus(NODE_HEARTBEAT_TTL));
     var candidates =
         placementCandidates.stream()
-            .filter(node -> excludedNodeId == null || !excludedNodeId.equals(node.getNodeId()))
+            .filter(node -> !excludedNodeIds.contains(node.getNodeId()))
             .filter(
                 node ->
                     !requireGenerationFloorCapability

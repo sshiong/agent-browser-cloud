@@ -17,7 +17,9 @@ public class SessionMigrationScheduler {
   private static final Set<String> RECONCILABLE =
       Set.of(
           "CHECKPOINTING",
+          "PLACING_TARGET",
           "RESTORING",
+          "TARGET_CLEANUP",
           "STATE_RESYNC",
           "BUSINESS_VALIDATION",
           "BUSINESS_RECOVERY_ACTION");

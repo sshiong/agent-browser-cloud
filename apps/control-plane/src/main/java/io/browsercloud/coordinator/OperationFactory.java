@@ -85,6 +85,30 @@ public final class OperationFactory {
         null);
   }
 
+  /** Stop a possibly-started target and return the Session to HIBERNATED before retry. */
+  public static ExclusiveOperation migrationCleanup(SessionContext session, long operationEpoch) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.SYSTEM,
+        "session-migration-workflow",
+        OperationMode.MIGRATION_CLEANUP,
+        100,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.EXECUTING,
+        OperationState.ACTIVE,
+        Set.of("runtime.stop", "migration.target.cleanup"),
+        now.plusSeconds(60),
+        now,
+        null);
+  }
+
   /** 创建 Browser Crash Recovery Operation。 */
   public static ExclusiveOperation recovery(SessionContext session, long operationEpoch) {
     return new ExclusiveOperation(

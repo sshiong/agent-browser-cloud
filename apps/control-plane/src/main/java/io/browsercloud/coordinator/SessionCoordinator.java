@@ -89,6 +89,7 @@ public final class SessionCoordinator {
       case StartSession start -> handleStart(start);
       case TerminateSession terminate -> handleTerminate(terminate);
       case HibernateSession hibernate -> handleHibernate(hibernate);
+      case CleanupMigrationTarget cleanup -> handleMigrationTargetCleanup(cleanup);
       case RequestHumanTakeover takeover -> handleHumanTakeover(takeover);
       case ReleaseHumanTakeover release -> handleReleaseHumanTakeover(release);
       case ReconcileAgentExecution ignored -> CoordinatorResult.completed();
@@ -301,6 +302,29 @@ public final class SessionCoordinator {
     return CoordinatorResult.accepted(operation.operationId());
   }
 
+  private CoordinatorResult handleMigrationTargetCleanup(CleanupMigrationTarget command) {
+    var session = sessionRepository.requireForUpdate(command.sessionId());
+    if (session.state() != SessionState.STARTING && session.state() != SessionState.FAILED) {
+      throw new InvalidSessionStateException(
+          session.sessionId(), session.state(), "migration target cleanup");
+    }
+    operationRepository
+        .findActive(session.sessionId())
+        .ifPresent(
+            active ->
+                operationRepository.transition(
+                    active.operationId(), OperationState.ACTIVE, OperationState.ABORTED));
+    var cleanup =
+        OperationFactory.migrationCleanup(
+            session, operationRepository.nextOperationEpoch(session.sessionId()));
+    operationRepository.insert(cleanup);
+    sessionRepository.updateWithExpectedEpoch(
+        session.withState(SessionState.HIBERNATING), session.contextEpoch());
+    nodeCommandGateway.send(NodeCommands.stopRuntime(session, cleanup, command.reason()));
+    outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.HIBERNATING));
+    return CoordinatorResult.accepted(cleanup.operationId());
+  }
+
   private CoordinatorResult handleHumanTakeover(RequestHumanTakeover command) {
     var session = sessionRepository.requireForUpdate(command.sessionId());
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
@@ -432,7 +456,9 @@ public final class SessionCoordinator {
           yield CoordinatorResult.rejected("STALE_OPERATION_EPOCH");
         }
         var hibernating = session.state() == SessionState.HIBERNATING;
-        if (hibernating && operation.orElseThrow().mode() != OperationMode.HIBERNATE) {
+        if (hibernating
+            && operation.orElseThrow().mode() != OperationMode.HIBERNATE
+            && operation.orElseThrow().mode() != OperationMode.MIGRATION_CLEANUP) {
           yield CoordinatorResult.rejected("INVALID_HIBERNATE_OPERATION");
         }
 
@@ -639,7 +665,9 @@ public final class SessionCoordinator {
         timeout.operationId(), OperationState.ACTIVE, OperationState.TIMED_OUT);
 
     var session = sessionRepository.requireForUpdate(timeout.sessionId());
-    if (session.state() == SessionState.STARTING || session.state() == SessionState.RECOVERING) {
+    if (session.state() == SessionState.STARTING
+        || session.state() == SessionState.RECOVERING
+        || session.state() == SessionState.HIBERNATING) {
       sessionRepository.updateWithExpectedEpoch(
           session.withState(SessionState.FAILED), session.contextEpoch());
       outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.FAILED));

@@ -429,6 +429,79 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void shouldFenceAndStopFailedMigrationTargetBeforeRetry() {
+    var failed = createSession("ses-1", SessionState.FAILED);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(failed);
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.empty());
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(2L);
+
+    var result =
+        coordinator.handle(new CleanupMigrationTarget("ses-1", "migration_target_restore_failed"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    verify(operationRepository)
+        .insert(argThat(operation -> operation.mode() == OperationMode.MIGRATION_CLEANUP));
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.HIBERNATING), eq(0L));
+    verify(nodeCommandGateway)
+        .send(
+            argThat(
+                command ->
+                    command.commandType().equals("StopRuntime") && command.operationEpoch() == 2));
+  }
+
+  @Test
+  void shouldCommitMigrationTargetCleanupOnlyAfterRuntimeStopped() {
+    var hibernating = createSession("ses-1", SessionState.HIBERNATING);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(hibernating);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(Optional.of(createActiveOperation("ses-1", OperationMode.MIGRATION_CLEANUP)));
+
+    var result =
+        coordinator.handle(
+            nodeEvent(
+                new NodeEvent.RuntimeStopped(
+                    "ses-1",
+                    "migration_target_restore_failed",
+                    0,
+                    "profile-test",
+                    "",
+                    1,
+                    1,
+                    0,
+                    0,
+                    "EMPTY"),
+                0,
+                1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.HIBERNATED), eq(0L));
+    verify(operationRepository).transition("op-1", OperationState.ACTIVE, OperationState.COMMITTED);
+  }
+
+  @Test
+  void hibernateTimeoutFailsClosedInsteadOfLeavingSessionStuck() {
+    when(sessionRepository.requireForUpdate("ses-1"))
+        .thenReturn(createSession("ses-1", SessionState.HIBERNATING));
+
+    var result = coordinator.handle(new OperationTimedOut("ses-1", "op-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(sessionRepository)
+        .updateWithExpectedEpoch(
+            argThat(context -> context.state() == SessionState.FAILED), eq(0L));
+    verify(outboxPublisher)
+        .append(
+            argThat(
+                event ->
+                    event instanceof SessionStateChanged changed
+                        && changed.newState() == SessionState.FAILED));
+  }
+
+  @Test
   void shouldRejectStaleContextEpochBeforeApplyingNodeEvent() {
     var session = createSession("ses-1", SessionState.STARTING);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);

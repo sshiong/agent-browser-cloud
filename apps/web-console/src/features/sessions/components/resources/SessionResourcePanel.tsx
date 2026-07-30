@@ -655,6 +655,34 @@ export function MigrationStatusCard({
                 '等待验证'}
             </p>
           </div>
+          <div className="bg-surface-2 p-2">
+            <span className="text-text-muted">目标尝试</span>
+            <p className="mt-1 font-mono text-text-secondary">
+              {migration.targetAttempt}/{migration.maximumTargetAttempts}
+            </p>
+          </div>
+          <div className="bg-surface-2 p-2">
+            <span className="text-text-muted">失败目标</span>
+            <p
+              className="mt-1 truncate font-mono text-text-secondary"
+              title={migration.failedTargetNodeIds.join(', ')}
+            >
+              {migration.failedTargetNodeIds.length > 0
+                ? migration.failedTargetNodeIds.join(', ')
+                : '无'}
+            </p>
+          </div>
+          {(migration.targetCleanupOperationId ||
+            migration.lastTargetFailureReason) && (
+            <div className="col-span-2 bg-surface-2 p-2">
+              <span className="text-text-muted">目标清理 / 最近失败</span>
+              <p className="mt-1 break-all font-mono text-text-secondary">
+                {migration.targetCleanupOperationId ?? '未创建清理 Operation'}
+                {' · '}
+                {migration.lastTargetFailureReason ?? '无失败原因'}
+              </p>
+            </div>
+          )}
         </div>
       )}
       <div className="mt-3 border border-border-subtle bg-surface-2 p-3">

@@ -4,6 +4,9 @@
 > 状态：仓库级可重复集成证书完成；目标 Linux/Kubernetes 多节点故障矩阵与长期稳定性
 > Gate 仍未完成
 
+> 后续进展：目标 Restore 失败后的清理屏障、失败节点排除和三节点有界重试已在
+> [进度 81](81-迁移目标清理与有界重试闭环.md) 完成。
+
 ## 本轮目标
 
 为 AUTO 资源策略的 `WAIT_SAFE_POINT_MIGRATE` 建立可重复的双节点集成证据，避免只用
@@ -96,7 +99,8 @@ Profile Restore、Resource Actuator、SSE、Audit Chain 与 N/N−1 数据库夹
 
 1. 目标 Linux/Kubernetes 上使用正式 Chromium、委派 Cgroup v2、真实多个 Browser
    Node 和生产形态对象存储的长时间压力与容量证书；
-2. 源 Node 在 Checkpoint 前后宕机、目标 Node Restore 中宕机、对象存储超时/分区、
-   PostgreSQL 延迟及重复调度的完整故障矩阵；
+2. 源 Node 在 Checkpoint 前后宕机、目标 Node 进程中途宕机、对象存储分区、
+   PostgreSQL 延迟及多 Coordinator 重复调度的完整故障矩阵；目标 Restore 启动失败、
+   清理确认和换节点重试已在进度 81 关闭；
 3. 真实 CRM/支付站点的业务安全 Lease Adapter、Provider Evidence 凭据和恢复验证；
 4. 跨 Region State/Object Restore、KMS/IAM、流量切换与 RTO/RPO 证书。

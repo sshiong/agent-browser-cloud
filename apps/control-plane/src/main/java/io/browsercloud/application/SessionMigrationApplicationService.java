@@ -1,5 +1,8 @@
 package io.browsercloud.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.OperationResponse;
 import io.browsercloud.api.SessionMigrationView;
 import io.browsercloud.api.StateResyncRequest;
@@ -9,6 +12,8 @@ import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.SessionMigrationEntity;
 import io.browsercloud.persistence.SessionMigrationJpaRepository;
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,6 +28,7 @@ public class SessionMigrationApplicationService {
           "CHECKPOINTING",
           "PLACING_TARGET",
           "RESTORING",
+          "TARGET_CLEANUP",
           "STATE_RESYNC",
           "BUSINESS_VALIDATION",
           "BUSINESS_RECOVERY_ACTION");
@@ -38,6 +44,7 @@ public class SessionMigrationApplicationService {
   private final ApplicationBusinessRecoveryService recoveryService;
   private final BusinessRecoveryActionApplicationService recoveryActions;
   private final SessionResourceApplicationService resources;
+  private final ObjectMapper objectMapper;
 
   public SessionMigrationApplicationService(
       SessionMigrationJpaRepository migrations,
@@ -50,7 +57,8 @@ public class SessionMigrationApplicationService {
       BrowserStateRepository browserStates,
       ApplicationBusinessRecoveryService recoveryService,
       BusinessRecoveryActionApplicationService recoveryActions,
-      SessionResourceApplicationService resources) {
+      SessionResourceApplicationService resources,
+      ObjectMapper objectMapper) {
     this.migrations = migrations;
     this.sessions = sessions;
     this.capacity = capacity;
@@ -62,6 +70,7 @@ public class SessionMigrationApplicationService {
     this.recoveryService = recoveryService;
     this.recoveryActions = recoveryActions;
     this.resources = resources;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional
@@ -131,7 +140,9 @@ public class SessionMigrationApplicationService {
     var migration = migrations.findById(migrationId).orElseThrow();
     switch (migration.getPhase()) {
       case "CHECKPOINTING" -> placeAndRestore(migration);
+      case "PLACING_TARGET" -> placeAndRestore(migration);
       case "RESTORING" -> requestStateResync(migration);
+      case "TARGET_CLEANUP" -> observeTargetCleanup(migration);
       case "STATE_RESYNC" -> observeResync(migration);
       case "BUSINESS_VALIDATION" -> validateBusinessRecovery(migration);
       case "BUSINESS_RECOVERY_ACTION" -> recoveryActions.reconcile(migration);
@@ -167,8 +178,9 @@ public class SessionMigrationApplicationService {
       throw new MigrationRejectedException("SOURCE_CHECKPOINT_MISSING");
     }
     var descriptor = sessions.describe(session.sessionId());
-    var placement =
-        capacity.reserveMigrationTarget(session, descriptor.region(), migration.getSourceNodeId());
+    var excludedNodes = new LinkedHashSet<>(readFailedTargetNodeIds(migration));
+    excludedNodes.add(migration.getSourceNodeId());
+    var placement = capacity.reserveMigrationTarget(session, descriptor.region(), excludedNodes);
     var placedSession = sessions.require(session.sessionId());
     var operation =
         sessionService.start(migration.getSessionId(), migration.getTenantId(), "system:migration");
@@ -190,7 +202,25 @@ public class SessionMigrationApplicationService {
 
   private void requestStateResync(SessionMigrationEntity migration) {
     var session = requireTenant(migration.getSessionId(), migration.getTenantId());
-    if (session.state() == SessionState.STARTING) return;
+    if (session.state() == SessionState.STARTING || session.state() == SessionState.RECOVERING) {
+      return;
+    }
+    if (session.state() == SessionState.FAILED) {
+      var reason = "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT";
+      var cleanup =
+          sessionService.cleanupMigrationTarget(
+              migration.getSessionId(), migration.getTenantId(), reason);
+      migration.targetCleanupDispatched(cleanup.operationId(), reason, Instant.now());
+      migrations.save(migration);
+      resources.recordMigrationPhase(
+          migration.getSessionId(),
+          migration.getMigrationId(),
+          "TARGET_CLEANUP",
+          reason,
+          false,
+          false);
+      return;
+    }
     if (session.state() != SessionState.RUNNING
         || !session.nodeId().equals(migration.getTargetNodeId())) {
       throw new MigrationRejectedException("TARGET_RUNTIME_RESTORE_FAILED");
@@ -211,6 +241,47 @@ public class SessionMigrationApplicationService {
         response.requestId(),
         false,
         false);
+  }
+
+  private void observeTargetCleanup(SessionMigrationEntity migration) {
+    var session = requireTenant(migration.getSessionId(), migration.getTenantId());
+    if (session.state() == SessionState.HIBERNATING) {
+      return;
+    }
+    if (session.state() == SessionState.FAILED) {
+      terminalFailure(migration, "TARGET_CLEANUP_FAILED_OR_TIMED_OUT");
+      return;
+    }
+    if (session.state() != SessionState.HIBERNATED) {
+      throw new MigrationRejectedException("TARGET_CLEANUP_DID_NOT_HIBERNATE");
+    }
+
+    var failedNodes = new LinkedHashSet<>(readFailedTargetNodeIds(migration));
+    if (migration.getTargetNodeId() != null) {
+      failedNodes.add(migration.getTargetNodeId());
+    }
+    if (migration.getTargetAttempt() >= migration.getMaximumTargetAttempts()) {
+      migration.targetCleanupCommitted(writeFailedTargetNodeIds(failedNodes), Instant.now());
+      terminalFailure(migration, "TARGET_RESTORE_RETRY_EXHAUSTED");
+      return;
+    }
+
+    migration.targetRetryReady(writeFailedTargetNodeIds(failedNodes), Instant.now());
+    migrations.save(migration);
+    resources.recordMigrationPhase(
+        migration.getSessionId(),
+        migration.getMigrationId(),
+        "PLACING_TARGET",
+        "RETRY_AFTER_COMMITTED_TARGET_CLEANUP",
+        false,
+        false);
+  }
+
+  private void terminalFailure(SessionMigrationEntity migration, String reason) {
+    migration.fail(reason, Instant.now());
+    migrations.save(migration);
+    resources.recordMigrationPhase(
+        migration.getSessionId(), migration.getMigrationId(), "FAILED", reason, true, false);
   }
 
   private void observeResync(SessionMigrationEntity migration) {
@@ -297,6 +368,11 @@ public class SessionMigrationApplicationService {
         migration.getCheckpointId(),
         migration.getHibernateOperationId(),
         migration.getRestoreOperationId(),
+        migration.getTargetCleanupOperationId(),
+        migration.getTargetAttempt(),
+        migration.getMaximumTargetAttempts(),
+        readFailedTargetNodeIds(migration),
+        migration.getLastTargetFailureReason(),
         migration.getResyncRequestId(),
         migration.getPhase(),
         migration.getRecoveryResult(),
@@ -307,6 +383,23 @@ public class SessionMigrationApplicationService {
         migration.getCreatedAt(),
         migration.getUpdatedAt(),
         migration.getCompletedAt());
+  }
+
+  private List<String> readFailedTargetNodeIds(SessionMigrationEntity migration) {
+    try {
+      return objectMapper.readValue(
+          migration.getFailedTargetNodeIds(), new TypeReference<List<String>>() {});
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("INVALID_FAILED_TARGET_NODE_IDS", exception);
+    }
+  }
+
+  private String writeFailedTargetNodeIds(Set<String> nodeIds) {
+    try {
+      return objectMapper.writeValueAsString(nodeIds);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("FAILED_TARGET_NODE_IDS_SERIALIZATION_FAILED", exception);
+    }
   }
 
   public static final class MigrationRejectedException extends RuntimeException {

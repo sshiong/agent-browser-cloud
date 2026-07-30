@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -260,23 +261,44 @@ class BrowserCapacityApplicationServiceTest {
             true,
             "{\"runtime\":\"chromium\",\"startRuntimeGenerationFloor\":\"v1\"}",
             now);
+    var failedCompatibleNode =
+        new BrowserNodeEntity(
+            "node_failed",
+            "local",
+            "localhost:9093",
+            10_000,
+            16_384,
+            4096,
+            0,
+            0,
+            20,
+            10,
+            true,
+            false,
+            false,
+            false,
+            true,
+            "{\"runtime\":\"chromium\",\"startRuntimeGenerationFloor\":\"v1\"}",
+            now);
     when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
     when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
     when(extensionRepository.findAllById(any())).thenReturn(List.of());
     // The service deliberately rechecks the label even though the PostgreSQL query also filters it.
     when(nodeRepository.lockMigrationPlacementCandidates(eq("local"), any()))
-        .thenReturn(List.of(legacyNode, compatibleNode));
+        .thenReturn(List.of(legacyNode, failedCompatibleNode, compatibleNode));
     when(placementRepository.findAllByNodeIdAndStateIn(eq("node_compatible"), any()))
         .thenReturn(List.of());
     when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     var placement =
-        service.reserveMigrationTarget(session(ResourceClass.L2), "local", "node_source");
+        service.reserveMigrationTarget(
+            session(ResourceClass.L2), "local", Set.of("node_source", "node_failed"));
 
     assertThat(placement.nodeId()).isEqualTo("node_compatible");
     assertThat(compatibleNode.getActiveSessions()).isEqualTo(1);
     assertThat(legacyNode.getActiveSessions()).isZero();
+    assertThat(failedCompatibleNode.getActiveSessions()).isZero();
   }
 
   @Test

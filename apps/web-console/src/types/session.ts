@@ -566,11 +566,17 @@ export interface SessionMigrationView {
   checkpointId?: string;
   hibernateOperationId?: string;
   restoreOperationId?: string;
+  targetCleanupOperationId?: string;
+  targetAttempt: number;
+  maximumTargetAttempts: number;
+  failedTargetNodeIds: string[];
+  lastTargetFailureReason?: string;
   resyncRequestId?: string;
   phase:
     | 'CHECKPOINTING'
     | 'PLACING_TARGET'
     | 'RESTORING'
+    | 'TARGET_CLEANUP'
     | 'STATE_RESYNC'
     | 'BUSINESS_VALIDATION'
     | 'BUSINESS_RECOVERY_ACTION'

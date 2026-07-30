@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.BusinessRecoveryModels.BusinessRecoveryValidationView;
 import io.browsercloud.api.BusinessRecoveryModels.Verdict;
 import io.browsercloud.api.OperationResponse;
@@ -59,7 +60,8 @@ class SessionMigrationApplicationServiceTest {
           browserStates,
           recoveryService,
           recoveryActions,
-          resources);
+          resources,
+          new ObjectMapper());
 
   @Test
   void automaticHibernateLocksSessionBeforeFinalSafePointAssessmentAndDispatch() {
@@ -184,13 +186,113 @@ class SessionMigrationApplicationServiceTest {
             anyBoolean());
   }
 
+  @Test
+  void restoreFailureDispatchesFencedTargetCleanupOnlyOnceAcrossRepeatedReconcile() {
+    var now = Instant.now();
+    var migration =
+        new io.browsercloud.persistence.SessionMigrationEntity(
+            "mig_cleanupdispatch01", SESSION_ID, TENANT_ID, "node-a", 6, now);
+    migration.targetPlaced("node-b", 7, "checkpoint-a", now);
+    when(migrations.findById(migration.getMigrationId())).thenReturn(Optional.of(migration));
+    when(sessions.require(SESSION_ID))
+        .thenReturn(
+            session(SessionState.FAILED, "node-b"), session(SessionState.HIBERNATING, "node-b"));
+    when(sessionService.cleanupMigrationTarget(
+            SESSION_ID, TENANT_ID, "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT"))
+        .thenReturn(new OperationResponse("op_cleanup00000001", OperationState.ACTIVE));
+
+    service.reconcile(migration.getMigrationId());
+    service.reconcile(migration.getMigrationId());
+
+    assertThat(migration.getPhase()).isEqualTo("TARGET_CLEANUP");
+    assertThat(migration.getTargetCleanupOperationId()).isEqualTo("op_cleanup00000001");
+    assertThat(migration.getLastTargetFailureReason())
+        .isEqualTo("TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT");
+    verify(sessionService)
+        .cleanupMigrationTarget(
+            SESSION_ID, TENANT_ID, "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT");
+    verify(resources)
+        .recordMigrationPhase(
+            SESSION_ID,
+            migration.getMigrationId(),
+            "TARGET_CLEANUP",
+            "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT",
+            false,
+            false);
+  }
+
+  @Test
+  void committedTargetCleanupPersistsFailedNodeBeforeRetryPlacement() {
+    var now = Instant.now();
+    var migration =
+        new io.browsercloud.persistence.SessionMigrationEntity(
+            "mig_cleanupretry0001", SESSION_ID, TENANT_ID, "node-a", 6, now);
+    migration.targetPlaced("node-b", 7, "checkpoint-a", now);
+    migration.targetCleanupDispatched(
+        "op_cleanup00000001", "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT", now);
+    when(migrations.findById(migration.getMigrationId())).thenReturn(Optional.of(migration));
+    when(sessions.require(SESSION_ID)).thenReturn(session(SessionState.HIBERNATED, "node-b"));
+
+    service.reconcile(migration.getMigrationId());
+
+    assertThat(migration.getPhase()).isEqualTo("PLACING_TARGET");
+    assertThat(migration.getFailedTargetNodeIds()).isEqualTo("[\"node-b\"]");
+    assertThat(migration.getTargetAttempt()).isEqualTo(1);
+    assertThat(migration.getTargetCleanupOperationId()).isEqualTo("op_cleanup00000001");
+    verify(resources)
+        .recordMigrationPhase(
+            SESSION_ID,
+            migration.getMigrationId(),
+            "PLACING_TARGET",
+            "RETRY_AFTER_COMMITTED_TARGET_CLEANUP",
+            false,
+            false);
+  }
+
+  @Test
+  void targetRestoreRetriesAreBoundedAndFailClosedAfterCleanup() {
+    var now = Instant.now();
+    var migration =
+        new io.browsercloud.persistence.SessionMigrationEntity(
+            "mig_retryexhaust0001", SESSION_ID, TENANT_ID, "node-a", 6, now);
+    migration.targetPlaced("node-b", 7, "checkpoint-a", now);
+    migration.targetCleanupCommitted("[\"node-b\"]", now);
+    migration.targetRetryReady("[\"node-b\"]", now);
+    migration.targetPlaced("node-c", 8, "checkpoint-a", now);
+    migration.targetCleanupCommitted("[\"node-b\",\"node-c\"]", now);
+    migration.targetRetryReady("[\"node-b\",\"node-c\"]", now);
+    migration.targetPlaced("node-d", 9, "checkpoint-a", now);
+    migration.targetCleanupDispatched(
+        "op_cleanup00000003", "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT", now);
+    when(migrations.findById(migration.getMigrationId())).thenReturn(Optional.of(migration));
+    when(sessions.require(SESSION_ID)).thenReturn(session(SessionState.HIBERNATED, "node-d"));
+
+    service.reconcile(migration.getMigrationId());
+
+    assertThat(migration.getPhase()).isEqualTo("FAILED");
+    assertThat(migration.getFailureReason()).isEqualTo("TARGET_RESTORE_RETRY_EXHAUSTED");
+    assertThat(migration.getFailedTargetNodeIds()).isEqualTo("[\"node-b\",\"node-c\",\"node-d\"]");
+    verify(resources)
+        .recordMigrationPhase(
+            SESSION_ID,
+            migration.getMigrationId(),
+            "FAILED",
+            "TARGET_RESTORE_RETRY_EXHAUSTED",
+            true,
+            false);
+  }
+
   private static SessionContext session() {
+    return session(SessionState.RUNNING, "node-a");
+  }
+
+  private static SessionContext session(SessionState state, String nodeId) {
     var now = Instant.now();
     return new SessionContext(
         SESSION_ID,
         TENANT_ID,
         "profile-a",
-        "node-a",
+        nodeId,
         "runtime-a",
         "isolation-a",
         "proxy-a",
@@ -199,7 +301,7 @@ class SessionMigrationApplicationServiceTest {
         1,
         1,
         ResourceClass.L2,
-        SessionState.RUNNING,
+        state,
         "policy-hash",
         now,
         now);

@@ -5905,6 +5905,7 @@ components:
       additionalProperties: false
       required:
         [migrationId, sessionId, sourceNodeId, sourceContextEpoch, phase,
+         targetAttempt, maximumTargetAttempts, failedTargetNodeIds,
          autoRecoveryAttempts, autoRecoveryMaximum, createdAt, updatedAt]
       properties:
         migrationId:
@@ -5927,12 +5928,29 @@ components:
           type: [string, "null"]
         restoreOperationId:
           type: [string, "null"]
+        targetCleanupOperationId:
+          type: [string, "null"]
+        targetAttempt:
+          type: integer
+          minimum: 0
+          maximum: 10
+        maximumTargetAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        failedTargetNodeIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        lastTargetFailureReason:
+          type: [string, "null"]
         resyncRequestId:
           type: [string, "null"]
         phase:
           type: string
           enum:
-            [CHECKPOINTING, PLACING_TARGET, RESTORING, STATE_RESYNC,
+            [CHECKPOINTING, PLACING_TARGET, RESTORING, TARGET_CLEANUP, STATE_RESYNC,
              BUSINESS_VALIDATION, BUSINESS_RECOVERY_ACTION, COMPLETED, DEGRADED, FAILED]
         recoveryResult:
           type: [string, "null"]

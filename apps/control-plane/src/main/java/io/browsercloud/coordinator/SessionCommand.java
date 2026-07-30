@@ -9,6 +9,7 @@ public sealed interface SessionCommand
     permits StartSession,
         TerminateSession,
         HibernateSession,
+        CleanupMigrationTarget,
         SubmitAgentAction,
         ReconcileAgentExecution,
         RequestHumanTakeover,

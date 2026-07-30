@@ -358,6 +358,35 @@ public class SessionApplicationService {
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
 
+  /** Fenced cleanup after a target restore timeout; only the migration workflow may call this. */
+  @Transactional
+  public OperationResponse cleanupMigrationTarget(
+      String sessionId, String tenantId, String reason) {
+    var session = requireTenant(sessionId, tenantId);
+    var normalizedReason =
+        reason == null || reason.isBlank() ? "migration_target_restore_failed" : reason;
+    var result = coordinator.handle(new CleanupMigrationTarget(sessionId, normalizedReason));
+    var operation = operationRepository.findActive(sessionId).orElseThrow();
+    var workflowId =
+        workflowService.start(
+            tenantId,
+            operation,
+            "MIGRATION_TARGET_CLEANUP",
+            result.operationId(),
+            "MANUAL_RECONCILIATION");
+    operationRepository.attachWorkflow(result.operationId(), workflowId);
+    appendAudit(
+        session,
+        "SESSION_OPERATION_TRANSITION",
+        "system:session-migration",
+        "MIGRATION_TARGET_CLEANUP",
+        "ACCEPTED",
+        Map.of("operationId", result.operationId(), "reason", normalizedReason),
+        result.operationId());
+    return new OperationResponse(
+        result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
+  }
+
   private OperationResponse terminate(
       String sessionId, String tenantId, String actorId, String reason) {
     var session = requireTenant(sessionId, tenantId);

@@ -24,6 +24,9 @@ public enum OperationMode {
   /** 休眠 */
   HIBERNATE,
 
+  /** 迁移目标恢复失败后的有栅栏 Runtime 清理 */
+  MIGRATION_CLEANUP,
+
   /** 恢复 */
   RECOVERY,
 

@@ -45,9 +45,11 @@ temp_dir="$(mktemp -d)"
 control_pid=""
 node_pid=""
 node_b_pid=""
+node_c_pid=""
 network_helper_pid=""
 storage_helper_pid=""
 storage_helper_b_pid=""
+storage_helper_c_pid=""
 proxy_pid=""
 resource_stream_pid=""
 dual_node_safety_pid=""
@@ -84,9 +86,11 @@ cleanup() {
   if [[ -n "$control_pid" ]]; then kill "$control_pid" 2>/dev/null || true; fi
   if [[ -n "$node_pid" ]]; then kill "$node_pid" 2>/dev/null || true; fi
   if [[ -n "$node_b_pid" ]]; then kill "$node_b_pid" 2>/dev/null || true; fi
+  if [[ -n "$node_c_pid" ]]; then kill "$node_c_pid" 2>/dev/null || true; fi
   if [[ -n "$network_helper_pid" ]]; then kill "$network_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_pid" ]]; then kill "$storage_helper_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_b_pid" ]]; then kill "$storage_helper_b_pid" 2>/dev/null || true; fi
+  if [[ -n "$storage_helper_c_pid" ]]; then kill "$storage_helper_c_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$dual_node_safety_pid" ]]; then
@@ -120,6 +124,8 @@ cleanup() {
                 state_collector_budget_percent, background_tabs_frozen, new_tabs_blocked
            from browser_placements where session_id='${dual_node_session}';
          select migration_id, source_node_id, target_node_id, phase, checkpoint_id,
+                target_attempt, maximum_target_attempts, failed_target_node_ids,
+                target_cleanup_operation_id, last_target_failure_reason,
                 recovery_result, failure_reason
            from session_migrations where session_id='${dual_node_session}';
          select observed_at, cpu_percent, memory_rss_mib
@@ -135,9 +141,11 @@ cleanup() {
     tail -n 240 "$temp_dir/control-plane.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/browser-node.log" 2>/dev/null || true
     tail -n 240 "$temp_dir/browser-node-b.log" 2>/dev/null || true
+    tail -n 240 "$temp_dir/browser-node-c.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/network-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/storage-helper-b.log" 2>/dev/null || true
+    tail -n 80 "$temp_dir/storage-helper-c.log" 2>/dev/null || true
     tail -n 80 "$temp_dir/dual-node-safety.log" 2>/dev/null || true
     echo '--- postgres container log ---' >&2
     docker logs "$postgres_name" >&2 2>/dev/null || true
@@ -172,10 +180,12 @@ redis_port="$(docker port "$redis_name" 6379/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 minio_port="$(docker port "$minio_name" 9000/tcp | sed -E 's/.*:([0-9]+)$/\1/')"
 node_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 node_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+node_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 control_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 event_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+desktop_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
 python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
@@ -262,6 +272,27 @@ start_storage_helper_b() {
   exit 1
 }
 
+start_storage_helper_c() {
+  APP_ENVIRONMENT=local \
+  OBJECT_STORAGE_ENABLED=true \
+  OBJECT_STORAGE_ENDPOINT="http://127.0.0.1:${minio_port}" \
+  OBJECT_STORAGE_BUCKET="$minio_bucket" \
+  OBJECT_STORAGE_ACCESS_KEY_ID="$minio_access_key" \
+  OBJECT_STORAGE_SECRET_ACCESS_KEY="$minio_secret_key" \
+  STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-c.sock" \
+  PROFILE_STORAGE_ROOT="$temp_dir/runtime-c/profile-storage" \
+  NODE_AGENT_UID="$(id -u)" \
+    apps/browser-node/target/debug/storage-helper >>"$temp_dir/storage-helper-c.log" 2>&1 &
+  storage_helper_c_pid=$!
+  for _ in $(seq 1 40); do
+    if [[ -S "$temp_dir/storage-helper-c.sock" ]]; then return; fi
+    if ! kill -0 "$storage_helper_c_pid" 2>/dev/null; then exit 1; fi
+    sleep 0.1
+  done
+  echo "Third Storage Helper did not create its IPC socket." >&2
+  exit 1
+}
+
 start_browser_node() {
   CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
   NODE_AGENT_PORT="$node_port" \
@@ -325,6 +356,37 @@ start_browser_node_b() {
   NODE_SUPPORTS_MEDIA=true \
     apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node-b.log" 2>&1 &
   node_b_pid=$!
+}
+
+start_browser_node_c() {
+  CHROMIUM_PATH="$repo_root/tests/fixtures/fake-chromium.sh" \
+  NODE_AGENT_PORT="$node_c_port" \
+  NODE_ID=node_integration_c \
+  NODE_ADVERTISED_GRPC_TARGET="127.0.0.1:${node_c_port}" \
+  CONTROL_PLANE_EVENT_TARGET="127.0.0.1:${event_port}" \
+  GRPC_TLS_ENABLED=true \
+  GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+  GRPC_TLS_CERT="$node_certificate_path" \
+  GRPC_TLS_KEY="$node_private_key_path" \
+  CONTROL_PLANE_TLS_SERVER_NAME=control-plane.internal \
+  NODE_PRESSURE_ROOT="$temp_dir/pressure" \
+  REMOTE_DESKTOP_GATEWAY_PORT="$desktop_c_port" \
+  XVFB_PATH="$repo_root/tests/fixtures/fake-xvfb.sh" \
+  X11VNC_PATH="$repo_root/tests/fixtures/fake-x11vnc.py" \
+  RUNTIME_ROOT="$temp_dir/runtime-c" \
+  NODE_EXTENSION_ROOT="$repo_root/tests/integration/fixtures/extensions" \
+  PROFILE_STORAGE_ROOT="$temp_dir/runtime-c/profile-storage" \
+  STORAGE_HELPER_SOCKET="$temp_dir/storage-helper-c.sock" \
+  OBJECT_STORAGE_ENABLED=true \
+  NETWORK_HELPER_SOCKET="$temp_dir/network-helper.sock" \
+  FAKE_CHROMIUM_REQUIRE_PROXY=true \
+  FAKE_CHROMIUM_ARGUMENT_LOG="$temp_dir/fake-chromium-c-args.log" \
+  SESSION_RESOURCE_REPORT_INTERVAL_SECONDS=300 \
+  RUST_LOG=info \
+  NODE_CERTIFIED_MEDIA_SLOTS=2 \
+  NODE_SUPPORTS_MEDIA=true \
+    apps/browser-node/target/debug/node-agent >>"$temp_dir/browser-node-c.log" 2>&1 &
+  node_c_pid=$!
 }
 
 wait_for_postgres() {
@@ -3460,11 +3522,12 @@ expired_break_glass_state="$(docker exec "$postgres_name" psql -U browsercloud -
   "select state from break_glass_requests where request_id='${expired_break_glass_id}'")"
 test "$expired_break_glass_state" = "EXPIRED"
 
-# Start a second, independently rooted Browser Node and Storage Helper against the same
-# S3-compatible Object Storage. This exercises the real checkpoint/restore data plane instead of
-# mutating the Placement row or replaying a same-Node restart.
+# Start two independently rooted migration targets against the same S3-compatible Object Storage.
+# One target will lose its Storage Helper during restore; the other proves cleanup-gated retry.
 start_storage_helper_b
 start_browser_node_b
+start_storage_helper_c
+start_browser_node_c
 dual_node_inventory=""
 for _ in $(seq 1 80); do
   dual_node_inventory="$(curl -fsS \
@@ -3472,18 +3535,18 @@ for _ in $(seq 1 80); do
     -H 'X-Tenant-Id: tenant-integration' \
     -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
   if printf '%s' "$dual_node_inventory" | python3 -c \
-    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" and item["labels"]["startRuntimeGenerationFloor"] == "v1" for item in data["items"])' \
+    'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b","node_integration_c"}; assert all(item["admissionState"] == "OPEN" and item["pressureState"] == "NORMAL" and item["labels"]["startRuntimeGenerationFloor"] == "v1" for item in data["items"])' \
     2>/dev/null; then
     break
   fi
-  if ! kill -0 "$node_b_pid" 2>/dev/null; then
-    echo "Second Browser Node exited before registration." >&2
+  if ! kill -0 "$node_b_pid" 2>/dev/null || ! kill -0 "$node_c_pid" 2>/dev/null; then
+    echo "A migration target Browser Node exited before registration." >&2
     exit 1
   fi
   sleep 0.25
 done
 printf '%s' "$dual_node_inventory" | python3 -c \
-  'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b"}'
+  'import json,sys; data=json.load(sys.stdin); assert {item["nodeId"] for item in data["items"]} == {"node_integration","node_integration_b","node_integration_c"}'
 
 dual_node_created="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions" \
@@ -3509,7 +3572,7 @@ for _ in $(seq 1 120); do
 done
 test "$dual_node_state" = "RUNNING"
 dual_node_source="$(printf '%s' "$dual_node_session_view" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] in {"node_integration","node_integration_b"}; print(item["nodeId"])')"
+  'import json,sys; item=json.load(sys.stdin); assert item["nodeId"] in {"node_integration","node_integration_b","node_integration_c"}; print(item["nodeId"])')"
 dual_node_context_epoch="$(printf '%s' "$dual_node_session_view" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
 
@@ -3601,6 +3664,24 @@ curl -fsS -X PUT \
 printf '%s' "$(<"$temp_dir/legacy-node-registration.json")" | python3 -c \
   'import json,sys; node=json.load(sys.stdin); assert node["nodeId"] == "node_000_legacy"; assert "startRuntimeGenerationFloor" not in node["labels"]'
 
+# Remove Storage Helper availability from both possible targets while keeping the source checkpoint
+# path healthy. The first restore must therefore fail before a Browser runtime can become active.
+if [[ "$dual_node_source" != "node_integration" ]]; then
+  kill -TERM "$storage_helper_pid"
+  wait "$storage_helper_pid" 2>/dev/null || true
+  storage_helper_pid=""
+fi
+if [[ "$dual_node_source" != "node_integration_b" ]]; then
+  kill -TERM "$storage_helper_b_pid"
+  wait "$storage_helper_b_pid" 2>/dev/null || true
+  storage_helper_b_pid=""
+fi
+if [[ "$dual_node_source" != "node_integration_c" ]]; then
+  kill -TERM "$storage_helper_c_pid"
+  wait "$storage_helper_c_pid" 2>/dev/null || true
+  storage_helper_c_pid=""
+fi
+
 docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
   "delete from session_resource_samples where session_id='${dual_node_session}';
    update session_resource_policies
@@ -3632,6 +3713,46 @@ dual_node_safety_pid=$!
 
 dual_node_migration=""
 dual_node_migration_phase=""
+# Observe the first persisted target before expiring its real START_RUNTIME workflow. Bring back
+# only the third Node's Storage Helper so the retry cannot reuse either source or failed target.
+for _ in $(seq 1 240); do
+  dual_node_migration_status="$(curl -sS \
+    -o "$temp_dir/dual-node-migration.json" -w '%{http_code}' \
+    "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}/migration" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  if [[ "$dual_node_migration_status" = "200" ]]; then
+    dual_node_migration="$(<"$temp_dir/dual-node-migration.json")"
+    dual_node_migration_phase="$(printf '%s' "$dual_node_migration" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["phase"])')"
+    if [[ "$dual_node_migration_phase" = "RESTORING" ]]; then break; fi
+  fi
+  sleep 0.5
+done
+test "$dual_node_migration_phase" = "RESTORING"
+dual_node_failed_target="$(printf '%s' "$dual_node_migration" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["targetAttempt"] == 1; print(item["targetNodeId"])')"
+dual_node_retry_target="$(python3 - "$dual_node_source" "$dual_node_failed_target" <<'PY'
+import sys
+nodes = {"node_integration", "node_integration_b", "node_integration_c"}
+remaining = nodes - {sys.argv[1], sys.argv[2]}
+assert len(remaining) == 1, remaining
+print(remaining.pop())
+PY
+)"
+case "$dual_node_retry_target" in
+  node_integration) start_storage_helper ;;
+  node_integration_b) start_storage_helper_b ;;
+  node_integration_c) start_storage_helper_c ;;
+  *) echo "Unexpected retry target ${dual_node_retry_target}" >&2; exit 1 ;;
+esac
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update durable_workflows
+      set phase_deadline=now()-interval '1 second'
+    where operation_id=(
+      select restore_operation_id from session_migrations
+       where session_id='${dual_node_session}');" \
+  >/dev/null
+
 for _ in $(seq 1 360); do
   dual_node_migration_status="$(curl -sS \
     -o "$temp_dir/dual-node-migration.json" -w '%{http_code}' \
@@ -3656,18 +3777,24 @@ for _ in $(seq 1 360); do
 done
 test "$dual_node_migration_phase" = "COMPLETED"
 dual_node_target="$(printf '%s' "$dual_node_migration" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["sourceNodeId"] != item["targetNodeId"]; assert item["targetNodeId"] != "node_000_legacy"; assert item["checkpointId"]; assert item["resyncRequestId"]; assert item["recoveryResult"] == "READY"; print(item["targetNodeId"])')"
+  'import json,sys; item=json.load(sys.stdin); assert item["sourceNodeId"] != item["targetNodeId"]; assert item["targetNodeId"] != "node_000_legacy"; assert item["targetAttempt"] == 2; assert item["targetCleanupOperationId"]; assert len(item["failedTargetNodeIds"]) == 1; assert item["lastTargetFailureReason"] == "TARGET_RESTORE_OPERATION_FAILED_OR_TIMED_OUT"; assert item["checkpointId"]; assert item["resyncRequestId"]; assert item["recoveryResult"] == "READY"; print(item["targetNodeId"])')"
+test "$dual_node_target" = "$dual_node_retry_target"
+printf '%s' "$dual_node_migration" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['failedTargetNodeIds'] == ['${dual_node_failed_target}']"
 dual_node_checkpoint="$(printf '%s' "$dual_node_migration" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["checkpointId"])')"
 test "$dual_node_source" != "$dual_node_target"
 
-if [[ "$dual_node_source" = "node_integration" ]]; then
-  dual_node_source_storage="$temp_dir/runtime/profile-storage"
-  dual_node_target_storage="$temp_dir/runtime-b/profile-storage"
-else
-  dual_node_source_storage="$temp_dir/runtime-b/profile-storage"
-  dual_node_target_storage="$temp_dir/runtime/profile-storage"
-fi
+case "$dual_node_source" in
+  node_integration) dual_node_source_storage="$temp_dir/runtime/profile-storage" ;;
+  node_integration_b) dual_node_source_storage="$temp_dir/runtime-b/profile-storage" ;;
+  node_integration_c) dual_node_source_storage="$temp_dir/runtime-c/profile-storage" ;;
+esac
+case "$dual_node_target" in
+  node_integration) dual_node_target_storage="$temp_dir/runtime/profile-storage" ;;
+  node_integration_b) dual_node_target_storage="$temp_dir/runtime-b/profile-storage" ;;
+  node_integration_c) dual_node_target_storage="$temp_dir/runtime-c/profile-storage" ;;
+esac
 dual_node_checkpoint_relative="tenants/tenant-integration/profiles/profile-dual-node-migration/checkpoints/${dual_node_checkpoint}/COMMITTED"
 test -f "$dual_node_source_storage/$dual_node_checkpoint_relative"
 test -f "$dual_node_target_storage/$dual_node_checkpoint_relative"
@@ -3681,6 +3808,11 @@ dual_node_resource_events="$(docker exec "$postgres_name" psql -U browsercloud -
    where session_id='${dual_node_session}'
      and event_type in ('MIGRATION_CHECKPOINTING','MIGRATION_RESTORING','MIGRATION_STATE_RESYNC','MIGRATION_BUSINESS_VALIDATION','MIGRATION_COMPLETED')")"
 test "$dual_node_resource_events" -ge "5"
+dual_node_retry_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from session_resource_events
+   where session_id='${dual_node_session}'
+     and event_type in ('MIGRATION_TARGET_CLEANUP','MIGRATION_PLACING_TARGET')")"
+test "$dual_node_retry_events" -ge "2"
 
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${dual_node_session}:terminate" \

@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "session_migrations")
@@ -41,6 +43,22 @@ public class SessionMigrationEntity {
 
   @Column(name = "restore_operation_id")
   private String restoreOperationId;
+
+  @Column(name = "target_cleanup_operation_id")
+  private String targetCleanupOperationId;
+
+  @Column(name = "target_attempt", nullable = false)
+  private int targetAttempt;
+
+  @Column(name = "maximum_target_attempts", nullable = false)
+  private int maximumTargetAttempts;
+
+  @Column(name = "failed_target_node_ids", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String failedTargetNodeIds;
+
+  @Column(name = "last_target_failure_reason")
+  private String lastTargetFailureReason;
 
   @Column(name = "resync_request_id")
   private String resyncRequestId;
@@ -80,6 +98,8 @@ public class SessionMigrationEntity {
     this.sourceNodeId = sourceNodeId;
     this.sourceContextEpoch = sourceContextEpoch;
     this.phase = "CHECKPOINTING";
+    this.maximumTargetAttempts = 3;
+    this.failedTargetNodeIds = "[]";
     this.createdAt = now;
     this.updatedAt = now;
   }
@@ -93,12 +113,34 @@ public class SessionMigrationEntity {
     targetNodeId = nodeId;
     targetContextEpoch = contextEpoch;
     this.checkpointId = checkpointId;
+    targetAttempt++;
     phase = "RESTORING";
     updatedAt = now;
   }
 
   public void restoreDispatched(String operationId, Instant now) {
     restoreOperationId = operationId;
+    updatedAt = now;
+  }
+
+  public void targetCleanupDispatched(String operationId, String reason, Instant now) {
+    targetCleanupOperationId = operationId;
+    lastTargetFailureReason = reason;
+    phase = "TARGET_CLEANUP";
+    updatedAt = now;
+  }
+
+  public void targetRetryReady(String failedNodeIdsJson, Instant now) {
+    failedTargetNodeIds = failedNodeIdsJson;
+    targetNodeId = null;
+    targetContextEpoch = null;
+    restoreOperationId = null;
+    phase = "PLACING_TARGET";
+    updatedAt = now;
+  }
+
+  public void targetCleanupCommitted(String failedNodeIdsJson, Instant now) {
+    failedTargetNodeIds = failedNodeIdsJson;
     updatedAt = now;
   }
 
@@ -170,6 +212,26 @@ public class SessionMigrationEntity {
 
   public String getRestoreOperationId() {
     return restoreOperationId;
+  }
+
+  public String getTargetCleanupOperationId() {
+    return targetCleanupOperationId;
+  }
+
+  public int getTargetAttempt() {
+    return targetAttempt;
+  }
+
+  public int getMaximumTargetAttempts() {
+    return maximumTargetAttempts;
+  }
+
+  public String getFailedTargetNodeIds() {
+    return failedTargetNodeIds;
+  }
+
+  public String getLastTargetFailureReason() {
+    return lastTargetFailureReason;
   }
 
   public String getResyncRequestId() {

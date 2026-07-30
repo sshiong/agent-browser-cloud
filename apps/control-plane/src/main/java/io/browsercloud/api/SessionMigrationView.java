@@ -1,6 +1,7 @@
 package io.browsercloud.api;
 
 import java.time.Instant;
+import java.util.List;
 
 public record SessionMigrationView(
     String migrationId,
@@ -12,6 +13,11 @@ public record SessionMigrationView(
     String checkpointId,
     String hibernateOperationId,
     String restoreOperationId,
+    String targetCleanupOperationId,
+    int targetAttempt,
+    int maximumTargetAttempts,
+    List<String> failedTargetNodeIds,
+    String lastTargetFailureReason,
     String resyncRequestId,
     String phase,
     String recoveryResult,

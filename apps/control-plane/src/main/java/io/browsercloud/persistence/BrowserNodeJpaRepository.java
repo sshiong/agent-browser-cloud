@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -85,4 +86,20 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
           """,
       nativeQuery = true)
   List<BrowserNodeEntity> findProfileImportCandidates(@Param("freshAfter") Instant freshAfter);
+
+  @Query(
+      value =
+          """
+          SELECT node.* FROM browser_nodes node
+          WHERE LOWER(
+            node.node_id || ' ' ||
+            node.region || ' ' ||
+            node.lifecycle_state || ' ' ||
+            node.admission_state || ' ' ||
+            node.pressure_state
+          ) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\\'
+          ORDER BY node.updated_at DESC
+          """,
+      nativeQuery = true)
+  List<BrowserNodeEntity> searchAll(@Param("query") String query, Pageable pageable);
 }

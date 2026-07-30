@@ -1,6 +1,7 @@
-import { Search, Bell, Sun, User, Wifi, LogOut } from 'lucide-react';
+import { Bell, Sun, User, Wifi, LogOut } from 'lucide-react';
 import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import { useAuth } from '@/auth/AuthProvider';
+import { GlobalSearchDialog } from '@/features/search/GlobalSearchDialog';
 
 interface TopContextBarProps {
   title: string;
@@ -56,16 +57,7 @@ export function TopContextBar({
           </span>
         </div>
 
-        {/* Search */}
-        <button
-          type="button"
-          aria-label="全局搜索（尚未实现）"
-          title="全局搜索（尚未实现）"
-          disabled
-          className="hidden h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-text-muted opacity-45 md:flex"
-        >
-          <Search size={16} />
-        </button>
+        <GlobalSearchDialog />
 
         {/* Notifications */}
         <button

@@ -34,11 +34,14 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           SELECT s.* FROM sessions s
           WHERE s.tenant_id = :tenantId
             AND (
-              LOWER(s.id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.profile_id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.region) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.resource_class) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(CAST(s.metadata AS text)) LIKE LOWER(CONCAT('%', :query, '%'))
+              LOWER(
+                s.id || ' ' ||
+                s.profile_id || ' ' ||
+                s.region || ' ' ||
+                s.resource_class || ' ' ||
+                s.state || ' ' ||
+                COALESCE(s.metadata->>'displayName', '')
+              ) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\\'
             )
           ORDER BY s.created_at DESC
           """,
@@ -47,11 +50,14 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           SELECT COUNT(*) FROM sessions s
           WHERE s.tenant_id = :tenantId
             AND (
-              LOWER(s.id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.profile_id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.region) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.resource_class) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(CAST(s.metadata AS text)) LIKE LOWER(CONCAT('%', :query, '%'))
+              LOWER(
+                s.id || ' ' ||
+                s.profile_id || ' ' ||
+                s.region || ' ' ||
+                s.resource_class || ' ' ||
+                s.state || ' ' ||
+                COALESCE(s.metadata->>'displayName', '')
+              ) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\\'
             )
           """,
       nativeQuery = true)
@@ -65,11 +71,14 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           WHERE s.tenant_id = :tenantId
             AND s.state = :state
             AND (
-              LOWER(s.id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.profile_id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.region) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.resource_class) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(CAST(s.metadata AS text)) LIKE LOWER(CONCAT('%', :query, '%'))
+              LOWER(
+                s.id || ' ' ||
+                s.profile_id || ' ' ||
+                s.region || ' ' ||
+                s.resource_class || ' ' ||
+                s.state || ' ' ||
+                COALESCE(s.metadata->>'displayName', '')
+              ) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\\'
             )
           ORDER BY s.created_at DESC
           """,
@@ -79,11 +88,14 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
           WHERE s.tenant_id = :tenantId
             AND s.state = :state
             AND (
-              LOWER(s.id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.profile_id) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.region) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(s.resource_class) LIKE LOWER(CONCAT('%', :query, '%'))
-              OR LOWER(CAST(s.metadata AS text)) LIKE LOWER(CONCAT('%', :query, '%'))
+              LOWER(
+                s.id || ' ' ||
+                s.profile_id || ' ' ||
+                s.region || ' ' ||
+                s.resource_class || ' ' ||
+                s.state || ' ' ||
+                COALESCE(s.metadata->>'displayName', '')
+              ) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\\'
             )
           """,
       nativeQuery = true)

@@ -10,6 +10,7 @@ const baseUrl = process.env.WEB_CONSOLE_BASE_URL ?? "http://127.0.0.1:3000";
 const screenshotPath =
   process.env.WEB_CONSOLE_SCREENSHOT ??
   "/tmp/agent-browser-cloud-session-flow.png";
+const searchScreenshotPath = process.env.WEB_CONSOLE_SEARCH_SCREENSHOT;
 const runSuffix = String(Date.now());
 
 const browser = await chromium.launch({ headless: true });
@@ -345,6 +346,40 @@ try {
   await expect(
     page.locator("main").getByText("已创建", { exact: true }).last(),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "全局搜索" }).click();
+  const searchDialog = page.getByRole("dialog", { name: "全局搜索" });
+  await expect(searchDialog).toBeVisible();
+  const [globalSearchResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/v1/search?") &&
+        response.status() === 200,
+    ),
+    searchDialog.getByLabel("全局搜索关键词").fill(startName),
+  ]);
+  const globalSearchResult = await globalSearchResponse.json();
+  if (
+    !globalSearchResult.items?.some(
+      (item) =>
+        item.resourceType === "SESSION" &&
+        item.resourceId === startSessionId &&
+        item.title === startName,
+    )
+  ) {
+    throw new Error("tenant-scoped global search did not return the Session");
+  }
+  await expect(
+    searchDialog.getByText(startName, { exact: true }),
+  ).toBeVisible();
+  if (searchScreenshotPath) {
+    await searchDialog.screenshot({ path: searchScreenshotPath });
+  }
+  await searchDialog
+    .getByRole("button", { name: new RegExp(startName) })
+    .click();
+  await expect(searchDialog).toBeHidden();
+  await page.waitForURL(`**/environments/${startSessionId}`);
 
   await page.getByRole("button", { name: "启动 Session" }).click();
   await expect(

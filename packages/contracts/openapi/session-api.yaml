@@ -64,6 +64,51 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/search:
+    get:
+      operationId: globalSearch
+      summary: Search authorized workspace resources
+      description: >
+        Performs a bounded, tenant-scoped search across Sessions, Profiles,
+        Groups and Tags. Runtime and Browser Node results follow their existing
+        resource-level visibility; Node matches are omitted for non-admin
+        identities. Secret values and browser content are never indexed or returned.
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 128
+        - name: types
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              $ref: "#/components/schemas/SearchResourceType"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 24
+      responses:
+        "200":
+          description: Ranked authorized search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalSearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/sessions:
     post:
       operationId: createSession
@@ -3323,6 +3368,51 @@ components:
         type: string
         pattern: "^gameday_[A-Za-z0-9]{20}$"
   schemas:
+    SearchResourceType:
+      type: string
+      enum: [SESSION, PROFILE, GROUP, TAG, RUNTIME, NODE]
+    GlobalSearchResult:
+      type: object
+      additionalProperties: false
+      required:
+        - resourceType
+        - resourceId
+        - title
+        - description
+        - status
+        - region
+        - updatedAt
+      properties:
+        resourceType:
+          $ref: "#/components/schemas/SearchResourceType"
+        resourceId:
+          type: string
+        title:
+          type: string
+        description:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        region:
+          type: [string, "null"]
+        updatedAt:
+          type: [string, "null"]
+          format: date-time
+    GlobalSearchResponse:
+      type: object
+      additionalProperties: false
+      required: [query, items, limit, truncated]
+      properties:
+        query:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GlobalSearchResult"
+        limit:
+          type: integer
+        truncated:
+          type: boolean
     TenantRoute:
       type: object
       additionalProperties: false

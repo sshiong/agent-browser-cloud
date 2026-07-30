@@ -34,6 +34,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Online indexes use a session-level Flyway lock and a dedicated connection.
+    url: ${FLYWAY_DATABASE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5432/browsercloud}}
+    user: ${FLYWAY_DATABASE_USER:${DATABASE_USER:browsercloud}}
+    password: ${FLYWAY_DATABASE_PASSWORD:${DATABASE_PASSWORD:browsercloud}}
 
   data:
     redis:

@@ -32,6 +32,7 @@ private static final long serialVersionUID = 0L;
     objectKey_ = "";
     result_ = "";
     errorCode_ = "";
+    redactionState_ = "";
   }
 
   @java.lang.Override
@@ -477,6 +478,66 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int REDACTION_STATE_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object redactionState_ = "";
+  /**
+   * <pre>
+   * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+   * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+   * </pre>
+   *
+   * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+   * @return The redactionState.
+   */
+  @java.lang.Override
+  public java.lang.String getRedactionState() {
+    java.lang.Object ref = redactionState_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      redactionState_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+   * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+   * </pre>
+   *
+   * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+   * @return The bytes for redactionState.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRedactionStateBytes() {
+    java.lang.Object ref = redactionState_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      redactionState_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REDACTED_REGION_COUNT_FIELD_NUMBER = 15;
+  private int redactedRegionCount_ = 0;
+  /**
+   * <code>uint32 redacted_region_count = 15 [json_name = "redactedRegionCount"];</code>
+   * @return The redactedRegionCount.
+   */
+  @java.lang.Override
+  public int getRedactedRegionCount() {
+    return redactedRegionCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -530,6 +591,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(errorCode_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 13, errorCode_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(redactionState_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 14, redactionState_);
+    }
+    if (redactedRegionCount_ != 0) {
+      output.writeUInt32(15, redactedRegionCount_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -581,6 +648,13 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(errorCode_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, errorCode_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(redactionState_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, redactionState_);
+    }
+    if (redactedRegionCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(15, redactedRegionCount_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -622,6 +696,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getResult())) return false;
     if (!getErrorCode()
         .equals(other.getErrorCode())) return false;
+    if (!getRedactionState()
+        .equals(other.getRedactionState())) return false;
+    if (getRedactedRegionCount()
+        != other.getRedactedRegionCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -662,6 +740,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getResult().hashCode();
     hash = (37 * hash) + ERROR_CODE_FIELD_NUMBER;
     hash = (53 * hash) + getErrorCode().hashCode();
+    hash = (37 * hash) + REDACTION_STATE_FIELD_NUMBER;
+    hash = (53 * hash) + getRedactionState().hashCode();
+    hash = (37 * hash) + REDACTED_REGION_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getRedactedRegionCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -811,6 +893,8 @@ private static final long serialVersionUID = 0L;
       mandatory_ = false;
       result_ = "";
       errorCode_ = "";
+      redactionState_ = "";
+      redactedRegionCount_ = 0;
       return this;
     }
 
@@ -882,6 +966,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00001000) != 0)) {
         result.errorCode_ = errorCode_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.redactionState_ = redactionState_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.redactedRegionCount_ = redactedRegionCount_;
       }
     }
 
@@ -988,6 +1078,14 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00001000;
         onChanged();
       }
+      if (!other.getRedactionState().isEmpty()) {
+        redactionState_ = other.redactionState_;
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (other.getRedactedRegionCount() != 0) {
+        setRedactedRegionCount(other.getRedactedRegionCount());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1079,6 +1177,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00001000;
               break;
             } // case 106
+            case 114: {
+              redactionState_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 114
+            case 120: {
+              redactedRegionCount_ = input.readUInt32();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 120
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1908,6 +2016,135 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       errorCode_ = value;
       bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object redactionState_ = "";
+    /**
+     * <pre>
+     * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+     * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+     * </pre>
+     *
+     * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+     * @return The redactionState.
+     */
+    public java.lang.String getRedactionState() {
+      java.lang.Object ref = redactionState_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        redactionState_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+     * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+     * </pre>
+     *
+     * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+     * @return The bytes for redactionState.
+     */
+    public com.google.protobuf.ByteString
+        getRedactionStateBytes() {
+      java.lang.Object ref = redactionState_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        redactionState_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+     * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+     * </pre>
+     *
+     * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+     * @param value The redactionState to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRedactionState(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      redactionState_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+     * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+     * </pre>
+     *
+     * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRedactionState() {
+      redactionState_ = getDefaultInstance().getRedactionState();
+      bitField0_ = (bitField0_ & ~0x00002000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+     * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+     * </pre>
+     *
+     * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+     * @param value The bytes for redactionState to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRedactionStateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      redactionState_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private int redactedRegionCount_ ;
+    /**
+     * <code>uint32 redacted_region_count = 15 [json_name = "redactedRegionCount"];</code>
+     * @return The redactedRegionCount.
+     */
+    @java.lang.Override
+    public int getRedactedRegionCount() {
+      return redactedRegionCount_;
+    }
+    /**
+     * <code>uint32 redacted_region_count = 15 [json_name = "redactedRegionCount"];</code>
+     * @param value The redactedRegionCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRedactedRegionCount(int value) {
+
+      redactedRegionCount_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint32 redacted_region_count = 15 [json_name = "redactedRegionCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRedactedRegionCount() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      redactedRegionCount_ = 0;
       onChanged();
       return this;
     }

@@ -1018,10 +1018,29 @@ impl CdpStateCollector {
               const sensitiveFor = (element) => {
                 const type = (element.getAttribute('type') || '').toLowerCase();
                 const autocomplete = (element.getAttribute('autocomplete') || '').toLowerCase();
-                const name = (element.getAttribute('name') || '').toLowerCase();
+                const classification =
+                  (element.getAttribute('data-classification') || '').toUpperCase();
+                const identity = [
+                  element.getAttribute('name'),
+                  element.getAttribute('id'),
+                  element.getAttribute('aria-label'),
+                  element.getAttribute('placeholder')
+                ].filter(Boolean).join(' ');
+                const sensitiveIdentity =
+                  /(^|[^a-z])(password|passwd|pwd|passcode|otp|one.?time.?code|pin|cvv|cvc|card.?number|account.?number|routing.?number|secret|token|api.?key|private.?key|ssn|social.?security)([^a-z]|$)/i;
+                const sensitiveAutocomplete = new Set([
+                  'current-password', 'new-password', 'one-time-code', 'cc-number', 'cc-csc',
+                  'cc-exp', 'cc-exp-month', 'cc-exp-year', 'transaction-amount',
+                  'transaction-currency'
+                ]);
                 return type === 'password'
-                  || autocomplete.includes('one-time-code')
-                  || /(^|[_-])(password|passwd|pwd|otp|one.?time.?code)($|[_-])/.test(name);
+                  || element.hasAttribute('data-sensitive')
+                  || element.hasAttribute('data-private')
+                  || element.hasAttribute('data-redact')
+                  || classification === 'SENSITIVE'
+                  || classification === 'HIGHLY_SENSITIVE'
+                  || autocomplete.split(/\s+/).some((token) => sensitiveAutocomplete.has(token))
+                  || sensitiveIdentity.test(identity);
               };
               const pathFor = (element) => {
                 const parts = [];
@@ -1484,6 +1503,10 @@ mod tests {
                 };
                 let request: serde_json::Value = serde_json::from_str(&request).unwrap();
                 assert_eq!(request["method"], "Runtime.evaluate");
+                let expression = request["params"]["expression"].as_str().unwrap();
+                assert!(expression.contains("'cc-number'"));
+                assert!(expression.contains("HIGHLY_SENSITIVE"));
+                assert!(expression.contains("private.?key"));
                 let response = serde_json::json!({
                     "id": 1,
                     "result": {

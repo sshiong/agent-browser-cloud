@@ -6303,7 +6303,7 @@ components:
       additionalProperties: false
       required:
         [evidenceId, evidenceKind, taskId, stepId, commandId, mandatory,
-         result, contentBytes, capturedAt]
+         result, contentBytes, capturedAt, redactionState, redactedRegionCount]
       properties:
         evidenceId:
           type: string
@@ -6338,6 +6338,13 @@ components:
           format: date-time
         errorCode:
           type: [string, "null"]
+        redactionState:
+          type: string
+          enum: [LEGACY_UNVERIFIED, MASKED, NOT_REQUIRED, FAILED_CLOSED]
+        redactedRegionCount:
+          type: integer
+          minimum: 0
+          maximum: 10000
     EvidenceList:
       type: object
       additionalProperties: false

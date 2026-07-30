@@ -112,6 +112,37 @@ public final class NodeControlServiceGrpc {
     return getUploadProfileImportMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+      io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> getPresignEvidenceDownloadMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "PresignEvidenceDownload",
+      requestType = io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest.class,
+      responseType = io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+      io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> getPresignEvidenceDownloadMethod() {
+    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest, io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> getPresignEvidenceDownloadMethod;
+    if ((getPresignEvidenceDownloadMethod = NodeControlServiceGrpc.getPresignEvidenceDownloadMethod) == null) {
+      synchronized (NodeControlServiceGrpc.class) {
+        if ((getPresignEvidenceDownloadMethod = NodeControlServiceGrpc.getPresignEvidenceDownloadMethod) == null) {
+          NodeControlServiceGrpc.getPresignEvidenceDownloadMethod = getPresignEvidenceDownloadMethod =
+              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest, io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "PresignEvidenceDownload"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("PresignEvidenceDownload"))
+              .build();
+        }
+      }
+    }
+    return getPresignEvidenceDownloadMethod;
+  }
+
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -189,6 +220,17 @@ public final class NodeControlServiceGrpc {
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.UploadProfileImportResponse> responseObserver) {
       return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall(getUploadProfileImportMethod(), responseObserver);
     }
+
+    /**
+     * <pre>
+     * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
+     * Storage Helper and never returns Object Storage credentials.
+     * </pre>
+     */
+    default void presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPresignEvidenceDownloadMethod(), responseObserver);
+    }
   }
 
   /**
@@ -254,6 +296,18 @@ public final class NodeControlServiceGrpc {
       return io.grpc.stub.ClientCalls.asyncClientStreamingCall(
           getChannel().newCall(getUploadProfileImportMethod(), getCallOptions()), responseObserver);
     }
+
+    /**
+     * <pre>
+     * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
+     * Storage Helper and never returns Object Storage credentials.
+     * </pre>
+     */
+    public void presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()), request, responseObserver);
+    }
   }
 
   /**
@@ -288,6 +342,17 @@ public final class NodeControlServiceGrpc {
     public io.browsercloud.proto.node.v1.DispatchResponse dispatch(io.browsercloud.proto.node.v1.DispatchRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getDispatchMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
+     * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
+     * Storage Helper and never returns Object Storage credentials.
+     * </pre>
+     */
+    public io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getPresignEvidenceDownloadMethod(), getCallOptions(), request);
     }
   }
 
@@ -326,11 +391,24 @@ public final class NodeControlServiceGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getDispatchMethod(), getCallOptions()), request);
     }
+
+    /**
+     * <pre>
+     * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
+     * Storage Helper and never returns Object Storage credentials.
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> presignEvidenceDownload(
+        io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()), request);
+    }
   }
 
   private static final int METHODID_PING = 0;
   private static final int METHODID_DISPATCH = 1;
-  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 2;
+  private static final int METHODID_PRESIGN_EVIDENCE_DOWNLOAD = 2;
+  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 3;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -356,6 +434,10 @@ public final class NodeControlServiceGrpc {
         case METHODID_DISPATCH:
           serviceImpl.dispatch((io.browsercloud.proto.node.v1.DispatchRequest) request,
               (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse>) responseObserver);
+          break;
+        case METHODID_PRESIGN_EVIDENCE_DOWNLOAD:
+          serviceImpl.presignEvidenceDownload((io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -399,6 +481,13 @@ public final class NodeControlServiceGrpc {
               io.browsercloud.proto.node.v1.UploadProfileImportRequest,
               io.browsercloud.proto.node.v1.UploadProfileImportResponse>(
                 service, METHODID_UPLOAD_PROFILE_IMPORT)))
+        .addMethod(
+          getPresignEvidenceDownloadMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
+              io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>(
+                service, METHODID_PRESIGN_EVIDENCE_DOWNLOAD)))
         .build();
   }
 
@@ -450,6 +539,7 @@ public final class NodeControlServiceGrpc {
               .addMethod(getPingMethod())
               .addMethod(getDispatchMethod())
               .addMethod(getUploadProfileImportMethod())
+              .addMethod(getPresignEvidenceDownloadMethod())
               .build();
         }
       }

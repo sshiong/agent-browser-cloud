@@ -400,6 +400,18 @@ public class NodeEventMapper {
           if (payload.getCapturedAtMs() <= 0) {
             throw new IllegalArgumentException("captured_at_ms must be positive");
           }
+          var redactionState =
+              payload.getRedactionState().isBlank()
+                  ? "LEGACY_UNVERIFIED"
+                  : payload.getRedactionState();
+          var redactedRegionCount = payload.getRedactedRegionCount();
+          if (redactedRegionCount > 10_000
+              || !(redactionState.equals("LEGACY_UNVERIFIED")
+                  || redactionState.equals("MASKED")
+                  || redactionState.equals("NOT_REQUIRED")
+                  || redactionState.equals("FAILED_CLOSED"))) {
+            throw new IllegalArgumentException("evidence redaction metadata is invalid");
+          }
           if (payload.getResult().equals("COMMITTED")) {
             var objectKey = payload.getObjectKey();
             var tenantEvidenceRoot = "/tenants/" + envelope.getTenantId() + "/profiles/";
@@ -417,14 +429,19 @@ public class NodeEventMapper {
                 || objectKey.contains("\\")
                 || !("/" + objectKey).contains(tenantEvidenceRoot)
                 || !("/" + objectKey).endsWith(evidenceSuffix)
-                || !payload.getErrorCode().isBlank()) {
+                || !payload.getErrorCode().isBlank()
+                || !((redactionState.equals("LEGACY_UNVERIFIED") && redactedRegionCount == 0)
+                    || (redactionState.equals("MASKED") && redactedRegionCount > 0)
+                    || (redactionState.equals("NOT_REQUIRED") && redactedRegionCount == 0))) {
               throw new IllegalArgumentException("committed evidence metadata is invalid");
             }
           } else if (payload.getResult().equals("FAILED")) {
             if (!payload.getContentSha256().isBlank()
                 || payload.getContentBytes() != 0
                 || !payload.getObjectKey().isBlank()
-                || payload.getErrorCode().isBlank()) {
+                || payload.getErrorCode().isBlank()
+                || !((redactionState.equals("LEGACY_UNVERIFIED") && redactedRegionCount == 0)
+                    || (redactionState.equals("FAILED_CLOSED") && redactedRegionCount == 0))) {
               throw new IllegalArgumentException("failed evidence metadata is invalid");
             }
           } else {
@@ -443,7 +460,9 @@ public class NodeEventMapper {
               payload.getCapturedAtMs(),
               payload.getMandatory(),
               payload.getResult(),
-              payload.getErrorCode());
+              payload.getErrorCode(),
+              redactionState,
+              redactedRegionCount);
         }
         case HUMAN_TAKEOVER_READY -> {
           var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());

@@ -89,6 +89,40 @@ pub struct UploadProfileImportResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PresignEvidenceDownloadRequest {
+    #[prost(string, tag="1")]
+    pub grant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub evidence_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub content_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="7")]
+    pub content_bytes: u64,
+    #[prost(uint32, tag="8")]
+    pub expires_in_seconds: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PresignEvidenceDownloadResponse {
+    #[prost(string, tag="1")]
+    pub grant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub evidence_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub download_url: ::prost::alloc::string::String,
+    #[prost(int64, tag="5")]
+    pub expires_at_ms: i64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishRequest {
     #[prost(message, optional, tag="1")]
     pub event: ::core::option::Option<EventEnvelope>,
@@ -368,6 +402,14 @@ pub struct StartRuntimeCommand {
     /// N-1 Node 不识别时安全忽略，但不得用于跨 Node 迁移目标。
     #[prost(uint64, tag="30")]
     pub minimum_browser_generation: u64,
+    /// 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+    /// 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+    #[prost(string, optional, tag="31")]
+    pub proxy_provider_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="32")]
+    pub proxy_expected_exit_ip: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="33")]
+    pub proxy_credential_ref: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -821,6 +863,16 @@ pub struct AgentActionFailedEvent {
     #[prost(string, tag="5")]
     pub error_code: ::prost::alloc::string::String,
 }
+/// Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
+/// method or Object Storage coordinate.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CaptureObserverScreenshotCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub capture_id: ::prost::alloc::string::String,
+}
 /// Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
 /// Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -852,6 +904,12 @@ pub struct SessionEvidenceCapturedEvent {
     pub result: ::prost::alloc::string::String,
     #[prost(string, tag="13")]
     pub error_code: ::prost::alloc::string::String,
+    /// MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+    /// Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+    #[prost(string, tag="14")]
+    pub redaction_state: ::prost::alloc::string::String,
+    #[prost(uint32, tag="15")]
+    pub redacted_region_count: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

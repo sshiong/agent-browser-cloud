@@ -349,9 +349,28 @@ export function SessionEvidenceCard({
                 <p className="mt-1 truncate font-mono text-[9px] text-text-muted">
                   {item.stepId} · {item.commandId}
                 </p>
+                {item.result === 'COMMITTED' && (
+                  <p
+                    className={`mt-1 inline-flex items-center gap-1 text-[9px] ${
+                      item.redactionState === 'LEGACY_UNVERIFIED'
+                        ? 'text-warning'
+                        : 'text-success'
+                    }`}
+                  >
+                    <ShieldCheck size={10} aria-hidden="true" />
+                    {item.redactionState === 'MASKED'
+                      ? `已遮罩 ${item.redactedRegionCount} 个敏感区域`
+                      : item.redactionState === 'NOT_REQUIRED'
+                        ? '未检测到敏感区域'
+                        : '旧版证据：遮罩状态未验证'}
+                  </p>
+                )}
                 {item.result === 'FAILED' && (
                   <p className="mt-1 text-[10px] text-warning">
-                    留证失败：{item.errorCode ?? 'EVIDENCE_CAPTURE_FAILED'}
+                    留证失败：
+                    {item.redactionState === 'FAILED_CLOSED'
+                      ? '敏感区域保护失败，未提交截图'
+                      : (item.errorCode ?? 'EVIDENCE_CAPTURE_FAILED')}
                   </p>
                 )}
               </div>

@@ -78,6 +78,8 @@ pub struct EvidenceSummary {
     pub content_bytes: u64,
     pub object_key: String,
     pub captured_at_ms: u64,
+    pub redaction_state: String,
+    pub redacted_region_count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,7 +163,8 @@ impl SessionEvidenceRegistry {
         }
         let evidence_id = format!("evd_{}", uuid::Uuid::new_v4().simple());
         let captured_at_ms = now_millis();
-        let content = capture_screenshot(&registered.spec.cdp_endpoint).await?;
+        let capture = capture_screenshot(&registered.spec.cdp_endpoint).await?;
+        let content = capture.content;
         anyhow::ensure!(
             !content.is_empty() && content.len() <= EVIDENCE_MAX_BYTES,
             "CDP screenshot exceeds the bounded evidence size"
@@ -211,6 +214,12 @@ impl SessionEvidenceRegistry {
             content_bytes: content.len() as u64,
             object_key: committed.object_key,
             captured_at_ms,
+            redaction_state: if capture.redacted_region_count > 0 {
+                "MASKED".to_owned()
+            } else {
+                "NOT_REQUIRED".to_owned()
+            },
+            redacted_region_count: capture.redacted_region_count,
         }))
     }
 }
@@ -684,7 +693,136 @@ async fn commit_segment(
     Ok(())
 }
 
-async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<Vec<u8>> {
+#[derive(Debug, PartialEq, Eq)]
+struct RedactedScreenshot {
+    content: Vec<u8>,
+    redacted_region_count: u32,
+}
+
+const INSTALL_REDACTION_SCRIPT: &str = r#"
+(() => {
+  const rootId = '__agent_browser_sensitive_redaction_v1';
+  document.getElementById(rootId)?.remove();
+  const root = document.createElement('div');
+  root.id = rootId;
+  root.setAttribute('aria-hidden', 'true');
+  for (const [name, value] of Object.entries({
+    position: 'fixed',
+    inset: '0',
+    width: '100vw',
+    height: '100vh',
+    overflow: 'hidden',
+    'pointer-events': 'none',
+    'z-index': '2147483647'
+  })) root.style.setProperty(name, value, 'important');
+
+  const sensitiveName = /(^|[^a-z])(password|passwd|pwd|passcode|otp|one.?time.?code|pin|cvv|cvc|card.?number|account.?number|routing.?number|secret|token|api.?key|private.?key|ssn|social.?security)([^a-z]|$)/i;
+  const sensitiveAutocomplete = new Set([
+    'current-password', 'new-password', 'one-time-code', 'cc-number', 'cc-csc',
+    'cc-exp', 'cc-exp-month', 'cc-exp-year', 'transaction-amount',
+    'transaction-currency'
+  ]);
+  const candidateSelector =
+    'input, textarea, select, iframe, [contenteditable="true"], ' +
+    '[data-sensitive], [data-private], [data-redact], [data-classification]';
+  const candidates = new Set();
+  const roots = [document];
+  let scannedElements = 0;
+  while (roots.length > 0) {
+    const currentRoot = roots.pop();
+    for (const element of currentRoot.querySelectorAll('*')) {
+      scannedElements += 1;
+      if (scannedElements > 10000) {
+        return {version: 1, error: 'SENSITIVE_SCAN_LIMIT_EXCEEDED'};
+      }
+      if (element.matches(candidateSelector)) candidates.add(element);
+      if (element.shadowRoot) roots.push(element.shadowRoot);
+    }
+  }
+
+  const isSensitive = (element) => {
+    if (element.matches('iframe, [data-sensitive], [data-private], [data-redact]')) return true;
+    const classification = (element.getAttribute('data-classification') || '').toUpperCase();
+    if (classification === 'SENSITIVE' || classification === 'HIGHLY_SENSITIVE') return true;
+    const type = (element.getAttribute('type') || '').toLowerCase();
+    if (type === 'password') return true;
+    const autocomplete = (element.getAttribute('autocomplete') || '')
+      .toLowerCase().split(/\s+/).filter(Boolean);
+    if (autocomplete.some((token) => sensitiveAutocomplete.has(token))) return true;
+    const identity = [
+      element.getAttribute('name'),
+      element.getAttribute('id'),
+      element.getAttribute('aria-label'),
+      element.getAttribute('placeholder')
+    ].filter(Boolean).join(' ');
+    return sensitiveName.test(identity);
+  };
+
+  let count = 0;
+  for (const element of candidates) {
+    if (!isSensitive(element)) continue;
+    const rect = element.getBoundingClientRect();
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(window.innerWidth, rect.right);
+    const bottom = Math.min(window.innerHeight, rect.bottom);
+    if (right <= left || bottom <= top) continue;
+    const mask = document.createElement('div');
+    mask.setAttribute('data-agent-browser-redaction-region', String(count + 1));
+    for (const [name, value] of Object.entries({
+      position: 'absolute',
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${right - left}px`,
+      height: `${bottom - top}px`,
+      background: '#05080d',
+      border: '1px solid #26313d',
+      'box-sizing': 'border-box',
+      opacity: '1',
+      visibility: 'visible'
+    })) mask.style.setProperty(name, value, 'important');
+    root.appendChild(mask);
+    count += 1;
+  }
+  document.documentElement.appendChild(root);
+  return {version: 1, redactedRegionCount: count};
+})()
+"#;
+
+const VERIFY_REDACTION_SCRIPT: &str = r#"
+(() => {
+  const root = document.getElementById('__agent_browser_sensitive_redaction_v1');
+  if (!root || !root.isConnected) return {valid: false, redactedRegionCount: 0};
+  const regions = root.querySelectorAll('[data-agent-browser-redaction-region]');
+  return {valid: true, redactedRegionCount: regions.length};
+})()
+"#;
+
+const REMOVE_REDACTION_SCRIPT: &str =
+    "document.getElementById('__agent_browser_sensitive_redaction_v1')?.remove(); true";
+
+fn verified_redacted_region_count(installed: &Value, verified: &Value) -> anyhow::Result<u32> {
+    let installed_count = installed
+        .pointer("/result/result/value/redactedRegionCount")
+        .and_then(Value::as_u64)
+        .and_then(|value| value.try_into().ok())
+        .ok_or_else(|| anyhow::anyhow!("sensitive redaction installation was not acknowledged"))?;
+    let verified_count = verified
+        .pointer("/result/result/value/redactedRegionCount")
+        .and_then(Value::as_u64)
+        .and_then(|value| value.try_into().ok());
+    anyhow::ensure!(
+        verified
+            .pointer("/result/result/value/valid")
+            .and_then(Value::as_bool)
+            == Some(true)
+            && verified_count == Some(installed_count),
+        "sensitive redaction verification failed closed"
+    );
+    Ok(installed_count)
+}
+
+async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<RedactedScreenshot> {
     let websocket_url = target_websocket(cdp_endpoint).await?;
     require_loopback_websocket(&websocket_url)?;
     let (mut socket, _) = tokio::time::timeout(
@@ -694,19 +832,201 @@ async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<Vec<u8>> {
     .await
     .map_err(|_| anyhow::anyhow!("CDP evidence connection timed out"))??;
     send_command(&mut socket, 1, "Page.enable", json!({})).await?;
-    let response = send_command_value(
+    let installed = send_command_value(
         &mut socket,
         2,
-        "Page.captureScreenshot",
+        "Runtime.evaluate",
         json!({
-            "format": "jpeg",
-            "quality": 70,
-            "fromSurface": true,
-            "captureBeyondViewport": false
+            "expression": INSTALL_REDACTION_SCRIPT,
+            "returnByValue": true,
+            "awaitPromise": false,
+            "userGesture": false
         }),
     )
-    .await?;
-    let encoded = response
+    .await;
+    let installed = match installed {
+        Ok(installed) => installed,
+        Err(error) => {
+            let _ = send_command_value(
+                &mut socket,
+                7,
+                "Runtime.evaluate",
+                json!({"expression": REMOVE_REDACTION_SCRIPT}),
+            )
+            .await;
+            return Err(anyhow::anyhow!(
+                "sensitive redaction installation failed: {error}"
+            ));
+        }
+    };
+    let verified = send_command_value(
+        &mut socket,
+        3,
+        "Runtime.evaluate",
+        json!({
+            "expression": VERIFY_REDACTION_SCRIPT,
+            "returnByValue": true,
+            "awaitPromise": false,
+            "userGesture": false
+        }),
+    )
+    .await;
+    let verified = match verified {
+        Ok(verified) => verified,
+        Err(error) => {
+            let _ = send_command_value(
+                &mut socket,
+                7,
+                "Runtime.evaluate",
+                json!({"expression": REMOVE_REDACTION_SCRIPT}),
+            )
+            .await;
+            return Err(anyhow::anyhow!(
+                "sensitive redaction verification failed: {error}"
+            ));
+        }
+    };
+    let redacted_region_count = match verified_redacted_region_count(&installed, &verified) {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = send_command_value(
+                &mut socket,
+                7,
+                "Runtime.evaluate",
+                json!({"expression": REMOVE_REDACTION_SCRIPT}),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    if let Err(error) = send_command_value(
+        &mut socket,
+        4,
+        "Emulation.setScriptExecutionDisabled",
+        json!({"value": true}),
+    )
+    .await
+    {
+        let _ = send_command_value(
+            &mut socket,
+            7,
+            "Runtime.evaluate",
+            json!({"expression": REMOVE_REDACTION_SCRIPT}),
+        )
+        .await;
+        return Err(anyhow::anyhow!(
+            "sensitive redaction script freeze failed: {error}"
+        ));
+    }
+    let frozen_document = send_command_value(
+        &mut socket,
+        5,
+        "DOM.getDocument",
+        json!({"depth": 0, "pierce": true}),
+    )
+    .await;
+    let captured = match frozen_document {
+        Ok(document) => {
+            let document_node_id = document
+                .pointer("/result/root/nodeId")
+                .and_then(Value::as_i64)
+                .filter(|value| *value > 0);
+            match document_node_id {
+                Some(document_node_id) => {
+                    let root = send_command_value(
+                        &mut socket,
+                        6,
+                        "DOM.querySelector",
+                        json!({
+                            "nodeId": document_node_id,
+                            "selector": "#__agent_browser_sensitive_redaction_v1"
+                        }),
+                    )
+                    .await;
+                    match root
+                        .as_ref()
+                        .ok()
+                        .and_then(|value| value.pointer("/result/nodeId"))
+                        .and_then(Value::as_i64)
+                        .filter(|value| *value > 0)
+                    {
+                        Some(root_node_id) => {
+                            let regions = send_command_value(
+                                &mut socket,
+                                7,
+                                "DOM.querySelectorAll",
+                                json!({
+                                    "nodeId": root_node_id,
+                                    "selector": "[data-agent-browser-redaction-region]"
+                                }),
+                            )
+                            .await;
+                            let frozen_count = regions
+                                .as_ref()
+                                .ok()
+                                .and_then(|value| value.pointer("/result/nodeIds"))
+                                .and_then(Value::as_array)
+                                .and_then(|values| u32::try_from(values.len()).ok());
+                            if frozen_count == Some(redacted_region_count) {
+                                send_command_value(
+                                    &mut socket,
+                                    8,
+                                    "Page.captureScreenshot",
+                                    json!({
+                                        "format": "jpeg",
+                                        "quality": 70,
+                                        "fromSurface": true,
+                                        "captureBeyondViewport": false
+                                    }),
+                                )
+                                .await
+                            } else {
+                                Err(anyhow::anyhow!(
+                                    "sensitive redaction frozen DOM verification failed closed"
+                                ))
+                            }
+                        }
+                        None => Err(anyhow::anyhow!(
+                            "sensitive redaction root disappeared before capture"
+                        )),
+                    }
+                }
+                None => Err(anyhow::anyhow!(
+                    "sensitive redaction frozen document is unavailable"
+                )),
+            }
+        }
+        Err(error) => Err(anyhow::anyhow!(
+            "sensitive redaction frozen DOM verification failed: {error}"
+        )),
+    };
+    let resumed = send_command_value(
+        &mut socket,
+        9,
+        "Emulation.setScriptExecutionDisabled",
+        json!({"value": false}),
+    )
+    .await;
+    let cleaned = if resumed.is_ok() {
+        send_command_value(
+            &mut socket,
+            10,
+            "Runtime.evaluate",
+            json!({
+                "expression": REMOVE_REDACTION_SCRIPT,
+                "returnByValue": true,
+                "awaitPromise": false
+            }),
+        )
+        .await
+    } else {
+        Ok(json!({}))
+    };
+    resumed
+        .map_err(|error| anyhow::anyhow!("sensitive redaction script resume failed: {error}"))?;
+    cleaned.map_err(|error| anyhow::anyhow!("sensitive redaction cleanup failed: {error}"))?;
+    let captured = captured?;
+    let encoded = captured
         .pointer("/result/data")
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow::anyhow!("CDP screenshot response omitted image data"))?;
@@ -717,7 +1037,10 @@ async fn capture_screenshot(cdp_endpoint: &str) -> anyhow::Result<Vec<u8>> {
         content.len() <= EVIDENCE_MAX_BYTES,
         "CDP screenshot exceeds the bounded evidence size"
     );
-    Ok(content)
+    Ok(RedactedScreenshot {
+        content,
+        redacted_region_count,
+    })
 }
 
 async fn prepare_evidence_path(
@@ -878,6 +1201,17 @@ mod tests {
         assert!(require_loopback_websocket("wss://localhost/devtools/page/1").is_err());
     }
 
+    #[test]
+    fn fails_closed_when_the_page_removes_a_sensitive_redaction_region() {
+        let installed = json!({"result": {"result": {"value": {"redactedRegionCount": 2}}}});
+        let tampered =
+            json!({"result": {"result": {"value": {"valid": true, "redactedRegionCount": 1}}}});
+        assert!(verified_redacted_region_count(&installed, &tampered)
+            .unwrap_err()
+            .to_string()
+            .contains("failed closed"));
+    }
+
     #[tokio::test]
     async fn captures_real_bounded_jpeg_screenshot_over_cdp() {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -895,6 +1229,93 @@ mod tests {
                 .await
                 .unwrap();
 
+            let Message::Text(install) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected Runtime.evaluate redaction installation");
+            };
+            let install: Value = serde_json::from_str(&install).unwrap();
+            assert_eq!(install["method"], "Runtime.evaluate");
+            assert!(install["params"]["expression"]
+                .as_str()
+                .unwrap()
+                .contains("cc-number"));
+            socket
+                .send(Message::Text(
+                    json!({
+                        "id": 2,
+                        "result": {"result": {"value": {"version": 1, "redactedRegionCount": 2}}}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+
+            let Message::Text(verify) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected Runtime.evaluate redaction verification");
+            };
+            let verify: Value = serde_json::from_str(&verify).unwrap();
+            assert_eq!(verify["method"], "Runtime.evaluate");
+            socket
+                .send(Message::Text(
+                    json!({
+                        "id": 3,
+                        "result": {"result": {"value": {"valid": true, "redactedRegionCount": 2}}}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+
+            let Message::Text(disable) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected page script freeze");
+            };
+            let disable: Value = serde_json::from_str(&disable).unwrap();
+            assert_eq!(disable["method"], "Emulation.setScriptExecutionDisabled");
+            assert_eq!(disable["params"]["value"], true);
+            socket
+                .send(Message::Text(json!({"id": 4, "result": {}}).to_string()))
+                .await
+                .unwrap();
+
+            let Message::Text(document) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected frozen DOM document");
+            };
+            let document: Value = serde_json::from_str(&document).unwrap();
+            assert_eq!(document["method"], "DOM.getDocument");
+            socket
+                .send(Message::Text(
+                    json!({"id": 5, "result": {"root": {"nodeId": 11}}}).to_string(),
+                ))
+                .await
+                .unwrap();
+
+            let Message::Text(root) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected frozen redaction root lookup");
+            };
+            let root: Value = serde_json::from_str(&root).unwrap();
+            assert_eq!(root["method"], "DOM.querySelector");
+            assert_eq!(
+                root["params"]["selector"],
+                "#__agent_browser_sensitive_redaction_v1"
+            );
+            socket
+                .send(Message::Text(
+                    json!({"id": 6, "result": {"nodeId": 12}}).to_string(),
+                ))
+                .await
+                .unwrap();
+
+            let Message::Text(regions) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected frozen redaction region lookup");
+            };
+            let regions: Value = serde_json::from_str(&regions).unwrap();
+            assert_eq!(regions["method"], "DOM.querySelectorAll");
+            socket
+                .send(Message::Text(
+                    json!({"id": 7, "result": {"nodeIds": [13, 14]}}).to_string(),
+                ))
+                .await
+                .unwrap();
+
             let Message::Text(capture) = socket.next().await.unwrap().unwrap() else {
                 panic!("expected Page.captureScreenshot");
             };
@@ -904,8 +1325,33 @@ mod tests {
             assert_eq!(capture["params"]["quality"], 70);
             socket
                 .send(Message::Text(
-                    json!({"id": 2, "result": {"data": "/9j/2Q=="}}).to_string(),
+                    json!({"id": 8, "result": {"data": "/9j/2Q=="}}).to_string(),
                 ))
+                .await
+                .unwrap();
+
+            let Message::Text(enable) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected page script resume");
+            };
+            let enable: Value = serde_json::from_str(&enable).unwrap();
+            assert_eq!(enable["method"], "Emulation.setScriptExecutionDisabled");
+            assert_eq!(enable["params"]["value"], false);
+            socket
+                .send(Message::Text(json!({"id": 9, "result": {}}).to_string()))
+                .await
+                .unwrap();
+
+            let Message::Text(cleanup) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected redaction cleanup");
+            };
+            let cleanup: Value = serde_json::from_str(&cleanup).unwrap();
+            assert_eq!(cleanup["method"], "Runtime.evaluate");
+            assert!(cleanup["params"]["expression"]
+                .as_str()
+                .unwrap()
+                .contains("__agent_browser_sensitive_redaction_v1"));
+            socket
+                .send(Message::Text(json!({"id": 10, "result": {}}).to_string()))
                 .await
                 .unwrap();
         });
@@ -938,7 +1384,13 @@ mod tests {
         let screenshot = capture_screenshot(&format!("http://{http_address}"))
             .await
             .unwrap();
-        assert_eq!(screenshot, vec![0xff, 0xd8, 0xff, 0xd9]);
+        assert_eq!(
+            screenshot,
+            RedactedScreenshot {
+                content: vec![0xff, 0xd8, 0xff, 0xd9],
+                redacted_region_count: 2
+            }
+        );
         websocket_task.await.unwrap();
         http_task.await.unwrap();
     }

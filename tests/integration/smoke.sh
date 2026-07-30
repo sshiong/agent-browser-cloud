@@ -657,7 +657,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -2509,6 +2509,14 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 test "$evidence_capture_count" -ge "1"
+evidence_redaction_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from session_evidence
+   where tenant_id='tenant-integration'
+     and session_id='${session_one}'
+     and task_id='${evidence_capture_task_id}'
+     and redaction_state='MASKED'
+     and redacted_region_count=1")"
+test "$evidence_redaction_count" -ge "1"
 
 curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
@@ -3123,10 +3131,11 @@ if [[ -z "$side_effect_dispatch_owner" ]]; then
 fi
 # The target command is now the only claimed row and the Node is stopped. Give
 # the dispatcher enough time to deserialize, validate the route and enter the
-# blocking gRPC call before freezing the caller. A quarter-second became racy
-# once the integration Control Plane gained more scheduled production loops;
-# one second remains well below the dispatcher's five-second RPC deadline.
-sleep 1
+# blocking gRPC call before freezing the caller. A quarter-second and then one
+# second both became racy as more scheduled production loops entered this
+# full-suite process; three seconds still leaves two seconds inside the
+# dispatcher's five-second RPC deadline for the resumed Node to execute.
+sleep 3
 kill -STOP "$control_pid"
 kill -CONT "$node_pid"
 side_effect_event_delivered=""
@@ -3146,9 +3155,10 @@ if [[ "$side_effect_event_delivered" != "0" ]]; then
        from outbox_events
       where payload::jsonb->>'messageId'='${side_effect_command_id}'" >&2 || true
   docker exec "$postgres_name" psql -U browsercloud -d browsercloud -x -c \
-    "select session.id, session.node_id, ownership.coordinator_owner,
+    "select session.id, placement.node_id, ownership.coordinator_owner,
             ownership.coordinator_term, route.route_epoch, route.shard_id
        from sessions session
+       left join browser_placements placement on placement.session_id=session.id
        left join coordinator_ownership ownership on ownership.session_id=session.id
        left join coordinator_session_routes route on route.session_id=session.id
       where session.id='${session_one}'" >&2 || true
@@ -3317,7 +3327,7 @@ for _ in $(seq 1 40); do
 done
 test "$evidence_count" -ge "1"
 printf '%s' "$session_evidence" | python3 -c \
-  'import json,sys; response=json.load(sys.stdin); assert response["limit"] == 20; assert all("objectKey" not in item for item in response["items"]); assert all(item["result"] in ("COMMITTED", "FAILED") for item in response["items"]); assert any(item["evidenceKind"].startswith("AGENT_") for item in response["items"])'
+  'import json,sys; response=json.load(sys.stdin); assert response["limit"] == 20; assert all("objectKey" not in item for item in response["items"]); assert all(item["result"] in ("COMMITTED", "FAILED") for item in response["items"]); assert all(item["redactionState"] in ("LEGACY_UNVERIFIED", "MASKED", "NOT_REQUIRED", "FAILED_CLOSED") for item in response["items"]); assert any(item["evidenceKind"].startswith("AGENT_") and item["redactionState"] == "MASKED" and item["redactedRegionCount"] == 1 for item in response["items"])'
 cross_tenant_evidence_status="$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/evidence" \
   -H 'X-Tenant-Id: tenant-other')"
@@ -3371,7 +3381,7 @@ observer_evidence="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/evidence?limit=20" \
   -H 'X-Tenant-Id: tenant-integration')"
 observer_evidence_sha="$(printf '%s' "$observer_evidence" | python3 -c \
-  "import json,sys; items=json.load(sys.stdin)['items']; item=next(value for value in items if value['evidenceId'] == '${observer_evidence_id}'); assert item['evidenceKind'] == 'OBSERVER_MANUAL'; assert item['result'] == 'COMMITTED'; print(item['contentSha256'])")"
+  "import json,sys; items=json.load(sys.stdin)['items']; item=next(value for value in items if value['evidenceId'] == '${observer_evidence_id}'); assert item['evidenceKind'] == 'OBSERVER_MANUAL'; assert item['result'] == 'COMMITTED'; assert item['redactionState'] == 'MASKED'; assert item['redactedRegionCount'] == 1; print(item['contentSha256'])")"
 observer_access_operator_status="$(curl -sS -o /dev/null -w '%{http_code}' \
   -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/evidence/${observer_evidence_id}/access-grants" \
   -H 'Content-Type: application/json' \

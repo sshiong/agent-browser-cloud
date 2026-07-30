@@ -101,7 +101,9 @@ class NodeEventIngestionServiceTest {
             1_785_283_200_000L,
             true,
             "COMMITTED",
-            "");
+            "",
+            "MASKED",
+            1);
     var command =
         new NodeEventReceived("evt_evidence", "tenant-test", "ses_test", 1, 1, 0, 2, evidence);
     when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());

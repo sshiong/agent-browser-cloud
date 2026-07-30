@@ -145,4 +145,32 @@ public interface SessionEvidenceCapturedEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getErrorCodeBytes();
+
+  /**
+   * <pre>
+   * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+   * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+   * </pre>
+   *
+   * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+   * @return The redactionState.
+   */
+  java.lang.String getRedactionState();
+  /**
+   * <pre>
+   * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+   * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+   * </pre>
+   *
+   * <code>string redaction_state = 14 [json_name = "redactionState"];</code>
+   * @return The bytes for redactionState.
+   */
+  com.google.protobuf.ByteString
+      getRedactionStateBytes();
+
+  /**
+   * <code>uint32 redacted_region_count = 15 [json_name = "redactedRegionCount"];</code>
+   * @return The redactedRegionCount.
+   */
+  int getRedactedRegionCount();
 }

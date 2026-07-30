@@ -22,7 +22,9 @@ public final class SessionEvidenceModels {
       String contentSha256,
       long contentBytes,
       Instant capturedAt,
-      String errorCode) {}
+      String errorCode,
+      String redactionState,
+      int redactedRegionCount) {}
 
   public record EvidenceListResponse(List<EvidenceView> items, int limit, int offset) {
     public EvidenceListResponse {

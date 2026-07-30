@@ -448,6 +448,8 @@ class NodeEventMapperTest {
             .setCapturedAtMs(1_785_283_200_000L)
             .setMandatory(true)
             .setResult("COMMITTED")
+            .setRedactionState("MASKED")
+            .setRedactedRegionCount(2)
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -468,6 +470,47 @@ class NodeEventMapperTest {
               assertThat(evidence.mandatory()).isTrue();
               assertThat(evidence.result()).isEqualTo("COMMITTED");
               assertThat(evidence.contentBytes()).isEqualTo(1024);
+              assertThat(evidence.redactionState()).isEqualTo("MASKED");
+              assertThat(evidence.redactedRegionCount()).isEqualTo(2);
+            });
+  }
+
+  @Test
+  void shouldPreserveNMinusOneEvidenceAsLegacyUnverified() {
+    var payload =
+        SessionEvidenceCapturedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setEvidenceId("evd_1234567890abcdef")
+            .setEvidenceKind("AGENT_ACTION_FAILURE")
+            .setTaskId("agt_1234567890abcdef")
+            .setStepId("step_1234567890abcd")
+            .setCommandId("cmd_1234567890abcdef")
+            .setContentSha256("a".repeat(64))
+            .setContentBytes(1024)
+            .setObjectKey(
+                "tenants/tenant-test/profiles/profile-test/sessions/ses_test/evidence/"
+                    + "evd_1234567890abcdef/screenshot.jpeg")
+            .setCapturedAtMs(1_785_283_200_000L)
+            .setMandatory(true)
+            .setResult("COMMITTED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_evidence_n_minus_one")
+            .setEventType(NodeEventMapper.SESSION_EVIDENCE_CAPTURED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(4)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.EvidenceCaptured.class,
+            evidence -> {
+              assertThat(evidence.redactionState()).isEqualTo("LEGACY_UNVERIFIED");
+              assertThat(evidence.redactedRegionCount()).isZero();
             });
   }
 

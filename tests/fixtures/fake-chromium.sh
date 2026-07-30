@@ -158,6 +158,46 @@ class Handler(BaseHTTPRequestHandler):
                             },
                         }
                 else:
+                    expression = command.get("params", {}).get("expression", "")
+                    if "redactedRegionCount: count" in expression:
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {
+                                    "type": "object",
+                                    "value": {
+                                        "version": 1,
+                                        "redactedRegionCount": 1,
+                                    },
+                                }
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
+                    if "return {valid: false, redactedRegionCount: 0}" in expression:
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {
+                                    "type": "object",
+                                    "value": {
+                                        "valid": True,
+                                        "redactedRegionCount": 1,
+                                    },
+                                }
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
+                    if "__agent_browser_sensitive_redaction_v1" in expression:
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {"type": "boolean", "value": True}
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
                     evaluation_count += 1
                     target_name = (
                         "Continue integration"
@@ -227,6 +267,37 @@ class Handler(BaseHTTPRequestHandler):
                         ]
                     },
                 }
+            elif method == "DOM.getDocument":
+                response = {
+                    "id": command["id"],
+                    "result": {"root": {"nodeId": 100}},
+                }
+            elif method == "DOM.querySelector":
+                if command.get("params", {}).get("selector") != (
+                    "#__agent_browser_sensitive_redaction_v1"
+                ):
+                    response = {
+                        "id": command["id"],
+                        "error": {"code": -32602, "message": "unexpected selector"},
+                    }
+                else:
+                    response = {
+                        "id": command["id"],
+                        "result": {"nodeId": 101},
+                    }
+            elif method == "DOM.querySelectorAll":
+                if command.get("params", {}).get("selector") != (
+                    "[data-agent-browser-redaction-region]"
+                ):
+                    response = {
+                        "id": command["id"],
+                        "error": {"code": -32602, "message": "unexpected selector"},
+                    }
+                else:
+                    response = {
+                        "id": command["id"],
+                        "result": {"nodeIds": [102]},
+                    }
             elif method == "Page.captureScreenshot":
                 if command.get("params", {}).get("format") != "jpeg":
                     response = {

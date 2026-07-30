@@ -30,6 +30,9 @@ private static final long serialVersionUID = 0L;
     profileCheckpointId_ = "";
     extensionIds_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    proxyProviderId_ = "";
+    proxyExpectedExitIp_ = "";
+    proxyCredentialRef_ = "";
   }
 
   @java.lang.Override
@@ -789,6 +792,162 @@ private static final long serialVersionUID = 0L;
     return minimumBrowserGeneration_;
   }
 
+  public static final int PROXY_PROVIDER_ID_FIELD_NUMBER = 31;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object proxyProviderId_ = "";
+  /**
+   * <pre>
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   * </pre>
+   *
+   * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   * @return Whether the proxyProviderId field is set.
+   */
+  @java.lang.Override
+  public boolean hasProxyProviderId() {
+    return ((bitField0_ & 0x00000800) != 0);
+  }
+  /**
+   * <pre>
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   * </pre>
+   *
+   * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   * @return The proxyProviderId.
+   */
+  @java.lang.Override
+  public java.lang.String getProxyProviderId() {
+    java.lang.Object ref = proxyProviderId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      proxyProviderId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   * </pre>
+   *
+   * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   * @return The bytes for proxyProviderId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProxyProviderIdBytes() {
+    java.lang.Object ref = proxyProviderId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      proxyProviderId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROXY_EXPECTED_EXIT_IP_FIELD_NUMBER = 32;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object proxyExpectedExitIp_ = "";
+  /**
+   * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   * @return Whether the proxyExpectedExitIp field is set.
+   */
+  @java.lang.Override
+  public boolean hasProxyExpectedExitIp() {
+    return ((bitField0_ & 0x00001000) != 0);
+  }
+  /**
+   * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   * @return The proxyExpectedExitIp.
+   */
+  @java.lang.Override
+  public java.lang.String getProxyExpectedExitIp() {
+    java.lang.Object ref = proxyExpectedExitIp_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      proxyExpectedExitIp_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   * @return The bytes for proxyExpectedExitIp.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProxyExpectedExitIpBytes() {
+    java.lang.Object ref = proxyExpectedExitIp_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      proxyExpectedExitIp_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROXY_CREDENTIAL_REF_FIELD_NUMBER = 33;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object proxyCredentialRef_ = "";
+  /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   * @return Whether the proxyCredentialRef field is set.
+   */
+  @java.lang.Override
+  public boolean hasProxyCredentialRef() {
+    return ((bitField0_ & 0x00002000) != 0);
+  }
+  /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   * @return The proxyCredentialRef.
+   */
+  @java.lang.Override
+  public java.lang.String getProxyCredentialRef() {
+    java.lang.Object ref = proxyCredentialRef_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      proxyCredentialRef_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   * @return The bytes for proxyCredentialRef.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProxyCredentialRefBytes() {
+    java.lang.Object ref = proxyCredentialRef_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      proxyCredentialRef_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -892,6 +1051,15 @@ private static final long serialVersionUID = 0L;
     }
     if (minimumBrowserGeneration_ != 0L) {
       output.writeUInt64(30, minimumBrowserGeneration_);
+    }
+    if (((bitField0_ & 0x00000800) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 31, proxyProviderId_);
+    }
+    if (((bitField0_ & 0x00001000) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 32, proxyExpectedExitIp_);
+    }
+    if (((bitField0_ & 0x00002000) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 33, proxyCredentialRef_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1019,6 +1187,15 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeUInt64Size(30, minimumBrowserGeneration_);
     }
+    if (((bitField0_ & 0x00000800) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(31, proxyProviderId_);
+    }
+    if (((bitField0_ & 0x00001000) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(32, proxyExpectedExitIp_);
+    }
+    if (((bitField0_ & 0x00002000) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(33, proxyCredentialRef_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1127,6 +1304,21 @@ private static final long serialVersionUID = 0L;
     }
     if (getMinimumBrowserGeneration()
         != other.getMinimumBrowserGeneration()) return false;
+    if (hasProxyProviderId() != other.hasProxyProviderId()) return false;
+    if (hasProxyProviderId()) {
+      if (!getProxyProviderId()
+          .equals(other.getProxyProviderId())) return false;
+    }
+    if (hasProxyExpectedExitIp() != other.hasProxyExpectedExitIp()) return false;
+    if (hasProxyExpectedExitIp()) {
+      if (!getProxyExpectedExitIp()
+          .equals(other.getProxyExpectedExitIp())) return false;
+    }
+    if (hasProxyCredentialRef() != other.hasProxyCredentialRef()) return false;
+    if (hasProxyCredentialRef()) {
+      if (!getProxyCredentialRef()
+          .equals(other.getProxyCredentialRef())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1230,6 +1422,18 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + MINIMUM_BROWSER_GENERATION_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         getMinimumBrowserGeneration());
+    if (hasProxyProviderId()) {
+      hash = (37 * hash) + PROXY_PROVIDER_ID_FIELD_NUMBER;
+      hash = (53 * hash) + getProxyProviderId().hashCode();
+    }
+    if (hasProxyExpectedExitIp()) {
+      hash = (37 * hash) + PROXY_EXPECTED_EXIT_IP_FIELD_NUMBER;
+      hash = (53 * hash) + getProxyExpectedExitIp().hashCode();
+    }
+    if (hasProxyCredentialRef()) {
+      hash = (37 * hash) + PROXY_CREDENTIAL_REF_FIELD_NUMBER;
+      hash = (53 * hash) + getProxyCredentialRef().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1371,6 +1575,7 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      bitField1_ = 0;
       sessionId_ = "";
       runtimeBuildId_ = "";
       profileId_ = "";
@@ -1406,6 +1611,9 @@ private static final long serialVersionUID = 0L;
       videoRecordingEnabled_ = false;
       successScreenshotSamplePercent_ = 0;
       minimumBrowserGeneration_ = 0L;
+      proxyProviderId_ = "";
+      proxyExpectedExitIp_ = "";
+      proxyCredentialRef_ = "";
       return this;
     }
 
@@ -1433,6 +1641,7 @@ private static final long serialVersionUID = 0L;
     public io.browsercloud.proto.node.v1.StartRuntimeCommand buildPartial() {
       io.browsercloud.proto.node.v1.StartRuntimeCommand result = new io.browsercloud.proto.node.v1.StartRuntimeCommand(this);
       if (bitField0_ != 0) { buildPartial0(result); }
+      if (bitField1_ != 0) { buildPartial1(result); }
       onBuilt();
       return result;
     }
@@ -1543,6 +1752,24 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x20000000) != 0)) {
         result.minimumBrowserGeneration_ = minimumBrowserGeneration_;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.proxyProviderId_ = proxyProviderId_;
+        to_bitField0_ |= 0x00000800;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.proxyExpectedExitIp_ = proxyExpectedExitIp_;
+        to_bitField0_ |= 0x00001000;
+      }
+      result.bitField0_ |= to_bitField0_;
+    }
+
+    private void buildPartial1(io.browsercloud.proto.node.v1.StartRuntimeCommand result) {
+      int from_bitField1_ = bitField1_;
+      int to_bitField0_ = 0;
+      if (((from_bitField1_ & 0x00000001) != 0)) {
+        result.proxyCredentialRef_ = proxyCredentialRef_;
+        to_bitField0_ |= 0x00002000;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1701,6 +1928,21 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getMinimumBrowserGeneration() != 0L) {
         setMinimumBrowserGeneration(other.getMinimumBrowserGeneration());
+      }
+      if (other.hasProxyProviderId()) {
+        proxyProviderId_ = other.proxyProviderId_;
+        bitField0_ |= 0x40000000;
+        onChanged();
+      }
+      if (other.hasProxyExpectedExitIp()) {
+        proxyExpectedExitIp_ = other.proxyExpectedExitIp_;
+        bitField0_ |= 0x80000000;
+        onChanged();
+      }
+      if (other.hasProxyCredentialRef()) {
+        proxyCredentialRef_ = other.proxyCredentialRef_;
+        bitField1_ |= 0x00000001;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1881,6 +2123,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x20000000;
               break;
             } // case 240
+            case 250: {
+              proxyProviderId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 250
+            case 258: {
+              proxyExpectedExitIp_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 258
+            case 266: {
+              proxyCredentialRef_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000001;
+              break;
+            } // case 266
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1897,6 +2154,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     private int bitField0_;
+    private int bitField1_;
 
     private java.lang.Object sessionId_ = "";
     /**
@@ -3581,6 +3839,273 @@ private static final long serialVersionUID = 0L;
     public Builder clearMinimumBrowserGeneration() {
       bitField0_ = (bitField0_ & ~0x20000000);
       minimumBrowserGeneration_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object proxyProviderId_ = "";
+    /**
+     * <pre>
+     * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+     * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+     * </pre>
+     *
+     * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     * @return Whether the proxyProviderId field is set.
+     */
+    public boolean hasProxyProviderId() {
+      return ((bitField0_ & 0x40000000) != 0);
+    }
+    /**
+     * <pre>
+     * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+     * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+     * </pre>
+     *
+     * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     * @return The proxyProviderId.
+     */
+    public java.lang.String getProxyProviderId() {
+      java.lang.Object ref = proxyProviderId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        proxyProviderId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+     * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+     * </pre>
+     *
+     * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     * @return The bytes for proxyProviderId.
+     */
+    public com.google.protobuf.ByteString
+        getProxyProviderIdBytes() {
+      java.lang.Object ref = proxyProviderId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        proxyProviderId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+     * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+     * </pre>
+     *
+     * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     * @param value The proxyProviderId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyProviderId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      proxyProviderId_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+     * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+     * </pre>
+     *
+     * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyProviderId() {
+      proxyProviderId_ = getDefaultInstance().getProxyProviderId();
+      bitField0_ = (bitField0_ & ~0x40000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+     * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+     * </pre>
+     *
+     * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+     * @param value The bytes for proxyProviderId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyProviderIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      proxyProviderId_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object proxyExpectedExitIp_ = "";
+    /**
+     * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     * @return Whether the proxyExpectedExitIp field is set.
+     */
+    public boolean hasProxyExpectedExitIp() {
+      return ((bitField0_ & 0x80000000) != 0);
+    }
+    /**
+     * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     * @return The proxyExpectedExitIp.
+     */
+    public java.lang.String getProxyExpectedExitIp() {
+      java.lang.Object ref = proxyExpectedExitIp_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        proxyExpectedExitIp_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     * @return The bytes for proxyExpectedExitIp.
+     */
+    public com.google.protobuf.ByteString
+        getProxyExpectedExitIpBytes() {
+      java.lang.Object ref = proxyExpectedExitIp_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        proxyExpectedExitIp_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     * @param value The proxyExpectedExitIp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyExpectedExitIp(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      proxyExpectedExitIp_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyExpectedExitIp() {
+      proxyExpectedExitIp_ = getDefaultInstance().getProxyExpectedExitIp();
+      bitField0_ = (bitField0_ & ~0x80000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+     * @param value The bytes for proxyExpectedExitIp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyExpectedExitIpBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      proxyExpectedExitIp_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object proxyCredentialRef_ = "";
+    /**
+     * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     * @return Whether the proxyCredentialRef field is set.
+     */
+    public boolean hasProxyCredentialRef() {
+      return ((bitField1_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     * @return The proxyCredentialRef.
+     */
+    public java.lang.String getProxyCredentialRef() {
+      java.lang.Object ref = proxyCredentialRef_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        proxyCredentialRef_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     * @return The bytes for proxyCredentialRef.
+     */
+    public com.google.protobuf.ByteString
+        getProxyCredentialRefBytes() {
+      java.lang.Object ref = proxyCredentialRef_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        proxyCredentialRef_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     * @param value The proxyCredentialRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyCredentialRef(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      proxyCredentialRef_ = value;
+      bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyCredentialRef() {
+      proxyCredentialRef_ = getDefaultInstance().getProxyCredentialRef();
+      bitField1_ = (bitField1_ & ~0x00000001);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+     * @param value The bytes for proxyCredentialRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyCredentialRefBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      proxyCredentialRef_ = value;
+      bitField1_ |= 0x00000001;
       onChanged();
       return this;
     }

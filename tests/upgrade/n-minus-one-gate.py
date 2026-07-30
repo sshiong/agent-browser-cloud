@@ -954,7 +954,32 @@ assert evidence_event_tags == {
     "mandatory": 11,
     "result": 12,
     "error_code": 13,
+    "redaction_state": 14,
+    "redacted_region_count": 15,
 }
+
+evidence_redaction_migration = read(
+    "database/migrations/V063__session_evidence_sensitive_redaction.sql"
+)
+evidence_redaction_upper = evidence_redaction_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in evidence_redaction_upper, (
+        f"evidence redaction migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "ADD COLUMN REDACTION_STATE TEXT NOT NULL DEFAULT 'LEGACY_UNVERIFIED'",
+    "ADD COLUMN REDACTED_REGION_COUNT INTEGER NOT NULL DEFAULT 0",
+    "REDACTION_STATE = 'LEGACY_UNVERIFIED'",
+    "RESULT = 'COMMITTED'",
+    "REDACTION_STATE = 'MASKED'",
+    "REDACTION_STATE = 'NOT_REQUIRED'",
+    "RESULT = 'FAILED'",
+    "REDACTION_STATE = 'FAILED_CLOSED'",
+    "VALIDATE CONSTRAINT CHK_SESSION_EVIDENCE_REDACTION_RESULT",
+):
+    assert invariant in evidence_redaction_upper, (
+        f"evidence redaction migration lacks rolling invariant: {invariant}"
+    )
 
 openapi = read("packages/contracts/openapi/session-api.yaml")
 for evidence_path in (
@@ -1110,8 +1135,8 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive,V061 concurrent-trigram-index",
-    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-13,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V063 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060 additive,V061 concurrent-trigram-index",
+    "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

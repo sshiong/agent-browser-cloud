@@ -85,7 +85,9 @@ loopback HTTP MinIO，其他明文或非本地主机 URL 一律拒绝。
 
 ## 仍需完成
 
-1. 截图敏感区域识别、模糊/遮罩和站点级隐私策略；
+1. 基础敏感语义识别与 Agent/Observer 截图不透明遮罩已由
+   [进度 88](88-截图敏感区域遮罩与分类闭环.md)关闭；仍缺 Site Policy、无语义视觉
+   文本/OCR 分类和 Recording 帧级遮罩；
 2. Evidence 保留期与租户配额和既有 Legal Hold/WORM/Delete Receipt 的对象生命周期
    深度联动；
 3. 目标 Linux 多 Session 下的截图吞吐、磁盘满、对象存储背压/网络分区和告警长稳；

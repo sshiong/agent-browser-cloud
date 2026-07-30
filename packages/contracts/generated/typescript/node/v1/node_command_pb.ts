@@ -404,6 +404,146 @@ export class UploadProfileImportResponse extends Message<UploadProfileImportResp
 }
 
 /**
+ * @generated from message browsercloud.node.v1.PresignEvidenceDownloadRequest
+ */
+export class PresignEvidenceDownloadRequest extends Message<PresignEvidenceDownloadRequest> {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId = "";
+
+  /**
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string session_id = 4;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string evidence_id = 5;
+   */
+  evidenceId = "";
+
+  /**
+   * @generated from field: string content_sha256 = 6;
+   */
+  contentSha256 = "";
+
+  /**
+   * @generated from field: uint64 content_bytes = 7;
+   */
+  contentBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint32 expires_in_seconds = 8;
+   */
+  expiresInSeconds = 0;
+
+  constructor(data?: PartialMessage<PresignEvidenceDownloadRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PresignEvidenceDownloadRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "grant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "content_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "content_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "expires_in_seconds", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresignEvidenceDownloadRequest {
+    return new PresignEvidenceDownloadRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresignEvidenceDownloadRequest {
+    return new PresignEvidenceDownloadRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresignEvidenceDownloadRequest {
+    return new PresignEvidenceDownloadRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PresignEvidenceDownloadRequest | PlainMessage<PresignEvidenceDownloadRequest> | undefined, b: PresignEvidenceDownloadRequest | PlainMessage<PresignEvidenceDownloadRequest> | undefined): boolean {
+    return proto3.util.equals(PresignEvidenceDownloadRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.PresignEvidenceDownloadResponse
+ */
+export class PresignEvidenceDownloadResponse extends Message<PresignEvidenceDownloadResponse> {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId = "";
+
+  /**
+   * @generated from field: string node_id = 2;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string evidence_id = 3;
+   */
+  evidenceId = "";
+
+  /**
+   * @generated from field: string download_url = 4;
+   */
+  downloadUrl = "";
+
+  /**
+   * @generated from field: int64 expires_at_ms = 5;
+   */
+  expiresAtMs = protoInt64.zero;
+
+  constructor(data?: PartialMessage<PresignEvidenceDownloadResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PresignEvidenceDownloadResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "grant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "evidence_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "download_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "expires_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresignEvidenceDownloadResponse {
+    return new PresignEvidenceDownloadResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresignEvidenceDownloadResponse {
+    return new PresignEvidenceDownloadResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresignEvidenceDownloadResponse {
+    return new PresignEvidenceDownloadResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PresignEvidenceDownloadResponse | PlainMessage<PresignEvidenceDownloadResponse> | undefined, b: PresignEvidenceDownloadResponse | PlainMessage<PresignEvidenceDownloadResponse> | undefined): boolean {
+    return proto3.util.equals(PresignEvidenceDownloadResponse, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.PublishRequest
  */
 export class PublishRequest extends Message<PublishRequest> {
@@ -1341,6 +1481,24 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   minimumBrowserGeneration = protoInt64.zero;
 
+  /**
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   *
+   * @generated from field: optional string proxy_provider_id = 31;
+   */
+  proxyProviderId?: string;
+
+  /**
+   * @generated from field: optional string proxy_expected_exit_ip = 32;
+   */
+  proxyExpectedExitIp?: string;
+
+  /**
+   * @generated from field: optional string proxy_credential_ref = 33;
+   */
+  proxyCredentialRef?: string;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1379,6 +1537,9 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 28, name: "video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
     { no: 29, name: "success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 30, name: "minimum_browser_generation", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 31, name: "proxy_provider_id", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 32, name: "proxy_expected_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 33, name: "proxy_credential_ref", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {
@@ -3139,6 +3300,52 @@ export class AgentActionFailedEvent extends Message<AgentActionFailedEvent> {
 }
 
 /**
+ * Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
+ * method or Object Storage coordinate.
+ *
+ * @generated from message browsercloud.node.v1.CaptureObserverScreenshotCommand
+ */
+export class CaptureObserverScreenshotCommand extends Message<CaptureObserverScreenshotCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string capture_id = 2;
+   */
+  captureId = "";
+
+  constructor(data?: PartialMessage<CaptureObserverScreenshotCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.CaptureObserverScreenshotCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "capture_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CaptureObserverScreenshotCommand {
+    return new CaptureObserverScreenshotCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CaptureObserverScreenshotCommand {
+    return new CaptureObserverScreenshotCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CaptureObserverScreenshotCommand {
+    return new CaptureObserverScreenshotCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CaptureObserverScreenshotCommand | PlainMessage<CaptureObserverScreenshotCommand> | undefined, b: CaptureObserverScreenshotCommand | PlainMessage<CaptureObserverScreenshotCommand> | undefined): boolean {
+    return proto3.util.equals(CaptureObserverScreenshotCommand, a, b);
+  }
+}
+
+/**
  * Agent 动作完成后由独立 CDP 截图数据面产生。对象由 Storage Helper 提交，
  * Node 不持有 Bucket 凭据；失败事件也会持久化，避免把缺失证据伪装成成功。
  *
@@ -3210,6 +3417,19 @@ export class SessionEvidenceCapturedEvent extends Message<SessionEvidenceCapture
    */
   errorCode = "";
 
+  /**
+   * MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+   * Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+   *
+   * @generated from field: string redaction_state = 14;
+   */
+  redactionState = "";
+
+  /**
+   * @generated from field: uint32 redacted_region_count = 15;
+   */
+  redactedRegionCount = 0;
+
   constructor(data?: PartialMessage<SessionEvidenceCapturedEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -3231,6 +3451,8 @@ export class SessionEvidenceCapturedEvent extends Message<SessionEvidenceCapture
     { no: 11, name: "mandatory", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 12, name: "result", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 13, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 14, name: "redaction_state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 15, name: "redacted_region_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SessionEvidenceCapturedEvent {

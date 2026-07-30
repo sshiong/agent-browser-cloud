@@ -33,8 +33,9 @@ public class SessionEvidenceApplicationService {
         INSERT INTO session_evidence(
             evidence_id, event_id, tenant_id, session_id, evidence_kind,
             task_id, step_id, command_id, mandatory, result, content_sha256,
-            content_bytes, object_key, error_code, captured_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            content_bytes, object_key, error_code, captured_at, redaction_state,
+            redacted_region_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (event_id) DO NOTHING
         """,
         evidence.evidenceId(),
@@ -51,7 +52,9 @@ public class SessionEvidenceApplicationService {
         evidence.contentBytes(),
         nullable(evidence.objectKey()),
         nullable(evidence.errorCode()),
-        Timestamp.from(Instant.ofEpochMilli(evidence.capturedAtMs())));
+        Timestamp.from(Instant.ofEpochMilli(evidence.capturedAtMs())),
+        evidence.redactionState(),
+        evidence.redactedRegionCount());
     if ("OBSERVER_MANUAL".equals(evidence.evidenceKind())) {
       governance.completeCaptureFromEvidence(
           tenantId,
@@ -73,7 +76,8 @@ public class SessionEvidenceApplicationService {
         jdbc.query(
             """
             SELECT evidence_id, evidence_kind, task_id, step_id, command_id,
-                   mandatory, result, content_sha256, content_bytes, captured_at, error_code
+                   mandatory, result, content_sha256, content_bytes, captured_at, error_code,
+                   redaction_state, redacted_region_count
             FROM session_evidence
             WHERE tenant_id = ? AND session_id = ?
             ORDER BY captured_at DESC, evidence_id DESC
@@ -91,7 +95,9 @@ public class SessionEvidenceApplicationService {
                     result.getString("content_sha256"),
                     result.getLong("content_bytes"),
                     result.getTimestamp("captured_at").toInstant(),
-                    result.getString("error_code")),
+                    result.getString("error_code"),
+                    result.getString("redaction_state"),
+                    result.getInt("redacted_region_count")),
             tenantId,
             sessionId,
             safeLimit,

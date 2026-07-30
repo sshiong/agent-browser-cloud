@@ -459,6 +459,9 @@ export interface SessionEvidenceView {
   contentBytes: number;
   capturedAt: string;
   errorCode?: string;
+  redactionState:
+    'LEGACY_UNVERIFIED' | 'MASKED' | 'NOT_REQUIRED' | 'FAILED_CLOSED';
+  redactedRegionCount: number;
 }
 
 export interface SessionEvidenceListResponse {

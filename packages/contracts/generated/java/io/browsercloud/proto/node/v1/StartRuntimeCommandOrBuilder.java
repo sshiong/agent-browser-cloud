@@ -396,4 +396,70 @@ public interface StartRuntimeCommandOrBuilder extends
    * @return The minimumBrowserGeneration.
    */
   long getMinimumBrowserGeneration();
+
+  /**
+   * <pre>
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   * </pre>
+   *
+   * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   * @return Whether the proxyProviderId field is set.
+   */
+  boolean hasProxyProviderId();
+  /**
+   * <pre>
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   * </pre>
+   *
+   * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   * @return The proxyProviderId.
+   */
+  java.lang.String getProxyProviderId();
+  /**
+   * <pre>
+   * 以下字段都是非 Secret 绑定描述。credential_ref 仅是不透明引用，Network Helper
+   * 只可将它映射到本机已配置的 Provider Route；Node Agent 不得读取 Secret 正文。
+   * </pre>
+   *
+   * <code>optional string proxy_provider_id = 31 [json_name = "proxyProviderId"];</code>
+   * @return The bytes for proxyProviderId.
+   */
+  com.google.protobuf.ByteString
+      getProxyProviderIdBytes();
+
+  /**
+   * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   * @return Whether the proxyExpectedExitIp field is set.
+   */
+  boolean hasProxyExpectedExitIp();
+  /**
+   * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   * @return The proxyExpectedExitIp.
+   */
+  java.lang.String getProxyExpectedExitIp();
+  /**
+   * <code>optional string proxy_expected_exit_ip = 32 [json_name = "proxyExpectedExitIp"];</code>
+   * @return The bytes for proxyExpectedExitIp.
+   */
+  com.google.protobuf.ByteString
+      getProxyExpectedExitIpBytes();
+
+  /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   * @return Whether the proxyCredentialRef field is set.
+   */
+  boolean hasProxyCredentialRef();
+  /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   * @return The proxyCredentialRef.
+   */
+  java.lang.String getProxyCredentialRef();
+  /**
+   * <code>optional string proxy_credential_ref = 33 [json_name = "proxyCredentialRef"];</code>
+   * @return The bytes for proxyCredentialRef.
+   */
+  com.google.protobuf.ByteString
+      getProxyCredentialRefBytes();
 }

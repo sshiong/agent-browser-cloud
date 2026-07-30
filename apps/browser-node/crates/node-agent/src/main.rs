@@ -447,6 +447,15 @@ impl NodeCapacityReporter {
             }
             .to_owned(),
         );
+        labels.insert(
+            "evidenceRedaction".to_owned(),
+            if evidence_storage_available {
+                "dom-overlay-script-freeze-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
         Ok(Self {
             node_id,
             region,
@@ -726,6 +735,8 @@ impl NodeControlService {
             captured_at_ms,
             result,
             error_code,
+            redaction_state,
+            redacted_region_count,
         ) = match capture {
             Ok(EvidenceCapture::Skipped { .. }) => return Ok(()),
             Ok(EvidenceCapture::Committed(summary)) => (
@@ -736,6 +747,8 @@ impl NodeControlService {
                 summary.captured_at_ms as i64,
                 "COMMITTED".to_owned(),
                 String::new(),
+                summary.redaction_state,
+                summary.redacted_region_count,
             ),
             Err(error) => {
                 tracing::warn!(
@@ -745,14 +758,15 @@ impl NodeControlService {
                     "Session screenshot evidence capture failed"
                 );
                 let message = error.to_string();
-                let error_code =
-                    if message.contains("Object Storage") || message.contains("storage helper") {
-                        "OBJECT_STORAGE_UNAVAILABLE"
-                    } else if message.contains("CDP") {
-                        "CDP_CAPTURE_FAILED"
-                    } else {
-                        "EVIDENCE_CAPTURE_FAILED"
-                    };
+                let error_code = if message.contains("sensitive redaction") {
+                    "SENSITIVE_REDACTION_FAILED"
+                } else if message.contains("Object Storage") || message.contains("storage helper") {
+                    "OBJECT_STORAGE_UNAVAILABLE"
+                } else if message.contains("CDP") {
+                    "CDP_CAPTURE_FAILED"
+                } else {
+                    "EVIDENCE_CAPTURE_FAILED"
+                };
                 (
                     format!("evd_{}", uuid::Uuid::new_v4().simple()),
                     String::new(),
@@ -761,6 +775,8 @@ impl NodeControlService {
                     wall_clock_millis() as i64,
                     "FAILED".to_owned(),
                     error_code.to_owned(),
+                    "FAILED_CLOSED".to_owned(),
+                    0,
                 )
             }
         };
@@ -784,6 +800,8 @@ impl NodeControlService {
                 mandatory: request.mandatory,
                 result,
                 error_code,
+                redaction_state,
+                redacted_region_count,
             },
         )
         .await

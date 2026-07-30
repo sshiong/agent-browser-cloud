@@ -557,6 +557,10 @@ message SessionEvidenceCapturedEvent {
   bool mandatory = 11;
   string result = 12;
   string error_code = 13;
+  // MASKED or NOT_REQUIRED for newly committed evidence; FAILED_CLOSED on capture failure.
+  // Empty is reserved for N-1 Nodes and is persisted as LEGACY_UNVERIFIED.
+  string redaction_state = 14;
+  uint32 redacted_region_count = 15;
 }
 
 message BrowserStateDiffEvent {

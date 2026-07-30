@@ -263,7 +263,9 @@ public sealed interface NodeEvent
       long capturedAtMs,
       boolean mandatory,
       String result,
-      String errorCode)
+      String errorCode,
+      String redactionState,
+      int redactedRegionCount)
       implements NodeEvent {}
 
   record InteractiveTarget(

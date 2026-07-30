@@ -140,7 +140,9 @@
 
 ## 下一步建议
 
-1. 补齐截图敏感区域模糊和站点级隐私策略；Observer 手动截图与 Purpose-bound
+1. 基础敏感语义分类与 Agent/Observer 截图不透明遮罩已由
+   [进度 88](88-截图敏感区域遮罩与分类闭环.md)关闭；继续补齐 Site Policy、无语义
+   视觉文本和 Recording 帧级遮罩。Observer 手动截图与 Purpose-bound
    访问已由[进度 87](87-Observer手动截图与受控证据访问闭环.md)关闭，Agent 截图采样
    Level 1 Node Actuator 已由[进度 72](72-AUTO截图证据与采样执行闭环.md)关闭，
    录制停止已由[进度 70](70-AUTO独立像素录制与停止执行闭环.md)关闭，Observer 帧率已由

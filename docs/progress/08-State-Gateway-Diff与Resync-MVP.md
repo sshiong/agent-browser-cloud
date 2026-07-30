@@ -88,7 +88,7 @@ make test-e2e
 | Diff Buffer | 当前只保留 Node 内单份基线和 PostgreSQL Current State，尚无可观测的有界 Diff Buffer、Consumer Cursor 和重放 API |
 | 状态动作 Gate | Phase 4 Plan Validator 已拒绝 Invalid/Resyncing 等不可执行质量；真正的 Executor/Tool Service Action Gate 与执行后验证仍待实现 |
 | State Checkpoint | 尚无与 Profile、Browser Generation、Runtime Build 绑定的 State Checkpoint Epoch、Commit Marker 和恢复参考摘要 |
-| 敏感数据治理 | Target 名称已有 Password 文本抑制，但完整 State 分类、字段级脱敏、保留期和访问审计尚未闭环 |
+| 敏感数据治理 | Target 名称 Password 抑制及 Password/OTP/Payment/Account/Secret/PII 基础分类、Evidence 截图遮罩已由进度 88 补齐；Site Policy、无语义视觉分类、Recording 帧级遮罩、字段级保留期仍未闭环 |
 
 ## 结论
 

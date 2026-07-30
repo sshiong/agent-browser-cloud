@@ -1,6 +1,6 @@
-import { User, Wifi, LogOut } from 'lucide-react';
+import { Wifi } from 'lucide-react';
 import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
-import { useAuth } from '@/auth/AuthProvider';
+import { UserMenu } from '@/features/account/UserMenu';
 import { GlobalSearchDialog } from '@/features/search/GlobalSearchDialog';
 import { WorkspaceNotificationCenter } from '@/features/notifications/WorkspaceNotificationCenter';
 import { ThemeSwitcher } from '@/features/theme/ThemeSwitcher';
@@ -17,7 +17,6 @@ export function TopContextBar({
   globalOnly = false,
 }: TopContextBarProps) {
   const isOnline = useOnlineStatus();
-  const auth = useAuth();
 
   return (
     <header className="flex h-[56px] items-center justify-between gap-2 border-b border-border-subtle bg-surface-1 px-3 sm:px-6">
@@ -65,33 +64,7 @@ export function TopContextBar({
 
         <ThemeSwitcher />
 
-        <div
-          className="hidden max-w-[230px] items-center gap-2 border-l border-border-subtle pl-3 sm:flex"
-          title={`${auth.identity?.actorId} · ${auth.identity?.roles.join(', ')}`}
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-            <User size={14} />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[11px] text-text-secondary">
-              {auth.identity?.actorId}
-            </span>
-            <span className="block truncate font-mono text-[9px] text-text-muted">
-              {auth.identity?.tenantId}
-            </span>
-          </span>
-          {auth.mode === 'oidc' && (
-            <button
-              type="button"
-              onClick={() => void auth.logout()}
-              aria-label="退出登录"
-              title="退出登录"
-              className="flex h-8 w-8 shrink-0 items-center justify-center text-text-muted hover:text-danger"
-            >
-              <LogOut size={14} />
-            </button>
-          )}
-        </div>
+        <UserMenu />
       </div>
     </header>
   );

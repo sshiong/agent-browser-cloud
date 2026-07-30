@@ -305,10 +305,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (authMode === 'local') return;
     const oidc = oidcManager(platform);
     if (!oidc) return;
-    setRuntimeIdentity(null);
-    setIdentity(null);
-    await oidc.signoutRedirect();
-  }, [platform]);
+    const previousIdentity = identity;
+    try {
+      await oidc.signoutRedirect();
+    } catch (cause) {
+      // oidc-client-ts removes its user before opening the IdP. Restore the
+      // in-memory identity when navigation fails so the operator can retry and
+      // still see the failure instead of landing on an unauthenticated screen.
+      setRuntimeIdentity(previousIdentity);
+      setIdentity(previousIdentity);
+      setError(null);
+      throw cause;
+    }
+  }, [identity, platform]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

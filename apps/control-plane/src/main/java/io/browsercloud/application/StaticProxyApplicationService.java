@@ -556,6 +556,19 @@ public class StaticProxyApplicationService {
   }
 
   @Transactional(readOnly = true)
+  public Map<String, String> assignedBindingProfileIds(
+      java.util.Collection<String> sessionIds, String tenantId) {
+    if (sessionIds.isEmpty()) {
+      return Map.of();
+    }
+    return bindingAssignments.findAllByTenantIdAndSessionIdIn(tenantId, sessionIds).stream()
+        .collect(
+            java.util.stream.Collectors.toUnmodifiableMap(
+                SessionProxyBindingAssignmentEntity::getSessionId,
+                SessionProxyBindingAssignmentEntity::getBindingProfileId));
+  }
+
+  @Transactional(readOnly = true)
   public RebindTargetSnapshot validateRebindTarget(
       String sessionId, String tenantId, String bindingProfileId, String sessionRegion) {
     var profile = requireBinding(bindingProfileId, tenantId);

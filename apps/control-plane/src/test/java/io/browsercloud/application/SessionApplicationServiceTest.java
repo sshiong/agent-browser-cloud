@@ -2,9 +2,12 @@ package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.browsercloud.api.WorkspaceTagModels.WorkspaceTagSummary;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionCoordinator;
@@ -15,6 +18,8 @@ import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -159,5 +164,65 @@ class SessionApplicationServiceTest {
     assertThatThrownBy(() -> service.requestTakeover("ses_test", "tenant-test", "operator-test"))
         .isInstanceOf(SessionApplicationService.HumanTakeoverDisabledException.class);
     verifyNoInteractions(coordinator);
+  }
+
+  @Test
+  void listsSessionsWithBatchOperationTagAndProxyProjections() {
+    var now = Instant.parse("2026-07-23T00:00:00Z");
+    var first = descriptor("ses_first", "First", now);
+    var second = descriptor("ses_second", "Second", now.minusSeconds(30));
+    var sessionIds = List.of("ses_first", "ses_second");
+    when(sessionRepository.listByTenant("tenant-test", null, "", 100, 0))
+        .thenReturn(List.of(first, second));
+    when(sessionRepository.countByTenant("tenant-test", null, "")).thenReturn(2L);
+    when(operationRepository.findActiveBySessionIds(sessionIds)).thenReturn(Map.of());
+    when(workspaceTagService.summariesForSessions("tenant-test", sessionIds))
+        .thenReturn(
+            Map.of(
+                "ses_first",
+                List.of(new WorkspaceTagSummary("tag_first", "Production", "#35D6BE")),
+                "ses_second",
+                List.of()));
+    when(proxyApplicationService.assignedBindingProfileIds(sessionIds, "tenant-test"))
+        .thenReturn(Map.of("ses_first", "binding-first"));
+
+    var result = service.list("tenant-test", null, "", 200, -1);
+
+    assertThat(result.total()).isEqualTo(2);
+    assertThat(result.limit()).isEqualTo(100);
+    assertThat(result.offset()).isZero();
+    assertThat(result.items().getFirst().tags()).extracting("tagId").containsExactly("tag_first");
+    assertThat(result.items().getFirst().proxyBindingProfileId()).isEqualTo("binding-first");
+    assertThat(result.items().get(1).tags()).isEmpty();
+    verify(operationRepository, never()).findActive(org.mockito.ArgumentMatchers.anyString());
+    verify(workspaceTagService, never())
+        .summariesForSession(
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+    verify(proxyApplicationService, never())
+        .assignedBindingProfileId(
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+  }
+
+  private SessionDescriptor descriptor(String sessionId, String displayName, Instant updatedAt) {
+    var context =
+        new SessionContext(
+            sessionId,
+            "tenant-test",
+            "profile-test",
+            null,
+            "runtime-test",
+            null,
+            null,
+            0,
+            0,
+            0,
+            0,
+            ResourceClass.L2,
+            SessionState.CREATED,
+            "",
+            updatedAt,
+            updatedAt);
+    return new SessionDescriptor(
+        context, "local", displayName, null, true, AgentPolicy.BALANCED, List.of());
   }
 }

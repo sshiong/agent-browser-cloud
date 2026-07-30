@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,6 +14,7 @@ import io.browsercloud.api.WorkspaceTagModels.WorkspaceTagRequest;
 import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.persistence.SessionEntity;
 import io.browsercloud.persistence.SessionJpaRepository;
+import io.browsercloud.persistence.SessionTagAssignmentEntity;
 import io.browsercloud.persistence.SessionTagAssignmentJpaRepository;
 import io.browsercloud.persistence.WorkspaceTagEntity;
 import io.browsercloud.persistence.WorkspaceTagJpaRepository;
@@ -169,5 +172,95 @@ class WorkspaceTagApplicationServiceTest {
                     List.of("tag_cross1234567890"),
                     "request-a"))
         .isInstanceOf(WorkspaceTagApplicationService.WorkspaceTagNotFoundException.class);
+  }
+
+  @Test
+  void listsTagMembersWithTenantWideSessionAndAssignmentProjections() {
+    var now = Instant.parse("2026-07-28T10:00:00Z");
+    var first =
+        new WorkspaceTagEntity(
+            "tag_1234567890abcdef", TENANT_ID, "Production", null, "#35D6BE", "admin-a", now);
+    var second =
+        new WorkspaceTagEntity(
+            "tag_fedcba0987654321", TENANT_ID, "CRM", null, "#718096", "admin-a", now);
+    var crm = session(SESSION_ID, "CRM", now);
+    var docs = session("ses_fedcba0987654321", "Docs", now.minusSeconds(30));
+    var assignment =
+        new SessionTagAssignmentEntity(
+            "sta_1234567890abcdef", TENANT_ID, crm.getId(), first.getTagId(), "admin-a", now);
+
+    when(tags.findAllByTenantIdOrderByUpdatedAtDesc(TENANT_ID)).thenReturn(List.of(first, second));
+    when(sessions.findByTenantId(TENANT_ID)).thenReturn(List.of(crm, docs));
+    when(assignments.findAllByTenantIdOrderByAssignedAtDesc(TENANT_ID))
+        .thenReturn(List.of(assignment));
+
+    var result = service.list(TENANT_ID);
+
+    assertThat(result.items()).hasSize(2);
+    assertThat(result.items().getFirst().sessions())
+        .extracting("sessionId")
+        .containsExactly(crm.getId());
+    assertThat(result.items().get(1).sessions()).isEmpty();
+    assertThat(result.sessions())
+        .extracting("sessionId")
+        .containsExactly(crm.getId(), docs.getId());
+    verify(assignments, never())
+        .findAllByTenantIdAndTagIdOrderByAssignedAtDesc(eq(TENANT_ID), anyString());
+    verify(sessions, never()).findAllById(any());
+  }
+
+  @Test
+  void resolvesTagSummariesForMultipleSessionsInTwoBatchQueries() {
+    var now = Instant.parse("2026-07-28T10:00:00Z");
+    var secondSessionId = "ses_fedcba0987654321";
+    var first =
+        new WorkspaceTagEntity(
+            "tag_1234567890abcdef", TENANT_ID, "Production", null, "#35D6BE", "admin-a", now);
+    var second =
+        new WorkspaceTagEntity(
+            "tag_fedcba0987654321", TENANT_ID, "CRM", null, "#718096", "admin-a", now);
+    var assignmentRows =
+        List.of(
+            new SessionTagAssignmentEntity(
+                "sta_1234567890abcdef", TENANT_ID, SESSION_ID, first.getTagId(), "admin-a", now),
+            new SessionTagAssignmentEntity(
+                "sta_fedcba0987654321",
+                TENANT_ID,
+                secondSessionId,
+                second.getTagId(),
+                "admin-a",
+                now));
+    when(assignments.findAllByTenantIdAndSessionIdInOrderByAssignedAtAsc(
+            TENANT_ID, List.of(SESSION_ID, secondSessionId)))
+        .thenReturn(assignmentRows);
+    when(tags.findAllByTenantIdAndTagIdInOrderByNameAsc(
+            TENANT_ID, List.of(first.getTagId(), second.getTagId())))
+        .thenReturn(List.of(second, first));
+
+    var summaries =
+        service.summariesForSessions(TENANT_ID, List.of(SESSION_ID, secondSessionId, SESSION_ID));
+
+    assertThat(summaries.get(SESSION_ID)).extracting("tagId").containsExactly(first.getTagId());
+    assertThat(summaries.get(secondSessionId))
+        .extracting("tagId")
+        .containsExactly(second.getTagId());
+    verify(assignments, never())
+        .findAllByTenantIdAndSessionIdOrderByAssignedAtAsc(eq(TENANT_ID), anyString());
+  }
+
+  private SessionEntity session(String sessionId, String displayName, Instant createdAt) {
+    return new SessionEntity(
+        sessionId,
+        TENANT_ID,
+        "profile-a",
+        "local",
+        "L2",
+        "CREATED",
+        "",
+        "{\"displayName\":\"" + displayName + "\"}",
+        true,
+        AgentPolicy.BALANCED,
+        "[]",
+        createdAt);
   }
 }

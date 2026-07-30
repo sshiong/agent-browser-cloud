@@ -7,6 +7,7 @@ import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.capacity.ResourceTemplate;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
+import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.resource.ExecutionEnvironment;
@@ -503,7 +504,23 @@ public class SessionApplicationService {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
     var descriptors = sessionRepository.listByTenant(tenantId, state, query, safeLimit, safeOffset);
-    var items = descriptors.stream().map(this::toView).toList();
+    var sessionIds =
+        descriptors.stream().map(descriptor -> descriptor.context().sessionId()).toList();
+    var activeOperations = operationRepository.findActiveBySessionIds(sessionIds);
+    var tagsBySession = workspaceTagService.summariesForSessions(tenantId, sessionIds);
+    var bindingProfiles = proxyApplicationService.assignedBindingProfileIds(sessionIds, tenantId);
+    var items =
+        descriptors.stream()
+            .map(
+                descriptor -> {
+                  var sessionId = descriptor.context().sessionId();
+                  return toView(
+                      descriptor,
+                      activeOperations.get(sessionId),
+                      tagsBySession.getOrDefault(sessionId, java.util.List.of()),
+                      bindingProfiles.get(sessionId));
+                })
+            .toList();
     long count = sessionRepository.countByTenant(tenantId, state, query);
     return new SessionListResponse(
         items, Math.toIntExact(Math.min(count, Integer.MAX_VALUE)), safeLimit, safeOffset);
@@ -552,35 +569,45 @@ public class SessionApplicationService {
 
   private SessionView toView(SessionDescriptor descriptor) {
     var context = descriptor.context();
+    return toView(
+        descriptor,
+        operationRepository.findActive(context.sessionId()).orElse(null),
+        workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
+        proxyApplicationService.assignedBindingProfileId(context.sessionId(), context.tenantId()));
+  }
+
+  private SessionView toView(
+      SessionDescriptor descriptor,
+      ExclusiveOperation activeOperation,
+      java.util.List<WorkspaceTagModels.WorkspaceTagSummary> tags,
+      String proxyBindingProfileId) {
+    var context = descriptor.context();
     var operation =
-        operationRepository
-            .findActive(context.sessionId())
-            .map(
-                active ->
-                    new OperationView(
-                        active.operationId(),
-                        active.ownerType(),
-                        active.actorId(),
-                        active.mode(),
-                        active.priority(),
-                        active.coordinatorTerm(),
-                        active.contextEpoch(),
-                        active.operationEpoch(),
-                        active.workflowId(),
-                        active.cancellable(),
-                        active.preemptible(),
-                        active.phase(),
-                        active.state(),
-                        active.allowedCapabilities(),
-                        active.deadline()))
-            .orElse(null);
+        activeOperation == null
+            ? null
+            : new OperationView(
+                activeOperation.operationId(),
+                activeOperation.ownerType(),
+                activeOperation.actorId(),
+                activeOperation.mode(),
+                activeOperation.priority(),
+                activeOperation.coordinatorTerm(),
+                activeOperation.contextEpoch(),
+                activeOperation.operationEpoch(),
+                activeOperation.workflowId(),
+                activeOperation.cancellable(),
+                activeOperation.preemptible(),
+                activeOperation.phase(),
+                activeOperation.state(),
+                activeOperation.allowedCapabilities(),
+                activeOperation.deadline());
     return new SessionView(
         context.sessionId(),
         descriptor.displayName(),
         context.tenantId(),
         context.profileId(),
         descriptor.groupId(),
-        workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
+        tags,
         descriptor.humanTakeoverEnabled(),
         descriptor.agentPolicy(),
         descriptor.extensionIds(),
@@ -590,7 +617,7 @@ public class SessionApplicationService {
         context.nodeId(),
         context.runtimeBuildId(),
         context.proxyBindingId(),
-        proxyApplicationService.assignedBindingProfileId(context.sessionId(), context.tenantId()),
+        proxyBindingProfileId,
         context.contextEpoch(),
         context.browserGeneration(),
         operation,

@@ -2,6 +2,7 @@ package io.browsercloud.infrastructure;
 
 import io.browsercloud.persistence.ExclusiveOperationEntity;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,9 @@ public interface ExclusiveOperationJpaRepository
     extends JpaRepository<ExclusiveOperationEntity, String> {
 
   Optional<ExclusiveOperationEntity> findBySessionIdAndState(String sessionId, String state);
+
+  List<ExclusiveOperationEntity> findAllBySessionIdInAndState(
+      Collection<String> sessionIds, String state);
 
   @Query(
       """

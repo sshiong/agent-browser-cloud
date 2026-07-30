@@ -5,6 +5,8 @@ import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.operation.OperationState;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -29,6 +31,9 @@ public interface OperationRepository {
    * @return 活跃 Operation（如果存在）
    */
   Optional<ExclusiveOperation> findActive(String sessionId);
+
+  /** Batch active-operation projection for bounded Session list pages. */
+  Map<String, ExclusiveOperation> findActiveBySessionIds(Collection<String> sessionIds);
 
   long nextOperationEpoch(String sessionId);
 

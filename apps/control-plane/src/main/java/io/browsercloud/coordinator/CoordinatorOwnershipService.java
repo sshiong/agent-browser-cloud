@@ -5,6 +5,9 @@ import io.browsercloud.coordinator.exceptions.StaleCoordinatorTermException;
 import io.browsercloud.persistence.CoordinatorOwnershipEntity;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -124,5 +127,18 @@ public class CoordinatorOwnershipService {
         .findById(sessionId)
         .map(CoordinatorOwnershipEntity::getCoordinatorTerm)
         .orElse(0L);
+  }
+
+  /** Batch projection used by list endpoints to avoid one ownership query per Session. */
+  public Map<String, Long> getCurrentTerms(Collection<String> sessionIds) {
+    if (sessionIds.isEmpty()) {
+      return Map.of();
+    }
+    return ownershipJpa.findAllById(sessionIds).stream()
+        .collect(
+            Collectors.toUnmodifiableMap(
+                CoordinatorOwnershipEntity::getSessionId,
+                CoordinatorOwnershipEntity::getCoordinatorTerm,
+                Math::max));
   }
 }

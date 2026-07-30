@@ -19,6 +19,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -202,11 +204,24 @@ public class JpaSessionRepository implements SessionRepository {
                 ? sessionJpa.searchAllByTenantId(tenantId, repositoryQuery, searchPageable)
                 : sessionJpa.searchAllByTenantIdAndState(
                     tenantId, state.name(), repositoryQuery, searchPageable);
-    return page.getContent().stream()
+    var entities = page.getContent();
+    if (entities.isEmpty()) {
+      return List.of();
+    }
+    var sessionIds = entities.stream().map(SessionEntity::getId).toList();
+    var contextsBySession =
+        contextJpa.findLatestBySessionIds(sessionIds).stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    SessionContextEntity::getSessionId, Function.identity()));
+    var ownershipTerms = ownershipService.getCurrentTerms(sessionIds);
+    return entities.stream()
         .map(
             entity ->
                 toDescriptor(
-                    entity, contextJpa.findTopBySessionIdOrderByContextEpochDesc(entity.getId())))
+                    entity,
+                    Optional.ofNullable(contextsBySession.get(entity.getId())),
+                    ownershipTerms.getOrDefault(entity.getId(), 0L)))
         .toList();
   }
 
@@ -232,6 +247,13 @@ public class JpaSessionRepository implements SessionRepository {
   }
 
   private SessionContext toDomain(SessionEntity entity, Optional<SessionContextEntity> contextOpt) {
+    return toDomain(entity, contextOpt, ownershipService.getCurrentTerm(entity.getId()));
+  }
+
+  private SessionContext toDomain(
+      SessionEntity entity,
+      Optional<SessionContextEntity> contextOpt,
+      long authoritativeOwnershipTerm) {
     long coordinatorTerm = 0;
     long contextEpoch = 0;
     long browserGeneration = 0;
@@ -253,7 +275,7 @@ public class JpaSessionRepository implements SessionRepository {
       proxyBindingId = ctx.getProxyBindingId();
     }
 
-    coordinatorTerm = Math.max(coordinatorTerm, ownershipService.getCurrentTerm(entity.getId()));
+    coordinatorTerm = Math.max(coordinatorTerm, authoritativeOwnershipTerm);
 
     return new SessionContext(
         entity.getId(),
@@ -276,7 +298,14 @@ public class JpaSessionRepository implements SessionRepository {
 
   private SessionDescriptor toDescriptor(
       SessionEntity entity, Optional<SessionContextEntity> contextOpt) {
-    var context = toDomain(entity, contextOpt);
+    return toDescriptor(entity, contextOpt, ownershipService.getCurrentTerm(entity.getId()));
+  }
+
+  private SessionDescriptor toDescriptor(
+      SessionEntity entity,
+      Optional<SessionContextEntity> contextOpt,
+      long authoritativeOwnershipTerm) {
+    var context = toDomain(entity, contextOpt, authoritativeOwnershipTerm);
     return new SessionDescriptor(
         context,
         entity.getRegion(),

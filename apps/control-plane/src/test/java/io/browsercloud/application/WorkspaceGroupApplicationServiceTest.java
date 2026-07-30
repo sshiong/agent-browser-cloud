@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -150,5 +151,73 @@ class WorkspaceGroupApplicationServiceTest {
     assertThat(session.getGroupId()).isEqualTo(group.getGroupId());
     assertThat(updated.sessions()).extracting("sessionId").containsExactly(session.getId());
     verify(sessions).save(session);
+  }
+
+  @Test
+  void listsGroupMembersWithOneTenantWideSessionProjection() {
+    var now = Instant.parse("2026-07-28T00:00:00Z");
+    var firstGroup =
+        new WorkspaceGroupEntity(
+            "grp_1234567890abcdef",
+            "tenant-test",
+            "Operations",
+            null,
+            "#35D6BE",
+            MaximumReachedPolicy.PAUSE_AGENT,
+            true,
+            true,
+            "user-test",
+            now);
+    var secondGroup =
+        new WorkspaceGroupEntity(
+            "grp_fedcba0987654321",
+            "tenant-test",
+            "Research",
+            null,
+            "#718096",
+            MaximumReachedPolicy.HIBERNATE,
+            true,
+            true,
+            "user-test",
+            now);
+    var assigned = session("ses_1234567890abcdef", "CRM", now);
+    assigned.setGroupId(firstGroup.getGroupId());
+    var unassigned = session("ses_fedcba0987654321", "Docs", now.minusSeconds(30));
+
+    when(groups.findAllByTenantIdOrderByUpdatedAtDesc("tenant-test"))
+        .thenReturn(List.of(firstGroup, secondGroup));
+    when(sessions.findAllByTenantIdAndGroupIdIsNotNullOrderByCreatedAtDesc("tenant-test"))
+        .thenReturn(List.of(assigned));
+    when(sessions.findAllByTenantIdAndGroupIdIsNullOrderByCreatedAtDesc("tenant-test"))
+        .thenReturn(List.of(unassigned));
+
+    var result = service.list("tenant-test");
+
+    assertThat(result.items()).hasSize(2);
+    assertThat(result.items().getFirst().sessions())
+        .extracting("sessionId")
+        .containsExactly(assigned.getId());
+    assertThat(result.items().get(1).sessions()).isEmpty();
+    assertThat(result.unassignedSessions())
+        .extracting("sessionId")
+        .containsExactly(unassigned.getId());
+    verify(sessions, never())
+        .findAllByTenantIdAndGroupIdOrderByCreatedAtDesc(eq("tenant-test"), anyString());
+  }
+
+  private SessionEntity session(String sessionId, String displayName, Instant createdAt) {
+    return new SessionEntity(
+        sessionId,
+        "tenant-test",
+        "profile-test",
+        "local",
+        "L2",
+        "CREATED",
+        "",
+        "{\"displayName\":\"" + displayName + "\"}",
+        true,
+        AgentPolicy.BALANCED,
+        "[]",
+        createdAt);
   }
 }

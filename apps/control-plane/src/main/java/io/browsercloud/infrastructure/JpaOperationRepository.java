@@ -6,8 +6,12 @@ import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.domain.operation.*;
 import io.browsercloud.persistence.ExclusiveOperationEntity;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +36,23 @@ public class JpaOperationRepository implements OperationRepository {
   @Override
   public Optional<ExclusiveOperation> findActive(String sessionId) {
     return operationJpa.findBySessionIdAndState(sessionId, "ACTIVE").map(this::toDomain);
+  }
+
+  @Override
+  public Map<String, ExclusiveOperation> findActiveBySessionIds(Collection<String> sessionIds) {
+    if (sessionIds.isEmpty()) {
+      return Map.of();
+    }
+    return operationJpa.findAllBySessionIdInAndState(sessionIds, "ACTIVE").stream()
+        .map(this::toDomain)
+        .collect(
+            Collectors.toUnmodifiableMap(
+                ExclusiveOperation::sessionId,
+                Function.identity(),
+                (first, duplicate) -> {
+                  throw new IllegalStateException(
+                      "Multiple active Operations for Session " + first.sessionId());
+                }));
   }
 
   @Override

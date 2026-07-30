@@ -16,8 +16,10 @@ import io.browsercloud.persistence.SessionJpaRepository;
 import io.browsercloud.persistence.WorkspaceGroupEntity;
 import io.browsercloud.persistence.WorkspaceGroupJpaRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +47,17 @@ public class WorkspaceGroupApplicationService {
 
   @Transactional(readOnly = true)
   public WorkspaceGroupListResponse list(String tenantId) {
+    var membersByGroup =
+        sessions.findAllByTenantIdAndGroupIdIsNotNullOrderByCreatedAtDesc(tenantId).stream()
+            .collect(
+                Collectors.groupingBy(
+                    SessionEntity::getGroupId,
+                    java.util.LinkedHashMap::new,
+                    Collectors.mapping(this::toSessionView, Collectors.toList())));
     var items =
-        groups.findAllByTenantIdOrderByUpdatedAtDesc(tenantId).stream().map(this::toView).toList();
+        groups.findAllByTenantIdOrderByUpdatedAtDesc(tenantId).stream()
+            .map(group -> toView(group, membersByGroup.getOrDefault(group.getGroupId(), List.of())))
+            .toList();
     var unassigned =
         sessions.findAllByTenantIdAndGroupIdIsNullOrderByCreatedAtDesc(tenantId).stream()
             .map(this::toSessionView)
@@ -291,6 +302,10 @@ public class WorkspaceGroupApplicationService {
             .stream()
             .map(this::toSessionView)
             .toList();
+    return toView(group, members);
+  }
+
+  private WorkspaceGroupView toView(WorkspaceGroupEntity group, List<GroupSessionView> members) {
     return new WorkspaceGroupView(
         group.getGroupId(),
         group.getName(),

@@ -52,16 +52,32 @@ public class WorkspaceTagApplicationService {
 
   @Transactional(readOnly = true)
   public WorkspaceTagListResponse list(String tenantId) {
-    var items =
-        tags.findAllByTenantIdOrderByUpdatedAtDesc(tenantId).stream().map(this::toView).toList();
-    var tenantSessions =
+    var tagEntities = tags.findAllByTenantIdOrderByUpdatedAtDesc(tenantId);
+    var sessionEntities =
         sessions.findByTenantId(tenantId).stream()
             .sorted(
                 java.util.Comparator.comparing(SessionEntity::getCreatedAt)
                     .reversed()
                     .thenComparing(SessionEntity::getId))
-            .map(this::toSessionView)
             .toList();
+    var sessionById =
+        sessionEntities.stream()
+            .collect(Collectors.toMap(SessionEntity::getId, Function.identity()));
+    var membersByTag =
+        assignments.findAllByTenantIdOrderByAssignedAtDesc(tenantId).stream()
+            .filter(row -> sessionById.containsKey(row.getSessionId()))
+            .collect(
+                Collectors.groupingBy(
+                    SessionTagAssignmentEntity::getTagId,
+                    java.util.LinkedHashMap::new,
+                    Collectors.mapping(
+                        row -> toSessionView(sessionById.get(row.getSessionId())),
+                        Collectors.toList())));
+    var items =
+        tagEntities.stream()
+            .map(tag -> toView(tag, membersByTag.getOrDefault(tag.getTagId(), List.of())))
+            .toList();
+    var tenantSessions = sessionEntities.stream().map(this::toSessionView).toList();
     return new WorkspaceTagListResponse(items, tenantSessions, items.size());
   }
 
@@ -243,16 +259,46 @@ public class WorkspaceTagApplicationService {
 
   @Transactional(readOnly = true)
   public List<WorkspaceTagSummary> summariesForSession(String tenantId, String sessionId) {
-    var tagIds =
-        assignments.findAllByTenantIdAndSessionIdOrderByAssignedAtAsc(tenantId, sessionId).stream()
-            .map(SessionTagAssignmentEntity::getTagId)
-            .toList();
-    if (tagIds.isEmpty()) {
-      return List.of();
+    return summariesForSessions(tenantId, List.of(sessionId)).getOrDefault(sessionId, List.of());
+  }
+
+  @Transactional(readOnly = true)
+  public Map<String, List<WorkspaceTagSummary>> summariesForSessions(
+      String tenantId, List<String> requestedSessionIds) {
+    var sessionIds = requestedSessionIds.stream().distinct().toList();
+    if (sessionIds.isEmpty()) {
+      return Map.of();
     }
-    return tags.findAllByTenantIdAndTagIdInOrderByNameAsc(tenantId, tagIds).stream()
-        .map(tag -> new WorkspaceTagSummary(tag.getTagId(), tag.getName(), tag.getColor()))
-        .toList();
+    var assignmentRows =
+        assignments.findAllByTenantIdAndSessionIdInOrderByAssignedAtAsc(tenantId, sessionIds);
+    var tagIds =
+        assignmentRows.stream().map(SessionTagAssignmentEntity::getTagId).distinct().toList();
+    var selectedTags =
+        tagIds.isEmpty()
+            ? List.<WorkspaceTagEntity>of()
+            : tags.findAllByTenantIdAndTagIdInOrderByNameAsc(tenantId, tagIds);
+    var tagMembershipBySession =
+        assignmentRows.stream()
+            .collect(
+                Collectors.groupingBy(
+                    SessionTagAssignmentEntity::getSessionId,
+                    Collectors.mapping(SessionTagAssignmentEntity::getTagId, Collectors.toSet())));
+    return sessionIds.stream()
+        .collect(
+            Collectors.toUnmodifiableMap(
+                Function.identity(),
+                sessionId ->
+                    selectedTags.stream()
+                        .filter(
+                            tag ->
+                                tagMembershipBySession
+                                    .getOrDefault(sessionId, java.util.Set.of())
+                                    .contains(tag.getTagId()))
+                        .map(
+                            tag ->
+                                new WorkspaceTagSummary(
+                                    tag.getTagId(), tag.getName(), tag.getColor()))
+                        .toList()));
   }
 
   @Transactional(readOnly = true)
@@ -326,6 +372,10 @@ public class WorkspaceTagApplicationService {
             .filter(java.util.Objects::nonNull)
             .map(this::toSessionView)
             .toList();
+    return toView(tag, members);
+  }
+
+  private WorkspaceTagView toView(WorkspaceTagEntity tag, List<TagSessionView> members) {
     return new WorkspaceTagView(
         tag.getTagId(),
         tag.getName(),

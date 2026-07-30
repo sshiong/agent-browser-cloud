@@ -1,6 +1,7 @@
 package io.browsercloud.persistence;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,11 @@ public interface SessionTagAssignmentJpaRepository
 
   List<SessionTagAssignmentEntity> findAllByTenantIdAndSessionIdOrderByAssignedAtAsc(
       String tenantId, String sessionId);
+
+  List<SessionTagAssignmentEntity> findAllByTenantIdAndSessionIdInOrderByAssignedAtAsc(
+      String tenantId, Collection<String> sessionIds);
+
+  List<SessionTagAssignmentEntity> findAllByTenantIdOrderByAssignedAtDesc(String tenantId);
 
   Optional<SessionTagAssignmentEntity> findByTenantIdAndTagIdAndSessionId(
       String tenantId, String tagId, String sessionId);

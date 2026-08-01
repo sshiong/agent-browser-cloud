@@ -23,14 +23,20 @@ public class EnvironmentSavedViewApplicationService {
   private final EnvironmentSavedViewJpaRepository views;
   private final IdempotencyService idempotency;
   private final AuditApplicationService audit;
+  private final WorkspaceGroupApplicationService groups;
+  private final WorkspaceTagApplicationService tags;
 
   public EnvironmentSavedViewApplicationService(
       EnvironmentSavedViewJpaRepository views,
       IdempotencyService idempotency,
-      AuditApplicationService audit) {
+      AuditApplicationService audit,
+      WorkspaceGroupApplicationService groups,
+      WorkspaceTagApplicationService tags) {
     this.views = views;
     this.idempotency = idempotency;
     this.audit = audit;
+    this.groups = groups;
+    this.tags = tags;
   }
 
   @Transactional(readOnly = true)
@@ -48,6 +54,7 @@ public class EnvironmentSavedViewApplicationService {
       String requestId,
       CreateEnvironmentSavedViewRequest request) {
     requireScopePermission(request.scope(), roles);
+    var tagIds = normalizeTagIds(request.tagIds());
     var candidate = newId("svw_");
     var savedViewId =
         idempotency.claimEnvironmentSavedViewCreate(
@@ -55,6 +62,7 @@ public class EnvironmentSavedViewApplicationService {
     if (!candidate.equals(savedViewId)) {
       return toView(requireVisible(savedViewId, tenantId, actorId));
     }
+    validateFilterReferences(tenantId, request.groupId(), tagIds);
     var now = Instant.now();
     var entity =
         persist(
@@ -67,6 +75,9 @@ public class EnvironmentSavedViewApplicationService {
                 request.primaryView(),
                 request.sessionState(),
                 request.searchQuery(),
+                request.groupId(),
+                tagIds,
+                request.tagMatch(),
                 request.showRuntimeColumn(),
                 request.showContextColumn(),
                 request.showOperationColumn(),
@@ -96,11 +107,16 @@ public class EnvironmentSavedViewApplicationService {
     if (entity.getVersion() != request.expectedVersion()) {
       throw new EnvironmentSavedViewRejectedException("SAVED_VIEW_VERSION_MISMATCH");
     }
+    var tagIds = normalizeTagIds(request.tagIds());
+    validateFilterReferences(tenantId, request.groupId(), tagIds);
     entity.update(
         request.name(),
         request.primaryView(),
         request.sessionState(),
         request.searchQuery(),
+        request.groupId(),
+        tagIds,
+        request.tagMatch(),
         request.showRuntimeColumn(),
         request.showContextColumn(),
         request.showOperationColumn(),
@@ -216,6 +232,12 @@ public class EnvironmentSavedViewApplicationService {
                 entity.getSessionState() == null ? "" : entity.getSessionState().name(),
                 "searchQueryHash",
                 PromptSecurityService.sha256(entity.getSearchQuery()),
+                "groupId",
+                entity.getGroupId() == null ? "" : entity.getGroupId(),
+                "tagIds",
+                entity.getTagIds(),
+                "tagMatch",
+                entity.getTagMatch().name(),
                 "version",
                 entity.getVersion()),
             requestId));
@@ -230,12 +252,28 @@ public class EnvironmentSavedViewApplicationService {
         entity.getPrimaryView(),
         entity.getSessionState(),
         entity.getSearchQuery(),
+        entity.getGroupId(),
+        entity.getTagIds(),
+        entity.getTagMatch(),
         entity.isShowRuntimeColumn(),
         entity.isShowContextColumn(),
         entity.isShowOperationColumn(),
         entity.getCreatedAt(),
         entity.getUpdatedAt(),
         entity.getVersion());
+  }
+
+  private void validateFilterReferences(
+      String tenantId, String groupId, java.util.List<String> tagIds) {
+    groups.requireExists(tenantId, groupId);
+    tags.requireAllExist(tenantId, tagIds);
+  }
+
+  private static java.util.List<String> normalizeTagIds(java.util.List<String> requestedTagIds) {
+    if (requestedTagIds == null || requestedTagIds.isEmpty()) {
+      return java.util.List.of();
+    }
+    return requestedTagIds.stream().distinct().sorted().toList();
   }
 
   private static String newId(String prefix) {

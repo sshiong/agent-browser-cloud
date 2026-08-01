@@ -96,6 +96,10 @@ export function EnvironmentSavedViews({
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        aria-label="保存视图"
+        title={
+          exactMatch ? `当前视图：${exactMatch.name}` : '保存或应用环境视图'
+        }
         className={cn(
           'inline-flex h-10 items-center gap-2 rounded-[7px] border px-3 text-[12px] transition-colors',
           open || exactMatch
@@ -218,7 +222,7 @@ export function EnvironmentSavedViews({
                   尚未保存环境视图
                 </p>
                 <p className="mt-1 text-[10px] leading-4 text-text-muted">
-                  调整状态、搜索和列后保存；个人视图仅自己可见。
+                  调整状态、Group、Tags、搜索和列后保存；个人视图仅自己可见。
                 </p>
               </div>
             ) : (
@@ -380,6 +384,10 @@ function sameConfiguration(
     item.primaryView === current.primaryView &&
     (item.sessionState ?? undefined) === (current.sessionState ?? undefined) &&
     item.searchQuery === current.searchQuery &&
+    (item.groupId ?? undefined) === (current.groupId ?? undefined) &&
+    sameIds(item.tagIds, current.tagIds) &&
+    normalizedTagMatch(item.tagIds, item.tagMatch) ===
+      normalizedTagMatch(current.tagIds, current.tagMatch) &&
     item.showRuntimeColumn === current.showRuntimeColumn &&
     item.showContextColumn === current.showContextColumn &&
     item.showOperationColumn === current.showOperationColumn
@@ -397,7 +405,26 @@ function summary(item: EnvironmentSavedView) {
   return [
     item.scope,
     item.sessionState ?? item.primaryView,
+    item.groupId ? `GROUP ${item.groupId}` : null,
+    item.tagIds.length
+      ? `${item.tagIds.length} TAG${item.tagIds.length === 1 ? '' : 'S'} ${normalizedTagMatch(item.tagIds, item.tagMatch)}`
+      : null,
     item.searchQuery ? `“${item.searchQuery}”` : 'NO QUERY',
     columns || 'BASE COLUMNS',
-  ].join(' · ');
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function sameIds(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  const expected = [...right].sort();
+  return [...left].sort().every((value, index) => value === expected[index]);
+}
+
+function normalizedTagMatch(
+  tagIds: string[],
+  tagMatch: EnvironmentSavedViewConfiguration['tagMatch']
+) {
+  return tagIds.length > 1 && tagMatch === 'ALL' ? 'ALL' : 'ANY';
 }

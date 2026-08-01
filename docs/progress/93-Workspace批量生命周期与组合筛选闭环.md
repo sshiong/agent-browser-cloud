@@ -109,8 +109,9 @@ OpenAPI 同步声明选择器、动作、批量/Item 状态、风险确认、幂
 - Agent 大列表 N+1 与目标规模分页/批量容量证书；
 - 列表级 SSE/跨 Region Event Bus、慢客户端与 Ingress 长稳；
 - 目标 Linux 正式 Chromium 下的大批量并发、数据库连接池与热点 Tenant 长稳；
-- Environment Saved View v1 仍只持久主视图、状态、搜索和列配置；Group/Tag 组合条件
-  当前通过 URL 分享，尚未纳入 Saved View Schema；
+- Environment Saved View 的 Group/Tag 组合条件已由
+  [进度 94](94-Saved-View-Group-Tag筛选持久化闭环.md)纳入 V067 Schema、租户验证、
+  OpenAPI 和 Web/Tauri 保存/恢复流程，不再属于未完成项；
 - 批量归属/移除标签等管理类 Mutation 当前仍使用既有逐 Session API；本轮的“批量生命周期”
   特指 Start、Pause Agent、Migrate、Hibernate，不包含批量重写 Workspace 元数据；
 - OpenAPI TypeScript Client 自动生成与正式发布仍是独立缺口。

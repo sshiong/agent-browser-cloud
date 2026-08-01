@@ -14,6 +14,9 @@ const savedView = {
   primaryView: 'RUNNING' as const,
   sessionState: null,
   searchQuery: 'singapore',
+  groupId: 'grp_1234567890abcdef',
+  tagIds: ['tag_1234567890abcdef', 'tag_fedcba0987654321'],
+  tagMatch: 'ALL' as const,
   showRuntimeColumn: true,
   showContextColumn: false,
   showOperationColumn: true,
@@ -55,6 +58,9 @@ describe('Environment Saved View API', () => {
       primaryView: savedView.primaryView,
       sessionState: savedView.sessionState,
       searchQuery: savedView.searchQuery,
+      groupId: savedView.groupId,
+      tagIds: savedView.tagIds,
+      tagMatch: savedView.tagMatch,
       showRuntimeColumn: savedView.showRuntimeColumn,
       showContextColumn: savedView.showContextColumn,
       showOperationColumn: savedView.showOperationColumn,
@@ -87,6 +93,15 @@ describe('Environment Saved View API', () => {
         }),
       })
     );
+    expect(
+      JSON.parse(
+        (fetchMock.mock.calls[1]?.[1]?.body as string | undefined) ?? '{}'
+      )
+    ).toMatchObject({
+      groupId: savedView.groupId,
+      tagIds: savedView.tagIds,
+      tagMatch: 'ALL',
+    });
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       `/api/v1/environment-saved-views/${savedView.savedViewId}`,

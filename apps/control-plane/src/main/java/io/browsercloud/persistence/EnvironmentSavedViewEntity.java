@@ -2,6 +2,7 @@ package io.browsercloud.persistence;
 
 import io.browsercloud.api.EnvironmentSavedViewModels.EnvironmentPrimaryView;
 import io.browsercloud.api.EnvironmentSavedViewModels.SavedViewScope;
+import io.browsercloud.api.EnvironmentSavedViewModels.SavedViewTagMatch;
 import io.browsercloud.domain.session.SessionState;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,6 +10,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "environment_saved_views")
@@ -38,6 +42,16 @@ public class EnvironmentSavedViewEntity {
 
   @Column(name = "search_query", nullable = false)
   private String searchQuery;
+
+  @Column(name = "group_id")
+  private String groupId;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "tag_ids", nullable = false, columnDefinition = "jsonb")
+  private List<String> tagIds;
+
+  @Column(name = "tag_match", nullable = false)
+  private String tagMatch;
 
   @Column(name = "show_runtime_column", nullable = false)
   private boolean showRuntimeColumn;
@@ -69,6 +83,9 @@ public class EnvironmentSavedViewEntity {
       EnvironmentPrimaryView primaryView,
       SessionState sessionState,
       String searchQuery,
+      String groupId,
+      List<String> tagIds,
+      SavedViewTagMatch tagMatch,
       boolean showRuntimeColumn,
       boolean showContextColumn,
       boolean showOperationColumn,
@@ -83,6 +100,9 @@ public class EnvironmentSavedViewEntity {
         primaryView,
         sessionState,
         searchQuery,
+        groupId,
+        tagIds,
+        tagMatch,
         showRuntimeColumn,
         showContextColumn,
         showOperationColumn,
@@ -94,6 +114,9 @@ public class EnvironmentSavedViewEntity {
       EnvironmentPrimaryView primaryView,
       SessionState sessionState,
       String searchQuery,
+      String groupId,
+      List<String> tagIds,
+      SavedViewTagMatch tagMatch,
       boolean showRuntimeColumn,
       boolean showContextColumn,
       boolean showOperationColumn,
@@ -102,6 +125,12 @@ public class EnvironmentSavedViewEntity {
     this.primaryView = primaryView.name();
     this.sessionState = sessionState == null ? null : sessionState.name();
     this.searchQuery = searchQuery == null ? "" : searchQuery.strip();
+    this.groupId = groupId == null || groupId.isBlank() ? null : groupId;
+    this.tagIds = tagIds == null ? List.of() : List.copyOf(tagIds);
+    this.tagMatch =
+        this.tagIds.size() > 1 && tagMatch == SavedViewTagMatch.ALL
+            ? SavedViewTagMatch.ALL.name()
+            : SavedViewTagMatch.ANY.name();
     this.showRuntimeColumn = showRuntimeColumn;
     this.showContextColumn = showContextColumn;
     this.showOperationColumn = showOperationColumn;
@@ -138,6 +167,18 @@ public class EnvironmentSavedViewEntity {
 
   public String getSearchQuery() {
     return searchQuery;
+  }
+
+  public String getGroupId() {
+    return groupId;
+  }
+
+  public List<String> getTagIds() {
+    return List.copyOf(tagIds);
+  }
+
+  public SavedViewTagMatch getTagMatch() {
+    return SavedViewTagMatch.valueOf(tagMatch);
   }
 
   public boolean isShowRuntimeColumn() {

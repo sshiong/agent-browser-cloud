@@ -649,6 +649,33 @@ for invariant in (
         f"Environment Saved View migration lacks rolling invariant: {invariant}"
     )
 
+saved_view_filter_migration = read(
+    "database/migrations/V067__environment_saved_view_workspace_filters.sql"
+)
+saved_view_filter_upper = saved_view_filter_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE", "ALTER COLUMN"):
+    assert forbidden not in saved_view_filter_upper, (
+        f"Saved View filter migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "ADD COLUMN GROUP_ID TEXT",
+    "ADD COLUMN TAG_IDS JSONB NOT NULL DEFAULT '[]'::JSONB",
+    "ADD COLUMN TAG_MATCH TEXT NOT NULL DEFAULT 'ANY'",
+    "CREATE OR REPLACE FUNCTION IS_VALID_ENVIRONMENT_SAVED_VIEW_TAG_IDS",
+    "COUNT(*) = COUNT(DISTINCT VALUE)",
+    "IS_VALID_ENVIRONMENT_SAVED_VIEW_TAG_IDS(TAG_IDS)",
+    "TAG_MATCH IN ('ANY', 'ALL')",
+    "CREATE UNIQUE INDEX UQ_WORKSPACE_GROUPS_ID_TENANT_SAVED_VIEW",
+    "FOREIGN KEY (GROUP_ID, TENANT_ID)",
+    "REFERENCES WORKSPACE_GROUPS(GROUP_ID, TENANT_ID)",
+    "ON DELETE SET NULL (GROUP_ID)",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT FK_ENVIRONMENT_SAVED_VIEW_GROUP",
+):
+    assert invariant in saved_view_filter_upper, (
+        f"Saved View filter migration lacks rolling invariant: {invariant}"
+    )
+
 profile_import_migration = read(
     "database/migrations/V055__profile_checkpoint_imports.sql"
 )
@@ -1096,6 +1123,9 @@ assert "/api/v1/environment-saved-views/{savedViewId}:" in openapi
 assert "CreateEnvironmentSavedViewRequest:" in openapi
 assert "UpdateEnvironmentSavedViewRequest:" in openapi
 assert "EnvironmentSavedViewListResponse:" in openapi
+assert "EnvironmentSavedViewTagMatch:" in openapi
+assert "tagIds:" in openapi
+assert "tagMatch:" in openapi
 assert "/api/v1/environment-imports:preview:" in openapi
 assert "/api/v1/environment-imports/{importId}:commit:" in openapi
 assert "PreviewEnvironmentImportRequest:" in openapi
@@ -1219,9 +1249,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066 additive,V061 concurrent-trigram-index",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V067 additive,V061 concurrent-trigram-index",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,workspace-batch-operation-additive-endpoints",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,workspace-batch-operation-and-saved-view-filter-additive-contracts",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

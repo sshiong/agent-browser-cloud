@@ -1380,6 +1380,51 @@ temporary_tag="$(curl -fsS -X POST \
 temporary_tag_id="$(printf '%s' "$temporary_tag" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["tagId"])')"
 
+workspace_filter_saved_view_body="{\"name\":\"Workspace filter persistence\",\"scope\":\"PERSONAL\",\"primaryView\":\"ALL\",\"searchQuery\":\"integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${temporary_tag_id}\",\"${workspace_tag_id}\"],\"tagMatch\":\"ALL\",\"showRuntimeColumn\":true,\"showContextColumn\":true,\"showOperationColumn\":false}"
+workspace_filter_saved_view="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-workspace-filter-001' \
+  -d "$workspace_filter_saved_view_body")"
+workspace_filter_saved_view_id="$(printf '%s' "$workspace_filter_saved_view" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['tagIds'] == sorted(['${temporary_tag_id}','${workspace_tag_id}']); assert item['tagMatch'] == 'ALL'; assert item['showOperationColumn'] is False; print(item['savedViewId'])")"
+workspace_filter_saved_view_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-workspace-filter-001' \
+  -d "$workspace_filter_saved_view_body")"
+printf '%s' "$workspace_filter_saved_view_replay" | python3 -c \
+  "import json,sys; assert json.load(sys.stdin)['savedViewId'] == '${workspace_filter_saved_view_id}'"
+cross_tenant_saved_filter_status="$(curl -sS \
+  -o "$temp_dir/cross-tenant-saved-filter.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/environment-saved-views" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: different-tenant' \
+  -H 'X-Actor-Id: saved-view-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-saved-view-cross-tenant-filter-001' \
+  -d "$workspace_filter_saved_view_body")"
+test "$cross_tenant_saved_filter_status" = "404"
+workspace_filter_saved_view_db="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select group_id || ':' || tag_match || ':' || jsonb_array_length(tag_ids)
+     from environment_saved_views
+    where tenant_id='tenant-integration'
+      and saved_view_id='${workspace_filter_saved_view_id}'")"
+test "$workspace_filter_saved_view_db" = "${workspace_group_id}:ALL:2"
+if docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "update environment_saved_views
+      set tenant_id='different-tenant'
+    where saved_view_id='${workspace_filter_saved_view_id}';" >/dev/null 2>&1; then
+  echo "cross-tenant Saved View Group reference unexpectedly succeeded" >&2
+  exit 1
+fi
+
 proxy_binding_body='{"name":"Integration managed exit","description":"Immutable Session binding snapshot","providerId":"static-local","region":"local","expectedExitIp":"203.0.113.10","credentialRef":"vault://tenant-integration/proxy/primary","enabled":true}'
 proxy_binding="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/proxy-bindings" \

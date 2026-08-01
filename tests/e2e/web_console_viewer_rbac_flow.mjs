@@ -42,7 +42,7 @@ try {
   await expect(page.getByRole("link", { name: "Browser Node" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "扩展与应用" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "企业运营" })).toHaveCount(0);
-  await page.getByRole("button", { name: /E2E Workspace View/ }).click();
+  await page.getByRole("button", { name: "保存视图" }).click();
   const savedViewsPanel = page.getByRole("region", {
     name: "环境 Saved Views",
   });

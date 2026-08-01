@@ -77,12 +77,22 @@ function applySavedView(
     context: savedView.showContextColumn,
     operation: savedView.showOperationColumn,
   });
-  controls.setShowAdvanced(Boolean(savedView.sessionState));
+  controls.setShowAdvanced(
+    Boolean(
+      savedView.sessionState || savedView.groupId || savedView.tagIds.length
+    )
+  );
   controls.setShowColumns(false);
   controls.updateParams({
     view: nextView === 'all' ? undefined : nextView,
     state: savedView.sessionState ?? undefined,
     q: savedView.searchQuery || undefined,
+    groupId: savedView.groupId ?? undefined,
+    tags: savedView.tagIds.length ? savedView.tagIds.join(',') : undefined,
+    tagMatch:
+      savedView.tagIds.length > 1 && savedView.tagMatch === 'ALL'
+        ? 'ALL'
+        : undefined,
     page: undefined,
   });
 }
@@ -327,6 +337,9 @@ export function EnvironmentsPage() {
                   primaryView: view.toUpperCase() as EnvironmentPrimaryView,
                   sessionState: exactState,
                   searchQuery: search,
+                  groupId: groupId ?? null,
+                  tagIds,
+                  tagMatch,
                   showRuntimeColumn: optionalColumns.runtime,
                   showContextColumn: optionalColumns.context,
                   showOperationColumn: optionalColumns.operation,

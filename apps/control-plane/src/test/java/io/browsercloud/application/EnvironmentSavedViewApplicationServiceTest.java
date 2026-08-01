@@ -3,6 +3,8 @@ package io.browsercloud.application;
 import static io.browsercloud.api.EnvironmentSavedViewModels.EnvironmentPrimaryView.RUNNING;
 import static io.browsercloud.api.EnvironmentSavedViewModels.SavedViewScope.PERSONAL;
 import static io.browsercloud.api.EnvironmentSavedViewModels.SavedViewScope.WORKSPACE;
+import static io.browsercloud.api.EnvironmentSavedViewModels.SavedViewTagMatch.ALL;
+import static io.browsercloud.api.EnvironmentSavedViewModels.SavedViewTagMatch.ANY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,6 +19,7 @@ import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.EnvironmentSavedViewEntity;
 import io.browsercloud.persistence.EnvironmentSavedViewJpaRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,12 +36,14 @@ class EnvironmentSavedViewApplicationServiceTest {
   @Mock private EnvironmentSavedViewJpaRepository views;
   @Mock private IdempotencyService idempotency;
   @Mock private AuditApplicationService audit;
+  @Mock private WorkspaceGroupApplicationService groups;
+  @Mock private WorkspaceTagApplicationService tags;
 
   private EnvironmentSavedViewApplicationService service;
 
   @BeforeEach
   void setUp() {
-    service = new EnvironmentSavedViewApplicationService(views, idempotency, audit);
+    service = new EnvironmentSavedViewApplicationService(views, idempotency, audit, groups, tags);
   }
 
   @Test
@@ -50,6 +55,9 @@ class EnvironmentSavedViewApplicationServiceTest {
             RUNNING,
             SessionState.RUNNING,
             "  singapore  ",
+            "grp_1234567890abcdef",
+            List.of("tag_fedcba0987654321", "tag_1234567890abcdef"),
+            ALL,
             true,
             false,
             true);
@@ -67,7 +75,13 @@ class EnvironmentSavedViewApplicationServiceTest {
     assertThat(result.name()).isEqualTo("Running CRM");
     assertThat(result.searchQuery()).isEqualTo("singapore");
     assertThat(result.scope()).isEqualTo(PERSONAL);
+    assertThat(result.groupId()).isEqualTo("grp_1234567890abcdef");
+    assertThat(result.tagIds()).containsExactly("tag_1234567890abcdef", "tag_fedcba0987654321");
+    assertThat(result.tagMatch()).isEqualTo(ALL);
     assertThat(result.showContextColumn()).isFalse();
+    verify(groups).requireExists("tenant-a", "grp_1234567890abcdef");
+    verify(tags)
+        .requireAllExist("tenant-a", List.of("tag_1234567890abcdef", "tag_fedcba0987654321"));
     verify(audit).append(any());
   }
 
@@ -75,7 +89,7 @@ class EnvironmentSavedViewApplicationServiceTest {
   void requiresAdministratorForWorkspaceScope() {
     var request =
         new CreateEnvironmentSavedViewRequest(
-            "Operations", WORKSPACE, RUNNING, null, "", true, true, true);
+            "Operations", WORKSPACE, RUNNING, null, "", null, List.of(), ANY, true, true, true);
 
     assertThatThrownBy(
             () ->
@@ -95,7 +109,8 @@ class EnvironmentSavedViewApplicationServiceTest {
         personalView(
             "svw_1234567890abcdef", "tenant-a", "owner-a", Instant.parse("2026-07-30T00:00:00Z"));
     var request =
-        new UpdateEnvironmentSavedViewRequest(0, "Updated", RUNNING, null, "", true, true, true);
+        new UpdateEnvironmentSavedViewRequest(
+            0, "Updated", RUNNING, null, "", null, List.of(), ANY, true, true, true);
     when(idempotency.claimEnvironmentSavedViewMutation(
             eq("tenant-a"),
             eq(entity.getSavedViewId()),
@@ -128,7 +143,8 @@ class EnvironmentSavedViewApplicationServiceTest {
         personalView(
             "svw_1234567890abcdef", "tenant-a", "owner-a", Instant.parse("2026-07-30T00:00:00Z"));
     var request =
-        new UpdateEnvironmentSavedViewRequest(1, "Updated", RUNNING, null, "", true, true, true);
+        new UpdateEnvironmentSavedViewRequest(
+            1, "Updated", RUNNING, null, "", null, List.of(), ANY, true, true, true);
     when(idempotency.claimEnvironmentSavedViewMutation(
             eq("tenant-a"),
             eq(entity.getSavedViewId()),
@@ -162,7 +178,8 @@ class EnvironmentSavedViewApplicationServiceTest {
         personalView(
             "svw_1234567890abcdef", "tenant-a", "owner-a", Instant.parse("2026-07-30T00:00:00Z"));
     var request =
-        new UpdateEnvironmentSavedViewRequest(0, "Updated", RUNNING, null, "", true, true, true);
+        new UpdateEnvironmentSavedViewRequest(
+            0, "Updated", RUNNING, null, "", null, List.of(), ANY, true, true, true);
     when(idempotency.claimEnvironmentSavedViewMutation(
             eq("tenant-a"),
             eq(entity.getSavedViewId()),
@@ -195,6 +212,7 @@ class EnvironmentSavedViewApplicationServiceTest {
   private static EnvironmentSavedViewEntity personalView(
       String id, String tenantId, String owner, Instant now) {
     return new EnvironmentSavedViewEntity(
-        id, tenantId, owner, PERSONAL, "Saved", RUNNING, null, "", true, true, true, now);
+        id, tenantId, owner, PERSONAL, "Saved", RUNNING, null, "", null, List.of(), ANY, true, true,
+        true, now);
   }
 }

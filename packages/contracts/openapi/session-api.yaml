@@ -7241,6 +7241,9 @@ components:
     EnvironmentPrimaryView:
       type: string
       enum: [ALL, RUNNING, STOPPED, ABNORMAL]
+    EnvironmentSavedViewTagMatch:
+      type: string
+      enum: [ANY, ALL]
     CreateEnvironmentSavedViewRequest:
       type: object
       additionalProperties: false
@@ -7268,6 +7271,23 @@ components:
           type: string
           maxLength: 128
           default: ""
+        groupId:
+          oneOf:
+            - type: string
+              pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+            - type: "null"
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          default: []
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        tagMatch:
+          allOf:
+            - $ref: "#/components/schemas/EnvironmentSavedViewTagMatch"
+          default: ANY
         showRuntimeColumn:
           type: boolean
         showContextColumn:
@@ -7303,6 +7323,23 @@ components:
           type: string
           maxLength: 128
           default: ""
+        groupId:
+          oneOf:
+            - type: string
+              pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+            - type: "null"
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          default: []
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        tagMatch:
+          allOf:
+            - $ref: "#/components/schemas/EnvironmentSavedViewTagMatch"
+          default: ANY
         showRuntimeColumn:
           type: boolean
         showContextColumn:
@@ -7320,6 +7357,9 @@ components:
         - primaryView
         - sessionState
         - searchQuery
+        - groupId
+        - tagIds
+        - tagMatch
         - showRuntimeColumn
         - showContextColumn
         - showOperationColumn
@@ -7344,6 +7384,20 @@ components:
             - type: "null"
         searchQuery:
           type: string
+        groupId:
+          oneOf:
+            - type: string
+              pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+            - type: "null"
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        tagMatch:
+          $ref: "#/components/schemas/EnvironmentSavedViewTagMatch"
         showRuntimeColumn:
           type: boolean
         showContextColumn:

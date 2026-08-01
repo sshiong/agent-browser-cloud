@@ -1151,6 +1151,62 @@ try {
   await expect(page.getByText(startName, { exact: true })).toBeVisible();
   await expect(page.getByText(terminateName, { exact: true })).toHaveCount(0);
 
+  const filterSavedViewName = `E2E Group Tag View ${runSuffix}`;
+  await page.getByRole("button", { name: "保存视图" }).click();
+  const filterSavedViewsPanel = page.getByRole("region", {
+    name: "环境 Saved Views",
+  });
+  await filterSavedViewsPanel
+    .getByPlaceholder("视图名称，例如：新加坡运行环境")
+    .fill(filterSavedViewName);
+  const filterSavedViewResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/environment-saved-views") &&
+      response.request().method() === "POST",
+  );
+  await filterSavedViewsPanel.getByRole("button", { name: "保存" }).click();
+  const filterSavedViewResponse = await filterSavedViewResponsePromise;
+  if (filterSavedViewResponse.status() !== 201) {
+    throw new Error(
+      `Group/Tag Saved View failed: ${await filterSavedViewResponse.text()}`,
+    );
+  }
+  const filterSavedViewRequest = filterSavedViewResponse.request().postDataJSON();
+  if (
+    filterSavedViewRequest.groupId !== batchGroupId ||
+    filterSavedViewRequest.tagMatch !== "ANY" ||
+    JSON.stringify(filterSavedViewRequest.tagIds) !== JSON.stringify([batchTagId])
+  ) {
+    throw new Error(
+      `Group/Tag Saved View request lost filters: ${JSON.stringify(filterSavedViewRequest)}`,
+    );
+  }
+  await expect(
+    filterSavedViewsPanel.getByText(filterSavedViewName, { exact: true }),
+  ).toBeVisible();
+  await filterSavedViewsPanel
+    .getByRole("button", { name: "关闭 Saved Views" })
+    .click();
+  await page.getByRole("button", { name: "清除筛选" }).click();
+  await expect(page.getByText(terminateName, { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "保存视图" }).click();
+  const restoredFilterUrlPromise = page.waitForURL(
+    (url) =>
+      url.searchParams.get("groupId") === batchGroupId &&
+      url.searchParams.get("tags") === batchTagId,
+  );
+  await filterSavedViewsPanel
+    .getByText(filterSavedViewName, { exact: true })
+    .click();
+  await restoredFilterUrlPromise;
+  await expect(page.getByText(startName, { exact: true })).toBeVisible();
+  await expect(page.getByText(terminateName, { exact: true })).toHaveCount(0);
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-saved-view-filters.png"),
+    fullPage: true,
+  });
+
   await page.goto(`${baseUrl}/groups`);
   await expect(page.getByRole("heading", { name: batchGroupName })).toBeVisible();
   const batchGroupCard = page

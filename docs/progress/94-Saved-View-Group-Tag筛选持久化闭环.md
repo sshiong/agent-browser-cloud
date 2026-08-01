@@ -85,7 +85,8 @@ Environment Saved View 已能持久保存并恢复 Workspace Group、最多 16 �
 
 ## 仍未完成
 
-- Group/Tag 批量归属、批量移除等 Workspace 元数据 Mutation；
+- Group/Tag 批量归属、批量移除等 Workspace 元数据 Mutation 后续已由
+  [进度 95](95-Workspace批量元数据Mutation闭环.md)关闭；
 - Agent 大列表 N+1 和目标规模容量证书；
 - OpenAPI TypeScript Client 自动生成与正式发布；
 - 列表级 SSE、跨 Region Event Bus 及目标环境长稳。

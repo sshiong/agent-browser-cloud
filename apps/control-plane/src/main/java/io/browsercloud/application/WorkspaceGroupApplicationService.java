@@ -235,6 +235,56 @@ public class WorkspaceGroupApplicationService {
     return toView(group);
   }
 
+  @Transactional
+  public void assignForMetadataBatch(
+      String tenantId,
+      String actorId,
+      String groupId,
+      String sessionId,
+      String batchOperationId,
+      String requestId) {
+    require(groupId, tenantId);
+    var session = requireSession(sessionId, tenantId);
+    if (groupId.equals(session.getGroupId())) {
+      return;
+    }
+    session.setGroupId(groupId);
+    session.setUpdatedAt(Instant.now());
+    sessions.save(session);
+    appendAudit(
+        tenantId,
+        actorId,
+        groupId,
+        "SESSION_GROUP_ASSIGNED_BY_BATCH",
+        requestId,
+        Map.of("sessionId", sessionId, "batchOperationId", batchOperationId));
+  }
+
+  @Transactional
+  public void unassignForMetadataBatch(
+      String tenantId,
+      String actorId,
+      String groupId,
+      String sessionId,
+      String batchOperationId,
+      String requestId) {
+    require(groupId, tenantId);
+    var session = requireSession(sessionId, tenantId);
+    if (!groupId.equals(session.getGroupId())) {
+      throw new WorkspaceGroupRejectedException("SESSION_IS_NOT_ASSIGNED_TO_GROUP");
+    }
+    session.setGroupId(null);
+    session.setUpdatedAt(Instant.now());
+    sessions.save(session);
+    appendAudit(
+        tenantId,
+        actorId,
+        groupId,
+        "SESSION_GROUP_UNASSIGNED_BY_BATCH",
+        requestId,
+        Map.of("sessionId", sessionId, "batchOperationId", batchOperationId));
+  }
+
   @Transactional(readOnly = true)
   public ResourcePolicyRequest resolvePolicy(
       String tenantId, String groupId, ResourcePolicyRequest explicitPolicy) {

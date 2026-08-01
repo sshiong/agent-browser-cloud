@@ -232,6 +232,54 @@ public class WorkspaceTagApplicationService {
   }
 
   @Transactional
+  public void assignForMetadataBatch(
+      String tenantId,
+      String actorId,
+      String tagId,
+      String sessionId,
+      String batchOperationId,
+      String requestId) {
+    require(tagId, tenantId);
+    requireSession(sessionId, tenantId);
+    if (assignments.insertIfAbsent(
+            newId("sta_"), tenantId, sessionId, tagId, actorId, Instant.now())
+        == 1) {
+      appendAudit(
+          tenantId,
+          actorId,
+          tagId,
+          "SESSION_TAG_ASSIGNED_BY_BATCH",
+          requestId,
+          Map.of("sessionId", sessionId, "batchOperationId", batchOperationId));
+    }
+  }
+
+  @Transactional
+  public void unassignForMetadataBatch(
+      String tenantId,
+      String actorId,
+      String tagId,
+      String sessionId,
+      String batchOperationId,
+      String requestId) {
+    require(tagId, tenantId);
+    requireSession(sessionId, tenantId);
+    assignments
+        .findByTenantIdAndTagIdAndSessionId(tenantId, tagId, sessionId)
+        .ifPresent(
+            assignment -> {
+              assignments.delete(assignment);
+              appendAudit(
+                  tenantId,
+                  actorId,
+                  tagId,
+                  "SESSION_TAG_UNASSIGNED_BY_BATCH",
+                  requestId,
+                  Map.of("sessionId", sessionId, "batchOperationId", batchOperationId));
+            });
+  }
+
+  @Transactional
   public void assignInitial(
       String tenantId,
       String actorId,

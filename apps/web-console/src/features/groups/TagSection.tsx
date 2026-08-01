@@ -8,6 +8,7 @@ import {
 } from '@/components/feedback/AsyncStates';
 import { TagEditorDialog } from './TagEditorDialog';
 import { WorkspaceBatchActions } from './WorkspaceBatchActions';
+import { WorkspaceMetadataBatchActions } from './WorkspaceMetadataBatchActions';
 import {
   useAssignSessionToTag,
   useDeleteWorkspaceTag,
@@ -282,6 +283,16 @@ function TagCard({
             tagMatch: 'ANY',
             sessionIds: [],
           }}
+        />
+      )}
+
+      {canOperate && (tag.sessions.length > 0 || available.length > 0) && (
+        <WorkspaceMetadataBatchActions
+          targetType="TAG"
+          targetId={tag.tagId}
+          targetName={tag.name}
+          assignedSessions={tag.sessions}
+          availableSessions={available}
         />
       )}
 

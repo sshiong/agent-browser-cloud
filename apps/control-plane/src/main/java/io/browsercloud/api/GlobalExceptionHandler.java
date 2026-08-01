@@ -66,6 +66,8 @@ import io.browsercloud.application.WorkspaceBatchOperationApplicationService.Wor
 import io.browsercloud.application.WorkspaceBatchOperationApplicationService.WorkspaceBatchOperationRejectedException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupNotFoundException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupRejectedException;
+import io.browsercloud.application.WorkspaceMetadataBatchOperationApplicationService.WorkspaceMetadataBatchOperationNotFoundException;
+import io.browsercloud.application.WorkspaceMetadataBatchOperationApplicationService.WorkspaceMetadataBatchOperationRejectedException;
 import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagNotFoundException;
 import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagRejectedException;
 import io.browsercloud.coordinator.SessionCoordinator.CoordinatorShardNotLocalException;
@@ -218,6 +220,28 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "WORKSPACE_BATCH_OPERATION_REJECTED",
         "Workspace Batch Operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(WorkspaceMetadataBatchOperationNotFoundException.class)
+  ResponseEntity<ApiError> workspaceMetadataBatchOperationNotFound(
+      WorkspaceMetadataBatchOperationNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "WORKSPACE_METADATA_BATCH_OPERATION_NOT_FOUND",
+        "Workspace Metadata Batch Operation not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(WorkspaceMetadataBatchOperationRejectedException.class)
+  ResponseEntity<ApiError> workspaceMetadataBatchOperationRejected(
+      WorkspaceMetadataBatchOperationRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "WORKSPACE_METADATA_BATCH_OPERATION_REJECTED",
+        "Workspace Metadata Batch Operation was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

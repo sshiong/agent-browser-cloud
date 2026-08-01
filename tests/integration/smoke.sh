@@ -1704,6 +1704,178 @@ curl -fsS -X POST \
   -H 'X-Actor-Id: batch-operator' \
   -H 'X-Roles: TENANT_OPERATOR' >/dev/null
 
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/profiles" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"profileId":"profile-metadata-batch","name":"Metadata batch profile"}' \
+  >"$temp_dir/metadata-batch-profile.json"
+metadata_batch_group="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/groups" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-metadata-batch-group-001' \
+  -d '{"name":"Metadata Batch Group","description":"Durable batch membership coverage","color":"#35D6BE","defaultOnMaximumReached":"PAUSE_AGENT","defaultAllowMigration":true,"defaultAllowHibernate":true}')"
+metadata_batch_group_id="$(printf '%s' "$metadata_batch_group" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["groupId"])')"
+metadata_batch_tag="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/tags" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: smoke-metadata-batch-tag-001' \
+  -d '{"name":"Metadata Batch Tag","description":"Durable tag assignment coverage","color":"#A78BFA"}')"
+metadata_batch_tag_id="$(printf '%s' "$metadata_batch_tag" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["tagId"])')"
+metadata_batch_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-metadata-batch-session-001' \
+  -d '{"tenantId":"tenant-metadata-batch-integration","profileId":"profile-metadata-batch","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"metadata":{"displayName":"Metadata batch probe"}}')"
+metadata_batch_session_id="$(printf '%s' "$metadata_batch_session" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+
+metadata_batch_operation_ids=()
+for metadata_action in ASSIGN_GROUP ASSIGN_TAGS REMOVE_TAGS REMOVE_GROUP; do
+  metadata_action_key="$(printf '%s' "$metadata_action" | tr '[:upper:]' '[:lower:]' | tr '_' '-')"
+  if [[ "$metadata_action" = "ASSIGN_GROUP" || "$metadata_action" = "REMOVE_GROUP" ]]; then
+    metadata_target="{\"groupId\":\"${metadata_batch_group_id}\",\"tagIds\":[]}"
+  else
+    metadata_target="{\"groupId\":null,\"tagIds\":[\"${metadata_batch_tag_id}\"]}"
+  fi
+  metadata_batch_request="{\"action\":\"${metadata_action}\",\"selector\":{\"groupId\":null,\"tagIds\":[],\"tagMatch\":\"ANY\",\"sessionIds\":[\"${metadata_batch_session_id}\"]},\"target\":${metadata_target},\"reason\":\"Integration coverage for ${metadata_action}\",\"confirmed\":true}"
+  metadata_batch_operation="$(curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+    -H 'X-Actor-Id: metadata-batch-operator' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: smoke-metadata-batch-${metadata_action_key}-001" \
+    -d "$metadata_batch_request")"
+  metadata_batch_operation_id="$(printf '%s' "$metadata_batch_operation" | python3 -c \
+    "import json,sys; item=json.load(sys.stdin); assert item['action'] == '${metadata_action}'; assert item['total'] == 1; print(item['batchOperationId'])")"
+  metadata_batch_operation_ids+=("$metadata_batch_operation_id")
+  if [[ "$metadata_action" = "ASSIGN_GROUP" ]]; then
+    metadata_batch_replay="$(curl -fsS -X POST \
+      "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations" \
+      -H 'Content-Type: application/json' \
+      -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+      -H 'X-Actor-Id: metadata-batch-operator' \
+      -H 'X-Roles: TENANT_OPERATOR' \
+      -H "Idempotency-Key: smoke-metadata-batch-${metadata_action_key}-001" \
+      -d "$metadata_batch_request")"
+    printf '%s' "$metadata_batch_replay" | python3 -c \
+      "import json,sys; assert json.load(sys.stdin)['batchOperationId'] == '${metadata_batch_operation_id}'"
+  fi
+  metadata_batch_state=""
+  for _ in $(seq 1 80); do
+    metadata_batch_operation="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations/${metadata_batch_operation_id}" \
+      -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+      -H 'X-Roles: TENANT_OPERATOR')"
+    metadata_batch_state="$(printf '%s' "$metadata_batch_operation" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["state"])')"
+    if [[ "$metadata_batch_state" = "SUCCEEDED" ]]; then break; fi
+    sleep 0.25
+  done
+  test "$metadata_batch_state" = "SUCCEEDED"
+  printf '%s' "$metadata_batch_operation" | python3 -c \
+    "import json,sys; item=json.load(sys.stdin); assert item['succeeded'] == 1; assert item['failed'] == 0; assert item['items'][0]['sessionId'] == '${metadata_batch_session_id}'; assert item['items'][0]['attempt'] >= 1"
+  metadata_assignment_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select coalesce((select group_id from sessions where id='${metadata_batch_session_id}'), '-') || ':' ||
+            (select count(*) from session_tag_assignments where session_id='${metadata_batch_session_id}' and tag_id='${metadata_batch_tag_id}')")"
+  case "$metadata_action" in
+    ASSIGN_GROUP) test "$metadata_assignment_summary" = "${metadata_batch_group_id}:0" ;;
+    ASSIGN_TAGS) test "$metadata_assignment_summary" = "${metadata_batch_group_id}:1" ;;
+    REMOVE_TAGS) test "$metadata_assignment_summary" = "${metadata_batch_group_id}:0" ;;
+    REMOVE_GROUP) test "$metadata_assignment_summary" = "-:0" ;;
+  esac
+done
+
+metadata_batch_list="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations?limit=10" \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+printf '%s' "$metadata_batch_list" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 4; assert len(result["items"]) == 4; assert all(item["state"] == "SUCCEEDED" for item in result["items"])'
+metadata_batch_viewer_write_status="$(curl -sS \
+  -o "$temp_dir/metadata-batch-viewer-write.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -H 'Idempotency-Key: smoke-metadata-batch-viewer-001' \
+  -d "{\"action\":\"ASSIGN_GROUP\",\"selector\":{\"sessionIds\":[\"${metadata_batch_session_id}\"]},\"target\":{\"groupId\":\"${metadata_batch_group_id}\",\"tagIds\":[]},\"reason\":\"Viewer cannot mutate metadata\",\"confirmed\":true}")"
+test "$metadata_batch_viewer_write_status" = "403"
+metadata_batch_cross_tenant_status="$(curl -sS \
+  -o "$temp_dir/metadata-batch-cross-tenant.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: different-tenant' \
+  -H 'X-Actor-Id: metadata-batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-metadata-batch-cross-tenant-001' \
+  -d "{\"action\":\"ASSIGN_GROUP\",\"selector\":{\"sessionIds\":[\"${metadata_batch_session_id}\"]},\"target\":{\"groupId\":\"${metadata_batch_group_id}\",\"tagIds\":[]},\"reason\":\"Cross tenant reference is rejected\",\"confirmed\":true}")"
+test "$metadata_batch_cross_tenant_status" = "404"
+metadata_batch_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select (select count(*) from workspace_metadata_batch_operations where tenant_id='tenant-metadata-batch-integration') || ':' ||
+          (select count(*) from workspace_metadata_batch_operation_items where tenant_id='tenant-metadata-batch-integration' and state='SUCCEEDED') || ':' ||
+          (select count(*) from audit_events where tenant_id='tenant-metadata-batch-integration' and event_type='WORKSPACE_METADATA_BATCH_ACCEPTED')")"
+test "$metadata_batch_db_summary" = "4:4:4"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "insert into workspace_metadata_batch_operations (
+      batch_operation_id, tenant_id, actor_id, action, selector, target_group_id,
+      target_tag_ids, reason, request_hash, idempotency_key, deadline_at, created_at, updated_at
+   ) values (
+      'mbop_cancel1234567890', 'tenant-metadata-batch-integration',
+      'metadata-batch-operator', 'ASSIGN_GROUP',
+      '{\"groupId\":null,\"tagIds\":[],\"tagMatch\":\"ANY\",\"sessionIds\":[\"${metadata_batch_session_id}\"]}'::jsonb,
+      '${metadata_batch_group_id}', '[]'::jsonb, 'Cancellation integration fixture',
+      repeat('a', 64), 'smoke-metadata-batch-cancel-fixture-001',
+      now() + interval '15 minutes', now(), now()
+   );
+   insert into workspace_metadata_batch_operation_items (
+      batch_item_id, batch_operation_id, tenant_id, session_id, ordinal,
+      state, attempt, next_attempt_at, created_at
+   ) values (
+      'mbopi_cancel1234567890', 'mbop_cancel1234567890',
+      'tenant-metadata-batch-integration', '${metadata_batch_session_id}', 0,
+      'ACCEPTED', 0, now() + interval '1 hour', now()
+   );" >/dev/null
+metadata_batch_cancel="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations/mbop_cancel1234567890:cancel" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-metadata-batch-cancel-001' \
+  -d '{"reason":"Cancel the pending integration fixture"}')"
+printf '%s' "$metadata_batch_cancel" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "CANCELLED"; assert item["cancellationRequested"] is True; assert item["cancelled"] == 1; assert item["items"][0]["failureCode"] == "METADATA_BATCH_CANCELLED"'
+metadata_batch_cancel_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/workspace-metadata-batch-operations/mbop_cancel1234567890:cancel" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-metadata-batch-cancel-001' \
+  -d '{"reason":"Cancel the pending integration fixture"}')"
+printf '%s' "$metadata_batch_cancel_replay" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["batchOperationId"] == "mbop_cancel1234567890"; assert item["state"] == "CANCELLED"'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${metadata_batch_session_id}:terminate" \
+  -H 'X-Tenant-Id: tenant-metadata-batch-integration' \
+  -H 'X-Actor-Id: metadata-batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' >/dev/null
+
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: different-tenant')"

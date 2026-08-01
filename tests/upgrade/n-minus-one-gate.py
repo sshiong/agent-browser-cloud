@@ -1214,6 +1214,38 @@ for invariant in (
 ):
     assert invariant in workspace_batch_upper
 
+workspace_metadata_batch_migration = read(
+    "database/migrations/V068__workspace_metadata_batch_operations.sql"
+)
+workspace_metadata_batch_upper = workspace_metadata_batch_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN", "DROP TABLE"):
+    assert forbidden not in workspace_metadata_batch_upper
+for invariant in (
+    "CREATE TABLE WORKSPACE_METADATA_BATCH_OPERATIONS",
+    "CREATE TABLE WORKSPACE_METADATA_BATCH_OPERATION_ITEMS",
+    "'ASSIGN_GROUP', 'REMOVE_GROUP', 'ASSIGN_TAGS', 'REMOVE_TAGS'",
+    "UNIQUE (TENANT_ID, IDEMPOTENCY_KEY)",
+    "FOREIGN KEY (BATCH_OPERATION_ID, TENANT_ID)",
+    "FOREIGN KEY (SESSION_ID, TENANT_ID)",
+    "REFERENCES SESSIONS(ID, TENANT_ID)",
+    "STATE IN ('ACCEPTED', 'EXECUTING', 'SUCCEEDED', 'FAILED', 'CANCELLED')",
+    "ATTEMPT BETWEEN 0 AND 3",
+    "CANCELLATION_REQUEST_HASH",
+    "CANCELLATION_IDEMPOTENCY_KEY",
+    "CREATE INDEX IDX_WORKSPACE_METADATA_BATCH_ITEMS_CLAIM",
+):
+    assert invariant in workspace_metadata_batch_upper
+
+for metadata_batch_contract in (
+    "/api/v1/workspace-metadata-batch-operations:",
+    "/api/v1/workspace-metadata-batch-operations/{batchOperationId}:",
+    "/api/v1/workspace-metadata-batch-operations/{batchOperationId}:cancel:",
+    "CreateWorkspaceMetadataBatchOperationRequest:",
+    "WorkspaceMetadataBatchOperation:",
+    "WorkspaceMetadataBatchOperationListResponse:",
+):
+    assert metadata_batch_contract in openapi
+
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
 )[1].split("    RecoveryContract:", 1)[0]
@@ -1249,10 +1281,10 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V067 additive,V061 concurrent-trigram-index",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068 additive,V061 concurrent-trigram-index",
     "protobuf": "unknown-fields-13-16,optional-28-38,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,workspace-batch-operation-and-saved-view-filter-additive-contracts",
-    "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,workspace-batch-operation-saved-view-filter-and-metadata-batch-additive-contracts",
+    "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
 print(

@@ -3550,6 +3550,117 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/workspace-metadata-batch-operations:
+    get:
+      operationId: listWorkspaceMetadataBatchOperations
+      summary: List recent tenant Group/Tag membership batches
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Authoritative PostgreSQL aggregate and per-Session execution state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMetadataBatchOperationListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createWorkspaceMetadataBatchOperation
+      summary: Submit a bounded Group or Tag membership mutation batch
+      description: >
+        Resolves no more than 100 tenant Sessions, persists one crash-recoverable item per
+        Session, and executes each assignment with a PostgreSQL lease. A reason and explicit
+        confirmation are mandatory. The request never mutates browser nodes.
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceMetadataBatchOperationRequest"
+      responses:
+        "202":
+          description: Metadata batch accepted into the durable worker ledger.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMetadataBatchOperation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/workspace-metadata-batch-operations/{batchOperationId}:
+    get:
+      operationId: getWorkspaceMetadataBatchOperation
+      summary: Read authoritative Group/Tag membership batch progress
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - name: batchOperationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^mbop_[a-zA-Z0-9]{16,32}$"
+      responses:
+        "200":
+          description: Current aggregate and per-Session mutation state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMetadataBatchOperation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/workspace-metadata-batch-operations/{batchOperationId}:cancel:
+    post:
+      operationId: cancelWorkspaceMetadataBatchOperation
+      summary: Cancel Group/Tag mutation items that have not started
+      description: Executing items finish atomically; only ACCEPTED items become CANCELLED.
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - name: batchOperationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^mbop_[a-zA-Z0-9]{16,32}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelWorkspaceBatchOperationRequest"
+      responses:
+        "200":
+          description: Cancellation recorded and pending items cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMetadataBatchOperation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/workspace-settings:
     get:
       operationId: getWorkspaceSettings
@@ -8050,6 +8161,180 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkspaceBatchOperation"
+        total:
+          type: integer
+          minimum: 0
+    WorkspaceMetadataBatchAction:
+      type: string
+      enum: [ASSIGN_GROUP, REMOVE_GROUP, ASSIGN_TAGS, REMOVE_TAGS]
+    WorkspaceMetadataBatchSelector:
+      type: object
+      additionalProperties: false
+      required: [tagIds, tagMatch, sessionIds]
+      properties:
+        groupId:
+          type: [string, "null"]
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        tagMatch:
+          type: string
+          enum: [ANY, ALL]
+        sessionIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^ses_[a-zA-Z0-9]{16,}$"
+    WorkspaceMetadataBatchTarget:
+      type: object
+      additionalProperties: false
+      required: [tagIds]
+      properties:
+        groupId:
+          type: [string, "null"]
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+    CreateWorkspaceMetadataBatchOperationRequest:
+      type: object
+      additionalProperties: false
+      required: [action, selector, target, reason, confirmed]
+      properties:
+        action:
+          $ref: "#/components/schemas/WorkspaceMetadataBatchAction"
+        selector:
+          $ref: "#/components/schemas/WorkspaceMetadataBatchSelector"
+        target:
+          $ref: "#/components/schemas/WorkspaceMetadataBatchTarget"
+        reason:
+          type: string
+          minLength: 8
+          maxLength: 240
+        confirmed:
+          type: boolean
+    WorkspaceMetadataBatchOperationItem:
+      type: object
+      additionalProperties: false
+      required:
+        [batchItemId, sessionId, ordinal, state, attempt, createdAt]
+      properties:
+        batchItemId:
+          type: string
+          pattern: "^mbopi_[a-zA-Z0-9]{16,32}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        ordinal:
+          type: integer
+          minimum: 0
+          maximum: 99
+        state:
+          $ref: "#/components/schemas/WorkspaceBatchItemState"
+        failureCode:
+          type: [string, "null"]
+        attempt:
+          type: integer
+          minimum: 0
+          maximum: 3
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    WorkspaceMetadataBatchOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - batchOperationId
+        - action
+        - state
+        - selector
+        - target
+        - reason
+        - total
+        - accepted
+        - executing
+        - succeeded
+        - failed
+        - cancelled
+        - cancellationRequested
+        - items
+        - actorId
+        - createdAt
+        - updatedAt
+      properties:
+        batchOperationId:
+          type: string
+          pattern: "^mbop_[a-zA-Z0-9]{16,32}$"
+        action:
+          $ref: "#/components/schemas/WorkspaceMetadataBatchAction"
+        state:
+          $ref: "#/components/schemas/WorkspaceBatchState"
+        selector:
+          $ref: "#/components/schemas/WorkspaceMetadataBatchSelector"
+        target:
+          $ref: "#/components/schemas/WorkspaceMetadataBatchTarget"
+        reason:
+          type: string
+        total:
+          type: integer
+          minimum: 0
+          maximum: 100
+        accepted:
+          type: integer
+          minimum: 0
+        executing:
+          type: integer
+          minimum: 0
+        succeeded:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        cancelled:
+          type: integer
+          minimum: 0
+        cancellationRequested:
+          type: boolean
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/WorkspaceMetadataBatchOperationItem"
+        actorId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceMetadataBatchOperationListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceMetadataBatchOperation"
         total:
           type: integer
           minimum: 0

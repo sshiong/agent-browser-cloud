@@ -1212,6 +1212,89 @@ try {
   const batchGroupCard = page
     .locator("article")
     .filter({ has: page.getByRole("heading", { name: batchGroupName }) });
+  const batchTagCard = page
+    .locator("article")
+    .filter({ has: page.getByRole("heading", { name: batchTagName }) });
+  await batchTagCard.getByText("批量归属管理", { exact: true }).click();
+  await batchTagCard
+    .getByLabel(`${batchTagName} 批量归属动作`)
+    .selectOption("REMOVE");
+  await batchTagCard
+    .getByRole("group", { name: "选择要批量移除的环境" })
+    .getByRole("checkbox")
+    .check();
+  await batchTagCard
+    .getByPlaceholder("填写变更原因，至少 8 个字符")
+    .fill("E2E verifies durable metadata batch removal");
+  await batchTagCard
+    .getByText("我确认将对选中的", { exact: false })
+    .locator("..")
+    .getByRole("checkbox")
+    .check();
+  const metadataBatchResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/workspace-metadata-batch-operations") &&
+      response.request().method() === "POST",
+  );
+  await batchTagCard
+    .getByRole("button", { name: `提交批量移除 ${batchTagName}` })
+    .click();
+  const metadataBatchResponse = await metadataBatchResponsePromise;
+  if (metadataBatchResponse.status() !== 202) {
+    throw new Error(
+      `Metadata batch submit failed: ${await metadataBatchResponse.text()}`,
+    );
+  }
+  const metadataBatchRequest = metadataBatchResponse.request().postDataJSON();
+  if (
+    metadataBatchRequest.action !== "REMOVE_TAGS" ||
+    metadataBatchRequest.target.tagIds[0] !== batchTagId ||
+    metadataBatchRequest.selector.sessionIds[0] !== startSessionId ||
+    metadataBatchRequest.confirmed !== true
+  ) {
+    throw new Error(
+      `Metadata batch request is invalid: ${JSON.stringify(metadataBatchRequest)}`,
+    );
+  }
+  const metadataBatchOperationId = (await metadataBatchResponse.json())
+    .batchOperationId;
+  let metadataBatchState = "ACCEPTED";
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const statusResponse = await page.request.get(
+      `${baseUrl}/api/v1/workspace-metadata-batch-operations/${metadataBatchOperationId}`,
+      { headers: { "X-Tenant-Id": "tenant-local" } },
+    );
+    const status = await statusResponse.json();
+    metadataBatchState = status.state;
+    if (["SUCCEEDED", "PARTIAL_SUCCESS", "FAILED", "CANCELLED"].includes(metadataBatchState)) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  if (metadataBatchState !== "SUCCEEDED") {
+    throw new Error(`Metadata batch did not succeed: ${metadataBatchState}`);
+  }
+  await expect(
+    batchTagCard.getByText("全部成功", { exact: true }),
+  ).toBeVisible({ timeout: 5_000 });
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-metadata-batch.png"),
+    fullPage: true,
+  });
+  const restoredBatchTag = await page.request.put(
+    `${baseUrl}/api/v1/tags/${batchTagId}/sessions/${startSessionId}`,
+    {
+      headers: {
+        "X-Tenant-Id": "tenant-local",
+        "X-Actor-Id": "e2e-operator",
+        "X-Roles": "TENANT_OPERATOR",
+        "Idempotency-Key": `e2e-batch-tag-restore-${runSuffix}`,
+      },
+    },
+  );
+  if (restoredBatchTag.status() !== 200) {
+    throw new Error(`Metadata batch restore failed: ${await restoredBatchTag.text()}`);
+  }
   await batchGroupCard
     .getByLabel(`${batchGroupName}批量动作`)
     .selectOption("HIBERNATE");

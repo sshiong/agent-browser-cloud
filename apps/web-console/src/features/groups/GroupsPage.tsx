@@ -20,6 +20,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { GroupEditorDialog } from './GroupEditorDialog';
 import { TagSection } from './TagSection';
 import { WorkspaceBatchActions } from './WorkspaceBatchActions';
+import { WorkspaceMetadataBatchActions } from './WorkspaceMetadataBatchActions';
 import {
   useAssignSessionToGroup,
   useDeleteWorkspaceGroup,
@@ -345,6 +346,16 @@ function GroupCard({
             tagMatch: 'ANY',
             sessionIds: [],
           }}
+        />
+      )}
+
+      {canOperate && (group.sessions.length > 0 || unassigned.length > 0) && (
+        <WorkspaceMetadataBatchActions
+          targetType="GROUP"
+          targetId={group.groupId}
+          targetName={group.name}
+          assignedSessions={group.sessions}
+          availableSessions={unassigned}
         />
       )}
 

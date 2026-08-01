@@ -24,7 +24,16 @@ public class SessionResourceDecisionExecutor {
   }
 
   public void evaluate(String sessionId) {
+    if (dispatchPending(sessionId)) {
+      return;
+    }
     resources.evaluatePolicy(sessionId);
+    dispatchPending(sessionId);
+  }
+
+  /** Dispatches persisted protection decisions; safe to retry from telemetry and the scheduler. */
+  public boolean dispatchPending(String sessionId) {
+    var dispatched = new boolean[] {false};
     policies
         .findById(sessionId)
         .ifPresent(
@@ -32,6 +41,7 @@ public class SessionResourceDecisionExecutor {
               if ("SAFE_POINT_READY_MIGRATION_DISPATCH_PENDING"
                   .equals(evaluated.getStatusReason())) {
                 migrations.request(evaluated.getSessionId(), evaluated.getTenantId());
+                dispatched[0] = true;
               } else if ("SAFE_POINT_READY_HIBERNATE_DISPATCH_PENDING"
                   .equals(evaluated.getStatusReason())) {
                 var operation =
@@ -42,6 +52,7 @@ public class SessionResourceDecisionExecutor {
                     "HIBERNATE",
                     operation.operationId(),
                     "PENDING_NODE_CHECKPOINT");
+                dispatched[0] = true;
               } else if ("MAXIMUM_REACHED_STRICT_TERMINATION_REQUIRED"
                   .equals(evaluated.getStatusReason())) {
                 var operation =
@@ -52,7 +63,25 @@ public class SessionResourceDecisionExecutor {
                     "TERMINATE_STRICT",
                     operation.operationId(),
                     "PENDING_NODE_STOP");
+                dispatched[0] = true;
+              } else if ("DANGER_DISK_FULL_TERMINATION_REQUIRED".equals(evaluated.getStatusReason())
+                  || "DANGER_SECURITY_ISOLATION_TERMINATION_REQUIRED"
+                      .equals(evaluated.getStatusReason())) {
+                var dangerEvent =
+                    evaluated.getStatusReason().startsWith("DANGER_DISK_FULL")
+                        ? "DISK_FULL"
+                        : "SECURITY_ISOLATION_FAILURE";
+                var operation =
+                    sessions.terminateForDangerProtection(
+                        evaluated.getSessionId(), evaluated.getTenantId(), dangerEvent);
+                resources.dangerActionDispatched(
+                    evaluated.getSessionId(),
+                    dangerEvent,
+                    operation.operationId(),
+                    "PENDING_NODE_STOP");
+                dispatched[0] = true;
               }
             });
+    return dispatched[0];
   }
 }

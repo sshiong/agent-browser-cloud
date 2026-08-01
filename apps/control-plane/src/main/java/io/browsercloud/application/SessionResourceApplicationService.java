@@ -259,20 +259,11 @@ public class SessionResourceApplicationService {
         new SessionResourceSampleEntity(
             newId("rs_"), sessionId, placement.getTenantId(), request, now));
     if (request.dangerEvent() != null && !request.dangerEvent().isBlank()) {
-      var policy = requirePolicy(sessionId, placement.getTenantId());
-      policy.evaluate(ResourcePolicyStatus.CRITICAL, request.dangerEvent(), now);
-      policies.save(policy);
-      appendEvent(
-          sessionId,
-          placement.getTenantId(),
-          "DANGER_EVENT",
+      protectDangerEvent(
+          requireTenant(sessionId, placement.getTenantId()),
           request.dangerEvent(),
-          null,
-          null,
+          true,
           "NODE_TELEMETRY",
-          null,
-          null,
-          "PROTECTED",
           now);
     }
     return get(sessionId, placement.getTenantId());
@@ -286,6 +277,128 @@ public class SessionResourceApplicationService {
       throw new ResourceTelemetryRejectedException("STALE_RESOURCE_CONTEXT");
     }
     return recordSample(sessionId, request);
+  }
+
+  /**
+   * Runtime crash events bypass the healthy-metrics loop but still enter the same protection state.
+   */
+  @Transactional
+  public void protectRuntimeCrash(
+      String sessionId, String tenantId, String dangerEvent, String source) {
+    protectDangerEvent(
+        requireTenant(sessionId, tenantId), dangerEvent, false, source, Instant.now());
+  }
+
+  private void protectDangerEvent(
+      SessionContext session,
+      String dangerEvent,
+      boolean runtimeAvailable,
+      String source,
+      Instant now) {
+    var normalized = dangerEvent == null ? "" : dangerEvent.trim().toUpperCase(Locale.ROOT);
+    if (!Set.of("OOM", "CRASH", "DISK_FULL", "BROWSER_UNRESPONSIVE", "SECURITY_ISOLATION_FAILURE")
+        .contains(normalized)) {
+      throw new ResourceTelemetryRejectedException("UNSUPPORTED_DANGER_EVENT");
+    }
+    var policy = requirePolicy(session.sessionId(), session.tenantId());
+    pauseAgentTasks(session.sessionId(), now);
+    appendEvent(
+        session.sessionId(),
+        session.tenantId(),
+        "DANGER_EVENT",
+        normalized,
+        null,
+        null,
+        source,
+        null,
+        null,
+        "DETECTED",
+        now);
+
+    switch (normalized) {
+      case "SECURITY_ISOLATION_FAILURE" ->
+          policy.evaluate(
+              ResourcePolicyStatus.CRITICAL, "DANGER_SECURITY_ISOLATION_TERMINATION_REQUIRED", now);
+      case "DISK_FULL" -> protectDiskFull(session, policy, runtimeAvailable, now);
+      case "OOM" -> protectOom(session, policy, runtimeAvailable, now);
+      case "CRASH", "BROWSER_UNRESPONSIVE" ->
+          policy.evaluate(
+              ResourcePolicyStatus.CRITICAL,
+              "DANGER_" + normalized + "_AGENT_PAUSED_BROWSER_RECOVERY",
+              now);
+      default -> throw new ResourceTelemetryRejectedException("UNSUPPORTED_DANGER_EVENT");
+    }
+    policies.save(policy);
+  }
+
+  private void protectOom(
+      SessionContext session,
+      SessionResourcePolicyEntity policy,
+      boolean runtimeAvailable,
+      Instant now) {
+    var placement = placements.findById(session.sessionId()).orElse(null);
+    if (!runtimeAvailable || placement == null || !"ACTIVE".equals(placement.getState())) {
+      policy.evaluate(
+          ResourcePolicyStatus.CRITICAL, "DANGER_OOM_AGENT_PAUSED_BROWSER_RECOVERY", now);
+      return;
+    }
+    if (operations.findActive(session.sessionId()).isPresent()) {
+      policy.evaluate(
+          ResourcePolicyStatus.CRITICAL,
+          "DANGER_OOM_OPERATION_BUSY_AGENT_PAUSED_BROWSER_PRESERVED",
+          now);
+      return;
+    }
+    if (placement.getMemoryLimitMib() >= policy.getMaximumMemoryMib()) {
+      policy.evaluate(
+          ResourcePolicyStatus.AGENT_PAUSED,
+          "DANGER_OOM_AT_MAXIMUM_AGENT_PAUSED_BROWSER_PRESERVED",
+          now);
+      return;
+    }
+    requestAdjustment(
+        session,
+        policy,
+        placement,
+        placement.getCpuMillis(),
+        Math.min(
+            policy.getMaximumMemoryMib(),
+            Math.max(
+                placement.getMemoryRequestMib() + 256, placement.getMemoryRequestMib() * 3 / 2)),
+        Math.min(
+            policy.getMaximumMemoryMib(),
+            Math.max(placement.getMemoryLimitMib() + 512, placement.getMemoryLimitMib() * 3 / 2)),
+        ResourcePolicyStatus.SCALING_UP,
+        "DANGER_OOM_EMERGENCY_SCALE_UP",
+        now);
+  }
+
+  private void protectDiskFull(
+      SessionContext session,
+      SessionResourcePolicyEntity policy,
+      boolean runtimeAvailable,
+      Instant now) {
+    if (!runtimeAvailable) {
+      policy.evaluate(ResourcePolicyStatus.CRITICAL, "DANGER_DISK_FULL_TERMINATION_REQUIRED", now);
+      return;
+    }
+    if (operations.findActive(session.sessionId()).isPresent()) {
+      policy.evaluate(
+          ResourcePolicyStatus.CRITICAL,
+          "DANGER_DISK_FULL_OPERATION_BUSY_AGENT_PAUSED_BROWSER_PRESERVED",
+          now);
+      return;
+    }
+    if (policy.getMaximumMitigationAt() == null
+        && requestNonCoreMitigation(
+            policy,
+            session.sessionId(),
+            now,
+            "DANGER_DISK_FULL_NON_CORE_MITIGATION",
+            ResourcePolicyStatus.CRITICAL)) {
+      return;
+    }
+    policy.evaluate(ResourcePolicyStatus.CRITICAL, "DANGER_DISK_FULL_TERMINATION_REQUIRED", now);
   }
 
   /** Evaluate sustained windows only; a single spike never changes allocation. */
@@ -318,8 +431,10 @@ public class SessionResourceApplicationService {
       return;
     }
     if (hasDangerEvent(window)) {
-      policy.evaluate(ResourcePolicyStatus.CRITICAL, "DANGER_EVENT_REPORTED", now);
-      policies.save(policy);
+      if (policy.getStatusReason() == null || !policy.getStatusReason().startsWith("DANGER_")) {
+        policy.evaluate(ResourcePolicyStatus.CRITICAL, "DANGER_EVENT_REPORTED", now);
+        policies.save(policy);
+      }
       return;
     }
     var placement = placements.findById(sessionId).orElse(null);
@@ -615,6 +730,16 @@ public class SessionResourceApplicationService {
 
   private boolean requestMaximumNonCoreMitigation(
       SessionResourcePolicyEntity policy, String sessionId, Instant now) {
+    return requestNonCoreMitigation(
+        policy, sessionId, now, "MAXIMUM_NON_CORE_MITIGATION", ResourcePolicyStatus.SCALING_DOWN);
+  }
+
+  private boolean requestNonCoreMitigation(
+      SessionResourcePolicyEntity policy,
+      String sessionId,
+      Instant now,
+      String reason,
+      ResourcePolicyStatus status) {
     var placement = placements.findById(sessionId).orElse(null);
     if (placement == null || !"ACTIVE".equals(placement.getState())) {
       return false;
@@ -638,8 +763,8 @@ public class SessionResourceApplicationService {
             placement.getCpuMillis(),
             placement.getMemoryRequestMib(),
             placement.getMemoryLimitMib(),
-            ResourcePolicyStatus.SCALING_DOWN,
-            "MAXIMUM_NON_CORE_MITIGATION",
+            status,
+            reason,
             now);
     if (operationId == null) {
       return false;
@@ -712,6 +837,30 @@ public class SessionResourceApplicationService {
         null,
         null,
         "RESOURCE_DECISION_ENGINE",
+        operationId,
+        null,
+        result,
+        now);
+  }
+
+  @Transactional
+  public void dangerActionDispatched(
+      String sessionId, String dangerEvent, String operationId, String result) {
+    var policy = policies.findById(sessionId).orElseThrow(ResourcePolicyNotFoundException::new);
+    var now = Instant.now();
+    policy.evaluate(
+        ResourcePolicyStatus.CRITICAL,
+        "DANGER_" + dangerEvent + "_TERMINATION_OPERATION_DISPATCHED:" + operationId,
+        now);
+    policies.save(policy);
+    appendEvent(
+        sessionId,
+        policy.getTenantId(),
+        "DANGER_ACTION_DISPATCHED",
+        dangerEvent + "_CONTROLLED_TERMINATION",
+        null,
+        null,
+        "RESOURCE_DANGER_PROTECTION",
         operationId,
         null,
         result,
@@ -809,7 +958,9 @@ public class SessionResourceApplicationService {
                 ? Math.min(placement.getMediaSlots(), placement.getMediaEncoderSlots() + 1)
                 : Math.max(1, placement.getMediaEncoderSlots() - 1);
     var operationId = newId("op_");
-    var maximumMitigation = "MAXIMUM_NON_CORE_MITIGATION".equals(reason);
+    var maximumMitigation =
+        "MAXIMUM_NON_CORE_MITIGATION".equals(reason)
+            || "DANGER_DISK_FULL_NON_CORE_MITIGATION".equals(reason);
     var pausedExtensionIds =
         maximumMitigation
             ? extensionProfiles.findAllById(extensionIds).stream()

@@ -101,6 +101,8 @@ pub struct RuntimeMetrics {
     pub cumulative_cpu_usage_micros: Option<u64>,
     pub cpu_limit_millis: u32,
     pub memory_psi_some_avg10: Option<f64>,
+    pub memory_oom_events: Option<u64>,
+    pub memory_oom_kill_events: Option<u64>,
     pub process_count: Option<u32>,
     pub cumulative_browser_io_bytes: Option<u64>,
     pub cumulative_extension_cpu_usage_micros: Option<u64>,
@@ -329,6 +331,18 @@ impl RuntimeCgroup {
             .find_map(|field| field.strip_prefix("avg10="))?
             .parse()
             .ok()
+    }
+
+    fn memory_event_count(&self, event: &str) -> Option<u64> {
+        fs::read_to_string(self.path.join("memory.events"))
+            .ok()?
+            .lines()
+            .find_map(|line| {
+                let mut fields = line.split_whitespace();
+                (fields.next()? == event)
+                    .then(|| fields.next()?.parse().ok())
+                    .flatten()
+            })
     }
 
     fn process_count(&self) -> Option<u32> {
@@ -1204,7 +1218,17 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
                     (runtime.handle.cdp_endpoint.clone(), desktop_degraded)
                 }
                 Some(status) => {
-                    let reason = format!("Chromium exited with {status}");
+                    let oom_kill_detected = runtime
+                        .cgroup
+                        .as_ref()
+                        .and_then(|cgroup| cgroup.memory_event_count("oom_kill"))
+                        .unwrap_or_default()
+                        > 0;
+                    let reason = if oom_kill_detected {
+                        format!("OOM: Chromium exited with {status}")
+                    } else {
+                        format!("Chromium exited with {status}")
+                    };
                     if let Some(runtime) = runtimes.remove(session_id) {
                         if let Some(cgroup) = runtime.cgroup {
                             cgroup.kill_all();
@@ -1266,6 +1290,12 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             memory_psi_some_avg10: cgroup
                 .as_ref()
                 .and_then(RuntimeCgroup::memory_psi_some_avg10),
+            memory_oom_events: cgroup
+                .as_ref()
+                .and_then(|cgroup| cgroup.memory_event_count("oom")),
+            memory_oom_kill_events: cgroup
+                .as_ref()
+                .and_then(|cgroup| cgroup.memory_event_count("oom_kill")),
             process_count: cgroup.as_ref().and_then(RuntimeCgroup::process_count),
             cumulative_browser_io_bytes: cgroup
                 .as_ref()
@@ -1320,6 +1350,33 @@ mod tests {
             })
             .await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn reads_oom_and_oom_kill_from_cgroup_memory_events() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("browsercloud-memory-events-{nonce}"));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("memory.events"),
+            "low 0\nhigh 2\nmax 3\noom 4\noom_kill 1\n",
+        )
+        .unwrap();
+        let cgroup = RuntimeCgroup {
+            path: root.clone(),
+            browser_path: None,
+            desktop_path: None,
+            extension_path: None,
+            media_path: None,
+        };
+
+        assert_eq!(cgroup.memory_event_count("oom"), Some(4));
+        assert_eq!(cgroup.memory_event_count("oom_kill"), Some(1));
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

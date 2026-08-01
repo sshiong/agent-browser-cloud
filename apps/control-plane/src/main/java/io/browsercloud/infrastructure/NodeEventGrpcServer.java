@@ -11,6 +11,7 @@ import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SafePointApplicationService.SafetySignalRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
+import io.browsercloud.application.SessionResourceDecisionExecutor;
 import io.browsercloud.coordinator.exceptions.StaleCoordinatorTermException;
 import io.browsercloud.proto.node.v1.NodeEventServiceGrpc;
 import io.browsercloud.proto.node.v1.PublishRequest;
@@ -42,6 +43,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
   private final NodeEventIngestionService ingestionService;
   private final BrowserCapacityApplicationService capacityService;
   private final SessionResourceApplicationService resourceService;
+  private final SessionResourceDecisionExecutor resourceDecisions;
   private final SafePointApplicationService safePointService;
   private final NodeEventMapper mapper;
   private final Validator validator;
@@ -54,6 +56,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
       NodeEventIngestionService ingestionService,
       BrowserCapacityApplicationService capacityService,
       SessionResourceApplicationService resourceService,
+      SessionResourceDecisionExecutor resourceDecisions,
       SafePointApplicationService safePointService,
       NodeEventMapper mapper,
       Validator validator,
@@ -62,6 +65,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
     this.ingestionService = ingestionService;
     this.capacityService = capacityService;
     this.resourceService = resourceService;
+    this.resourceDecisions = resourceDecisions;
     this.safePointService = safePointService;
     this.mapper = mapper;
     this.validator = validator;
@@ -83,6 +87,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                       ingestionService,
                       capacityService,
                       resourceService,
+                      resourceDecisions,
                       safePointService,
                       mapper,
                       validator))
@@ -122,6 +127,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
     private final NodeEventIngestionService ingestionService;
     private final BrowserCapacityApplicationService capacityService;
     private final SessionResourceApplicationService resourceService;
+    private final SessionResourceDecisionExecutor resourceDecisions;
     private final SafePointApplicationService safePointService;
     private final NodeEventMapper mapper;
     private final Validator validator;
@@ -130,12 +136,14 @@ public class NodeEventGrpcServer implements SmartLifecycle {
         NodeEventIngestionService ingestionService,
         BrowserCapacityApplicationService capacityService,
         SessionResourceApplicationService resourceService,
+        SessionResourceDecisionExecutor resourceDecisions,
         SafePointApplicationService safePointService,
         NodeEventMapper mapper,
         Validator validator) {
       this.ingestionService = ingestionService;
       this.capacityService = capacityService;
       this.resourceService = resourceService;
+      this.resourceDecisions = resourceDecisions;
       this.safePointService = safePointService;
       this.mapper = mapper;
       this.validator = validator;
@@ -266,6 +274,9 @@ public class NodeEventGrpcServer implements SmartLifecycle {
         // sequence becomes the notification barrier for both resource and Safe Point readers.
         resourceService.recordSampleFromNode(
             request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
+        if (!request.getDangerEvent().isBlank()) {
+          resourceDecisions.dispatchPending(request.getSessionId());
+        }
         respond(
             responseObserver,
             ReportSessionResourcesResponse.newBuilder()

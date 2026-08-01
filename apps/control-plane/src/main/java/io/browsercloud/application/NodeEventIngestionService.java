@@ -113,6 +113,12 @@ public class NodeEventIngestionService {
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ended.state());
       case NodeEvent.RuntimeResourcesAdjusted adjusted ->
           resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
+      case NodeEvent.RuntimeCrashed crashed ->
+          resourceService.protectRuntimeCrash(
+              command.sessionId(),
+              command.tenantId(),
+              "OOM".equals(crashed.crashType()) ? "OOM" : "CRASH",
+              "NODE_RUNTIME_EVENT");
       case NodeEvent.EvidenceCaptured captured ->
           evidenceService.record(command.tenantId(), command.eventId(), captured);
       default -> {}

@@ -75,6 +75,7 @@ class NodeCapacityGrpcEndpointTest {
               mock(NodeEventIngestionService.class),
               capacity,
               mock(SessionResourceApplicationService.class),
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
               mock(SafePointApplicationService.class),
               mock(NodeEventMapper.class),
               factory.getValidator());
@@ -113,6 +114,7 @@ class NodeCapacityGrpcEndpointTest {
   @Test
   void authenticNodeResourceReportRecordsRealSessionSample() {
     var resources = mock(SessionResourceApplicationService.class);
+    var decisions = mock(io.browsercloud.application.SessionResourceDecisionExecutor.class);
     var safePoints = mock(SafePointApplicationService.class);
     try (var factory = Validation.buildDefaultValidatorFactory()) {
       var endpoint =
@@ -120,6 +122,7 @@ class NodeCapacityGrpcEndpointTest {
               mock(NodeEventIngestionService.class),
               mock(BrowserCapacityApplicationService.class),
               resources,
+              decisions,
               safePoints,
               mock(NodeEventMapper.class),
               factory.getValidator());
@@ -135,6 +138,7 @@ class NodeCapacityGrpcEndpointTest {
               .setMemoryRssMib(1536)
               .setMemoryPsiSomeAvg10(2.75)
               .setProfileIoBytesPerSecond(52_428_800)
+              .setDangerEvent("OOM")
               .setInputActive(true)
               .setActiveDrag(false)
               .setPressedKeyCount(1)
@@ -154,6 +158,8 @@ class NodeCapacityGrpcEndpointTest {
           .recordSampleFromNode(
               eq("ses_test_1"), eq("tenant-test"), eq(7L), resourceSample.capture());
       assertThat(resourceSample.getValue().profileIoBytesPerSecond()).isEqualTo(52_428_800);
+      assertThat(resourceSample.getValue().dangerEvent()).isEqualTo("OOM");
+      verify(decisions).dispatchPending("ses_test_1");
       verify(safePoints)
           .recordNodeObservation(
               eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), eq(7L), any());
@@ -170,6 +176,7 @@ class NodeCapacityGrpcEndpointTest {
               mock(NodeEventIngestionService.class),
               mock(BrowserCapacityApplicationService.class),
               resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
               safePoints,
               mock(NodeEventMapper.class),
               factory.getValidator());
@@ -215,6 +222,7 @@ class NodeCapacityGrpcEndpointTest {
               mock(NodeEventIngestionService.class),
               mock(BrowserCapacityApplicationService.class),
               resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
               safePoints,
               mock(NodeEventMapper.class),
               factory.getValidator());

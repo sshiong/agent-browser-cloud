@@ -336,6 +336,20 @@ public class SessionApplicationService {
         sessionId, tenantId, "system:resource-policy", "resource_policy_strict_maximum_reached");
   }
 
+  /** Dangerous runtime faults may terminate through the normal durable stop Operation. */
+  @Transactional
+  public OperationResponse terminateForDangerProtection(
+      String sessionId, String tenantId, String dangerEvent) {
+    if (!java.util.Set.of("DISK_FULL", "SECURITY_ISOLATION_FAILURE").contains(dangerEvent)) {
+      throw new IllegalArgumentException("danger event cannot authorize automatic termination");
+    }
+    return terminate(
+        sessionId,
+        tenantId,
+        "system:resource-danger-protection",
+        "resource_danger:" + dangerEvent.toLowerCase(java.util.Locale.ROOT));
+  }
+
   /** Resource-policy hibernation after the Safe Point Aggregator has returned SAFE. */
   @Transactional
   public OperationResponse hibernateForResourcePolicy(String sessionId, String tenantId) {

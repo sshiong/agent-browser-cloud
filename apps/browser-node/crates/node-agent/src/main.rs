@@ -76,6 +76,7 @@ struct NodeControlService {
     event_delivery_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     runtime_monitors: Arc<Mutex<HashMap<String, String>>>,
     resource_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
+    resource_oom_baselines: Arc<Mutex<HashMap<String, u64>>>,
     resource_extension_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_media_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_browser_baselines: Arc<Mutex<HashMap<String, (f64, Instant)>>>,
@@ -98,6 +99,39 @@ struct NodeControlService {
 struct AgentLatencyWindow {
     maximum_ms: u32,
     samples: u32,
+}
+
+const DISK_DANGER_MIN_AVAILABLE_BYTES: u64 = 64 * 1024 * 1024;
+
+fn classify_resource_danger(
+    previous_oom_events: Option<u64>,
+    current_oom_events: Option<u64>,
+    disk_capacity: Option<(u64, u64)>,
+) -> Option<&'static str> {
+    if current_oom_events
+        .map(|current| current > previous_oom_events.unwrap_or_default())
+        .unwrap_or(false)
+    {
+        return Some("OOM");
+    }
+    if let Some((available_bytes, total_bytes)) = disk_capacity {
+        let below_absolute_floor = available_bytes <= DISK_DANGER_MIN_AVAILABLE_BYTES;
+        let below_one_percent =
+            total_bytes > 0 && available_bytes.saturating_mul(100) <= total_bytes;
+        if below_absolute_floor || below_one_percent {
+            return Some("DISK_FULL");
+        }
+    }
+    None
+}
+
+fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
+    let statistics = nix::sys::statvfs::statvfs(path).ok()?;
+    let fragment_size = statistics.fragment_size();
+    Some((
+        u64::from(statistics.blocks_available()).saturating_mul(fragment_size),
+        u64::from(statistics.blocks()).saturating_mul(fragment_size),
+    ))
 }
 
 #[derive(Debug)]
@@ -1135,6 +1169,7 @@ impl NodeControlService {
         session_id: &str,
         context_epoch: i64,
         include_resource_metrics: bool,
+        danger_override: Option<&str>,
     ) -> anyhow::Result<()> {
         let metrics = self.runtime_supervisor.metrics(session_id).await?;
         let browser_metrics = tokio::time::timeout(
@@ -1282,6 +1317,34 @@ impl NodeControlService {
             .state_collector
             .browser_safety_observation(session_id)
             .await;
+        let current_oom_events = match (metrics.memory_oom_events, metrics.memory_oom_kill_events) {
+            (Some(oom), Some(oom_kill)) => Some(oom.saturating_add(oom_kill)),
+            (Some(oom), None) => Some(oom),
+            (None, Some(oom_kill)) => Some(oom_kill),
+            (None, None) => None,
+        };
+        let previous_oom_events = if let Some(current) = current_oom_events {
+            self.resource_oom_baselines
+                .lock()
+                .await
+                .insert(session_id.to_owned(), current)
+        } else {
+            None
+        };
+        let profile_filesystem = self
+            .profile_workspaces
+            .lock()
+            .await
+            .get(session_id)
+            .map(|active| PathBuf::from(&active.workspace.ephemeral_dir));
+        let danger_event = danger_override.unwrap_or_else(|| {
+            classify_resource_danger(
+                previous_oom_events,
+                current_oom_events,
+                profile_filesystem.as_deref().and_then(filesystem_capacity),
+            )
+            .unwrap_or_default()
+        });
         let secure = self.grpc_tls.is_some();
         let target = if self.control_plane_event_target.starts_with("http://")
             || self.control_plane_event_target.starts_with("https://")
@@ -1351,7 +1414,7 @@ impl NodeControlService {
                 media_encoder_percent: include_resource_metrics
                     .then_some(media_encoder_percent)
                     .flatten(),
-                danger_event: String::new(),
+                danger_event: danger_event.to_owned(),
                 input_active: input_ledger.as_ref().map(|ledger| ledger.has_any_input()),
                 active_drag: input_ledger.as_ref().map(|ledger| ledger.active_drag),
                 pressed_key_count: input_ledger
@@ -3728,6 +3791,7 @@ impl NodeControlService {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             let mut probe_count = 0_u64;
+            let mut degraded_probe_count = 0_u32;
             loop {
                 interval.tick().await;
                 if service.runtime_monitors.lock().await.get(&session_id) != Some(&monitor_token) {
@@ -3749,6 +3813,7 @@ impl NodeControlService {
                 }
                 match health {
                     runtime_supervisor::RuntimeHealth::Healthy => {
+                        degraded_probe_count = 0;
                         if let Some(input) =
                             service.input_brokers.lock().await.get(&session_id).cloned()
                         {
@@ -3776,6 +3841,7 @@ impl NodeControlService {
                                     &session_id,
                                     running_context_epoch,
                                     regular_resource_report,
+                                    None,
                                 )
                                 .await
                             {
@@ -3917,6 +3983,25 @@ impl NodeControlService {
                     }
                     runtime_supervisor::RuntimeHealth::Degraded(reason) => {
                         tracing::warn!(session_id, reason = %reason, "Runtime health is degraded");
+                        degraded_probe_count = degraded_probe_count.saturating_add(1);
+                        if degraded_probe_count == 5 {
+                            if let Err(error) = service
+                                .report_session_resources(
+                                    &tenant_id,
+                                    &session_id,
+                                    running_context_epoch,
+                                    true,
+                                    Some("BROWSER_UNRESPONSIVE"),
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    session_id,
+                                    error = %error,
+                                    "Browser unresponsive danger report failed"
+                                );
+                            }
+                        }
                     }
                     runtime_supervisor::RuntimeHealth::Crashed(reason) => {
                         tracing::warn!(
@@ -3931,6 +4016,11 @@ impl NodeControlService {
                         drop(runtime_monitors);
                         service
                             .resource_cpu_baselines
+                            .lock()
+                            .await
+                            .remove(&session_id);
+                        service
+                            .resource_oom_baselines
                             .lock()
                             .await
                             .remove(&session_id);
@@ -4171,6 +4261,11 @@ impl NodeControlService {
         let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
         let sequence = self.next_event_sequence(session_id).await?;
         let detected_at_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as i64;
+        let crash_type = if reason.starts_with("OOM:") {
+            "OOM"
+        } else {
+            "BROWSER_PROCESS_EXIT"
+        };
         let event = EventEnvelope {
             event_id: event_id.clone(),
             event_type: "BrowserCrashed".to_owned(),
@@ -4182,7 +4277,7 @@ impl NodeControlService {
             sequence,
             payload: BrowserCrashEvent {
                 session_id: session_id.to_owned(),
-                crash_type: "BROWSER_PROCESS_EXIT".to_owned(),
+                crash_type: crash_type.to_owned(),
                 reason: reason.chars().take(512).collect(),
                 detected_at_ms,
             }
@@ -4318,6 +4413,10 @@ impl NodeControlService {
                 .await
                 .remove(&command.session_id);
             self.resource_cpu_baselines
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.resource_oom_baselines
                 .lock()
                 .await
                 .remove(&command.session_id);
@@ -5191,6 +5290,7 @@ async fn main() -> Result<()> {
         event_delivery_locks: Arc::new(Mutex::new(HashMap::new())),
         runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
         resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+        resource_oom_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
@@ -5251,6 +5351,7 @@ async fn main() -> Result<()> {
     // their Runtime children so they cannot enqueue a second recovery while the Node is exiting.
     service.runtime_monitors.lock().await.clear();
     service.resource_cpu_baselines.lock().await.clear();
+    service.resource_oom_baselines.lock().await.clear();
     service
         .resource_extension_cpu_baselines
         .lock()
@@ -5304,6 +5405,28 @@ mod tests {
     };
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
+
+    #[test]
+    fn resource_danger_requires_an_oom_counter_increase() {
+        assert_eq!(classify_resource_danger(None, Some(0), None), None);
+        assert_eq!(classify_resource_danger(Some(4), Some(4), None), None);
+        assert_eq!(
+            classify_resource_danger(Some(4), Some(5), None),
+            Some("OOM")
+        );
+    }
+
+    #[test]
+    fn resource_danger_detects_a_nearly_exhausted_profile_filesystem() {
+        assert_eq!(
+            classify_resource_danger(Some(0), Some(0), Some((32 * 1024 * 1024, 10_000_000_000))),
+            Some("DISK_FULL")
+        );
+        assert_eq!(
+            classify_resource_danger(Some(0), Some(0), Some((2_000_000_000, 10_000_000_000))),
+            None
+        );
+    }
 
     struct CapturingEventService {
         sender: mpsc::Sender<EventEnvelope>,
@@ -5538,6 +5661,7 @@ mod tests {
             event_delivery_locks: Arc::new(Mutex::new(HashMap::new())),
             runtime_monitors: Arc::new(Mutex::new(HashMap::new())),
             resource_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
+            resource_oom_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_extension_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),

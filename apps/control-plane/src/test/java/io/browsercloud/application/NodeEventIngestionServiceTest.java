@@ -194,6 +194,19 @@ class NodeEventIngestionServiceTest {
   }
 
   @Test
+  void shouldProtectAgentWhenRuntimeCrashWasCausedByCgroupOom() {
+    var crashed = new NodeEvent.RuntimeCrashed("ses-test", "OOM", "OOM: Chromium exited");
+    var command = new NodeEventReceived("evt-oom", "tenant-test", "ses-test", 1, 2, 0, 5, crashed);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(resourceService)
+        .protectRuntimeCrash("ses-test", "tenant-test", "OOM", "NODE_RUNTIME_EVENT");
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
   void shouldApplyDiffAgainstTheDeclaredBaseVersion() {
     var diff =
         new NodeEvent.StateDiff(

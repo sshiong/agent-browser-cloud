@@ -55,6 +55,9 @@ export const sessionKeys = {
   list: (params: {
     state?: SessionState;
     query?: string;
+    groupId?: string;
+    tagIds?: string[];
+    tagMatch?: 'ANY' | 'ALL';
     limit: number;
     offset: number;
   }) => [...sessionKeys.all, 'list', params] as const,
@@ -103,6 +106,9 @@ export const sessionKeys = {
 export function useSessions(params: {
   state?: SessionState;
   query?: string;
+  groupId?: string;
+  tagIds?: string[];
+  tagMatch?: 'ANY' | 'ALL';
   limit?: number;
   offset?: number;
 }) {
@@ -112,6 +118,9 @@ export function useSessions(params: {
     queryKey: sessionKeys.list({
       state: params.state,
       query: params.query,
+      groupId: params.groupId,
+      tagIds: params.tagIds,
+      tagMatch: params.tagMatch,
       limit,
       offset,
     }),
@@ -119,6 +128,9 @@ export function useSessions(params: {
       listSessions({
         state: params.state,
         query: params.query,
+        groupId: params.groupId,
+        tagIds: params.tagIds,
+        tagMatch: params.tagMatch,
         limit,
         offset,
         signal,

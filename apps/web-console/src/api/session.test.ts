@@ -48,11 +48,14 @@ describe('session API', () => {
     await listSessions({
       tenantId: 'tenant-test',
       query: '  crm singapore  ',
+      groupId: 'grp_1234567890abcdef',
+      tagIds: ['tag_1234567890abcdef', 'tag_fedcba0987654321'],
+      tagMatch: 'ALL',
       limit: 10,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/sessions?q=crm+singapore&limit=10',
+      '/api/v1/sessions?q=crm+singapore&groupId=grp_1234567890abcdef&tagId=tag_1234567890abcdef&tagId=tag_fedcba0987654321&tagMatch=ALL&limit=10',
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',

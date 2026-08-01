@@ -1,6 +1,7 @@
 package io.browsercloud.persistence;
 
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,9 @@ public interface SessionJpaRepository extends JpaRepository<SessionEntity, Strin
   List<SessionEntity> findByTenantId(String tenantId);
 
   List<SessionEntity> findByTenantIdAndState(String tenantId, String state);
+
+  List<SessionEntity> findAllByTenantIdAndIdInOrderByCreatedAtDesc(
+      String tenantId, Collection<String> sessionIds);
 
   List<SessionEntity> findAllByTenantIdAndGroupIdOrderByCreatedAtDesc(
       String tenantId, String groupId);

@@ -659,6 +659,39 @@ public class SessionResourceApplicationService {
             });
   }
 
+  /** Operator-confirmed batch pause; preserves Browser and login state. */
+  @Transactional
+  public CoordinatorCommandPayloads.CommandAck pauseAgentForBatch(
+      String sessionId, String tenantId, String batchOperationId) {
+    var session = requireTenant(sessionId, tenantId);
+    if (session.state() != io.browsercloud.domain.session.SessionState.RUNNING
+        && session.state() != io.browsercloud.domain.session.SessionState.DEGRADED) {
+      throw new ResourcePolicyActionRejectedException("PAUSE_AGENT_REQUIRES_RUNNING_SESSION");
+    }
+    if (operations.findActive(sessionId).isPresent()) {
+      throw new ResourcePolicyActionRejectedException("SESSION_OPERATION_ALREADY_ACTIVE");
+    }
+    var policy = policies.findById(sessionId).orElseThrow(ResourcePolicyNotFoundException::new);
+    var now = Instant.now();
+    pauseAgentTasks(sessionId, now);
+    policy.evaluate(
+        ResourcePolicyStatus.AGENT_PAUSED, "WORKSPACE_BATCH_AGENT_PAUSED:" + batchOperationId, now);
+    policies.save(policy);
+    appendEvent(
+        sessionId,
+        tenantId,
+        "BATCH_AGENT_PAUSED",
+        "PAUSE_AGENT_PRESERVE_BROWSER",
+        null,
+        null,
+        "WORKSPACE_BATCH_OPERATION",
+        null,
+        batchOperationId,
+        "COMMITTED",
+        now);
+    return CoordinatorCommandPayloads.CommandAck.committed();
+  }
+
   @Transactional
   public void maximumActionDispatched(
       String sessionId, String action, String operationId, String result) {
@@ -1528,6 +1561,12 @@ public class SessionResourceApplicationService {
   public static final class ResourcePolicyNotFoundException extends RuntimeException {}
 
   public static final class ResourcePolicyPermissionException extends RuntimeException {}
+
+  public static final class ResourcePolicyActionRejectedException extends RuntimeException {
+    public ResourcePolicyActionRejectedException(String reason) {
+      super(reason);
+    }
+  }
 
   public static final class ResourceTelemetryRejectedException extends RuntimeException {
     public ResourceTelemetryRejectedException(String message) {

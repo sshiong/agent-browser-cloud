@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.CoordinatorOwnershipService;
+import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.persistence.SessionContextEntity;
 import io.browsercloud.persistence.SessionEntity;
@@ -30,6 +31,7 @@ class JpaSessionRepositoryTest {
   @Mock private SessionJpaRepository sessions;
   @Mock private SessionContextJpaRepository contexts;
   @Mock private CoordinatorOwnershipService ownership;
+  @Mock private SessionFilteredQueryRepository filteredQueries;
 
   private JpaSessionRepository repository;
 
@@ -37,7 +39,11 @@ class JpaSessionRepositoryTest {
   void setUp() {
     repository =
         new JpaSessionRepository(
-            sessions, contexts, new ObjectMapper().findAndRegisterModules(), ownership);
+            sessions,
+            contexts,
+            new ObjectMapper().findAndRegisterModules(),
+            ownership,
+            filteredQueries);
   }
 
   @Test
@@ -54,7 +60,7 @@ class JpaSessionRepositoryTest {
         .thenReturn(List.of(firstContext, secondContext));
     when(ownership.getCurrentTerms(sessionIds)).thenReturn(Map.of(first.getId(), 7L));
 
-    var result = repository.listByTenant("tenant-test", null, "", 20, 0);
+    var result = repository.listByTenant("tenant-test", null, "", SessionListFilter.empty(), 20, 0);
 
     assertThat(result).hasSize(2);
     assertThat(result.getFirst().context().nodeId()).isEqualTo("node-first");

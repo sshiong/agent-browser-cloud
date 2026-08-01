@@ -12,6 +12,7 @@ import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionCoordinator;
 import io.browsercloud.coordinator.SessionDescriptor;
+import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.agent.AgentPolicy;
 import io.browsercloud.domain.session.ResourceClass;
@@ -172,9 +173,10 @@ class SessionApplicationServiceTest {
     var first = descriptor("ses_first", "First", now);
     var second = descriptor("ses_second", "Second", now.minusSeconds(30));
     var sessionIds = List.of("ses_first", "ses_second");
-    when(sessionRepository.listByTenant("tenant-test", null, "", 100, 0))
+    when(sessionRepository.listByTenant("tenant-test", null, "", SessionListFilter.empty(), 100, 0))
         .thenReturn(List.of(first, second));
-    when(sessionRepository.countByTenant("tenant-test", null, "")).thenReturn(2L);
+    when(sessionRepository.countByTenant("tenant-test", null, "", SessionListFilter.empty()))
+        .thenReturn(2L);
     when(operationRepository.findActiveBySessionIds(sessionIds)).thenReturn(Map.of());
     when(workspaceTagService.summariesForSessions("tenant-test", sessionIds))
         .thenReturn(

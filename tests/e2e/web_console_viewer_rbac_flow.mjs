@@ -77,6 +77,7 @@ try {
   await page.goto(`${baseUrl}/groups`);
   await expect(page.getByRole("heading", { name: "分组与标签" })).toBeVisible();
   await expect(page.getByRole("button", { name: "新建分组" })).toHaveCount(0);
+  await expect(page.getByText("批量启动", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "创建第一个分组" }),
   ).toHaveCount(0);

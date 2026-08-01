@@ -4,6 +4,7 @@ import io.browsercloud.coordinator.CoordinatorRouteAuthority.SessionRoute;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -295,6 +296,40 @@ public class CoordinatorCommandQueue {
       throw new CoordinatorCommandRejectedException("COORDINATOR_COMMAND_NOT_FOUND");
     }
     return commands.getFirst();
+  }
+
+  public List<CommandRecord> findAllByIds(Collection<String> commandIds) {
+    if (commandIds.isEmpty()) {
+      return List.of();
+    }
+    return jdbc.query(
+        """
+        SELECT command_id, tenant_id, session_id, route_epoch, coordinator_shard_id,
+               command_type, deduplication_key, payload::text, state, result::text,
+               failure_code, attempt, claim_owner, claim_lease_until, deadline_at,
+               created_at, started_at, completed_at
+          FROM coordinator_commands
+         WHERE command_id IN (:commandIds)
+        """,
+        Map.of("commandIds", commandIds),
+        this::map);
+  }
+
+  @Transactional
+  public int cancelPending(Collection<String> commandIds, Instant now) {
+    if (commandIds.isEmpty()) {
+      return 0;
+    }
+    return jdbc.update(
+        """
+        UPDATE coordinator_commands
+           SET state = 'FAILED',
+               failure_code = 'BATCH_OPERATION_CANCELLED',
+               completed_at = :now
+         WHERE command_id IN (:commandIds)
+           AND state = 'PENDING'
+        """,
+        Map.of("commandIds", commandIds, "now", Timestamp.from(now)));
   }
 
   private CommandRecord requireByDeduplication(String tenantId, String deduplicationKey) {

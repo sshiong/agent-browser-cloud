@@ -910,6 +910,9 @@ export async function createRemoteDesktopConnection(
 export async function listSessions(params?: {
   state?: string;
   query?: string;
+  groupId?: string;
+  tagIds?: string[];
+  tagMatch?: 'ANY' | 'ALL';
   limit?: number;
   offset?: number;
   tenantId?: string;
@@ -918,6 +921,11 @@ export async function listSessions(params?: {
   const searchParams = new URLSearchParams();
   if (params?.state) searchParams.set('state', params.state);
   if (params?.query?.trim()) searchParams.set('q', params.query.trim());
+  if (params?.groupId) searchParams.set('groupId', params.groupId);
+  params?.tagIds?.forEach((tagId) => searchParams.append('tagId', tagId));
+  if (params?.tagIds?.length) {
+    searchParams.set('tagMatch', params.tagMatch ?? 'ANY');
+  }
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
 

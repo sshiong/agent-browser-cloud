@@ -7,6 +7,7 @@ import {
   LoadingRows,
 } from '@/components/feedback/AsyncStates';
 import { TagEditorDialog } from './TagEditorDialog';
+import { WorkspaceBatchActions } from './WorkspaceBatchActions';
 import {
   useAssignSessionToTag,
   useDeleteWorkspaceTag,
@@ -270,6 +271,18 @@ function TagCard({
             </p>
           )}
         </footer>
+      )}
+
+      {canOperate && tag.sessionCount > 0 && (
+        <WorkspaceBatchActions
+          label={tag.name}
+          targetCount={tag.sessionCount}
+          selector={{
+            tagIds: [tag.tagId],
+            tagMatch: 'ANY',
+            sessionIds: [],
+          }}
+        />
       )}
 
       {canAdminister && (

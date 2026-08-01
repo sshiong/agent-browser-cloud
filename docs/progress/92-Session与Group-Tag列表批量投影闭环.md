@@ -13,6 +13,10 @@ Session 列表、分组列表和标签列表的逐项读取已改为批量投影
 本轮只关闭读取链路 N+1。Group/Tag 的批量生命周期写操作、服务端组合筛选和 Agent
 大列表优化仍是独立待办，没有被本轮误计为完成。
 
+> 后续状态：Group/Tag 批量生命周期与服务端组合筛选已由
+> [进度 93](93-Workspace批量生命周期与组合筛选闭环.md)关闭；Agent 大列表和容量
+> 证书仍未完成。
+
 ## 已完成
 
 ### Session 列表
@@ -65,10 +69,10 @@ Binding 的固定批次组成。
 - 完整 PostgreSQL/双 Control Plane/三 Browser Node/MinIO/mTLS Integration 通过，
   既有 Session/Operation/迁移/审计主链无回归。
 
-## 仍未完成
+## 截至本轮仍未完成
 
-- Group/Tag 批量启动、停止、移动、归属等生命周期写操作及对应 Operation；
-- 按 Group、Tags、状态、区域等组合的服务端筛选与分页契约；
+- Group/Tag 批量 Start/Pause/Migrate/Hibernate 及对应 Operation 后续已由进度 93 关闭；
+- Group + Tags ANY/ALL 服务端筛选与分页契约后续已由进度 93 关闭；区域筛选仍未实现；
 - Agent 大列表 N+1 和大规模分页/容量证书；
 - 跨 Region 列表事件总线和大规模慢客户端/Ingress 长稳；
 - 目标集群数据库连接池、热点 Tenant 和双 Coordinator 长稳。

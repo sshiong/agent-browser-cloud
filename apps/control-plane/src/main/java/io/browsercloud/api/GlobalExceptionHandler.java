@@ -49,6 +49,7 @@ import io.browsercloud.application.SessionEvidenceAccessNodeGateway.EvidenceAcce
 import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceNotFoundException;
 import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceRejectedException;
 import io.browsercloud.application.SessionMigrationApplicationService.MigrationRejectedException;
+import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyActionRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyPermissionException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
@@ -61,6 +62,8 @@ import io.browsercloud.application.StaticProxyApplicationService.ProxyBindingNot
 import io.browsercloud.application.StaticProxyApplicationService.ProxyBindingRejectedException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
 import io.browsercloud.application.TenantRouteApplicationService.TenantRouteRejectedException;
+import io.browsercloud.application.WorkspaceBatchOperationApplicationService.WorkspaceBatchOperationNotFoundException;
+import io.browsercloud.application.WorkspaceBatchOperationApplicationService.WorkspaceBatchOperationRejectedException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupNotFoundException;
 import io.browsercloud.application.WorkspaceGroupApplicationService.WorkspaceGroupRejectedException;
 import io.browsercloud.application.WorkspaceTagApplicationService.WorkspaceTagNotFoundException;
@@ -197,6 +200,28 @@ public class GlobalExceptionHandler {
         request);
   }
 
+  @ExceptionHandler(WorkspaceBatchOperationNotFoundException.class)
+  ResponseEntity<ApiError> workspaceBatchOperationNotFound(
+      WorkspaceBatchOperationNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "WORKSPACE_BATCH_OPERATION_NOT_FOUND",
+        "Workspace Batch Operation not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(WorkspaceBatchOperationRejectedException.class)
+  ResponseEntity<ApiError> workspaceBatchOperationRejected(
+      WorkspaceBatchOperationRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "WORKSPACE_BATCH_OPERATION_REJECTED",
+        "Workspace Batch Operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
   @ExceptionHandler(WorkspaceGroupRejectedException.class)
   ResponseEntity<ApiError> workspaceGroupRejected(
       WorkspaceGroupRejectedException exception, HttpServletRequest request) {
@@ -322,6 +347,17 @@ public class GlobalExceptionHandler {
         "RESOURCE_POLICY_NOT_FOUND",
         "Session resource policy not found",
         Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(ResourcePolicyActionRejectedException.class)
+  ResponseEntity<ApiError> resourcePolicyActionRejected(
+      ResourcePolicyActionRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RESOURCE_POLICY_ACTION_REJECTED",
+        "Session resource policy action was rejected",
+        Map.of("reason", exception.getMessage()),
         request);
   }
 

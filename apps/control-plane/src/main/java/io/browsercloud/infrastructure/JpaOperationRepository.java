@@ -56,6 +56,17 @@ public class JpaOperationRepository implements OperationRepository {
   }
 
   @Override
+  public Map<String, ExclusiveOperation> findByIds(Collection<String> operationIds) {
+    if (operationIds.isEmpty()) {
+      return Map.of();
+    }
+    return operationJpa.findAllById(operationIds).stream()
+        .map(this::toDomain)
+        .collect(
+            Collectors.toUnmodifiableMap(ExclusiveOperation::operationId, Function.identity()));
+  }
+
+  @Override
   public long nextOperationEpoch(String sessionId) {
     return operationJpa.nextOperationEpoch(sessionId);
   }

@@ -27,6 +27,8 @@ import {
   useSessions,
   useStartSession,
 } from '@/features/sessions/api/sessionQueries';
+import { useWorkspaceGroups } from '@/features/groups/groupQueries';
+import { useWorkspaceTags } from '@/features/groups/tagQueries';
 import { cn } from '@/shared/lib/utils';
 import type { SessionState, SessionView } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
@@ -98,6 +100,16 @@ export function EnvironmentsPage() {
     : undefined;
   const page = Math.max(0, Number(searchParams.get('page') ?? 1) - 1 || 0);
   const search = searchParams.get('q') ?? '';
+  const groupId = searchParams.get('groupId') ?? undefined;
+  const tagIds = Array.from(
+    new Set(
+      (searchParams.get('tags') ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 16);
+  const tagMatch = searchParams.get('tagMatch') === 'ALL' ? 'ALL' : 'ANY';
   const deferredSearch = useDeferredValue(search);
   const activeView = primaryViews.find((item) => item.value === view)!;
   const state = exactState ?? activeView.state;
@@ -110,10 +122,15 @@ export function EnvironmentsPage() {
     context: true,
     operation: true,
   });
+  const groupsQuery = useWorkspaceGroups();
+  const tagsQuery = useWorkspaceTags();
 
   const query = useSessions({
     state,
     query: deferredSearch,
+    groupId,
+    tagIds,
+    tagMatch,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -257,7 +274,12 @@ export function EnvironmentsPage() {
               <ToolbarButton
                 icon={Filter}
                 label="高级筛选"
-                active={showAdvanced || Boolean(exactState)}
+                active={
+                  showAdvanced ||
+                  Boolean(exactState) ||
+                  Boolean(groupId) ||
+                  tagIds.length > 0
+                }
                 onClick={() => setShowAdvanced((current) => !current)}
               />
               <div className="relative">
@@ -345,12 +367,119 @@ export function EnvironmentsPage() {
                   ))}
                 </select>
               </label>
+              <label className="block min-w-[220px]">
+                <span className="mb-1.5 block text-[11px] text-text-muted">
+                  Workspace Group
+                </span>
+                <select
+                  value={groupId ?? ''}
+                  disabled={groupsQuery.isLoading}
+                  onChange={(event) =>
+                    updateParams({
+                      groupId: event.target.value || undefined,
+                      page: undefined,
+                    })
+                  }
+                  className="field-input"
+                >
+                  <option value="">全部分组</option>
+                  {groupsQuery.data?.items.map((group) => (
+                    <option key={group.groupId} value={group.groupId}>
+                      {group.name} · {group.sessionCount}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <fieldset
+                className="min-w-[280px] flex-1"
+                aria-label="Workspace Tags"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <span className="text-[11px] text-text-muted">
+                    Workspace Tags
+                  </span>
+                  {tagIds.length > 1 && (
+                    <span className="inline-flex border border-border-subtle">
+                      {(['ANY', 'ALL'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() =>
+                            updateParams({
+                              tagMatch: mode === 'ANY' ? undefined : mode,
+                              page: undefined,
+                            })
+                          }
+                          className={cn(
+                            'h-6 px-2 font-mono text-[9px]',
+                            tagMatch === mode
+                              ? 'bg-accent text-canvas'
+                              : 'bg-surface-2 text-text-muted'
+                          )}
+                        >
+                          {mode}
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                </div>
+                <div className="flex min-h-10 flex-wrap items-center gap-1.5 border border-border-subtle bg-surface-2 px-2 py-1.5">
+                  {tagsQuery.isLoading ? (
+                    <span className="text-[10px] text-text-muted">
+                      加载标签…
+                    </span>
+                  ) : tagsQuery.data?.items.length ? (
+                    tagsQuery.data.items.map((tag) => {
+                      const selected = tagIds.includes(tag.tagId);
+                      return (
+                        <button
+                          key={tag.tagId}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            const next = selected
+                              ? tagIds.filter((id) => id !== tag.tagId)
+                              : [...tagIds, tag.tagId].slice(0, 16);
+                            updateParams({
+                              tags: next.length ? next.join(',') : undefined,
+                              tagMatch:
+                                next.length > 1 && tagMatch === 'ALL'
+                                  ? 'ALL'
+                                  : undefined,
+                              page: undefined,
+                            });
+                          }}
+                          className={cn(
+                            'inline-flex h-6 items-center gap-1.5 border px-2 text-[10px]',
+                            selected
+                              ? 'border-accent/50 bg-accent-soft text-accent'
+                              : 'border-border-subtle bg-surface-1 text-text-muted hover:text-text-primary'
+                          )}
+                        >
+                          <span
+                            className="h-1.5 w-1.5"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <span className="text-[10px] text-text-muted">
+                      尚无可用标签
+                    </span>
+                  )}
+                </div>
+              </fieldset>
               <button
                 type="button"
                 onClick={() =>
                   updateParams({
                     state: undefined,
                     q: undefined,
+                    groupId: undefined,
+                    tags: undefined,
+                    tagMatch: undefined,
                     page: undefined,
                   })
                 }
@@ -395,7 +524,11 @@ export function EnvironmentsPage() {
           <div className="border border-border-subtle bg-surface-1">
             <ErrorState error={query.error} onRetry={() => query.refetch()} />
           </div>
-        ) : items.length === 0 && !search && !state ? (
+        ) : items.length === 0 &&
+          !search &&
+          !state &&
+          !groupId &&
+          tagIds.length === 0 ? (
           <EnvironmentEmptyState
             canCreate={auth.canOperate}
             onCreate={() => setCreateOpen(true)}
@@ -408,6 +541,9 @@ export function EnvironmentsPage() {
                 view: undefined,
                 state: undefined,
                 q: undefined,
+                groupId: undefined,
+                tags: undefined,
+                tagMatch: undefined,
                 page: undefined,
               })
             }

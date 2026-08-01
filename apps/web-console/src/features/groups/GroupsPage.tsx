@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/auth/AuthProvider';
 import { GroupEditorDialog } from './GroupEditorDialog';
 import { TagSection } from './TagSection';
+import { WorkspaceBatchActions } from './WorkspaceBatchActions';
 import {
   useAssignSessionToGroup,
   useDeleteWorkspaceGroup,
@@ -332,6 +333,19 @@ function GroupCard({
             </p>
           )}
         </footer>
+      )}
+
+      {canOperate && group.sessionCount > 0 && (
+        <WorkspaceBatchActions
+          label={group.name}
+          targetCount={group.sessionCount}
+          selector={{
+            groupId: group.groupId,
+            tagIds: [],
+            tagMatch: 'ANY',
+            sessionIds: [],
+          }}
+        />
       )}
 
       {canAdminister && (

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.SessionDescriptor;
+import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
 import io.browsercloud.coordinator.exceptions.StaleContextEpochException;
@@ -33,16 +34,19 @@ public class JpaSessionRepository implements SessionRepository {
   private final SessionContextJpaRepository contextJpa;
   private final ObjectMapper objectMapper;
   private final CoordinatorOwnershipService ownershipService;
+  private final SessionFilteredQueryRepository filteredQueries;
 
   public JpaSessionRepository(
       SessionJpaRepository sessionJpa,
       SessionContextJpaRepository contextJpa,
       ObjectMapper objectMapper,
-      CoordinatorOwnershipService ownershipService) {
+      CoordinatorOwnershipService ownershipService,
+      SessionFilteredQueryRepository filteredQueries) {
     this.sessionJpa = sessionJpa;
     this.contextJpa = contextJpa;
     this.objectMapper = objectMapper;
     this.ownershipService = ownershipService;
+    this.filteredQueries = filteredQueries;
   }
 
   @Override
@@ -187,7 +191,12 @@ public class JpaSessionRepository implements SessionRepository {
 
   @Override
   public List<SessionDescriptor> listByTenant(
-      String tenantId, SessionState state, String query, int limit, int offset) {
+      String tenantId,
+      SessionState state,
+      String query,
+      SessionListFilter filter,
+      int limit,
+      int offset) {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
     var pageable =
@@ -195,16 +204,22 @@ public class JpaSessionRepository implements SessionRepository {
     var searchPageable = new OffsetPageRequest(safeOffset, safeLimit, Sort.unsorted());
     var normalizedQuery = query == null ? "" : query.trim();
     var repositoryQuery = escapeLikeLiteral(normalizedQuery);
-    var page =
-        normalizedQuery.isEmpty()
-            ? state == null
-                ? sessionJpa.findAllByTenantId(tenantId, pageable)
-                : sessionJpa.findAllByTenantIdAndState(tenantId, state.name(), pageable)
-            : state == null
-                ? sessionJpa.searchAllByTenantId(tenantId, repositoryQuery, searchPageable)
-                : sessionJpa.searchAllByTenantIdAndState(
-                    tenantId, state.name(), repositoryQuery, searchPageable);
-    var entities = page.getContent();
+    List<SessionEntity> entities;
+    if (filter.hasWorkspaceDimensions()) {
+      entities =
+          filteredQueries.list(tenantId, state, normalizedQuery, filter, safeLimit, safeOffset);
+    } else {
+      var page =
+          normalizedQuery.isEmpty()
+              ? state == null
+                  ? sessionJpa.findAllByTenantId(tenantId, pageable)
+                  : sessionJpa.findAllByTenantIdAndState(tenantId, state.name(), pageable)
+              : state == null
+                  ? sessionJpa.searchAllByTenantId(tenantId, repositoryQuery, searchPageable)
+                  : sessionJpa.searchAllByTenantIdAndState(
+                      tenantId, state.name(), repositoryQuery, searchPageable);
+      entities = page.getContent();
+    }
     if (entities.isEmpty()) {
       return List.of();
     }
@@ -226,8 +241,12 @@ public class JpaSessionRepository implements SessionRepository {
   }
 
   @Override
-  public long countByTenant(String tenantId, SessionState state, String query) {
+  public long countByTenant(
+      String tenantId, SessionState state, String query, SessionListFilter filter) {
     var normalizedQuery = query == null ? "" : query.trim();
+    if (filter.hasWorkspaceDimensions()) {
+      return filteredQueries.count(tenantId, state, normalizedQuery, filter);
+    }
     var repositoryQuery = escapeLikeLiteral(normalizedQuery);
     if (!normalizedQuery.isEmpty()) {
       var pageable = new OffsetPageRequest(0, 1, Sort.unsorted());

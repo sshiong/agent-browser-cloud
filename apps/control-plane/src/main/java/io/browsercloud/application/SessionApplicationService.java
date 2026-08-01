@@ -355,6 +355,14 @@ public class SessionApplicationService {
         sessionId, tenantId, actorId, "proxy_rebind_safe_restart", "proxy_rebind");
   }
 
+  /** Operator-confirmed hibernation dispatched from a durable Workspace batch command. */
+  @Transactional
+  public OperationResponse hibernateForBatch(
+      String sessionId, String tenantId, String actorId, String batchOperationId) {
+    return hibernateForWorkflow(
+        sessionId, tenantId, actorId, "workspace_batch:" + batchOperationId, "workspace_batch");
+  }
+
   private OperationResponse hibernateForWorkflow(
       String sessionId,
       String tenantId,
@@ -501,9 +509,21 @@ public class SessionApplicationService {
   /** 列出 Sessions。 */
   public SessionListResponse list(
       String tenantId, SessionState state, String query, int limit, int offset) {
+    return list(tenantId, state, query, SessionListFilter.empty(), limit, offset);
+  }
+
+  /** 使用 PostgreSQL 组合 Group/Tag 条件列出 Sessions。 */
+  public SessionListResponse list(
+      String tenantId,
+      SessionState state,
+      String query,
+      SessionListFilter filter,
+      int limit,
+      int offset) {
     int safeLimit = Math.max(1, Math.min(limit, 100));
     int safeOffset = Math.max(0, offset);
-    var descriptors = sessionRepository.listByTenant(tenantId, state, query, safeLimit, safeOffset);
+    var descriptors =
+        sessionRepository.listByTenant(tenantId, state, query, filter, safeLimit, safeOffset);
     var sessionIds =
         descriptors.stream().map(descriptor -> descriptor.context().sessionId()).toList();
     var activeOperations = operationRepository.findActiveBySessionIds(sessionIds);
@@ -521,7 +541,7 @@ public class SessionApplicationService {
                       bindingProfiles.get(sessionId));
                 })
             .toList();
-    long count = sessionRepository.countByTenant(tenantId, state, query);
+    long count = sessionRepository.countByTenant(tenantId, state, query, filter);
     return new SessionListResponse(
         items, Math.toIntExact(Math.min(count, Integer.MAX_VALUE)), safeLimit, safeOffset);
   }

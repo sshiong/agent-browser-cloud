@@ -35,6 +35,9 @@ public interface OperationRepository {
   /** Batch active-operation projection for bounded Session list pages. */
   Map<String, ExclusiveOperation> findActiveBySessionIds(Collection<String> sessionIds);
 
+  /** Batch lookup used to follow child Operations accepted by a workspace batch command. */
+  Map<String, ExclusiveOperation> findByIds(Collection<String> operationIds);
+
   long nextOperationEpoch(String sessionId);
 
   long countSince(String sessionId, OperationMode mode, Instant since);

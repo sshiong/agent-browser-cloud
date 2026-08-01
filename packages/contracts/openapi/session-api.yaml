@@ -251,6 +251,30 @@ paths:
           schema:
             type: string
             maxLength: 128
+        - name: groupId
+          in: query
+          description: Restrict results to one tenant-owned Workspace Group.
+          schema:
+            type: string
+            pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+        - name: tagId
+          in: query
+          description: Repeat to filter by multiple tenant-owned Workspace Tags.
+          schema:
+            type: array
+            maxItems: 16
+            items:
+              type: string
+              pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+          style: form
+          explode: true
+        - name: tagMatch
+          in: query
+          description: Match any selected Tag or require all selected Tags.
+          schema:
+            type: string
+            enum: [ANY, ALL]
+            default: ANY
         - name: limit
           in: query
           schema:
@@ -3418,6 +3442,112 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkspaceTag"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/workspace-batch-operations:
+    get:
+      operationId: listWorkspaceBatchOperations
+      summary: List recent tenant Workspace lifecycle batches
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Real routed-command and child-operation aggregate state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceBatchOperationListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createWorkspaceBatchOperation
+      summary: Submit a bounded Group, Tag, or explicit Session lifecycle batch
+      description: >
+        Creates one durable routed Coordinator command per selected Session. Risky actions
+        require an explicit reason and confirmation. The API never mutates browser nodes directly.
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceBatchOperationRequest"
+      responses:
+        "202":
+          description: Batch accepted and durably routed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceBatchOperation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/workspace-batch-operations/{batchOperationId}:
+    get:
+      operationId: getWorkspaceBatchOperation
+      summary: Read authoritative batch progress
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - name: batchOperationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^bop_[a-zA-Z0-9]{16,32}$"
+      responses:
+        "200":
+          description: Current aggregate and per-Session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceBatchOperation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/workspace-batch-operations/{batchOperationId}:cancel:
+    post:
+      operationId: cancelWorkspaceBatchOperation
+      summary: Cancel only batch items that have not started
+      description: Executing child Operations continue and remain visible in aggregate progress.
+      tags: [Groups, Tags, Operation]
+      parameters:
+        - name: batchOperationId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^bop_[a-zA-Z0-9]{16,32}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelWorkspaceBatchOperationRequest"
+      responses:
+        "200":
+          description: Cancellation request recorded and pending items cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceBatchOperation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
   /api/v1/workspace-settings:
@@ -7697,6 +7827,175 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkspaceTagSession"
+        total:
+          type: integer
+          minimum: 0
+    WorkspaceBatchAction:
+      type: string
+      enum: [START, PAUSE_AGENT, MIGRATE, HIBERNATE]
+    WorkspaceBatchState:
+      type: string
+      enum:
+        [ACCEPTED, EXECUTING, CANCELLING, SUCCEEDED, PARTIAL_SUCCESS, FAILED, CANCELLED]
+    WorkspaceBatchItemState:
+      type: string
+      enum: [ACCEPTED, EXECUTING, SUCCEEDED, FAILED, CANCELLED]
+    WorkspaceBatchSelector:
+      type: object
+      additionalProperties: false
+      required: [tagIds, tagMatch, sessionIds]
+      properties:
+        groupId:
+          type: [string, "null"]
+          pattern: "^grp_[a-zA-Z0-9]{16,32}$"
+        tagIds:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^tag_[a-zA-Z0-9]{16,32}$"
+        tagMatch:
+          type: string
+          enum: [ANY, ALL]
+        sessionIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^ses_[a-zA-Z0-9]{16,}$"
+    CreateWorkspaceBatchOperationRequest:
+      type: object
+      additionalProperties: false
+      required: [action, selector, confirmed]
+      properties:
+        action:
+          $ref: "#/components/schemas/WorkspaceBatchAction"
+        selector:
+          $ref: "#/components/schemas/WorkspaceBatchSelector"
+        reason:
+          type: [string, "null"]
+          maxLength: 240
+        confirmed:
+          type: boolean
+    CancelWorkspaceBatchOperationRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 8
+          maxLength: 240
+    WorkspaceBatchOperationItem:
+      type: object
+      additionalProperties: false
+      required:
+        [batchItemId, sessionId, ordinal, commandId, state, createdAt]
+      properties:
+        batchItemId:
+          type: string
+          pattern: "^bopi_[a-zA-Z0-9]{16,32}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        ordinal:
+          type: integer
+          minimum: 0
+          maximum: 99
+        commandId:
+          type: string
+        state:
+          $ref: "#/components/schemas/WorkspaceBatchItemState"
+        childOperationId:
+          type: [string, "null"]
+          description: Child Operation ID or Migration ledger ID for MIGRATE actions.
+        failureCode:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    WorkspaceBatchOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - batchOperationId
+        - action
+        - state
+        - selector
+        - total
+        - accepted
+        - executing
+        - succeeded
+        - failed
+        - cancelled
+        - cancellationRequested
+        - items
+        - actorId
+        - createdAt
+        - updatedAt
+      properties:
+        batchOperationId:
+          type: string
+          pattern: "^bop_[a-zA-Z0-9]{16,32}$"
+        action:
+          $ref: "#/components/schemas/WorkspaceBatchAction"
+        state:
+          $ref: "#/components/schemas/WorkspaceBatchState"
+        selector:
+          $ref: "#/components/schemas/WorkspaceBatchSelector"
+        reason:
+          type: [string, "null"]
+        total:
+          type: integer
+          minimum: 0
+          maximum: 100
+        accepted:
+          type: integer
+          minimum: 0
+        executing:
+          type: integer
+          minimum: 0
+        succeeded:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+        cancelled:
+          type: integer
+          minimum: 0
+        cancellationRequested:
+          type: boolean
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/WorkspaceBatchOperationItem"
+        actorId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceBatchOperationListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceBatchOperation"
         total:
           type: integer
           minimum: 0

@@ -13,6 +13,7 @@ import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceEventStreamService;
 import io.browsercloud.application.SessionSafetyLeaseApplicationService;
 import io.browsercloud.application.StateGatewayApplicationService;
+import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.security.PlatformIdentity;
@@ -490,9 +491,24 @@ public class SessionController {
   public SessionListResponse list(
       @RequestParam(required = false) SessionState state,
       @RequestParam(required = false, name = "q") @Size(max = 128) String query,
+      @RequestParam(required = false) @Pattern(regexp = "^grp_[a-zA-Z0-9]{16,32}$") String groupId,
+      @RequestParam(required = false, name = "tagId")
+          java.util.List<@Pattern(regexp = "^tag_[a-zA-Z0-9]{16,32}$") String> tagIds,
+      @RequestParam(defaultValue = "ANY") SessionListFilter.TagMatch tagMatch,
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
-    return service.list(identity.current().tenantId(), state, query, limit, offset);
+    var normalizedTagIds =
+        tagIds == null ? java.util.List.<String>of() : tagIds.stream().distinct().toList();
+    if (normalizedTagIds.size() > 16) {
+      throw new IllegalArgumentException("SESSION_TAG_FILTER_LIMIT_EXCEEDED");
+    }
+    return service.list(
+        identity.current().tenantId(),
+        state,
+        query,
+        new SessionListFilter(groupId, normalizedTagIds, tagMatch),
+        limit,
+        offset);
   }
 
   private static String requestId(HttpServletRequest request) {

@@ -1490,6 +1490,30 @@ assigned_temporary_tag="$(curl -fsS -X PUT \
   -H 'Idempotency-Key: smoke-tag-assign-001')"
 printf '%s' "$assigned_temporary_tag" | python3 -c \
   "import json,sys; item=json.load(sys.stdin); assert item['sessionCount'] == 1; assert item['sessions'][0]['sessionId'] == '${session_one}'"
+combined_session_filter="$(curl -fsS --get \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  --data-urlencode "groupId=${workspace_group_id}" \
+  --data-urlencode "tagId=${workspace_tag_id}" \
+  --data-urlencode "tagId=${temporary_tag_id}" \
+  --data-urlencode 'tagMatch=ALL')"
+printf '%s' "$combined_session_filter" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 1; assert result['items'][0]['sessionId'] == '${session_one}'"
+any_session_filter="$(curl -fsS --get \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  --data-urlencode "tagId=${workspace_tag_id}" \
+  --data-urlencode 'tagId=tag_0000000000000000' \
+  --data-urlencode 'tagMatch=ANY')"
+printf '%s' "$any_session_filter" | python3 -c \
+  "import json,sys; result=json.load(sys.stdin); assert result['total'] == 1; assert result['items'][0]['sessionId'] == '${session_one}'"
+cross_tenant_session_filter="$(curl -fsS --get \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'X-Tenant-Id: different-tenant' \
+  --data-urlencode "groupId=${workspace_group_id}" \
+  --data-urlencode "tagId=${workspace_tag_id}")"
+printf '%s' "$cross_tenant_session_filter" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 0; assert result["items"] == []'
 unassigned_temporary_tag="$(curl -fsS -X DELETE \
   "http://localhost:${control_port}/api/v1/tags/${temporary_tag_id}/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -1559,6 +1583,81 @@ total="$(printf '%s' "$list_result" | python3 -c 'import json,sys; print(json.lo
 test "$total" = "1"
 printf '%s' "$list_result" | python3 -c \
   "import json,sys; item=json.load(sys.stdin)['items'][0]; assert item['displayName'] == 'Integration browser'; assert item['profileId'] == 'profile-integration'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['proxyBindingProfileId'] == '${proxy_binding_id}'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['region'] == 'local'; assert item['groupId'] == '${workspace_group_id}'; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]; assert item['resourceTemplate'] == 'standard-v1'; assert 'resourceClass' not in item"
+
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/profiles" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-batch-integration' \
+  -H 'X-Actor-Id: batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"profileId":"profile-batch-operation","name":"Batch operation profile"}' \
+  >"$temp_dir/batch-profile.json"
+batch_session="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-batch-integration' \
+  -H 'X-Actor-Id: batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-batch-session-001' \
+  -d '{"tenantId":"tenant-batch-integration","profileId":"profile-batch-operation","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"metadata":{"displayName":"Batch lifecycle probe"}}')"
+batch_session_id="$(printf '%s' "$batch_session" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+batch_request="{\"action\":\"START\",\"selector\":{\"tagIds\":[],\"tagMatch\":\"ANY\",\"sessionIds\":[\"${batch_session_id}\"]},\"confirmed\":false}"
+batch_operation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/workspace-batch-operations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-batch-integration' \
+  -H 'X-Actor-Id: batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-workspace-batch-001' \
+  -d "$batch_request")"
+batch_operation_id="$(printf '%s' "$batch_operation" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ACCEPTED"; assert item["total"] == 1; print(item["batchOperationId"])')"
+batch_replay="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/workspace-batch-operations" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-batch-integration' \
+  -H 'X-Actor-Id: batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-workspace-batch-001' \
+  -d "$batch_request")"
+printf '%s' "$batch_replay" | python3 -c \
+  "import json,sys; assert json.load(sys.stdin)['batchOperationId'] == '${batch_operation_id}'"
+batch_state=""
+for _ in $(seq 1 80); do
+  batch_operation="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/workspace-batch-operations/${batch_operation_id}" \
+    -H 'X-Tenant-Id: tenant-batch-integration' \
+    -H 'X-Roles: TENANT_OPERATOR')"
+  batch_state="$(printf '%s' "$batch_operation" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$batch_state" = "SUCCEEDED" ]]; then break; fi
+  sleep 0.25
+done
+test "$batch_state" = "SUCCEEDED"
+printf '%s' "$batch_operation" | python3 -c \
+  "import json,sys; item=json.load(sys.stdin); assert item['succeeded'] == 1; assert item['failed'] == 0; assert item['items'][0]['sessionId'] == '${batch_session_id}'; assert item['items'][0]['childOperationId'].startswith('op_')"
+batch_cross_tenant_status="$(curl -sS \
+  -o "$temp_dir/batch-cross-tenant.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/workspace-batch-operations/${batch_operation_id}" \
+  -H 'X-Tenant-Id: different-tenant' \
+  -H 'X-Roles: TENANT_OPERATOR')"
+test "$batch_cross_tenant_status" = "404"
+batch_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select (select count(*) from workspace_batch_operations where batch_operation_id='${batch_operation_id}' and tenant_id='tenant-batch-integration') || ':' ||
+          (select count(*) from workspace_batch_operation_items where batch_operation_id='${batch_operation_id}') || ':' ||
+          (select count(*) from workspace_batch_operation_items item
+             join coordinator_commands command on command.command_id=item.command_id
+            where item.batch_operation_id='${batch_operation_id}'
+              and command.session_id='${batch_session_id}'
+              and command.command_type='SESSION_START_V1'
+              and command.state='COMMITTED')")"
+test "$batch_db_summary" = "1:1:1"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${batch_session_id}:terminate" \
+  -H 'X-Tenant-Id: tenant-batch-integration' \
+  -H 'X-Actor-Id: batch-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' >/dev/null
 
 forbidden_status="$(curl -sS -o "$temp_dir/forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \

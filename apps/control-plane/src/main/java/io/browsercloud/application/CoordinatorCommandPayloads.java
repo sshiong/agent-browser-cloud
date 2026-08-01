@@ -18,6 +18,9 @@ public final class CoordinatorCommandPayloads {
   public static final String RESOURCE_POLICY_EVALUATE = "RESOURCE_POLICY_EVALUATE_V1";
   public static final String MIGRATION_RECONCILE = "MIGRATION_RECONCILE_V1";
   public static final String PROXY_REBIND_REQUEST = "PROXY_REBIND_REQUEST_V1";
+  public static final String WORKSPACE_BATCH_PAUSE_AGENT = "WORKSPACE_BATCH_PAUSE_AGENT_V1";
+  public static final String WORKSPACE_BATCH_MIGRATE = "WORKSPACE_BATCH_MIGRATE_V1";
+  public static final String WORKSPACE_BATCH_HIBERNATE = "WORKSPACE_BATCH_HIBERNATE_V1";
 
   public record SessionActor(String tenantId, String actorId) {}
 
@@ -42,6 +45,11 @@ public final class CoordinatorCommandPayloads {
       String reason,
       String idempotencyKey,
       String requestId) {}
+
+  public record WorkspaceBatchSessionAction(
+      String tenantId, String actorId, String batchOperationId, String reason) {}
+
+  public record BatchMigrationAccepted(String migrationId) {}
 
   public record CommandAck(String state) {
     public static CommandAck committed() {

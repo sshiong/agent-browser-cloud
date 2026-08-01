@@ -1069,6 +1069,138 @@ try {
   await expect(
     page.getByText("服务端筛选与分页", { exact: false }),
   ).toBeVisible();
+
+  const batchGroupName = `E2E Batch Group ${runSuffix}`;
+  const batchTagName = `E2E Batch Tag ${runSuffix}`;
+  const groupResponse = await page.request.post(`${baseUrl}/api/v1/groups`, {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Tenant-Id": "tenant-local",
+      "X-Actor-Id": "e2e-admin",
+      "X-Roles": "TENANT_ADMIN",
+      "Idempotency-Key": `e2e-batch-group-${runSuffix}`,
+    },
+    data: {
+      name: batchGroupName,
+      color: "#35D6BE",
+      defaultOnMaximumReached: "PAUSE_AGENT",
+      defaultAllowMigration: true,
+      defaultAllowHibernate: true,
+    },
+  });
+  if (groupResponse.status() !== 201) {
+    throw new Error(`Batch Group setup failed: ${await groupResponse.text()}`);
+  }
+  const batchGroupId = (await groupResponse.json()).groupId;
+  const tagResponse = await page.request.post(`${baseUrl}/api/v1/tags`, {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Tenant-Id": "tenant-local",
+      "X-Actor-Id": "e2e-admin",
+      "X-Roles": "TENANT_ADMIN",
+      "Idempotency-Key": `e2e-batch-tag-${runSuffix}`,
+    },
+    data: { name: batchTagName, color: "#A78BFA" },
+  });
+  if (tagResponse.status() !== 201) {
+    throw new Error(`Batch Tag setup failed: ${await tagResponse.text()}`);
+  }
+  const batchTagId = (await tagResponse.json()).tagId;
+  for (const [url, key] of [
+    [
+      `${baseUrl}/api/v1/groups/${batchGroupId}/sessions/${startSessionId}`,
+      `e2e-batch-group-assign-${runSuffix}`,
+    ],
+    [
+      `${baseUrl}/api/v1/tags/${batchTagId}/sessions/${startSessionId}`,
+      `e2e-batch-tag-assign-${runSuffix}`,
+    ],
+  ]) {
+    const assignment = await page.request.put(url, {
+      headers: {
+        "X-Tenant-Id": "tenant-local",
+        "X-Actor-Id": "e2e-operator",
+        "X-Roles": "TENANT_OPERATOR",
+        "Idempotency-Key": key,
+      },
+    });
+    if (assignment.status() !== 200) {
+      throw new Error(`Batch selector assignment failed: ${await assignment.text()}`);
+    }
+  }
+
+  await page.goto(`${baseUrl}/environments`);
+  await page.getByRole("button", { name: "高级筛选" }).click();
+  await page.getByLabel("Workspace Group").selectOption(batchGroupId);
+  const combinedFilterResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/v1/sessions?`) &&
+      response.url().includes(`groupId=${batchGroupId}`) &&
+      response.url().includes(`tagId=${batchTagId}`),
+  );
+  await page
+    .getByRole("group", { name: "Workspace Tags" })
+    .getByRole("button", { name: batchTagName, exact: true })
+    .click();
+  const combinedFilterResponse = await combinedFilterResponsePromise;
+  if (combinedFilterResponse.status() !== 200) {
+    throw new Error(
+      `Combined Environment filter failed: ${await combinedFilterResponse.text()}`,
+    );
+  }
+  await expect(page.getByText(startName, { exact: true })).toBeVisible();
+  await expect(page.getByText(terminateName, { exact: true })).toHaveCount(0);
+
+  await page.goto(`${baseUrl}/groups`);
+  await expect(page.getByRole("heading", { name: batchGroupName })).toBeVisible();
+  const batchGroupCard = page
+    .locator("article")
+    .filter({ has: page.getByRole("heading", { name: batchGroupName }) });
+  await batchGroupCard
+    .getByLabel(`${batchGroupName}批量动作`)
+    .selectOption("HIBERNATE");
+  await batchGroupCard
+    .getByPlaceholder("填写操作原因，至少 8 个字符")
+    .fill("E2E verifies safe-point batch lifecycle routing");
+  await batchGroupCard.getByRole("checkbox").check();
+  const batchResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/workspace-batch-operations") &&
+      response.request().method() === "POST",
+  );
+  await batchGroupCard.getByRole("button", { name: "提交 1 项" }).click();
+  const batchResponse = await batchResponsePromise;
+  if (batchResponse.status() !== 202) {
+    throw new Error(`Workspace batch submit failed: ${await batchResponse.text()}`);
+  }
+  const batchOperationId = (await batchResponse.json()).batchOperationId;
+  let batchState = "ACCEPTED";
+  const batchStateLabels = {
+    SUCCEEDED: "全部成功",
+    PARTIAL_SUCCESS: "部分成功",
+    FAILED: "执行失败",
+    CANCELLED: "已取消",
+  };
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const statusResponse = await page.request.get(
+      `${baseUrl}/api/v1/workspace-batch-operations/${batchOperationId}`,
+      { headers: { "X-Tenant-Id": "tenant-local" } },
+    );
+    const status = await statusResponse.json();
+    batchState = status.state;
+    if (batchStateLabels[batchState]) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  if (!batchStateLabels[batchState]) {
+    throw new Error(`Workspace batch did not terminate: ${batchState}`);
+  }
+  await expect(
+    batchGroupCard.getByText(batchStateLabels[batchState], { exact: true }),
+  ).toBeVisible({ timeout: 5_000 });
+  await page.screenshot({
+    path: screenshotPath.replace(/\.png$/, "-workspace-batch.png"),
+    fullPage: true,
+  });
   await page.screenshot({ path: screenshotPath, fullPage: true });
 } catch (error) {
   console.error(

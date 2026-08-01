@@ -57,7 +57,12 @@ public interface SessionRepository {
   void updateWithExpectedEpoch(SessionContext context, long expectedContextEpoch);
 
   List<SessionDescriptor> listByTenant(
-      String tenantId, SessionState state, String query, int limit, int offset);
+      String tenantId,
+      SessionState state,
+      String query,
+      SessionListFilter filter,
+      int limit,
+      int offset);
 
-  long countByTenant(String tenantId, SessionState state, String query);
+  long countByTenant(String tenantId, SessionState state, String query, SessionListFilter filter);
 }

@@ -157,6 +157,13 @@ public class SessionMigrationApplicationService {
 
   @Transactional
   public String request(String sessionId, String tenantId) {
+    return request(
+        sessionId, tenantId, "system:resource-policy", "resource_policy_maximum_reached");
+  }
+
+  @Transactional
+  public String request(
+      String sessionId, String tenantId, String actorId, String batchOperationId) {
     var session = requireTenantForUpdate(sessionId, tenantId);
     var existing =
         migrations.findFirstBySessionIdAndPhaseInOrderByCreatedAtDesc(sessionId, ACTIVE_PHASES);
@@ -181,7 +188,10 @@ public class SessionMigrationApplicationService {
                 placement.nodeId(),
                 session.contextEpoch(),
                 now));
-    var operation = sessionService.hibernateForResourcePolicy(sessionId, tenantId);
+    var operation =
+        actorId.startsWith("system:")
+            ? sessionService.hibernateForResourcePolicy(sessionId, tenantId)
+            : sessionService.hibernateForBatch(sessionId, tenantId, actorId, batchOperationId);
     migration.hibernateDispatched(operation.operationId(), now);
     migrations.save(migration);
     resources.recordMigrationPhase(
@@ -201,6 +211,13 @@ public class SessionMigrationApplicationService {
    */
   @Transactional
   public OperationResponse hibernateAtSafePoint(String sessionId, String tenantId) {
+    return hibernateAtSafePoint(
+        sessionId, tenantId, "system:resource-policy", "resource_policy_maximum_reached");
+  }
+
+  @Transactional
+  public OperationResponse hibernateAtSafePoint(
+      String sessionId, String tenantId, String actorId, String batchOperationId) {
     var session = requireTenantForUpdate(sessionId, tenantId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
       throw new MigrationRejectedException("HIBERNATE_REQUIRES_RUNNING_SESSION");
@@ -208,7 +225,9 @@ public class SessionMigrationApplicationService {
     if (!safePoints.assess(sessionId, tenantId).safe()) {
       throw new MigrationRejectedException("SAFE_POINT_NOT_REACHED");
     }
-    return sessionService.hibernateForResourcePolicy(sessionId, tenantId);
+    return actorId.startsWith("system:")
+        ? sessionService.hibernateForResourcePolicy(sessionId, tenantId)
+        : sessionService.hibernateForBatch(sessionId, tenantId, actorId, batchOperationId);
   }
 
   @Transactional(readOnly = true)

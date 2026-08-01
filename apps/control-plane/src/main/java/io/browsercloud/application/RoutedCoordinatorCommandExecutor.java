@@ -17,6 +17,7 @@ public class RoutedCoordinatorCommandExecutor {
   private final AgentHumanGovernanceService governance;
   private final CoordinatorDeadlineCommandExecutor deadlines;
   private final SessionResourceDecisionExecutor resourceDecisions;
+  private final SessionResourceApplicationService resources;
   private final SessionMigrationApplicationService migrations;
   private final ObjectMapper mapper;
 
@@ -26,6 +27,7 @@ public class RoutedCoordinatorCommandExecutor {
       AgentHumanGovernanceService governance,
       CoordinatorDeadlineCommandExecutor deadlines,
       SessionResourceDecisionExecutor resourceDecisions,
+      SessionResourceApplicationService resources,
       SessionMigrationApplicationService migrations,
       ObjectMapper mapper) {
     this.sessions = sessions;
@@ -33,6 +35,7 @@ public class RoutedCoordinatorCommandExecutor {
     this.governance = governance;
     this.deadlines = deadlines;
     this.resourceDecisions = resourceDecisions;
+    this.resources = resources;
     this.migrations = migrations;
     this.mapper = mapper;
   }
@@ -96,6 +99,22 @@ public class RoutedCoordinatorCommandExecutor {
             command.reason(),
             command.idempotencyKey(),
             command.requestId());
+      }
+      case WORKSPACE_BATCH_PAUSE_AGENT -> {
+        var command = read(payload, WorkspaceBatchSessionAction.class);
+        yield resources.pauseAgentForBatch(
+            sessionId, command.tenantId(), command.batchOperationId());
+      }
+      case WORKSPACE_BATCH_MIGRATE -> {
+        var command = read(payload, WorkspaceBatchSessionAction.class);
+        yield new BatchMigrationAccepted(
+            migrations.request(
+                sessionId, command.tenantId(), command.actorId(), command.batchOperationId()));
+      }
+      case WORKSPACE_BATCH_HIBERNATE -> {
+        var command = read(payload, WorkspaceBatchSessionAction.class);
+        yield migrations.hibernateAtSafePoint(
+            sessionId, command.tenantId(), command.actorId(), command.batchOperationId());
       }
       default ->
           throw new RoutedCommandExecutionException("UNSUPPORTED_ROUTED_COORDINATOR_COMMAND");

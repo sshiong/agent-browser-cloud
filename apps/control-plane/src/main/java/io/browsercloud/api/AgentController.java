@@ -4,6 +4,7 @@ import static io.browsercloud.application.CoordinatorCommandPayloads.*;
 
 import io.browsercloud.application.AgentApplicationService;
 import io.browsercloud.application.AgentHumanGovernanceService;
+import io.browsercloud.application.AgentTaskSummaryApplicationService;
 import io.browsercloud.application.CoordinatorCommandRoutingService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentController {
 
   private final AgentApplicationService service;
+  private final AgentTaskSummaryApplicationService summaryService;
   private final io.browsercloud.application.AgentExecutionService executionService;
   private final AgentHumanGovernanceService governanceService;
   private final CoordinatorCommandRoutingService commandRouting;
@@ -40,11 +42,13 @@ public class AgentController {
 
   public AgentController(
       AgentApplicationService service,
+      AgentTaskSummaryApplicationService summaryService,
       io.browsercloud.application.AgentExecutionService executionService,
       AgentHumanGovernanceService governanceService,
       CoordinatorCommandRoutingService commandRouting,
       PlatformIdentity identity) {
     this.service = service;
+    this.summaryService = summaryService;
     this.executionService = executionService;
     this.governanceService = governanceService;
     this.commandRouting = commandRouting;
@@ -72,6 +76,13 @@ public class AgentController {
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return service.list(identity.current().tenantId(), limit, offset);
+  }
+
+  @GetMapping("/agent-task-summaries")
+  public AgentTaskSummaryListResponse listSummaries(
+      @RequestParam(defaultValue = "20") @Min(1) @Max(50) int limit,
+      @RequestParam(required = false) @Size(max = 512) String cursor) {
+    return summaryService.list(identity.current().tenantId(), limit, cursor);
   }
 
   @PostMapping("/agent-tasks/{taskId}:execute")

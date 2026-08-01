@@ -176,3 +176,34 @@ export interface AgentTaskListResponse {
   limit: number;
   offset: number;
 }
+
+export type AgentTaskSummary = Pick<
+  AgentTaskView,
+  | 'taskId'
+  | 'sessionId'
+  | 'goal'
+  | 'state'
+  | 'riskClass'
+  | 'intentDecision'
+  | 'blockedReason'
+  | 'agentPolicy'
+  | 'currentStep'
+  | 'totalSteps'
+  | 'createdAt'
+  | 'updatedAt'
+> & {
+  securityEventCount: number;
+};
+
+export interface AgentTaskSummaryListResponse {
+  items: AgentTaskSummary[];
+  metrics: {
+    planned: number;
+    completed: number;
+    blocked: number;
+  };
+  total: number;
+  limit: number;
+  nextCursor?: string | null;
+  hasMore: boolean;
+}

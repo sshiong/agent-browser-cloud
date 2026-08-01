@@ -4,6 +4,8 @@ import {
   approveAgentTask,
   createAgentTask,
   executeAgentTask,
+  getAgentTask,
+  listAgentTaskSummaries,
   listAgentTasks,
 } from './agent';
 
@@ -24,6 +26,49 @@ describe('agent API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/agent-tasks?limit=100&offset=0',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+  });
+
+  it('pages lightweight task summaries with an opaque cursor', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [],
+          metrics: { planned: 0, completed: 0, blocked: 0 },
+          total: 0,
+          limit: 20,
+          nextCursor: null,
+          hasMore: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    await listAgentTaskSummaries(20, 'opaque+cursor', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/agent-task-summaries?limit=20&cursor=opaque%2Bcursor',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+  });
+
+  it('loads full task details only for the selected task', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ taskId: 'agt_1234567890abcdef' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await getAgentTask('agt_1234567890abcdef', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/agent-tasks/agt_1234567890abcdef',
       expect.objectContaining({
         headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })

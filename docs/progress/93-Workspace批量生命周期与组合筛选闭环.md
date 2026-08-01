@@ -15,7 +15,8 @@ Group 与最多 16 个 Tag 的 `ANY / ALL` 服务端组合筛选和分页。前�
 - Group/Tag 批量生命周期 Operation；
 - Group/Tag 组合服务端筛选。
 
-Agent 大列表 N+1、列表级跨 Region 事件流及目标规模容量证书仍未完成。
+Agent 宽 JSON 大列表读取后续已由进度 96 关闭；列表级跨 Region 事件流及目标规模容量
+证书仍未完成。
 
 ## 已完成
 
@@ -106,7 +107,7 @@ OpenAPI 同步声明选择器、动作、批量/Item 状态、风险确认、幂
 
 ## 仍未完成
 
-- Agent 大列表 N+1 与目标规模分页/批量容量证书；
+- Agent 宽 JSON 大列表读取后续已由进度 96 关闭；目标规模分页/批量容量证书仍未完成；
 - 列表级 SSE/跨 Region Event Bus、慢客户端与 Ingress 长稳；
 - 目标 Linux 正式 Chromium 下的大批量并发、数据库连接池与热点 Tenant 长稳；
 - Environment Saved View 的 Group/Tag 组合条件已由

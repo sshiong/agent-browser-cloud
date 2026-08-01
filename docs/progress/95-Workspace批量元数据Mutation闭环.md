@@ -97,7 +97,8 @@ N Worker；若决定停止，应由受控运维流程取消未执行项。物理
 
 ## 仍未完成
 
-- Agent 大列表 N+1、列表级 SSE、跨 Region Event Bus 和目标规模容量证书；
+- Agent 宽 JSON 大列表读取后续已由进度 96 关闭；列表级 SSE、跨 Region Event Bus 和
+  目标规模容量证书仍未完成；
 - 目标业务 Lease Adapter、真实 CRM/支付 Provider 凭据与恢复证明联调；
 - Proxy 主动探测、商业 Provider 质量/成本和目标云 Secret 解引用；
 - Phase 4 高级 Agent、企业运营自动编排和 V16 目标环境/组织发布 Gate。

@@ -14,7 +14,8 @@ Session 列表、分组列表和标签列表的逐项读取已改为批量投影
 大列表优化仍是独立待办，没有被本轮误计为完成。
 
 > 后续状态：Group/Tag 批量生命周期与服务端组合筛选已由
-> [进度 93](93-Workspace批量生命周期与组合筛选闭环.md)关闭；Agent 大列表和容量
+> [进度 93](93-Workspace批量生命周期与组合筛选闭环.md)关闭；Agent 大列表读取后续由
+> [进度 96](96-Agent任务大列表轻量投影与游标分页闭环.md)关闭，容量
 > 证书仍未完成。
 
 ## 已完成
@@ -73,6 +74,6 @@ Binding 的固定批次组成。
 
 - Group/Tag 批量 Start/Pause/Migrate/Hibernate 及对应 Operation 后续已由进度 93 关闭；
 - Group + Tags ANY/ALL 服务端筛选与分页契约后续已由进度 93 关闭；区域筛选仍未实现；
-- Agent 大列表 N+1 和大规模分页/容量证书；
+- Agent 宽 JSON 大列表读取后续已由进度 96 关闭；大规模分页/容量证书仍未完成；
 - 跨 Region 列表事件总线和大规模慢客户端/Ingress 长稳；
 - 目标集群数据库连接池、热点 Tenant 和双 Coordinator 长稳。

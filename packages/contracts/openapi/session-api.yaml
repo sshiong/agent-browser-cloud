@@ -1678,6 +1678,36 @@ paths:
                 $ref: "#/components/schemas/AgentTaskListResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/agent-task-summaries:
+    get:
+      operationId: listAgentTaskSummaries
+      summary: List lightweight tenant Agent task summaries with stable keyset pagination
+      description: Returns scalar task state and database-computed counts without transferring plan, execution-result, allowed-domain, or security-event JSON payloads.
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          description: Opaque cursor returned by the previous response.
+          schema:
+            type: string
+            maxLength: 512
+      responses:
+        "200":
+          description: Bounded tenant-scoped Agent task summary page and authoritative aggregate metrics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskSummaryListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/agent-tasks/{taskId}:
     get:
       operationId: getAgentTask
@@ -4258,6 +4288,99 @@ components:
           type: integer
         offset:
           type: integer
+    AgentTaskSummaryListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, metrics, total, limit, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentTaskSummary"
+        metrics:
+          $ref: "#/components/schemas/AgentTaskSummaryMetrics"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        nextCursor:
+          type: [string, "null"]
+        hasMore:
+          type: boolean
+    AgentTaskSummaryMetrics:
+      type: object
+      additionalProperties: false
+      required: [planned, completed, blocked]
+      properties:
+        planned:
+          type: integer
+          format: int64
+          minimum: 0
+        completed:
+          type: integer
+          format: int64
+          minimum: 0
+        blocked:
+          type: integer
+          format: int64
+          minimum: 0
+    AgentTaskSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - taskId
+        - sessionId
+        - goal
+        - state
+        - riskClass
+        - intentDecision
+        - blockedReason
+        - agentPolicy
+        - currentStep
+        - totalSteps
+        - securityEventCount
+        - createdAt
+        - updatedAt
+      properties:
+        taskId:
+          type: string
+        sessionId:
+          type: string
+        goal:
+          type: string
+        state:
+          type: string
+          enum: [PLANNED, AWAITING_CONFIRMATION, BLOCKED, RUNNING, WAITING_FOR_HUMAN, COMPLETED, FAILED]
+        riskClass:
+          type: string
+          enum: [R0_READ_ONLY, R1_LOW_RISK_CHANGE, R2_DATA_CHANGE, R3_ACCOUNT_CHANGE, R4_FINANCIAL, R5_SECURITY]
+        intentDecision:
+          type: string
+          enum: [ALLOWED, CONFIRM_REQUIRED, FORBIDDEN]
+        blockedReason:
+          type: [string, "null"]
+        agentPolicy:
+          type: string
+          enum: [DISABLED, RESTRICTED, BALANCED, INTERACTIVE]
+        currentStep:
+          type: integer
+          minimum: 0
+        totalSteps:
+          type: integer
+          minimum: 0
+        securityEventCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     AgentTask:
       type: object
       additionalProperties: false

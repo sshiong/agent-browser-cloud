@@ -1,9 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   acceptAgentHandoff,
   approveAgentTask,
   createAgentTask,
   executeAgentTask,
+  getAgentTask,
+  listAgentTaskSummaries,
   listAgentTasks,
   rejectAgentHandoff,
   rejectAgentTask,
@@ -13,6 +20,8 @@ import type { CreateAgentTaskRequest } from '@/types/agent';
 const agentTaskKeys = {
   all: ['agent-tasks'] as const,
   list: () => [...agentTaskKeys.all, 'list'] as const,
+  summaries: () => [...agentTaskKeys.all, 'summaries'] as const,
+  detail: (taskId: string) => [...agentTaskKeys.all, 'detail', taskId] as const,
 };
 
 export function useAgentTasks() {
@@ -27,6 +36,43 @@ export function useAgentTasks() {
       )
         ? 2_000
         : 5_000,
+  });
+}
+
+export function useAgentTaskSummaries() {
+  return useInfiniteQuery({
+    queryKey: agentTaskKeys.summaries(),
+    queryFn: ({ pageParam, signal }) =>
+      listAgentTaskSummaries(20, pageParam, undefined, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    refetchInterval: (query) => {
+      const pages = query.state.data?.pages;
+      const firstPage = pages?.[0];
+      if (!firstPage || pages.length !== 1) return false;
+      return firstPage.items.some((task) =>
+        ['RUNNING', 'AWAITING_CONFIRMATION', 'WAITING_FOR_HUMAN'].includes(
+          task.state
+        )
+      )
+        ? 2_000
+        : false;
+    },
+  });
+}
+
+export function useAgentTask(taskId: string) {
+  return useQuery({
+    queryKey: agentTaskKeys.detail(taskId),
+    queryFn: ({ signal }) => getAgentTask(taskId, undefined, signal),
+    enabled: Boolean(taskId),
+    refetchInterval: (query) =>
+      query.state.data &&
+      ['RUNNING', 'AWAITING_CONFIRMATION', 'WAITING_FOR_HUMAN'].includes(
+        query.state.data.state
+      )
+        ? 2_000
+        : false,
   });
 }
 

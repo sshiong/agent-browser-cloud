@@ -34,7 +34,8 @@ import {
 } from '@/features/sessions/api/sessionQueries';
 import {
   useAcceptAgentHandoff,
-  useAgentTasks,
+  useAgentTask,
+  useAgentTaskSummaries,
   useApproveAgentTask,
   useCreateAgentTask,
   useExecuteAgentTask,
@@ -44,6 +45,7 @@ import {
 import { cn } from '@/shared/lib/utils';
 import type {
   AgentRiskClass,
+  AgentTaskSummary,
   CreateAgentActionRequest,
   AgentTaskView,
   InstructionSourceType,
@@ -109,7 +111,7 @@ const agentPolicyBudgets: Record<
 };
 
 export function AutomationPage() {
-  const tasksQuery = useAgentTasks();
+  const tasksQuery = useAgentTaskSummaries();
   const sessionsQuery = useSessions({ state: 'RUNNING', limit: 100 });
   const createTask = useCreateAgentTask();
   const executeTask = useExecuteAgentTask();
@@ -118,6 +120,7 @@ export function AutomationPage() {
   const acceptHandoff = useAcceptAgentHandoff();
   const rejectHandoff = useRejectAgentHandoff();
   const [selectedTaskId, setSelectedTaskId] = useState('');
+  const selectedTaskQuery = useAgentTask(selectedTaskId);
   const [sessionId, setSessionId] = useState('');
   const [goal, setGoal] = useState('');
   const [startUrl, setStartUrl] = useState('');
@@ -129,9 +132,12 @@ export function AutomationPage() {
   const browserState = useBrowserState(sessionId, Boolean(sessionId));
   useSessionResourceStream(sessionId, Boolean(sessionId));
 
-  const tasks = tasksQuery.data?.items ?? [];
-  const selectedTask =
-    tasks.find((task) => task.taskId === selectedTaskId) ?? tasks[0];
+  const tasks = useMemo(
+    () => tasksQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [tasksQuery.data]
+  );
+  const selectedTask = selectedTaskQuery.data;
+  const taskMetrics = tasksQuery.data?.pages[0]?.metrics;
   const selectedSession = sessionsQuery.data?.items.find(
     (session) => session.sessionId === sessionId
   );
@@ -152,6 +158,12 @@ export function AutomationPage() {
   });
 
   useEffect(() => {
+    if (!selectedTaskId && tasks[0]) {
+      setSelectedTaskId(tasks[0].taskId);
+    }
+  }, [selectedTaskId, tasks]);
+
+  useEffect(() => {
     if (!sessionId && sessionsQuery.data?.items[0]) {
       setSessionId(sessionsQuery.data.items[0].sessionId);
     }
@@ -166,13 +178,11 @@ export function AutomationPage() {
     }
   }, [allowedDomains, browserState.data?.url]);
 
-  const plannedCount = tasks.filter((task) => task.state === 'PLANNED').length;
-  const completedCount = tasks.filter(
-    (task) => task.state === 'COMPLETED'
-  ).length;
-  const blockedCount = tasks.filter((task) => task.state === 'BLOCKED').length;
+  const plannedCount = taskMetrics?.planned ?? 0;
+  const completedCount = taskMetrics?.completed ?? 0;
+  const blockedCount = taskMetrics?.blocked ?? 0;
   const securityEventCount = tasks.reduce(
-    (total, task) => total + task.securityEvents.length,
+    (total, task) => total + task.securityEventCount,
     0
   );
   const navigationConflict = Boolean(startUrl.trim() && actions.length);
@@ -247,7 +257,7 @@ export function AutomationPage() {
           <Signal label="已验证" value={completedCount} tone="text-accent" />
           <Signal label="已拦截" value={blockedCount} tone="text-danger" />
           <Signal
-            label="安全事件"
+            label="已载安全事件"
             value={securityEventCount}
             tone="text-warning"
           />
@@ -299,12 +309,32 @@ export function AutomationPage() {
                   <TaskRow
                     key={task.taskId}
                     task={task}
-                    selected={task.taskId === selectedTask?.taskId}
+                    selected={task.taskId === selectedTaskId}
                     onSelect={() => setSelectedTaskId(task.taskId)}
                   />
                 ))}
+                {tasksQuery.hasNextPage && (
+                  <button
+                    type="button"
+                    onClick={() => tasksQuery.fetchNextPage()}
+                    disabled={tasksQuery.isFetchingNextPage}
+                    className="flex h-10 w-full items-center justify-center border-b border-border-subtle text-[10px] font-medium text-accent transition-colors hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    {tasksQuery.isFetchingNextPage
+                      ? '正在加载…'
+                      : '加载更多任务'}
+                  </button>
+                )}
               </div>
-              {selectedTask && (
+              {selectedTaskQuery.isLoading ? (
+                <LoadingPanel label="正在读取任务详情" />
+              ) : selectedTaskQuery.isError ? (
+                <ErrorState
+                  error={selectedTaskQuery.error}
+                  onRetry={() => selectedTaskQuery.refetch()}
+                  title="任务详情不可用"
+                />
+              ) : selectedTask ? (
                 <TaskInspector
                   task={selectedTask}
                   onExecute={() => executeTask.mutate(selectedTask.taskId)}
@@ -336,7 +366,7 @@ export function AutomationPage() {
                     rejectHandoff.error
                   }
                 />
-              )}
+              ) : null}
             </div>
           )}
         </section>
@@ -996,7 +1026,7 @@ function TaskRow({
   selected,
   onSelect,
 }: {
-  task: AgentTaskView;
+  task: AgentTaskSummary;
   selected: boolean;
   onSelect: () => void;
 }) {

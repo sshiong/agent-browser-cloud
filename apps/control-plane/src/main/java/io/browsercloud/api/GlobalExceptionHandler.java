@@ -79,6 +79,7 @@ import io.browsercloud.coordinator.exceptions.SessionNotFoundException;
 import io.browsercloud.coordinator.exceptions.StaleContextEpochException;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
+import io.browsercloud.persistence.AgentTaskSummaryQueryRepository.InvalidAgentTaskSummaryCursorException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.sql.SQLException;
@@ -549,6 +550,17 @@ public class GlobalExceptionHandler {
         HttpStatus.BAD_REQUEST,
         "AGENT_TASK_INVALID",
         "Agent task validation failed",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(InvalidAgentTaskSummaryCursorException.class)
+  ResponseEntity<ApiError> invalidAgentTaskSummaryCursor(
+      InvalidAgentTaskSummaryCursorException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.BAD_REQUEST,
+        "AGENT_TASK_CURSOR_INVALID",
+        "Agent task pagination cursor is invalid",
         Map.of(),
         request);
   }

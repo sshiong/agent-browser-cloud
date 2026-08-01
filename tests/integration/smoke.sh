@@ -3600,6 +3600,33 @@ agent_tasks="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$agent_tasks" | python3 -c \
   'import json,sys; tasks=json.load(sys.stdin); assert tasks["total"] == 5; assert len(tasks["items"]) == 5'
+agent_task_summaries_page_one="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/agent-task-summaries?limit=2" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$agent_task_summaries_page_one" | python3 -c \
+  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 5; assert page["limit"] == 2; assert page["hasMore"] is True; assert page["nextCursor"]; assert len(page["items"]) == 2; assert set(page["metrics"]) == {"planned", "completed", "blocked"}; forbidden={"plan", "allowedDomains", "executionResults", "securityEvents"}; assert all(not forbidden.intersection(item) for item in page["items"]); assert page["metrics"]["blocked"] >= 1'
+agent_task_summary_cursor="$(printf '%s' "$agent_task_summaries_page_one" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["nextCursor"])')"
+agent_task_summaries_page_two="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/agent-task-summaries?limit=2&cursor=${agent_task_summary_cursor}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+python3 - "$agent_task_summaries_page_one" "$agent_task_summaries_page_two" <<'PY'
+import json
+import sys
+first = json.loads(sys.argv[1])
+second = json.loads(sys.argv[2])
+assert len(second["items"]) == 2
+assert {item["taskId"] for item in first["items"]}.isdisjoint(
+    item["taskId"] for item in second["items"]
+)
+assert second["total"] == first["total"]
+assert second["metrics"] == first["metrics"]
+PY
+agent_task_summaries_other_tenant="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/agent-task-summaries?limit=2" \
+  -H 'X-Tenant-Id: tenant-other')"
+printf '%s' "$agent_task_summaries_other_tenant" | python3 -c \
+  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 0; assert page["items"] == []; assert page["hasMore"] is False'
 read_agent_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
   -H 'Content-Type: application/json' \

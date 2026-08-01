@@ -7,6 +7,7 @@ import {
 } from '@/api/session';
 import type {
   AgentTaskListResponse,
+  AgentTaskSummaryListResponse,
   AgentTaskView,
   CreateAgentTaskRequest,
 } from '@/types/agent';
@@ -44,6 +45,33 @@ export function listAgentTasks(
 ) {
   return request<AgentTaskListResponse>(
     '/agent-tasks?limit=100&offset=0',
+    { signal },
+    tenantId
+  );
+}
+
+export function listAgentTaskSummaries(
+  limit = 20,
+  cursor?: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  const parameters = new URLSearchParams({ limit: String(limit) });
+  if (cursor) parameters.set('cursor', cursor);
+  return request<AgentTaskSummaryListResponse>(
+    `/agent-task-summaries?${parameters.toString()}`,
+    { signal },
+    tenantId
+  );
+}
+
+export function getAgentTask(
+  taskId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/agent-tasks/${encodeURIComponent(taskId)}`,
     { signal },
     tenantId
   );

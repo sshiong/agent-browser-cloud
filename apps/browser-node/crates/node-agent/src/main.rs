@@ -129,9 +129,13 @@ fn filesystem_capacity(path: &Path) -> Option<(u64, u64)> {
     let statistics = nix::sys::statvfs::statvfs(path).ok()?;
     let fragment_size = statistics.fragment_size();
     Some((
-        u64::from(statistics.blocks_available()).saturating_mul(fragment_size),
-        u64::from(statistics.blocks()).saturating_mul(fragment_size),
+        filesystem_blocks_to_bytes(statistics.blocks_available(), fragment_size),
+        filesystem_blocks_to_bytes(statistics.blocks(), fragment_size),
     ))
+}
+
+fn filesystem_blocks_to_bytes<T: Into<u64>>(blocks: T, fragment_size: u64) -> u64 {
+    blocks.into().saturating_mul(fragment_size)
 }
 
 #[derive(Debug)]

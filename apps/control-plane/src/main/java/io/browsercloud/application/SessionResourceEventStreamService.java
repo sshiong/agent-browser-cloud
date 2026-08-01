@@ -358,7 +358,7 @@ public class SessionResourceEventStreamService {
   public static final class ResourceStreamCapacityException extends RuntimeException {}
 
   public static final class ResourceStreamConnectionException extends RuntimeException {
-    private ResourceStreamConnectionException(Throwable cause) {
+    public ResourceStreamConnectionException(Throwable cause) {
       super(cause);
     }
   }

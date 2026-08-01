@@ -53,6 +53,7 @@ storage_helper_b_pid=""
 storage_helper_c_pid=""
 proxy_pid=""
 resource_stream_pid=""
+overview_stream_pid=""
 dual_node_safety_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
@@ -95,6 +96,7 @@ cleanup() {
   if [[ -n "$storage_helper_c_pid" ]]; then kill "$storage_helper_c_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
+  if [[ -n "$overview_stream_pid" ]]; then kill "$overview_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$dual_node_safety_pid" ]]; then
     kill "$dual_node_safety_pid" 2>/dev/null || true
   fi
@@ -1487,6 +1489,45 @@ session_two="$(printf '%s' "$created_two" | python3 -c 'import json,sys; print(j
 test "$session_one" = "$session_two"
 printf '%s' "$created_one" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["resourcePolicy"]["minimumTemplate"] == "standard-v1"; assert item["resourcePolicy"]["resolvedTemplate"] == "standard-v1"'
+workspace_overview="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/workspace-overview" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$workspace_overview" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["sessions"]["total"] == 1; assert item["browserNodes"]["visible"] is True; assert item["browserNodes"]["total"] >= 1; assert item["cursor"] > 0; assert item["generatedAt"]; assert set(item) == {"sessions","operations","browserNodes","proxies","agents","cost","security","cursor","generatedAt"}'
+workspace_overview_cursor="$(printf '%s' "$workspace_overview" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["cursor"])')"
+workspace_overview_resume_cursor="$((workspace_overview_cursor - 1))"
+curl -fsS --no-buffer --max-time 8 \
+  "http://localhost:${control_port}/api/v1/workspace-overview/event-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -H "Last-Event-ID: ${workspace_overview_resume_cursor}" \
+  >"$temp_dir/workspace-overview-replay.sse" &
+overview_stream_pid=$!
+for _ in $(seq 1 50); do
+  if grep -q 'event:workspace-overview-change' \
+    "$temp_dir/workspace-overview-replay.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q 'event:workspace-overview-stream-ready' "$temp_dir/workspace-overview-replay.sse"
+grep -q 'event:workspace-overview-change' "$temp_dir/workspace-overview-replay.sse"
+grep -q '"replayed":true' "$temp_dir/workspace-overview-replay.sse"
+kill "$overview_stream_pid" 2>/dev/null || true
+wait "$overview_stream_pid" 2>/dev/null || true
+overview_stream_pid=""
+workspace_overview_other="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/workspace-overview" \
+  -H 'X-Tenant-Id: different-tenant' \
+  -H 'X-Roles: TENANT_VIEWER')"
+printf '%s' "$workspace_overview_other" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["sessions"]["total"] == 0; assert item["proxies"]["boundSessions"] == 0; assert item["browserNodes"]["visible"] is False; assert item["browserNodes"]["total"] == 0'
+agent_pause_constraint="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select pg_get_constraintdef(oid) from pg_constraint where conname='chk_agent_task_state'")"
+printf '%s' "$agent_pause_constraint" | grep -q 'PAUSED_BY_RESOURCE_POLICY'
 workspace_groups="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/groups" \
   -H 'X-Tenant-Id: tenant-integration')"
@@ -5102,6 +5143,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

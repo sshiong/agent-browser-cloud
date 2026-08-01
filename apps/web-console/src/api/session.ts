@@ -46,6 +46,7 @@ import type {
   ProxyRebindView,
 } from '@/types/proxy';
 import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
+import { consumeEventStream, requireMatchingEventId } from './eventStream';
 
 /**
  * API 基础 URL。
@@ -494,55 +495,6 @@ async function streamSessionChangesFromEndpoint(
       onChange(parsed);
     }
   });
-}
-
-function requireMatchingEventId(id: string | undefined, sequence: number) {
-  if (id === undefined || !/^[0-9]+$/.test(id) || Number(id) !== sequence) {
-    throw new Error('Resource stream event ID does not match its payload');
-  }
-}
-
-async function consumeEventStream(
-  body: ReadableStream<Uint8Array>,
-  onEvent: (event: { id?: string; event: string; data: string }) => void
-) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let streamComplete = false;
-  while (!streamComplete) {
-    const { done, value } = await reader.read();
-    streamComplete = done;
-    buffer += decoder.decode(value, { stream: !done });
-    buffer = buffer.replaceAll('\r\n', '\n');
-    let boundary = buffer.indexOf('\n\n');
-    while (boundary >= 0) {
-      const frame = buffer.slice(0, boundary);
-      buffer = buffer.slice(boundary + 2);
-      parseEventFrame(frame, onEvent);
-      boundary = buffer.indexOf('\n\n');
-    }
-  }
-}
-
-function parseEventFrame(
-  frame: string,
-  onEvent: (event: { id?: string; event: string; data: string }) => void
-) {
-  let id: string | undefined;
-  let event = 'message';
-  const data: string[] = [];
-  for (const line of frame.split('\n')) {
-    if (!line || line.startsWith(':')) continue;
-    const separator = line.indexOf(':');
-    const field = separator < 0 ? line : line.slice(0, separator);
-    const value =
-      separator < 0 ? '' : line.slice(separator + 1).replace(/^\s/, '');
-    if (field === 'id') id = value;
-    if (field === 'event') event = value;
-    if (field === 'data') data.push(value);
-  }
-  if (data.length > 0) onEvent({ id, event, data: data.join('\n') });
 }
 
 function isResourceStreamControl(

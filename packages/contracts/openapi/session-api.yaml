@@ -12,6 +12,58 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/v1/workspace-overview:
+    get:
+      operationId: getWorkspaceOverview
+      summary: Get the authenticated workspace's authoritative operational overview
+      description: >
+        Returns one tenant-scoped PostgreSQL snapshot covering Sessions, active
+        Operations, Browser Node capacity, Proxy bindings, Agent tasks, current
+        resource cost and recent security signals. Browser Node health is a global
+        infrastructure projection visible only to Platform Admins; all tenant-owned
+        counts remain tenant isolated.
+      tags: [WorkspaceOverview]
+      responses:
+        "200":
+          description: Current authoritative Workspace overview and stream cursor.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceOverview"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/workspace-overview/event-stream:
+    get:
+      operationId: streamWorkspaceOverviewChanges
+      summary: Stream resumable invalidations for the authenticated Workspace overview
+      description: >
+        Emits payload-free change notifications. Clients resume with Last-Event-ID
+        and refetch the authoritative overview after each event; telemetry samples
+        alone do not invalidate the stream.
+      tags: [WorkspaceOverview]
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: Resumable Workspace overview Server-Sent Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/coordinator/tenant-route:
     get:
       operationId: getTenantCoordinatorRoute
@@ -3869,6 +3921,118 @@ components:
         type: string
         pattern: "^gameday_[A-Za-z0-9]{20}$"
   schemas:
+    WorkspaceOverview:
+      type: object
+      additionalProperties: false
+      required:
+        - sessions
+        - operations
+        - browserNodes
+        - proxies
+        - agents
+        - cost
+        - security
+        - cursor
+        - generatedAt
+      properties:
+        sessions:
+          $ref: "#/components/schemas/WorkspaceSessionSummary"
+        operations:
+          $ref: "#/components/schemas/WorkspaceOperationSummary"
+        browserNodes:
+          $ref: "#/components/schemas/WorkspaceBrowserNodeSummary"
+        proxies:
+          $ref: "#/components/schemas/WorkspaceProxySummary"
+        agents:
+          $ref: "#/components/schemas/WorkspaceAgentSummary"
+        cost:
+          $ref: "#/components/schemas/WorkspaceCostSummary"
+        security:
+          $ref: "#/components/schemas/WorkspaceSecuritySummary"
+        cursor:
+          type: integer
+          format: int64
+          minimum: 0
+        generatedAt:
+          type: string
+          format: date-time
+    WorkspaceSessionSummary:
+      type: object
+      additionalProperties: false
+      required: [total, running, pending, unhealthy, hibernated, terminated]
+      properties:
+        total: {type: integer, format: int64, minimum: 0}
+        running: {type: integer, format: int64, minimum: 0}
+        pending: {type: integer, format: int64, minimum: 0}
+        unhealthy: {type: integer, format: int64, minimum: 0}
+        hibernated: {type: integer, format: int64, minimum: 0}
+        terminated: {type: integer, format: int64, minimum: 0}
+    WorkspaceOperationSummary:
+      type: object
+      additionalProperties: false
+      required: [active]
+      properties:
+        active: {type: integer, format: int64, minimum: 0}
+    WorkspaceBrowserNodeSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - visible
+        - total
+        - ready
+        - constrained
+        - activeSessions
+        - maximumSessions
+        - reservedCpuMillis
+        - certifiedCpuMillis
+        - reservedMemoryMib
+        - certifiedMemoryMib
+      properties:
+        visible:
+          type: boolean
+          description: True only when the caller may inspect platform-wide Node capacity.
+        total: {type: integer, format: int64, minimum: 0}
+        ready: {type: integer, format: int64, minimum: 0}
+        constrained: {type: integer, format: int64, minimum: 0}
+        activeSessions: {type: integer, format: int64, minimum: 0}
+        maximumSessions: {type: integer, format: int64, minimum: 0}
+        reservedCpuMillis: {type: integer, format: int64, minimum: 0}
+        certifiedCpuMillis: {type: integer, format: int64, minimum: 0}
+        reservedMemoryMib: {type: integer, format: int64, minimum: 0}
+        certifiedMemoryMib: {type: integer, format: int64, minimum: 0}
+    WorkspaceProxySummary:
+      type: object
+      additionalProperties: false
+      required: [activeAllocations, boundSessions]
+      properties:
+        activeAllocations: {type: integer, format: int64, minimum: 0}
+        boundSessions: {type: integer, format: int64, minimum: 0}
+    WorkspaceAgentSummary:
+      type: object
+      additionalProperties: false
+      required: [active, awaitingHuman, pausedByResourcePolicy, failedLast24Hours]
+      properties:
+        active: {type: integer, format: int64, minimum: 0}
+        awaitingHuman: {type: integer, format: int64, minimum: 0}
+        pausedByResourcePolicy: {type: integer, format: int64, minimum: 0}
+        failedLast24Hours: {type: integer, format: int64, minimum: 0}
+    WorkspaceCostSummary:
+      type: object
+      additionalProperties: false
+      required: [currentHourlyUsd, activeSessionsWithoutCurrentPrice]
+      properties:
+        currentHourlyUsd: {type: number, format: double, minimum: 0}
+        activeSessionsWithoutCurrentPrice:
+          type: integer
+          format: int64
+          minimum: 0
+    WorkspaceSecuritySummary:
+      type: object
+      additionalProperties: false
+      required: [warningLast24Hours, criticalLast24Hours]
+      properties:
+        warningLast24Hours: {type: integer, format: int64, minimum: 0}
+        criticalLast24Hours: {type: integer, format: int64, minimum: 0}
     SearchResourceType:
       type: string
       enum: [SESSION, PROFILE, GROUP, TAG, RUNTIME, NODE]
@@ -10181,6 +10345,12 @@ components:
             $ref: "#/components/schemas/Error"
     PayloadTooLarge:
       description: The upload exceeds the configured bounded ingress limit.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: The bounded concurrent stream capacity has been reached.
       content:
         application/json:
           schema:

@@ -70,8 +70,9 @@
 
 - Overview SSE 仍是单 Region PostgreSQL 事件源；跨 Region Event Bus、目标云 Ingress
   慢客户端和长期连接容量证书未完成；
-- 工作区通知中心仍使用独立的 15 秒正式 API 刷新，本轮 Overview 失效流不替代通知
-  已读 Cursor 或外部通知渠道；
+- 工作区通知中心在本轮仍使用独立的 15 秒正式 API 刷新，后续已由
+  [进度 108](108-工作区通知可续传SSE闭环.md)替换为独立可续传通知流；Overview
+  失效流不替代通知已读 Cursor 或外部通知渠道；
 - `workspace_overview_events` 的目标环境保留期、分区与归档策略需要随生产 Retention
   Policy 和容量数据确定；当前查询与 Cursor 均有索引，但尚无目标规模长期存储证书；
 - 本轮不关闭真实 IdP、KMS/HSM、多 Region、Linux 长稳、桌面签名和组织发布 Gate。

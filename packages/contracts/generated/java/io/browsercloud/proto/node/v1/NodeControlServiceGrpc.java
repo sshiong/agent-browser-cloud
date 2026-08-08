@@ -81,6 +81,37 @@ public final class NodeControlServiceGrpc {
     return getDispatchMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+      io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> getProbeProxyBindingMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "ProbeProxyBinding",
+      requestType = io.browsercloud.proto.node.v1.ProbeProxyBindingRequest.class,
+      responseType = io.browsercloud.proto.node.v1.ProbeProxyBindingResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+      io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> getProbeProxyBindingMethod() {
+    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest, io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> getProbeProxyBindingMethod;
+    if ((getProbeProxyBindingMethod = NodeControlServiceGrpc.getProbeProxyBindingMethod) == null) {
+      synchronized (NodeControlServiceGrpc.class) {
+        if ((getProbeProxyBindingMethod = NodeControlServiceGrpc.getProbeProxyBindingMethod) == null) {
+          NodeControlServiceGrpc.getProbeProxyBindingMethod = getProbeProxyBindingMethod =
+              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.ProbeProxyBindingRequest, io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ProbeProxyBinding"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.ProbeProxyBindingRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.ProbeProxyBindingResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("ProbeProxyBinding"))
+              .build();
+        }
+      }
+    }
+    return getProbeProxyBindingMethod;
+  }
+
   private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.UploadProfileImportRequest,
       io.browsercloud.proto.node.v1.UploadProfileImportResponse> getUploadProfileImportMethod;
 
@@ -211,6 +242,18 @@ public final class NodeControlServiceGrpc {
 
     /**
      * <pre>
+     * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
+     * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
+     * configured Provider route, and neither request nor response contains credential material.
+     * </pre>
+     */
+    default void probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getProbeProxyBindingMethod(), responseObserver);
+    }
+
+    /**
+     * <pre>
      * mTLS-authenticated, bounded Profile archive ingress. The Control Plane
      * streams bytes without durable business persistence; the Node delegates validation and
      * checkpoint/object-store commit to the isolated Storage Helper.
@@ -286,6 +329,19 @@ public final class NodeControlServiceGrpc {
 
     /**
      * <pre>
+     * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
+     * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
+     * configured Provider route, and neither request nor response contains credential material.
+     * </pre>
+     */
+    public void probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getProbeProxyBindingMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     * <pre>
      * mTLS-authenticated, bounded Profile archive ingress. The Control Plane
      * streams bytes without durable business persistence; the Node delegates validation and
      * checkpoint/object-store commit to the isolated Storage Helper.
@@ -346,6 +402,18 @@ public final class NodeControlServiceGrpc {
 
     /**
      * <pre>
+     * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
+     * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
+     * configured Provider route, and neither request nor response contains credential material.
+     * </pre>
+     */
+    public io.browsercloud.proto.node.v1.ProbeProxyBindingResponse probeProxyBinding(io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getProbeProxyBindingMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
      * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
      * Storage Helper and never returns Object Storage credentials.
      * </pre>
@@ -394,6 +462,19 @@ public final class NodeControlServiceGrpc {
 
     /**
      * <pre>
+     * mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
+     * credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
+     * configured Provider route, and neither request nor response contains credential material.
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse> probeProxyBinding(
+        io.browsercloud.proto.node.v1.ProbeProxyBindingRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getProbeProxyBindingMethod(), getCallOptions()), request);
+    }
+
+    /**
+     * <pre>
      * Purpose-bound evidence access. The Browser Node delegates signing to the isolated
      * Storage Helper and never returns Object Storage credentials.
      * </pre>
@@ -407,8 +488,9 @@ public final class NodeControlServiceGrpc {
 
   private static final int METHODID_PING = 0;
   private static final int METHODID_DISPATCH = 1;
-  private static final int METHODID_PRESIGN_EVIDENCE_DOWNLOAD = 2;
-  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 3;
+  private static final int METHODID_PROBE_PROXY_BINDING = 2;
+  private static final int METHODID_PRESIGN_EVIDENCE_DOWNLOAD = 3;
+  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 4;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -434,6 +516,10 @@ public final class NodeControlServiceGrpc {
         case METHODID_DISPATCH:
           serviceImpl.dispatch((io.browsercloud.proto.node.v1.DispatchRequest) request,
               (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.DispatchResponse>) responseObserver);
+          break;
+        case METHODID_PROBE_PROXY_BINDING:
+          serviceImpl.probeProxyBinding((io.browsercloud.proto.node.v1.ProbeProxyBindingRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>) responseObserver);
           break;
         case METHODID_PRESIGN_EVIDENCE_DOWNLOAD:
           serviceImpl.presignEvidenceDownload((io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest) request,
@@ -474,6 +560,13 @@ public final class NodeControlServiceGrpc {
               io.browsercloud.proto.node.v1.DispatchRequest,
               io.browsercloud.proto.node.v1.DispatchResponse>(
                 service, METHODID_DISPATCH)))
+        .addMethod(
+          getProbeProxyBindingMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              io.browsercloud.proto.node.v1.ProbeProxyBindingRequest,
+              io.browsercloud.proto.node.v1.ProbeProxyBindingResponse>(
+                service, METHODID_PROBE_PROXY_BINDING)))
         .addMethod(
           getUploadProfileImportMethod(),
           io.grpc.stub.ServerCalls.asyncClientStreamingCall(
@@ -538,6 +631,7 @@ public final class NodeControlServiceGrpc {
               .setSchemaDescriptor(new NodeControlServiceFileDescriptorSupplier())
               .addMethod(getPingMethod())
               .addMethod(getDispatchMethod())
+              .addMethod(getProbeProxyBindingMethod())
               .addMethod(getUploadProfileImportMethod())
               .addMethod(getPresignEvidenceDownloadMethod())
               .build();

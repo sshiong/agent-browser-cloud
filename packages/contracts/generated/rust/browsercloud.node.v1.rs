@@ -43,6 +43,40 @@ pub struct DispatchResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProbeProxyBindingRequest {
+    #[prost(string, tag="1")]
+    pub probe_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub binding_profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub provider_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub expected_exit_ip: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub credential_ref: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProbeProxyBindingResponse {
+    #[prost(string, tag="1")]
+    pub probe_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub binding_profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(bool, tag="4")]
+    pub succeeded: bool,
+    #[prost(uint32, tag="5")]
+    pub latency_ms: u32,
+    #[prost(string, optional, tag="6")]
+    pub observed_exit_ip: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="7")]
+    pub error_code: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UploadProfileImportRequest {
     #[prost(string, tag="1")]
     pub import_id: ::prost::alloc::string::String,

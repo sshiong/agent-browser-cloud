@@ -1305,6 +1305,67 @@ for invariant in (
         f"Proxy health migration lacks rolling invariant: {invariant}"
     )
 
+proxy_cold_probe_migration = read(
+    "database/migrations/V072__proxy_binding_cold_probe.sql"
+)
+proxy_cold_probe_upper = proxy_cold_probe_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE"):
+    assert forbidden not in proxy_cold_probe_upper
+for invariant in (
+    "ADD COLUMN NEXT_COLD_PROBE_AT TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+    "ADD COLUMN COLD_PROBE_LEASE_OWNER TEXT",
+    "ADD COLUMN COLD_PROBE_LEASE_UNTIL TIMESTAMPTZ",
+    "ALTER COLUMN ALLOCATION_ID DROP NOT NULL",
+    "ALTER COLUMN SESSION_ID DROP NOT NULL",
+    "'COLD_BINDING_PROBE'",
+    "CHK_PROXY_PROBE_CONTEXT",
+    "NOT VALID",
+    "VALIDATE CONSTRAINT CHK_PROXY_PROBE_CONTEXT",
+    "RESET_PROXY_BINDING_COLD_PROBE_AFTER_CONFIGURATION_CHANGE",
+):
+    assert invariant in proxy_cold_probe_upper, (
+        f"Proxy cold probe migration lacks rolling invariant: {invariant}"
+    )
+
+cold_probe_request = proto.split(
+    "message ProbeProxyBindingRequest {", 1
+)[1].split("}", 1)[0]
+for field, tag in (
+    ("probe_id", 1),
+    ("tenant_id", 2),
+    ("binding_profile_id", 3),
+    ("provider_id", 4),
+    ("expected_exit_ip", 5),
+    ("credential_ref", 6),
+):
+    assert re.search(rf"\b{field}\s*=\s*{tag};", cold_probe_request)
+
+cold_probe_response = proto.split(
+    "message ProbeProxyBindingResponse {", 1
+)[1].split("}", 1)[0]
+for field, tag in (
+    ("probe_id", 1),
+    ("binding_profile_id", 2),
+    ("node_id", 3),
+    ("succeeded", 4),
+    ("latency_ms", 5),
+    ("observed_exit_ip", 6),
+    ("error_code", 7),
+):
+    assert re.search(rf"\b{field}\s*=\s*{tag};", cold_probe_response)
+assert "rpc ProbeProxyBinding(ProbeProxyBindingRequest) returns (ProbeProxyBindingResponse);" in proto
+
+node_source = read("apps/browser-node/crates/node-agent/src/main.rs")
+node_repository = read(
+    "apps/control-plane/src/main/java/io/browsercloud/persistence/BrowserNodeJpaRepository.java"
+)
+cold_probe_store = read(
+    "apps/control-plane/src/main/java/io/browsercloud/application/ProxyBindingColdProbeStore.java"
+)
+assert '"proxyColdProbe".to_owned()' in node_source
+assert "labels->>'proxyColdProbe' = 'network-helper-v1'" in node_repository
+assert "FOR UPDATE OF p SKIP LOCKED" in cold_probe_store
+
 for metadata_batch_contract in (
     "/api/v1/workspace-metadata-batch-operations:",
     "/api/v1/workspace-metadata-batch-operations/{batchOperationId}:",
@@ -1369,10 +1430,10 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071 additive,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
-    "protobuf": "unknown-fields-13-16,optional-28-38,proxy-health-tags-31-34,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V072 additive,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
+    "protobuf": "unknown-fields-13-16,optional-28-38,proxy-health-tags-31-34,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-additive-contracts",
-    "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
+    "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,proxy-cold-probe-db-lease-and-node-capability,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
 print(

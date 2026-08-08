@@ -1,5 +1,7 @@
 package io.browsercloud.application;
 
+import io.browsercloud.application.ProxyBindingColdProbeStore.ColdProbeClaim;
+import io.browsercloud.application.ProxyBindingProbeNodeGateway.ProbeResult;
 import io.browsercloud.persistence.ProxyAllocationEntity;
 import io.browsercloud.persistence.ProxyAllocationJpaRepository;
 import java.sql.Timestamp;
@@ -101,6 +103,77 @@ public class ProxyBindingHealthApplicationService {
     } else {
       updateFailure(allocation, nodeId, observation.latencyMs(), failureCode, observedAt);
     }
+  }
+
+  /**
+   * Commits a cold result only while the exact Binding revision still owns the PostgreSQL lease.
+   * This prevents a slow probe for an old Provider configuration from poisoning a newer edit.
+   */
+  @Transactional
+  public boolean recordColdProbe(ColdProbeClaim claim, ProbeResult result, Instant observedAt) {
+    var leaseIsCurrent =
+        !jdbc.query(
+                """
+                SELECT TRUE
+                FROM proxy_binding_profiles
+                WHERE binding_profile_id = ? AND tenant_id = ? AND version = ?
+                  AND enabled AND cold_probe_lease_owner = ?
+                  AND cold_probe_lease_until >= ?
+                FOR UPDATE
+                """,
+                (resultSet, rowNumber) -> Boolean.TRUE,
+                claim.bindingProfileId(),
+                claim.tenantId(),
+                claim.bindingVersion(),
+                claim.probeId(),
+                Timestamp.from(observedAt))
+            .isEmpty();
+    if (!leaseIsCurrent) {
+      return false;
+    }
+    var observedExitIp = blankToNull(result.observedExitIp());
+    var failureCode = blankToNull(result.failureCode());
+    var succeeded = result.succeeded();
+    if (result.latencyMs() < 0
+        || result.latencyMs() > 30000
+        || succeeded && (!claim.expectedExitIp().equals(observedExitIp) || failureCode != null)
+        || !succeeded
+            && (observedExitIp != null
+                || failureCode == null
+                || !FAILURE_CODES.contains(failureCode))) {
+      throw new ProxyHealthRejectedException("INVALID_PROXY_PROBE_RESULT");
+    }
+    var inserted =
+        jdbc.update(
+            """
+            INSERT INTO proxy_binding_health_samples(
+                probe_id, binding_profile_id, tenant_id, allocation_id, session_id,
+                node_id, source, succeeded, latency_ms, observed_exit_ip, failure_code,
+                observed_at
+            ) VALUES (?, ?, ?, NULL, NULL, ?, 'COLD_BINDING_PROBE', ?, ?, ?, ?, ?)
+            """,
+            claim.probeId(),
+            claim.bindingProfileId(),
+            claim.tenantId(),
+            result.nodeId(),
+            succeeded,
+            result.latencyMs(),
+            observedExitIp,
+            failureCode,
+            Timestamp.from(observedAt));
+    if (inserted != 1) {
+      throw new ProxyHealthRejectedException("PROXY_HEALTH_SAMPLE_NOT_PERSISTED");
+    }
+    var updated =
+        succeeded
+            ? updateColdSuccess(
+                claim, result.nodeId(), result.latencyMs(), observedExitIp, observedAt)
+            : updateColdFailure(
+                claim, result.nodeId(), result.latencyMs(), failureCode, observedAt);
+    if (updated != 1) {
+      throw new ProxyHealthRejectedException("PROXY_BINDING_NOT_FOUND");
+    }
+    return true;
   }
 
   private void insertSample(
@@ -282,6 +355,87 @@ public class ProxyBindingHealthApplicationService {
     if (updated != 1) {
       throw new ProxyHealthRejectedException("PROXY_BINDING_NOT_FOUND");
     }
+  }
+
+  private int updateColdSuccess(
+      ColdProbeClaim claim,
+      String nodeId,
+      int latencyMs,
+      String observedExitIp,
+      Instant observedAt) {
+    return jdbc.update(
+        """
+        UPDATE proxy_binding_profiles
+        SET health_state = CASE
+                WHEN NOT enabled THEN 'DISABLED'
+                WHEN health_state = 'UNHEALTHY'
+                     AND consecutive_probe_successes + 1 < 2 THEN 'UNHEALTHY'
+                ELSE 'HEALTHY'
+            END,
+            last_verified_exit_ip = ?,
+            last_health_checked_at = ?,
+            last_failure_reason = CASE
+                WHEN health_state = 'UNHEALTHY'
+                     AND consecutive_probe_successes + 1 < 2
+                THEN last_failure_reason
+                ELSE NULL
+            END,
+            probe_success_count = probe_success_count + 1,
+            consecutive_probe_successes = LEAST(consecutive_probe_successes + 1, 1000000),
+            consecutive_probe_failures = 0,
+            probe_success_ewma = ROUND(COALESCE(probe_success_ewma * 0.8 + 0.2, 1.0), 5),
+            probe_latency_ewma_ms = ROUND(
+                COALESCE(probe_latency_ewma_ms * 0.8 + ? * 0.2, ?), 3
+            ),
+            last_probe_session_id = NULL,
+            last_probe_node_id = ?
+        WHERE binding_profile_id = ? AND tenant_id = ? AND version = ?
+          AND cold_probe_lease_owner = ?
+        """,
+        observedExitIp,
+        Timestamp.from(observedAt),
+        latencyMs,
+        latencyMs,
+        nodeId,
+        claim.bindingProfileId(),
+        claim.tenantId(),
+        claim.bindingVersion(),
+        claim.probeId());
+  }
+
+  private int updateColdFailure(
+      ColdProbeClaim claim, String nodeId, int latencyMs, String failureCode, Instant observedAt) {
+    return jdbc.update(
+        """
+        UPDATE proxy_binding_profiles
+        SET health_state = CASE
+                WHEN NOT enabled THEN 'DISABLED'
+                WHEN consecutive_probe_failures + 1 >= 3 THEN 'UNHEALTHY'
+                ELSE health_state
+            END,
+            last_health_checked_at = ?,
+            last_failure_reason = ?,
+            probe_failure_count = probe_failure_count + 1,
+            consecutive_probe_successes = 0,
+            consecutive_probe_failures = LEAST(consecutive_probe_failures + 1, 1000000),
+            probe_success_ewma = ROUND(COALESCE(probe_success_ewma * 0.8, 0.0), 5),
+            probe_latency_ewma_ms = ROUND(
+                COALESCE(probe_latency_ewma_ms * 0.8 + ? * 0.2, ?), 3
+            ),
+            last_probe_session_id = NULL,
+            last_probe_node_id = ?
+        WHERE binding_profile_id = ? AND tenant_id = ? AND version = ?
+          AND cold_probe_lease_owner = ?
+        """,
+        Timestamp.from(observedAt),
+        failureCode,
+        latencyMs,
+        latencyMs,
+        nodeId,
+        claim.bindingProfileId(),
+        claim.tenantId(),
+        claim.bindingVersion(),
+        claim.probeId());
   }
 
   @Scheduled(cron = "${proxy.health.retention-cron:0 17 * * * *}")

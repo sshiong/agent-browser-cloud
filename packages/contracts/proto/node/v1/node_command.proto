@@ -10,6 +10,10 @@ option java_multiple_files = true;
 service NodeControlService {
   rpc Ping(PingRequest) returns (PingResponse);
   rpc Dispatch(DispatchRequest) returns (DispatchResponse);
+  // mTLS-authenticated cold probe for an enabled Binding that has no active Session allocation.
+  // credential_ref remains opaque: only the isolated Network Helper may resolve it to a locally
+  // configured Provider route, and neither request nor response contains credential material.
+  rpc ProbeProxyBinding(ProbeProxyBindingRequest) returns (ProbeProxyBindingResponse);
   // mTLS-authenticated, bounded Profile archive ingress. The Control Plane
   // streams bytes without durable business persistence; the Node delegates validation and
   // checkpoint/object-store commit to the isolated Storage Helper.
@@ -56,6 +60,25 @@ message DispatchRequest {
 
 message DispatchResponse {
   CommandAck acknowledgement = 1;
+}
+
+message ProbeProxyBindingRequest {
+  string probe_id = 1;
+  string tenant_id = 2;
+  string binding_profile_id = 3;
+  string provider_id = 4;
+  string expected_exit_ip = 5;
+  string credential_ref = 6;
+}
+
+message ProbeProxyBindingResponse {
+  string probe_id = 1;
+  string binding_profile_id = 2;
+  string node_id = 3;
+  bool succeeded = 4;
+  uint32 latency_ms = 5;
+  optional string observed_exit_ip = 6;
+  string error_code = 7;
 }
 
 message UploadProfileImportRequest {

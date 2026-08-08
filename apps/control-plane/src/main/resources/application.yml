@@ -78,6 +78,12 @@ proxy:
   health:
     sample-retention-days: ${PROXY_HEALTH_SAMPLE_RETENTION_DAYS:7}
     retention-cron: ${PROXY_HEALTH_RETENTION_CRON:0 17 * * * *}
+    cold-probe-dispatch-interval-ms: ${PROXY_COLD_PROBE_DISPATCH_INTERVAL_MS:5000}
+    cold-probe-batch-size: ${PROXY_COLD_PROBE_BATCH_SIZE:8}
+    cold-probe-lease-seconds: ${PROXY_COLD_PROBE_LEASE_SECONDS:45}
+    cold-probe-success-interval-seconds: ${PROXY_COLD_PROBE_SUCCESS_INTERVAL_SECONDS:900}
+    cold-probe-failure-interval-seconds: ${PROXY_COLD_PROBE_FAILURE_INTERVAL_SECONDS:120}
+    cold-probe-unavailable-retry-seconds: ${PROXY_COLD_PROBE_UNAVAILABLE_RETRY_SECONDS:30}
   static:
     provider-id: ${STATIC_PROXY_PROVIDER_ID:static-local}
     endpoint: ${STATIC_PROXY_ENDPOINT:}

@@ -17,11 +17,11 @@ use node_contracts::proto::{
     DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
     ExtensionBackgroundPolicy, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
     InteractiveTargetState, PingRequest, PingResponse, PresignEvidenceDownloadRequest,
-    PresignEvidenceDownloadResponse, PublishRequest, PublishResponse, ReleaseAllInputCommand,
-    ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
-    RuntimeResourcesAdjustedEvent, RuntimeStartedEvent, RuntimeStoppedEvent,
-    SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
-    UploadProfileImportRequest, UploadProfileImportResponse,
+    PresignEvidenceDownloadResponse, ProbeProxyBindingRequest, ProbeProxyBindingResponse,
+    PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
+    ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
+    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand,
+    StopRuntimeCommand, TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -47,7 +47,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, Semaphore};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
@@ -84,6 +84,7 @@ struct NodeControlService {
     proxy_bound_sessions: Arc<Mutex<HashSet<String>>>,
     proxy_probe_observations: Arc<Mutex<HashMap<String, ProxyProbeObservation>>>,
     proxy_probe_inflight: Arc<Mutex<HashMap<String, uuid::Uuid>>>,
+    cold_proxy_probe_limit: Arc<Semaphore>,
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
     pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
     success_trace_sampler: SuccessTraceSampler,
@@ -480,6 +481,18 @@ impl NodeCapacityReporter {
         );
         labels.insert("startRuntimeGenerationFloor".to_owned(), "v1".to_owned());
         labels.insert("proxyProviderDescriptor".to_owned(), "v1".to_owned());
+        labels.insert(
+            "proxyColdProbe".to_owned(),
+            if std::env::var("NETWORK_HELPER_SOCKET")
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+            {
+                "network-helper-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
         labels.insert(
             "profileImport".to_owned(),
             if std::env::var("STORAGE_HELPER_SOCKET")
@@ -4820,6 +4833,86 @@ impl NodeControlServiceRpc for NodeControlService {
             })?
     }
 
+    async fn probe_proxy_binding(
+        &self,
+        request: Request<ProbeProxyBindingRequest>,
+    ) -> Result<Response<ProbeProxyBindingResponse>, Status> {
+        let request = request.into_inner();
+        let valid_identifier = |value: &str, prefix: Option<&str>| {
+            !value.is_empty()
+                && value.len() <= 128
+                && prefix
+                    .map(|expected| value.starts_with(expected))
+                    .unwrap_or(true)
+                && value.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        };
+        if !valid_identifier(&request.probe_id, Some("prb_"))
+            || !valid_identifier(&request.tenant_id, None)
+            || !valid_identifier(&request.binding_profile_id, Some("pbind_"))
+            || !valid_identifier(&request.provider_id, None)
+            || request.credential_ref.is_empty()
+            || request.credential_ref.len() > 1024
+            || request
+                .expected_exit_ip
+                .parse::<std::net::IpAddr>()
+                .is_err()
+        {
+            return Err(Status::invalid_argument(
+                "Proxy Binding probe request is invalid",
+            ));
+        }
+        let _permit = self
+            .cold_proxy_probe_limit
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Status::resource_exhausted("Proxy Binding probe capacity exhausted"))?;
+        let network_helper = self.network_helper.as_ref().ok_or_else(|| {
+            Status::failed_precondition("Proxy Binding probe requires the Network Helper")
+        })?;
+        let ephemeral_session_id = format!("cold_{}", request.probe_id);
+        let started = Instant::now();
+        let result = network_helper
+            .bind_proxy(
+                &request.binding_profile_id,
+                &ephemeral_session_id,
+                &request.provider_id,
+                &request.expected_exit_ip,
+                &request.credential_ref,
+            )
+            .await;
+        let release_result = network_helper.release(&ephemeral_session_id).await;
+        let latency_ms = started.elapsed().as_millis().min(u128::from(u32::MAX)) as u32;
+        let (succeeded, observed_exit_ip, error_code) = match (result, release_result) {
+            (Ok((observed, _proxy_server)), Ok(()))
+                if observed.exit_ip == request.expected_exit_ip =>
+            {
+                (true, Some(observed.exit_ip), String::new())
+            }
+            (Ok(_), Ok(())) => (false, None, "EXIT_MISMATCH".to_owned()),
+            (Err(error), _) | (_, Err(error)) => {
+                let code = classify_proxy_probe_error(&error).to_owned();
+                tracing::warn!(
+                    probe_id = %request.probe_id,
+                    binding_profile_id = %request.binding_profile_id,
+                    error_code = %code,
+                    "Cold Proxy Binding probe failed"
+                );
+                (false, None, code)
+            }
+        };
+        Ok(Response::new(ProbeProxyBindingResponse {
+            probe_id: request.probe_id,
+            binding_profile_id: request.binding_profile_id,
+            node_id: self.node_id.clone(),
+            succeeded,
+            latency_ms,
+            observed_exit_ip,
+            error_code,
+        }))
+    }
+
     async fn upload_profile_import(
         &self,
         request: Request<tonic::Streaming<UploadProfileImportRequest>>,
@@ -5198,6 +5291,13 @@ async fn main() -> Result<()> {
         (15..=3600).contains(&proxy_health_probe_interval_probes),
         "PROXY_HEALTH_PROBE_INTERVAL_SECONDS must be between 15 and 3600"
     );
+    let cold_proxy_probe_concurrency = std::env::var("PROXY_COLD_PROBE_CONCURRENCY")
+        .unwrap_or_else(|_| "4".to_owned())
+        .parse::<usize>()?;
+    anyhow::ensure!(
+        (1..=32).contains(&cold_proxy_probe_concurrency),
+        "PROXY_COLD_PROBE_CONCURRENCY must be between 1 and 32"
+    );
     let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
     let runtime_cgroup_root = std::env::var("RUNTIME_CGROUP_ROOT")
         .unwrap_or_default()
@@ -5471,6 +5571,7 @@ async fn main() -> Result<()> {
         proxy_bound_sessions: Arc::new(Mutex::new(HashSet::new())),
         proxy_probe_observations: Arc::new(Mutex::new(HashMap::new())),
         proxy_probe_inflight: Arc::new(Mutex::new(HashMap::new())),
+        cold_proxy_probe_limit: Arc::new(Semaphore::new(cold_proxy_probe_concurrency)),
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
         pending_state_events: Arc::new(Mutex::new(HashMap::new())),
         success_trace_sampler: SuccessTraceSampler::default(),
@@ -5872,6 +5973,7 @@ mod tests {
             proxy_bound_sessions: Arc::new(Mutex::new(HashSet::new())),
             proxy_probe_observations: Arc::new(Mutex::new(HashMap::new())),
             proxy_probe_inflight: Arc::new(Mutex::new(HashMap::new())),
+            cold_proxy_probe_limit: Arc::new(Semaphore::new(4)),
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
             pending_state_events: Arc::new(Mutex::new(HashMap::new())),
             success_trace_sampler: SuccessTraceSampler::default(),

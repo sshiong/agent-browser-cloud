@@ -228,6 +228,146 @@ export class DispatchResponse extends Message<DispatchResponse> {
 }
 
 /**
+ * @generated from message browsercloud.node.v1.ProbeProxyBindingRequest
+ */
+export class ProbeProxyBindingRequest extends Message<ProbeProxyBindingRequest> {
+  /**
+   * @generated from field: string probe_id = 1;
+   */
+  probeId = "";
+
+  /**
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string binding_profile_id = 3;
+   */
+  bindingProfileId = "";
+
+  /**
+   * @generated from field: string provider_id = 4;
+   */
+  providerId = "";
+
+  /**
+   * @generated from field: string expected_exit_ip = 5;
+   */
+  expectedExitIp = "";
+
+  /**
+   * @generated from field: string credential_ref = 6;
+   */
+  credentialRef = "";
+
+  constructor(data?: PartialMessage<ProbeProxyBindingRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ProbeProxyBindingRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "probe_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "binding_profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "provider_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "expected_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "credential_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ProbeProxyBindingRequest {
+    return new ProbeProxyBindingRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ProbeProxyBindingRequest {
+    return new ProbeProxyBindingRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ProbeProxyBindingRequest {
+    return new ProbeProxyBindingRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ProbeProxyBindingRequest | PlainMessage<ProbeProxyBindingRequest> | undefined, b: ProbeProxyBindingRequest | PlainMessage<ProbeProxyBindingRequest> | undefined): boolean {
+    return proto3.util.equals(ProbeProxyBindingRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.ProbeProxyBindingResponse
+ */
+export class ProbeProxyBindingResponse extends Message<ProbeProxyBindingResponse> {
+  /**
+   * @generated from field: string probe_id = 1;
+   */
+  probeId = "";
+
+  /**
+   * @generated from field: string binding_profile_id = 2;
+   */
+  bindingProfileId = "";
+
+  /**
+   * @generated from field: string node_id = 3;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: bool succeeded = 4;
+   */
+  succeeded = false;
+
+  /**
+   * @generated from field: uint32 latency_ms = 5;
+   */
+  latencyMs = 0;
+
+  /**
+   * @generated from field: optional string observed_exit_ip = 6;
+   */
+  observedExitIp?: string;
+
+  /**
+   * @generated from field: string error_code = 7;
+   */
+  errorCode = "";
+
+  constructor(data?: PartialMessage<ProbeProxyBindingResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ProbeProxyBindingResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "probe_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "binding_profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "succeeded", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 5, name: "latency_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 6, name: "observed_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 7, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ProbeProxyBindingResponse {
+    return new ProbeProxyBindingResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ProbeProxyBindingResponse {
+    return new ProbeProxyBindingResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ProbeProxyBindingResponse {
+    return new ProbeProxyBindingResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ProbeProxyBindingResponse | PlainMessage<ProbeProxyBindingResponse> | undefined, b: ProbeProxyBindingResponse | PlainMessage<ProbeProxyBindingResponse> | undefined): boolean {
+    return proto3.util.equals(ProbeProxyBindingResponse, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.UploadProfileImportRequest
  */
 export class UploadProfileImportRequest extends Message<UploadProfileImportRequest> {

@@ -90,6 +90,24 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
   @Query(
       value =
           """
+          SELECT *
+          FROM browser_nodes
+          WHERE (:region IS NULL OR region = :region)
+            AND lifecycle_state = 'READY'
+            AND admission_state = 'OPEN'
+            AND pressure_state = 'NORMAL'
+            AND last_heartbeat_at >= :freshAfter
+            AND labels->>'proxyColdProbe' = 'network-helper-v1'
+          ORDER BY active_sessions ASC, last_heartbeat_at DESC, node_id ASC
+          LIMIT 16
+          """,
+      nativeQuery = true)
+  List<BrowserNodeEntity> findProxyColdProbeCandidates(
+      @Param("region") String region, @Param("freshAfter") Instant freshAfter);
+
+  @Query(
+      value =
+          """
           SELECT node.* FROM browser_nodes node
           WHERE LOWER(
             node.node_id || ' ' ||

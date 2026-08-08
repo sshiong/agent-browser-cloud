@@ -67,9 +67,10 @@ Agent Pause/降载/休眠/受控终止以及统一 SSE 均已在进度 42—97 �
 
 1. 目标云 Secret Manager 的短期凭据解引用、轮换、撤销与审计；
 2. 商业 Proxy Provider Adapter、真实供应商 DNS/认证/限流/故障矩阵；
-3. 未被 Session 使用的冷 Binding 独立探测 Worker，以及多 Provider 自动路由；
+3. 未被 Session 使用的冷 Binding 独立探测 Worker后续已由
+   [进度 100](100-Proxy冷Binding探测与分布式租约闭环.md)关闭；多 Provider 自动路由仍待完成；
 4. Provider 价格、流量成本、信誉和地域可用性联合评分；
 5. 目标 Linux/CNI 防直连逃逸、长期压力和真实 Provider GameDay 证书。
 
-这些剩余项属于目标云集成和多供应商优化；“运行中 Binding 没有主动出口探测和质量
-状态”已经不再是仓库代码缺口。
+除已由进度 100 关闭的冷 Binding 探测外，其余项属于目标云集成和多供应商优化；
+“运行中或冷 Binding 没有主动出口探测和质量状态”已经不再是仓库代码缺口。

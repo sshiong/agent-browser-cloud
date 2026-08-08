@@ -1,13 +1,14 @@
 # Phase 6：Kubernetes Operator 真实集群验收
 
-> 状态：临时 Kind 集群中的 CRD、RBAC、双副本选主、调和、故障接管、Finalizer
-> 和 N/N-1 Rolling Upgrade/Rollback 已闭环；目标云多节点与 CNI/CSI Gate 仍未关闭。
+> 状态：临时 Kind 集群中的 CRD、RBAC、双副本选主、List/Watch 调和、故障接管、
+> Finalizer 和 N/N-1 Rolling Upgrade/Rollback 已闭环；目标云多节点与 CNI/CSI Gate
+> 仍未关闭。
 
 ## 已完成
 
 - Operator 使用 `coordination.k8s.io/v1 Lease` 选主：
   - Pod 名称作为 Holder Identity；
-  - 15 秒租约、2 秒调和周期；
+  - 15 秒租约、5 秒有界 Watch 和 2 秒非 Leader 重试周期；
   - 当前 Holder 续租；
   - 外部 Holder 未过期时不调和；
   - 过期后通过 `resourceVersion` CAS 接管并递增 `leaseTransitions`；
@@ -15,6 +16,8 @@
 - Deployment 通过 Downward API 注入 Pod Name/Namespace，生产保持 2 副本。
 - RBAC 仅授予 BrowserSession 调和与 Lease 选主所需权限；测试确认 ServiceAccount
   可访问 Lease、不可创建 Secret。
+- 进度 104 已将每 2 秒全量 LIST 替换为一致分页快照、resourceVersion Watch、
+  bookmark、410 重列举、周期 resync 和有界退避；稳定 Ready 状态不会产生反馈 PATCH。
 - 修复两个只有真实容器/API Server 才暴露的问题：
   1. `operator.py` 文件名遮蔽 Python 标准库 `operator`，容器启动循环导入；
   2. 单资源 PATCH 错用
@@ -63,7 +66,9 @@ createCalls=4 terminateCalls=1
 ## 尚未完成
 
 1. 在目标云多节点集群强制加载 AppArmor/SELinux Profile 并验证拒绝、审计与回滚。
-2. 使用 Watch/Informer 替代每 2 秒全量 List，并提供 reconcile/lease 指标和告警。
+2. resourceVersion List/Watch、bookmark、410 重列举和周期 resync 已由
+   [进度 104](104-Kubernetes-Operator-List-Watch与AUTO-CRD闭环.md)关闭；仍需提供
+   reconcile/list-watch/lease 指标和告警。
 3. API Server 短时不可用、etcd 延迟、网络分区下的长时间稳定性与不会双 Leader 证明。
 4. CNI 防直连、CSI Snapshot 一致性 Adapter、Kata RuntimeClass 在目标环境的实测。
 5. 在目标云和正式制品 Registry 重复 N/N-1、Node Drain 与回滚 GameDay；本地源码

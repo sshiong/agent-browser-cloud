@@ -183,7 +183,10 @@ spec:
   tenantId: tenant-kind
   profileId: profile-kind
   region: local
-  resourceClass: L2
+  executionEnvironment: SYSTEM_MANAGED
+  resourcePolicy:
+    mode: AUTO
+    onMaximumReached: PAUSE_AGENT
 YAML
 
 wait_for_jsonpath "browsersession/kind-primary" "{.status.phase}" "Ready"
@@ -227,6 +230,18 @@ wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
   set image deployment/browser-session-operator "operator=${OPERATOR_IMAGE}"
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
   rollout status deployment/browser-session-operator --timeout=90s
+deadline=$((SECONDS + 90))
+while ((SECONDS < deadline)); do
+  if "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    logs deployment/browser-session-operator --prefix=true 2>/dev/null |
+    grep -q "list-watch cache synchronized"; then
+    break
+  fi
+  sleep 2
+done
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  logs deployment/browser-session-operator --prefix=true |
+  grep -q "list-watch cache synchronized"
 wait_for_jsonpath "browsersession/kind-primary" "{.status.phase}" "Ready"
 wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
 
@@ -240,7 +255,9 @@ spec:
   tenantId: tenant-kind
   profileId: profile-kind
   region: local
-  resourceClass: L2
+  executionEnvironment: CONTAINER
+  resourcePolicy:
+    mode: AUTO
 YAML
 wait_for_jsonpath "browsersession/kind-after-upgrade" "{.status.phase}" "Ready"
 

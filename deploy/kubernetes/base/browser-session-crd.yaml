@@ -34,10 +34,59 @@ spec:
                 region:
                   type: string
                   default: local
-                resourceClass:
+                executionEnvironment:
                   type: string
-                  enum: [L1, L2, L3, L4]
-                  default: L2
+                  enum: [SYSTEM_MANAGED, CONTAINER, ENHANCED_SANDBOX, MICROVM, NATIVE_OS]
+                  default: SYSTEM_MANAGED
+                  description: Execution isolation choice, independent from automatic resources.
+                resourcePolicy:
+                  type: object
+                  default:
+                    mode: AUTO
+                  required: [mode]
+                  properties:
+                    mode:
+                      type: string
+                      enum: [AUTO]
+                    onMaximumReached:
+                      type: string
+                      enum: [PAUSE_AGENT, WAIT_SAFE_POINT_MIGRATE, HIBERNATE, TERMINATE_STRICT]
+                      default: PAUSE_AGENT
+                    allowMigration:
+                      type: boolean
+                      default: true
+                    allowHibernate:
+                      type: boolean
+                      default: true
+                    blockMigrationDuringHumanTakeover:
+                      type: boolean
+                      default: true
+                    minimumTemplate:
+                      type: string
+                      enum: [standard-v1, interactive-v1, heavy-v1, native-standard-v1]
+                    maximumCpuMillis:
+                      type: integer
+                      minimum: 500
+                      maximum: 32000
+                    maximumMemoryMib:
+                      type: integer
+                      minimum: 512
+                      maximum: 131072
+                    maximumCostPerHour:
+                      type: number
+                      minimum: 0
+                    scaleUpWindowSeconds:
+                      type: integer
+                      minimum: 30
+                      maximum: 900
+                    scaleDownWindowSeconds:
+                      type: integer
+                      minimum: 300
+                      maximum: 86400
+                    adjustmentCooldownSeconds:
+                      type: integer
+                      minimum: 60
+                      maximum: 3600
             status:
               type: object
               properties:

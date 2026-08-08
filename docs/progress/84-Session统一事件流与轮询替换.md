@@ -89,4 +89,4 @@ Session 详情与 Browser Current State 的固定 2 秒轮询已删除。Safe Po
 2. 大规模并发订阅、慢客户端、Ingress Idle Timeout、背压和长连接容量证书；
 3. Session 列表级批量摘要/事件投影，避免为每一行建立独立 SSE；
 4. Tauri 桌面休眠、网络切换和长时间离线后的恢复矩阵；
-5. Kubernetes Operator Watch/Informer 与 API Server/etcd 故障长稳。
+5. Kubernetes Operator List/Watch 已由进度 104 关闭；仍缺 API Server/etcd 故障长稳。

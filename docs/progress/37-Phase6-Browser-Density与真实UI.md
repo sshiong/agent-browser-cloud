@@ -72,6 +72,6 @@
 3. Hot Tenant 迁移长稳、目标云 CNI/CSI、Browser Node Pool 与目标云 Rolling
    Upgrade GameDay；本地 Kind N/N-1 已通过。
 4. GPU Helper、硬件编解码、目标云 Media Capacity 与生产容量承诺。
-5. Operator Watch/Informer、API Server/etcd 故障长稳和目标监控告警。
+5. Operator List/Watch 已由进度 104 关闭；仍缺 API Server/etcd 故障长稳和目标监控告警。
 
 上述未完成项不得以本轮 Stage B 结果替代，Phase 6 生产退出 Gate 仍保持开启。

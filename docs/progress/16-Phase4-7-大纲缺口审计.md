@@ -74,7 +74,8 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 4. Kubernetes：
    - CRD/Operator 已在临时 Kind 集群真实运行，双副本 Lease Leader Election、
      CRD admission、RBAC、Leader Kill 接管与 Finalizer E2E 已通过；
-   - 尚缺目标云多节点安装、Watch/Informer 长稳、API Server 故障和 N/N-1 升级验收；
+   - List/Watch 与本地 N/N-1 已由进度 104/25 关闭；尚缺目标云多节点安装、API
+     Server/etcd 故障长稳和正式制品升级验收；
    - CNI 防直连与 CSI 应用一致性 Adapter 只有清单，无目标云实测；
    - 没有 N/N-1 Rolling Upgrade GameDay。
 5. Media/GPU Capacity 和 Extension Anti-affinity 未进入调度模型。

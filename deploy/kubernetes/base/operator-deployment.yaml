@@ -38,6 +38,12 @@ spec:
               value: browser-session-operator
             - name: LEASE_DURATION_SECONDS
               value: "15"
+            - name: WATCH_TIMEOUT_SECONDS
+              value: "5"
+            - name: RESYNC_INTERVAL_SECONDS
+              value: "300"
+            - name: LIST_PAGE_SIZE
+              value: "500"
             - name: CONTROL_PLANE_URL
               value: https://control-plane.browsercloud-system.svc
             - name: CONTROL_PLANE_TOKEN

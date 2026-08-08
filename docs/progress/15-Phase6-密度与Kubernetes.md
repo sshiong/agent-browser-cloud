@@ -38,7 +38,9 @@
    Extension Weight/Probation、PSI/Cgroup 深度采样和 Node Pressure 驱逐尚未实现。
 4. Hot Actor 安全点迁移有 Router/Epoch 核心，但缺双 Coordinator 实例的迁移压测。
 5. CNI/CSI 清单已定义，仍需目标云环境验证防直连泄漏与 Snapshot 一致性 Adapter。
-6. Operator Watch/Informer、指标/告警和多个 API Server 故障下的长时间稳定性尚未完成。
+6. Operator resourceVersion List/Watch、410 重列举和周期 resync 已由
+   [进度 104](104-Kubernetes-Operator-List-Watch与AUTO-CRD闭环.md)关闭；指标/告警和
+   多个 API Server/etcd 故障下的长时间稳定性尚未完成。
 
 ## Gate 判定
 

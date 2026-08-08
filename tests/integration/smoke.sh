@@ -236,6 +236,10 @@ with open(path, "w", encoding="utf-8") as handle:
                     "endpoint": f"http://127.0.0.1:{port}",
                     "expectedExitIp": "203.0.113.10",
                     "credentialRef": "vault://tenant-integration/proxy/primary",
+                    "regions": ["local"],
+                    "costPerGibUsd": 0.1250,
+                    "reputationScore": 92,
+                    "maxConcurrentSessions": 400,
                 }
             ],
         },
@@ -1438,7 +1442,7 @@ proxy_binding="$(curl -fsS -X POST \
   -H 'Idempotency-Key: smoke-proxy-binding-create-001' \
   -d "$proxy_binding_body")"
 proxy_binding_id="$(printf '%s' "$proxy_binding" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["credentialConfigured"] is True; assert item["healthState"] == "UNVERIFIED"; assert item["version"] == 0; assert "credentialRef" not in item; print(item["bindingProfileId"])')"
+  'import json,sys; item=json.load(sys.stdin); assert item["credentialConfigured"] is True; assert item["healthState"] == "UNVERIFIED"; assert item["costPerGibUsd"] == 0.125; assert item["reputationScore"] == 92; assert item["maxConcurrentSessions"] == 400; assert item["automaticRoutingReady"] is False; assert item["version"] == 0; assert "credentialRef" not in item; print(item["bindingProfileId"])')"
 proxy_binding_replay="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/proxy-bindings" \
   -H 'Content-Type: application/json' \
@@ -1552,7 +1556,7 @@ session_with_group="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$session_with_group" | python3 -c \
-  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['proxyBindingProfileId'] == '${proxy_binding_id}'; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
+  "import json,sys; item=json.load(sys.stdin); assert item['groupId'] == '${workspace_group_id}'; assert item['runtimeBuildId'] == 'runtime_local_chromium'; assert item['proxyBindingProfileId'] == '${proxy_binding_id}'; route=item['proxyRoutingDecision']; assert route['selectionMode'] == 'EXPLICIT'; assert route['providerId'] == 'static-local'; assert route['candidateCount'] == 0; assert route['candidateScores'] == []; assert item['humanTakeoverEnabled'] is True; assert item['agentPolicy'] == 'INTERACTIVE'; assert item['extensionIds'] == ['jdgnleokimdbblcflcfcohbinohmmmlb']; assert item['tags'] == [{'tagId':'${workspace_tag_id}','name':'Production','color':'#35D6BE'}]"
 updated_proxy_binding="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/proxy-bindings/${proxy_binding_id}" \
   -H 'Content-Type: application/json' \
@@ -2398,7 +2402,7 @@ printf '%s' "$(<"$temp_dir/resource-sample.json")" | python3 -c \
 proxy_overview="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_overview" | python3 -c \
-  "import json,sys; result=json.load(sys.stdin); assert result['provider']['directFallbackAllowed'] is False; assert result['total'] == 1; item=result['allocations'][0]; assert item['sessionId'] == '${session_one}'; assert item['state'] == 'BOUND'; assert item['exitIp'] == '203.0.113.10'; assert item['country'] == 'TEST'; assert item['asn'] == 'AS64500'"
+  "import json,sys; result=json.load(sys.stdin); assert result['provider']['directFallbackAllowed'] is False; assert len(result['providers']) == 1; provider=result['providers'][0]; assert provider['regions'] == ['local']; assert provider['costPerGibUsd'] == 0.125; assert provider['reputationScore'] == 92; assert provider['maxConcurrentSessions'] == 400; assert result['total'] == 1; item=result['allocations'][0]; assert item['sessionId'] == '${session_one}'; assert item['state'] == 'BOUND'; assert item['exitIp'] == '203.0.113.10'; assert item['country'] == 'TEST'; assert item['asn'] == 'AS64500'"
 proxy_active_probe_count="0"
 for _ in $(seq 1 100); do
   proxy_active_probe_count="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
@@ -2420,7 +2424,8 @@ proxy_binding_db_summary="$(docker exec "$postgres_name" psql -U browsercloud -d
   "select
      (select count(*) from session_proxy_binding_assignments
       where tenant_id='tenant-integration' and session_id='${session_one}'
-        and binding_profile_id='${proxy_binding_id}' and binding_version=0) || ':' ||
+        and binding_profile_id='${proxy_binding_id}' and binding_version=0
+        and selection_mode='EXPLICIT' and candidate_scores is null) || ':' ||
      (select count(*) from proxy_allocations
       where tenant_id='tenant-integration' and session_id='${session_one}'
         and binding_profile_id='${proxy_binding_id}' and binding_version=0

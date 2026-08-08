@@ -185,8 +185,23 @@ class SessionApplicationServiceTest {
                 List.of(new WorkspaceTagSummary("tag_first", "Production", "#35D6BE")),
                 "ses_second",
                 List.of()));
-    when(proxyApplicationService.assignedBindingProfileIds(sessionIds, "tenant-test"))
-        .thenReturn(Map.of("ses_first", "binding-first"));
+    var routingDecision =
+        new io.browsercloud.api.ProxyBindingModels.ProxyRoutingDecision(
+            "ses_first",
+            "binding-first",
+            "provider-first",
+            "EXPLICIT",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            List.of(),
+            now);
+    when(proxyApplicationService.assignedRoutingDecisions(sessionIds, "tenant-test"))
+        .thenReturn(Map.of("ses_first", routingDecision));
 
     var result = service.list("tenant-test", null, "", 200, -1);
 
@@ -195,13 +210,14 @@ class SessionApplicationServiceTest {
     assertThat(result.offset()).isZero();
     assertThat(result.items().getFirst().tags()).extracting("tagId").containsExactly("tag_first");
     assertThat(result.items().getFirst().proxyBindingProfileId()).isEqualTo("binding-first");
+    assertThat(result.items().getFirst().proxyRoutingDecision()).isEqualTo(routingDecision);
     assertThat(result.items().get(1).tags()).isEmpty();
     verify(operationRepository, never()).findActive(org.mockito.ArgumentMatchers.anyString());
     verify(workspaceTagService, never())
         .summariesForSession(
             org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
     verify(proxyApplicationService, never())
-        .assignedBindingProfileId(
+        .assignedRoutingDecision(
             org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
   }
 

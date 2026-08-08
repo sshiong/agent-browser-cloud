@@ -23,6 +23,7 @@ public record SessionView(
     String runtimeBuildId,
     String proxyBindingId,
     String proxyBindingProfileId,
+    ProxyBindingModels.ProxyRoutingDecision proxyRoutingDecision,
     long contextEpoch,
     long browserGeneration,
     OperationView currentOperation,

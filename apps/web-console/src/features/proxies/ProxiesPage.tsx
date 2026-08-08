@@ -39,6 +39,9 @@ export function ProxiesPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingBinding, setEditingBinding] = useState<ProxyBindingView>();
   const provider = query.data?.provider;
+  const configuredProviders =
+    query.data?.providers.filter((item) => item.state === 'CONFIGURED') ?? [];
+  const providerCatalogReady = configuredProviders.length > 0;
   const canAdminister = auth.hasAnyRole([
     'TENANT_ADMIN',
     'SECURITY_ADMIN',
@@ -137,6 +140,56 @@ export function ProxiesPage() {
                   </dl>
                 )}
               </div>
+              {configuredProviders.length > 1 && (
+                <div className="grid gap-px border-t border-border-subtle bg-border-subtle md:grid-cols-2">
+                  {configuredProviders.map((item) => (
+                    <div key={item.providerId} className="bg-surface-1 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-mono text-[11px] font-semibold text-text-primary">
+                            {item.providerId}
+                          </p>
+                          <p className="mt-1 truncate font-mono text-[10px] text-text-muted">
+                            {item.endpoint}
+                          </p>
+                        </div>
+                        <span className="border border-success/25 bg-success/10 px-2 py-0.5 text-[9px] font-semibold text-success">
+                          {item.state}
+                        </span>
+                      </div>
+                      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] xl:grid-cols-4">
+                        <div>
+                          <dt className="text-text-muted">Expected exit</dt>
+                          <dd className="mt-0.5 font-mono text-text-secondary">
+                            {item.expectedExitIp}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-text-muted">Cost / GiB</dt>
+                          <dd className="mt-0.5 font-mono text-text-secondary">
+                            ${item.costPerGibUsd.toFixed(4)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-text-muted">Reputation</dt>
+                          <dd className="mt-0.5 font-mono text-text-secondary">
+                            {item.reputationScore}/100
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-text-muted">Capacity</dt>
+                          <dd className="mt-0.5 font-mono text-text-secondary">
+                            {item.maxConcurrentSessions}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="mt-3 text-[10px] text-text-muted">
+                        Regions: {item.regions.join(' · ') || 'global'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="mb-4 overflow-hidden border border-border-subtle bg-surface-1">
@@ -150,14 +203,13 @@ export function ProxiesPage() {
                     引用不会回传到浏览器。
                   </p>
                 </div>
-                {canAdminister && provider && (
+                {canAdminister && providerCatalogReady && (
                   <button
                     className="inline-flex h-9 items-center justify-center gap-2 self-start bg-accent px-3 text-[11px] font-semibold text-canvas transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => {
                       setEditingBinding(undefined);
                       setEditorOpen(true);
                     }}
-                    disabled={provider.state !== 'CONFIGURED'}
                   >
                     <Plus size={14} />
                     新建 Binding
@@ -258,12 +310,12 @@ export function ProxiesPage() {
           </>
         )}
       </main>
-      {provider && (
+      {providerCatalogReady && (
         <ProxyBindingEditor
           open={editorOpen}
           onOpenChange={setEditorOpen}
           binding={editingBinding}
-          provider={provider}
+          providers={configuredProviders}
         />
       )}
     </div>
@@ -346,6 +398,20 @@ function BindingCard({
               ? '—'
               : `${binding.probeSuccessRatePercent.toFixed(1)}%`
           }
+        />
+      </dl>
+      <dl className="mt-px grid grid-cols-3 gap-px bg-border-subtle">
+        <QualityMetric
+          label="Cost / GiB"
+          value={`$${binding.costPerGibUsd.toFixed(4)}`}
+        />
+        <QualityMetric
+          label="Reputation"
+          value={`${binding.reputationScore}/100`}
+        />
+        <QualityMetric
+          label="AUTO route"
+          value={binding.automaticRoutingReady ? 'READY' : 'BLOCKED'}
         />
       </dl>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] text-text-muted">

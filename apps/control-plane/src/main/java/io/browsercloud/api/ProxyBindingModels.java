@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -51,6 +52,10 @@ public final class ProxyBindingModels {
       Double probeSuccessRatePercent,
       Double latencyEwmaMs,
       Integer qualityScore,
+      BigDecimal costPerGibUsd,
+      int reputationScore,
+      int maxConcurrentSessions,
+      boolean automaticRoutingReady,
       Instant healthFreshUntil,
       int consecutiveFailures,
       long version,
@@ -59,6 +64,34 @@ public final class ProxyBindingModels {
       Instant updatedAt) {}
 
   public record ProxyBindingListResponse(List<ProxyBindingView> items, int total) {}
+
+  public record ProxyRoutingCandidateScore(
+      String bindingProfileId,
+      String providerId,
+      double routingScore,
+      int qualityScore,
+      int reputationScore,
+      BigDecimal costPerGibUsd,
+      double costScore,
+      double regionScore,
+      double headroomScore,
+      int activeReservations,
+      int maxConcurrentSessions) {}
+
+  public record ProxyRoutingDecision(
+      String sessionId,
+      String bindingProfileId,
+      String providerId,
+      String selectionMode,
+      Double routingScore,
+      Integer qualityScore,
+      Integer reputationScore,
+      BigDecimal costPerGibUsd,
+      Integer activeReservations,
+      Integer maxConcurrentSessions,
+      int candidateCount,
+      List<ProxyRoutingCandidateScore> candidateScores,
+      Instant selectedAt) {}
 
   public record ProxyRebindRequest(
       @NotBlank @Pattern(regexp = "^pbind_[a-zA-Z0-9]{16,32}$") String targetBindingProfileId,

@@ -5,6 +5,10 @@ export interface ProxyProviderView {
   expectedExitIp: string;
   directFallbackAllowed: boolean;
   state: 'CONFIGURED' | 'CATALOG_CONFIGURED' | 'UNCONFIGURED';
+  regions: string[];
+  costPerGibUsd: number;
+  reputationScore: number;
+  maxConcurrentSessions: number;
 }
 
 export interface ProxyAllocationView {
@@ -24,6 +28,7 @@ export interface ProxyAllocationView {
 
 export interface ProxyOverviewResponse {
   provider: ProxyProviderView;
+  providers: ProxyProviderView[];
   allocations: ProxyAllocationView[];
   total: number;
 }
@@ -48,6 +53,10 @@ export interface ProxyBindingView {
   probeSuccessRatePercent: number | null;
   latencyEwmaMs: number | null;
   qualityScore: number | null;
+  costPerGibUsd: number;
+  reputationScore: number;
+  maxConcurrentSessions: number;
+  automaticRoutingReady: boolean;
   healthFreshUntil: string | null;
   consecutiveFailures: number;
   version: number;
@@ -70,6 +79,36 @@ export interface ProxyBindingRequest {
   credentialRef?: string;
   enabled: boolean;
   expectedVersion?: number;
+}
+
+export interface ProxyRoutingCandidateScore {
+  bindingProfileId: string;
+  providerId: string;
+  routingScore: number;
+  qualityScore: number;
+  reputationScore: number;
+  costPerGibUsd: number;
+  costScore: number;
+  regionScore: number;
+  headroomScore: number;
+  activeReservations: number;
+  maxConcurrentSessions: number;
+}
+
+export interface ProxyRoutingDecision {
+  sessionId: string;
+  bindingProfileId: string;
+  providerId: string;
+  selectionMode: 'EXPLICIT' | 'AUTO';
+  routingScore: number | null;
+  qualityScore: number | null;
+  reputationScore: number | null;
+  costPerGibUsd: number | null;
+  activeReservations: number | null;
+  maxConcurrentSessions: number | null;
+  candidateCount: number;
+  candidateScores: ProxyRoutingCandidateScore[];
+  selectedAt: string;
 }
 
 export type ProxyRebindPhase =

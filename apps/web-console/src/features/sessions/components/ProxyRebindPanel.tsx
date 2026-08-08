@@ -14,6 +14,7 @@ import type {
   ProxyBindingView,
   ProxyRebindRequest,
   ProxyRebindView,
+  ProxyRoutingDecision,
 } from '@/types/proxy';
 import type { SessionSafePointView, SessionState } from '@/types/session';
 
@@ -39,6 +40,7 @@ export function ProxyRebindPanel({
   sessionState,
   sessionRegion,
   currentBindingProfileId,
+  routingDecision,
   hasActiveOperation,
   safePoint,
   bindings,
@@ -54,6 +56,7 @@ export function ProxyRebindPanel({
   sessionState: SessionState;
   sessionRegion: string;
   currentBindingProfileId?: string;
+  routingDecision?: ProxyRoutingDecision | null;
   hasActiveOperation: boolean;
   safePoint?: SessionSafePointView;
   bindings: ProxyBindingView[];
@@ -145,7 +148,39 @@ export function ProxyRebindPanel({
             value={currentBindingProfileId ?? '系统默认 Provider'}
           />
           <IdentityCell label="Region" value={sessionRegion} />
+          <IdentityCell
+            label="Selection"
+            value={routingDecision?.selectionMode ?? 'SYSTEM DEFAULT'}
+          />
+          <IdentityCell
+            label="Route score"
+            value={
+              routingDecision?.routingScore === null ||
+              routingDecision?.routingScore === undefined
+                ? 'Explicit selection'
+                : `${routingDecision.routingScore.toFixed(2)} / 100`
+            }
+          />
         </div>
+
+        {routingDecision?.selectionMode === 'AUTO' && (
+          <div className="border-t border-border-subtle px-5 py-4">
+            <p className="text-[9px] uppercase tracking-[0.14em] text-text-muted">
+              Automatic route evidence
+            </p>
+            <p className="mt-1 text-[10px] leading-4 text-text-secondary">
+              Q{routingDecision.qualityScore ?? '—'} · Reputation{' '}
+              {routingDecision.reputationScore ?? '—'} · $
+              {routingDecision.costPerGibUsd?.toFixed(4) ?? '—'}/GiB ·{' '}
+              {routingDecision.activeReservations ?? '—'}/
+              {routingDecision.maxConcurrentSessions ?? '—'} reservations
+            </p>
+            <p className="mt-1 font-mono text-[9px] text-text-muted">
+              {routingDecision.candidateCount} candidates · selected{' '}
+              {new Date(routingDecision.selectedAt).toLocaleString()}
+            </p>
+          </div>
+        )}
 
         {latestLoading ? (
           <div className="flex items-center gap-2 px-5 py-4 text-[10px] text-text-muted">

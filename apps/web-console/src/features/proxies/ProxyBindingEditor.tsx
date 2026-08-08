@@ -17,12 +17,12 @@ export function ProxyBindingEditor({
   open,
   onOpenChange,
   binding,
-  provider,
+  providers,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   binding?: ProxyBindingView;
-  provider: ProxyProviderView;
+  providers: ProxyProviderView[];
 }) {
   const create = useCreateProxyBinding();
   const update = useUpdateProxyBinding();
@@ -31,6 +31,7 @@ export function ProxyBindingEditor({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [region, setRegion] = useState('');
+  const [providerSelection, setProviderSelection] = useState('');
   const [credentialRef, setCredentialRef] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -40,6 +41,19 @@ export function ProxyBindingEditor({
     setName(binding?.name ?? '');
     setDescription(binding?.description ?? '');
     setRegion(binding?.region ?? '');
+    const selectedIndex = binding
+      ? providers.findIndex(
+          (candidate) =>
+            candidate.providerId === binding.providerId &&
+            candidate.expectedExitIp === binding.expectedExitIp
+        )
+      : 0;
+    setProviderSelection(
+      providerSelectionKey(
+        providers[Math.max(0, selectedIndex)],
+        Math.max(0, selectedIndex)
+      )
+    );
     setCredentialRef('');
     setEnabled(binding?.enabled ?? true);
     setConfirmDelete(false);
@@ -49,8 +63,14 @@ export function ProxyBindingEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [binding, open]);
 
+  const provider = providers.find(
+    (candidate, index) =>
+      providerSelectionKey(candidate, index) === providerSelection
+  );
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!provider) return;
     const body: ProxyBindingRequest = {
       name: name.trim(),
       description: description.trim() || undefined,
@@ -146,12 +166,59 @@ export function ProxyBindingEditor({
               </Field>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <ReadOnlyField label="Provider" value={provider.providerId} />
+                <Field label="Provider" required>
+                  <select
+                    className="field-input font-mono"
+                    value={providerSelection}
+                    onChange={(event) => {
+                      setProviderSelection(event.target.value);
+                      const next = providers.find(
+                        (candidate, index) =>
+                          providerSelectionKey(candidate, index) ===
+                          event.target.value
+                      );
+                      if (
+                        next &&
+                        next.regions.length > 0 &&
+                        !next.regions.includes(region)
+                      ) {
+                        setRegion(next.regions[0] ?? '');
+                      }
+                    }}
+                    required
+                  >
+                    {providers.map((item, index) => (
+                      <option
+                        key={providerSelectionKey(item, index)}
+                        value={providerSelectionKey(item, index)}
+                      >
+                        {item.providerId} · {item.expectedExitIp}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 <ReadOnlyField
                   label="Expected exit"
-                  value={provider.expectedExitIp || '未配置'}
+                  value={provider?.expectedExitIp || '未配置'}
                 />
               </div>
+
+              {provider && (
+                <div className="grid gap-px bg-border-subtle sm:grid-cols-3">
+                  <ReadOnlyField
+                    label="Cost / GiB"
+                    value={`$${provider.costPerGibUsd.toFixed(4)}`}
+                  />
+                  <ReadOnlyField
+                    label="Reputation"
+                    value={`${provider.reputationScore}/100`}
+                  />
+                  <ReadOnlyField
+                    label="Capacity"
+                    value={`${provider.maxConcurrentSessions} Sessions`}
+                  />
+                </div>
+              )}
 
               <Field
                 label="限定区域"
@@ -164,7 +231,13 @@ export function ProxyBindingEditor({
                   placeholder="例如 singapore"
                   pattern="[a-z0-9-]{1,32}"
                   maxLength={32}
+                  list="proxy-provider-regions"
                 />
+                <datalist id="proxy-provider-regions">
+                  {(provider?.regions ?? []).map((item) => (
+                    <option key={item} value={item} />
+                  ))}
+                </datalist>
               </Field>
 
               <Field
@@ -264,7 +337,7 @@ export function ProxyBindingEditor({
                     remove.isPending ||
                     !name.trim() ||
                     credentialMissing ||
-                    !provider.expectedExitIp
+                    !provider?.expectedExitIp
                   }
                 >
                   {mutation.isPending && (
@@ -279,6 +352,15 @@ export function ProxyBindingEditor({
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+function providerSelectionKey(
+  provider: ProxyProviderView | undefined,
+  index: number
+) {
+  return provider
+    ? `${provider.providerId}|${provider.expectedExitIp}|${index}`
+    : '';
 }
 
 function Field({

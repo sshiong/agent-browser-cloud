@@ -905,7 +905,7 @@ export function CreateSessionDialog({
 
                   <Field
                     label="Proxy Binding"
-                    hint="可复用的是租户配置档案；创建后会固化版本，并为本 Session 单独生成 allocation。"
+                    hint="留空时由服务端只在真实探测新鲜的 Binding 中，按质量、信誉、成本、区域和剩余容量自动选路；明确选择仍会固化该版本。"
                   >
                     {proxyBindingsQuery.isLoading ? (
                       <LoadingBlock label="正在读取 Proxy Bindings" />
@@ -917,7 +917,18 @@ export function CreateSessionDialog({
                         className="field-input"
                         disabled={values.networkMode !== 'managed'}
                       >
-                        <option value="">系统托管出口（默认）</option>
+                        <option value="">
+                          系统自动选路（推荐） ·{' '}
+                          {
+                            (proxyBindingsQuery.data?.items ?? []).filter(
+                              (binding) =>
+                                binding.automaticRoutingReady &&
+                                (!binding.region ||
+                                  binding.region === values.region)
+                            ).length
+                          }{' '}
+                          条可用路径
+                        </option>
                         {(proxyBindingsQuery.data?.items ?? [])
                           .filter(
                             (binding) =>
@@ -931,7 +942,9 @@ export function CreateSessionDialog({
                               value={binding.bindingProfileId}
                             >
                               {binding.name} · {binding.healthState} ·{' '}
-                              {binding.region || 'ANY'}
+                              {binding.region || 'ANY'} · Q
+                              {binding.qualityScore ?? '—'} · $
+                              {binding.costPerGibUsd.toFixed(4)}/GiB
                             </option>
                           ))}
                       </select>
@@ -1471,7 +1484,7 @@ export function CreateSessionDialog({
                           detail={
                             values.proxyBindingProfileId
                               ? `Binding ${values.proxyBindingProfileId}`
-                              : '系统托管出口'
+                              : '质量 / 信誉 / 成本 / 地域 / 容量自动选路'
                           }
                         />
                         <ReviewItem

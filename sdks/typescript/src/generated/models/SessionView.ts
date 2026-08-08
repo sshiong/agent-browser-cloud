@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { AgentPolicy } from './AgentPolicy.js';
 import type { OperationView } from './OperationView.js';
+import type { ProxyRoutingDecision } from './ProxyRoutingDecision.js';
 import type { ResourceTemplate } from './ResourceTemplate.js';
 import type { SessionState } from './SessionState.js';
 import type { WorkspaceTagSummary } from './WorkspaceTagSummary.js';
@@ -39,6 +40,10 @@ export type SessionView = {
      * Reusable management profile selected at creation; distinct from proxyBindingId.
      */
     proxyBindingProfileId?: string | null;
+    /**
+     * Immutable explicit/AUTO selection evidence. Older Control Planes may omit it.
+     */
+    proxyRoutingDecision?: (ProxyRoutingDecision | null);
     contextEpoch: number;
     browserGeneration: number;
     currentOperation?: (OperationView | null);

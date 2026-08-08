@@ -5087,6 +5087,10 @@ components:
         - expectedExitIp
         - directFallbackAllowed
         - state
+        - regions
+        - costPerGibUsd
+        - reputationScore
+        - maxConcurrentSessions
       properties:
         providerId:
           type: string
@@ -5102,6 +5106,26 @@ components:
         state:
           type: string
           enum: [CONFIGURED, CATALOG_CONFIGURED, UNCONFIGURED]
+        regions:
+          type: array
+          maxItems: 64
+          items:
+            type: string
+            pattern: "^[a-z0-9-]{1,32}$"
+          description: Empty means the Provider can serve every admitted region.
+        costPerGibUsd:
+          type: number
+          minimum: 0
+          maximum: 10000
+          multipleOf: 0.0001
+        reputationScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        maxConcurrentSessions:
+          type: integer
+          minimum: 1
+          maximum: 1000000
     ProxyAllocation:
       type: object
       additionalProperties: false
@@ -5147,10 +5171,16 @@ components:
     ProxyOverview:
       type: object
       additionalProperties: false
-      required: [provider, allocations, total]
+      required: [provider, providers, allocations, total]
       properties:
         provider:
           $ref: "#/components/schemas/ProxyProvider"
+        providers:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/ProxyProvider"
+          description: Concrete configured Providers. The singular provider remains for compatibility.
         allocations:
           type: array
           items:
@@ -5213,6 +5243,10 @@ components:
         - healthState
         - probeSampleCount
         - consecutiveFailures
+        - costPerGibUsd
+        - reputationScore
+        - maxConcurrentSessions
+        - automaticRoutingReady
         - version
         - createdBy
         - createdAt
@@ -5263,6 +5297,25 @@ components:
           minimum: 0
           maximum: 100
           description: Transparent 80% availability EWMA plus 20% latency EWMA score.
+        costPerGibUsd:
+          type: number
+          minimum: 0
+          maximum: 10000
+          multipleOf: 0.0001
+          description: Provider catalog value snapshotted when this Binding revision was committed.
+        reputationScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Provider governance score snapshotted with this Binding revision.
+        maxConcurrentSessions:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: Maximum active allocations for this Provider credential snapshot.
+        automaticRoutingReady:
+          type: boolean
+          description: True only while the Binding is enabled, HEALTHY and backed by a fresh probe.
         healthFreshUntil:
           type: [string, "null"]
           format: date-time
@@ -5295,6 +5348,120 @@ components:
         total:
           type: integer
           minimum: 0
+    ProxyRoutingCandidateScore:
+      type: object
+      additionalProperties: false
+      required:
+        - bindingProfileId
+        - providerId
+        - routingScore
+        - qualityScore
+        - reputationScore
+        - costPerGibUsd
+        - costScore
+        - regionScore
+        - headroomScore
+        - activeReservations
+        - maxConcurrentSessions
+      properties:
+        bindingProfileId:
+          type: string
+          pattern: "^pbind_[A-Za-z0-9]{16,32}$"
+        providerId:
+          type: string
+        routingScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        qualityScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reputationScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        costPerGibUsd:
+          type: number
+          minimum: 0
+          maximum: 10000
+        costScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        regionScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        headroomScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        activeReservations:
+          type: integer
+          minimum: 0
+        maxConcurrentSessions:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+    ProxyRoutingDecision:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - bindingProfileId
+        - providerId
+        - selectionMode
+        - candidateCount
+        - candidateScores
+        - selectedAt
+      properties:
+        sessionId:
+          type: string
+        bindingProfileId:
+          type: string
+          pattern: "^pbind_[A-Za-z0-9]{16,32}$"
+        providerId:
+          type: string
+        selectionMode:
+          type: string
+          enum: [EXPLICIT, AUTO]
+        routingScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 100
+        qualityScore:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+        reputationScore:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+        costPerGibUsd:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 10000
+        activeReservations:
+          type: [integer, "null"]
+          minimum: 0
+        maxConcurrentSessions:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 1000000
+        candidateCount:
+          type: integer
+          minimum: 0
+          maximum: 256
+          description: Total persisted candidates. Session list projections may omit candidateScores.
+        candidateScores:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/ProxyRoutingCandidateScore"
+        selectedAt:
+          type: string
+          format: date-time
     ProxyRebindRequest:
       type: object
       additionalProperties: false
@@ -7646,6 +7813,11 @@ components:
           type: [string, "null"]
           pattern: "^pbind_[a-zA-Z0-9]{16,32}$"
           description: Reusable management profile selected at creation; distinct from proxyBindingId.
+        proxyRoutingDecision:
+          oneOf:
+            - $ref: "#/components/schemas/ProxyRoutingDecision"
+            - type: "null"
+          description: Immutable explicit/AUTO selection evidence. Older Control Planes may omit it.
         contextEpoch:
           type: integer
           format: int64

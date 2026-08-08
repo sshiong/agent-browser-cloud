@@ -557,6 +557,7 @@ export function SessionDetailPage() {
                   sessionState={session.state}
                   sessionRegion={session.region}
                   currentBindingProfileId={session.proxyBindingProfileId}
+                  routingDecision={session.proxyRoutingDecision}
                   hasActiveOperation={Boolean(session.currentOperation)}
                   safePoint={safePointQuery.data}
                   bindings={proxyBindingsQuery.data?.items ?? []}

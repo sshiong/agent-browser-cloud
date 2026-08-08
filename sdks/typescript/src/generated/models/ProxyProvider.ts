@@ -9,4 +9,11 @@ export type ProxyProvider = {
     expectedExitIp: string;
     directFallbackAllowed: boolean;
     state: 'CONFIGURED' | 'CATALOG_CONFIGURED' | 'UNCONFIGURED';
+    /**
+     * Empty means the Provider can serve every admitted region.
+     */
+    regions: Array<string>;
+    costPerGibUsd: number;
+    reputationScore: number;
+    maxConcurrentSessions: number;
 };

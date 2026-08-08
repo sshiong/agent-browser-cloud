@@ -127,6 +127,8 @@ export type { ProxyProvider } from './models/ProxyProvider.js';
 export type { ProxyRebind } from './models/ProxyRebind.js';
 export type { ProxyRebindOperation } from './models/ProxyRebindOperation.js';
 export type { ProxyRebindRequest } from './models/ProxyRebindRequest.js';
+export type { ProxyRoutingCandidateScore } from './models/ProxyRoutingCandidateScore.js';
+export type { ProxyRoutingDecision } from './models/ProxyRoutingDecision.js';
 export type { RebindSessionApplicationRequest } from './models/RebindSessionApplicationRequest.js';
 export type { RecordExtensionSampleRequest } from './models/RecordExtensionSampleRequest.js';
 export type { RecordNodePressureRequest } from './models/RecordNodePressureRequest.js';

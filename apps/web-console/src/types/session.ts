@@ -1,3 +1,5 @@
+import type { ProxyRoutingDecision } from '@/types/proxy';
+
 /**
  * Session 上下文。
  */
@@ -105,6 +107,7 @@ export interface SessionView {
   runtimeBuildId?: string;
   proxyBindingId?: string;
   proxyBindingProfileId?: string;
+  proxyRoutingDecision?: ProxyRoutingDecision | null;
   contextEpoch: number;
   browserGeneration: number;
   currentOperation?: OperationView;

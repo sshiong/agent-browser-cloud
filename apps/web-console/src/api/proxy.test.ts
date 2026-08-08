@@ -15,7 +15,25 @@ describe('proxy API', () => {
             expectedExitIp: '203.0.113.10',
             directFallbackAllowed: false,
             state: 'CONFIGURED',
+            regions: ['singapore'],
+            costPerGibUsd: 0.125,
+            reputationScore: 91,
+            maxConcurrentSessions: 400,
           },
+          providers: [
+            {
+              providerId: 'static-test',
+              type: 'STATIC_HTTP',
+              endpoint: 'http://127.0.0.1:8081',
+              expectedExitIp: '203.0.113.10',
+              directFallbackAllowed: false,
+              state: 'CONFIGURED',
+              regions: ['singapore'],
+              costPerGibUsd: 0.125,
+              reputationScore: 91,
+              maxConcurrentSessions: 400,
+            },
+          ],
           allocations: [],
           total: 0,
         }),
@@ -23,7 +41,7 @@ describe('proxy API', () => {
       )
     );
 
-    await getProxyOverview('tenant-test');
+    const overview = await getProxyOverview('tenant-test');
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/proxies',
@@ -31,5 +49,7 @@ describe('proxy API', () => {
         headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })
     );
+    expect(overview.providers).toHaveLength(1);
+    expect(overview.providers[0]?.reputationScore).toBe(91);
   });
 });

@@ -542,7 +542,7 @@ public class SessionApplicationService {
         descriptors.stream().map(descriptor -> descriptor.context().sessionId()).toList();
     var activeOperations = operationRepository.findActiveBySessionIds(sessionIds);
     var tagsBySession = workspaceTagService.summariesForSessions(tenantId, sessionIds);
-    var bindingProfiles = proxyApplicationService.assignedBindingProfileIds(sessionIds, tenantId);
+    var routingDecisions = proxyApplicationService.assignedRoutingDecisions(sessionIds, tenantId);
     var items =
         descriptors.stream()
             .map(
@@ -552,7 +552,7 @@ public class SessionApplicationService {
                       descriptor,
                       activeOperations.get(sessionId),
                       tagsBySession.getOrDefault(sessionId, java.util.List.of()),
-                      bindingProfiles.get(sessionId));
+                      routingDecisions.get(sessionId));
                 })
             .toList();
     long count = sessionRepository.countByTenant(tenantId, state, query, filter);
@@ -607,14 +607,14 @@ public class SessionApplicationService {
         descriptor,
         operationRepository.findActive(context.sessionId()).orElse(null),
         workspaceTagService.summariesForSession(context.tenantId(), context.sessionId()),
-        proxyApplicationService.assignedBindingProfileId(context.sessionId(), context.tenantId()));
+        proxyApplicationService.assignedRoutingDecision(context.sessionId(), context.tenantId()));
   }
 
   private SessionView toView(
       SessionDescriptor descriptor,
       ExclusiveOperation activeOperation,
       java.util.List<WorkspaceTagModels.WorkspaceTagSummary> tags,
-      String proxyBindingProfileId) {
+      io.browsercloud.api.ProxyBindingModels.ProxyRoutingDecision proxyRoutingDecision) {
     var context = descriptor.context();
     var operation =
         activeOperation == null
@@ -651,7 +651,8 @@ public class SessionApplicationService {
         context.nodeId(),
         context.runtimeBuildId(),
         context.proxyBindingId(),
-        proxyBindingProfileId,
+        proxyRoutingDecision == null ? null : proxyRoutingDecision.bindingProfileId(),
+        proxyRoutingDecision,
         context.contextEpoch(),
         context.browserGeneration(),
         operation,

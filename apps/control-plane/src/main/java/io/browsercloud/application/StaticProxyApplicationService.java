@@ -5,6 +5,8 @@ import io.browsercloud.api.ProxyAllocationView;
 import io.browsercloud.api.ProxyBindingModels.ProxyBindingListResponse;
 import io.browsercloud.api.ProxyBindingModels.ProxyBindingRequest;
 import io.browsercloud.api.ProxyBindingModels.ProxyBindingView;
+import io.browsercloud.api.ProxyBindingModels.ProxyRoutingCandidateScore;
+import io.browsercloud.api.ProxyBindingModels.ProxyRoutingDecision;
 import io.browsercloud.api.ProxyOverviewResponse;
 import io.browsercloud.api.ProxyProviderView;
 import io.browsercloud.coordinator.NodeEvent;
@@ -17,12 +19,14 @@ import io.browsercloud.persistence.ProxyBindingProfileEntity;
 import io.browsercloud.persistence.ProxyBindingProfileJpaRepository;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentEntity;
 import io.browsercloud.persistence.SessionProxyBindingAssignmentJpaRepository;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class StaticProxyApplicationService {
 
   private static final List<String> ACTIVE_STATES = List.of("ALLOCATED", "BOUND");
+  private static final long HEALTH_FRESHNESS_SECONDS = 90;
 
   private final ProxyAllocationJpaRepository repository;
   private final ProxyBindingProfileJpaRepository bindingProfiles;
@@ -81,7 +86,11 @@ public class StaticProxyApplicationService {
             requireIdentifier(providerId, "proxy provider ID"),
             endpoint.trim(),
             expectedExitIp.trim(),
-            credentialRef == null ? "" : credentialRef.trim());
+            credentialRef == null ? "" : credentialRef.trim(),
+            List.of(),
+            BigDecimal.ZERO,
+            50,
+            10000);
     this.providers = loadProviderCatalog(providerConfigFile, fallbackProvider);
     this.defaultProvider =
         this.providers.size() == 1 ? this.providers.values().iterator().next() : null;
@@ -241,7 +250,11 @@ public class StaticProxyApplicationService {
                 requireIdentifier(entry.providerId(), "proxy provider ID"),
                 entry.endpoint() == null ? "" : entry.endpoint().strip(),
                 entry.expectedExitIp() == null ? "" : entry.expectedExitIp().strip(),
-                entry.credentialRef() == null ? "" : entry.credentialRef().strip());
+                entry.credentialRef() == null ? "" : entry.credentialRef().strip(),
+                normalizeRegions(entry.regions()),
+                entry.costPerGibUsd() == null ? BigDecimal.ZERO : entry.costPerGibUsd(),
+                entry.reputationScore() == null ? 50 : entry.reputationScore(),
+                entry.maxConcurrentSessions() == null ? 10000 : entry.maxConcurrentSessions());
         validateProvider(descriptor);
         var previous =
             configured.put(
@@ -406,17 +419,46 @@ public class StaticProxyApplicationService {
                         allocation.getReleasedAt(),
                         allocation.getUpdatedAt()))
             .toList();
+    var providerViews =
+        providers.values().stream()
+            .sorted(
+                Comparator.comparing(ProviderDescriptor::providerId)
+                    .thenComparing(ProviderDescriptor::credentialRef))
+            .map(this::toProviderView)
+            .toList();
     var provider =
-        new ProxyProviderView(
-            providerId,
-            providers.size() > 1 ? "STATIC_HTTP_CATALOG" : "STATIC_HTTP",
-            endpoint,
-            expectedExitIp,
-            allowDirect,
-            providers.isEmpty()
-                ? "UNCONFIGURED"
-                : providers.size() == 1 ? "CONFIGURED" : "CATALOG_CONFIGURED");
-    return new ProxyOverviewResponse(provider, allocations, allocations.size());
+        providerViews.size() == 1
+            ? providerViews.getFirst()
+            : new ProxyProviderView(
+                providerId,
+                providers.size() > 1 ? "STATIC_HTTP_CATALOG" : "STATIC_HTTP",
+                endpoint,
+                expectedExitIp,
+                allowDirect,
+                providers.isEmpty() ? "UNCONFIGURED" : "CATALOG_CONFIGURED",
+                List.of(),
+                BigDecimal.ZERO,
+                0,
+                Math.max(
+                    1,
+                    providers.values().stream()
+                        .mapToInt(ProviderDescriptor::maxConcurrentSessions)
+                        .sum()));
+    return new ProxyOverviewResponse(provider, providerViews, allocations, allocations.size());
+  }
+
+  private ProxyProviderView toProviderView(ProviderDescriptor provider) {
+    return new ProxyProviderView(
+        provider.providerId(),
+        "STATIC_HTTP",
+        provider.endpoint(),
+        provider.expectedExitIp(),
+        allowDirect,
+        "CONFIGURED",
+        provider.regions(),
+        provider.costPerGibUsd(),
+        provider.reputationScore(),
+        provider.maxConcurrentSessions());
   }
 
   @Transactional(readOnly = true)
@@ -447,6 +489,9 @@ public class StaticProxyApplicationService {
     }
     rejectDuplicateName(tenantId, request.name(), null);
     var now = Instant.now();
+    var provider =
+        requireConfiguredProvider(
+            request.providerId(), request.credentialRef(), request.expectedExitIp());
     var profile =
         bindingProfiles.save(
             new ProxyBindingProfileEntity(
@@ -459,6 +504,9 @@ public class StaticProxyApplicationService {
                 request.expectedExitIp(),
                 request.credentialRef(),
                 request.enabled(),
+                provider.costPerGibUsd(),
+                provider.reputationScore(),
+                provider.maxConcurrentSessions(),
                 actorId,
                 now));
     appendBindingAudit(
@@ -487,8 +535,9 @@ public class StaticProxyApplicationService {
         request.credentialRef() == null || request.credentialRef().isBlank()
             ? profile.getCredentialRef()
             : request.credentialRef();
-    requireConfiguredProvider(
-        request.providerId(), effectiveCredentialRef, request.expectedExitIp());
+    var provider =
+        requireConfiguredProvider(
+            request.providerId(), effectiveCredentialRef, request.expectedExitIp());
     var candidateMutation = newId("mut_");
     var mutation =
         idempotency.claimProxyBindingMutation(
@@ -508,6 +557,9 @@ public class StaticProxyApplicationService {
         request.expectedExitIp(),
         effectiveCredentialRef,
         request.enabled(),
+        provider.costPerGibUsd(),
+        provider.reputationScore(),
+        provider.maxConcurrentSessions(),
         Instant.now());
     bindingProfiles.saveAndFlush(profile);
     appendBindingAudit(
@@ -561,17 +613,23 @@ public class StaticProxyApplicationService {
   public void assignBindingProfile(
       SessionContext session, String bindingProfileId, String sessionRegion, String actorId) {
     if (bindingProfileId == null || bindingProfileId.isBlank()) {
+      if (providers.size() > 1) {
+        assignAutomaticBindingProfile(session, sessionRegion, actorId, Instant.now());
+      }
       return;
     }
-    var profile = requireBinding(bindingProfileId, session.tenantId());
+    var profile = requireBindingForAssignment(bindingProfileId, session.tenantId());
     if (!profile.isEnabled()) {
       throw new ProxyBindingRejectedException("BINDING_IS_DISABLED");
     }
     if (profile.getRegion() != null && !profile.getRegion().equals(sessionRegion)) {
       throw new ProxyBindingRejectedException("BINDING_REGION_MISMATCH");
     }
-    requireConfiguredProvider(
-        profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    var provider =
+        requireConfiguredProvider(
+            profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    requireProviderRegion(provider, sessionRegion);
+    requireProviderCapacity(session.tenantId(), profile, null);
     bindingAssignments.save(
         new SessionProxyBindingAssignmentEntity(
             session.sessionId(),
@@ -586,16 +644,178 @@ public class StaticProxyApplicationService {
             Instant.now()));
   }
 
+  private void assignAutomaticBindingProfile(
+      SessionContext session, String sessionRegion, String actorId, Instant now) {
+    var candidates =
+        bindingProfiles.findAllForAutomaticRouting(session.tenantId()).stream()
+            .filter(ProxyBindingProfileEntity::isEnabled)
+            .filter(profile -> "HEALTHY".equals(profile.getHealthState()))
+            .filter(
+                profile ->
+                    profile.getLastHealthCheckedAt() != null
+                        && !profile
+                            .getLastHealthCheckedAt()
+                            .isBefore(now.minusSeconds(HEALTH_FRESHNESS_SECONDS)))
+            .filter(
+                profile -> profile.getRegion() == null || profile.getRegion().equals(sessionRegion))
+            .map(profile -> automaticCandidate(session.tenantId(), sessionRegion, profile))
+            .flatMap(java.util.Optional::stream)
+            .toList();
+    if (candidates.isEmpty()) {
+      throw new ProxyUnavailableException("NO_HEALTHY_PROXY_ROUTE");
+    }
+    var minimumCost =
+        candidates.stream()
+            .map(candidate -> candidate.profile().getCostPerGibUsd())
+            .min(BigDecimal::compareTo)
+            .orElse(BigDecimal.ZERO);
+    var maximumCost =
+        candidates.stream()
+            .map(candidate -> candidate.profile().getCostPerGibUsd())
+            .max(BigDecimal::compareTo)
+            .orElse(BigDecimal.ZERO);
+    var scored =
+        candidates.stream()
+            .map(candidate -> scoreCandidate(candidate, sessionRegion, minimumCost, maximumCost))
+            .toList();
+    var ranked =
+        scored.stream()
+            .sorted(
+                Comparator.comparingDouble(AutoRouteSelection::routingScore)
+                    .reversed()
+                    .thenComparing(
+                        Comparator.comparingInt(AutoRouteSelection::qualityScore).reversed())
+                    .thenComparing(selection -> selection.candidate().profile().getCostPerGibUsd())
+                    .thenComparing(
+                        selection -> selection.candidate().profile().getBindingProfileId()))
+            .findFirst()
+            .orElseThrow();
+    var candidateScores =
+        scored.stream()
+            .sorted(Comparator.comparingDouble(AutoRouteSelection::routingScore).reversed())
+            .map(StaticProxyApplicationService::candidateScoreEvidence)
+            .toList();
+    var profile = ranked.candidate().profile();
+    bindingAssignments.save(
+        SessionProxyBindingAssignmentEntity.automatic(
+            session.sessionId(),
+            session.tenantId(),
+            profile.getBindingProfileId(),
+            profile.getVersion(),
+            profile.getProviderId(),
+            profile.getRegion(),
+            profile.getExpectedExitIp(),
+            profile.getCredentialRef(),
+            actorId,
+            now,
+            ranked.routingScore(),
+            ranked.qualityScore(),
+            profile.getReputationScore(),
+            profile.getCostPerGibUsd(),
+            Math.toIntExact(ranked.candidate().activeReservations()),
+            profile.getMaxConcurrentSessions(),
+            candidateScores));
+    appendBindingAudit(
+        session.tenantId(),
+        actorId,
+        profile.getBindingProfileId(),
+        "SESSION_PROXY_ROUTE_SELECTED",
+        "proxy-route-" + session.sessionId(),
+        Map.of(
+            "sessionId", session.sessionId(),
+            "providerId", profile.getProviderId(),
+            "region", profile.getRegion() == null ? "ANY" : profile.getRegion(),
+            "routingScore", ranked.routingScore(),
+            "qualityScore", ranked.qualityScore(),
+            "reputationScore", profile.getReputationScore(),
+            "costPerGibUsd", profile.getCostPerGibUsd(),
+            "activeReservations", ranked.candidate().activeReservations(),
+            "maxConcurrentSessions", profile.getMaxConcurrentSessions(),
+            "candidateScores", candidateScores));
+  }
+
+  private java.util.Optional<AutoRouteCandidate> automaticCandidate(
+      String tenantId, String sessionRegion, ProxyBindingProfileEntity profile) {
+    ProviderDescriptor provider;
+    try {
+      provider =
+          requireConfiguredProvider(
+              profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    } catch (ProxyBindingRejectedException ignored) {
+      return java.util.Optional.empty();
+    }
+    if (!provider.regions().isEmpty() && !provider.regions().contains(sessionRegion)) {
+      return java.util.Optional.empty();
+    }
+    var active =
+        bindingAssignments.countActiveProviderReservations(
+            tenantId, profile.getProviderId(), profile.getCredentialRef());
+    if (active >= profile.getMaxConcurrentSessions()) {
+      return java.util.Optional.empty();
+    }
+    var quality = proxyQualityScore(profile);
+    if (quality == null) {
+      return java.util.Optional.empty();
+    }
+    return java.util.Optional.of(new AutoRouteCandidate(profile, provider, active, quality));
+  }
+
+  private static AutoRouteSelection scoreCandidate(
+      AutoRouteCandidate candidate,
+      String sessionRegion,
+      BigDecimal minimumCost,
+      BigDecimal maximumCost) {
+    var profile = candidate.profile();
+    var costRange = maximumCost.subtract(minimumCost);
+    var costScore =
+        costRange.signum() == 0
+            ? 100.0
+            : maximumCost
+                .subtract(profile.getCostPerGibUsd())
+                .multiply(BigDecimal.valueOf(100))
+                .divide(costRange, 6, java.math.RoundingMode.HALF_UP)
+                .doubleValue();
+    var regionScore = sessionRegion.equals(profile.getRegion()) ? 100.0 : 60.0;
+    var headroomScore =
+        100.0
+            * (profile.getMaxConcurrentSessions() - candidate.activeReservations())
+            / profile.getMaxConcurrentSessions();
+    var routingScore =
+        candidate.qualityScore() * 0.45
+            + profile.getReputationScore() * 0.20
+            + costScore * 0.15
+            + regionScore * 0.10
+            + headroomScore * 0.10;
+    return new AutoRouteSelection(
+        candidate, candidate.qualityScore(), costScore, regionScore, headroomScore, routingScore);
+  }
+
+  private static Map<String, Object> candidateScoreEvidence(AutoRouteSelection selection) {
+    var profile = selection.candidate().profile();
+    return Map.ofEntries(
+        Map.entry("bindingProfileId", profile.getBindingProfileId()),
+        Map.entry("providerId", profile.getProviderId()),
+        Map.entry("routingScore", selection.routingScore()),
+        Map.entry("qualityScore", selection.qualityScore()),
+        Map.entry("reputationScore", profile.getReputationScore()),
+        Map.entry("costPerGibUsd", profile.getCostPerGibUsd()),
+        Map.entry("costScore", selection.costScore()),
+        Map.entry("regionScore", selection.regionScore()),
+        Map.entry("headroomScore", selection.headroomScore()),
+        Map.entry("activeReservations", selection.candidate().activeReservations()),
+        Map.entry("maxConcurrentSessions", profile.getMaxConcurrentSessions()));
+  }
+
   @Transactional(readOnly = true)
-  public String assignedBindingProfileId(String sessionId, String tenantId) {
+  public ProxyRoutingDecision assignedRoutingDecision(String sessionId, String tenantId) {
     return bindingAssignments
         .findBySessionIdAndTenantId(sessionId, tenantId)
-        .map(SessionProxyBindingAssignmentEntity::getBindingProfileId)
+        .map(assignment -> toRoutingDecision(assignment, true))
         .orElse(null);
   }
 
   @Transactional(readOnly = true)
-  public Map<String, String> assignedBindingProfileIds(
+  public Map<String, ProxyRoutingDecision> assignedRoutingDecisions(
       java.util.Collection<String> sessionIds, String tenantId) {
     if (sessionIds.isEmpty()) {
       return Map.of();
@@ -604,7 +824,55 @@ public class StaticProxyApplicationService {
         .collect(
             java.util.stream.Collectors.toUnmodifiableMap(
                 SessionProxyBindingAssignmentEntity::getSessionId,
-                SessionProxyBindingAssignmentEntity::getBindingProfileId));
+                assignment -> toRoutingDecision(assignment, false)));
+  }
+
+  private ProxyRoutingDecision toRoutingDecision(
+      SessionProxyBindingAssignmentEntity assignment, boolean includeCandidateScores) {
+    var storedCandidates = assignment.getCandidateScores();
+    var candidates =
+        !includeCandidateScores || storedCandidates == null
+            ? List.<ProxyRoutingCandidateScore>of()
+            : storedCandidates.stream()
+                .map(StaticProxyApplicationService::toRoutingCandidateScore)
+                .toList();
+    return new ProxyRoutingDecision(
+        assignment.getSessionId(),
+        assignment.getBindingProfileId(),
+        assignment.getProviderId(),
+        assignment.getSelectionMode(),
+        assignment.getRoutingScore(),
+        assignment.getQualityScore(),
+        assignment.getReputationScore(),
+        assignment.getCostPerGibUsd(),
+        assignment.getActiveReservations(),
+        assignment.getMaxConcurrentSessions(),
+        storedCandidates == null ? 0 : storedCandidates.size(),
+        candidates,
+        assignment.getAssignedAt());
+  }
+
+  private static ProxyRoutingCandidateScore toRoutingCandidateScore(Map<String, Object> value) {
+    return new ProxyRoutingCandidateScore(
+        String.valueOf(value.get("bindingProfileId")),
+        String.valueOf(value.get("providerId")),
+        number(value, "routingScore").doubleValue(),
+        number(value, "qualityScore").intValue(),
+        number(value, "reputationScore").intValue(),
+        new BigDecimal(String.valueOf(value.get("costPerGibUsd"))),
+        number(value, "costScore").doubleValue(),
+        number(value, "regionScore").doubleValue(),
+        number(value, "headroomScore").doubleValue(),
+        number(value, "activeReservations").intValue(),
+        number(value, "maxConcurrentSessions").intValue());
+  }
+
+  private static Number number(Map<String, Object> value, String key) {
+    var raw = value.get(key);
+    if (raw instanceof Number number) {
+      return number;
+    }
+    throw new IllegalStateException("persisted proxy routing evidence is invalid");
   }
 
   @Transactional(readOnly = true)
@@ -617,8 +885,10 @@ public class StaticProxyApplicationService {
     if (profile.getRegion() != null && !profile.getRegion().equals(sessionRegion)) {
       throw new ProxyBindingRejectedException("BINDING_REGION_MISMATCH");
     }
-    requireConfiguredProvider(
-        profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    var provider =
+        requireConfiguredProvider(
+            profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    requireProviderRegion(provider, sessionRegion);
     var sourceProfileId =
         bindingAssignments
             .findBySessionIdAndTenantId(sessionId, tenantId)
@@ -658,15 +928,21 @@ public class StaticProxyApplicationService {
         throw new ProxyBindingRejectedException("SOURCE_ALLOCATION_NOT_RELEASED");
       }
     }
-    var profile = requireBinding(targetBindingProfileId, tenantId);
+    var profile = requireBindingForAssignment(targetBindingProfileId, tenantId);
     if (!profile.isEnabled() || profile.getVersion() != expectedBindingVersion) {
       throw new ProxyBindingRejectedException("TARGET_BINDING_CHANGED");
     }
     if (profile.getRegion() != null && !profile.getRegion().equals(sessionRegion)) {
       throw new ProxyBindingRejectedException("BINDING_REGION_MISMATCH");
     }
-    requireConfiguredProvider(
-        profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    var provider =
+        requireConfiguredProvider(
+            profile.getProviderId(), profile.getCredentialRef(), profile.getExpectedExitIp());
+    requireProviderRegion(provider, sessionRegion);
+    requireProviderCapacity(
+        tenantId,
+        profile,
+        bindingAssignments.findBySessionIdAndTenantId(sessionId, tenantId).orElse(null));
     bindingAssignments.save(
         new SessionProxyBindingAssignmentEntity(
             sessionId,
@@ -695,8 +971,12 @@ public class StaticProxyApplicationService {
   }
 
   private void validateBindingConfiguration(ProxyBindingRequest request) {
-    requireConfiguredProvider(
-        request.providerId(), request.credentialRef(), request.expectedExitIp());
+    var provider =
+        requireConfiguredProvider(
+            request.providerId(), request.credentialRef(), request.expectedExitIp());
+    if (request.region() != null && !request.region().isBlank()) {
+      requireProviderRegion(provider, request.region());
+    }
   }
 
   private ProviderDescriptor requireDefaultProvider() {
@@ -722,10 +1002,40 @@ public class StaticProxyApplicationService {
     return provider;
   }
 
+  private static void requireProviderRegion(ProviderDescriptor provider, String region) {
+    if (!provider.regions().isEmpty() && !provider.regions().contains(region)) {
+      throw new ProxyBindingRejectedException("PROVIDER_REGION_NOT_SUPPORTED");
+    }
+  }
+
   private ProxyBindingProfileEntity requireBinding(String bindingProfileId, String tenantId) {
     return bindingProfiles
         .findByBindingProfileIdAndTenantId(bindingProfileId, tenantId)
         .orElseThrow(() -> new ProxyBindingNotFoundException(bindingProfileId));
+  }
+
+  private ProxyBindingProfileEntity requireBindingForAssignment(
+      String bindingProfileId, String tenantId) {
+    return bindingProfiles
+        .findForAssignment(bindingProfileId, tenantId)
+        .orElseThrow(() -> new ProxyBindingNotFoundException(bindingProfileId));
+  }
+
+  private void requireProviderCapacity(
+      String tenantId,
+      ProxyBindingProfileEntity profile,
+      SessionProxyBindingAssignmentEntity replacedAssignment) {
+    var reservations =
+        bindingAssignments.countActiveProviderReservations(
+            tenantId, profile.getProviderId(), profile.getCredentialRef());
+    if (replacedAssignment != null
+        && replacedAssignment.getProviderId().equals(profile.getProviderId())
+        && replacedAssignment.getCredentialRef().equals(profile.getCredentialRef())) {
+      reservations--;
+    }
+    if (reservations >= profile.getMaxConcurrentSessions()) {
+      throw new ProxyBindingRejectedException("PROVIDER_CAPACITY_EXHAUSTED");
+    }
   }
 
   private void rejectDuplicateName(String tenantId, String name, String currentId) {
@@ -740,6 +1050,10 @@ public class StaticProxyApplicationService {
   }
 
   private ProxyBindingView toBindingView(ProxyBindingProfileEntity profile) {
+    var healthFreshUntil =
+        profile.getLastHealthCheckedAt() == null
+            ? null
+            : profile.getLastHealthCheckedAt().plusSeconds(HEALTH_FRESHNESS_SECONDS);
     return new ProxyBindingView(
         profile.getBindingProfileId(),
         profile.getName(),
@@ -757,9 +1071,14 @@ public class StaticProxyApplicationService {
         probeSuccessRate(profile),
         profile.getProbeLatencyEwmaMs(),
         proxyQualityScore(profile),
-        profile.getLastHealthCheckedAt() == null
-            ? null
-            : profile.getLastHealthCheckedAt().plusSeconds(90),
+        profile.getCostPerGibUsd(),
+        profile.getReputationScore(),
+        profile.getMaxConcurrentSessions(),
+        profile.isEnabled()
+            && "HEALTHY".equals(profile.getHealthState())
+            && healthFreshUntil != null
+            && !healthFreshUntil.isBefore(Instant.now()),
+        healthFreshUntil,
         profile.getConsecutiveProbeFailures(),
         profile.getVersion(),
         profile.getCreatedBy(),
@@ -876,12 +1195,59 @@ public class StaticProxyApplicationService {
     if (provider.credentialRef().length() > 1024) {
       throw new IllegalStateException("proxy credential reference is too long");
     }
+    if (provider.costPerGibUsd().signum() < 0
+        || provider.costPerGibUsd().compareTo(BigDecimal.valueOf(10000)) > 0) {
+      throw new IllegalStateException("proxy provider cost must be between 0 and 10000 USD/GiB");
+    }
+    if (provider.reputationScore() < 0 || provider.reputationScore() > 100) {
+      throw new IllegalStateException("proxy provider reputation score must be between 0 and 100");
+    }
+    if (provider.maxConcurrentSessions() < 1 || provider.maxConcurrentSessions() > 1000000) {
+      throw new IllegalStateException(
+          "proxy provider max concurrent Sessions must be between 1 and 1000000");
+    }
+  }
+
+  private static List<String> normalizeRegions(List<String> regions) {
+    if (regions == null || regions.isEmpty()) {
+      return List.of();
+    }
+    var normalized =
+        regions.stream()
+            .map(String::strip)
+            .filter(value -> !value.isEmpty())
+            .distinct()
+            .sorted()
+            .toList();
+    if (normalized.size() != regions.size()
+        || normalized.size() > 64
+        || normalized.stream()
+            .anyMatch(
+                value ->
+                    value.length() > 32
+                        || !value
+                            .chars()
+                            .allMatch(
+                                character ->
+                                    Character.isLowerCase(character)
+                                        || Character.isDigit(character)
+                                        || character == '-'))) {
+      throw new IllegalStateException("proxy provider regions are invalid");
+    }
+    return normalized;
   }
 
   private record ProviderKey(String providerId, String credentialRef) {}
 
   private record ProviderDescriptor(
-      String providerId, String endpoint, String expectedExitIp, String credentialRef) {}
+      String providerId,
+      String endpoint,
+      String expectedExitIp,
+      String credentialRef,
+      List<String> regions,
+      BigDecimal costPerGibUsd,
+      int reputationScore,
+      int maxConcurrentSessions) {}
 
   private record ProviderConfigDocument(int version, List<ProviderConfigEntry> providers) {}
 
@@ -890,7 +1256,25 @@ public class StaticProxyApplicationService {
       String endpoint,
       String expectedExitIp,
       String credentialRef,
-      String exitCheckUrl) {}
+      String exitCheckUrl,
+      List<String> regions,
+      BigDecimal costPerGibUsd,
+      Integer reputationScore,
+      Integer maxConcurrentSessions) {}
+
+  private record AutoRouteCandidate(
+      ProxyBindingProfileEntity profile,
+      ProviderDescriptor provider,
+      long activeReservations,
+      int qualityScore) {}
+
+  private record AutoRouteSelection(
+      AutoRouteCandidate candidate,
+      int qualityScore,
+      double costScore,
+      double regionScore,
+      double headroomScore,
+      double routingScore) {}
 
   public record RebindTargetSnapshot(
       String sourceBindingProfileId, String targetBindingProfileId, long targetBindingVersion) {}

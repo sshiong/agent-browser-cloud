@@ -207,6 +207,16 @@ struct ProviderConfigEntry {
     credential_ref: String,
     #[serde(default)]
     exit_check_url: Option<String>,
+    // Control-plane-only routing metadata. Network Helper validates the shared catalog shape but
+    // never uses economics to establish or authorize an egress connection.
+    #[serde(default)]
+    regions: Vec<String>,
+    #[serde(default)]
+    cost_per_gib_usd: Option<serde_json::Number>,
+    #[serde(default)]
+    reputation_score: Option<u32>,
+    #[serde(default)]
+    max_concurrent_sessions: Option<u32>,
 }
 
 fn load_provider_configs() -> anyhow::Result<Vec<StaticProxyConfig>> {
@@ -270,16 +280,24 @@ fn load_provider_configs() -> anyhow::Result<Vec<StaticProxyConfig>> {
     Ok(document
         .providers
         .into_iter()
-        .map(|provider| StaticProxyConfig {
-            provider_id: provider.provider_id,
-            endpoint: provider.endpoint,
-            expected_exit_ip: provider.expected_exit_ip,
-            credential_ref: provider.credential_ref,
-            exit_check_url: provider
-                .exit_check_url
-                .unwrap_or_else(|| default_exit_check_url.clone()),
-            failure_threshold,
-            open_duration,
+        .map(|provider| {
+            let _routing_metadata = (
+                provider.regions,
+                provider.cost_per_gib_usd,
+                provider.reputation_score,
+                provider.max_concurrent_sessions,
+            );
+            StaticProxyConfig {
+                provider_id: provider.provider_id,
+                endpoint: provider.endpoint,
+                expected_exit_ip: provider.expected_exit_ip,
+                credential_ref: provider.credential_ref,
+                exit_check_url: provider
+                    .exit_check_url
+                    .unwrap_or_else(|| default_exit_check_url.clone()),
+                failure_threshold,
+                open_duration,
+            }
         })
         .collect())
 }
@@ -309,6 +327,31 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+    #[test]
+    fn accepts_control_plane_routing_metadata_in_the_shared_provider_catalog() {
+        let document: ProviderConfigDocument = serde_json::from_str(
+            r#"{
+              "version": 1,
+              "providers": [{
+                "providerId": "provider-a",
+                "endpoint": "http://127.0.0.1:8080",
+                "expectedExitIp": "203.0.113.10",
+                "credentialRef": "vault://tenant/proxy/a",
+                "regions": ["singapore"],
+                "costPerGibUsd": 0.1250,
+                "reputationScore": 91,
+                "maxConcurrentSessions": 400
+              }]
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(document.providers[0].regions, ["singapore"]);
+        assert_eq!(document.providers[0].reputation_score, Some(91));
+        assert_eq!(document.providers[0].max_concurrent_sessions, Some(400));
+        assert!(document.providers[0].cost_per_gib_usd.is_some());
+    }
 
     #[tokio::test]
     async fn rejects_a_peer_whose_kernel_uid_is_not_allowed() {

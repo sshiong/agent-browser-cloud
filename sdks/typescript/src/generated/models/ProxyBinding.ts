@@ -33,6 +33,22 @@ export type ProxyBinding = {
      */
     qualityScore?: number | null;
     /**
+     * Provider catalog value snapshotted when this Binding revision was committed.
+     */
+    costPerGibUsd: number;
+    /**
+     * Provider governance score snapshotted with this Binding revision.
+     */
+    reputationScore: number;
+    /**
+     * Maximum active allocations for this Provider credential snapshot.
+     */
+    maxConcurrentSessions: number;
+    /**
+     * True only while the Binding is enabled, HEALTHY and backed by a fresh probe.
+     */
+    automaticRoutingReady: boolean;
+    /**
      * After this instant the UI must label the last observation as stale.
      */
     healthFreshUntil?: string | null;

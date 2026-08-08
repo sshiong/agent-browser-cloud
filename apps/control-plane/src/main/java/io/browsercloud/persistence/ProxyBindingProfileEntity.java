@@ -68,6 +68,15 @@ public class ProxyBindingProfileEntity {
   @Column(name = "probe_latency_ewma_ms")
   private BigDecimal probeLatencyEwmaMs;
 
+  @Column(name = "cost_per_gib_usd", nullable = false)
+  private BigDecimal costPerGibUsd;
+
+  @Column(name = "reputation_score", nullable = false)
+  private int reputationScore;
+
+  @Column(name = "max_concurrent_sessions", nullable = false)
+  private int maxConcurrentSessions;
+
   @Column(name = "created_by", nullable = false)
   private String createdBy;
 
@@ -95,12 +104,55 @@ public class ProxyBindingProfileEntity {
       boolean enabled,
       String createdBy,
       Instant now) {
+    this(
+        bindingProfileId,
+        tenantId,
+        name,
+        description,
+        providerId,
+        region,
+        expectedExitIp,
+        credentialRef,
+        enabled,
+        BigDecimal.ZERO,
+        50,
+        10000,
+        createdBy,
+        now);
+  }
+
+  public ProxyBindingProfileEntity(
+      String bindingProfileId,
+      String tenantId,
+      String name,
+      String description,
+      String providerId,
+      String region,
+      String expectedExitIp,
+      String credentialRef,
+      boolean enabled,
+      BigDecimal costPerGibUsd,
+      int reputationScore,
+      int maxConcurrentSessions,
+      String createdBy,
+      Instant now) {
     this.bindingProfileId = bindingProfileId;
     this.tenantId = tenantId;
     this.createdBy = createdBy;
     this.createdAt = now;
     this.healthState = enabled ? "UNVERIFIED" : "DISABLED";
-    update(name, description, providerId, region, expectedExitIp, credentialRef, enabled, now);
+    update(
+        name,
+        description,
+        providerId,
+        region,
+        expectedExitIp,
+        credentialRef,
+        enabled,
+        costPerGibUsd,
+        reputationScore,
+        maxConcurrentSessions,
+        now);
   }
 
   public void update(
@@ -112,12 +164,41 @@ public class ProxyBindingProfileEntity {
       String credentialRef,
       boolean enabled,
       Instant now) {
+    update(
+        name,
+        description,
+        providerId,
+        region,
+        expectedExitIp,
+        credentialRef,
+        enabled,
+        costPerGibUsd == null ? BigDecimal.ZERO : costPerGibUsd,
+        reputationScore,
+        maxConcurrentSessions == 0 ? 10000 : maxConcurrentSessions,
+        now);
+  }
+
+  public void update(
+      String name,
+      String description,
+      String providerId,
+      String region,
+      String expectedExitIp,
+      String credentialRef,
+      boolean enabled,
+      BigDecimal costPerGibUsd,
+      int reputationScore,
+      int maxConcurrentSessions,
+      Instant now) {
     this.name = name.strip();
     this.description = blankToNull(description);
     this.providerId = providerId;
     this.region = blankToNull(region);
     this.expectedExitIp = expectedExitIp.strip();
     this.credentialRef = credentialRef.strip();
+    this.costPerGibUsd = costPerGibUsd;
+    this.reputationScore = reputationScore;
+    this.maxConcurrentSessions = maxConcurrentSessions;
     if (this.enabled != enabled) {
       this.healthState = enabled ? "UNVERIFIED" : "DISABLED";
       this.lastFailureReason = null;
@@ -208,6 +289,18 @@ public class ProxyBindingProfileEntity {
 
   public Double getProbeLatencyEwmaMs() {
     return probeLatencyEwmaMs == null ? null : probeLatencyEwmaMs.doubleValue();
+  }
+
+  public BigDecimal getCostPerGibUsd() {
+    return costPerGibUsd;
+  }
+
+  public int getReputationScore() {
+    return reputationScore;
+  }
+
+  public int getMaxConcurrentSessions() {
+    return maxConcurrentSessions;
   }
 
   public String getCreatedBy() {

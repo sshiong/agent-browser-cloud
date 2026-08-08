@@ -6,6 +6,10 @@ import type { ProxyAllocation } from './ProxyAllocation.js';
 import type { ProxyProvider } from './ProxyProvider.js';
 export type ProxyOverview = {
     provider: ProxyProvider;
+    /**
+     * Concrete configured Providers. The singular provider remains for compatibility.
+     */
+    providers: Array<ProxyProvider>;
     allocations: Array<ProxyAllocation>;
     total: number;
 };

@@ -81,6 +81,9 @@ struct NodeControlService {
     resource_media_cpu_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
     resource_browser_baselines: Arc<Mutex<HashMap<String, (f64, Instant)>>>,
     resource_io_baselines: Arc<Mutex<HashMap<String, (u64, Instant)>>>,
+    proxy_bound_sessions: Arc<Mutex<HashSet<String>>>,
+    proxy_probe_observations: Arc<Mutex<HashMap<String, ProxyProbeObservation>>>,
+    proxy_probe_inflight: Arc<Mutex<HashMap<String, uuid::Uuid>>>,
     agent_action_latencies: Arc<Mutex<HashMap<String, AgentLatencyWindow>>>,
     pending_state_events: Arc<Mutex<HashMap<String, u32>>>,
     success_trace_sampler: SuccessTraceSampler,
@@ -89,6 +92,7 @@ struct NodeControlService {
     profile_import_staging_root: PathBuf,
     inflight_profile_imports: Arc<Mutex<HashSet<String>>>,
     resource_report_interval_probes: u64,
+    proxy_health_probe_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
     remote_desktop_gateway: Option<RemoteDesktopGateway>,
@@ -99,6 +103,32 @@ struct NodeControlService {
 struct AgentLatencyWindow {
     maximum_ms: u32,
     samples: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProxyProbeObservation {
+    succeeded: bool,
+    latency_ms: u32,
+    observed_exit_ip: Option<String>,
+    error_code: String,
+}
+
+fn classify_proxy_probe_error(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string().to_ascii_lowercase();
+    if message.contains("timed out") || message.contains("timeout") {
+        "TIMEOUT"
+    } else if message.contains("circuit is open") {
+        "CIRCUIT_OPEN"
+    } else if message.contains("exit ip does not match") {
+        "EXIT_MISMATCH"
+    } else if message.contains("connection refused")
+        || message.contains("no such file")
+        || message.contains("helper")
+    {
+        "HELPER_UNAVAILABLE"
+    } else {
+        "PROBE_FAILED"
+    }
 }
 
 const DISK_DANGER_MIN_AVAILABLE_BYTES: u64 = 64 * 1024 * 1024;
@@ -884,6 +914,7 @@ impl NodeControlService {
     }
 
     async fn release_start_resources(&self, session_id: &str, workspace: &StorageWorkspace) {
+        self.proxy_bound_sessions.lock().await.remove(session_id);
         if let Some(network_helper) = self.network_helper.as_ref() {
             if let Err(error) = network_helper.release(session_id).await {
                 tracing::warn!(session_id, error = %error, "Failed to release proxy binding");
@@ -1167,6 +1198,87 @@ impl NodeControlService {
         .context("Node Event publish timed out")?
     }
 
+    async fn begin_proxy_health_probe(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        context_epoch: i64,
+    ) {
+        let Some(network_helper) = self.network_helper.as_ref().cloned() else {
+            return;
+        };
+        if !self.proxy_bound_sessions.lock().await.contains(session_id) {
+            return;
+        }
+        let probe_id = uuid::Uuid::new_v4();
+        {
+            let mut inflight = self.proxy_probe_inflight.lock().await;
+            if inflight.contains_key(session_id) {
+                return;
+            }
+            inflight.insert(session_id.to_owned(), probe_id);
+        }
+        let service = self.clone();
+        let tenant_id = tenant_id.to_owned();
+        let session_id = session_id.to_owned();
+        tokio::spawn(async move {
+            let started = Instant::now();
+            let result = network_helper.verify_exit(&session_id).await;
+            let latency_ms = started.elapsed().as_millis().min(u128::from(u32::MAX)) as u32;
+            let observation = match result {
+                Ok(observed) => ProxyProbeObservation {
+                    succeeded: true,
+                    latency_ms,
+                    observed_exit_ip: Some(observed.exit_ip),
+                    error_code: String::new(),
+                },
+                Err(error) => {
+                    let error_code = classify_proxy_probe_error(&error).to_owned();
+                    tracing::warn!(session_id, error_code, "Active Proxy exit probe failed");
+                    ProxyProbeObservation {
+                        succeeded: false,
+                        latency_ms,
+                        observed_exit_ip: None,
+                        error_code,
+                    }
+                }
+            };
+            let still_current = {
+                let mut inflight = service.proxy_probe_inflight.lock().await;
+                if inflight.get(&session_id) == Some(&probe_id) {
+                    inflight.remove(&session_id);
+                    true
+                } else {
+                    false
+                }
+            };
+            if !still_current
+                || !service
+                    .proxy_bound_sessions
+                    .lock()
+                    .await
+                    .contains(&session_id)
+            {
+                return;
+            }
+            service
+                .proxy_probe_observations
+                .lock()
+                .await
+                .insert(session_id.clone(), observation);
+            if let Err(error) = service
+                .report_session_resources(&tenant_id, &session_id, context_epoch, false, None)
+                .await
+            {
+                tracing::warn!(
+                    session_id,
+                    error = %error,
+                    "Proxy health observation remains queued for the next telemetry report"
+                );
+            }
+        });
+    }
+
     async fn report_session_resources(
         &self,
         tenant_id: &str,
@@ -1321,6 +1433,12 @@ impl NodeControlService {
             .state_collector
             .browser_safety_observation(session_id)
             .await;
+        let proxy_probe = self
+            .proxy_probe_observations
+            .lock()
+            .await
+            .get(session_id)
+            .cloned();
         let current_oom_events = match (metrics.memory_oom_events, metrics.memory_oom_kill_events) {
             (Some(oom), Some(oom_kill)) => Some(oom.saturating_add(oom_kill)),
             (Some(oom), None) => Some(oom),
@@ -1436,6 +1554,15 @@ impl NodeControlService {
                 active_form_submission_count: browser_safety
                     .fresh
                     .then_some(browser_safety.active_form_submission_count),
+                proxy_probe_succeeded: proxy_probe.as_ref().map(|probe| probe.succeeded),
+                proxy_probe_latency_ms: proxy_probe.as_ref().map(|probe| probe.latency_ms),
+                proxy_observed_exit_ip: proxy_probe
+                    .as_ref()
+                    .and_then(|probe| probe.observed_exit_ip.clone()),
+                proxy_probe_error_code: proxy_probe
+                    .as_ref()
+                    .map(|probe| probe.error_code.clone())
+                    .unwrap_or_default(),
             })
             .await?
             .into_inner();
@@ -1444,6 +1571,12 @@ impl NodeControlService {
             "Control Plane rejected Session resource sample: {}",
             response.error_code
         );
+        if let Some(delivered) = proxy_probe {
+            let mut observations = self.proxy_probe_observations.lock().await;
+            if observations.get(session_id) == Some(&delivered) {
+                observations.remove(session_id);
+            }
+        }
         Ok(())
     }
 
@@ -2169,6 +2302,10 @@ impl NodeControlService {
                                 .await
                             {
                                 Ok((observed, proxy_server)) => {
+                                    self.proxy_bound_sessions
+                                        .lock()
+                                        .await
+                                        .insert(command.session_id.clone());
                                     (Some(observed), Some(proxy_server))
                                 }
                                 Err(error) => {
@@ -2718,6 +2855,10 @@ impl NodeControlService {
                                     return self.failed(command, error);
                                 }
                             }
+                            self.proxy_bound_sessions
+                                .lock()
+                                .await
+                                .remove(&command.session_id);
                             tracing::info!(
                                 session_id = %command.session_id,
                                 "Runtime cleanup committed; emitting RuntimeStopped"
@@ -3838,6 +3979,15 @@ impl NodeControlService {
                         // startup coverage.
                         let regular_resource_report =
                             probe_count.is_multiple_of(service.resource_report_interval_probes);
+                        if probe_count.is_multiple_of(service.proxy_health_probe_interval_probes) {
+                            service
+                                .begin_proxy_health_probe(
+                                    &tenant_id,
+                                    &session_id,
+                                    running_context_epoch,
+                                )
+                                .await;
+                        }
                         if probe_count == 5 || regular_resource_report {
                             if let Err(error) = service
                                 .report_session_resources(
@@ -4440,6 +4590,18 @@ impl NodeControlService {
                 .lock()
                 .await
                 .remove(&command.session_id);
+            self.proxy_probe_observations
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.proxy_bound_sessions
+                .lock()
+                .await
+                .remove(&command.session_id);
+            self.proxy_probe_inflight
+                .lock()
+                .await
+                .remove(&command.session_id);
             self.agent_action_latencies
                 .lock()
                 .await
@@ -5029,6 +5191,13 @@ async fn main() -> Result<()> {
         (5..=3600).contains(&resource_report_interval_probes),
         "SESSION_RESOURCE_REPORT_INTERVAL_SECONDS must be between 5 and 3600"
     );
+    let proxy_health_probe_interval_probes = std::env::var("PROXY_HEALTH_PROBE_INTERVAL_SECONDS")
+        .unwrap_or_else(|_| "30".to_owned())
+        .parse::<u64>()?;
+    anyhow::ensure!(
+        (15..=3600).contains(&proxy_health_probe_interval_probes),
+        "PROXY_HEALTH_PROBE_INTERVAL_SECONDS must be between 15 and 3600"
+    );
     let mut runtime_supervisor = ChromiumRuntimeSupervisor::new(PathBuf::from(chromium_binary));
     let runtime_cgroup_root = std::env::var("RUNTIME_CGROUP_ROOT")
         .unwrap_or_default()
@@ -5299,6 +5468,9 @@ async fn main() -> Result<()> {
         resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
         resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
+        proxy_bound_sessions: Arc::new(Mutex::new(HashSet::new())),
+        proxy_probe_observations: Arc::new(Mutex::new(HashMap::new())),
+        proxy_probe_inflight: Arc::new(Mutex::new(HashMap::new())),
         agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
         pending_state_events: Arc::new(Mutex::new(HashMap::new())),
         success_trace_sampler: SuccessTraceSampler::default(),
@@ -5307,6 +5479,7 @@ async fn main() -> Result<()> {
         profile_import_staging_root,
         inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
         resource_report_interval_probes,
+        proxy_health_probe_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
         remote_desktop_gateway: Some(remote_desktop_gateway),
@@ -5364,6 +5537,9 @@ async fn main() -> Result<()> {
     service.resource_media_cpu_baselines.lock().await.clear();
     service.resource_browser_baselines.lock().await.clear();
     service.resource_io_baselines.lock().await.clear();
+    service.proxy_bound_sessions.lock().await.clear();
+    service.proxy_probe_observations.lock().await.clear();
+    service.proxy_probe_inflight.lock().await.clear();
     service.agent_action_latencies.lock().await.clear();
     service.pending_state_events.lock().await.clear();
     runtime_supervisor.stop_all().await;
@@ -5429,6 +5605,29 @@ mod tests {
         assert_eq!(
             classify_resource_danger(Some(0), Some(0), Some((2_000_000_000, 10_000_000_000))),
             None
+        );
+    }
+
+    #[test]
+    fn proxy_probe_errors_are_reduced_to_bounded_non_secret_codes() {
+        assert_eq!(
+            classify_proxy_probe_error(&anyhow::anyhow!("network helper request timed out")),
+            "TIMEOUT"
+        );
+        assert_eq!(
+            classify_proxy_probe_error(&anyhow::anyhow!("proxy provider circuit is open")),
+            "CIRCUIT_OPEN"
+        );
+        assert_eq!(
+            classify_proxy_probe_error(&anyhow::anyhow!(
+                "proxy exit IP does not match the allocated endpoint"
+            )),
+            "EXIT_MISMATCH"
+        );
+        assert_eq!(
+            classify_proxy_probe_error(&anyhow::anyhow!("credential foo=bar was rejected")),
+            "PROBE_FAILED",
+            "arbitrary helper text must never cross the Node boundary"
         );
     }
 
@@ -5670,12 +5869,16 @@ mod tests {
             resource_media_cpu_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_browser_baselines: Arc::new(Mutex::new(HashMap::new())),
             resource_io_baselines: Arc::new(Mutex::new(HashMap::new())),
+            proxy_bound_sessions: Arc::new(Mutex::new(HashSet::new())),
+            proxy_probe_observations: Arc::new(Mutex::new(HashMap::new())),
+            proxy_probe_inflight: Arc::new(Mutex::new(HashMap::new())),
             agent_action_latencies: Arc::new(Mutex::new(HashMap::new())),
             pending_state_events: Arc::new(Mutex::new(HashMap::new())),
             success_trace_sampler: SuccessTraceSampler::default(),
             session_recorders: SessionRecorderRegistry::default(),
             session_evidence: SessionEvidenceRegistry::default(),
             resource_report_interval_probes: 5,
+            proxy_health_probe_interval_probes: 30,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),
             remote_desktop_gateway: None,

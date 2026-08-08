@@ -75,6 +75,9 @@ agent:
 proxy:
   allow-direct: ${PROXY_ALLOW_DIRECT:false}
   provider-config-file: ${PROXY_PROVIDER_CONFIG_FILE:}
+  health:
+    sample-retention-days: ${PROXY_HEALTH_SAMPLE_RETENTION_DAYS:7}
+    retention-cron: ${PROXY_HEALTH_RETENTION_CRON:0 17 * * * *}
   static:
     provider-id: ${STATIC_PROXY_PROVIDER_ID:static-local}
     endpoint: ${STATIC_PROXY_ENDPOINT:}

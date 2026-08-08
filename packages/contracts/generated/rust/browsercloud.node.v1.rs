@@ -260,6 +260,17 @@ pub struct ReportSessionResourcesRequest {
     pub active_download_count: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag="30")]
     pub active_form_submission_count: ::core::option::Option<u32>,
+    /// Credential-free active exit observation. The Network Helper performs the request through the
+    /// already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+    /// are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+    #[prost(bool, optional, tag="31")]
+    pub proxy_probe_succeeded: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag="32")]
+    pub proxy_probe_latency_ms: ::core::option::Option<u32>,
+    #[prost(string, optional, tag="33")]
+    pub proxy_observed_exit_ip: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="34")]
+    pub proxy_probe_error_code: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

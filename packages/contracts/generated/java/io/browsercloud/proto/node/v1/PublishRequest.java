@@ -521,7 +521,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.EventEnvelope event = 1 [json_name = "event"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.EventEnvelope, io.browsercloud.proto.node.v1.EventEnvelope.Builder, io.browsercloud.proto.node.v1.EventEnvelopeOrBuilder> 
+        io.browsercloud.proto.node.v1.EventEnvelope, io.browsercloud.proto.node.v1.EventEnvelope.Builder, io.browsercloud.proto.node.v1.EventEnvelopeOrBuilder>
         getEventFieldBuilder() {
       if (eventBuilder_ == null) {
         eventBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
@@ -596,4 +596,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

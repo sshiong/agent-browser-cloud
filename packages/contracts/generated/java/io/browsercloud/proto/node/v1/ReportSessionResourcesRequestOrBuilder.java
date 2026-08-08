@@ -297,4 +297,67 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    * @return The activeFormSubmissionCount.
    */
   int getActiveFormSubmissionCount();
+
+  /**
+   * <pre>
+   * Credential-free active exit observation. The Network Helper performs the request through the
+   * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+   * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+   * </pre>
+   *
+   * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   * @return Whether the proxyProbeSucceeded field is set.
+   */
+  boolean hasProxyProbeSucceeded();
+  /**
+   * <pre>
+   * Credential-free active exit observation. The Network Helper performs the request through the
+   * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+   * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+   * </pre>
+   *
+   * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   * @return The proxyProbeSucceeded.
+   */
+  boolean getProxyProbeSucceeded();
+
+  /**
+   * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   * @return Whether the proxyProbeLatencyMs field is set.
+   */
+  boolean hasProxyProbeLatencyMs();
+  /**
+   * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   * @return The proxyProbeLatencyMs.
+   */
+  int getProxyProbeLatencyMs();
+
+  /**
+   * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   * @return Whether the proxyObservedExitIp field is set.
+   */
+  boolean hasProxyObservedExitIp();
+  /**
+   * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   * @return The proxyObservedExitIp.
+   */
+  java.lang.String getProxyObservedExitIp();
+  /**
+   * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   * @return The bytes for proxyObservedExitIp.
+   */
+  com.google.protobuf.ByteString
+      getProxyObservedExitIpBytes();
+
+  /**
+   * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   * @return The proxyProbeErrorCode.
+   */
+  java.lang.String getProxyProbeErrorCode();
+  /**
+   * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   * @return The bytes for proxyProbeErrorCode.
+   */
+  com.google.protobuf.ByteString
+      getProxyProbeErrorCodeBytes();
 }

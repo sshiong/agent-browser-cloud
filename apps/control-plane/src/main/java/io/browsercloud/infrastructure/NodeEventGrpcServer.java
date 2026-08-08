@@ -7,6 +7,9 @@ import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
 import io.browsercloud.application.NodeEventIngestionService.NodeEventRejectedException;
+import io.browsercloud.application.ProxyBindingHealthApplicationService;
+import io.browsercloud.application.ProxyBindingHealthApplicationService.NodeProbeObservation;
+import io.browsercloud.application.ProxyBindingHealthApplicationService.ProxyHealthRejectedException;
 import io.browsercloud.application.SafePointApplicationService;
 import io.browsercloud.application.SafePointApplicationService.SafetySignalRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService;
@@ -45,6 +48,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
   private final SessionResourceApplicationService resourceService;
   private final SessionResourceDecisionExecutor resourceDecisions;
   private final SafePointApplicationService safePointService;
+  private final ProxyBindingHealthApplicationService proxyHealthService;
   private final NodeEventMapper mapper;
   private final Validator validator;
   private final GrpcTransportFactory transportFactory;
@@ -58,6 +62,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
       SessionResourceApplicationService resourceService,
       SessionResourceDecisionExecutor resourceDecisions,
       SafePointApplicationService safePointService,
+      ProxyBindingHealthApplicationService proxyHealthService,
       NodeEventMapper mapper,
       Validator validator,
       GrpcTransportFactory transportFactory) {
@@ -67,6 +72,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
     this.resourceService = resourceService;
     this.resourceDecisions = resourceDecisions;
     this.safePointService = safePointService;
+    this.proxyHealthService = proxyHealthService;
     this.mapper = mapper;
     this.validator = validator;
     this.transportFactory = transportFactory;
@@ -89,6 +95,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                       resourceService,
                       resourceDecisions,
                       safePointService,
+                      proxyHealthService,
                       mapper,
                       validator))
               .build()
@@ -129,6 +136,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
     private final SessionResourceApplicationService resourceService;
     private final SessionResourceDecisionExecutor resourceDecisions;
     private final SafePointApplicationService safePointService;
+    private final ProxyBindingHealthApplicationService proxyHealthService;
     private final NodeEventMapper mapper;
     private final Validator validator;
 
@@ -138,6 +146,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
         SessionResourceApplicationService resourceService,
         SessionResourceDecisionExecutor resourceDecisions,
         SafePointApplicationService safePointService,
+        ProxyBindingHealthApplicationService proxyHealthService,
         NodeEventMapper mapper,
         Validator validator) {
       this.ingestionService = ingestionService;
@@ -145,6 +154,7 @@ public class NodeEventGrpcServer implements SmartLifecycle {
       this.resourceService = resourceService;
       this.resourceDecisions = resourceDecisions;
       this.safePointService = safePointService;
+      this.proxyHealthService = proxyHealthService;
       this.mapper = mapper;
       this.validator = validator;
     }
@@ -239,6 +249,11 @@ public class NodeEventGrpcServer implements SmartLifecycle {
             request.hasActiveUploadCount()
                 || request.hasActiveDownloadCount()
                 || request.hasActiveFormSubmissionCount();
+        var hasProxyProbeObservation =
+            request.hasProxyProbeSucceeded()
+                || request.hasProxyProbeLatencyMs()
+                || request.hasProxyObservedExitIp()
+                || !request.getProxyProbeErrorCode().isBlank();
         if (hasInputObservation
             && (!request.hasInputActive()
                 || !request.hasActiveDrag()
@@ -251,6 +266,20 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 || !request.hasActiveDownloadCount()
                 || !request.hasActiveFormSubmissionCount())) {
           throw new IllegalArgumentException("complete Browser activity observation is required");
+        }
+        if (hasProxyProbeObservation) {
+          if (!request.hasProxyProbeSucceeded() || !request.hasProxyProbeLatencyMs()) {
+            throw new IllegalArgumentException("complete Proxy probe observation is required");
+          }
+          if (request.getProxyProbeSucceeded()
+              && (!request.hasProxyObservedExitIp()
+                  || !request.getProxyProbeErrorCode().isBlank())) {
+            throw new IllegalArgumentException("successful Proxy probe result is invalid");
+          }
+          if (!request.getProxyProbeSucceeded()
+              && (request.hasProxyObservedExitIp() || request.getProxyProbeErrorCode().isBlank())) {
+            throw new IllegalArgumentException("failed Proxy probe result is invalid");
+          }
         }
         if (hasInputObservation || hasBrowserActivityObservation) {
           safePointService.recordNodeObservation(
@@ -274,6 +303,18 @@ public class NodeEventGrpcServer implements SmartLifecycle {
         // sequence becomes the notification barrier for both resource and Safe Point readers.
         resourceService.recordSampleFromNode(
             request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
+        if (hasProxyProbeObservation) {
+          proxyHealthService.recordNodeProbe(
+              request.getSessionId(),
+              request.getTenantId(),
+              request.getNodeId(),
+              new NodeProbeObservation(
+                  request.getProxyProbeSucceeded(),
+                  Math.toIntExact(Integer.toUnsignedLong(request.getProxyProbeLatencyMs())),
+                  request.hasProxyObservedExitIp() ? request.getProxyObservedExitIp() : null,
+                  request.getProxyProbeErrorCode()),
+              Instant.ofEpochMilli(request.getObservedAtMs()));
+        }
         if (!request.getDangerEvent().isBlank()) {
           resourceDecisions.dispatchPending(request.getSessionId());
         }
@@ -293,6 +334,11 @@ public class NodeEventGrpcServer implements SmartLifecycle {
             responseObserver,
             resourceRejected(
                 request.getSessionId(), exception.getMessage(), "resource sample rejected"));
+      } catch (ProxyHealthRejectedException exception) {
+        respond(
+            responseObserver,
+            resourceRejected(
+                request.getSessionId(), exception.getMessage(), "Proxy health sample rejected"));
       } catch (SafetySignalRejectedException exception) {
         respond(
             responseObserver,

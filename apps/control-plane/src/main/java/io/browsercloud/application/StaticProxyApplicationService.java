@@ -45,6 +45,7 @@ public class StaticProxyApplicationService {
   private final SessionRepository sessionRepository;
   private final IdempotencyService idempotency;
   private final AuditApplicationService audit;
+  private final ProxyBindingHealthApplicationService bindingHealth;
   private final Map<ProviderKey, ProviderDescriptor> providers;
   private final ProviderDescriptor defaultProvider;
   private final String providerId;
@@ -60,6 +61,7 @@ public class StaticProxyApplicationService {
       SessionRepository sessionRepository,
       IdempotencyService idempotency,
       AuditApplicationService audit,
+      ProxyBindingHealthApplicationService bindingHealth,
       @Value("${proxy.static.provider-id:static-local}") String providerId,
       @Value("${proxy.static.endpoint:}") String endpoint,
       @Value("${proxy.static.expected-exit-ip:}") String expectedExitIp,
@@ -73,6 +75,7 @@ public class StaticProxyApplicationService {
     this.sessionRepository = sessionRepository;
     this.idempotency = idempotency;
     this.audit = audit;
+    this.bindingHealth = bindingHealth;
     var fallbackProvider =
         new ProviderDescriptor(
             requireIdentifier(providerId, "proxy provider ID"),
@@ -94,6 +97,38 @@ public class StaticProxyApplicationService {
         throw new IllegalStateException("at least one proxy provider is required in production");
       }
     }
+  }
+
+  /** Compatibility constructor used by isolated unit tests without a Spring JDBC context. */
+  StaticProxyApplicationService(
+      ProxyAllocationJpaRepository repository,
+      ProxyBindingProfileJpaRepository bindingProfiles,
+      SessionProxyBindingAssignmentJpaRepository bindingAssignments,
+      SessionRepository sessionRepository,
+      IdempotencyService idempotency,
+      AuditApplicationService audit,
+      String providerId,
+      String endpoint,
+      String expectedExitIp,
+      String credentialRef,
+      String providerConfigFile,
+      boolean allowDirect,
+      String environment) {
+    this(
+        repository,
+        bindingProfiles,
+        bindingAssignments,
+        sessionRepository,
+        idempotency,
+        audit,
+        null,
+        providerId,
+        endpoint,
+        expectedExitIp,
+        credentialRef,
+        providerConfigFile,
+        allowDirect,
+        environment);
   }
 
   /** Unit/local compatibility constructor for the single-provider environment contract. */
@@ -309,14 +344,18 @@ public class StaticProxyApplicationService {
     allocation.bind(event.exitIp(), event.exitCountry(), event.exitAsn(), now);
     repository.save(allocation);
     if (allocation.getBindingProfileId() != null) {
-      bindingProfiles
-          .findByBindingProfileIdAndTenantId(
-              allocation.getBindingProfileId(), allocation.getTenantId())
-          .ifPresent(
-              profile -> {
-                profile.markHealthy(event.exitIp(), now);
-                bindingProfiles.save(profile);
-              });
+      if (bindingHealth == null) {
+        bindingProfiles
+            .findByBindingProfileIdAndTenantId(
+                allocation.getBindingProfileId(), allocation.getTenantId())
+            .ifPresent(
+                profile -> {
+                  profile.markHealthy(event.exitIp(), now);
+                  bindingProfiles.save(profile);
+                });
+      } else {
+        bindingHealth.recordRuntimeVerified(allocation, event.nodeId(), event.exitIp(), now);
+      }
     }
   }
 
@@ -714,10 +753,38 @@ public class StaticProxyApplicationService {
         profile.getLastVerifiedExitIp(),
         profile.getLastHealthCheckedAt(),
         profile.getLastFailureReason(),
+        profile.getProbeSuccessCount() + profile.getProbeFailureCount(),
+        probeSuccessRate(profile),
+        profile.getProbeLatencyEwmaMs(),
+        proxyQualityScore(profile),
+        profile.getLastHealthCheckedAt() == null
+            ? null
+            : profile.getLastHealthCheckedAt().plusSeconds(90),
+        profile.getConsecutiveProbeFailures(),
         profile.getVersion(),
         profile.getCreatedBy(),
         profile.getCreatedAt(),
         profile.getUpdatedAt());
+  }
+
+  private static Double probeSuccessRate(ProxyBindingProfileEntity profile) {
+    var total = profile.getProbeSuccessCount() + profile.getProbeFailureCount();
+    if (total == 0) {
+      return null;
+    }
+    return Math.round(profile.getProbeSuccessCount() * 10_000.0 / total) / 100.0;
+  }
+
+  /** 80% availability EWMA + 20% latency EWMA, with 2 seconds treated as exhausted quality. */
+  private static Integer proxyQualityScore(ProxyBindingProfileEntity profile) {
+    var success = profile.getProbeSuccessEwma();
+    if (success == null || "DISABLED".equals(profile.getHealthState())) {
+      return null;
+    }
+    var latency = profile.getProbeLatencyEwmaMs();
+    var latencyScore = latency == null ? 100.0 : Math.max(0.0, 100.0 - latency / 20.0);
+    var score = (int) Math.round(success * 80.0 + latencyScore * 0.2);
+    return "UNHEALTHY".equals(profile.getHealthState()) ? Math.min(score, 25) : score;
   }
 
   private void appendBindingAudit(

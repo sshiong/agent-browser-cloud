@@ -521,7 +521,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.CommandEnvelope command = 1 [json_name = "command"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.CommandEnvelope, io.browsercloud.proto.node.v1.CommandEnvelope.Builder, io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder> 
+        io.browsercloud.proto.node.v1.CommandEnvelope, io.browsercloud.proto.node.v1.CommandEnvelope.Builder, io.browsercloud.proto.node.v1.CommandEnvelopeOrBuilder>
         getCommandFieldBuilder() {
       if (commandBuilder_ == null) {
         commandBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
@@ -596,4 +596,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

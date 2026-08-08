@@ -77,6 +77,7 @@ class NodeCapacityGrpcEndpointTest {
               mock(SessionResourceApplicationService.class),
               mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
               mock(SafePointApplicationService.class),
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportCapacityResponse>();
@@ -116,6 +117,7 @@ class NodeCapacityGrpcEndpointTest {
     var resources = mock(SessionResourceApplicationService.class);
     var decisions = mock(io.browsercloud.application.SessionResourceDecisionExecutor.class);
     var safePoints = mock(SafePointApplicationService.class);
+    var proxyHealth = mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class);
     try (var factory = Validation.buildDefaultValidatorFactory()) {
       var endpoint =
           new NodeEventGrpcServer.Endpoint(
@@ -124,6 +126,7 @@ class NodeCapacityGrpcEndpointTest {
               resources,
               decisions,
               safePoints,
+              proxyHealth,
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportSessionResourcesResponse>();
@@ -143,6 +146,9 @@ class NodeCapacityGrpcEndpointTest {
               .setActiveDrag(false)
               .setPressedKeyCount(1)
               .setPressedButtonCount(0)
+              .setProxyProbeSucceeded(true)
+              .setProxyProbeLatencyMs(87)
+              .setProxyObservedExitIp("203.0.113.10")
               .build(),
           observer(responses));
 
@@ -163,6 +169,8 @@ class NodeCapacityGrpcEndpointTest {
       verify(safePoints)
           .recordNodeObservation(
               eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), eq(7L), any());
+      verify(proxyHealth)
+          .recordNodeProbe(eq("ses_test_1"), eq("tenant-test"), eq("node_test_1"), any(), any());
     }
   }
 
@@ -178,6 +186,7 @@ class NodeCapacityGrpcEndpointTest {
               resources,
               mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
               safePoints,
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportSessionResourcesResponse>();
@@ -224,6 +233,7 @@ class NodeCapacityGrpcEndpointTest {
               resources,
               mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
               safePoints,
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
               mock(NodeEventMapper.class),
               factory.getValidator());
       var responses = new ArrayList<ReportSessionResourcesResponse>();
@@ -247,6 +257,46 @@ class NodeCapacityGrpcEndpointTest {
               });
       verify(resources, never()).recordSampleFromNode(any(), any(), eq(7L), any());
       verify(safePoints, never()).recordNodeObservation(any(), any(), any(), eq(7L), any());
+    }
+  }
+
+  @Test
+  void partialProxyProbeObservationIsRejectedBeforePersistence() {
+    var resources = mock(SessionResourceApplicationService.class);
+    var proxyHealth = mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
+              mock(SafePointApplicationService.class),
+              proxyHealth,
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setProxyProbeSucceeded(false)
+              .setProxyProbeLatencyMs(20)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .satisfies(
+              response -> {
+                assertThat(response.getAccepted()).isFalse();
+                assertThat(response.getErrorCode()).isEqualTo("INVALID_RESOURCE_SAMPLE");
+              });
+      verify(resources, never()).recordSampleFromNode(any(), any(), eq(7L), any());
+      verify(proxyHealth, never()).recordNodeProbe(any(), any(), any(), any(), any());
     }
   }
 

@@ -105,7 +105,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -121,7 +121,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -878,7 +878,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -1081,7 +1081,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.MouseMoveInput mouse_move = 10 [json_name = "mouseMove"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseMoveInput, io.browsercloud.proto.node.v1.MouseMoveInput.Builder, io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder> 
+        io.browsercloud.proto.node.v1.MouseMoveInput, io.browsercloud.proto.node.v1.MouseMoveInput.Builder, io.browsercloud.proto.node.v1.MouseMoveInputOrBuilder>
         getMouseMoveFieldBuilder() {
       if (mouseMoveBuilder_ == null) {
         if (!(actionCase_ == 10)) {
@@ -1223,7 +1223,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_down = 11 [json_name = "mouseDown"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder> 
+        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
         getMouseDownFieldBuilder() {
       if (mouseDownBuilder_ == null) {
         if (!(actionCase_ == 11)) {
@@ -1365,7 +1365,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.MouseButtonInput mouse_up = 12 [json_name = "mouseUp"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder> 
+        io.browsercloud.proto.node.v1.MouseButtonInput, io.browsercloud.proto.node.v1.MouseButtonInput.Builder, io.browsercloud.proto.node.v1.MouseButtonInputOrBuilder>
         getMouseUpFieldBuilder() {
       if (mouseUpBuilder_ == null) {
         if (!(actionCase_ == 12)) {
@@ -1507,7 +1507,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.KeyInput key_down = 13 [json_name = "keyDown"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder> 
+        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder>
         getKeyDownFieldBuilder() {
       if (keyDownBuilder_ == null) {
         if (!(actionCase_ == 13)) {
@@ -1649,7 +1649,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.KeyInput key_up = 14 [json_name = "keyUp"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder> 
+        io.browsercloud.proto.node.v1.KeyInput, io.browsercloud.proto.node.v1.KeyInput.Builder, io.browsercloud.proto.node.v1.KeyInputOrBuilder>
         getKeyUpFieldBuilder() {
       if (keyUpBuilder_ == null) {
         if (!(actionCase_ == 14)) {
@@ -1729,4 +1729,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

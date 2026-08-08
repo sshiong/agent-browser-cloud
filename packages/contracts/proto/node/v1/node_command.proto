@@ -177,6 +177,13 @@ message ReportSessionResourcesRequest {
   optional uint32 active_upload_count = 28;
   optional uint32 active_download_count = 29;
   optional uint32 active_form_submission_count = 30;
+  // Credential-free active exit observation. The Network Helper performs the request through the
+  // already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+  // are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+  optional bool proxy_probe_succeeded = 31;
+  optional uint32 proxy_probe_latency_ms = 32;
+  optional string proxy_observed_exit_ip = 33;
+  string proxy_probe_error_code = 34;
 }
 
 message ReportSessionResourcesResponse {

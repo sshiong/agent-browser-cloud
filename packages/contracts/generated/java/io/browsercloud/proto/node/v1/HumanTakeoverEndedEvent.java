@@ -56,7 +56,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -72,7 +72,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -95,7 +95,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       userId_ = s;
@@ -111,7 +111,7 @@ private static final long serialVersionUID = 0L;
       getUserIdBytes() {
     java.lang.Object ref = userId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       userId_ = b;
@@ -164,7 +164,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       reason_ = s;
@@ -184,7 +184,7 @@ private static final long serialVersionUID = 0L;
       getReasonBytes() {
     java.lang.Object ref = reason_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       reason_ = b;
@@ -638,7 +638,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -710,7 +710,7 @@ private static final long serialVersionUID = 0L;
         getUserIdBytes() {
       java.lang.Object ref = userId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         userId_ = b;
@@ -865,7 +865,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.BrowserStateEvent state = 3 [json_name = "state"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.BrowserStateEvent, io.browsercloud.proto.node.v1.BrowserStateEvent.Builder, io.browsercloud.proto.node.v1.BrowserStateEventOrBuilder> 
+        io.browsercloud.proto.node.v1.BrowserStateEvent, io.browsercloud.proto.node.v1.BrowserStateEvent.Builder, io.browsercloud.proto.node.v1.BrowserStateEventOrBuilder>
         getStateFieldBuilder() {
       if (stateBuilder_ == null) {
         stateBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
@@ -911,7 +911,7 @@ private static final long serialVersionUID = 0L;
         getReasonBytes() {
       java.lang.Object ref = reason_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         reason_ = b;
@@ -1032,4 +1032,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

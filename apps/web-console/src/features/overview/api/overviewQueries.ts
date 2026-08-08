@@ -5,6 +5,7 @@ import {
   streamWorkspaceOverviewChanges,
 } from '@/api/workspaceOverview';
 import { sessionKeys } from '@/features/sessions/api/sessionQueries';
+import { proxyKeys } from '@/features/proxies/proxyQueries';
 import type { WorkspaceOverviewConnectionState } from '@/types/workspaceOverview';
 
 export const workspaceOverviewKey = ['workspace-overview'] as const;
@@ -70,6 +71,9 @@ export function useWorkspaceOverviewStream(
                 void queryClient.invalidateQueries({
                   queryKey: sessionKeys.all,
                 });
+              }
+              if (change.changeType === 'PROXY') {
+                void queryClient.invalidateQueries({ queryKey: proxyKeys.all });
               }
             },
           });

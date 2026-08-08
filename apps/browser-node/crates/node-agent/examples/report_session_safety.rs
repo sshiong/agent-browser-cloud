@@ -70,6 +70,10 @@ async fn main() -> Result<()> {
             active_upload_count: Some(0),
             active_download_count: Some(0),
             active_form_submission_count: Some(0),
+            proxy_probe_succeeded: None,
+            proxy_probe_latency_ms: None,
+            proxy_observed_exit_ip: None,
+            proxy_probe_error_code: String::new(),
         })
         .await?
         .into_inner();

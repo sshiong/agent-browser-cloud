@@ -1,4 +1,5 @@
 import {
+  Activity,
   Ban,
   Cable,
   KeyRound,
@@ -16,6 +17,7 @@ import {
   LoadingRows,
 } from '@/components/feedback/AsyncStates';
 import { ProxyBindingEditor } from '@/features/proxies/ProxyBindingEditor';
+import { useWorkspaceOverviewStream } from '@/features/overview/api/overviewQueries';
 import {
   useProxyBindings,
   useProxyOverview,
@@ -31,6 +33,9 @@ export function ProxiesPage() {
   const auth = useAuth();
   const query = useProxyOverview();
   const bindingsQuery = useProxyBindings();
+  const streamState = useWorkspaceOverviewStream(
+    query.isSuccess || bindingsQuery.isSuccess
+  );
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingBinding, setEditingBinding] = useState<ProxyBindingView>();
   const provider = query.data?.provider;
@@ -51,7 +56,7 @@ export function ProxiesPage() {
     <div>
       <TopContextBar
         title="代理与出口"
-        subtitle="Static Provider、Session Allocation 与已验证出口"
+        subtitle={`Static Provider、主动出口探测与质量状态 · ${streamState}`}
       />
 
       <main className="p-4 sm:p-6">
@@ -147,7 +152,7 @@ export function ProxiesPage() {
                 </div>
                 {canAdminister && provider && (
                   <button
-                    className="btn-primary self-start"
+                    className="inline-flex h-9 items-center justify-center gap-2 self-start bg-accent px-3 text-[11px] font-semibold text-canvas transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => {
                       setEditingBinding(undefined);
                       setEditorOpen(true);
@@ -173,7 +178,7 @@ export function ProxiesPage() {
                   description="管理员可创建一个引用 Secret Manager 的租户出口配置；系统托管出口仍可继续使用。"
                 />
               ) : (
-                <div className="grid gap-px bg-border-subtle md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 bg-surface-1 p-3 md:grid-cols-2 xl:grid-cols-3">
                   {bindingsQuery.data.items.map((binding) => (
                     <BindingCard
                       key={binding.bindingProfileId}
@@ -275,7 +280,7 @@ function BindingCard({
   onEdit: () => void;
 }) {
   return (
-    <article className="min-w-0 bg-surface-1 p-4">
+    <article className="min-w-0 border border-border-subtle bg-surface-1 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -319,11 +324,68 @@ function BindingCard({
           </dd>
         </div>
       </dl>
-      <p className="mt-3 font-mono text-[10px] text-text-muted">
-        Expected {binding.expectedExitIp}
-      </p>
+      <dl className="mt-px grid grid-cols-3 gap-px bg-border-subtle">
+        <QualityMetric
+          label="Quality"
+          value={
+            binding.qualityScore === null ? '—' : `${binding.qualityScore}/100`
+          }
+        />
+        <QualityMetric
+          label="Latency EWMA"
+          value={
+            binding.latencyEwmaMs === null
+              ? '—'
+              : `${Math.round(binding.latencyEwmaMs)} ms`
+          }
+        />
+        <QualityMetric
+          label="Success"
+          value={
+            binding.probeSuccessRatePercent === null
+              ? '—'
+              : `${binding.probeSuccessRatePercent.toFixed(1)}%`
+          }
+        />
+      </dl>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] text-text-muted">
+        <span>Expected {binding.expectedExitIp}</span>
+        <span className="inline-flex items-center gap-1">
+          <Activity size={10} />
+          {healthFreshness(binding)}
+        </span>
+      </div>
+      {binding.lastFailureReason && (
+        <p className="mt-2 break-all font-mono text-[10px] text-danger">
+          {binding.lastFailureReason} · streak {binding.consecutiveFailures}
+        </p>
+      )}
     </article>
   );
+}
+
+function QualityMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 bg-surface-2 p-2.5">
+      <dt className="truncate text-[9px] uppercase tracking-[0.1em] text-text-muted">
+        {label}
+      </dt>
+      <dd className="mt-1 truncate font-mono text-[10px] text-text-secondary">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function healthFreshness(binding: ProxyBindingView) {
+  if (!binding.lastHealthCheckedAt) return '尚无探测';
+  if (
+    !binding.healthFreshUntil ||
+    Date.parse(binding.healthFreshUntil) < Date.now()
+  ) {
+    return '数据已过期';
+  }
+  return `${binding.probeSampleCount} 次真实探测`;
 }
 
 function HealthChip({ state }: { state: ProxyBindingHealth }) {

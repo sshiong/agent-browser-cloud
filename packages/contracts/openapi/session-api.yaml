@@ -5211,6 +5211,8 @@ components:
         - credentialConfigured
         - enabled
         - healthState
+        - probeSampleCount
+        - consecutiveFailures
         - version
         - createdBy
         - createdAt
@@ -5242,6 +5244,33 @@ components:
           format: date-time
         lastFailureReason:
           type: [string, "null"]
+          description: Bounded error code only; Provider or credential details are never returned.
+        probeSampleCount:
+          type: integer
+          format: int64
+          minimum: 0
+        probeSuccessRatePercent:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 100
+          description: Lifetime success ratio of persisted runtime-bind and active exit probes.
+        latencyEwmaMs:
+          type: [number, "null"]
+          minimum: 0
+          description: Active exit probe latency EWMA with alpha 0.2.
+        qualityScore:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+          description: Transparent 80% availability EWMA plus 20% latency EWMA score.
+        healthFreshUntil:
+          type: [string, "null"]
+          format: date-time
+          description: After this instant the UI must label the last observation as stale.
+        consecutiveFailures:
+          type: integer
+          minimum: 0
+          description: HEALTHY becomes UNHEALTHY only after three consecutive active probe failures.
         version:
           type: integer
           format: int64

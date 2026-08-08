@@ -521,7 +521,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.CommandAck acknowledgement = 1 [json_name = "acknowledgement"];</code>
      */
     private com.google.protobuf.SingleFieldBuilderV3<
-        io.browsercloud.proto.node.v1.CommandAck, io.browsercloud.proto.node.v1.CommandAck.Builder, io.browsercloud.proto.node.v1.CommandAckOrBuilder> 
+        io.browsercloud.proto.node.v1.CommandAck, io.browsercloud.proto.node.v1.CommandAck.Builder, io.browsercloud.proto.node.v1.CommandAckOrBuilder>
         getAcknowledgementFieldBuilder() {
       if (acknowledgementBuilder_ == null) {
         acknowledgementBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
@@ -596,4 +596,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

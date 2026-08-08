@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
@@ -48,6 +49,24 @@ public class ProxyBindingProfileEntity {
 
   @Column(name = "last_failure_reason")
   private String lastFailureReason;
+
+  @Column(name = "probe_success_count", nullable = false)
+  private long probeSuccessCount;
+
+  @Column(name = "probe_failure_count", nullable = false)
+  private long probeFailureCount;
+
+  @Column(name = "consecutive_probe_successes", nullable = false)
+  private int consecutiveProbeSuccesses;
+
+  @Column(name = "consecutive_probe_failures", nullable = false)
+  private int consecutiveProbeFailures;
+
+  @Column(name = "probe_success_ewma")
+  private BigDecimal probeSuccessEwma;
+
+  @Column(name = "probe_latency_ewma_ms")
+  private BigDecimal probeLatencyEwmaMs;
 
   @Column(name = "created_by", nullable = false)
   private String createdBy;
@@ -165,6 +184,30 @@ public class ProxyBindingProfileEntity {
 
   public String getLastFailureReason() {
     return lastFailureReason;
+  }
+
+  public long getProbeSuccessCount() {
+    return probeSuccessCount;
+  }
+
+  public long getProbeFailureCount() {
+    return probeFailureCount;
+  }
+
+  public int getConsecutiveProbeSuccesses() {
+    return consecutiveProbeSuccesses;
+  }
+
+  public int getConsecutiveProbeFailures() {
+    return consecutiveProbeFailures;
+  }
+
+  public Double getProbeSuccessEwma() {
+    return probeSuccessEwma == null ? null : probeSuccessEwma.doubleValue();
+  }
+
+  public Double getProbeLatencyEwmaMs() {
+    return probeLatencyEwmaMs == null ? null : probeLatencyEwmaMs.doubleValue();
   }
 
   public String getCreatedBy() {

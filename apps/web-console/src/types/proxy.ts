@@ -44,6 +44,12 @@ export interface ProxyBindingView {
   lastVerifiedExitIp: string | null;
   lastHealthCheckedAt: string | null;
   lastFailureReason: string | null;
+  probeSampleCount: number;
+  probeSuccessRatePercent: number | null;
+  latencyEwmaMs: number | null;
+  qualityScore: number | null;
+  healthFreshUntil: string | null;
+  consecutiveFailures: number;
   version: number;
   createdBy: string;
   createdAt: string;

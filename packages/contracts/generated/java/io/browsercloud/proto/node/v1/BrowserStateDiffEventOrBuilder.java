@@ -89,7 +89,7 @@ public interface BrowserStateDiffEventOrBuilder extends
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
-  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState> 
+  java.util.List<io.browsercloud.proto.node.v1.InteractiveTargetState>
       getUpsertedTargetsList();
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
@@ -102,7 +102,7 @@ public interface BrowserStateDiffEventOrBuilder extends
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>
    */
-  java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder> 
+  java.util.List<? extends io.browsercloud.proto.node.v1.InteractiveTargetStateOrBuilder>
       getUpsertedTargetsOrBuilderList();
   /**
    * <code>repeated .browsercloud.node.v1.InteractiveTargetState upserted_targets = 9 [json_name = "upsertedTargets"];</code>

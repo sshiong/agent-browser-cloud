@@ -1002,6 +1002,30 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
    */
   activeFormSubmissionCount?: number;
 
+  /**
+   * Credential-free active exit observation. The Network Helper performs the request through the
+   * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+   * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+   *
+   * @generated from field: optional bool proxy_probe_succeeded = 31;
+   */
+  proxyProbeSucceeded?: boolean;
+
+  /**
+   * @generated from field: optional uint32 proxy_probe_latency_ms = 32;
+   */
+  proxyProbeLatencyMs?: number;
+
+  /**
+   * @generated from field: optional string proxy_observed_exit_ip = 33;
+   */
+  proxyObservedExitIp?: string;
+
+  /**
+   * @generated from field: string proxy_probe_error_code = 34;
+   */
+  proxyProbeErrorCode = "";
+
   constructor(data?: PartialMessage<ReportSessionResourcesRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1036,6 +1060,10 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
     { no: 28, name: "active_upload_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 29, name: "active_download_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 30, name: "active_form_submission_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 31, name: "proxy_probe_succeeded", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 32, name: "proxy_probe_latency_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 33, name: "proxy_observed_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 34, name: "proxy_probe_error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportSessionResourcesRequest {

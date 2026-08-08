@@ -253,10 +253,12 @@ export function ProxyBindingEditor({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Dialog.Close className="btn-secondary">取消</Dialog.Close>
+                <Dialog.Close className="inline-flex h-9 items-center justify-center border border-border-default bg-surface-1 px-4 text-[11px] font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary">
+                  取消
+                </Dialog.Close>
                 <button
                   type="submit"
-                  className="btn-primary min-w-28"
+                  className="inline-flex h-9 min-w-28 items-center justify-center gap-2 bg-accent px-4 text-[11px] font-semibold text-canvas transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={
                     mutation.isPending ||
                     remove.isPending ||

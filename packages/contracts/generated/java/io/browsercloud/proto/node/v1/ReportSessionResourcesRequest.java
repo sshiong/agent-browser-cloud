@@ -21,6 +21,8 @@ private static final long serialVersionUID = 0L;
     tenantId_ = "";
     sessionId_ = "";
     dangerEvent_ = "";
+    proxyObservedExitIp_ = "";
+    proxyProbeErrorCode_ = "";
   }
 
   @java.lang.Override
@@ -57,7 +59,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       nodeId_ = s;
@@ -73,7 +75,7 @@ private static final long serialVersionUID = 0L;
       getNodeIdBytes() {
     java.lang.Object ref = nodeId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       nodeId_ = b;
@@ -96,7 +98,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       tenantId_ = s;
@@ -112,7 +114,7 @@ private static final long serialVersionUID = 0L;
       getTenantIdBytes() {
     java.lang.Object ref = tenantId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       tenantId_ = b;
@@ -135,7 +137,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       sessionId_ = s;
@@ -151,7 +153,7 @@ private static final long serialVersionUID = 0L;
       getSessionIdBytes() {
     java.lang.Object ref = sessionId_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       sessionId_ = b;
@@ -443,7 +445,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       dangerEvent_ = s;
@@ -459,7 +461,7 @@ private static final long serialVersionUID = 0L;
       getDangerEventBytes() {
     java.lang.Object ref = dangerEvent_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       dangerEvent_ = b;
@@ -612,6 +614,142 @@ private static final long serialVersionUID = 0L;
     return activeFormSubmissionCount_;
   }
 
+  public static final int PROXY_PROBE_SUCCEEDED_FIELD_NUMBER = 31;
+  private boolean proxyProbeSucceeded_ = false;
+  /**
+   * <pre>
+   * Credential-free active exit observation. The Network Helper performs the request through the
+   * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+   * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+   * </pre>
+   *
+   * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   * @return Whether the proxyProbeSucceeded field is set.
+   */
+  @java.lang.Override
+  public boolean hasProxyProbeSucceeded() {
+    return ((bitField0_ & 0x00100000) != 0);
+  }
+  /**
+   * <pre>
+   * Credential-free active exit observation. The Network Helper performs the request through the
+   * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+   * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+   * </pre>
+   *
+   * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+   * @return The proxyProbeSucceeded.
+   */
+  @java.lang.Override
+  public boolean getProxyProbeSucceeded() {
+    return proxyProbeSucceeded_;
+  }
+
+  public static final int PROXY_PROBE_LATENCY_MS_FIELD_NUMBER = 32;
+  private int proxyProbeLatencyMs_ = 0;
+  /**
+   * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   * @return Whether the proxyProbeLatencyMs field is set.
+   */
+  @java.lang.Override
+  public boolean hasProxyProbeLatencyMs() {
+    return ((bitField0_ & 0x00200000) != 0);
+  }
+  /**
+   * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+   * @return The proxyProbeLatencyMs.
+   */
+  @java.lang.Override
+  public int getProxyProbeLatencyMs() {
+    return proxyProbeLatencyMs_;
+  }
+
+  public static final int PROXY_OBSERVED_EXIT_IP_FIELD_NUMBER = 33;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object proxyObservedExitIp_ = "";
+  /**
+   * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   * @return Whether the proxyObservedExitIp field is set.
+   */
+  @java.lang.Override
+  public boolean hasProxyObservedExitIp() {
+    return ((bitField0_ & 0x00400000) != 0);
+  }
+  /**
+   * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   * @return The proxyObservedExitIp.
+   */
+  @java.lang.Override
+  public java.lang.String getProxyObservedExitIp() {
+    java.lang.Object ref = proxyObservedExitIp_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      proxyObservedExitIp_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+   * @return The bytes for proxyObservedExitIp.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProxyObservedExitIpBytes() {
+    java.lang.Object ref = proxyObservedExitIp_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      proxyObservedExitIp_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROXY_PROBE_ERROR_CODE_FIELD_NUMBER = 34;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object proxyProbeErrorCode_ = "";
+  /**
+   * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   * @return The proxyProbeErrorCode.
+   */
+  @java.lang.Override
+  public java.lang.String getProxyProbeErrorCode() {
+    java.lang.Object ref = proxyProbeErrorCode_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      proxyProbeErrorCode_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+   * @return The bytes for proxyProbeErrorCode.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getProxyProbeErrorCodeBytes() {
+    java.lang.Object ref = proxyProbeErrorCode_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      proxyProbeErrorCode_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -703,6 +841,18 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00080000) != 0)) {
       output.writeUInt32(30, activeFormSubmissionCount_);
+    }
+    if (((bitField0_ & 0x00100000) != 0)) {
+      output.writeBool(31, proxyProbeSucceeded_);
+    }
+    if (((bitField0_ & 0x00200000) != 0)) {
+      output.writeUInt32(32, proxyProbeLatencyMs_);
+    }
+    if (((bitField0_ & 0x00400000) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 33, proxyObservedExitIp_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyProbeErrorCode_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 34, proxyProbeErrorCode_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -812,6 +962,20 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00080000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(30, activeFormSubmissionCount_);
+    }
+    if (((bitField0_ & 0x00100000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(31, proxyProbeSucceeded_);
+    }
+    if (((bitField0_ & 0x00200000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(32, proxyProbeLatencyMs_);
+    }
+    if (((bitField0_ & 0x00400000) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(33, proxyObservedExitIp_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyProbeErrorCode_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(34, proxyProbeErrorCode_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -944,6 +1108,23 @@ private static final long serialVersionUID = 0L;
       if (getActiveFormSubmissionCount()
           != other.getActiveFormSubmissionCount()) return false;
     }
+    if (hasProxyProbeSucceeded() != other.hasProxyProbeSucceeded()) return false;
+    if (hasProxyProbeSucceeded()) {
+      if (getProxyProbeSucceeded()
+          != other.getProxyProbeSucceeded()) return false;
+    }
+    if (hasProxyProbeLatencyMs() != other.hasProxyProbeLatencyMs()) return false;
+    if (hasProxyProbeLatencyMs()) {
+      if (getProxyProbeLatencyMs()
+          != other.getProxyProbeLatencyMs()) return false;
+    }
+    if (hasProxyObservedExitIp() != other.hasProxyObservedExitIp()) return false;
+    if (hasProxyObservedExitIp()) {
+      if (!getProxyObservedExitIp()
+          .equals(other.getProxyObservedExitIp())) return false;
+    }
+    if (!getProxyProbeErrorCode()
+        .equals(other.getProxyProbeErrorCode())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1058,6 +1239,21 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + ACTIVE_FORM_SUBMISSION_COUNT_FIELD_NUMBER;
       hash = (53 * hash) + getActiveFormSubmissionCount();
     }
+    if (hasProxyProbeSucceeded()) {
+      hash = (37 * hash) + PROXY_PROBE_SUCCEEDED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getProxyProbeSucceeded());
+    }
+    if (hasProxyProbeLatencyMs()) {
+      hash = (37 * hash) + PROXY_PROBE_LATENCY_MS_FIELD_NUMBER;
+      hash = (53 * hash) + getProxyProbeLatencyMs();
+    }
+    if (hasProxyObservedExitIp()) {
+      hash = (37 * hash) + PROXY_OBSERVED_EXIT_IP_FIELD_NUMBER;
+      hash = (53 * hash) + getProxyObservedExitIp().hashCode();
+    }
+    hash = (37 * hash) + PROXY_PROBE_ERROR_CODE_FIELD_NUMBER;
+    hash = (53 * hash) + getProxyProbeErrorCode().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1215,6 +1411,10 @@ private static final long serialVersionUID = 0L;
       activeUploadCount_ = 0;
       activeDownloadCount_ = 0;
       activeFormSubmissionCount_ = 0;
+      proxyProbeSucceeded_ = false;
+      proxyProbeLatencyMs_ = 0;
+      proxyObservedExitIp_ = "";
+      proxyProbeErrorCode_ = "";
       return this;
     }
 
@@ -1346,6 +1546,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x02000000) != 0)) {
         result.activeFormSubmissionCount_ = activeFormSubmissionCount_;
         to_bitField0_ |= 0x00080000;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.proxyProbeSucceeded_ = proxyProbeSucceeded_;
+        to_bitField0_ |= 0x00100000;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.proxyProbeLatencyMs_ = proxyProbeLatencyMs_;
+        to_bitField0_ |= 0x00200000;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.proxyObservedExitIp_ = proxyObservedExitIp_;
+        to_bitField0_ |= 0x00400000;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.proxyProbeErrorCode_ = proxyProbeErrorCode_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1479,6 +1694,22 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasActiveFormSubmissionCount()) {
         setActiveFormSubmissionCount(other.getActiveFormSubmissionCount());
+      }
+      if (other.hasProxyProbeSucceeded()) {
+        setProxyProbeSucceeded(other.getProxyProbeSucceeded());
+      }
+      if (other.hasProxyProbeLatencyMs()) {
+        setProxyProbeLatencyMs(other.getProxyProbeLatencyMs());
+      }
+      if (other.hasProxyObservedExitIp()) {
+        proxyObservedExitIp_ = other.proxyObservedExitIp_;
+        bitField0_ |= 0x10000000;
+        onChanged();
+      }
+      if (!other.getProxyProbeErrorCode().isEmpty()) {
+        proxyProbeErrorCode_ = other.proxyProbeErrorCode_;
+        bitField0_ |= 0x20000000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1636,6 +1867,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x02000000;
               break;
             } // case 240
+            case 248: {
+              proxyProbeSucceeded_ = input.readBool();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 248
+            case 256: {
+              proxyProbeLatencyMs_ = input.readUInt32();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 256
+            case 266: {
+              proxyObservedExitIp_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 266
+            case 274: {
+              proxyProbeErrorCode_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 274
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1678,7 +1929,7 @@ private static final long serialVersionUID = 0L;
         getNodeIdBytes() {
       java.lang.Object ref = nodeId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         nodeId_ = b;
@@ -1750,7 +2001,7 @@ private static final long serialVersionUID = 0L;
         getTenantIdBytes() {
       java.lang.Object ref = tenantId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         tenantId_ = b;
@@ -1822,7 +2073,7 @@ private static final long serialVersionUID = 0L;
         getSessionIdBytes() {
       java.lang.Object ref = sessionId_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         sessionId_ = b;
@@ -2478,7 +2729,7 @@ private static final long serialVersionUID = 0L;
         getDangerEventBytes() {
       java.lang.Object ref = dangerEvent_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         dangerEvent_ = b;
@@ -2824,6 +3075,261 @@ private static final long serialVersionUID = 0L;
       onChanged();
       return this;
     }
+
+    private boolean proxyProbeSucceeded_ ;
+    /**
+     * <pre>
+     * Credential-free active exit observation. The Network Helper performs the request through the
+     * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+     * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+     * </pre>
+     *
+     * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     * @return Whether the proxyProbeSucceeded field is set.
+     */
+    @java.lang.Override
+    public boolean hasProxyProbeSucceeded() {
+      return ((bitField0_ & 0x04000000) != 0);
+    }
+    /**
+     * <pre>
+     * Credential-free active exit observation. The Network Helper performs the request through the
+     * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+     * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+     * </pre>
+     *
+     * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     * @return The proxyProbeSucceeded.
+     */
+    @java.lang.Override
+    public boolean getProxyProbeSucceeded() {
+      return proxyProbeSucceeded_;
+    }
+    /**
+     * <pre>
+     * Credential-free active exit observation. The Network Helper performs the request through the
+     * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+     * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+     * </pre>
+     *
+     * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     * @param value The proxyProbeSucceeded to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyProbeSucceeded(boolean value) {
+
+      proxyProbeSucceeded_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Credential-free active exit observation. The Network Helper performs the request through the
+     * already-bound Provider route; the Node Agent only reports the bounded result. All four fields
+     * are additive so an N-1 Control Plane safely ignores them during rolling upgrades.
+     * </pre>
+     *
+     * <code>optional bool proxy_probe_succeeded = 31 [json_name = "proxyProbeSucceeded"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyProbeSucceeded() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      proxyProbeSucceeded_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int proxyProbeLatencyMs_ ;
+    /**
+     * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     * @return Whether the proxyProbeLatencyMs field is set.
+     */
+    @java.lang.Override
+    public boolean hasProxyProbeLatencyMs() {
+      return ((bitField0_ & 0x08000000) != 0);
+    }
+    /**
+     * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     * @return The proxyProbeLatencyMs.
+     */
+    @java.lang.Override
+    public int getProxyProbeLatencyMs() {
+      return proxyProbeLatencyMs_;
+    }
+    /**
+     * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     * @param value The proxyProbeLatencyMs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyProbeLatencyMs(int value) {
+
+      proxyProbeLatencyMs_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 proxy_probe_latency_ms = 32 [json_name = "proxyProbeLatencyMs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyProbeLatencyMs() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      proxyProbeLatencyMs_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object proxyObservedExitIp_ = "";
+    /**
+     * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     * @return Whether the proxyObservedExitIp field is set.
+     */
+    public boolean hasProxyObservedExitIp() {
+      return ((bitField0_ & 0x10000000) != 0);
+    }
+    /**
+     * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     * @return The proxyObservedExitIp.
+     */
+    public java.lang.String getProxyObservedExitIp() {
+      java.lang.Object ref = proxyObservedExitIp_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        proxyObservedExitIp_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     * @return The bytes for proxyObservedExitIp.
+     */
+    public com.google.protobuf.ByteString
+        getProxyObservedExitIpBytes() {
+      java.lang.Object ref = proxyObservedExitIp_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        proxyObservedExitIp_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     * @param value The proxyObservedExitIp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyObservedExitIp(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      proxyObservedExitIp_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyObservedExitIp() {
+      proxyObservedExitIp_ = getDefaultInstance().getProxyObservedExitIp();
+      bitField0_ = (bitField0_ & ~0x10000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional string proxy_observed_exit_ip = 33 [json_name = "proxyObservedExitIp"];</code>
+     * @param value The bytes for proxyObservedExitIp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyObservedExitIpBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      proxyObservedExitIp_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object proxyProbeErrorCode_ = "";
+    /**
+     * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     * @return The proxyProbeErrorCode.
+     */
+    public java.lang.String getProxyProbeErrorCode() {
+      java.lang.Object ref = proxyProbeErrorCode_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        proxyProbeErrorCode_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     * @return The bytes for proxyProbeErrorCode.
+     */
+    public com.google.protobuf.ByteString
+        getProxyProbeErrorCodeBytes() {
+      java.lang.Object ref = proxyProbeErrorCode_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        proxyProbeErrorCode_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     * @param value The proxyProbeErrorCode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyProbeErrorCode(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      proxyProbeErrorCode_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProxyProbeErrorCode() {
+      proxyProbeErrorCode_ = getDefaultInstance().getProxyProbeErrorCode();
+      bitField0_ = (bitField0_ & ~0x20000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string proxy_probe_error_code = 34 [json_name = "proxyProbeErrorCode"];</code>
+     * @param value The bytes for proxyProbeErrorCode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProxyProbeErrorCodeBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      proxyProbeErrorCode_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
     @java.lang.Override
     public final Builder setUnknownFields(
         final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2887,4 +3393,3 @@ private static final long serialVersionUID = 0L;
   }
 
 }
-

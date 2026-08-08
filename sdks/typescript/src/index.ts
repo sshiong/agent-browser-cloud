@@ -1,3 +1,11 @@
+import {
+  BrowserCloudGeneratedClient,
+  type CreateSessionRequest,
+  type OperationResponse,
+} from './generated/index.js';
+
+export * from './generated/index.js';
+
 export interface BrowserCloudClientOptions {
   baseUrl: string;
   tenantId: string;
@@ -6,40 +14,10 @@ export interface BrowserCloudClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-export interface CreateSessionInput {
-  profileId: string;
+export type CreateSessionInput = Omit<CreateSessionRequest, 'tenantId'> & {
   region: string;
-  resourcePolicy?: {
-    mode: 'AUTO';
-    minimumTemplate?: 'standard-v1' | 'interactive-v1' | 'heavy-v1' | 'native-standard-v1';
-    maximumCpuMillis?: number;
-    maximumMemoryMib?: number;
-    maximumCostPerHour?: number;
-    allowMigration?: boolean;
-    allowHibernate?: boolean;
-    onMaximumReached?:
-      | 'PAUSE_AGENT'
-      | 'WAIT_SAFE_POINT_MIGRATE'
-      | 'HIBERNATE'
-      | 'TERMINATE_STRICT';
-  };
-  requestedTabs?: number;
-  agentActionsPerMinute?: number;
-  extensionIds?: string[];
-  remoteDesktop?: boolean;
-  web3Workload?: boolean;
-  mediaWorkload?: boolean;
-  requestedMediaStreams?: number;
-  mediaBitrateKbps?: number;
-  videoRecording?: boolean;
-  metadata?: Record<string, string>;
   idempotencyKey?: string;
-}
-
-export interface OperationResponse {
-  operationId: string;
-  state: string;
-}
+};
 
 export class BrowserCloudError extends Error {
   constructor(
@@ -54,6 +32,7 @@ export class BrowserCloudError extends Error {
 }
 
 export class BrowserCloudClient {
+  readonly api: BrowserCloudGeneratedClient;
   private readonly baseUrl: string;
   private readonly tenantId: string;
   private readonly accessToken?: string;
@@ -70,6 +49,11 @@ export class BrowserCloudClient {
     this.accessToken = options.accessToken;
     this.actorId = options.actorId;
     this.fetchImpl = options.fetch ?? globalThis.fetch;
+    this.api = new BrowserCloudGeneratedClient({
+      BASE: options.baseUrl.replace(/\/$/, ''),
+      TOKEN: options.accessToken,
+      FETCH: this.fetchImpl,
+    });
   }
 
   listSessions(limit = 50, offset = 0) {
@@ -88,11 +72,18 @@ export class BrowserCloudClient {
         tenantId: this.tenantId,
         profileId: input.profileId,
         region: input.region,
+        runtimeBuildId: input.runtimeBuildId,
+        applicationId: input.applicationId,
+        groupId: input.groupId,
+        tagIds: input.tagIds,
+        proxyBindingProfileId: input.proxyBindingProfileId,
         resourcePolicy: input.resourcePolicy ?? { mode: 'AUTO' },
         requestedTabs: input.requestedTabs ?? 1,
         agentActionsPerMinute: input.agentActionsPerMinute ?? 0,
         extensionIds: input.extensionIds ?? [],
         remoteDesktop: input.remoteDesktop ?? false,
+        humanTakeoverEnabled: input.humanTakeoverEnabled,
+        agentPolicy: input.agentPolicy,
         web3Workload: input.web3Workload ?? false,
         mediaWorkload: input.mediaWorkload ?? false,
         requestedMediaStreams: input.requestedMediaStreams ?? 0,

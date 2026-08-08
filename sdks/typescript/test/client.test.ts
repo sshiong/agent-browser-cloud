@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BrowserCloudClient, BrowserCloudError } from '../src';
+import {
+  BrowserCloudClient,
+  BrowserCloudError,
+  BrowserCloudGeneratedClient,
+} from '../src/index.js';
 
 describe('BrowserCloudClient', () => {
   it('sends idempotent tenant-scoped create requests', async () => {
@@ -63,5 +67,30 @@ describe('BrowserCloudClient', () => {
         requestId: 'req-1',
       })
     );
+  });
+
+  it('exposes all generated services through an isolated typed client', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], limit: 20, offset: 0, total: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const client = new BrowserCloudGeneratedClient({
+      BASE: 'https://browsercloud.example',
+      TOKEN: 'test-token',
+      FETCH: fetchMock,
+    });
+
+    await client.session.listSessions({ xTenantId: 'tenant-a' });
+
+    const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = request.headers as Headers;
+    expect(url).toBe(
+      'https://browsercloud.example/api/v1/sessions?tagMatch=ANY&limit=20'
+    );
+    expect(request.method).toBe('GET');
+    expect(headers.get('Authorization')).toBe('Bearer test-token');
+    expect(headers.get('X-Tenant-Id')).toBe('tenant-a');
   });
 });

@@ -2,8 +2,9 @@
 
 当前提供四个无框架锁定的客户端：
 
-- `typescript`：浏览器或 Node.js 18+，支持 Bearer/OIDC、本地租户身份、幂等 Session、
-  Agent Task、成本解释和企业运营查询。
+- `typescript`：从正式 OpenAPI 自动生成 158 个 Operation/32 个服务的 Fetch Client，
+  支持浏览器或 Node.js 18+、Bearer/OIDC、本地租户身份、独立多 Client 配置和完整
+  API 类型；原少量便捷方法继续兼容。
 - `python`：Python 3.10+，只使用标准库，保留后端结构化错误与 Request ID。
 - `go`：Go 1.22+，只使用标准库，支持 Context、注入 HTTP Client、媒体资源请求、
   租户身份、幂等写和结构化错误。
@@ -17,8 +18,12 @@
 
 ```bash
 PYTHONPATH=sdks/python python3 -m unittest discover -s sdks/python/tests
-pnpm -C apps/web-console exec vitest run ../../sdks/typescript/test
-pnpm -C apps/web-console exec tsc -p ../../sdks/typescript/tsconfig.json
+pnpm --dir sdks/typescript install --frozen-lockfile
+pnpm --dir sdks/typescript run generate
+pnpm --dir sdks/typescript test
+pnpm --dir sdks/typescript build
+node tools/sdk/verify_typescript_package.mjs sdks/typescript
+bash tests/sdk/typescript-package.sh
 cd sdks/go && go test ./...
 javac -d sdks/java/build/classes $(find sdks/java/src -name '*.java' -print)
 java -cp sdks/java/build/classes io.browsercloud.sdk.BrowserCloudClientTest

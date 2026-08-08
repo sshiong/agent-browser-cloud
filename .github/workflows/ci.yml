@@ -35,7 +35,9 @@ jobs:
         with:
           node-version: "20"
           cache: pnpm
-          cache-dependency-path: apps/web-console/pnpm-lock.yaml
+          cache-dependency-path: |
+            apps/web-console/pnpm-lock.yaml
+            sdks/typescript/pnpm-lock.yaml
 
       - uses: bufbuild/buf-setup-action@a47c93e0b1648d5651a065437926377d060baa99
         with:
@@ -43,6 +45,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm --dir apps/web-console install --frozen-lockfile
+
+      - name: Install generated SDK dependencies
+        run: pnpm --dir sdks/typescript install --frozen-lockfile
 
       - name: Check protobuf compatibility
         if: github.event_name == 'pull_request'

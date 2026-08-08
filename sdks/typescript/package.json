@@ -2,10 +2,20 @@
   "name": "@browsercloud/sdk",
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@10.17.1",
+  "description": "Generated, typed Fetch client for Agent Browser Cloud",
+  "license": "UNLICENSED",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./generated": {
+      "types": "./dist/generated/index.d.ts",
+      "import": "./dist/generated/index.js"
     }
   },
   "files": [
@@ -13,10 +23,20 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "generate": "openapi --input ../../packages/contracts/openapi/session-api.yaml --output src/generated --client fetch --name BrowserCloudGeneratedClient --useOptions --useUnionTypes && python3 ../../tools/sdk/normalize_typescript_sdk.py src/generated && python3 ../../tools/sdk/write_typescript_sdk_manifest.py ../../packages/contracts/openapi/session-api.yaml src/generated package.json generated-manifest.json",
+    "test": "vitest run",
+    "prepack": "pnpm run build"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.7"
+    "openapi-typescript-codegen": "0.31.0",
+    "typescript": "5.8.3",
+    "vitest": "3.2.7"
   }
 }

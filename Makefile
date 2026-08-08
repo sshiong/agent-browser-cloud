@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop test test-desktop lint lint-desktop fmt compose-up compose-down clean contracts contracts-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop test test-desktop lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -9,6 +9,7 @@ REAL_CHROMIUM_PATH ?=
 # Install workspace dependencies
 install:
 	pnpm --dir apps/web-console install --frozen-lockfile
+	pnpm --dir sdks/typescript install --frozen-lockfile
 
 # Install the independently locked Tauri CLI.
 install-desktop:
@@ -77,6 +78,15 @@ contracts-check:
 	cd packages/contracts && $(BUF) lint
 	pnpm --package=@redocly/cli@1.34.0 dlx redocly lint packages/contracts/openapi/session-api.yaml
 	python3 -m json.tool packages/contracts/json-schema/error-envelope.json >/dev/null
+
+# Generate the dependency-free TypeScript Fetch client from the authoritative OpenAPI contract.
+sdk-typescript-generate:
+	pnpm --dir sdks/typescript run generate
+
+# Regeneration must be byte-for-byte clean so SDK models and every operation cannot drift.
+sdk-typescript-check: sdk-typescript-generate
+	python3 tools/sdk/verify_typescript_sdk.py packages/contracts/openapi/session-api.yaml sdks/typescript/src/generated sdks/typescript/generated-manifest.json
+	git diff --exit-code -- sdks/typescript/src/generated sdks/typescript/generated-manifest.json
 
 # Run database migration
 migrate:
@@ -156,12 +166,14 @@ test-e2e:
 # Verify the dependency-free Python, TypeScript, Go and Java SDKs
 test-sdk:
 	PYTHONPATH=sdks/python python3 -m unittest discover -s sdks/python/tests
-	pnpm -C apps/web-console exec vitest run --root ../../sdks/typescript
-	pnpm -C apps/web-console exec tsc -p ../../sdks/typescript/tsconfig.json
+	pnpm --dir sdks/typescript test
+	pnpm --dir sdks/typescript build
+	node tools/sdk/verify_typescript_package.mjs sdks/typescript
+	bash tests/sdk/typescript-package.sh
 	cd sdks/go && go test ./...
 	mkdir -p sdks/java/build/classes
 	javac -d sdks/java/build/classes $$(find sdks/java/src -name '*.java' -print)
 	java -cp sdks/java/build/classes io.browsercloud.sdk.BrowserCloudClientTest
 
 # Run all checks (CI)
-ci: lint test contracts-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk
+ci: lint test contracts-check sdk-typescript-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk

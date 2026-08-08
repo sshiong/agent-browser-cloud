@@ -30,6 +30,12 @@ State Collector 现在从真实页面和 Browser 级 CDP 事件流采集：
 任何观察器断线、没有权威时间戳或存在在途请求时，安静时长都失败关闭为 `0`。数值
 最多保留 5 分钟，不运行每 Session 复杂预测模型，也不由前端定时器伪造。
 
+2026-08-08 的完整迁移回归进一步修复了状态版本竞态：Network Quiet 仍返回真实有界
+毫秒值，但用于决定是否发布新 Browser State 的哈希按 1 秒分桶，并在契约允许的最大
+30 秒窗口处封顶；Freshness 作为独立失败关闭语义参与哈希。这样 0—30 秒的所有合法
+阈值仍能被状态流观察，超过最大阈值后不会因时钟继续增长而持续作废严格绑定
+`stateVersion` 的 Provider Evidence。
+
 完整 State 与 Diff 分别使用 Proto 追加 Tag `11—13`；N−1 Node 不认识这些字段时会留下
 空值、`0`、`false`，启用网络 Gate 的新 Control Plane 因此不会错误放行。
 
@@ -80,6 +86,9 @@ Ready Gate 在 Login、Permission、Account 判定之后执行：
 - Proto 映射、State/Diff 传播、OpenAPI 与四语言 SDK 漂移；
 - V074 加法迁移、Revision 快照与 N/N−1 Tag 兼容；
 - 完整 Integration 中真实 Browser State API 和绑定的精确 Contract Revision。
+- 完整 PostgreSQL/双 Control Plane/Browser Node 回归覆盖 30 秒稳定点、严格
+  Provider Evidence 绑定、Business Recovery 完成与双 Node Migration；对象存储
+  Timeout/Recovery GameDay 同时通过。
 
 ## 仍未完成
 

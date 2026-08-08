@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "30b87d4d8bb6f5a5714414010b25d91dc7502bb684ad71e2f2414d300313abdc",
+  "contractSha256": "04a4e302573a7295241dcf7a8782a0adb89f0c2be2fe31908e01c37515d56d88",
   "files": {
     "BrowserCloudGeneratedClient.ts": "d10b66b849fd1ee628699fea39626f771128667b115ef18005b95a80037b5551",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -259,7 +259,7 @@
     "services/EvidenceService.ts": "3165c33205028269e9f0e99e81f5505d564774d1841fc8d2bdce5b5ae022cf85",
     "services/GroupsService.ts": "8419545acb51b1d175bff34f5e12431b4dfd77ff6b88265156430fe7433f8f56",
     "services/HumanTakeoverService.ts": "b55c765c01de716974c97b365fecdd12ac4385488a1aabc7e678c58860cdb2e9",
-    "services/NotificationService.ts": "08f9739c68ea4c6af0664b5cfaad41c38497304dd71be429707304e874519071",
+    "services/NotificationService.ts": "e0ac4ce59486b356eb0dd9ba461c1a323744c6774242c48d28005baec6328e01",
     "services/OperationService.ts": "83525a318395a0505b083c86afac68785c4dd635bfe94bf0f2cb469a87f667d5",
     "services/ProfileService.ts": "2812e1ec0401ee87b60898b623d80639303abfabb68fa812eb0f5343ee9f6bee",
     "services/ProxyService.ts": "e689612866e4c0de3ce454750819450e98a573f1ea50045f18809f453ea61c27",

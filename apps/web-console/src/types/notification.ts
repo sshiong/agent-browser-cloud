@@ -1,3 +1,5 @@
+import type { ResourceStreamConnectionState } from './session';
+
 export type NotificationCategory =
   'SECURITY' | 'RESOURCE' | 'AGENT' | 'RELEASE' | 'SYSTEM';
 
@@ -33,3 +35,18 @@ export interface WorkspaceNotificationReadState {
   unreadCount: number;
   updatedAt: string;
 }
+
+export interface WorkspaceNotificationStreamControl {
+  cursor: number;
+  resetRequired: boolean;
+  connectedAt: string;
+}
+
+export interface WorkspaceNotificationStreamEvent {
+  sequence: number;
+  occurredAt: string;
+  replayed: boolean;
+}
+
+export type WorkspaceNotificationConnectionState =
+  ResourceStreamConnectionState;

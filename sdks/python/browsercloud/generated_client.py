@@ -47,6 +47,7 @@ OPERATIONS: dict[str, Operation] = {
     'requestTenantCoordinatorRouteMigration': Operation('requestTenantCoordinatorRouteMigration', 'POST', '/api/v1/coordinator/tenant-route/migrations', (), (), ('Idempotency-Key',), 'RequestTenantRouteMigration', True, 'TenantRouteMigration'),
     'globalSearch': Operation('globalSearch', 'GET', '/api/v1/search', (), ('limit', 'q', 'types'), (), '', False, 'GlobalSearchResponse'),
     'listWorkspaceNotifications': Operation('listWorkspaceNotifications', 'GET', '/api/v1/notifications', (), ('beforeSequence', 'limit'), (), '', False, 'WorkspaceNotificationListResponse'),
+    'streamWorkspaceNotificationChanges': Operation('streamWorkspaceNotificationChanges', 'GET', '/api/v1/notifications/event-stream', (), (), ('Last-Event-ID',), '', False, 'string'),
     'updateWorkspaceNotificationReadCursor': Operation('updateWorkspaceNotificationReadCursor', 'PATCH', '/api/v1/notifications/read-cursor', (), (), (), 'UpdateNotificationReadCursorRequest', True, 'WorkspaceNotificationReadState'),
     'getUserPreferences': Operation('getUserPreferences', 'GET', '/api/v1/user-preferences', (), (), (), '', False, 'UserPreferences'),
     'updateUserPreferences': Operation('updateUserPreferences', 'PUT', '/api/v1/user-preferences', (), (), (), 'UpdateUserPreferencesRequest', True, 'UserPreferences'),
@@ -286,6 +287,9 @@ class BrowserCloudGeneratedClient:
 
     def listWorkspaceNotifications(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listWorkspaceNotifications', path=path, query=query, body=body, headers=headers)
+
+    def streamWorkspaceNotificationChanges(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('streamWorkspaceNotificationChanges', path=path, query=query, body=body, headers=headers)
 
     def updateWorkspaceNotificationReadCursor(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('updateWorkspaceNotificationReadCursor', path=path, query=query, body=body, headers=headers)

@@ -37,6 +37,7 @@ public final class BrowserCloudGeneratedClient {
     operation("requestTenantCoordinatorRouteMigration", "POST", "/api/v1/coordinator/tenant-route/migrations", List.of(), List.of(), List.of("Idempotency-Key"), "RequestTenantRouteMigration", true, "TenantRouteMigration"),
     operation("globalSearch", "GET", "/api/v1/search", List.of(), List.of("limit", "q", "types"), List.of(), "", false, "GlobalSearchResponse"),
     operation("listWorkspaceNotifications", "GET", "/api/v1/notifications", List.of(), List.of("beforeSequence", "limit"), List.of(), "", false, "WorkspaceNotificationListResponse"),
+    operation("streamWorkspaceNotificationChanges", "GET", "/api/v1/notifications/event-stream", List.of(), List.of(), List.of("Last-Event-ID"), "", false, "string"),
     operation("updateWorkspaceNotificationReadCursor", "PATCH", "/api/v1/notifications/read-cursor", List.of(), List.of(), List.of(), "UpdateNotificationReadCursorRequest", true, "WorkspaceNotificationReadState"),
     operation("getUserPreferences", "GET", "/api/v1/user-preferences", List.of(), List.of(), List.of(), "", false, "UserPreferences"),
     operation("updateUserPreferences", "PUT", "/api/v1/user-preferences", List.of(), List.of(), List.of(), "UpdateUserPreferencesRequest", true, "UserPreferences"),
@@ -227,6 +228,7 @@ public final class BrowserCloudGeneratedClient {
   public Response requestTenantCoordinatorRouteMigration(Request request) { return call("requestTenantCoordinatorRouteMigration", request); }
   public Response globalSearch(Request request) { return call("globalSearch", request); }
   public Response listWorkspaceNotifications(Request request) { return call("listWorkspaceNotifications", request); }
+  public Response streamWorkspaceNotificationChanges(Request request) { return call("streamWorkspaceNotificationChanges", request); }
   public Response updateWorkspaceNotificationReadCursor(Request request) { return call("updateWorkspaceNotificationReadCursor", request); }
   public Response getUserPreferences(Request request) { return call("getUserPreferences", request); }
   public Response updateUserPreferences(Request request) { return call("updateUserPreferences", request); }

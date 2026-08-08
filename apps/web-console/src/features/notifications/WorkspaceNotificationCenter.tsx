@@ -21,9 +21,11 @@ import type {
   NotificationCategory,
   NotificationSeverity,
   WorkspaceNotification,
+  WorkspaceNotificationConnectionState,
 } from '@/types/notification';
 import {
   useMarkWorkspaceNotificationsRead,
+  useWorkspaceNotificationStream,
   useWorkspaceNotifications,
 } from './notificationQueries';
 
@@ -56,11 +58,20 @@ const SEVERITY_STYLES: Record<
   },
 };
 
+const STREAM_LABELS: Record<WorkspaceNotificationConnectionState, string> = {
+  IDLE: '待连接',
+  CONNECTING: '连接中',
+  LIVE: '实时',
+  RECONNECTING: '重连中',
+  OFFLINE: '离线',
+};
+
 export function WorkspaceNotificationCenter() {
   const [open, setOpen] = useState(false);
   const isOnline = useOnlineStatus();
   const navigate = useNavigate();
   const feed = useWorkspaceNotifications(true);
+  const streamState = useWorkspaceNotificationStream(true);
   const markRead = useMarkWorkspaceNotificationsRead();
   const pages = feed.data?.pages;
   const latest = pages?.[0];
@@ -156,6 +167,15 @@ export function WorkspaceNotificationCenter() {
               当前离线，通知数据可能已经过期
             </div>
           )}
+          {isOnline && streamState === 'RECONNECTING' && (
+            <div
+              className="flex items-center gap-2 border-b border-warning/25 bg-warning/8 px-5 py-2 text-[10px] text-warning"
+              role="status"
+            >
+              <RefreshCw size={13} className="animate-spin" />
+              实时通道正在重连，新通知可能短暂延迟
+            </div>
+          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-canvas/30">
             {feed.isLoading ? (
@@ -195,8 +215,16 @@ export function WorkspaceNotificationCenter() {
 
           <div className="flex min-h-10 items-center justify-between gap-3 border-t border-border-subtle px-4 text-[9px] text-text-muted sm:px-5">
             <span>PostgreSQL 审计投影 · 90 天</span>
-            <span className="font-mono uppercase tracking-[0.1em]">
-              15s refresh
+            <span
+              className={cn(
+                'font-mono uppercase tracking-[0.1em]',
+                streamState === 'LIVE' && 'text-success',
+                (streamState === 'RECONNECTING' || streamState === 'OFFLINE') &&
+                  'text-warning'
+              )}
+              role="status"
+            >
+              SSE {STREAM_LABELS[streamState]}
             </span>
           </div>
         </Dialog.Content>

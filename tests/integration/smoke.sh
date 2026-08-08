@@ -55,6 +55,7 @@ proxy_pid=""
 business_provider_pid=""
 resource_stream_pid=""
 overview_stream_pid=""
+notification_stream_pid=""
 dual_node_safety_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
@@ -101,6 +102,9 @@ cleanup() {
   fi
   if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$overview_stream_pid" ]]; then kill "$overview_stream_pid" 2>/dev/null || true; fi
+  if [[ -n "$notification_stream_pid" ]]; then
+    kill "$notification_stream_pid" 2>/dev/null || true
+  fi
   if [[ -n "$dual_node_safety_pid" ]]; then
     kill "$dual_node_safety_pid" 2>/dev/null || true
   fi
@@ -2752,9 +2756,23 @@ for _ in $(seq 1 40); do
 done
 printf '%s' "$waiting_provider_validation" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["verdict"] == "MANUAL_RECOVERY_REQUIRED"; assert item["ready"] is False; assert item["evidence"] == ["PROVIDER_EVIDENCE_MISSING:ACCOUNT:current-account:crm-provider"]'
-provider_state="$(curl -fsS \
-  "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/state" \
-  -H 'X-Tenant-Id: tenant-integration')"
+# Provider Evidence is deliberately bound to the exact authoritative Browser State version.
+# Wait until the bounded Network Quiet publication window has closed so the attestation cannot
+# race a readiness-only state update while the provider request is in flight.
+provider_state=""
+for _ in $(seq 1 200); do
+  provider_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  if printf '%s' "$provider_state" | python3 -c \
+    'import json,sys; item=json.load(sys.stdin); raise SystemExit(0 if item["networkEvidenceFresh"] and item["networkQuietMillis"] >= 30000 else 1)' \
+    2>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$provider_state" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["networkEvidenceFresh"] is True; assert item["networkQuietMillis"] >= 30000'
 provider_context_epoch="$(printf '%s' "$provider_state" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
 provider_state_version="$(printf '%s' "$provider_state" | python3 -c \
@@ -5149,6 +5167,29 @@ notification_feed="$(curl -fsS \
   -H 'X-Roles: TENANT_VIEWER')"
 notification_head="$(printf '%s' "$notification_feed" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["unreadCount"] >= 8; assert result["lastReadSequence"] == 0; assert result["headSequence"] > 0; assert any(item["category"] == "RELEASE" and item["eventType"] == "RUNTIME_RELEASE" for item in result["items"]); assert any(item["category"] == "SECURITY" and item["eventType"] == "KEY_ROTATION" for item in result["items"]); assert all(item["read"] is False for item in result["items"]); print(result["headSequence"])')"
+notification_resume_cursor="$((notification_head - 1))"
+curl -fsS --no-buffer --max-time 8 \
+  "http://localhost:${control_port}/api/v1/notifications/event-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: notification-reader-a' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -H "Last-Event-ID: ${notification_resume_cursor}" \
+  >"$temp_dir/notification-replay.sse" &
+notification_stream_pid=$!
+for _ in $(seq 1 50); do
+  if grep -q 'event:notification-change' \
+    "$temp_dir/notification-replay.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q 'event:notification-stream-ready' "$temp_dir/notification-replay.sse"
+grep -q 'event:notification-change' "$temp_dir/notification-replay.sse"
+grep -q '"replayed":true' "$temp_dir/notification-replay.sse"
+kill "$notification_stream_pid" 2>/dev/null || true
+wait "$notification_stream_pid" 2>/dev/null || true
+notification_stream_pid=""
 notification_read_state="$(curl -fsS -X PATCH \
   "http://localhost:${control_port}/api/v1/notifications/read-cursor" \
   -H 'Content-Type: application/json' \

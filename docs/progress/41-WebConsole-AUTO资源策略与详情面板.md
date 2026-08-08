@@ -134,7 +134,8 @@
    [进度 87](87-Observer手动截图与受控证据访问闭环.md)关闭。
 7. Resource Event 已通过 PostgreSQL 持久 SSE、`Last-Event-ID` 和断线重放推送；
    Web 已移除 Resource/Safe Point/Migration 的 5 秒/30 秒轮询。State/Audit 统一事件
-   层仍未实现。
+   层后续已由[进度 84](84-Session统一事件流与轮询替换.md)关闭；工作区通知固定轮询
+   后续已由[进度 108](108-工作区通知可续传SSE闭环.md)关闭。
 8. Tauri 2 容器、平台适配器与 OS 安全存储已在后续阶段创建，AUTO 组件继续复用同一
    React/API/权限逻辑；Apple/Microsoft 签名、真实 Updater 和桌面矩阵仍是发布 Gate。
 

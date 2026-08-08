@@ -61,6 +61,7 @@ var Operations = map[string]Operation{
 	"requestTenantCoordinatorRouteMigration":     {OperationID: "requestTenantCoordinatorRouteMigration", Method: "POST", Path: "/api/v1/coordinator/tenant-route/migrations", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "RequestTenantRouteMigration", RequestRequired: true, ResponseSchema: "TenantRouteMigration"},
 	"globalSearch":                               {OperationID: "globalSearch", Method: "GET", Path: "/api/v1/search", PathParameters: nil, QueryParameters: []string{"limit", "q", "types"}, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "GlobalSearchResponse"},
 	"listWorkspaceNotifications":                 {OperationID: "listWorkspaceNotifications", Method: "GET", Path: "/api/v1/notifications", PathParameters: nil, QueryParameters: []string{"beforeSequence", "limit"}, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "WorkspaceNotificationListResponse"},
+	"streamWorkspaceNotificationChanges":         {OperationID: "streamWorkspaceNotificationChanges", Method: "GET", Path: "/api/v1/notifications/event-stream", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Last-Event-ID"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "string"},
 	"updateWorkspaceNotificationReadCursor":      {OperationID: "updateWorkspaceNotificationReadCursor", Method: "PATCH", Path: "/api/v1/notifications/read-cursor", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "UpdateNotificationReadCursorRequest", RequestRequired: true, ResponseSchema: "WorkspaceNotificationReadState"},
 	"getUserPreferences":                         {OperationID: "getUserPreferences", Method: "GET", Path: "/api/v1/user-preferences", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "UserPreferences"},
 	"updateUserPreferences":                      {OperationID: "updateUserPreferences", Method: "PUT", Path: "/api/v1/user-preferences", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "UpdateUserPreferencesRequest", RequestRequired: true, ResponseSchema: "UserPreferences"},
@@ -345,6 +346,9 @@ func (c *Client) GlobalSearch(ctx context.Context, request Request) (any, *http.
 }
 func (c *Client) ListWorkspaceNotifications(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listWorkspaceNotifications", request)
+}
+func (c *Client) StreamWorkspaceNotificationChanges(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "streamWorkspaceNotificationChanges", request)
 }
 func (c *Client) UpdateWorkspaceNotificationReadCursor(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "updateWorkspaceNotificationReadCursor", request)

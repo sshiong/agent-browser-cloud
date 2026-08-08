@@ -52,4 +52,10 @@ public final class WorkspaceNotificationModels {
 
   public record WorkspaceNotificationReadState(
       long lastReadSequence, long unreadCount, Instant updatedAt) {}
+
+  public record WorkspaceNotificationStreamControl(
+      long cursor, boolean resetRequired, Instant connectedAt) {}
+
+  public record WorkspaceNotificationStreamEvent(
+      long sequence, Instant occurredAt, boolean replayed) {}
 }

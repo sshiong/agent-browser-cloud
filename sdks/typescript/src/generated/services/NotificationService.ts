@@ -40,6 +40,32 @@ export class NotificationService {
         });
     }
     /**
+     * Stream resumable workspace notification invalidations
+     * Emits payload-free tenant-scoped changes ordered by the immutable Audit sequence. Clients resume with Last-Event-ID and refetch the authoritative notification feed; notification contents and actor read state are never copied into the stream.
+     *
+     * @returns string Resumable workspace notification Server-Sent Event stream.
+     * @throws ApiError
+     */
+    public streamWorkspaceNotificationChanges({
+        lastEventId,
+    }: {
+        lastEventId?: number,
+    }): CancelablePromise<string> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/notifications/event-stream',
+            headers: {
+                'Last-Event-ID': lastEventId,
+            },
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                429: `The bounded concurrent stream capacity has been reached.`,
+                503: `A required capacity or dependency is temporarily unavailable.`,
+            },
+        });
+    }
+    /**
      * Monotonically advance the authenticated actor's notification read cursor
      * The requested sequence must not exceed the current tenant notification head. Repeated or older cursor updates are idempotent and never make notifications unread.
      *

@@ -196,6 +196,38 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/notifications/event-stream:
+    get:
+      operationId: streamWorkspaceNotificationChanges
+      summary: Stream resumable workspace notification invalidations
+      description: >
+        Emits payload-free tenant-scoped changes ordered by the immutable Audit sequence.
+        Clients resume with Last-Event-ID and refetch the authoritative notification feed;
+        notification contents and actor read state are never copied into the stream.
+      tags: [Notification]
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: Resumable workspace notification Server-Sent Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/notifications/read-cursor:
     patch:
       operationId: updateWorkspaceNotificationReadCursor

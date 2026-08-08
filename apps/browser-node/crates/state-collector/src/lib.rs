@@ -16,6 +16,9 @@ use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
+const NETWORK_READINESS_HASH_BUCKET_MILLIS: u64 = 1_000;
+const MAX_NETWORK_QUIET_POLICY_MILLIS: u64 = 30_000;
+
 /// 交互目标。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct InteractiveTarget {
@@ -1398,6 +1401,8 @@ impl CdpStateCollector {
         let page = self.evaluate_page(&websocket_url).await?;
         let network_observation = self.browser_safety_observation(session_id).await;
         let network_quiet_millis = network_observation.network_quiet_millis();
+        let network_readiness_hash_bucket =
+            network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let serialized_targets = serde_json::to_string(&page.targets)?;
         let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
         let (state_version, target_revision) = {
@@ -1423,7 +1428,7 @@ impl CdpStateCollector {
                 serialized_targets,
                 page.truncated,
                 page.document_ready_state,
-                network_quiet_millis
+                network_readiness_hash_bucket
             )
             .as_bytes(),
         );
@@ -1514,6 +1519,19 @@ fn hex_sha256(value: &[u8]) -> String {
         .collect()
 }
 
+/// 将 Network Quiet 证据压缩为控制面恢复策略真正关心的有界语义。
+///
+/// Recovery Contract 当前允许的最大静默窗口为 30 秒，因此超过该阈值后继续增长的
+/// 原始毫秒值不应制造新的 Browser State 版本。Freshness 使用独立的 0 桶，确保
+/// Runtime 重建或 CDP 观察中断时能够立即撤销旧的就绪证据。
+fn network_readiness_hash_bucket(network_quiet_millis: u64, evidence_fresh: bool) -> u64 {
+    if !evidence_fresh {
+        return 0;
+    }
+    1 + network_quiet_millis.min(MAX_NETWORK_QUIET_POLICY_MILLIS)
+        / NETWORK_READINESS_HASH_BUCKET_MILLIS
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1521,6 +1539,17 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+
+    #[test]
+    fn network_readiness_hash_bucket_tracks_policy_thresholds_without_unbounded_churn() {
+        assert_eq!(network_readiness_hash_bucket(300_000, false), 0);
+        assert_eq!(network_readiness_hash_bucket(0, true), 1);
+        assert_eq!(network_readiness_hash_bucket(999, true), 1);
+        assert_eq!(network_readiness_hash_bucket(1_000, true), 2);
+        assert_eq!(network_readiness_hash_bucket(29_999, true), 30);
+        assert_eq!(network_readiness_hash_bucket(30_000, true), 31);
+        assert_eq!(network_readiness_hash_bucket(300_000, true), 31);
+    }
 
     #[tokio::test]
     async fn collects_page_and_interactive_targets_over_cdp() {

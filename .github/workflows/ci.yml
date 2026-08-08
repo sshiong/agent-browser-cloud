@@ -60,6 +60,9 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Build Application Adapter image
+        run: docker build -f apps/application-adapter/Dockerfile -t application-adapter:ci apps/application-adapter
+
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
         with:

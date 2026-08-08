@@ -340,7 +340,7 @@ public class SessionController {
   }
 
   @PostMapping("/{sessionId}/safety-leases")
-  @PreAuthorize(PlatformRoles.OPERATE)
+  @PreAuthorize(PlatformRoles.APPLICATION_SIGNAL)
   public ResponseEntity<SafePointModels.SafetyLeaseView> acquireSafetyLease(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
@@ -360,7 +360,7 @@ public class SessionController {
   }
 
   @PutMapping("/{sessionId}/safety-leases/{leaseId}")
-  @PreAuthorize(PlatformRoles.OPERATE)
+  @PreAuthorize(PlatformRoles.APPLICATION_SIGNAL)
   public SafePointModels.SafetyLeaseView renewSafetyLease(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
       @PathVariable @Pattern(regexp = "^sfl_[a-zA-Z0-9]{16,}$") String leaseId,
@@ -372,7 +372,7 @@ public class SessionController {
   }
 
   @PostMapping("/{sessionId}/safety-leases/{leaseId}:release")
-  @PreAuthorize(PlatformRoles.OPERATE)
+  @PreAuthorize(PlatformRoles.APPLICATION_SIGNAL)
   public SafePointModels.SafetyLeaseView releaseSafetyLease(
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
       @PathVariable @Pattern(regexp = "^sfl_[a-zA-Z0-9]{16,}$") String leaseId,

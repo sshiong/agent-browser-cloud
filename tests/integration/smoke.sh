@@ -52,6 +52,7 @@ storage_helper_pid=""
 storage_helper_b_pid=""
 storage_helper_c_pid=""
 proxy_pid=""
+business_provider_pid=""
 resource_stream_pid=""
 overview_stream_pid=""
 dual_node_safety_pid=""
@@ -95,6 +96,9 @@ cleanup() {
   if [[ -n "$storage_helper_b_pid" ]]; then kill "$storage_helper_b_pid" 2>/dev/null || true; fi
   if [[ -n "$storage_helper_c_pid" ]]; then kill "$storage_helper_c_pid" 2>/dev/null || true; fi
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
+  if [[ -n "$business_provider_pid" ]]; then
+    kill "$business_provider_pid" 2>/dev/null || true
+  fi
   if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$overview_stream_pid" ]]; then kill "$overview_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$dual_node_safety_pid" ]]; then
@@ -194,6 +198,7 @@ desktop_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); p
 desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 desktop_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+business_provider_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
 python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
   "$proxy_port" "$temp_dir/proxy-events.jsonl" \
@@ -217,6 +222,36 @@ PY
 done
 if [[ "$proxy_ready" != "true" ]]; then
   echo "Fake HTTP proxy did not become ready." >&2
+  exit 1
+fi
+
+business_provider_token="business-provider-integration-token"
+printf '%s\n' "$business_provider_token" >"$temp_dir/business-provider-token"
+printf '%s\n' 'local-control-plane-token-unused' >"$temp_dir/application-adapter-token"
+chmod 600 "$temp_dir/business-provider-token" "$temp_dir/application-adapter-token"
+python3 "$repo_root/tests/fixtures/fake-business-provider.py" \
+  "$business_provider_port" "$business_provider_token" \
+  "$temp_dir/business-provider-events.jsonl" \
+  >"$temp_dir/business-provider.log" 2>&1 &
+business_provider_pid=$!
+business_provider_ready="false"
+for _ in $(seq 1 40); do
+  if python3 - "$business_provider_port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.2):
+    pass
+PY
+  then
+    business_provider_ready="true"
+    break
+  fi
+  if ! kill -0 "$business_provider_pid" 2>/dev/null; then break; fi
+  sleep 0.1
+done
+if [[ "$business_provider_ready" != "true" ]]; then
+  echo "Fake business Provider did not become ready." >&2
   exit 1
 fi
 
@@ -2228,13 +2263,28 @@ safety_signal_summary="$(docker exec "$postgres_name" psql -U browsercloud -d br
      and context_epoch=3")"
 test "$safety_signal_summary" = "5:3:true"
 
+adapter_general_operation_status="$(curl -sS \
+  -o "$temp_dir/application-adapter-general-operation.json" -w '%{http_code}' \
+  -X PATCH "http://localhost:${control_port}/api/v1/sessions/${session_one}/resource-policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: app-adapter' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
+  -H 'Idempotency-Key: smoke-application-adapter-general-operation-001' \
+  -d '{"mode":"AUTO"}')"
+if [[ "$adapter_general_operation_status" != "403" ]]; then
+  echo "Application Adapter general operation was not denied with 403: ${adapter_general_operation_status}" >&2
+  cat "$temp_dir/application-adapter-general-operation.json" >&2
+  exit 1
+fi
+
 application_lease_body='{"signalType":"PAYMENT_OR_SECURITY","reasonCode":"CHECKOUT_COMMIT","ttlSeconds":30}'
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: app-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-acquire-001' \
   -d "$application_lease_body" >"$temp_dir/safety-lease-one.json"
 application_lease_id="$(python3 -c \
@@ -2245,7 +2295,7 @@ curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: app-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-acquire-001' \
   -d "$application_lease_body" >"$temp_dir/safety-lease-replay.json"
 replayed_application_lease_id="$(python3 -c \
@@ -2265,7 +2315,7 @@ wrong_lease_owner_status="$(curl -sS -o "$temp_dir/safety-lease-wrong-owner.json
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: different-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-wrong-owner-001' \
   -d '{"ttlSeconds":30}')"
 test "$wrong_lease_owner_status" = "404"
@@ -2275,7 +2325,7 @@ curl -fsS -X PUT \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: app-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-renew-001' \
   -d '{"ttlSeconds":30}' >"$temp_dir/safety-lease-renewed.json"
 python3 -c \
@@ -2286,7 +2336,7 @@ curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases/${application_lease_id}:release" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: app-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-release-001' \
   >"$temp_dir/safety-lease-released.json"
 python3 -c \
@@ -2327,7 +2377,7 @@ curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: form-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-live-001' \
   -d '{"signalType":"FORM_SUBMISSION","reasonCode":"SPA_FORM_SUBMIT","ttlSeconds":30}' \
   >"$temp_dir/safety-lease-live.json"
@@ -2345,7 +2395,7 @@ curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/safety-leases/${live_application_lease_id}:release" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: form-adapter' \
-  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'X-Roles: APPLICATION_ADAPTER' \
   -H 'Idempotency-Key: smoke-safety-live-release-001' \
   >/dev/null
 resource_observed_at="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')"
@@ -2527,7 +2577,7 @@ rebind_session_response="$(curl -fsS -X POST \
 rebind_session="$(printf '%s' "$rebind_session_response" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
 
-provider_expected_hash="$(python3 -c 'print("c" * 64)')"
+provider_expected_hash="$(python3 -c 'import hashlib; print(hashlib.sha256(b"account-42").hexdigest())')"
 auto_recovery_contract_body="{\"expectedVersion\":1,\"expectedOrigins\":[\"https://example.test\"],\"readyRoutePrefixes\":[\"/runtime\"],\"loginRoutePrefixes\":[\"/sign-in\"],\"requiredTargets\":[{\"role\":\"status\",\"name\":\"Recovered workspace\"}],\"loginTargets\":[{\"role\":\"textbox\",\"name\":\"Email\"}],\"permissionDeniedTargets\":[],\"accountMismatchTargets\":[],\"requiredExtensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"requiredProviderEvidence\":[{\"type\":\"ACCOUNT\",\"key\":\"current-account\",\"providerId\":\"crm-provider\",\"expectedValueHash\":\"${provider_expected_hash}\",\"maxAgeSeconds\":300}],\"allowDepthLimited\":false,\"recoveryAction\":\"RESTART_EXTENSION\",\"recoveryExtensionId\":\"jdgnleokimdbblcflcfcohbinohmmmlb\",\"maximumAutoRecovery\":1,\"enabled\":true}"
 auto_recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
@@ -2716,26 +2766,34 @@ provider_operator_status="$(curl -sS \
   -H 'Idempotency-Key: smoke-provider-evidence-forbidden-001' \
   -d "$provider_evidence_body")"
 test "$provider_operator_status" = "403"
-provider_evidence="$(curl -fsS \
-  -X POST "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'X-Actor-Id: crm-application-adapter' \
-  -H 'X-Roles: APPLICATION_ADAPTER' \
-  -H 'Idempotency-Key: smoke-provider-evidence-001' \
-  -d "$provider_evidence_body")"
+provider_evidence="$(APP_ENVIRONMENT=test python3 apps/application-adapter/application_adapter.py attest \
+  --control-plane-url "http://127.0.0.1:${control_port}" \
+  --control-plane-token-file "$temp_dir/application-adapter-token" \
+  --local-tenant-id tenant-integration \
+  --local-actor-id crm-application-adapter \
+  --provider-url "http://127.0.0.1:${business_provider_port}/api/v1/me" \
+  --provider-host 127.0.0.1 \
+  --provider-token-file "$temp_dir/business-provider-token" \
+  --session-id "$auto_recovery_session" \
+  --context-epoch "$provider_context_epoch" \
+  --state-version "$provider_state_version" \
+  --evidence-type ACCOUNT \
+  --key current-account \
+  --provider-id crm-provider \
+  --value-pointer /account/id \
+  --expected-value-hash "$provider_expected_hash" \
+  --allow-insecure-http)"
 provider_evidence_id="$(printf '%s' "$provider_evidence" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["type"] == "ACCOUNT"; assert item["outcome"] == "MATCH"; assert item["valueHashMatched"] is True; assert len(item["providerReferenceHash"]) == 64; assert "providerReference" not in item; print(item["evidenceId"])')"
-provider_evidence_replay="$(curl -fsS \
-  -X POST "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Tenant-Id: tenant-integration' \
-  -H 'X-Actor-Id: crm-application-adapter' \
-  -H 'X-Roles: APPLICATION_ADAPTER' \
-  -H 'Idempotency-Key: smoke-provider-evidence-001' \
-  -d "$provider_evidence_body")"
-test "$(printf '%s' "$provider_evidence_replay" | python3 -c \
-  'import json,sys; print(json.load(sys.stdin)["evidenceId"])')" = "$provider_evidence_id"
+  'import json,sys; item=json.load(sys.stdin); assert item["outcome"] == "MATCH"; assert item["request_id"]; print(item["evidence_id"])')"
+python3 - "$temp_dir/business-provider-events.jsonl" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as events:
+    rows = [json.loads(line) for line in events]
+assert len(rows) == 1
+assert all(row == {"path": "/api/v1/me", "authorized": True} for row in rows)
+PY
 provider_cross_tenant_status="$(curl -sS \
   -o "$temp_dir/provider-evidence-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${auto_recovery_session}/business-recovery/provider-evidence" \

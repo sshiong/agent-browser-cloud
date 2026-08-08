@@ -12,7 +12,7 @@ digest() {
 SOURCE_COMMIT="0123456789abcdef0123456789abcdef01234567"
 BUNDLE="$TEST_ROOT/bundle"
 EVIDENCE_ARGS=()
-for component in control-plane browser-node web-console operator; do
+for component in control-plane browser-node web-console operator application-adapter; do
   evidence_path="$TEST_ROOT/$component.spdx.json"
   printf '{"spdxVersion":"SPDX-2.3","name":"%s"}\n' "$component" >"$evidence_path"
   EVIDENCE_ARGS+=(--evidence "$component=$evidence_path")
@@ -25,6 +25,7 @@ python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --image "browser-node=ghcr.io/sshiong/agent-browser-cloud-browser-node@$(digest 2)" \
   --image "web-console=ghcr.io/sshiong/agent-browser-cloud-web-console@$(digest 3)" \
   --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)" \
+  --image "application-adapter=ghcr.io/sshiong/agent-browser-cloud-application-adapter@$(digest 5)" \
   "${EVIDENCE_ARGS[@]}"
 
 python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" verify --bundle "$BUNDLE"
@@ -54,6 +55,7 @@ if python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --image "browser-node=ghcr.io/sshiong/agent-browser-cloud-browser-node@$(digest 2)" \
   --image "web-console=ghcr.io/sshiong/agent-browser-cloud-web-console@$(digest 3)" \
   --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)" \
+  --image "application-adapter=ghcr.io/sshiong/agent-browser-cloud-application-adapter@$(digest 5)" \
   "${EVIDENCE_ARGS[@]}"; then
   echo "tagged production image was accepted" >&2
   exit 1

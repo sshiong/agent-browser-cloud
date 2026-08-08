@@ -716,7 +716,9 @@ paths:
       description: >
         Application adapters acquire a short owner-bound lease before file transfer,
         SPA/form submission, payment/account-security work, critical transactions or while
-        business recovery is unknown. Active leases block migration and hibernation.
+        business recovery is unknown. Active leases block migration and hibernation. The
+        APPLICATION_ADAPTER role is accepted only on acquire/renew/release signal endpoints;
+        it does not grant general Session operation authority.
       tags: [Session, Resource]
       parameters:
         - $ref: "#/components/parameters/SessionId"

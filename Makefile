@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -20,6 +20,7 @@ build:
 	./gradlew -p apps/control-plane build
 	cargo build --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console build
+	python3 -m py_compile apps/application-adapter/application_adapter.py
 
 # Build the shared Web UI and native desktop binary without producing unsigned installers.
 build-desktop:
@@ -30,6 +31,11 @@ test:
 	./gradlew -p apps/control-plane test
 	cargo test --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console test
+	$(MAKE) test-application-adapter
+
+# Verify the dependency-free, least-privilege Provider/Lease integration runtime.
+test-application-adapter:
+	python3 -m unittest discover -s apps/application-adapter -p 'test_*.py' -v
 
 # Run native desktop security-boundary unit tests.
 test-desktop:
@@ -117,6 +123,7 @@ docker-build:
 	docker build -f apps/control-plane/Dockerfile -t control-plane:latest .
 	docker build -f apps/browser-node/Dockerfile -t browser-node:latest .
 	docker build -f apps/web-console/Dockerfile -t web-console:latest .
+	docker build -f apps/application-adapter/Dockerfile -t application-adapter:latest apps/application-adapter
 
 # Validate production release bundle invariants
 supply-chain-check:

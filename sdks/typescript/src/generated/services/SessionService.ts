@@ -574,7 +574,7 @@ export class SessionService {
     }
     /**
      * Acquire an application business-activity Safe Point lease
-     * Application adapters acquire a short owner-bound lease before file transfer, SPA/form submission, payment/account-security work, critical transactions or while business recovery is unknown. Active leases block migration and hibernation.
+     * Application adapters acquire a short owner-bound lease before file transfer, SPA/form submission, payment/account-security work, critical transactions or while business recovery is unknown. Active leases block migration and hibernation. The APPLICATION_ADAPTER role is accepted only on acquire/renew/release signal endpoints; it does not grant general Session operation authority.
      *
      * @returns SafetyLease Lease acquired or an idempotent acquisition replayed.
      * @throws ApiError

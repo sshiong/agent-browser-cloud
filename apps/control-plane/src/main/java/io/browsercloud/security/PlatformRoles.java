@@ -7,6 +7,8 @@ public final class PlatformRoles {
       "hasAnyRole('TENANT_VIEWER','TENANT_OPERATOR','TENANT_ADMIN','SECURITY_ADMIN','PLATFORM_ADMIN')";
   public static final String OPERATE =
       "hasAnyRole('TENANT_OPERATOR','TENANT_ADMIN','SECURITY_ADMIN','PLATFORM_ADMIN')";
+  public static final String APPLICATION_SIGNAL =
+      "hasAnyRole('APPLICATION_ADAPTER','TENANT_OPERATOR','TENANT_ADMIN','SECURITY_ADMIN','PLATFORM_ADMIN')";
   public static final String ADMIN = "hasAnyRole('TENANT_ADMIN','SECURITY_ADMIN','PLATFORM_ADMIN')";
   public static final String APPLICATION_ADAPTER =
       "hasAnyRole('APPLICATION_ADAPTER','PLATFORM_ADMIN')";

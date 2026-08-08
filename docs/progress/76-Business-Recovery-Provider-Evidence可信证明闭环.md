@@ -2,7 +2,7 @@
 
 > 完成日期：2026-07-30
 > 状态：正式契约、独立信任边界、PostgreSQL 不可变证据、迁移 Ready Gate、只读 Web
-> 账本和真实端到端验收已完成
+> 账本和真实端到端验收已完成；通用 Application Adapter/Lease SDK 后续由进度 106 关闭
 
 ## 本轮关闭的缺口
 
@@ -122,7 +122,9 @@ make test-e2e
 本轮完成的是平台协议与信任 Gate，不是某个客户业务系统的 Provider 实现。Phase 3
 仍需：
 
-- 为支付、账号安全、SPA/Form 和关键事务接入实际 Lease Adapter/SDK；
+- 通用 Lease Adapter/SDK 已由
+  [进度 106](106-Application-Adapter真实Provider与业务Lease-SDK闭环.md)关闭；仍需在
+  客户支付、账号安全、SPA/Form 和关键事务开始/结束位置实际接入；
 - 配置真实 CRM、支付或 IAM Provider 凭据，并由目标 Adapter 调用其正式 API 后提交
   Evidence；
 - 两个真实 Browser Node、目标 Region、网络分区、Provider 故障和长期稳定性证书；

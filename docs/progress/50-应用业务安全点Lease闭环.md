@@ -2,7 +2,8 @@
 
 > 日期：2026-07-28
 > 状态：通用持久 Lease、Safe Point、SSE、迁移并发屏障、声明式业务恢复规则和有界
-> 低风险动作和受信 Extension 重启已完成；目标业务 Adapter 与 Provider 级证明仍待接入
+> 低风险动作和受信 Extension 重启已完成；通用 Application Adapter/Lease SDK 后续已由
+> 进度 106 关闭，客户业务埋点和正式 Provider 凭据仍待接入
 
 ## 为什么需要 Lease
 
@@ -102,12 +103,14 @@ POST /api/v1/sessions/{id}/safety-leases/{leaseId}:release
 
 ## 仍未完成
 
-1. 各 Tenant/Application 的支付、账号安全、SPA 和关键事务 Adapter/SDK 包装；本轮完成
-   的是通用 Producer 协议，不会自动理解任意网页业务语义。
+1. 通用最小权限 Adapter/Lease SDK 已由
+   [进度 106](106-Application-Adapter真实Provider与业务Lease-SDK闭环.md)关闭；仍需各
+   Tenant/Application 在支付、账号安全、SPA 和关键事务开始/结束位置实际接入，平台
+   不会自动理解任意网页业务语义。
 2. Application-aware Business Recovery 的版本化契约、受限规则 DSL、持久 Verdict、
    迁移 Ready Gate 和有界低风险动作已完成，进度 62 已完成契约作者 UI；仍缺各站点
-   Adapter、契约审批/审计和 Provider/API 级账号/权限/业务实体证明。受信 Extension
-   重启已在进度 61 关闭。
+   客户正式 Provider/API 凭据和站点字段/事务映射。契约审批/审计、Provider Evidence
+   协议和通用 Adapter 已由进度 73—76、106 关闭；受信 Extension 重启已在进度 61 关闭。
    详见[Business Recovery 有界自动动作闭环](56-Business-Recovery有界自动动作闭环.md)。
 3. 两个真实 Browser Node + S3-compatible Object Storage 的迁移并发压力、网络分区、
    Node 故障和长期稳定性证书。

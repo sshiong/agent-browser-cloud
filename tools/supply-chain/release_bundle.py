@@ -12,12 +12,13 @@ import sys
 from pathlib import Path
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 COMPONENTS = {
     "control-plane": "ghcr.io/sshiong/agent-browser-cloud-control-plane",
     "browser-node": "ghcr.io/sshiong/agent-browser-cloud-browser-node",
     "web-console": "ghcr.io/sshiong/agent-browser-cloud-web-console",
     "operator": "ghcr.io/sshiong/agent-browser-cloud-operator",
+    "application-adapter": "ghcr.io/sshiong/agent-browser-cloud-application-adapter",
 }
 REFERENCE_PATTERN = re.compile(
     r"^(?P<repository>[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+)"

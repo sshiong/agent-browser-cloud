@@ -254,7 +254,14 @@ while ((SECONDS < deadline)); do
     get lease browser-session-operator -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || true)"
   phase="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
     get pod "${candidate}" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
-  if [[ -n "${candidate}" && "${phase}" == "Running" ]]; then
+  ready="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    get pod "${candidate}" -o jsonpath='{.status.containerStatuses[0].ready}' \
+    2>/dev/null || true)"
+  image="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    get pod "${candidate}" -o jsonpath='{.spec.containers[0].image}' \
+    2>/dev/null || true)"
+  if [[ -n "${candidate}" && "${phase}" == "Running" && "${ready}" == "true" \
+    && "${image}" == "${OPERATOR_IMAGE}" ]]; then
     metrics_leader="${candidate}"
     break
   fi
@@ -265,12 +272,19 @@ test -n "${metrics_leader}"
   port-forward "pod/${metrics_leader}" 18081:8080 \
   >/tmp/agentbrowser-kind-operator-metrics-port-forward.log 2>&1 &
 PORT_FORWARD_PID=$!
+metrics_health_ready=false
 for _ in {1..30}; do
   if curl --fail --silent http://127.0.0.1:18081/healthz >/dev/null; then
+    metrics_health_ready=true
+    break
+  fi
+  if ! kill -0 "${PORT_FORWARD_PID}" >/dev/null 2>&1; then
+    cat /tmp/agentbrowser-kind-operator-metrics-port-forward.log >&2
     break
   fi
   sleep 1
 done
+test "${metrics_health_ready}" = true
 curl --fail --silent http://127.0.0.1:18081/healthz | grep -qx ok
 metrics=""
 for _ in {1..30}; do

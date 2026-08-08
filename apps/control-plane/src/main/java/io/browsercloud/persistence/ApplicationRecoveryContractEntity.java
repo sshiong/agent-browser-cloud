@@ -59,6 +59,16 @@ public class ApplicationRecoveryContractEntity {
   @Column(name = "required_provider_evidence", nullable = false, columnDefinition = "jsonb")
   private String requiredProviderEvidence;
 
+  @Column(name = "require_document_complete", nullable = false)
+  private boolean requireDocumentComplete;
+
+  @Column(name = "minimum_network_quiet_millis", nullable = false)
+  private int minimumNetworkQuietMillis;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "transient_blocker_targets", nullable = false, columnDefinition = "jsonb")
+  private String transientBlockerTargets;
+
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
@@ -141,6 +151,52 @@ public class ApplicationRecoveryContractEntity {
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
+    this(
+        contractId,
+        tenantId,
+        applicationId,
+        expectedOrigins,
+        readyRoutePrefixes,
+        loginRoutePrefixes,
+        requiredTargets,
+        loginTargets,
+        permissionDeniedTargets,
+        accountMismatchTargets,
+        requiredExtensionIds,
+        requiredProviderEvidence,
+        false,
+        0,
+        "[]",
+        allowDepthLimited,
+        recoveryAction,
+        recoveryExtensionId,
+        maximumAutoRecovery,
+        enabled,
+        now);
+  }
+
+  public ApplicationRecoveryContractEntity(
+      String contractId,
+      String tenantId,
+      String applicationId,
+      String expectedOrigins,
+      String readyRoutePrefixes,
+      String loginRoutePrefixes,
+      String requiredTargets,
+      String loginTargets,
+      String permissionDeniedTargets,
+      String accountMismatchTargets,
+      String requiredExtensionIds,
+      String requiredProviderEvidence,
+      boolean requireDocumentComplete,
+      int minimumNetworkQuietMillis,
+      String transientBlockerTargets,
+      boolean allowDepthLimited,
+      String recoveryAction,
+      String recoveryExtensionId,
+      int maximumAutoRecovery,
+      boolean enabled,
+      Instant now) {
     this.contractId = contractId;
     this.tenantId = tenantId;
     this.applicationId = applicationId;
@@ -155,6 +211,9 @@ public class ApplicationRecoveryContractEntity {
         accountMismatchTargets,
         requiredExtensionIds,
         requiredProviderEvidence,
+        requireDocumentComplete,
+        minimumNetworkQuietMillis,
+        transientBlockerTargets,
         allowDepthLimited,
         recoveryAction,
         recoveryExtensionId,
@@ -180,6 +239,46 @@ public class ApplicationRecoveryContractEntity {
       int maximumAutoRecovery,
       boolean enabled,
       Instant now) {
+    update(
+        expectedOrigins,
+        readyRoutePrefixes,
+        loginRoutePrefixes,
+        requiredTargets,
+        loginTargets,
+        permissionDeniedTargets,
+        accountMismatchTargets,
+        requiredExtensionIds,
+        requiredProviderEvidence,
+        false,
+        0,
+        "[]",
+        allowDepthLimited,
+        recoveryAction,
+        recoveryExtensionId,
+        maximumAutoRecovery,
+        enabled,
+        now);
+  }
+
+  public void update(
+      String expectedOrigins,
+      String readyRoutePrefixes,
+      String loginRoutePrefixes,
+      String requiredTargets,
+      String loginTargets,
+      String permissionDeniedTargets,
+      String accountMismatchTargets,
+      String requiredExtensionIds,
+      String requiredProviderEvidence,
+      boolean requireDocumentComplete,
+      int minimumNetworkQuietMillis,
+      String transientBlockerTargets,
+      boolean allowDepthLimited,
+      String recoveryAction,
+      String recoveryExtensionId,
+      int maximumAutoRecovery,
+      boolean enabled,
+      Instant now) {
     apply(
         expectedOrigins,
         readyRoutePrefixes,
@@ -190,6 +289,9 @@ public class ApplicationRecoveryContractEntity {
         accountMismatchTargets,
         requiredExtensionIds,
         requiredProviderEvidence,
+        requireDocumentComplete,
+        minimumNetworkQuietMillis,
+        transientBlockerTargets,
         allowDepthLimited,
         recoveryAction,
         recoveryExtensionId,
@@ -242,6 +344,9 @@ public class ApplicationRecoveryContractEntity {
       String accountMismatchTargets,
       String requiredExtensionIds,
       String requiredProviderEvidence,
+      boolean requireDocumentComplete,
+      int minimumNetworkQuietMillis,
+      String transientBlockerTargets,
       boolean allowDepthLimited,
       String recoveryAction,
       String recoveryExtensionId,
@@ -257,6 +362,9 @@ public class ApplicationRecoveryContractEntity {
     this.accountMismatchTargets = accountMismatchTargets;
     this.requiredExtensionIds = requiredExtensionIds;
     this.requiredProviderEvidence = requiredProviderEvidence;
+    this.requireDocumentComplete = requireDocumentComplete;
+    this.minimumNetworkQuietMillis = minimumNetworkQuietMillis;
+    this.transientBlockerTargets = transientBlockerTargets;
     this.allowDepthLimited = allowDepthLimited;
     this.recoveryAction = recoveryAction;
     this.recoveryExtensionId = recoveryExtensionId;
@@ -315,6 +423,18 @@ public class ApplicationRecoveryContractEntity {
 
   public String getRequiredProviderEvidence() {
     return requiredProviderEvidence;
+  }
+
+  public boolean isRequireDocumentComplete() {
+    return requireDocumentComplete;
+  }
+
+  public int getMinimumNetworkQuietMillis() {
+    return minimumNetworkQuietMillis;
+  }
+
+  public String getTransientBlockerTargets() {
+    return transientBlockerTargets;
   }
 
   public boolean isAllowDepthLimited() {

@@ -324,6 +324,8 @@ public class NodeEventMapper {
           payload.getRemovedTargetRefsList().forEach(value -> requireText(value, "target_ref"));
           var upsertedTargets =
               payload.getUpsertedTargetsList().stream().map(this::target).toList();
+          validateReadinessEvidence(
+              payload.getDocumentReadyState(), payload.getNetworkQuietMillis());
           yield new NodeEvent.StateDiff(
               payload.getSessionId(),
               payload.getBaseStateVersion(),
@@ -333,6 +335,9 @@ public class NodeEventMapper {
               payload.getTitle(),
               payload.getContentHash(),
               payload.getStateQuality(),
+              payload.getDocumentReadyState(),
+              payload.getNetworkQuietMillis(),
+              payload.getNetworkEvidenceFresh(),
               upsertedTargets,
               payload.getRemovedTargetRefsList());
         }
@@ -531,6 +536,7 @@ public class NodeEventMapper {
       throw new IllegalArgumentException("Browser State target count exceeds 500");
     }
     var targets = payload.getTargetsList().stream().map(this::target).toList();
+    validateReadinessEvidence(payload.getDocumentReadyState(), payload.getNetworkQuietMillis());
     return new NodeEvent.StateUpdated(
         payload.getSessionId(),
         payload.getStateVersion(),
@@ -540,8 +546,21 @@ public class NodeEventMapper {
         payload.getContentHash(),
         payload.getStateQuality(),
         targets,
+        payload.getDocumentReadyState(),
+        payload.getNetworkQuietMillis(),
+        payload.getNetworkEvidenceFresh(),
         payload.getSnapshotKind(),
         payload.getRequestedRootRef());
+  }
+
+  private void validateReadinessEvidence(String documentReadyState, long networkQuietMillis) {
+    if (!documentReadyState.isBlank()
+        && !java.util.Set.of("loading", "interactive", "complete").contains(documentReadyState)) {
+      throw new IllegalArgumentException("unsupported document_ready_state");
+    }
+    if (networkQuietMillis < 0 || networkQuietMillis > 300_000) {
+      throw new IllegalArgumentException("network_quiet_millis is outside the bounded range");
+    }
   }
 
   private void validateStateMetadata(

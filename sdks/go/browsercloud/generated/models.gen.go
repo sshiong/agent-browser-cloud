@@ -790,15 +790,18 @@ type BrowserPlacement struct {
 }
 
 type BrowserState struct {
-	SessionId      string              `json:"sessionId,omitempty"`
-	ContextEpoch   int64               `json:"contextEpoch,omitempty"`
-	StateVersion   int64               `json:"stateVersion,omitempty"`
-	TargetRevision int64               `json:"targetRevision,omitempty"`
-	Url            string              `json:"url,omitempty"`
-	Title          string              `json:"title,omitempty"`
-	StateHash      string              `json:"stateHash,omitempty"`
-	StateQuality   string              `json:"stateQuality,omitempty"`
-	Targets        []InteractiveTarget `json:"targets,omitempty"`
+	SessionId            string              `json:"sessionId,omitempty"`
+	ContextEpoch         int64               `json:"contextEpoch,omitempty"`
+	StateVersion         int64               `json:"stateVersion,omitempty"`
+	TargetRevision       int64               `json:"targetRevision,omitempty"`
+	Url                  string              `json:"url,omitempty"`
+	Title                string              `json:"title,omitempty"`
+	StateHash            string              `json:"stateHash,omitempty"`
+	StateQuality         string              `json:"stateQuality,omitempty"`
+	DocumentReadyState   string              `json:"documentReadyState,omitempty"`
+	NetworkQuietMillis   int64               `json:"networkQuietMillis,omitempty"`
+	NetworkEvidenceFresh bool                `json:"networkEvidenceFresh,omitempty"`
+	Targets              []InteractiveTarget `json:"targets,omitempty"`
 }
 
 type StateResyncRequest struct {
@@ -843,49 +846,55 @@ type ProviderEvidenceRequirement struct {
 }
 
 type UpsertRecoveryContractRequest struct {
-	ExpectedVersion          int64                         `json:"expectedVersion,omitempty"`
-	ExpectedOrigins          []string                      `json:"expectedOrigins,omitempty"`
-	ReadyRoutePrefixes       []string                      `json:"readyRoutePrefixes,omitempty"`
-	LoginRoutePrefixes       []string                      `json:"loginRoutePrefixes,omitempty"`
-	RequiredTargets          []RecoveryTargetIndicator     `json:"requiredTargets,omitempty"`
-	LoginTargets             []RecoveryTargetIndicator     `json:"loginTargets,omitempty"`
-	PermissionDeniedTargets  []RecoveryTargetIndicator     `json:"permissionDeniedTargets,omitempty"`
-	AccountMismatchTargets   []RecoveryTargetIndicator     `json:"accountMismatchTargets,omitempty"`
-	RequiredExtensionIds     []string                      `json:"requiredExtensionIds,omitempty"`
-	RequiredProviderEvidence []ProviderEvidenceRequirement `json:"requiredProviderEvidence,omitempty"`
-	AllowDepthLimited        bool                          `json:"allowDepthLimited,omitempty"`
-	RecoveryAction           string                        `json:"recoveryAction,omitempty"`
-	RecoveryExtensionId      any                           `json:"recoveryExtensionId,omitempty"`
-	MaximumAutoRecovery      int                           `json:"maximumAutoRecovery,omitempty"`
-	Enabled                  bool                          `json:"enabled,omitempty"`
+	ExpectedVersion           int64                         `json:"expectedVersion,omitempty"`
+	ExpectedOrigins           []string                      `json:"expectedOrigins,omitempty"`
+	ReadyRoutePrefixes        []string                      `json:"readyRoutePrefixes,omitempty"`
+	LoginRoutePrefixes        []string                      `json:"loginRoutePrefixes,omitempty"`
+	RequiredTargets           []RecoveryTargetIndicator     `json:"requiredTargets,omitempty"`
+	LoginTargets              []RecoveryTargetIndicator     `json:"loginTargets,omitempty"`
+	PermissionDeniedTargets   []RecoveryTargetIndicator     `json:"permissionDeniedTargets,omitempty"`
+	AccountMismatchTargets    []RecoveryTargetIndicator     `json:"accountMismatchTargets,omitempty"`
+	RequiredExtensionIds      []string                      `json:"requiredExtensionIds,omitempty"`
+	RequiredProviderEvidence  []ProviderEvidenceRequirement `json:"requiredProviderEvidence,omitempty"`
+	RequireDocumentComplete   bool                          `json:"requireDocumentComplete,omitempty"`
+	MinimumNetworkQuietMillis int                           `json:"minimumNetworkQuietMillis,omitempty"`
+	TransientBlockerTargets   []RecoveryTargetIndicator     `json:"transientBlockerTargets,omitempty"`
+	AllowDepthLimited         bool                          `json:"allowDepthLimited,omitempty"`
+	RecoveryAction            string                        `json:"recoveryAction,omitempty"`
+	RecoveryExtensionId       any                           `json:"recoveryExtensionId,omitempty"`
+	MaximumAutoRecovery       int                           `json:"maximumAutoRecovery,omitempty"`
+	Enabled                   bool                          `json:"enabled,omitempty"`
 }
 
 type RecoveryContract struct {
-	ContractId               string                        `json:"contractId,omitempty"`
-	ApplicationId            string                        `json:"applicationId,omitempty"`
-	Version                  int64                         `json:"version,omitempty"`
-	ExpectedOrigins          []string                      `json:"expectedOrigins,omitempty"`
-	ReadyRoutePrefixes       []string                      `json:"readyRoutePrefixes,omitempty"`
-	LoginRoutePrefixes       []string                      `json:"loginRoutePrefixes,omitempty"`
-	RequiredTargets          []RecoveryTargetIndicator     `json:"requiredTargets,omitempty"`
-	LoginTargets             []RecoveryTargetIndicator     `json:"loginTargets,omitempty"`
-	PermissionDeniedTargets  []RecoveryTargetIndicator     `json:"permissionDeniedTargets,omitempty"`
-	AccountMismatchTargets   []RecoveryTargetIndicator     `json:"accountMismatchTargets,omitempty"`
-	RequiredExtensionIds     []string                      `json:"requiredExtensionIds,omitempty"`
-	RequiredProviderEvidence []ProviderEvidenceRequirement `json:"requiredProviderEvidence,omitempty"`
-	AllowDepthLimited        bool                          `json:"allowDepthLimited,omitempty"`
-	RecoveryAction           string                        `json:"recoveryAction,omitempty"`
-	RecoveryExtensionId      any                           `json:"recoveryExtensionId,omitempty"`
-	MaximumAutoRecovery      int                           `json:"maximumAutoRecovery,omitempty"`
-	Enabled                  bool                          `json:"enabled,omitempty"`
-	ApprovalState            string                        `json:"approvalState,omitempty"`
-	ApprovalId               any                           `json:"approvalId,omitempty"`
-	ApprovalRequestedBy      any                           `json:"approvalRequestedBy,omitempty"`
-	ApprovedBy               any                           `json:"approvedBy,omitempty"`
-	ApprovalRequestedAt      any                           `json:"approvalRequestedAt,omitempty"`
-	ApprovalDecidedAt        any                           `json:"approvalDecidedAt,omitempty"`
-	CreatedAt                string                        `json:"createdAt,omitempty"`
-	UpdatedAt                string                        `json:"updatedAt,omitempty"`
+	ContractId                string                        `json:"contractId,omitempty"`
+	ApplicationId             string                        `json:"applicationId,omitempty"`
+	Version                   int64                         `json:"version,omitempty"`
+	ExpectedOrigins           []string                      `json:"expectedOrigins,omitempty"`
+	ReadyRoutePrefixes        []string                      `json:"readyRoutePrefixes,omitempty"`
+	LoginRoutePrefixes        []string                      `json:"loginRoutePrefixes,omitempty"`
+	RequiredTargets           []RecoveryTargetIndicator     `json:"requiredTargets,omitempty"`
+	LoginTargets              []RecoveryTargetIndicator     `json:"loginTargets,omitempty"`
+	PermissionDeniedTargets   []RecoveryTargetIndicator     `json:"permissionDeniedTargets,omitempty"`
+	AccountMismatchTargets    []RecoveryTargetIndicator     `json:"accountMismatchTargets,omitempty"`
+	RequiredExtensionIds      []string                      `json:"requiredExtensionIds,omitempty"`
+	RequiredProviderEvidence  []ProviderEvidenceRequirement `json:"requiredProviderEvidence,omitempty"`
+	RequireDocumentComplete   bool                          `json:"requireDocumentComplete,omitempty"`
+	MinimumNetworkQuietMillis int                           `json:"minimumNetworkQuietMillis,omitempty"`
+	TransientBlockerTargets   []RecoveryTargetIndicator     `json:"transientBlockerTargets,omitempty"`
+	AllowDepthLimited         bool                          `json:"allowDepthLimited,omitempty"`
+	RecoveryAction            string                        `json:"recoveryAction,omitempty"`
+	RecoveryExtensionId       any                           `json:"recoveryExtensionId,omitempty"`
+	MaximumAutoRecovery       int                           `json:"maximumAutoRecovery,omitempty"`
+	Enabled                   bool                          `json:"enabled,omitempty"`
+	ApprovalState             string                        `json:"approvalState,omitempty"`
+	ApprovalId                any                           `json:"approvalId,omitempty"`
+	ApprovalRequestedBy       any                           `json:"approvalRequestedBy,omitempty"`
+	ApprovedBy                any                           `json:"approvedBy,omitempty"`
+	ApprovalRequestedAt       any                           `json:"approvalRequestedAt,omitempty"`
+	ApprovalDecidedAt         any                           `json:"approvalDecidedAt,omitempty"`
+	CreatedAt                 string                        `json:"createdAt,omitempty"`
+	UpdatedAt                 string                        `json:"updatedAt,omitempty"`
 }
 
 type RecoveryContractListResponse struct {

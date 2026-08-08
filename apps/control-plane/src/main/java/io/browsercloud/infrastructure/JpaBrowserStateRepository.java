@@ -51,7 +51,12 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.title(),
             diff.stateHash(),
             diff.stateQuality(),
-            targets.values().stream().toList());
+            targets.values().stream().toList(),
+            diff.documentReadyState(),
+            diff.networkQuietMillis(),
+            diff.networkEvidenceFresh(),
+            "",
+            "");
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
     entity.setUpdatedAt(Instant.now());
@@ -78,7 +83,12 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.title(),
                       previous.stateHash(),
                       "INVALID",
-                      previous.targets());
+                      previous.targets(),
+                      previous.documentReadyState(),
+                      previous.networkQuietMillis(),
+                      false,
+                      previous.snapshotKind(),
+                      previous.requestedRootRef());
               entity.setStateVersion(invalid.stateVersion());
               entity.setStateJson(write(invalid));
               entity.setUpdatedAt(Instant.now());
@@ -104,7 +114,12 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.title(),
                       previous.stateHash(),
                       "RESYNCING",
-                      previous.targets());
+                      previous.targets(),
+                      previous.documentReadyState(),
+                      previous.networkQuietMillis(),
+                      false,
+                      previous.snapshotKind(),
+                      previous.requestedRootRef());
               entity.setStateJson(write(resyncing));
               entity.setUpdatedAt(Instant.now());
               repository.save(entity);

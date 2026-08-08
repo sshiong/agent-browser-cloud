@@ -97,6 +97,9 @@ const formSchema = z
     accountMismatchTargets: z.array(targetSchema).max(32),
     requiredExtensionIds: z.string(),
     requiredProviderEvidence: z.string(),
+    requireDocumentComplete: z.boolean(),
+    minimumNetworkQuietMillis: z.number().int().min(0).max(30_000),
+    transientBlockerTargets: z.array(targetSchema).max(32),
     allowDepthLimited: z.boolean(),
     recoveryAction: z.enum([
       'NONE',
@@ -506,7 +509,8 @@ function ContractEditor({
       | 'requiredTargets'
       | 'loginTargets'
       | 'permissionDeniedTargets'
-      | 'accountMismatchTargets',
+      | 'accountMismatchTargets'
+      | 'transientBlockerTargets',
     targets: RecoveryTargetIndicator[]
   ) => setValue(field, targets, { shouldDirty: true, shouldValidate: true });
 
@@ -824,6 +828,76 @@ function ContractEditor({
                 setTargets('accountMismatchTargets', targets)
               }
             />
+            <TargetListEditor
+              title="瞬态阻断目标"
+              targets={values.transientBlockerTargets}
+              onChange={(targets) =>
+                setTargets('transientBlockerTargets', targets)
+              }
+            />
+          </div>
+        </section>
+
+        <section className="border border-border-subtle bg-surface-2">
+          <div className="flex flex-col gap-2 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-[11px] font-semibold text-text-primary">
+                Browser Readiness Evidence
+              </h3>
+              <p className="mt-1 max-w-2xl text-[9px] leading-4 text-text-muted">
+                使用 Browser Node 持续采集的 document.readyState 与 CDP Network
+                活动；监听断开或存在进行中请求时，网络证据按不可用处理。
+              </p>
+            </div>
+            <span className="font-mono text-[9px] text-accent">
+              FAIL CLOSED
+            </span>
+          </div>
+          <div className="grid gap-4 p-4 lg:grid-cols-2">
+            <ToggleField
+              label="Require Document Complete"
+              detail="仅在 document.readyState = complete 时放行"
+              checked={values.requireDocumentComplete}
+              onChange={(checked) =>
+                setValue('requireDocumentComplete', checked, {
+                  shouldDirty: true,
+                })
+              }
+            />
+            <Field
+              label="Minimum Network Quiet"
+              hint="0 关闭；范围 0—30000 ms。"
+              error={errors.minimumNetworkQuietMillis?.message}
+            >
+              <div className="relative">
+                <input
+                  {...register('minimumNetworkQuietMillis', {
+                    valueAsNumber: true,
+                  })}
+                  type="number"
+                  min={0}
+                  max={30_000}
+                  step={100}
+                  className="field-input font-mono"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-[9px] text-text-muted">
+                  MS
+                </span>
+              </div>
+            </Field>
+            <p className="text-[9px] leading-4 text-text-muted lg:col-span-2">
+              瞬态阻断请在上方配置精确 Role + Accessible Name，例如
+              <span className="font-mono text-text-secondary">
+                {' '}
+                dialog / Confirm payment{' '}
+              </span>
+              或
+              <span className="font-mono text-text-secondary">
+                {' '}
+                alert / Upload failed
+              </span>
+              。 命中后返回 STATE_CHANGED，不把 Toast 消失前的页面误判为 Ready。
+            </p>
           </div>
         </section>
 

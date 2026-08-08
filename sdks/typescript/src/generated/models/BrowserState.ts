@@ -12,5 +12,17 @@ export type BrowserState = {
     title: string;
     stateHash: string;
     stateQuality: 'COMPLETE' | 'DEPTH_LIMITED' | 'RESYNCING' | 'DEGRADED' | 'INVALID';
+    /**
+     * Browser document.readyState; empty only for legacy or unavailable evidence.
+     */
+    documentReadyState: 'loading' | 'interactive' | 'complete' | '';
+    /**
+     * Continuously observed quiet time; zero while requests are active or evidence is unavailable.
+     */
+    networkQuietMillis: number;
+    /**
+     * True only while the Browser-level and Page Network observers remain authoritative.
+     */
+    networkEvidenceFresh: boolean;
     targets: Array<InteractiveTarget>;
 };

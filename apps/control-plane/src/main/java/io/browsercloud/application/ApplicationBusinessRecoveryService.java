@@ -119,6 +119,9 @@ public class ApplicationBusinessRecoveryService {
               write(normalized.accountMismatchTargets()),
               write(normalized.requiredExtensionIds()),
               write(normalized.requiredProviderEvidence()),
+              normalized.requireDocumentComplete(),
+              normalized.minimumNetworkQuietMillis(),
+              write(normalized.transientBlockerTargets()),
               normalized.allowDepthLimited(),
               normalized.recoveryAction().name(),
               normalized.recoveryExtensionId(),
@@ -147,6 +150,9 @@ public class ApplicationBusinessRecoveryService {
         write(normalized.accountMismatchTargets()),
         write(normalized.requiredExtensionIds()),
         write(normalized.requiredProviderEvidence()),
+        normalized.requireDocumentComplete(),
+        normalized.minimumNetworkQuietMillis(),
+        write(normalized.transientBlockerTargets()),
         normalized.allowDepthLimited(),
         normalized.recoveryAction().name(),
         normalized.recoveryExtensionId(),
@@ -294,6 +300,9 @@ public class ApplicationBusinessRecoveryService {
         source.getAccountMismatchTargets(),
         source.getRequiredExtensionIds(),
         source.getRequiredProviderEvidence(),
+        source.isRequireDocumentComplete(),
+        source.getMinimumNetworkQuietMillis(),
+        source.getTransientBlockerTargets(),
         source.isAllowDepthLimited(),
         source.getRecoveryAction(),
         source.getRecoveryExtensionId(),
@@ -932,6 +941,37 @@ public class ApplicationBusinessRecoveryService {
     if (matchesAnyTarget(state.targets(), readTargets(contract.getAccountMismatchTargets()))) {
       return rejected(Verdict.ACCOUNT_MISMATCH, "ACCOUNT_INDICATOR_MATCHED");
     }
+    if (contract.isRequireDocumentComplete() && !"complete".equals(state.documentReadyState())) {
+      return rejected(
+          Verdict.STATE_CHANGED,
+          "DOCUMENT_NOT_COMPLETE:"
+              + (state.documentReadyState() == null || state.documentReadyState().isBlank()
+                  ? "UNKNOWN"
+                  : state.documentReadyState().toUpperCase(Locale.ROOT)));
+    }
+    if (contract.getMinimumNetworkQuietMillis() > 0) {
+      if (!state.networkEvidenceFresh()) {
+        return rejected(Verdict.MANUAL_RECOVERY_REQUIRED, "NETWORK_EVIDENCE_UNAVAILABLE");
+      }
+      if (state.networkQuietMillis() < contract.getMinimumNetworkQuietMillis()) {
+        return rejected(
+            Verdict.STATE_CHANGED,
+            "NETWORK_NOT_QUIET:"
+                + state.networkQuietMillis()
+                + "/"
+                + contract.getMinimumNetworkQuietMillis());
+      }
+    }
+    var transientBlocker =
+        readTargets(contract.getTransientBlockerTargets()).stream()
+            .filter(indicator -> matchesTarget(state.targets(), indicator))
+            .findFirst();
+    if (transientBlocker.isPresent()) {
+      var indicator = transientBlocker.orElseThrow();
+      return rejected(
+          Verdict.STATE_CHANGED,
+          "TRANSIENT_BLOCKER_MATCHED:" + indicator.role() + ":" + indicator.name());
+    }
     var readyRoutes = readStrings(contract.getReadyRoutePrefixes());
     if (!readyRoutes.isEmpty() && !matchesPrefix(path, readyRoutes)) {
       return rejected(Verdict.STATE_CHANGED, "EXPECTED_ROUTE_MISMATCH");
@@ -1077,6 +1117,9 @@ public class ApplicationBusinessRecoveryService {
         targetList(request.accountMismatchTargets()),
         requiredExtensionIds,
         providerRequirementList(request.requiredProviderEvidence()),
+        request.requireDocumentComplete(),
+        request.minimumNetworkQuietMillis(),
+        targetList(request.transientBlockerTargets()),
         request.allowDepthLimited(),
         recoveryAction,
         recoveryExtensionId,
@@ -1096,6 +1139,9 @@ public class ApplicationBusinessRecoveryService {
         && readStrings(entity.getRequiredExtensionIds()).equals(value.requiredExtensionIds())
         && readProviderRequirements(entity.getRequiredProviderEvidence())
             .equals(value.requiredProviderEvidence())
+        && entity.isRequireDocumentComplete() == value.requireDocumentComplete()
+        && entity.getMinimumNetworkQuietMillis() == value.minimumNetworkQuietMillis()
+        && readTargets(entity.getTransientBlockerTargets()).equals(value.transientBlockerTargets())
         && entity.isAllowDepthLimited() == value.allowDepthLimited()
         && entity.getRecoveryAction().equals(value.recoveryAction().name())
         && java.util.Objects.equals(entity.getRecoveryExtensionId(), value.recoveryExtensionId())
@@ -1120,6 +1166,9 @@ public class ApplicationBusinessRecoveryService {
         readTargets(entity.getAccountMismatchTargets()),
         readStrings(entity.getRequiredExtensionIds()),
         readProviderRequirements(entity.getRequiredProviderEvidence()),
+        entity.isRequireDocumentComplete(),
+        entity.getMinimumNetworkQuietMillis(),
+        readTargets(entity.getTransientBlockerTargets()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getRecoveryExtensionId(),
@@ -1154,6 +1203,9 @@ public class ApplicationBusinessRecoveryService {
         readTargets(entity.getAccountMismatchTargets()),
         readStrings(entity.getRequiredExtensionIds()),
         readProviderRequirements(entity.getRequiredProviderEvidence()),
+        entity.isRequireDocumentComplete(),
+        entity.getMinimumNetworkQuietMillis(),
+        readTargets(entity.getTransientBlockerTargets()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getRecoveryExtensionId(),
@@ -1235,6 +1287,21 @@ public class ApplicationBusinessRecoveryService {
         "requiredProviderEvidence",
         from.getRequiredProviderEvidence(),
         to.getRequiredProviderEvidence());
+    addChange(
+        changes,
+        "requireDocumentComplete",
+        Boolean.toString(from.isRequireDocumentComplete()),
+        Boolean.toString(to.isRequireDocumentComplete()));
+    addChange(
+        changes,
+        "minimumNetworkQuietMillis",
+        Integer.toString(from.getMinimumNetworkQuietMillis()),
+        Integer.toString(to.getMinimumNetworkQuietMillis()));
+    addChange(
+        changes,
+        "transientBlockerTargets",
+        from.getTransientBlockerTargets(),
+        to.getTransientBlockerTargets());
     addChange(
         changes,
         "allowDepthLimited",
@@ -1397,6 +1464,9 @@ public class ApplicationBusinessRecoveryService {
             contract.getAccountMismatchTargets(),
             contract.getRequiredExtensionIds(),
             contract.getRequiredProviderEvidence(),
+            Boolean.toString(contract.isRequireDocumentComplete()),
+            Integer.toString(contract.getMinimumNetworkQuietMillis()),
+            contract.getTransientBlockerTargets(),
             Boolean.toString(contract.isAllowDepthLimited()),
             contract.getRecoveryAction(),
             Objects.toString(contract.getRecoveryExtensionId(), ""),
@@ -1696,6 +1766,9 @@ public class ApplicationBusinessRecoveryService {
       List<TargetIndicator> accountMismatchTargets,
       List<String> requiredExtensionIds,
       List<ProviderEvidenceRequirement> requiredProviderEvidence,
+      boolean requireDocumentComplete,
+      int minimumNetworkQuietMillis,
+      List<TargetIndicator> transientBlockerTargets,
       boolean allowDepthLimited,
       RecoveryAction recoveryAction,
       String recoveryExtensionId,

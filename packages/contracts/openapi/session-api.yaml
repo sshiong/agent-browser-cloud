@@ -6130,6 +6130,9 @@ components:
         - title
         - stateHash
         - stateQuality
+        - documentReadyState
+        - networkQuietMillis
+        - networkEvidenceFresh
         - targets
       properties:
         sessionId:
@@ -6158,6 +6161,19 @@ components:
         stateQuality:
           type: string
           enum: [COMPLETE, DEPTH_LIMITED, RESYNCING, DEGRADED, INVALID]
+        documentReadyState:
+          type: string
+          enum: [loading, interactive, complete, ""]
+          description: Browser document.readyState; empty only for legacy or unavailable evidence.
+        networkQuietMillis:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 300000
+          description: Continuously observed quiet time; zero while requests are active or evidence is unavailable.
+        networkEvidenceFresh:
+          type: boolean
+          description: True only while the Browser-level and Page Network observers remain authoritative.
         targets:
           type: array
           maxItems: 500
@@ -6336,6 +6352,22 @@ components:
           maxItems: 16
           items:
             $ref: "#/components/schemas/ProviderEvidenceRequirement"
+        requireDocumentComplete:
+          type: boolean
+          default: false
+          description: Require document.readyState to equal complete before the application is Ready.
+        minimumNetworkQuietMillis:
+          type: integer
+          minimum: 0
+          maximum: 30000
+          default: 0
+          description: Required continuously observed network quiet window; zero disables this rule.
+        transientBlockerTargets:
+          type: array
+          maxItems: 32
+          description: Exact accessible role and name indicators for transient Toast or Dialog blockers.
+          items:
+            $ref: "#/components/schemas/RecoveryTargetIndicator"
         allowDepthLimited:
           type: boolean
         recoveryAction:
@@ -6366,6 +6398,10 @@ components:
         - permissionDeniedTargets
         - accountMismatchTargets
         - requiredExtensionIds
+        - requiredProviderEvidence
+        - requireDocumentComplete
+        - minimumNetworkQuietMillis
+        - transientBlockerTargets
         - allowDepthLimited
         - recoveryAction
         - maximumAutoRecovery
@@ -6428,6 +6464,17 @@ components:
           maxItems: 16
           items:
             $ref: "#/components/schemas/ProviderEvidenceRequirement"
+        requireDocumentComplete:
+          type: boolean
+        minimumNetworkQuietMillis:
+          type: integer
+          minimum: 0
+          maximum: 30000
+        transientBlockerTargets:
+          type: array
+          maxItems: 32
+          items:
+            $ref: "#/components/schemas/RecoveryTargetIndicator"
         allowDepthLimited:
           type: boolean
         recoveryAction:
@@ -6511,6 +6558,9 @@ components:
             - accountMismatchTargets
             - requiredExtensionIds
             - requiredProviderEvidence
+            - requireDocumentComplete
+            - minimumNetworkQuietMillis
+            - transientBlockerTargets
             - allowDepthLimited
             - recoveryAction
             - recoveryExtensionId

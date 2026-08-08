@@ -292,6 +292,80 @@ class ApplicationBusinessRecoveryServiceTest {
   }
 
   @Test
+  void documentReadinessGateRejectsAnInteractiveDocument() throws Exception {
+    var contract = contractWithBrowserReadiness(true, 0, List.of());
+    arrangeValidation(
+        contract,
+        state(
+            "https://crm.example.test/customers", "COMPLETE", List.of(), "interactive", 0, false));
+
+    var result =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-document", "request-document");
+
+    assertThat(result.verdict()).isEqualTo(Verdict.STATE_CHANGED);
+    assertThat(result.evidence()).containsExactly("DOCUMENT_NOT_COMPLETE:INTERACTIVE");
+  }
+
+  @Test
+  void networkQuietGateFailsClosedWithoutFreshObserverEvidence() throws Exception {
+    var contract = contractWithBrowserReadiness(false, 1_000, List.of());
+    arrangeValidation(
+        contract,
+        state(
+            "https://crm.example.test/customers", "COMPLETE", List.of(), "complete", 5_000, false));
+
+    var result =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-network-gap", "request-network-gap");
+
+    assertThat(result.verdict()).isEqualTo(Verdict.MANUAL_RECOVERY_REQUIRED);
+    assertThat(result.evidence()).containsExactly("NETWORK_EVIDENCE_UNAVAILABLE");
+  }
+
+  @Test
+  void transientDialogBlocksReadyUntilItDisappears() throws Exception {
+    var blocker = new TargetIndicator("dialog", "Confirm payment");
+    var contract = contractWithBrowserReadiness(true, 1_000, List.of(blocker));
+    var dialog =
+        new NodeEvent.InteractiveTarget(
+            "target-dialog", "dialog", "Confirm payment", null, true, true, false);
+    arrangeValidation(
+        contract,
+        state(
+            "https://crm.example.test/customers",
+            "COMPLETE",
+            List.of(dialog),
+            "complete",
+            2_000,
+            true));
+
+    var blocked =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-dialog", "request-dialog");
+
+    assertThat(blocked.verdict()).isEqualTo(Verdict.STATE_CHANGED);
+    assertThat(blocked.evidence())
+        .containsExactly("TRANSIENT_BLOCKER_MATCHED:dialog:Confirm payment");
+  }
+
+  @Test
+  void browserReadinessEvidenceUnlocksReadyAfterQuietWindow() throws Exception {
+    var contract = contractWithBrowserReadiness(true, 1_000, List.of());
+    arrangeValidation(
+        contract,
+        state(
+            "https://crm.example.test/customers", "COMPLETE", List.of(), "complete", 2_000, true));
+
+    var result =
+        service.validateFromApi(
+            SESSION_ID, TENANT_ID, "operator-a", "validate-browser-ready", "request-browser-ready");
+
+    assertThat(result.verdict()).isEqualTo(Verdict.READY);
+    assertThat(result.ready()).isTrue();
+  }
+
+  @Test
   void providerRequirementFailsClosedUntilTrustedEvidenceMatches() throws Exception {
     var expectedHash = "a".repeat(64);
     var requirement =
@@ -646,6 +720,9 @@ class ApplicationBusinessRecoveryServiceTest {
     var sourceAccountTargets = source.getAccountMismatchTargets();
     var sourceExtensionIds = source.getRequiredExtensionIds();
     var sourceProviderEvidence = source.getRequiredProviderEvidence();
+    var sourceRequireDocumentComplete = source.isRequireDocumentComplete();
+    var sourceMinimumNetworkQuietMillis = source.getMinimumNetworkQuietMillis();
+    var sourceTransientBlockers = source.getTransientBlockerTargets();
     var sourceAction = source.getRecoveryAction();
     var sourceMaximumRecovery = source.getMaximumAutoRecovery();
     when(restored.getExpectedOrigins()).thenReturn(sourceExpectedOrigins);
@@ -657,6 +734,9 @@ class ApplicationBusinessRecoveryServiceTest {
     when(restored.getAccountMismatchTargets()).thenReturn(sourceAccountTargets);
     when(restored.getRequiredExtensionIds()).thenReturn(sourceExtensionIds);
     when(restored.getRequiredProviderEvidence()).thenReturn(sourceProviderEvidence);
+    when(restored.isRequireDocumentComplete()).thenReturn(sourceRequireDocumentComplete);
+    when(restored.getMinimumNetworkQuietMillis()).thenReturn(sourceMinimumNetworkQuietMillis);
+    when(restored.getTransientBlockerTargets()).thenReturn(sourceTransientBlockers);
     when(restored.getRecoveryAction()).thenReturn(sourceAction);
     when(restored.getMaximumAutoRecovery()).thenReturn(sourceMaximumRecovery);
     when(restored.getCreatedAt()).thenReturn(NOW.minusSeconds(3600));
@@ -696,6 +776,9 @@ class ApplicationBusinessRecoveryServiceTest {
             source.getAccountMismatchTargets(),
             source.getRequiredExtensionIds(),
             source.getRequiredProviderEvidence(),
+            source.isRequireDocumentComplete(),
+            source.getMinimumNetworkQuietMillis(),
+            source.getTransientBlockerTargets(),
             source.isAllowDepthLimited(),
             source.getRecoveryAction(),
             source.getRecoveryExtensionId(),
@@ -935,6 +1018,10 @@ class ApplicationBusinessRecoveryServiceTest {
     when(revision.getAccountMismatchTargets()).thenReturn(contract.getAccountMismatchTargets());
     when(revision.getRequiredExtensionIds()).thenReturn(contract.getRequiredExtensionIds());
     when(revision.getRequiredProviderEvidence()).thenReturn(contract.getRequiredProviderEvidence());
+    when(revision.isRequireDocumentComplete()).thenReturn(contract.isRequireDocumentComplete());
+    when(revision.getMinimumNetworkQuietMillis())
+        .thenReturn(contract.getMinimumNetworkQuietMillis());
+    when(revision.getTransientBlockerTargets()).thenReturn(contract.getTransientBlockerTargets());
     when(revision.isAllowDepthLimited()).thenReturn(contract.isAllowDepthLimited());
     when(revision.getRecoveryAction()).thenReturn(contract.getRecoveryAction());
     when(revision.getRecoveryExtensionId()).thenReturn(contract.getRecoveryExtensionId());
@@ -956,6 +1043,9 @@ class ApplicationBusinessRecoveryServiceTest {
     var accountMismatchTargets = source.getAccountMismatchTargets();
     var requiredExtensionIds = source.getRequiredExtensionIds();
     var requiredProviderEvidence = source.getRequiredProviderEvidence();
+    var requireDocumentComplete = source.isRequireDocumentComplete();
+    var minimumNetworkQuietMillis = source.getMinimumNetworkQuietMillis();
+    var transientBlockerTargets = source.getTransientBlockerTargets();
     var allowDepthLimited = source.isAllowDepthLimited();
     var recoveryAction = source.getRecoveryAction();
     var recoveryExtensionId = source.getRecoveryExtensionId();
@@ -975,6 +1065,9 @@ class ApplicationBusinessRecoveryServiceTest {
     when(revision.getAccountMismatchTargets()).thenReturn(accountMismatchTargets);
     when(revision.getRequiredExtensionIds()).thenReturn(requiredExtensionIds);
     when(revision.getRequiredProviderEvidence()).thenReturn(requiredProviderEvidence);
+    when(revision.isRequireDocumentComplete()).thenReturn(requireDocumentComplete);
+    when(revision.getMinimumNetworkQuietMillis()).thenReturn(minimumNetworkQuietMillis);
+    when(revision.getTransientBlockerTargets()).thenReturn(transientBlockerTargets);
     when(revision.isAllowDepthLimited()).thenReturn(allowDepthLimited);
     when(revision.getRecoveryAction()).thenReturn(recoveryAction);
     when(revision.getRecoveryExtensionId()).thenReturn(recoveryExtensionId);
@@ -1071,9 +1164,61 @@ class ApplicationBusinessRecoveryServiceTest {
         NOW);
   }
 
+  private ApplicationRecoveryContractEntity contractWithBrowserReadiness(
+      boolean requireDocumentComplete,
+      int minimumNetworkQuietMillis,
+      List<TargetIndicator> transientBlockers)
+      throws Exception {
+    return new ApplicationRecoveryContractEntity(
+        "arc_1234567890abcdefghij",
+        TENANT_ID,
+        "crm",
+        "[\"https://crm.example.test\"]",
+        "[\"/customers\"]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        "[]",
+        requireDocumentComplete,
+        minimumNetworkQuietMillis,
+        objectMapper.writeValueAsString(transientBlockers),
+        false,
+        RecoveryAction.NONE.name(),
+        null,
+        0,
+        true,
+        NOW);
+  }
+
   private static NodeEvent.StateUpdated state(
       String url, String quality, List<NodeEvent.InteractiveTarget> targets) {
     return new NodeEvent.StateUpdated(SESSION_ID, 12, 12, url, "CRM", "hash", quality, targets);
+  }
+
+  private static NodeEvent.StateUpdated state(
+      String url,
+      String quality,
+      List<NodeEvent.InteractiveTarget> targets,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh) {
+    return new NodeEvent.StateUpdated(
+        SESSION_ID,
+        12,
+        12,
+        url,
+        "CRM",
+        "hash",
+        quality,
+        targets,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        "",
+        "");
   }
 
   private static SessionContext session() {

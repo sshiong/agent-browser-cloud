@@ -62,6 +62,16 @@ public class ApplicationRecoveryContractRevisionEntity {
   @Column(name = "required_provider_evidence", nullable = false, columnDefinition = "jsonb")
   private String requiredProviderEvidence;
 
+  @Column(name = "require_document_complete", nullable = false)
+  private boolean requireDocumentComplete;
+
+  @Column(name = "minimum_network_quiet_millis", nullable = false)
+  private int minimumNetworkQuietMillis;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "transient_blocker_targets", nullable = false, columnDefinition = "jsonb")
+  private String transientBlockerTargets;
+
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
@@ -135,6 +145,18 @@ public class ApplicationRecoveryContractRevisionEntity {
 
   public String getRequiredProviderEvidence() {
     return requiredProviderEvidence;
+  }
+
+  public boolean isRequireDocumentComplete() {
+    return requireDocumentComplete;
+  }
+
+  public int getMinimumNetworkQuietMillis() {
+    return minimumNetworkQuietMillis;
+  }
+
+  public String getTransientBlockerTargets() {
+    return transientBlockerTargets;
   }
 
   public boolean isAllowDepthLimited() {

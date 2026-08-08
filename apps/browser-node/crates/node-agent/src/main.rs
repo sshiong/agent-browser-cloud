@@ -1130,6 +1130,9 @@ impl NodeControlService {
                 .collect(),
             snapshot_kind: "PERIODIC".to_owned(),
             requested_root_ref: String::new(),
+            document_ready_state: state.document_ready_state,
+            network_quiet_millis: state.network_quiet_millis,
+            network_evidence_fresh: state.network_evidence_fresh,
         }
     }
 
@@ -1175,6 +1178,9 @@ impl NodeControlService {
                 .map(Self::interactive_target_payload)
                 .collect(),
             removed_target_refs: diff.removed_target_refs,
+            document_ready_state: diff.document_ready_state,
+            network_quiet_millis: diff.network_quiet_millis,
+            network_evidence_fresh: diff.network_evidence_fresh,
         }
     }
 

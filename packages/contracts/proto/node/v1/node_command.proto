@@ -499,6 +499,12 @@ message BrowserStateEvent {
   // PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
   string snapshot_kind = 9;
   string requested_root_ref = 10;
+  // 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+  string document_ready_state = 11;
+  // 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+  uint64 network_quiet_millis = 12;
+  // 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+  bool network_evidence_fresh = 13;
 }
 
 // Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
@@ -604,6 +610,9 @@ message BrowserStateDiffEvent {
   string content_hash = 8;
   repeated InteractiveTargetState upserted_targets = 9;
   repeated string removed_target_refs = 10;
+  string document_ready_state = 11;
+  uint64 network_quiet_millis = 12;
+  bool network_evidence_fresh = 13;
 }
 
 message DiffTruncatedEvent {

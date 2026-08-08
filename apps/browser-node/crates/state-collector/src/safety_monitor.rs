@@ -2,10 +2,13 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
+
+const MAX_NETWORK_QUIET_MILLIS: u64 = 300_000;
 
 /// Browser Node 从持续 CDP 事件流读取的安全点活动快照。
 ///
@@ -17,6 +20,28 @@ pub struct BrowserSafetyObservation {
     pub active_upload_count: u32,
     pub active_download_count: u32,
     pub active_form_submission_count: u32,
+    pub active_network_request_count: u32,
+    pub last_network_activity: Option<Instant>,
+}
+
+impl BrowserSafetyObservation {
+    /// Returns bounded monotonic evidence suitable for a recovery Ready Gate.
+    /// Any observer gap or in-flight request fails closed to zero.
+    pub fn network_quiet_millis(&self) -> u64 {
+        if !self.fresh
+            || self.active_network_request_count > 0
+            || self.last_network_activity.is_none()
+        {
+            return 0;
+        }
+        self.last_network_activity
+            .expect("checked above")
+            .elapsed()
+            .as_millis()
+            .try_into()
+            .unwrap_or(u64::MAX)
+            .min(MAX_NETWORK_QUIET_MILLIS)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,6 +65,7 @@ struct ActivityTracker {
     network_sessions: HashSet<String>,
     fresh_allowed: bool,
     was_fresh: bool,
+    last_network_activity: Option<Instant>,
 }
 
 impl ActivityTracker {
@@ -74,7 +100,13 @@ impl ActivityTracker {
                 .count()
                 .try_into()
                 .unwrap_or(u32::MAX),
+            active_network_request_count: self.requests.len().try_into().unwrap_or(u32::MAX),
+            last_network_activity: self.last_network_activity,
         }
+    }
+
+    fn mark_network_activity(&mut self) {
+        self.last_network_activity = Some(Instant::now());
     }
 
     fn remove_session(&mut self, session_id: &str) {
@@ -112,6 +144,7 @@ pub(crate) fn spawn(
             };
             let mut tracker = ActivityTracker {
                 fresh_allowed: !established_once,
+                last_network_activity: Some(Instant::now()),
                 ..ActivityTracker::default()
             };
             let result =
@@ -228,6 +261,9 @@ async fn observe_browser(
             .get("sessionId")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
+        if method.starts_with("Network.") || method.starts_with("Browser.download") {
+            tracker.mark_network_activity();
+        }
         match method {
             "Target.attachedToTarget"
                 if event
@@ -235,6 +271,7 @@ async fn observe_browser(
                     .and_then(serde_json::Value::as_str)
                     == Some("page") =>
             {
+                tracker.mark_network_activity();
                 let attached_session = event
                     .pointer("/params/sessionId")
                     .and_then(serde_json::Value::as_str)
@@ -257,6 +294,7 @@ async fn observe_browser(
                 network_enable_commands.insert(command_id, attached_session);
             }
             "Target.detachedFromTarget" => {
+                tracker.mark_network_activity();
                 if let Some(detached_session) = event
                     .pointer("/params/sessionId")
                     .and_then(serde_json::Value::as_str)
@@ -412,6 +450,41 @@ mod tests {
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+
+    #[test]
+    fn network_quiet_evidence_fails_closed_for_observer_gaps_and_inflight_requests() {
+        let unavailable = BrowserSafetyObservation {
+            fresh: false,
+            last_network_activity: Some(Instant::now() - Duration::from_secs(5)),
+            ..BrowserSafetyObservation::default()
+        };
+        assert_eq!(unavailable.network_quiet_millis(), 0);
+
+        let inflight = BrowserSafetyObservation {
+            fresh: true,
+            active_network_request_count: 1,
+            last_network_activity: Some(Instant::now() - Duration::from_secs(5)),
+            ..BrowserSafetyObservation::default()
+        };
+        assert_eq!(inflight.network_quiet_millis(), 0);
+    }
+
+    #[test]
+    fn network_quiet_evidence_reports_bounded_elapsed_time() {
+        let observation = BrowserSafetyObservation {
+            fresh: true,
+            last_network_activity: Some(Instant::now() - Duration::from_secs(2)),
+            ..BrowserSafetyObservation::default()
+        };
+        assert!((2_000..=2_100).contains(&observation.network_quiet_millis()));
+
+        let bounded = BrowserSafetyObservation {
+            fresh: true,
+            last_network_activity: Some(Instant::now() - Duration::from_secs(600)),
+            ..BrowserSafetyObservation::default()
+        };
+        assert_eq!(bounded.network_quiet_millis(), MAX_NETWORK_QUIET_MILLIS);
+    }
 
     #[test]
     fn remembers_freshness_after_the_last_page_detaches() {

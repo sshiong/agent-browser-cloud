@@ -94,6 +94,7 @@ V030 已能用声明式 Application Recovery Contract 判定恢复后的业务�
 1. 支付、账号安全、SPA/Form 和关键业务事务的站点 Adapter/SDK 实际接入；
 2. Provider Evidence 平台协议和迁移 Gate 已在进度 76 完成；真实 CRM/支付 Provider
    凭据与目标业务系统联调仍待完成；
-3. Recovery Contract 作者 UI、审批、变更审计和版本差异体验已完成；
+3. Recovery Contract 作者 UI、审批、变更审计和版本差异体验已完成；Document/Network、
+   Toast/Dialog 与基础声明式 Validator 已由进度 107 关闭；仍缺无语义视觉/OCR；
 4. 独立 Business Recovery 事件流与 State/Audit/Agent Step 统一事件层；
 5. 两个真实 Browser Node + Object Storage 的迁移、故障注入和长期稳定性证书。

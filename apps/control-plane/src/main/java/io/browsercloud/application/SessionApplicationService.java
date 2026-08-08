@@ -597,6 +597,9 @@ public class SessionApplicationService {
                   state.title(),
                   state.stateHash(),
                   state.stateQuality(),
+                  state.documentReadyState(),
+                  state.networkQuietMillis(),
+                  state.networkEvidenceFresh(),
                   targets);
             });
   }

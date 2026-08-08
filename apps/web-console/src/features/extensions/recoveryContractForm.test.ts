@@ -26,6 +26,11 @@ describe('recovery contract form', () => {
         requiredExtensionIds:
           'jdgnleokimdbblcflcfcohbinohmmmlb\njdgnleokimdbblcflcfcohbinohmmmlb',
         requiredProviderEvidence: `ACCOUNT | current-account | crm-provider | ${'a'.repeat(64)} | 300`,
+        requireDocumentComplete: true,
+        minimumNetworkQuietMillis: 1_500,
+        transientBlockerTargets: [
+          { role: ' Dialog ', name: ' Confirm payment ' },
+        ],
         recoveryAction: 'RESTART_EXTENSION',
         recoveryExtensionId: 'jdgnleokimdbblcflcfcohbinohmmmlb',
         maximumAutoRecovery: 1,
@@ -48,6 +53,9 @@ describe('recovery contract form', () => {
           maxAgeSeconds: 300,
         },
       ],
+      requireDocumentComplete: true,
+      minimumNetworkQuietMillis: 1_500,
+      transientBlockerTargets: [{ role: 'dialog', name: 'Confirm payment' }],
       recoveryAction: 'RESTART_EXTENSION',
       recoveryExtensionId: 'jdgnleokimdbblcflcfcohbinohmmmlb',
       maximumAutoRecovery: 1,

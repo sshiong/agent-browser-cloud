@@ -1159,7 +1159,7 @@ unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_co
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
 
-recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
+recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"requireDocumentComplete":true,"minimumNetworkQuietMillis":0,"transientBlockerTargets":[{"role":"dialog","name":"Blocking integration dialog"}],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
 recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -1167,7 +1167,7 @@ recovery_contract="$(curl -fsS -X PUT \
   -H 'X-Roles: TENANT_ADMIN' \
   -d "$recovery_contract_body")"
 printf '%s' "$recovery_contract" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["approvalState"] == "DRAFT"'
+  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["requireDocumentComplete"] is True; assert item["minimumNetworkQuietMillis"] == 0; assert item["transientBlockerTargets"] == [{"role":"dialog","name":"Blocking integration dialog"}]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["approvalState"] == "DRAFT"'
 recovery_contract_replay="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -2500,7 +2500,7 @@ grep -Fq -- \
   "--load-extension=$repo_root/tests/integration/fixtures/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   "$temp_dir/fake-chromium-args.log"
 printf '%s' "$browser_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["targets"][0]["role"] == "button"'
+  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 3; assert state["stateVersion"] >= 1; assert state["title"] == "Browser Cloud Test Page"; assert state["stateQuality"] == "COMPLETE"; assert state["documentReadyState"] == "complete"; assert isinstance(state["networkQuietMillis"], int); assert isinstance(state["networkEvidenceFresh"], bool); assert state["targets"][0]["role"] == "button"'
 session_event_envelope_summary="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select
      count(*) filter (where change_type='SESSION') || ':' ||
@@ -2578,7 +2578,7 @@ rebind_session="$(printf '%s' "$rebind_session_response" | python3 -c \
   'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
 
 provider_expected_hash="$(python3 -c 'import hashlib; print(hashlib.sha256(b"account-42").hexdigest())')"
-auto_recovery_contract_body="{\"expectedVersion\":1,\"expectedOrigins\":[\"https://example.test\"],\"readyRoutePrefixes\":[\"/runtime\"],\"loginRoutePrefixes\":[\"/sign-in\"],\"requiredTargets\":[{\"role\":\"status\",\"name\":\"Recovered workspace\"}],\"loginTargets\":[{\"role\":\"textbox\",\"name\":\"Email\"}],\"permissionDeniedTargets\":[],\"accountMismatchTargets\":[],\"requiredExtensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"requiredProviderEvidence\":[{\"type\":\"ACCOUNT\",\"key\":\"current-account\",\"providerId\":\"crm-provider\",\"expectedValueHash\":\"${provider_expected_hash}\",\"maxAgeSeconds\":300}],\"allowDepthLimited\":false,\"recoveryAction\":\"RESTART_EXTENSION\",\"recoveryExtensionId\":\"jdgnleokimdbblcflcfcohbinohmmmlb\",\"maximumAutoRecovery\":1,\"enabled\":true}"
+auto_recovery_contract_body="{\"expectedVersion\":1,\"expectedOrigins\":[\"https://example.test\"],\"readyRoutePrefixes\":[\"/runtime\"],\"loginRoutePrefixes\":[\"/sign-in\"],\"requiredTargets\":[{\"role\":\"status\",\"name\":\"Recovered workspace\"}],\"loginTargets\":[{\"role\":\"textbox\",\"name\":\"Email\"}],\"permissionDeniedTargets\":[],\"accountMismatchTargets\":[],\"requiredExtensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"requiredProviderEvidence\":[{\"type\":\"ACCOUNT\",\"key\":\"current-account\",\"providerId\":\"crm-provider\",\"expectedValueHash\":\"${provider_expected_hash}\",\"maxAgeSeconds\":300}],\"requireDocumentComplete\":true,\"minimumNetworkQuietMillis\":0,\"transientBlockerTargets\":[{\"role\":\"dialog\",\"name\":\"Blocking integration dialog\"}],\"allowDepthLimited\":false,\"recoveryAction\":\"RESTART_EXTENSION\",\"recoveryExtensionId\":\"jdgnleokimdbblcflcfcohbinohmmmlb\",\"maximumAutoRecovery\":1,\"enabled\":true}"
 auto_recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -2654,8 +2654,13 @@ revision_rebind_db_summary="$(docker exec "$postgres_name" psql -U browsercloud 
          and operation_id='${application_rebind_operation}') || ':' ||
       (select count(*) from exclusive_operations
        where operation_id='${application_rebind_operation}'
-         and mode='APPLICATION_BINDING' and state='COMMITTED')")"
-test "$revision_rebind_db_summary" = "2:1:1"
+         and mode='APPLICATION_BINDING' and state='COMMITTED') || ':' ||
+      (select count(*) from application_recovery_contract_revisions
+       where tenant_id='tenant-integration' and application_id='crm.integration'
+         and require_document_complete
+         and minimum_network_quiet_millis=0
+         and transient_blocker_targets='[{\"role\":\"dialog\",\"name\":\"Blocking integration dialog\"}]'::jsonb)")"
+test "$revision_rebind_db_summary" = "2:1:1:2"
 if docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 \
   -c "update application_recovery_contract_revisions
       set enabled=false

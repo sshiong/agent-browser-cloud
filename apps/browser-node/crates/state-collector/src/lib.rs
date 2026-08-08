@@ -73,6 +73,15 @@ pub struct CurrentState {
     pub quality: StateQuality,
     /// 内容哈希
     pub content_hash: String,
+    /// 页面文档生命周期状态（loading / interactive / complete）。
+    #[serde(default)]
+    pub document_ready_state: String,
+    /// 自最近 CDP Network 活动以来的安静时长；有在途请求或证据不新鲜时为 0。
+    #[serde(default)]
+    pub network_quiet_millis: u64,
+    /// Network 观察在当前 Runtime 代内是否连续、可用于 Ready Gate。
+    #[serde(default)]
+    pub network_evidence_fresh: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -85,6 +94,12 @@ pub struct StateDiff {
     pub title: String,
     pub quality: StateQuality,
     pub content_hash: String,
+    #[serde(default)]
+    pub document_ready_state: String,
+    #[serde(default)]
+    pub network_quiet_millis: u64,
+    #[serde(default)]
+    pub network_evidence_fresh: bool,
     pub upserted_targets: Vec<InteractiveTarget>,
     pub removed_target_refs: Vec<String>,
 }
@@ -146,6 +161,9 @@ pub fn diff_states(
         title: current.title.clone(),
         quality: current.quality.clone(),
         content_hash: current.content_hash.clone(),
+        document_ready_state: current.document_ready_state.clone(),
+        network_quiet_millis: current.network_quiet_millis,
+        network_evidence_fresh: current.network_evidence_fresh,
         upserted_targets,
         removed_target_refs,
     };
@@ -237,6 +255,8 @@ struct TabResourcePolicyState {
 struct EvaluatedPageState {
     url: String,
     title: String,
+    #[serde(default, rename = "documentReadyState")]
+    document_ready_state: String,
     targets: Vec<EvaluatedTarget>,
     #[serde(default)]
     truncated: bool,
@@ -988,7 +1008,9 @@ impl CdpStateCollector {
               const selector = [
                 'a[href]', 'button', 'input', 'select', 'textarea',
                 '[role="button"]', '[role="link"]', '[role="checkbox"]',
-                '[role="radio"]', '[role="textbox"]', '[tabindex]'
+                '[role="radio"]', '[role="textbox"]', '[role="alert"]',
+                '[role="status"]', '[role="dialog"]', '[role="alertdialog"]',
+                '[tabindex]'
               ].join(',');
               const roleFor = (element) => {
                 const explicit = element.getAttribute('role');
@@ -1081,6 +1103,7 @@ impl CdpStateCollector {
               return {
                 url: location.href,
                 title: document.title.slice(0, 1024),
+                documentReadyState: document.readyState,
                 targets,
                 truncated: candidates.length > 40
               };
@@ -1373,6 +1396,8 @@ impl CdpStateCollector {
     ) -> anyhow::Result<CurrentState> {
         let websocket_url = self.target_websocket(session_id).await?;
         let page = self.evaluate_page(&websocket_url).await?;
+        let network_observation = self.browser_safety_observation(session_id).await;
+        let network_quiet_millis = network_observation.network_quiet_millis();
         let serialized_targets = serde_json::to_string(&page.targets)?;
         let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
         let (state_version, target_revision) = {
@@ -1392,8 +1417,13 @@ impl CdpStateCollector {
         };
         let content_hash = hex_sha256(
             format!(
-                "{}\n{}\n{}\n{}",
-                page.url, page.title, serialized_targets, page.truncated
+                "{}\n{}\n{}\n{}\n{}\n{}",
+                page.url,
+                page.title,
+                serialized_targets,
+                page.truncated,
+                page.document_ready_state,
+                network_quiet_millis
             )
             .as_bytes(),
         );
@@ -1450,6 +1480,9 @@ impl CdpStateCollector {
                 StateQuality::Complete
             },
             content_hash,
+            document_ready_state: page.document_ready_state,
+            network_quiet_millis,
+            network_evidence_fresh: network_observation.fresh,
         })
     }
 }
@@ -2246,6 +2279,9 @@ mod tests {
             targets: vec![target("target:1:a", "A"), target("target:1:b", "B")],
             quality: StateQuality::Complete,
             content_hash: "old".to_owned(),
+            document_ready_state: "interactive".to_owned(),
+            network_quiet_millis: 250,
+            network_evidence_fresh: true,
         };
         let current = CurrentState {
             state_version: 2,
@@ -2260,6 +2296,9 @@ mod tests {
         assert_eq!(diff.base_state_version, 1);
         assert_eq!(diff.upserted_targets.len(), 2);
         assert_eq!(diff.removed_target_refs, vec!["target:1:b"]);
+        assert_eq!(diff.document_ready_state, "interactive");
+        assert_eq!(diff.network_quiet_millis, 250);
+        assert!(diff.network_evidence_fresh);
 
         let DiffOutcome::Truncated(truncated) =
             diff_states(&previous, &current, 16_384, 1).unwrap()

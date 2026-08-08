@@ -207,6 +207,7 @@ class Handler(BaseHTTPRequestHandler):
                     result = {
                         "url": "https://example.test/runtime",
                         "title": "Browser Cloud Test Page",
+                        "documentReadyState": "complete",
                         "targets": [{
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
                             "role": "button",

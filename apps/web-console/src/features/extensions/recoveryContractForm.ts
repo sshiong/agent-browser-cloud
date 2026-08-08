@@ -17,6 +17,9 @@ export interface RecoveryContractFormValues {
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string;
   requiredProviderEvidence: string;
+  requireDocumentComplete: boolean;
+  minimumNetworkQuietMillis: number;
+  transientBlockerTargets: RecoveryTargetIndicator[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId: string;
@@ -35,6 +38,9 @@ export const emptyRecoveryContractForm: RecoveryContractFormValues = {
   accountMismatchTargets: [],
   requiredExtensionIds: '',
   requiredProviderEvidence: '',
+  requireDocumentComplete: true,
+  minimumNetworkQuietMillis: 1_000,
+  transientBlockerTargets: [],
   allowDepthLimited: false,
   recoveryAction: 'NONE',
   recoveryExtensionId: '',
@@ -149,6 +155,9 @@ export function recoveryContractToForm(
     requiredProviderEvidence: serializeProviderEvidenceRequirements(
       contract.requiredProviderEvidence
     ),
+    requireDocumentComplete: contract.requireDocumentComplete,
+    minimumNetworkQuietMillis: contract.minimumNetworkQuietMillis,
+    transientBlockerTargets: contract.transientBlockerTargets,
     allowDepthLimited: contract.allowDepthLimited,
     recoveryAction: contract.recoveryAction,
     recoveryExtensionId: contract.recoveryExtensionId ?? '',
@@ -174,6 +183,9 @@ export function recoveryContractRequest(
     requiredProviderEvidence: parseProviderEvidenceRequirements(
       values.requiredProviderEvidence
     ),
+    requireDocumentComplete: values.requireDocumentComplete,
+    minimumNetworkQuietMillis: values.minimumNetworkQuietMillis,
+    transientBlockerTargets: normalizeTargets(values.transientBlockerTargets),
     allowDepthLimited: values.allowDepthLimited,
     recoveryAction: values.recoveryAction,
     recoveryExtensionId:

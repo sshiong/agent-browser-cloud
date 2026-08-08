@@ -331,6 +331,9 @@ class NodeEventMapperTest {
             .setTitle("Example")
             .setContentHash("hash-7")
             .setStateQuality("COMPLETE")
+            .setDocumentReadyState("complete")
+            .setNetworkQuietMillis(1_500)
+            .setNetworkEvidenceFresh(true)
             .addTargets(
                 InteractiveTargetState.newBuilder()
                     .setTargetRef("target:7:0")
@@ -361,6 +364,9 @@ class NodeEventMapperTest {
             state -> {
               assertThat(state.stateVersion()).isEqualTo(7);
               assertThat(state.stateQuality()).isEqualTo("COMPLETE");
+              assertThat(state.documentReadyState()).isEqualTo("complete");
+              assertThat(state.networkQuietMillis()).isEqualTo(1_500);
+              assertThat(state.networkEvidenceFresh()).isTrue();
               assertThat(state.targets()).hasSize(1);
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);

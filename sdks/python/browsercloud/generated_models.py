@@ -668,6 +668,9 @@ class BrowserState(TypedDict, total=False):
     title: str
     stateHash: str
     stateQuality: Literal['COMPLETE', 'DEPTH_LIMITED', 'RESYNCING', 'DEGRADED', 'INVALID']
+    documentReadyState: Literal['loading', 'interactive', 'complete', '']
+    networkQuietMillis: int
+    networkEvidenceFresh: bool
     targets: list[InteractiveTarget]
 
 class StateResyncRequest(TypedDict, total=False):
@@ -716,6 +719,9 @@ class UpsertRecoveryContractRequest(TypedDict, total=False):
     accountMismatchTargets: list[RecoveryTargetIndicator]
     requiredExtensionIds: list[str]
     requiredProviderEvidence: list[ProviderEvidenceRequirement]
+    requireDocumentComplete: bool
+    minimumNetworkQuietMillis: int
+    transientBlockerTargets: list[RecoveryTargetIndicator]
     allowDepthLimited: bool
     recoveryAction: Literal['NONE', 'RELOAD', 'NAVIGATE_HOME', 'REOPEN_KNOWN_ROUTE', 'REFRESH_SESSION', 'RESTART_EXTENSION']
     recoveryExtensionId: Any
@@ -735,6 +741,9 @@ class RecoveryContract(TypedDict, total=False):
     accountMismatchTargets: list[RecoveryTargetIndicator]
     requiredExtensionIds: list[str]
     requiredProviderEvidence: list[ProviderEvidenceRequirement]
+    requireDocumentComplete: bool
+    minimumNetworkQuietMillis: int
+    transientBlockerTargets: list[RecoveryTargetIndicator]
     allowDepthLimited: bool
     recoveryAction: Literal['NONE', 'RELOAD', 'NAVIGATE_HOME', 'REOPEN_KNOWN_ROUTE', 'REFRESH_SESSION', 'RESTART_EXTENSION']
     recoveryExtensionId: Any
@@ -759,7 +768,7 @@ class RecoveryContractRevisionListResponse(TypedDict, total=False):
     currentVersion: int
 
 class RecoveryContractFieldChange(TypedDict, total=False):
-    field: Literal['expectedOrigins', 'readyRoutePrefixes', 'loginRoutePrefixes', 'requiredTargets', 'loginTargets', 'permissionDeniedTargets', 'accountMismatchTargets', 'requiredExtensionIds', 'requiredProviderEvidence', 'allowDepthLimited', 'recoveryAction', 'recoveryExtensionId', 'maximumAutoRecovery', 'enabled']
+    field: Literal['expectedOrigins', 'readyRoutePrefixes', 'loginRoutePrefixes', 'requiredTargets', 'loginTargets', 'permissionDeniedTargets', 'accountMismatchTargets', 'requiredExtensionIds', 'requiredProviderEvidence', 'requireDocumentComplete', 'minimumNetworkQuietMillis', 'transientBlockerTargets', 'allowDepthLimited', 'recoveryAction', 'recoveryExtensionId', 'maximumAutoRecovery', 'enabled']
     changeType: Literal['MODIFIED']
     beforeValue: str
     afterValue: str

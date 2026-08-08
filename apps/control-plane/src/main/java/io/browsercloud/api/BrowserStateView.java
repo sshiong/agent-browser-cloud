@@ -11,6 +11,9 @@ public record BrowserStateView(
     String title,
     String stateHash,
     String stateQuality,
+    String documentReadyState,
+    long networkQuietMillis,
+    boolean networkEvidenceFresh,
     List<InteractiveTargetView> targets) {
 
   public BrowserStateView {

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RecoveryContractFieldChange = {
-    field: 'expectedOrigins' | 'readyRoutePrefixes' | 'loginRoutePrefixes' | 'requiredTargets' | 'loginTargets' | 'permissionDeniedTargets' | 'accountMismatchTargets' | 'requiredExtensionIds' | 'requiredProviderEvidence' | 'allowDepthLimited' | 'recoveryAction' | 'recoveryExtensionId' | 'maximumAutoRecovery' | 'enabled';
+    field: 'expectedOrigins' | 'readyRoutePrefixes' | 'loginRoutePrefixes' | 'requiredTargets' | 'loginTargets' | 'permissionDeniedTargets' | 'accountMismatchTargets' | 'requiredExtensionIds' | 'requiredProviderEvidence' | 'requireDocumentComplete' | 'minimumNetworkQuietMillis' | 'transientBlockerTargets' | 'allowDepthLimited' | 'recoveryAction' | 'recoveryExtensionId' | 'maximumAutoRecovery' | 'enabled';
     changeType: 'MODIFIED';
     beforeValue: string;
     afterValue: string;

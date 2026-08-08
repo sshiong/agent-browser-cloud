@@ -186,6 +186,9 @@ public sealed interface NodeEvent
       String stateHash,
       String stateQuality,
       List<InteractiveTarget> targets,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
       String snapshotKind,
       String requestedRootRef)
       implements NodeEvent {
@@ -212,7 +215,37 @@ public sealed interface NodeEvent
           stateQuality,
           targets,
           "",
+          0,
+          false,
+          "",
           "");
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String snapshotKind,
+        String requestedRootRef) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          stateHash,
+          stateQuality,
+          targets,
+          "",
+          0,
+          false,
+          snapshotKind,
+          requestedRootRef);
     }
   }
 
@@ -225,12 +258,42 @@ public sealed interface NodeEvent
       String title,
       String stateHash,
       String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
       List<InteractiveTarget> upsertedTargets,
       List<String> removedTargetRefs)
       implements NodeEvent {
     public StateDiff {
       upsertedTargets = List.copyOf(upsertedTargets);
       removedTargetRefs = List.copyOf(removedTargetRefs);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          stateHash,
+          stateQuality,
+          "",
+          0,
+          false,
+          upsertedTargets,
+          removedTargetRefs);
     }
   }
 

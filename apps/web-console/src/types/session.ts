@@ -203,6 +203,9 @@ export interface RecoveryContractView {
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string[];
   requiredProviderEvidence?: ProviderEvidenceRequirement[];
+  requireDocumentComplete: boolean;
+  minimumNetworkQuietMillis: number;
+  transientBlockerTargets: RecoveryTargetIndicator[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId?: string;
@@ -262,6 +265,9 @@ export interface UpsertRecoveryContractRequest {
   accountMismatchTargets: RecoveryTargetIndicator[];
   requiredExtensionIds: string[];
   requiredProviderEvidence?: ProviderEvidenceRequirement[];
+  requireDocumentComplete?: boolean;
+  minimumNetworkQuietMillis?: number;
+  transientBlockerTargets?: RecoveryTargetIndicator[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId?: string;
@@ -730,6 +736,9 @@ export interface BrowserStateView {
   title: string;
   stateHash: string;
   stateQuality: StateQuality;
+  documentReadyState: 'loading' | 'interactive' | 'complete' | '';
+  networkQuietMillis: number;
+  networkEvidenceFresh: boolean;
   targets: InteractiveTargetView[];
 }
 

@@ -16,7 +16,10 @@ export type RecoveryContract = {
     permissionDeniedTargets: Array<RecoveryTargetIndicator>;
     accountMismatchTargets: Array<RecoveryTargetIndicator>;
     requiredExtensionIds: Array<string>;
-    requiredProviderEvidence?: Array<ProviderEvidenceRequirement>;
+    requiredProviderEvidence: Array<ProviderEvidenceRequirement>;
+    requireDocumentComplete: boolean;
+    minimumNetworkQuietMillis: number;
+    transientBlockerTargets: Array<RecoveryTargetIndicator>;
     allowDepthLimited: boolean;
     recoveryAction: 'NONE' | 'RELOAD' | 'NAVIGATE_HOME' | 'REOPEN_KNOWN_ROUTE' | 'REFRESH_SESSION' | 'RESTART_EXTENSION';
     recoveryExtensionId?: string | null;

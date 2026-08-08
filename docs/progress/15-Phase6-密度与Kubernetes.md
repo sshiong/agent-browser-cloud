@@ -18,8 +18,8 @@
 - Control Plane 与 Browser Node 使用独立 Node Selector/Pool。
 - Kata RuntimeClass、默认拒绝 NetworkPolicy、仅 CP/Proxy/DNS Egress、CSI Warm Tier、
   PDB 和 RollingUpdate 清单。
-- Java 密度单元测试、7 项 Operator 单元测试、Python 语法检查、`kubectl kustomize`
-  均通过。
+- Java 密度单元测试、17 项 Operator 单元测试、Python 语法检查、`kubectl kustomize`
+  均通过；List/Watch 和指标增量见进度 104、105。
 - Operator 镜像已进入统一 GHCR 构建、SBOM、签名、Attestation 与 Digest 发布流水线。
 - 临时 Kind 集群 E2E 已真实安装 CRD/RBAC/Operator，验证 admission、最小权限、
   Ready/observedGeneration/finalizer、Leader Pod Kill 后 Lease 接管和继续调和。
@@ -38,9 +38,10 @@
    Extension Weight/Probation、PSI/Cgroup 深度采样和 Node Pressure 驱逐尚未实现。
 4. Hot Actor 安全点迁移有 Router/Epoch 核心，但缺双 Coordinator 实例的迁移压测。
 5. CNI/CSI 清单已定义，仍需目标云环境验证防直连泄漏与 Snapshot 一致性 Adapter。
-6. Operator resourceVersion List/Watch、410 重列举和周期 resync 已由
-   [进度 104](104-Kubernetes-Operator-List-Watch与AUTO-CRD闭环.md)关闭；指标/告警和
-   多个 API Server/etcd 故障下的长时间稳定性尚未完成。
+6. Operator resourceVersion List/Watch、410 重列举和周期 resync 已由进度 104 关闭；
+   Prometheus 指标、七条告警和 Runbook 已由
+   [进度 105](105-Kubernetes-Operator-Prometheus指标与告警闭环.md)关闭；目标监控/Pager
+   到达及多个 API Server/etcd 故障下的长时间稳定性尚未完成。
 
 ## Gate 判定
 

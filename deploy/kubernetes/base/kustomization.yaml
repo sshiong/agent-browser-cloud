@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - coordinator-alert-rules.yaml
+  - operator-observability.yaml
   - runtime-storage.yaml
   - network-policy.yaml
   - browser-session-crd.yaml

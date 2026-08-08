@@ -2,7 +2,7 @@
 
 > 完成日期：2026-08-08
 > 状态：仓库内实现、单元测试和真实 Kind N/N-1 升降级已通过；目标云 API
-> Server/etcd 故障长稳与监控告警仍待完成。
+> Server/etcd 故障长稳仍待完成；仓库监控指标与告警后续已由进度 105 关闭。
 
 ## 本轮关闭的缺口
 
@@ -66,10 +66,11 @@ LIST 的 `resourceVersionMatch` 参数。
 ## 仍未完成
 
 1. 目标云多 API Server、etcd 延迟/压缩、API Server 短时不可用和网络分区的长稳；
-2. reconcile 成功率/延迟、LIST/Watch 重连、410、退避和 Lease 的 Prometheus 指标、
-   Alertmanager 告警与 Pager 到达演练；
+2. reconcile、LIST/Watch、410、退避和 Lease 的 Prometheus 指标及告警规则已由
+   [进度 105](105-Kubernetes-Operator-Prometheus指标与告警闭环.md)关闭；仍缺目标
+   Alertmanager 路由与 Pager 到达/关闭演练；
 3. 目标云 Node Drain、正式 Registry 制品 N/N-1 和不会双 Leader 的长期证明；
 4. 目标云 CNI 防直连、CSI Snapshot、Kata RuntimeClass 和 Browser Node Pool 验收。
 
 因此“每 2 秒全量 LIST、缺少 Watch”和“CRD 继续暴露 L1—L4”已不再是仓库代码缺口；
-Phase 6 生产 Exit Gate 仍由目标云故障长稳、指标告警、隔离和容量证书阻塞。
+Phase 6 生产 Exit Gate 仍由目标云故障长稳、监控/Pager 到达、隔离和容量证书阻塞。

@@ -43,6 +43,20 @@ service must also have a named secondary in the deployment inventory.
    are draining, cleanup failure rate returns to zero, and the Coordinator failover integration
    matrix passes.
 
+## Operator List/Watch
+
+1. Check `browsercloud_operator_leader` across every Operator Pod and compare it with the
+   `browser-session-operator` Lease holder; never infer leadership from one Service endpoint.
+2. Inspect Lease renewal age, loop error categories, Watch restart reasons, resourceVersion expiry
+   rate and the last successful consistent snapshot before restarting a replica.
+3. Repeated 410 events indicate API Server compaction outrunning the consumer. Preserve logs and
+   API Server/etcd health evidence, then confirm a fresh paginated LIST completes before intervention.
+4. During API Server or network failure, keep the existing Browser Sessions running. Do not delete
+   CRs or finalizers and do not manually replay create/terminate requests without their idempotency key.
+5. Drain or restart only the non-Leader first. Before restoring normal operations, verify exactly one
+   active Leader, recent Lease/snapshot timestamps, zero sustained reconcile errors and a successful
+   BrowserSession create/delete finalizer exercise.
+
 ## Recovery and closure
 
 - Recovery requires technical health plus business validation where Profiles are involved.

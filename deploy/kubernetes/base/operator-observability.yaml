@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-session-operator-metrics
+  namespace: browsercloud-system
+  labels:
+    browsercloud.io/component: operator
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+spec:
+  selector:
+    app.kubernetes.io/name: browser-session-operator
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: browser-session-operator-alert-rules
+  namespace: browsercloud-system
+  labels:
+    browsercloud.io/component: operator
+    browsercloud.io/alert-rules: "true"
+data:
+  operator-alerts.yaml: |
+    groups:
+      - name: browsercloud-operator
+        rules:
+          - alert: BrowserCloudOperatorNoLeader
+            expr: absent(browsercloud_operator_leader) or max(browsercloud_operator_leader) < 1
+            for: 30s
+            labels:
+              severity: critical
+            annotations:
+              summary: BrowserSession Operator has no active leader
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch
+          - alert: BrowserCloudOperatorLeaseRenewalStale
+            expr: max(browsercloud_operator_leader) == 1 and time() - max(browsercloud_operator_last_successful_lease_unixtime) > 20
+            for: 30s
+            labels:
+              severity: critical
+            annotations:
+              summary: BrowserSession Operator leader is not renewing its Lease
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch
+          - alert: BrowserCloudOperatorLoopErrors
+            expr: sum(increase(browsercloud_operator_loop_errors_total[10m])) > 5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: BrowserSession Operator control loop is repeatedly failing
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch
+          - alert: BrowserCloudOperatorResourceVersionExpirySpike
+            expr: sum(increase(browsercloud_operator_resource_version_expired_total[10m])) > 3
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: BrowserSession Watch history is expiring unusually often
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch
+          - alert: BrowserCloudOperatorReconcileFailures
+            expr: sum(increase(browsercloud_operator_reconcile_total{result="error"}[5m])) > 3
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: BrowserSession reconciliations are repeatedly failing
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch
+          - alert: BrowserCloudOperatorReconcileP99High
+            expr: histogram_quantile(0.99, sum by (le) (rate(browsercloud_operator_reconcile_duration_seconds_bucket{result="success"}[5m]))) > 1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: BrowserSession reconciliation P99 exceeds one second
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch
+          - alert: BrowserCloudOperatorSnapshotStale
+            expr: max(browsercloud_operator_last_successful_snapshot_unixtime) > 0 and time() - max(browsercloud_operator_last_successful_snapshot_unixtime) > 600
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: BrowserSession Operator has not completed a consistent snapshot recently
+              runbook: docs/security/incident-response-runbook.md#operator-listwatch

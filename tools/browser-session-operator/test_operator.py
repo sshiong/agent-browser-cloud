@@ -10,6 +10,7 @@ import sys
 import unittest
 import urllib.error
 import urllib.parse
+import urllib.request
 from unittest import mock
 
 os.environ.setdefault("CONTROL_PLANE_URL", "http://control-plane.test")
@@ -228,6 +229,62 @@ class ListWatchTest(unittest.TestCase):
         self.assertEqual([1, 2, 4, 4], [backoff.failure() for _ in range(4)])
         backoff.success()
         self.assertEqual(1, backoff.failure())
+
+
+class MetricsTest(unittest.TestCase):
+    def test_registry_renders_prometheus_counters_gauges_and_bounded_histograms(self):
+        registry = operator.MetricsRegistry()
+        registry.set("browsercloud_operator_leader", 1)
+        registry.increment(
+            "browsercloud_operator_reconcile_total",
+            {"source": "watch", "result": "success"},
+            amount=2,
+        )
+        for _ in range(100):
+            registry.observe(
+                "browsercloud_operator_reconcile_duration_seconds",
+                0.04,
+                {"source": "watch", "result": "success"},
+            )
+
+        payload = registry.render()
+
+        self.assertIn("browsercloud_operator_leader 1", payload)
+        self.assertIn(
+            'browsercloud_operator_reconcile_total{result="success",source="watch"} 2',
+            payload,
+        )
+        self.assertIn(
+            'browsercloud_operator_reconcile_duration_seconds_count'
+            '{result="success",source="watch"} 100',
+            payload,
+        )
+        histogram = next(iter(registry._histograms.values()))
+        self.assertEqual(100, histogram["count"])
+        self.assertEqual(len(operator.RECONCILE_DURATION_BUCKETS), len(histogram["buckets"]))
+
+    def test_metrics_server_exposes_health_and_prometheus_payload(self):
+        with (
+            mock.patch.object(operator, "METRICS_BIND_ADDRESS", "127.0.0.1"),
+            mock.patch.object(operator, "METRICS_PORT", 0),
+        ):
+            server = operator.start_metrics_server()
+        try:
+            root = f"http://127.0.0.1:{server.server_port}"
+            with urllib.request.urlopen(f"{root}/healthz", timeout=2) as response:
+                self.assertEqual(b"ok\n", response.read())
+            with urllib.request.urlopen(f"{root}/metrics", timeout=2) as response:
+                payload = response.read().decode()
+            self.assertIn("# TYPE browsercloud_operator_build_info gauge", payload)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_error_categories_are_bounded(self):
+        self.assertEqual("http_4xx", operator.bounded_error_category(http_error(409)))
+        self.assertEqual("http_5xx", operator.bounded_error_category(http_error(503)))
+        self.assertEqual("timeout", operator.bounded_error_category(TimeoutError()))
+        self.assertEqual("internal", operator.bounded_error_category(ValueError()))
 
 
 class ReconcileContractTest(unittest.TestCase):

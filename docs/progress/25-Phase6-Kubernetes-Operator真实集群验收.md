@@ -66,9 +66,10 @@ createCalls=4 terminateCalls=1
 ## 尚未完成
 
 1. 在目标云多节点集群强制加载 AppArmor/SELinux Profile 并验证拒绝、审计与回滚。
-2. resourceVersion List/Watch、bookmark、410 重列举和周期 resync 已由
-   [进度 104](104-Kubernetes-Operator-List-Watch与AUTO-CRD闭环.md)关闭；仍需提供
-   reconcile/list-watch/lease 指标和告警。
+2. resourceVersion List/Watch、bookmark、410 重列举和周期 resync 已由进度 104
+   关闭；reconcile/list-watch/lease 指标、七条告警和 Runbook 已由
+   [进度 105](105-Kubernetes-Operator-Prometheus指标与告警闭环.md)关闭，仍缺目标
+   Prometheus/Alertmanager/Pager 到达演练。
 3. API Server 短时不可用、etcd 延迟、网络分区下的长时间稳定性与不会双 Leader 证明。
 4. CNI 防直连、CSI Snapshot 一致性 Adapter、Kata RuntimeClass 在目标环境的实测。
 5. 在目标云和正式制品 Registry 重复 N/N-1、Node Drain 与回滚 GameDay；本地源码

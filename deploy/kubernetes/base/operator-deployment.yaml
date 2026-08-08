@@ -44,6 +44,10 @@ spec:
               value: "300"
             - name: LIST_PAGE_SIZE
               value: "500"
+            - name: METRICS_BIND_ADDRESS
+              value: 0.0.0.0
+            - name: METRICS_PORT
+              value: "8080"
             - name: CONTROL_PLANE_URL
               value: https://control-plane.browsercloud-system.svc
             - name: CONTROL_PLANE_TOKEN
@@ -53,6 +57,10 @@ spec:
                   key: token
             - name: CONTROL_PLANE_CA
               value: /var/run/browsercloud/ca/ca.crt
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -82,7 +82,8 @@ CLUSTER_CREATED=true
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply \
   -f "${ROOT_DIR}/deploy/kubernetes/base/namespace.yaml" \
   -f "${ROOT_DIR}/deploy/kubernetes/base/browser-session-crd.yaml" \
-  -f "${ROOT_DIR}/deploy/kubernetes/base/operator-rbac.yaml"
+  -f "${ROOT_DIR}/deploy/kubernetes/base/operator-rbac.yaml" \
+  -f "${ROOT_DIR}/deploy/kubernetes/base/operator-observability.yaml"
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" create secret generic \
   browser-session-operator-credentials --from-literal=token=kind-test-token
 
@@ -95,6 +96,10 @@ import sys
 deployment = json.load(sys.stdin)
 security = deployment["spec"]["template"]["spec"]["containers"][0]["securityContext"]
 assert security["appArmorProfile"]["type"] == "RuntimeDefault"
+container = deployment["spec"]["template"]["spec"]["containers"][0]
+assert container["ports"] == [
+    {"name": "metrics", "containerPort": 8080, "protocol": "TCP"}
+]
 '
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" apply --server-side --dry-run=server \
   -f "${ROOT_DIR}/tests/kubernetes/mock-control-plane.yaml" >/dev/null
@@ -242,6 +247,63 @@ done
 "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
   logs deployment/browser-session-operator --prefix=true |
   grep -q "list-watch cache synchronized"
+metrics_leader=""
+deadline=$((SECONDS + 90))
+while ((SECONDS < deadline)); do
+  candidate="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    get lease browser-session-operator -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || true)"
+  phase="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    get pod "${candidate}" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  if [[ -n "${candidate}" && "${phase}" == "Running" ]]; then
+    metrics_leader="${candidate}"
+    break
+  fi
+  sleep 2
+done
+test -n "${metrics_leader}"
+"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  port-forward "pod/${metrics_leader}" 18081:8080 \
+  >/tmp/agentbrowser-kind-operator-metrics-port-forward.log 2>&1 &
+PORT_FORWARD_PID=$!
+for _ in {1..30}; do
+  if curl --fail --silent http://127.0.0.1:18081/healthz >/dev/null; then
+    break
+  fi
+  sleep 1
+done
+curl --fail --silent http://127.0.0.1:18081/healthz | grep -qx ok
+metrics=""
+for _ in {1..30}; do
+  metrics="$(curl --fail --silent http://127.0.0.1:18081/metrics)"
+  if grep -q "browsercloud_operator_watch_restarts_total" <<<"${metrics}"; then
+    break
+  fi
+  sleep 1
+done
+METRICS="${metrics}" python3 -c '
+import os
+import re
+
+metrics = os.environ["METRICS"]
+required = (
+    "browsercloud_operator_build_info 1",
+    "browsercloud_operator_leader 1",
+    "browsercloud_operator_last_successful_lease_unixtime",
+    "browsercloud_operator_last_successful_snapshot_unixtime",
+    "browsercloud_operator_watch_restarts_total",
+    "browsercloud_operator_reconcile_duration_seconds_bucket",
+)
+for sample in required:
+    assert sample in metrics, sample
+match = re.search(
+    r"browsercloud_operator_list_snapshots_total\{result=\"success\"\} ([0-9.]+)",
+    metrics,
+)
+assert match and float(match.group(1)) >= 1, metrics
+'
+kill "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
+wait "${PORT_FORWARD_PID}" >/dev/null 2>&1 || true
+PORT_FORWARD_PID=""
 wait_for_jsonpath "browsersession/kind-primary" "{.status.phase}" "Ready"
 wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
 

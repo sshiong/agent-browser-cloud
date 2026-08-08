@@ -6,10 +6,12 @@ import json
 import os
 import socket
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 FINALIZER = "browsercloud.io/session-cleanup"
 KUBE_HOST = os.environ.get("KUBERNETES_SERVICE_HOST", "kubernetes.default.svc")
@@ -29,7 +31,235 @@ WATCH_TIMEOUT_SECONDS = int(os.environ.get("WATCH_TIMEOUT_SECONDS", "5"))
 RESYNC_INTERVAL_SECONDS = int(os.environ.get("RESYNC_INTERVAL_SECONDS", "300"))
 LIST_PAGE_SIZE = int(os.environ.get("LIST_PAGE_SIZE", "500"))
 MAX_WATCH_EVENT_BYTES = 1024 * 1024
+METRICS_BIND_ADDRESS = os.environ.get("METRICS_BIND_ADDRESS", "0.0.0.0")
+METRICS_PORT = int(os.environ.get("METRICS_PORT", "8080"))
 NAMESPACE_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+
+METRIC_DEFINITIONS = {
+    "browsercloud_operator_build_info": (
+        "BrowserSession Operator build information.",
+        "gauge",
+    ),
+    "browsercloud_operator_leader": (
+        "Whether this Operator replica currently holds the Kubernetes Lease.",
+        "gauge",
+    ),
+    "browsercloud_operator_lease_attempts_total": (
+        "Kubernetes Lease acquisition and renewal attempts.",
+        "counter",
+    ),
+    "browsercloud_operator_last_successful_lease_unixtime": (
+        "Unix time of the most recent successful Lease acquisition or renewal.",
+        "gauge",
+    ),
+    "browsercloud_operator_list_requests_total": (
+        "BrowserSession LIST page requests.",
+        "counter",
+    ),
+    "browsercloud_operator_list_snapshots_total": (
+        "Completed BrowserSession LIST snapshots.",
+        "counter",
+    ),
+    "browsercloud_operator_list_snapshot_resources": (
+        "BrowserSession resources in the most recent consistent LIST snapshot.",
+        "gauge",
+    ),
+    "browsercloud_operator_last_successful_snapshot_unixtime": (
+        "Unix time of the most recent successful BrowserSession LIST snapshot.",
+        "gauge",
+    ),
+    "browsercloud_operator_watch_events_total": (
+        "BrowserSession Watch events consumed by type.",
+        "counter",
+    ),
+    "browsercloud_operator_watch_restarts_total": (
+        "BrowserSession Watch restarts by reason.",
+        "counter",
+    ),
+    "browsercloud_operator_last_successful_watch_unixtime": (
+        "Unix time of the most recent clean Watch completion.",
+        "gauge",
+    ),
+    "browsercloud_operator_resource_version_expired_total": (
+        "BrowserSession Watch resourceVersion expiration events.",
+        "counter",
+    ),
+    "browsercloud_operator_reconcile_total": (
+        "BrowserSession reconciliations by source and result.",
+        "counter",
+    ),
+    "browsercloud_operator_reconcile_duration_seconds": (
+        "BrowserSession reconciliation duration in seconds.",
+        "histogram",
+    ),
+    "browsercloud_operator_loop_errors_total": (
+        "Operator control loop failures by bounded category.",
+        "counter",
+    ),
+    "browsercloud_operator_backoff_seconds": (
+        "Current retry backoff after an Operator loop failure.",
+        "gauge",
+    ),
+}
+RECONCILE_DURATION_BUCKETS = (0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)
+
+
+def _escape_metric_label(value):
+    return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
+def _format_metric_labels(labels, extra=None):
+    values = dict(labels)
+    if extra:
+        values.update(extra)
+    if not values:
+        return ""
+    rendered = ",".join(
+        f'{key}="{_escape_metric_label(value)}"' for key, value in sorted(values.items())
+    )
+    return "{" + rendered + "}"
+
+
+def _format_metric_value(value):
+    return str(int(value)) if float(value).is_integer() else format(value, ".12g")
+
+
+class MetricsRegistry:
+    """Small bounded Prometheus registry without runtime package downloads."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._counters = {}
+        self._gauges = {}
+        self._histograms = {}
+
+    @staticmethod
+    def _key(name, labels, expected_type):
+        if name not in METRIC_DEFINITIONS:
+            raise KeyError(f"unknown metric {name}")
+        if METRIC_DEFINITIONS[name][1] != expected_type:
+            raise TypeError(f"metric {name} is not a {expected_type}")
+        return name, tuple(sorted((labels or {}).items()))
+
+    def increment(self, name, labels=None, amount=1.0):
+        key = self._key(name, labels, "counter")
+        with self._lock:
+            self._counters[key] = self._counters.get(key, 0.0) + amount
+
+    def set(self, name, value, labels=None):
+        key = self._key(name, labels, "gauge")
+        with self._lock:
+            self._gauges[key] = float(value)
+
+    def observe(self, name, value, labels=None):
+        key = self._key(name, labels, "histogram")
+        value = float(value)
+        with self._lock:
+            histogram = self._histograms.setdefault(
+                key,
+                {
+                    "buckets": [0] * len(RECONCILE_DURATION_BUCKETS),
+                    "count": 0,
+                    "sum": 0.0,
+                },
+            )
+            for index, bucket in enumerate(RECONCILE_DURATION_BUCKETS):
+                if value <= bucket:
+                    histogram["buckets"][index] += 1
+            histogram["count"] += 1
+            histogram["sum"] += value
+
+    def render(self):
+        with self._lock:
+            counters = dict(self._counters)
+            gauges = dict(self._gauges)
+            histograms = {
+                key: {
+                    "buckets": list(value["buckets"]),
+                    "count": value["count"],
+                    "sum": value["sum"],
+                }
+                for key, value in self._histograms.items()
+            }
+        lines = []
+        for name, (help_text, metric_type) in METRIC_DEFINITIONS.items():
+            lines.extend((f"# HELP {name} {help_text}", f"# TYPE {name} {metric_type}"))
+            if metric_type == "counter":
+                samples = counters
+            elif metric_type == "gauge":
+                samples = gauges
+            else:
+                samples = histograms
+            for (sample_name, raw_labels), value in sorted(samples.items()):
+                if sample_name != name:
+                    continue
+                labels = dict(raw_labels)
+                if metric_type != "histogram":
+                    lines.append(
+                        f"{name}{_format_metric_labels(labels)} "
+                        f"{_format_metric_value(value)}"
+                    )
+                    continue
+                for index, bucket in enumerate(RECONCILE_DURATION_BUCKETS):
+                    lines.append(
+                        f"{name}_bucket"
+                        f"{_format_metric_labels(labels, {'le': bucket})} "
+                        f"{value['buckets'][index]}"
+                    )
+                lines.append(
+                    f"{name}_bucket"
+                    f"{_format_metric_labels(labels, {'le': '+Inf'})} {value['count']}"
+                )
+                lines.append(
+                    f"{name}_sum{_format_metric_labels(labels)} "
+                    f"{_format_metric_value(value['sum'])}"
+                )
+                lines.append(
+                    f"{name}_count{_format_metric_labels(labels)} {value['count']}"
+                )
+        return "\n".join(lines) + "\n"
+
+
+METRICS = MetricsRegistry()
+METRICS.set("browsercloud_operator_build_info", 1)
+METRICS.set("browsercloud_operator_leader", 0)
+METRICS.set("browsercloud_operator_backoff_seconds", 0)
+METRICS.set("browsercloud_operator_last_successful_lease_unixtime", 0)
+METRICS.set("browsercloud_operator_last_successful_snapshot_unixtime", 0)
+METRICS.set("browsercloud_operator_last_successful_watch_unixtime", 0)
+
+
+class MetricsHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/healthz":
+            payload = b"ok\n"
+            content_type = "text/plain; charset=utf-8"
+        elif self.path == "/metrics":
+            payload = METRICS.render().encode()
+            content_type = "text/plain; version=0.0.4; charset=utf-8"
+        else:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, _format, *_args):
+        return
+
+
+def start_metrics_server():
+    server = HTTPServer((METRICS_BIND_ADDRESS, METRICS_PORT), MetricsHandler)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        name="operator-metrics",
+        daemon=True,
+    )
+    thread.start()
+    return server
 
 
 class ResourceVersionExpired(RuntimeError):
@@ -49,6 +279,20 @@ class BoundedBackoff:
         delay = self.current
         self.current = min(self.maximum, self.current * 2)
         return delay
+
+
+def bounded_error_category(error):
+    if isinstance(error, urllib.error.HTTPError):
+        if 400 <= error.code < 500:
+            return "http_4xx"
+        if 500 <= error.code < 600:
+            return "http_5xx"
+        return "http_other"
+    if isinstance(error, (TimeoutError, socket.timeout)):
+        return "timeout"
+    if isinstance(error, urllib.error.URLError):
+        return "network"
+    return "internal"
 
 
 def request(
@@ -259,7 +503,16 @@ def resource_pages():
         else:
             query["resourceVersion"] = "0"
             query["resourceVersionMatch"] = "NotOlderThan"
-        response = kube_request(f"{RESOURCE_PATH}?{urllib.parse.urlencode(query)}")
+        try:
+            response = kube_request(f"{RESOURCE_PATH}?{urllib.parse.urlencode(query)}")
+        except Exception:
+            METRICS.increment(
+                "browsercloud_operator_list_requests_total", {"result": "error"}
+            )
+            raise
+        METRICS.increment(
+            "browsercloud_operator_list_requests_total", {"result": "success"}
+        )
         metadata = response.get("metadata", {})
         page_version = metadata.get("resourceVersion")
         if page_version:
@@ -278,28 +531,39 @@ def reconcile_snapshot():
     resource_count = 0
     resource_version = None
     first_error = None
-    for items, resource_version in resource_pages():
-        resource_count += len(items)
-        for item in items:
-            try:
-                reconcile(item)
-            except Exception as error:
-                first_error = first_error or error
-                print(
-                    f"snapshot reconcile failed for "
-                    f"{item['metadata'].get('name')}: {error}",
-                    flush=True,
-                )
-    if first_error:
-        raise first_error
-    if resource_version is None:
-        raise RuntimeError("BrowserSession list returned no pages")
-    print(
-        f"list-watch cache synchronized resources={resource_count} "
-        f"resourceVersion={resource_version}",
-        flush=True,
-    )
-    return resource_version
+    result = "error"
+    try:
+        for items, resource_version in resource_pages():
+            resource_count += len(items)
+            for item in items:
+                try:
+                    reconcile_observed(item, "snapshot")
+                except Exception as error:
+                    first_error = first_error or error
+                    print(
+                        f"snapshot reconcile failed for "
+                        f"{item['metadata'].get('name')}: {error}",
+                        flush=True,
+                    )
+        if first_error:
+            raise first_error
+        if resource_version is None:
+            raise RuntimeError("BrowserSession list returned no pages")
+        METRICS.set("browsercloud_operator_list_snapshot_resources", resource_count)
+        METRICS.set(
+            "browsercloud_operator_last_successful_snapshot_unixtime", time.time()
+        )
+        result = "success"
+        print(
+            f"list-watch cache synchronized resources={resource_count} "
+            f"resourceVersion={resource_version}",
+            flush=True,
+        )
+        return resource_version
+    finally:
+        METRICS.increment(
+            "browsercloud_operator_list_snapshots_total", {"result": result}
+        )
 
 
 def consume_watch(response, resource_version):
@@ -316,6 +580,14 @@ def consume_watch(response, resource_version):
         except json.JSONDecodeError as error:
             raise RuntimeError("BrowserSession watch returned invalid JSON") from error
         event_type = event.get("type")
+        metric_event_type = (
+            event_type
+            if event_type in ("ADDED", "MODIFIED", "DELETED", "BOOKMARK", "ERROR")
+            else "UNKNOWN"
+        )
+        METRICS.increment(
+            "browsercloud_operator_watch_events_total", {"type": metric_event_type}
+        )
         item = event.get("object") or {}
         if event_type == "ERROR":
             if int(item.get("code") or 0) == 410:
@@ -329,7 +601,7 @@ def consume_watch(response, resource_version):
                 current_version = next_version
             continue
         if event_type in ("ADDED", "MODIFIED"):
-            reconcile(item)
+            reconcile_observed(item, "watch")
         elif event_type != "DELETED":
             raise RuntimeError(f"unsupported BrowserSession watch event {event_type}")
         if next_version:
@@ -346,8 +618,16 @@ def watch_resources(resource_version, timeout_seconds=None):
             "timeoutSeconds": timeout_seconds,
         }
     )
-    with open_kube_watch(f"{RESOURCE_PATH}?{query}", timeout_seconds) as response:
-        return consume_watch(response, resource_version)
+    try:
+        with open_kube_watch(f"{RESOURCE_PATH}?{query}", timeout_seconds) as response:
+            return consume_watch(response, resource_version)
+    except ResourceVersionExpired:
+        raise
+    except Exception:
+        METRICS.increment(
+            "browsercloud_operator_watch_restarts_total", {"reason": "error"}
+        )
+        raise
 
 
 def reconcile(item):
@@ -395,7 +675,28 @@ def reconcile(item):
         patch_resource(item, {"status": desired_status}, status=True)
 
 
+def reconcile_observed(item, source):
+    started_at = time.perf_counter()
+    result = "error"
+    try:
+        reconcile(item)
+        result = "success"
+    finally:
+        labels = {"source": source, "result": result}
+        METRICS.increment("browsercloud_operator_reconcile_total", labels)
+        METRICS.observe(
+            "browsercloud_operator_reconcile_duration_seconds",
+            time.perf_counter() - started_at,
+            labels,
+        )
+
+
 def main():
+    start_metrics_server()
+    print(
+        f"metrics listening on {METRICS_BIND_ADDRESS}:{METRICS_PORT}",
+        flush=True,
+    )
     namespace = operator_namespace()
     identity = operator_identity()
     was_leader = False
@@ -404,7 +705,22 @@ def main():
     backoff = BoundedBackoff()
     while True:
         try:
-            is_leader = try_acquire_or_renew(namespace, identity)
+            try:
+                is_leader = try_acquire_or_renew(namespace, identity)
+            except Exception:
+                METRICS.increment(
+                    "browsercloud_operator_lease_attempts_total", {"result": "error"}
+                )
+                raise
+            lease_result = "leader" if is_leader else "follower"
+            METRICS.increment(
+                "browsercloud_operator_lease_attempts_total", {"result": lease_result}
+            )
+            METRICS.set("browsercloud_operator_leader", 1 if is_leader else 0)
+            if is_leader:
+                METRICS.set(
+                    "browsercloud_operator_last_successful_lease_unixtime", time.time()
+                )
             if is_leader and not was_leader:
                 print(f"leadership acquired by {identity}", flush=True)
             if not is_leader and was_leader:
@@ -420,16 +736,36 @@ def main():
                     resource_version = reconcile_snapshot()
                     last_resync = now
                 resource_version = watch_resources(resource_version)
+                METRICS.set(
+                    "browsercloud_operator_last_successful_watch_unixtime", time.time()
+                )
+                METRICS.increment(
+                    "browsercloud_operator_watch_restarts_total",
+                    {"reason": "server_timeout"},
+                )
                 backoff.success()
+                METRICS.set("browsercloud_operator_backoff_seconds", 0)
                 continue
             backoff.success()
+            METRICS.set("browsercloud_operator_backoff_seconds", 0)
         except ResourceVersionExpired:
             resource_version = None
+            METRICS.increment("browsercloud_operator_resource_version_expired_total")
+            METRICS.increment(
+                "browsercloud_operator_watch_restarts_total",
+                {"reason": "resource_version_expired"},
+            )
             print("watch resourceVersion expired; relisting", flush=True)
         except Exception as error:
             was_leader = False
+            category = bounded_error_category(error)
+            METRICS.increment(
+                "browsercloud_operator_loop_errors_total", {"category": category}
+            )
             print(f"operator loop failed: {error}", flush=True)
-            time.sleep(backoff.failure())
+            delay = backoff.failure()
+            METRICS.set("browsercloud_operator_backoff_seconds", delay)
+            time.sleep(delay)
             continue
         time.sleep(RECONCILE_INTERVAL_SECONDS)
 

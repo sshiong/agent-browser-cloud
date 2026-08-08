@@ -54,7 +54,9 @@ typescript_sdk_pack=true source_files=false
 
 ## 当前仍未完成
 
-1. 将发布包实际推送到目标 npm Registry、OIDC Trusted Publishing、签名 Provenance、
-   版本晋级和撤销流程；这需要目标组织 Registry 与发布审批权限。
-2. Python、Go、Java SDK 仍是手写兼容客户端，尚未迁移到统一自动生成流水线。
+1. Python、Go、Java 自动生成、四语言统一版本、确定性发布物与 GitHub OIDC
+   Provenance Release 流水线后续已由
+   [进度 103](103-Python-Go-Java-OpenAPI生成与SDK供应链发布门禁.md)关闭。
+2. 将发布包镜像到目标 npm/PyPI/Maven Central Registry、开通各组织 Trusted
+   Publishing、撤销流程和维护者审批仍是外部 Gate。
 3. 跨版本 SDK 兼容矩阵、公开 Release Notes 和客户升级演练仍待建立。

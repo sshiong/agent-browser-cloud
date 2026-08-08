@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop test test-desktop lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -88,6 +88,22 @@ sdk-typescript-check: sdk-typescript-generate
 	python3 tools/sdk/verify_typescript_sdk.py packages/contracts/openapi/session-api.yaml sdks/typescript/src/generated sdks/typescript/generated-manifest.json
 	git diff --exit-code -- sdks/typescript/src/generated sdks/typescript/generated-manifest.json
 
+# Generate dependency-light, full-operation Python/Go/Java clients and native schema models.
+sdk-multilang-generate:
+	mkdir -p build/sdk
+	pnpm --package=@redocly/cli@1.34.0 dlx redocly bundle packages/contracts/openapi/session-api.yaml --output build/sdk/session-api.json
+	python3 tools/sdk/generate_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
+
+# All 158 operations, 215 public schemas and generated file hashes must remain exact.
+sdk-multilang-check: sdk-multilang-generate
+	python3 tools/sdk/verify_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
+	git diff --exit-code -- sdks/python/browsercloud/generated_client.py sdks/python/browsercloud/generated_models.py sdks/go/browsercloud/generated sdks/java/src/main/java/io/browsercloud/sdk/generated sdks/generated-multilang-manifest.json
+
+build-sdk-release: sdk-typescript-check sdk-multilang-check
+	mkdir -p build/sdk-release
+	pnpm --dir sdks/typescript pack --pack-destination ../../build/sdk-release
+	python3 tools/sdk/build_multilang_release.py .
+
 # Run database migration
 migrate:
 	./gradlew -p apps/control-plane flywayMigrate
@@ -172,8 +188,12 @@ test-sdk:
 	bash tests/sdk/typescript-package.sh
 	cd sdks/go && go test ./...
 	mkdir -p sdks/java/build/classes
-	javac -d sdks/java/build/classes $$(find sdks/java/src -name '*.java' -print)
+	javac --release 17 -d sdks/java/build/classes $$(find sdks/java/src -name '*.java' -print)
 	java -cp sdks/java/build/classes io.browsercloud.sdk.BrowserCloudClientTest
+	java -cp sdks/java/build/classes io.browsercloud.sdk.generated.BrowserCloudGeneratedClientTest
+	mkdir -p build/sdk-release
+	pnpm --dir sdks/typescript pack --pack-destination ../../build/sdk-release
+	python3 tools/sdk/build_multilang_release.py .
 
 # Run all checks (CI)
-ci: lint test contracts-check sdk-typescript-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk
+ci: lint test contracts-check sdk-typescript-check sdk-multilang-check supply-chain-check test-kubernetes-operator test-upgrade-compatibility test-coordinator-capacity test-sdk

@@ -1,0 +1,76 @@
+name: sdk-release
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build-attest-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.22.x"
+          cache: false
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 10.17.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: sdks/typescript/pnpm-lock.yaml
+
+      - name: Validate immutable SDK version tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="sdk-v$(tr -d '\r\n' < sdks/VERSION)"
+          test "${GITHUB_REF_NAME}" = "${expected}"
+          git tag --points-at HEAD --list "${expected}" | grep -Fx "${expected}"
+
+      - name: Install pinned TypeScript generator
+        run: pnpm --dir sdks/typescript install --frozen-lockfile
+
+      - name: Verify generated sources and build release artifacts
+        run: |
+          make sdk-typescript-check sdk-multilang-check test-sdk
+          make build-sdk-release
+
+      - name: Attest all SDK artifacts with GitHub OIDC
+        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4
+        with:
+          subject-path: build/sdk-release/*
+
+      - name: Publish immutable GitHub SDK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            build/sdk-release/* \
+            --verify-tag \
+            --generate-notes \
+            --title "Agent Browser Cloud SDK ${GITHUB_REF_NAME#sdk-v}"

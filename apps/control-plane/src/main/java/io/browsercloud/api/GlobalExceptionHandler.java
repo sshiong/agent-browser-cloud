@@ -6,6 +6,7 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerJobNotFoundException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerRejectedException;
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
+import io.browsercloud.application.AgentReviewerApplicationService.AgentReviewRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.ProviderEvidenceRejectedException;
@@ -601,6 +602,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "AGENT_EXECUTION_JOB_REJECTED",
         "Agent execution worker request was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentReviewRejectedException.class)
+  ResponseEntity<ApiError> agentReviewRejected(
+      AgentReviewRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_REVIEW_REJECTED",
+        "Agent Reviewer request was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

@@ -116,17 +116,28 @@ public class CoordinatorCommandQueue {
                command.claim_lease_until IS NULL
                OR command.claim_lease_until < :now
              )
-             AND :workerId = (
-               SELECT worker.worker_id
-                 FROM coordinator_dispatch_workers worker
-                WHERE worker.lease_until >= :now
-                ORDER BY
-                  hashtextextended(
-                    worker.worker_id || ':' || command.coordinator_shard_id::text,
-                    0
-                  ) DESC,
-                  worker.worker_id
-                LIMIT 1
+             AND :workerId = COALESCE(
+               (
+                 SELECT owner_worker.worker_id
+                   FROM coordinator_ownership ownership
+                   JOIN coordinator_dispatch_workers owner_worker
+                     ON owner_worker.worker_id = ownership.coordinator_owner
+                    AND owner_worker.lease_until >= :now
+                  WHERE ownership.session_id = command.session_id
+                    AND ownership.route_epoch = command.route_epoch
+               ),
+               (
+                 SELECT worker.worker_id
+                   FROM coordinator_dispatch_workers worker
+                  WHERE worker.lease_until >= :now
+                  ORDER BY
+                    hashtextextended(
+                      worker.worker_id || ':' || command.coordinator_shard_id::text,
+                      0
+                    ) DESC,
+                    worker.worker_id
+                  LIMIT 1
+               )
              )
            ORDER BY command.next_attempt_at, command.created_at, command.command_id
            LIMIT :batchSize

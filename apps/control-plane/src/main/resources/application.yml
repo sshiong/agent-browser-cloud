@@ -76,6 +76,21 @@ agent:
     claim-lease-seconds: ${AGENT_WORKER_CLAIM_LEASE_SECONDS:60}
     reaper-interval-ms: ${AGENT_WORKER_REAPER_INTERVAL_MS:15000}
     maximum-attempts: ${AGENT_WORKER_MAXIMUM_ATTEMPTS:3}
+  reviewer:
+    minimum-confidence: ${AGENT_REVIEWER_MINIMUM_CONFIDENCE:0.80}
+    deployment-id: ${AGENT_REVIEWER_DEPLOYMENT_ID:reviewer-local-v1}
+    provider-type: ${AGENT_REVIEWER_PROVIDER_TYPE:OPENAI_RESPONSES}
+    model-name: ${AGENT_REVIEWER_MODEL_NAME:reviewer-local}
+    model-revision: ${AGENT_REVIEWER_MODEL_REVISION:local-v1}
+    data-policy: ${AGENT_REVIEWER_DATA_POLICY:REDACTED_TASK_PLAN}
+    maximum-output-tokens: ${AGENT_REVIEWER_MAXIMUM_OUTPUT_TOKENS:512}
+    input-price-micros-per-million-tokens: ${AGENT_REVIEWER_INPUT_PRICE_MICROS_PER_MTOK:0}
+    output-price-micros-per-million-tokens: ${AGENT_REVIEWER_OUTPUT_PRICE_MICROS_PER_MTOK:0}
+    external:
+      enabled: ${AGENT_REVIEWER_EXTERNAL_ENABLED:false}
+      claim-lease-seconds: ${AGENT_REVIEWER_CLAIM_LEASE_SECONDS:90}
+      reaper-interval-ms: ${AGENT_REVIEWER_REAPER_INTERVAL_MS:15000}
+      maximum-attempts: ${AGENT_REVIEWER_MAXIMUM_ATTEMPTS:3}
 
 proxy:
   allow-direct: ${PROXY_ALLOW_DIRECT:false}

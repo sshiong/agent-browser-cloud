@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.infrastructure.CoordinatorCommandQueue;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 public class CoordinatorCommandRoutingService {
 
   private final CoordinatorRouteAuthority routes;
+  private final CoordinatorOwnershipService ownership;
   private final NodeCommandDispatchClaimService workerMembership;
   private final CoordinatorCommandQueue queue;
   private final ObjectMapper mapper;
@@ -32,6 +34,7 @@ public class CoordinatorCommandRoutingService {
 
   public CoordinatorCommandRoutingService(
       CoordinatorRouteAuthority routes,
+      CoordinatorOwnershipService ownership,
       NodeCommandDispatchClaimService workerMembership,
       CoordinatorCommandQueue queue,
       ObjectMapper mapper,
@@ -46,6 +49,7 @@ public class CoordinatorCommandRoutingService {
           "coordinator.command-api-wait-seconds must be positive and below the deadline");
     }
     this.routes = routes;
+    this.ownership = ownership;
     this.workerMembership = workerMembership;
     this.queue = queue;
     this.mapper = mapper;
@@ -66,7 +70,8 @@ public class CoordinatorCommandRoutingService {
       throw new TenantAccessDeniedException(sessionId);
     }
     var now = Instant.now();
-    if (workerMembership.ownsShard(route.shardId(), now)) {
+    if (workerMembership.ownsShard(route.shardId(), now)
+        && ownership.isCurrentOwnerOrUnowned(sessionId, route.routeEpoch())) {
       return localExecution.get();
     }
     var serializedPayload = write(payload);

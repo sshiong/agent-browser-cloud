@@ -60,7 +60,9 @@ Kubernetes 清单显式启用外部 Worker，不会静默回退到进程内执�
 
 ## 仍未完成
 
-1. Reviewer Agent、真实模型 Provider、模型选择/版本/成本/数据治理和大规模 Replay Matrix；
+1. Reviewer Agent、固定 Responses Provider、模型版本/成本/数据治理后续已由进度 114
+   关闭；客户批准站点与正式模型版本的大规模 Replay Matrix、升级 Gate 和目标云
+   Provider 准入仍未完成；
 2. 无语义像素/OCR Validator、高级组合编排、Challenge Detection、一次性 HumanAssist、
    协作取消和跨 Region Workflow；
 3. 目标云 Kata/LSM/CNI 的真实强制证书、OIDC Workload Identity 发行与撤销、跨 Pod/跨

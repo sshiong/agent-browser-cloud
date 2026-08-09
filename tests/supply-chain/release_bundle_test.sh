@@ -38,8 +38,8 @@ image_count="$(
   awk '/^[[:space:]]+(- )?image: / { count++ } END { print count + 0 }' \
     "$TEST_ROOT/rendered.yaml"
 )"
-if [[ "$image_count" -ne 9 ]]; then
-  echo "expected nine digest-locked workload image references, got $image_count" >&2
+if [[ "$image_count" -ne 10 ]]; then
+  echo "expected ten digest-locked workload image references, got $image_count" >&2
   exit 1
 fi
 if awk '/^[[:space:]]+(- )?image: / && $0 !~ /@sha256:[a-f0-9]{64}$/ { exit 1 }' \

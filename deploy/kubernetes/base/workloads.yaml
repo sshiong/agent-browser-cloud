@@ -36,6 +36,34 @@ spec:
               value: production
             - name: AGENT_EXTERNAL_WORKER_ENABLED
               value: "true"
+            - name: AGENT_REVIEWER_EXTERNAL_ENABLED
+              # Enable only after every Control Plane replica has been upgraded to
+              # a version that understands the AWAITING_REVIEW task state.
+              value: "false"
+            - name: AGENT_REVIEWER_DEPLOYMENT_ID
+              value: reviewer-prod-v1
+            - name: AGENT_REVIEWER_PROVIDER_TYPE
+              value: OPENAI_RESPONSES
+            - name: AGENT_REVIEWER_MODEL_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: model
+            - name: AGENT_REVIEWER_MODEL_REVISION
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: revision
+            - name: AGENT_REVIEWER_INPUT_PRICE_MICROS_PER_MTOK
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: input-price-micros-per-million-tokens
+            - name: AGENT_REVIEWER_OUTPUT_PRICE_MICROS_PER_MTOK
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: output-price-micros-per-million-tokens
             - name: GRPC_TLS_ENABLED
               value: "true"
             - name: COORDINATOR_INSTANCE_ID

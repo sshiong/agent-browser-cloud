@@ -124,7 +124,9 @@ public final class SessionCoordinator {
    */
   public CoordinatorResult handle(SessionCommand command) {
     var route = routeAuthority.resolve(command.sessionId());
-    if (!(command instanceof NodeEventReceived) && !shardLocality.owns(route.shardId())) {
+    if (!(command instanceof NodeEventReceived)
+        && !shardLocality.owns(route.shardId())
+        && !ownershipService.isCurrentOwner(command.sessionId(), route.routeEpoch())) {
       throw new CoordinatorShardNotLocalException(
           command.sessionId(), route.routeEpoch(), route.shardId());
     }

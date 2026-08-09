@@ -1033,6 +1033,7 @@ function TaskRow({
   const blocked = task.state === 'BLOCKED' || task.state === 'FAILED';
   const completed = task.state === 'COMPLETED';
   const waiting =
+    task.state === 'AWAITING_REVIEW' ||
     task.state === 'AWAITING_CONFIRMATION' ||
     task.state === 'WAITING_FOR_HUMAN' ||
     task.state === 'PAUSED_BY_RESOURCE_POLICY';
@@ -1129,9 +1130,11 @@ function TaskInspector({
   const blocked = task.state === 'BLOCKED' || task.state === 'FAILED';
   const completed = task.state === 'COMPLETED';
   const awaitingConfirmation = task.state === 'AWAITING_CONFIRMATION';
+  const awaitingReview = task.state === 'AWAITING_REVIEW';
   const waitingForHuman = task.state === 'WAITING_FOR_HUMAN';
   const queued = task.state === 'QUEUED';
   const resourcePaused = task.state === 'PAUSED_BY_RESOURCE_POLICY';
+  const review = task.review ?? { status: 'NOT_REQUIRED', reasonCodes: [] };
   const expiry = useMemo(
     () =>
       new Date(task.plan.expiresAt).toLocaleString('zh-CN', {
@@ -1149,7 +1152,10 @@ function TaskInspector({
               'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
               blocked
                 ? 'bg-danger/12 text-danger'
-                : awaitingConfirmation || waitingForHuman || resourcePaused
+                : awaitingReview ||
+                    awaitingConfirmation ||
+                    waitingForHuman ||
+                    resourcePaused
                   ? 'bg-warning/12 text-warning'
                   : completed
                     ? 'bg-success/12 text-success'
@@ -1202,6 +1208,53 @@ function TaskInspector({
           </div>
         </div>
       )}
+
+      {awaitingReview && (
+        <div className="border-b border-warning/20 bg-warning/5 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <LoaderCircle
+              className="mt-0.5 shrink-0 animate-spin text-warning"
+              size={15}
+            />
+            <div>
+              <p className="text-[11px] font-semibold text-warning">
+                独立 Reviewer Agent 正在审核计划
+              </p>
+              <p className="mt-1 text-[9px] leading-4 text-text-secondary">
+                仅发送已脱敏目标与去
+                Capability、去密文的计划摘要。审核通过前不会创建 Agent 执行
+                Operation。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {review.status !== 'PENDING' &&
+        review.status !== 'NOT_REQUIRED' &&
+        !awaitingReview && (
+          <div className="border-b border-border-subtle bg-surface-2/40 px-5 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                Reviewer {review.status}
+              </p>
+              <span className="font-mono text-[9px] text-text-muted">
+                {review.modelRevision ?? review.deploymentId ?? '—'}
+              </span>
+            </div>
+            <p className="mt-1 font-mono text-[9px] text-text-secondary">
+              {(review.reasonCodes ?? []).join(' · ') ||
+                review.failureCode ||
+                '等待审核证据'}
+            </p>
+            {review.inputTokens !== undefined && (
+              <p className="mt-2 font-mono text-[8px] text-text-muted">
+                TOKENS {review.inputTokens}/{review.outputTokens ?? 0} · LATENCY{' '}
+                {review.latencyMs ?? 0}MS · COST {review.costMicros ?? 0}μ
+              </p>
+            )}
+          </div>
+        )}
 
       {resourcePaused && (
         <div className="border-b border-warning/20 bg-warning/5 px-5 py-4">
@@ -1308,7 +1361,7 @@ function TaskInspector({
             ) : (
               <ShieldCheck size={13} />
             )}
-            执行并验证安全计划
+            审核、执行并验证安全计划
           </button>
           {executionError instanceof Error && (
             <p className="mt-2 text-[10px] text-danger">
@@ -1324,7 +1377,11 @@ function TaskInspector({
             <LockKeyhole className="mt-0.5 shrink-0 text-danger" size={15} />
             <div>
               <p className="text-[11px] font-semibold text-danger">
-                Plan Validator 已拒绝
+                {review.status === 'REJECTED'
+                  ? 'Reviewer Agent 已拒绝'
+                  : review.status === 'FAILED'
+                    ? 'Reviewer Agent 不可用，任务已安全阻断'
+                    : 'Plan Validator 已拒绝'}
               </p>
               <p className="mt-1 break-all font-mono text-[10px] leading-4 text-text-secondary">
                 {task.blockedReason || task.lastError}

@@ -5,6 +5,7 @@ import static io.browsercloud.application.CoordinatorCommandPayloads.*;
 import io.browsercloud.application.AgentApplicationService;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService;
 import io.browsercloud.application.AgentHumanGovernanceService;
+import io.browsercloud.application.AgentReviewerApplicationService;
 import io.browsercloud.application.AgentTaskSummaryApplicationService;
 import io.browsercloud.application.CoordinatorCommandRoutingService;
 import io.browsercloud.security.PlatformIdentity;
@@ -38,6 +39,7 @@ public class AgentController {
   private final AgentTaskSummaryApplicationService summaryService;
   private final io.browsercloud.application.AgentExecutionService executionService;
   private final AgentExecutionWorkerApplicationService externalWorker;
+  private final AgentReviewerApplicationService reviewer;
   private final AgentHumanGovernanceService governanceService;
   private final CoordinatorCommandRoutingService commandRouting;
   private final PlatformIdentity identity;
@@ -47,6 +49,7 @@ public class AgentController {
       AgentTaskSummaryApplicationService summaryService,
       io.browsercloud.application.AgentExecutionService executionService,
       AgentExecutionWorkerApplicationService externalWorker,
+      AgentReviewerApplicationService reviewer,
       AgentHumanGovernanceService governanceService,
       CoordinatorCommandRoutingService commandRouting,
       PlatformIdentity identity) {
@@ -54,6 +57,7 @@ public class AgentController {
     this.summaryService = summaryService;
     this.executionService = executionService;
     this.externalWorker = externalWorker;
+    this.reviewer = reviewer;
     this.governanceService = governanceService;
     this.commandRouting = commandRouting;
     this.identity = identity;
@@ -95,6 +99,10 @@ public class AgentController {
       @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
     var principal = identity.current();
+    if (reviewer.enabled()) {
+      reviewer.enqueueForExecution(taskId, principal.tenantId(), idempotencyKey);
+      return service.get(taskId, principal.tenantId());
+    }
     if (externalWorker.enabled()) {
       return externalWorker.enqueue(taskId, principal.tenantId(), idempotencyKey);
     }

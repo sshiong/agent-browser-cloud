@@ -129,6 +129,32 @@ public class CoordinatorOwnershipService {
         .orElse(0L);
   }
 
+  /**
+   * Returns whether this process may execute a command without crossing the durable inbox.
+   *
+   * <p>A Session without an owner may be claimed by its physical shard worker. Once an owner
+   * exists, a shard rebalance must keep routing to that owner until the worker lease disappears;
+   * otherwise the new shard worker would be fenced during the ownership handover window.
+   */
+  public boolean isCurrentOwnerOrUnowned(String sessionId, long routeEpoch) {
+    return ownershipJpa
+        .findById(sessionId)
+        .map(
+            ownership ->
+                ownership.getRouteEpoch() == routeEpoch
+                    && ownership.getCoordinatorOwner().equals(coordinatorId))
+        .orElse(true);
+  }
+
+  /** Returns whether this process is the authoritative logical owner for the route epoch. */
+  public boolean isCurrentOwner(String sessionId, long routeEpoch) {
+    return ownershipJpa
+        .findById(sessionId)
+        .filter(ownership -> ownership.getRouteEpoch() == routeEpoch)
+        .map(ownership -> ownership.getCoordinatorOwner().equals(coordinatorId))
+        .orElse(false);
+  }
+
   /** Batch projection used by list endpoints to avoid one ownership query per Session. */
   public Map<String, Long> getCurrentTerms(Collection<String> sessionIds) {
     if (sessionIds.isEmpty()) {

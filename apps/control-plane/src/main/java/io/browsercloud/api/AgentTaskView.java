@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.api.AgentReviewerModels.AgentReviewView;
 import io.browsercloud.domain.agent.AgentModels.ActionDataClass;
 import io.browsercloud.domain.agent.AgentModels.ExecutionStrategy;
 import io.browsercloud.domain.agent.AgentModels.InstructionSourceType;
@@ -28,6 +29,7 @@ public record AgentTaskView(
     StepExecutionView stepExecution,
     ConfirmationView confirmation,
     HumanHandoffView humanHandoff,
+    AgentReviewView review,
     List<String> allowedDomains,
     PlanView plan,
     String operationId,

@@ -13,3 +13,4 @@ resources:
   - validation-worker-deployment.yaml
   - gameday-worker-deployment.yaml
   - agent-worker-deployment.yaml
+  - reviewer-worker-deployment.yaml

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.OperationResponse;
+import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.infrastructure.CoordinatorCommandQueue;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 class CoordinatorCommandRoutingServiceTest {
 
   private final CoordinatorRouteAuthority routes = mock(CoordinatorRouteAuthority.class);
+  private final CoordinatorOwnershipService ownership = mock(CoordinatorOwnershipService.class);
   private final NodeCommandDispatchClaimService membership =
       mock(NodeCommandDispatchClaimService.class);
   private final CoordinatorCommandQueue queue = mock(CoordinatorCommandQueue.class);
@@ -27,11 +29,13 @@ class CoordinatorCommandRoutingServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new CoordinatorCommandRoutingService(routes, membership, queue, mapper, 30, 2);
+    service =
+        new CoordinatorCommandRoutingService(routes, ownership, membership, queue, mapper, 30, 2);
     when(routes.resolve("ses_0000000000000001"))
         .thenReturn(
             new CoordinatorRouteAuthority.SessionRoute(
                 "ses_0000000000000001", "tenant-test", 4, 7, 11));
+    when(ownership.isCurrentOwnerOrUnowned("ses_0000000000000001", 4)).thenReturn(true);
   }
 
   @Test
@@ -84,6 +88,40 @@ class CoordinatorCommandRoutingServiceTest {
             });
 
     assertThat(result.operationId()).isEqualTo("op_remote");
+  }
+
+  @Test
+  void routesToTheLogicalOwnerDuringAPhysicalShardHandover() throws Exception {
+    when(membership.ownsShard(eq(11), any())).thenReturn(true);
+    when(ownership.isCurrentOwnerOrUnowned("ses_0000000000000001", 4)).thenReturn(false);
+    var payload =
+        mapper.writeValueAsString(
+            new CoordinatorCommandPayloads.SessionActor("tenant-test", "actor-test"));
+    var pending = command(payload, "PENDING", null, null);
+    var committed =
+        command(
+            payload,
+            "COMMITTED",
+            mapper.writeValueAsString(new OperationResponse("op_owner", OperationState.ACTIVE)),
+            null);
+    when(queue.enqueue(
+            any(), eq("SESSION_START_V1"), eq("SESSION_START_V1:request-handover"), any(), any()))
+        .thenReturn(pending);
+    when(queue.require("ccmd_test")).thenReturn(committed);
+
+    var result =
+        service.execute(
+            "ses_0000000000000001",
+            "tenant-test",
+            "SESSION_START_V1",
+            "request-handover",
+            new CoordinatorCommandPayloads.SessionActor("tenant-test", "actor-test"),
+            OperationResponse.class,
+            () -> {
+              throw new AssertionError("physical shard worker must not bypass the logical owner");
+            });
+
+    assertThat(result.operationId()).isEqualTo("op_owner");
   }
 
   @Test

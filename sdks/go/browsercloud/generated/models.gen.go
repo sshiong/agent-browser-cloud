@@ -279,6 +279,7 @@ type AgentTask struct {
 	StepExecution    AgentStepExecution         `json:"stepExecution,omitempty"`
 	Confirmation     AgentConfirmation          `json:"confirmation,omitempty"`
 	HumanHandoff     AgentHumanHandoff          `json:"humanHandoff,omitempty"`
+	Review           AgentReview                `json:"review,omitempty"`
 	AllowedDomains   []string                   `json:"allowedDomains,omitempty"`
 	Plan             AgentPlan                  `json:"plan,omitempty"`
 	OperationId      any                        `json:"operationId,omitempty"`
@@ -326,6 +327,126 @@ type AgentExecutionJobClaim struct {
 	Job            AgentExecutionJob `json:"job,omitempty"`
 	LeaseExpiresAt string            `json:"leaseExpiresAt,omitempty"`
 	ClaimEpoch     int64             `json:"claimEpoch,omitempty"`
+}
+
+type ClaimAgentReviewJobRequest struct {
+	ProtocolVersion string          `json:"protocolVersion,omitempty"`
+	Capabilities    map[string]bool `json:"capabilities,omitempty"`
+	DeploymentId    string          `json:"deploymentId,omitempty"`
+	ModelRevision   string          `json:"modelRevision,omitempty"`
+}
+
+type AgentReviewJobClaimRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+}
+
+type CompleteAgentReviewJobRequest struct {
+	ClaimToken        string   `json:"claimToken,omitempty"`
+	Decision          string   `json:"decision,omitempty"`
+	ReasonCodes       []string `json:"reasonCodes,omitempty"`
+	Confidence        float64  `json:"confidence,omitempty"`
+	DeploymentId      string   `json:"deploymentId,omitempty"`
+	ModelRevision     string   `json:"modelRevision,omitempty"`
+	ProviderRequestId any      `json:"providerRequestId,omitempty"`
+	InputTokens       int      `json:"inputTokens,omitempty"`
+	OutputTokens      int      `json:"outputTokens,omitempty"`
+	LatencyMs         int      `json:"latencyMs,omitempty"`
+	OutputHash        string   `json:"outputHash,omitempty"`
+}
+
+type FailAgentReviewJobRequest struct {
+	ClaimToken  string `json:"claimToken,omitempty"`
+	FailureCode string `json:"failureCode,omitempty"`
+	Retryable   bool   `json:"retryable,omitempty"`
+}
+
+type AgentReviewStep struct {
+	StepId               string         `json:"stepId,omitempty"`
+	ToolId               string         `json:"toolId,omitempty"`
+	RiskClass            AgentRiskClass `json:"riskClass,omitempty"`
+	TargetOrigin         any            `json:"targetOrigin,omitempty"`
+	TargetRefHash        any            `json:"targetRefHash,omitempty"`
+	DataClass            any            `json:"dataClass,omitempty"`
+	PayloadLength        any            `json:"payloadLength,omitempty"`
+	RequiredConfirmation bool           `json:"requiredConfirmation,omitempty"`
+	Strategy             string         `json:"strategy,omitempty"`
+	RequiredStateQuality string         `json:"requiredStateQuality,omitempty"`
+	Verification         string         `json:"verification,omitempty"`
+}
+
+type AgentReviewPayload struct {
+	TaskId         string            `json:"taskId,omitempty"`
+	Goal           string            `json:"goal,omitempty"`
+	RiskClass      AgentRiskClass    `json:"riskClass,omitempty"`
+	AllowedDomains []string          `json:"allowedDomains,omitempty"`
+	MaximumActions int               `json:"maximumActions,omitempty"`
+	ReplanBudget   int               `json:"replanBudget,omitempty"`
+	Steps          []AgentReviewStep `json:"steps,omitempty"`
+	PlanHash       string            `json:"planHash,omitempty"`
+	DataPolicy     string            `json:"dataPolicy,omitempty"`
+}
+
+type ReviewerModelDeployment struct {
+	DeploymentId        string `json:"deploymentId,omitempty"`
+	ProviderType        string `json:"providerType,omitempty"`
+	ModelName           string `json:"modelName,omitempty"`
+	ModelRevision       string `json:"modelRevision,omitempty"`
+	DataPolicy          string `json:"dataPolicy,omitempty"`
+	MaximumOutputTokens int    `json:"maximumOutputTokens,omitempty"`
+}
+
+type AgentReviewJob struct {
+	JobId             string                  `json:"jobId,omitempty"`
+	ReviewId          string                  `json:"reviewId,omitempty"`
+	TaskId            string                  `json:"taskId,omitempty"`
+	ProtocolVersion   string                  `json:"protocolVersion,omitempty"`
+	State             string                  `json:"state,omitempty"`
+	Attempt           int                     `json:"attempt,omitempty"`
+	MaximumAttempts   int                     `json:"maximumAttempts,omitempty"`
+	WorkerId          any                     `json:"workerId,omitempty"`
+	ClaimEpoch        int64                   `json:"claimEpoch,omitempty"`
+	LeaseExpiresAt    any                     `json:"leaseExpiresAt,omitempty"`
+	AvailableAt       string                  `json:"availableAt,omitempty"`
+	Deployment        ReviewerModelDeployment `json:"deployment,omitempty"`
+	Decision          any                     `json:"decision,omitempty"`
+	ReasonCodes       []string                `json:"reasonCodes,omitempty"`
+	Confidence        any                     `json:"confidence,omitempty"`
+	InputHash         string                  `json:"inputHash,omitempty"`
+	OutputHash        any                     `json:"outputHash,omitempty"`
+	ProviderRequestId any                     `json:"providerRequestId,omitempty"`
+	InputTokens       any                     `json:"inputTokens,omitempty"`
+	OutputTokens      any                     `json:"outputTokens,omitempty"`
+	CostMicros        any                     `json:"costMicros,omitempty"`
+	LatencyMs         any                     `json:"latencyMs,omitempty"`
+	StartedAt         any                     `json:"startedAt,omitempty"`
+	CompletedAt       any                     `json:"completedAt,omitempty"`
+	FailureCode       any                     `json:"failureCode,omitempty"`
+	UpdatedAt         string                  `json:"updatedAt,omitempty"`
+}
+
+type AgentReviewJobClaim struct {
+	ClaimToken     string             `json:"claimToken,omitempty"`
+	Job            AgentReviewJob     `json:"job,omitempty"`
+	ReviewPayload  AgentReviewPayload `json:"reviewPayload,omitempty"`
+	LeaseExpiresAt string             `json:"leaseExpiresAt,omitempty"`
+	ClaimEpoch     int64              `json:"claimEpoch,omitempty"`
+}
+
+type AgentReview struct {
+	ReviewId      any      `json:"reviewId,omitempty"`
+	Status        string   `json:"status,omitempty"`
+	Decision      any      `json:"decision,omitempty"`
+	ReasonCodes   []string `json:"reasonCodes,omitempty"`
+	PlanHash      any      `json:"planHash,omitempty"`
+	DeploymentId  any      `json:"deploymentId,omitempty"`
+	ModelName     any      `json:"modelName,omitempty"`
+	ModelRevision any      `json:"modelRevision,omitempty"`
+	InputTokens   any      `json:"inputTokens,omitempty"`
+	OutputTokens  any      `json:"outputTokens,omitempty"`
+	CostMicros    any      `json:"costMicros,omitempty"`
+	LatencyMs     any      `json:"latencyMs,omitempty"`
+	FailureCode   any      `json:"failureCode,omitempty"`
+	CompletedAt   any      `json:"completedAt,omitempty"`
 }
 
 type AgentStepExecution struct {

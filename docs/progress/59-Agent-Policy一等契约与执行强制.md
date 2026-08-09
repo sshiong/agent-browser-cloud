@@ -70,7 +70,9 @@ Restricted/Disabled 不构成安全边界。
 ## 明确未完成
 
 1. Network/Toast/Dialog/Visual/Login/Business Entity Validator 与组合 DSL；
-2. 独立无宿主权限 Agent Worker 已由进度 113 关闭；仍缺 Reviewer Agent、真实模型 Provider/治理和大规模 Replay；
+2. 独立无宿主权限 Agent Worker 已由进度 113 关闭；Reviewer Agent、固定 Responses
+   Provider 和模型治理已由进度 114 关闭；仍缺客户大规模 Replay、模型升级 Gate 和
+   目标云 Provider 准入；
 3. Challenge Detection、一次性 HumanAssist、协作取消和跨 Region Workflow；
 4. Purpose-bound 截图访问后续已由进度 87 关闭，基础 State 敏感分类与 Evidence
    截图不透明遮罩已由进度 88 关闭；仍缺 Site Policy、无语义视觉分类和 Recording

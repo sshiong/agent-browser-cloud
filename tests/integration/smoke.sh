@@ -53,6 +53,7 @@ storage_helper_b_pid=""
 storage_helper_c_pid=""
 proxy_pid=""
 business_provider_pid=""
+reviewer_model_pid=""
 resource_stream_pid=""
 overview_stream_pid=""
 notification_stream_pid=""
@@ -99,6 +100,9 @@ cleanup() {
   if [[ -n "$proxy_pid" ]]; then kill "$proxy_pid" 2>/dev/null || true; fi
   if [[ -n "$business_provider_pid" ]]; then
     kill "$business_provider_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$reviewer_model_pid" ]]; then
+    kill "$reviewer_model_pid" 2>/dev/null || true
   fi
   if [[ -n "$resource_stream_pid" ]]; then kill "$resource_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$overview_stream_pid" ]]; then kill "$overview_stream_pid" 2>/dev/null || true; fi
@@ -203,6 +207,7 @@ desktop_b_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0));
 desktop_c_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 proxy_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 business_provider_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+reviewer_model_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
 
 python3 "$repo_root/tests/fixtures/fake-http-proxy.py" \
   "$proxy_port" "$temp_dir/proxy-events.jsonl" \
@@ -3821,10 +3826,64 @@ tool_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d bro
   "select count(*) from tool_capability_uses where task_id='${read_agent_task_id}'")"
 test "$tool_capability_uses" = "3"
 
-# Production-mode Agent execution must cross the independent, opaque Worker queue. Run a second
-# Control Plane with the production dispatch flag so existing direct-executor fault injection above
-# remains deterministic while this proves cross-shard routing, Claim Token fencing and the real
-# dependency-free Worker process against the same PostgreSQL authority.
+# Production-mode Agent execution must cross the independent, opaque Worker queue. Keep this
+# multi-Control-Plane scenario on its own Session: advancing its Coordinator term must not mutate
+# the long-lived Session used by the crash-recovery and Node-restart scenarios below.
+reviewer_session_request='{"tenantId":"tenant-integration","profileId":"profile-reviewer-worker","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"requestedTabs":2,"agentActionsPerMinute":60,"agentPolicy":"INTERACTIVE","metadata":{"displayName":"Reviewer worker integration"}}'
+reviewer_session_status="$(curl -sS -o "$temp_dir/reviewer-session-created.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-reviewer-session-001' \
+  -d "$reviewer_session_request")"
+if [[ "$reviewer_session_status" != "201" ]]; then
+  echo "Reviewer integration Session create returned HTTP ${reviewer_session_status}" >&2
+  cat "$temp_dir/reviewer-session-created.json" >&2
+  exit 1
+fi
+reviewer_session_created="$(<"$temp_dir/reviewer-session-created.json")"
+reviewer_session="$(printf '%s' "$reviewer_session_created" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${reviewer_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' >/dev/null
+reviewer_session_state=""
+for _ in $(seq 1 80); do
+  reviewer_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${reviewer_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$reviewer_session_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$reviewer_session_state" = "RUNNING"
+
+# Run a second Control Plane with production dispatch enabled. This proves physical shard routing,
+# Claim Token fencing and both real dependency-free Worker processes against PostgreSQL authority.
+reviewer_provider_token="reviewer-provider-integration-token"
+python3 tests/fixtures/fake-reviewer-model.py \
+  "$reviewer_model_port" "$reviewer_provider_token" \
+  "$temp_dir/reviewer-model-events.jsonl" \
+  >"$temp_dir/reviewer-model.log" 2>&1 &
+reviewer_model_pid=$!
+reviewer_model_ready="false"
+for _ in $(seq 1 40); do
+  if python3 - "$reviewer_model_port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.2):
+    pass
+PY
+  then
+    reviewer_model_ready="true"
+    break
+  fi
+  if ! kill -0 "$reviewer_model_pid" 2>/dev/null; then break; fi
+  sleep 0.1
+done
+test "$reviewer_model_ready" = "true"
+
 DATABASE_URL="jdbc:postgresql://localhost:${postgres_port}/browsercloud" \
 DATABASE_USER=browsercloud \
 DATABASE_PASSWORD=browsercloud \
@@ -3844,6 +3903,13 @@ COORDINATOR_LEASE_SECONDS=3 \
 AGENT_EXECUTOR_LEASE_SECONDS=2 \
 AGENT_EXTERNAL_WORKER_ENABLED=true \
 AGENT_WORKER_CLAIM_LEASE_SECONDS=30 \
+AGENT_REVIEWER_EXTERNAL_ENABLED=true \
+AGENT_REVIEWER_CLAIM_LEASE_SECONDS=30 \
+AGENT_REVIEWER_DEPLOYMENT_ID=reviewer-integration-v1 \
+AGENT_REVIEWER_MODEL_NAME=reviewer-integration-model \
+AGENT_REVIEWER_MODEL_REVISION=reviewer-integration-revision-v1 \
+AGENT_REVIEWER_INPUT_PRICE_MICROS_PER_MTOK=2000000 \
+AGENT_REVIEWER_OUTPUT_PRICE_MICROS_PER_MTOK=8000000 \
 RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
 SERVER_PORT="$control_b_port" \
   "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
@@ -3861,7 +3927,7 @@ done
 printf '%s' "$control_b_health" | grep -q '"status":"UP"'
 
 external_agent_task="$(curl -fsS -X POST \
-  "http://localhost:${control_b_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-external-agent-task-001' \
@@ -3873,7 +3939,62 @@ external_agent_queued="$(curl -fsS -X POST \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-external-agent-execute-001')"
 printf '%s' "$external_agent_queued" | python3 -c \
-  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "QUEUED"; assert task["operationId"] is None'
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "AWAITING_REVIEW"; assert task["review"]["status"] == "QUEUED"; assert task["operationId"] is None'
+reviewer_claim_forbidden="$(curl -sS -o "$temp_dir/reviewer-worker-forbidden.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"protocolVersion":"reviewer-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"reviewer-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
+test "$reviewer_claim_forbidden" = "403"
+external_review_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: reviewer-worker-manual' \
+  -H 'X-Roles: REVIEWER_WORKER' \
+  -d '{"protocolVersion":"reviewer-worker/v1","capabilities":{"openai-responses-v1":true},"deploymentId":"reviewer-integration-v1","modelRevision":"reviewer-integration-revision-v1"}')"
+read -r external_review_job_id external_review_claim_token < <(printf '%s' "$external_review_claim" | python3 -c \
+  'import json,sys; claim=json.load(sys.stdin); payload=claim["reviewPayload"]; raw=json.dumps(payload); assert claim["job"]["state"] == "CLAIMED"; assert payload["taskId"].startswith("agt_"); assert payload["planHash"] == claim["job"]["inputHash"] or len(payload["planHash"]) == 64; assert "capabilityToken" not in raw and "sealedPayload" not in raw and "pageState" not in raw; assert all("targetUrl" not in step for step in payload["steps"]); print(claim["job"]["jobId"], claim["claimToken"])')
+bad_reviewer_token="$(printf 'z%.0s' {1..43})"
+reviewer_bad_token_status="$(curl -sS -o "$temp_dir/reviewer-worker-bad-token.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs/${external_review_job_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: reviewer-worker-manual' \
+  -H 'X-Roles: REVIEWER_WORKER' \
+  -d "{\"claimToken\":\"${bad_reviewer_token}\"}")"
+test "$reviewer_bad_token_status" = "409"
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs/${external_review_job_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: reviewer-worker-manual' \
+  -H 'X-Roles: REVIEWER_WORKER' \
+  -d "{\"claimToken\":\"${external_review_claim_token}\"}" >/dev/null
+manual_review_output_hash="$(printf '%s' 'manual-safe-review' | shasum -a 256 | awk '{print $1}')"
+reviewer_output_budget_status="$(curl -sS -o "$temp_dir/reviewer-worker-output-budget.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs/${external_review_job_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: reviewer-worker-manual' \
+  -H 'X-Roles: REVIEWER_WORKER' \
+  -d "{\"claimToken\":\"${external_review_claim_token}\",\"decision\":\"APPROVE\",\"reasonCodes\":[\"SAFE\"],\"confidence\":0.96,\"deploymentId\":\"reviewer-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_manual_review_oversized\",\"inputTokens\":100,\"outputTokens\":513,\"latencyMs\":42,\"outputHash\":\"${manual_review_output_hash}\"}")"
+test "$reviewer_output_budget_status" = "409"
+manual_review_completed="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-review-jobs/${external_review_job_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: reviewer-worker-manual' \
+  -H 'X-Roles: REVIEWER_WORKER' \
+  -d "{\"claimToken\":\"${external_review_claim_token}\",\"decision\":\"APPROVE\",\"reasonCodes\":[\"SAFE\"],\"confidence\":0.96,\"deploymentId\":\"reviewer-integration-v1\",\"modelRevision\":\"reviewer-integration-revision-v1\",\"providerRequestId\":\"req_manual_review\",\"inputTokens\":100,\"outputTokens\":20,\"latencyMs\":42,\"outputHash\":\"${manual_review_output_hash}\"}")"
+printf '%s' "$manual_review_completed" | python3 -c \
+  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "APPROVED"; assert job["decision"] == "APPROVE"; assert job["reasonCodes"] == ["SAFE"]; assert job["costMicros"] == 360'
+external_agent_reviewed="$(curl -fsS \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${external_agent_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$external_agent_reviewed" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "QUEUED"; assert task["review"]["status"] == "APPROVED"; assert task["review"]["modelRevision"] == "reviewer-integration-revision-v1"; assert task["review"]["costMicros"] == 360'
 worker_claim_forbidden="$(curl -sS -o "$temp_dir/agent-worker-forbidden.json" -w '%{http_code}' -X POST \
   "http://localhost:${control_b_port}/api/v1/agent-worker-jobs:claim" \
   -H 'Content-Type: application/json' \
@@ -3921,7 +4042,7 @@ printf '%s' "$external_agent_driven" | python3 -c \
   'import json,sys; job=json.load(sys.stdin); assert job["state"] == "COMMITTED"; assert job["workerId"] is None; assert job["leaseExpiresAt"] is None'
 
 worker_process_task="$(curl -fsS -X POST \
-  "http://localhost:${control_b_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}/agent-tasks" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-agent-worker-process-task-001' \
@@ -3932,7 +4053,39 @@ curl -fsS -X POST \
   "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}:execute" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'Idempotency-Key: smoke-agent-worker-process-execute-001' \
-  | python3 -c 'import json,sys; assert json.load(sys.stdin)["state"] == "QUEUED"'
+  | python3 -c 'import json,sys; task=json.load(sys.stdin); assert task["state"] == "AWAITING_REVIEW"; assert task["review"]["status"] == "QUEUED"'
+printf '%s\n' 'local-reviewer-worker-token-unused' >"$temp_dir/reviewer-worker-token"
+printf '%s\n' "$reviewer_provider_token" >"$temp_dir/reviewer-provider-token"
+chmod 600 "$temp_dir/reviewer-worker-token" "$temp_dir/reviewer-provider-token"
+python3 apps/agent-worker/reviewer_worker.py \
+  --control-plane-url="http://127.0.0.1:${control_b_port}" \
+  --control-plane-token-file="$temp_dir/reviewer-worker-token" \
+  --worker-id=reviewer-worker-process \
+  --deployment-id=reviewer-integration-v1 \
+  --model-endpoint="http://127.0.0.1:${reviewer_model_port}/v1/responses" \
+  --model-api-key-file="$temp_dir/reviewer-provider-token" \
+  --model-name=reviewer-integration-model \
+  --model-revision=reviewer-integration-revision-v1 \
+  --environment=test \
+  --heartbeat-seconds=5 \
+  --once
+reviewer_process_result="$(curl -fsS \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$reviewer_process_result" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "QUEUED"; review=task["review"]; assert review["status"] == "APPROVED"; assert review["inputTokens"] == 144; assert review["outputTokens"] == 19; assert review["costMicros"] == 440; assert review["reasonCodes"] == ["SAFE"]'
+python3 - "$temp_dir/reviewer-model-events.jsonl" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    events = [json.loads(line) for line in handle if line.strip()]
+assert len(events) == 1
+assert events[0]["model"] == "reviewer-integration-model"
+assert events[0]["hasJsonSchema"] is True
+assert events[0]["authorizationPresent"] is True
+assert events[0]["forbiddenFieldsAbsent"] is True
+PY
 printf '%s\n' 'local-agent-worker-token-unused' >"$temp_dir/agent-worker-token"
 chmod 600 "$temp_dir/agent-worker-token"
 python3 apps/agent-worker/agent_worker.py \
@@ -3953,6 +4106,28 @@ test "$external_worker_audit" = "ENQUEUED,CLAIMED,STARTED,COMMITTED"
 external_worker_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from agent_execution_jobs where claim_token_hash is not null or worker_id is not null")"
 test "$external_worker_secret_rows" = "0"
+external_reviewer_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(event_type, ',' order by event_id) from agent_review_job_events where job_id='${external_review_job_id}'")"
+test "$external_reviewer_audit" = "ENQUEUED,CLAIMED,STARTED,APPROVED"
+reviewer_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_review_jobs where claim_token_hash is not null or worker_id is not null")"
+test "$reviewer_secret_rows" = "0"
+reviewer_committed_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_review_jobs where state='APPROVED' and output_hash ~ '^[a-f0-9]{64}$' and input_hash ~ '^[a-f0-9]{64}$' and input_tokens is not null and cost_micros is not null")"
+test "$reviewer_committed_rows" = "2"
+
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration' >/dev/null
+for _ in $(seq 1 80); do
+  reviewer_session_state="$(curl -fsS \
+    "http://localhost:${control_b_port}/api/v1/sessions/${reviewer_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$reviewer_session_state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$reviewer_session_state" = "TERMINATED"
 
 kill "$control_b_pid" 2>/dev/null || true
 wait "$control_b_pid" 2>/dev/null || true
@@ -4135,6 +4310,13 @@ test "$resynced_quality" = "COMPLETE"
 
 runtime_pid="$(pgrep -P "$node_pid" | head -n 1)"
 test -n "$runtime_pid"
+pre_crash_session="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+pre_crash_epoch="$(printf '%s' "$pre_crash_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
+pre_crash_generation="$(printf '%s' "$pre_crash_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["browserGeneration"])')"
+expected_recovered_epoch="$((pre_crash_epoch + 1))"
+expected_recovered_generation="$((pre_crash_generation + 1))"
 kill -9 "$runtime_pid"
 
 recovered_session=""
@@ -4147,14 +4329,15 @@ for _ in $(seq 1 120); do
   recovered_epoch="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
   recovered_generation="$(printf '%s' "$recovered_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["browserGeneration"])')"
   if [[ "$recovered_state" = "RUNNING" ]] \
-    && [[ "$recovered_epoch" = "4" ]] \
-    && [[ "$recovered_generation" = "2" ]]; then break; fi
+    && [[ "$recovered_epoch" = "$expected_recovered_epoch" ]] \
+    && [[ "$recovered_generation" = "$expected_recovered_generation" ]]; then break; fi
   sleep 0.25
 done
 test "$recovered_state" = "RUNNING"
-test "$recovered_epoch" = "4"
+test "$recovered_epoch" = "$expected_recovered_epoch"
+test "$recovered_generation" = "$expected_recovered_generation"
 printf '%s' "$recovered_session" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 2; assert item["currentOperation"] is None'
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None'
 
 recovered_browser_state=""
 for _ in $(seq 1 40); do
@@ -4162,10 +4345,10 @@ for _ in $(seq 1 40); do
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
   recovered_state_epoch="$(printf '%s' "$recovered_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$recovered_state_epoch" = "4" ]]; then break; fi
+  if [[ "$recovered_state_epoch" = "$expected_recovered_epoch" ]]; then break; fi
   sleep 0.25
 done
-test "$recovered_state_epoch" = "4"
+test "$recovered_state_epoch" = "$expected_recovered_epoch"
 printf '%s' "$recovered_browser_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); assert state["stateVersion"] >= 2; assert state["stateQuality"] == "COMPLETE"'
 
@@ -4175,6 +4358,8 @@ node_pid=""
 node_certificate_path="$temp_dir/node-rotated.crt"
 node_private_key_path="$temp_dir/node-rotated.key"
 start_browser_node
+expected_reconciled_epoch="$((expected_recovered_epoch + 1))"
+expected_reconciled_generation="$((expected_recovered_generation + 1))"
 
 reconciled_session=""
 reconciled_state=""
@@ -4184,13 +4369,16 @@ for _ in $(seq 1 160); do
     -H 'X-Tenant-Id: tenant-integration')"
   reconciled_state="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
   reconciled_epoch="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$reconciled_state" = "RUNNING" ]] && [[ "$reconciled_epoch" = "5" ]]; then break; fi
+  if [[ "$reconciled_state" = "RUNNING" ]] \
+    && [[ "$reconciled_epoch" = "$expected_reconciled_epoch" ]]; then break; fi
   sleep 0.25
 done
 test "$reconciled_state" = "RUNNING"
-test "$reconciled_epoch" = "5"
+test "$reconciled_epoch" = "$expected_reconciled_epoch"
+reconciled_generation="$(printf '%s' "$reconciled_session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["browserGeneration"])')"
+test "$reconciled_generation" = "$expected_reconciled_generation"
 printf '%s' "$reconciled_session" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["browserGeneration"] == 3; assert item["currentOperation"] is None'
+  'import json,sys; item=json.load(sys.stdin); assert item["currentOperation"] is None'
 
 reconciled_browser_state=""
 for _ in $(seq 1 40); do
@@ -4198,11 +4386,11 @@ for _ in $(seq 1 40); do
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
     -H 'X-Tenant-Id: tenant-integration')"
   reconciled_state_epoch="$(printf '%s' "$reconciled_browser_state" | python3 -c 'import json,sys; print(json.load(sys.stdin)["contextEpoch"])')"
-  if [[ "$reconciled_state_epoch" = "5" ]]; then break; fi
+  if [[ "$reconciled_state_epoch" = "$expected_reconciled_epoch" ]]; then break; fi
   sleep 0.25
 done
-if [[ "$reconciled_state_epoch" != "5" ]]; then
-  echo "reconciled Browser State did not reach context epoch 5: ${reconciled_browser_state}" >&2
+if [[ "$reconciled_state_epoch" != "$expected_reconciled_epoch" ]]; then
+  echo "reconciled Browser State did not reach context epoch ${expected_reconciled_epoch}: ${reconciled_browser_state}" >&2
   docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
     "select mode || ':' || state || ':term=' || coordinator_term || ':ctx=' || context_epoch || ':epoch=' || operation_epoch from exclusive_operations where session_id='${session_one}' order by operation_epoch" \
     >&2
@@ -4248,7 +4436,8 @@ takeover_state="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$takeover_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); assert state["contextEpoch"] == 5; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"'
+  'import json,sys; state=json.load(sys.stdin); expected=int(sys.argv[1]); assert state["contextEpoch"] == expected; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"' \
+  "$expected_reconciled_epoch"
 
 published="0"
 for _ in $(seq 1 30); do
@@ -4278,9 +4467,9 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-# The isolated Worker section above commits two additional AGENT_EXECUTE operations for this
-# Session: one through the fixed IPC manually and one through the real Python Worker process.
-test "$committed_operations" = "15"
+# Worker execution uses reviewer_session, so the crash-recovery Session keeps its original,
+# independently asserted operation history.
+test "$committed_operations" = "13"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "4"
@@ -4323,7 +4512,7 @@ printf '%s' "$proxy_after_terminate" | python3 -c \
 profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$profile_list" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 8; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-rebind","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 9; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-reviewer-worker","profile-rebind","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
 profile_forbidden_status="$(curl -sS -o "$temp_dir/profile-forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
   -H 'X-Tenant-Id: different-tenant')"
@@ -4393,10 +4582,10 @@ printf '%s' "$profile_after_restore" | python3 -c \
 
 completed_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from durable_workflows where tenant_id='tenant-integration' and state='COMPLETED' and length(commit_marker)=64")"
-test "$completed_workflows" = "15"
+test "$completed_workflows" = "17"
 linked_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations operation join sessions session on session.id=operation.session_id where operation.workflow_id is not null and session.tenant_id='tenant-integration'")"
-test "$linked_workflows" = "17"
+test "$linked_workflows" = "19"
 
 kill -TERM "$network_helper_pid"
 wait "$network_helper_pid" 2>/dev/null || true
@@ -5819,6 +6008,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_validation_worker_queue=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_validation_worker_queue=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\nagent_reviewer=true\nreviewer_model_provider=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

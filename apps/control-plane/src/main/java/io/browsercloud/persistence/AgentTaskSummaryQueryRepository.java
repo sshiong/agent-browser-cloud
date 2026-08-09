@@ -88,7 +88,7 @@ public class AgentTaskSummaryQueryRepository {
         jdbc.queryForMap(
             """
             SELECT count(*) AS total,
-                   count(*) FILTER (WHERE state IN ('PLANNED', 'QUEUED')) AS planned,
+                   count(*) FILTER (WHERE state IN ('PLANNED', 'QUEUED', 'AWAITING_REVIEW')) AS planned,
                    count(*) FILTER (WHERE state = 'COMPLETED') AS completed,
                    count(*) FILTER (WHERE state = 'BLOCKED') AS blocked
               FROM agent_tasks

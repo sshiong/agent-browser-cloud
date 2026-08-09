@@ -67,7 +67,7 @@ public final class Models {
 
   public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, String createdAt, String updatedAt) {}
 
-  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
+  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
 
   public record ClaimAgentExecutionJobRequest(String protocolVersion, Map<String, Boolean> capabilities) {}
 
@@ -78,6 +78,26 @@ public final class Models {
   public record AgentExecutionJob(String jobId, String taskId, String protocolVersion, String state, Integer attempt, Integer maximumAttempts, Object workerId, Long claimEpoch, Object leaseExpiresAt, String availableAt, Object startedAt, Object completedAt, Object failureCode, String updatedAt) {}
 
   public record AgentExecutionJobClaim(String claimToken, AgentExecutionJob job, String leaseExpiresAt, Long claimEpoch) {}
+
+  public record ClaimAgentReviewJobRequest(String protocolVersion, Map<String, Boolean> capabilities, String deploymentId, String modelRevision) {}
+
+  public record AgentReviewJobClaimRequest(String claimToken) {}
+
+  public record CompleteAgentReviewJobRequest(String claimToken, String decision, List<String> reasonCodes, Double confidence, String deploymentId, String modelRevision, Object providerRequestId, Integer inputTokens, Integer outputTokens, Integer latencyMs, String outputHash) {}
+
+  public record FailAgentReviewJobRequest(String claimToken, String failureCode, Boolean retryable) {}
+
+  public record AgentReviewStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetOrigin, Object targetRefHash, Object dataClass, Object payloadLength, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification) {}
+
+  public record AgentReviewPayload(String taskId, String goal, AgentRiskClass riskClass, List<String> allowedDomains, Integer maximumActions, Integer replanBudget, List<AgentReviewStep> steps, String planHash, String dataPolicy) {}
+
+  public record ReviewerModelDeployment(String deploymentId, String providerType, String modelName, String modelRevision, String dataPolicy, Integer maximumOutputTokens) {}
+
+  public record AgentReviewJob(String jobId, String reviewId, String taskId, String protocolVersion, String state, Integer attempt, Integer maximumAttempts, Object workerId, Long claimEpoch, Object leaseExpiresAt, String availableAt, ReviewerModelDeployment deployment, Object decision, List<String> reasonCodes, Object confidence, String inputHash, Object outputHash, Object providerRequestId, Object inputTokens, Object outputTokens, Object costMicros, Object latencyMs, Object startedAt, Object completedAt, Object failureCode, String updatedAt) {}
+
+  public record AgentReviewJobClaim(String claimToken, AgentReviewJob job, AgentReviewPayload reviewPayload, String leaseExpiresAt, Long claimEpoch) {}
+
+  public record AgentReview(Object reviewId, String status, Object decision, List<String> reasonCodes, Object planHash, Object deploymentId, Object modelName, Object modelRevision, Object inputTokens, Object outputTokens, Object costMicros, Object latencyMs, Object failureCode, Object completedAt) {}
 
   public record AgentStepExecution(Object pendingStepId, Object pendingToolId, Object baseStateVersion, Object baseContentHash, Object deadline, Object leaseUntil, Object replanReason) {}
 

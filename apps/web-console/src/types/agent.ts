@@ -66,6 +66,7 @@ export interface AgentTaskView {
   state:
     | 'PLANNED'
     | 'QUEUED'
+    | 'AWAITING_REVIEW'
     | 'AWAITING_CONFIRMATION'
     | 'BLOCKED'
     | 'RUNNING'
@@ -102,6 +103,29 @@ export interface AgentTaskView {
     status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
     expiresAt?: string;
     actorId?: string;
+  };
+  review?: {
+    reviewId?: string;
+    status:
+      | 'NOT_REQUIRED'
+      | 'PENDING'
+      | 'QUEUED'
+      | 'IN_REVIEW'
+      | 'APPROVED'
+      | 'REJECTED'
+      | 'FAILED';
+    decision?: 'APPROVE' | 'REJECT';
+    reasonCodes: string[];
+    planHash?: string;
+    deploymentId?: string;
+    modelName?: string;
+    modelRevision?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    costMicros?: number;
+    latencyMs?: number;
+    failureCode?: string;
+    completedAt?: string;
   };
   allowedDomains: string[];
   plan: {

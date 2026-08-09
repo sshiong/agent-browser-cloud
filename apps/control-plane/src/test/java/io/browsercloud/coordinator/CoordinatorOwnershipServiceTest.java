@@ -134,6 +134,27 @@ class CoordinatorOwnershipServiceTest {
         .isInstanceOf(CoordinatorNotOwnerException.class);
   }
 
+  @Test
+  void exposesLocalCommandEligibilityWithoutMutatingTheLease() {
+    var ownership = ownership("ses-1", "coordinator-owner", 4);
+    when(repository.findById("ses-1")).thenReturn(Optional.of(ownership));
+    var service = new CoordinatorOwnershipService(repository, "coordinator-owner", 30);
+
+    assertThat(service.isCurrentOwnerOrUnowned("ses-1", 1)).isTrue();
+    assertThat(service.isCurrentOwner("ses-1", 1)).isTrue();
+    verify(repository, never()).heartbeatIfOwner(any(), any(), anyLong(), any(Instant.class));
+  }
+
+  @Test
+  void preventsPhysicalShardWorkerFromBypassingAnotherLogicalOwner() {
+    var ownership = ownership("ses-1", "coordinator-owner", 4);
+    when(repository.findById("ses-1")).thenReturn(Optional.of(ownership));
+    var service = new CoordinatorOwnershipService(repository, "coordinator-shard", 30);
+
+    assertThat(service.isCurrentOwnerOrUnowned("ses-1", 1)).isFalse();
+    assertThat(service.isCurrentOwner("ses-1", 1)).isFalse();
+  }
+
   private CoordinatorOwnershipEntity ownership(String sessionId, String owner, long term) {
     var ownership = new CoordinatorOwnershipEntity();
     ownership.setSessionId(sessionId);

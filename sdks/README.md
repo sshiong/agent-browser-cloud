@@ -2,10 +2,10 @@
 
 当前提供四个无框架锁定的客户端：
 
-- `typescript`：从正式 OpenAPI 自动生成 185 个 Operation/32 个服务的 Fetch Client，
+- `typescript`：从正式 OpenAPI 自动生成 190 个 Operation/32 个服务的 Fetch Client，
   支持浏览器或 Node.js 18+、Bearer/OIDC、本地租户身份、独立多 Client 配置和完整
   API 类型；原少量便捷方法继续兼容。
-- `python`：Python 3.10+，从正式 OpenAPI 生成 185 个 Operation 和 243 个原生类型，
+- `python`：Python 3.10+，从正式 OpenAPI 生成 190 个 Operation 和 253 个原生类型，
   只使用标准库，保留后端结构化错误与 Request ID。
 - `go`：Go 1.22+，从正式 OpenAPI 生成完整方法和原生 Struct/Enum；只使用标准库，
   支持 Context、注入 HTTP Client、租户身份、幂等写和结构化错误。

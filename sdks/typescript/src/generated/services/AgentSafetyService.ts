@@ -5,12 +5,18 @@
 import type { AgentExecutionJob } from '../models/AgentExecutionJob.js';
 import type { AgentExecutionJobClaim } from '../models/AgentExecutionJobClaim.js';
 import type { AgentExecutionJobClaimRequest } from '../models/AgentExecutionJobClaimRequest.js';
+import type { AgentReviewJob } from '../models/AgentReviewJob.js';
+import type { AgentReviewJobClaim } from '../models/AgentReviewJobClaim.js';
+import type { AgentReviewJobClaimRequest } from '../models/AgentReviewJobClaimRequest.js';
 import type { AgentTask } from '../models/AgentTask.js';
 import type { AgentTaskListResponse } from '../models/AgentTaskListResponse.js';
 import type { AgentTaskSummaryListResponse } from '../models/AgentTaskSummaryListResponse.js';
 import type { ClaimAgentExecutionJobRequest } from '../models/ClaimAgentExecutionJobRequest.js';
+import type { ClaimAgentReviewJobRequest } from '../models/ClaimAgentReviewJobRequest.js';
+import type { CompleteAgentReviewJobRequest } from '../models/CompleteAgentReviewJobRequest.js';
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
 import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
+import type { FailAgentReviewJobRequest } from '../models/FailAgentReviewJobRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class AgentSafetyService {
@@ -271,6 +277,137 @@ export class AgentSafetyService {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/v1/agent-worker-jobs/{jobId}:fail',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Claim one capability-free Agent plan review with a fenced lease
+     * Requires REVIEWER_WORKER. The payload excludes capability tokens, sealed values, page state, raw context sources and customer credentials.
+     * @returns AgentReviewJobClaim A plan review and one-time Claim Token.
+     * @throws ApiError
+     */
+    public claimAgentReviewJob({
+        requestBody,
+    }: {
+        requestBody: ClaimAgentReviewJobRequest,
+    }): CancelablePromise<AgentReviewJobClaim> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-review-jobs:claim',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * ACK start of a claimed Agent plan review
+     * @returns AgentReviewJob Review entered EXECUTING.
+     * @throws ApiError
+     */
+    public startAgentReviewJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentReviewJobClaimRequest,
+    }): CancelablePromise<AgentReviewJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-review-jobs/{jobId}:start',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Renew a Reviewer Worker fenced lease
+     * @returns AgentReviewJob Lease renewed.
+     * @throws ApiError
+     */
+    public heartbeatAgentReviewJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentReviewJobClaimRequest,
+    }): CancelablePromise<AgentReviewJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-review-jobs/{jobId}:heartbeat',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Commit a structured model verdict and immutable accounting evidence
+     * The Control Plane revalidates the exact plan hash, deployment, model revision, confidence and reason-code policy before execution is released.
+     * @returns AgentReviewJob Review approved or rejected; approval atomically releases the execution queue.
+     * @throws ApiError
+     */
+    public completeAgentReviewJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: CompleteAgentReviewJobRequest,
+    }): CancelablePromise<AgentReviewJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-review-jobs/{jobId}:complete',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Retry or permanently fail a claimed model review
+     * @returns AgentReviewJob Failure durably projected to the review queue and Agent task.
+     * @throws ApiError
+     */
+    public failAgentReviewJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: FailAgentReviewJobRequest,
+    }): CancelablePromise<AgentReviewJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-review-jobs/{jobId}:fail',
             path: {
                 'jobId': jobId,
             },

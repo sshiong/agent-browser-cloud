@@ -32,6 +32,7 @@ export function useAgentTasks() {
       query.state.data?.items.some((task) =>
         [
           'QUEUED',
+          'AWAITING_REVIEW',
           'RUNNING',
           'AWAITING_CONFIRMATION',
           'WAITING_FOR_HUMAN',
@@ -57,6 +58,7 @@ export function useAgentTaskSummaries() {
       return firstPage.items.some((task) =>
         [
           'QUEUED',
+          'AWAITING_REVIEW',
           'RUNNING',
           'AWAITING_CONFIRMATION',
           'WAITING_FOR_HUMAN',
@@ -78,6 +80,7 @@ export function useAgentTask(taskId: string) {
       query.state.data &&
       [
         'QUEUED',
+        'AWAITING_REVIEW',
         'RUNNING',
         'AWAITING_CONFIRMATION',
         'WAITING_FOR_HUMAN',

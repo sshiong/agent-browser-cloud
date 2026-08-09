@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reviewer-worker
+  namespace: browsercloud-system
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reviewer-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: reviewer-worker
+    spec:
+      runtimeClassName: agent-sandbox
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      nodeSelector:
+        browsercloud.io/workload: agent-worker
+      containers:
+        - name: reviewer-worker
+          image: ghcr.io/sshiong/agent-browser-cloud-agent-worker:0.1.0
+          command: ["python", "/app/reviewer_worker.py"]
+          args:
+            - --control-plane-url=https://control-plane.browsercloud-system.svc
+            - --control-plane-token-file=/var/run/browsercloud/identity/token
+            - --control-plane-ca-file=/var/run/browsercloud/ca/ca.crt
+            - --worker-id=$(POD_NAME)
+            - --deployment-id=reviewer-prod-v1
+            - --model-endpoint=$(MODEL_PROVIDER_ENDPOINT)
+            - --model-api-key-file=/var/run/browsercloud/model/api-key
+            - --model-name=$(MODEL_PROVIDER_MODEL)
+            - --model-revision=$(MODEL_PROVIDER_REVISION)
+            - --allowed-model-host=$(MODEL_PROVIDER_ALLOWED_HOST)
+            - --maximum-output-tokens=512
+            - --environment=production
+            - --poll-seconds=2
+            - --heartbeat-seconds=15
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MODEL_PROVIDER_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: endpoint
+            - name: MODEL_PROVIDER_ALLOWED_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: allowed-host
+            - name: MODEL_PROVIDER_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: model
+            - name: MODEL_PROVIDER_REVISION
+              valueFrom:
+                secretKeyRef:
+                  name: reviewer-model-provider
+                  key: revision
+          volumeMounts:
+            - name: identity
+              mountPath: /var/run/browsercloud/identity/token
+              subPath: token
+              readOnly: true
+            - name: control-plane-ca
+              mountPath: /var/run/browsercloud/ca/ca.crt
+              subPath: ca.crt
+              readOnly: true
+            - name: model-provider
+              mountPath: /var/run/browsercloud/model/api-key
+              subPath: api-key
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            appArmorProfile:
+              type: RuntimeDefault
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: identity
+          secret:
+            secretName: reviewer-worker-identity
+            defaultMode: 0440
+        - name: control-plane-ca
+          secret:
+            secretName: control-plane-mtls
+            defaultMode: 0440
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: model-provider
+          secret:
+            secretName: reviewer-model-provider
+            defaultMode: 0440
+            items:
+              - key: api-key
+                path: api-key
+        - name: temporary
+          emptyDir:
+            sizeLimit: 16Mi

@@ -83,8 +83,8 @@ INCLUDE (state);
 - 尚未生成 10k/50k Agent Task 的目标规模数据库延迟、连接池和 Payload 容量证书；
 - Agent 列表仍以有界真实 API 刷新为主，未接 Workspace/跨 Region 列表级事件流；
 - Network/Toast/Dialog/Visual/Login/Business Entity 基础 Validator 已由进度 107 关闭，
-  独立 Agent Worker 已由进度 113 关闭；高级 Validator、Reviewer、多 Agent 协作和
-  真实模型治理仍属于 Phase 4 后续；
+  独立 Agent Worker 已由进度 113 关闭，Reviewer/固定 Responses Provider/模型治理已由
+  进度 114 关闭；高级 Validator、客户大规模 Replay和多 Agent 协作仍属于 Phase 4 后续；
 - 目标 Linux/目标云长稳、真实 IdP、KMS/HSM、跨 Region 和组织发布 Gate 未关闭。
 
 因此本轮关闭的是 Agent 队列代码级大列表读取缺口，不等同于目标规模和生产发布验收。

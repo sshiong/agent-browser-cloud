@@ -104,6 +104,49 @@ public class AgentTaskEntity {
   @Column(name = "handoff_actor_id")
   private String handoffActorId;
 
+  @Column(name = "reviewer_status", nullable = false)
+  private String reviewerStatus;
+
+  @Column(name = "reviewer_review_id")
+  private String reviewerReviewId;
+
+  @Column(name = "reviewed_plan_hash")
+  private String reviewedPlanHash;
+
+  @Column(name = "reviewer_decision")
+  private String reviewerDecision;
+
+  @Column(name = "reviewer_reason_codes", nullable = false, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
+  private String reviewerReasonCodes;
+
+  @Column(name = "reviewer_completed_at")
+  private Instant reviewerCompletedAt;
+
+  @Column(name = "reviewer_deployment_id")
+  private String reviewerDeploymentId;
+
+  @Column(name = "reviewer_model_name")
+  private String reviewerModelName;
+
+  @Column(name = "reviewer_model_revision")
+  private String reviewerModelRevision;
+
+  @Column(name = "reviewer_input_tokens")
+  private Integer reviewerInputTokens;
+
+  @Column(name = "reviewer_output_tokens")
+  private Integer reviewerOutputTokens;
+
+  @Column(name = "reviewer_cost_micros")
+  private Long reviewerCostMicros;
+
+  @Column(name = "reviewer_latency_ms")
+  private Integer reviewerLatencyMs;
+
+  @Column(name = "reviewer_failure_code")
+  private String reviewerFailureCode;
+
   @Column(name = "allowed_domains", nullable = false, columnDefinition = "jsonb")
   @JdbcTypeCode(SqlTypes.JSON)
   private String allowedDomains;
@@ -169,6 +212,8 @@ public class AgentTaskEntity {
     this.plan = plan;
     this.securityEvents = securityEvents;
     this.executionResults = "[]";
+    this.reviewerStatus = "NOT_REQUIRED";
+    this.reviewerReasonCodes = "[]";
     this.createdAt = now;
     this.updatedAt = now;
   }
@@ -289,6 +334,62 @@ public class AgentTaskEntity {
     return handoffActorId;
   }
 
+  public String getReviewerStatus() {
+    return reviewerStatus;
+  }
+
+  public String getReviewerReviewId() {
+    return reviewerReviewId;
+  }
+
+  public String getReviewedPlanHash() {
+    return reviewedPlanHash;
+  }
+
+  public String getReviewerDecision() {
+    return reviewerDecision;
+  }
+
+  public String getReviewerReasonCodes() {
+    return reviewerReasonCodes;
+  }
+
+  public Instant getReviewerCompletedAt() {
+    return reviewerCompletedAt;
+  }
+
+  public String getReviewerDeploymentId() {
+    return reviewerDeploymentId;
+  }
+
+  public String getReviewerModelName() {
+    return reviewerModelName;
+  }
+
+  public String getReviewerModelRevision() {
+    return reviewerModelRevision;
+  }
+
+  public Integer getReviewerInputTokens() {
+    return reviewerInputTokens;
+  }
+
+  public Integer getReviewerOutputTokens() {
+    return reviewerOutputTokens;
+  }
+
+  public Long getReviewerCostMicros() {
+    return reviewerCostMicros;
+  }
+
+  public Integer getReviewerLatencyMs() {
+    return reviewerLatencyMs;
+  }
+
+  public String getReviewerFailureCode() {
+    return reviewerFailureCode;
+  }
+
   public String getAllowedDomains() {
     return allowedDomains;
   }
@@ -337,6 +438,99 @@ public class AgentTaskEntity {
     this.state = "QUEUED";
     this.updatedAt = now;
     this.lastError = null;
+  }
+
+  public void queueForReviewer(String reviewId, Instant now) {
+    if (!"PLANNED".equals(state)) return;
+    this.state = "AWAITING_REVIEW";
+    this.reviewerStatus = "QUEUED";
+    this.reviewerReviewId = reviewId;
+    this.reviewedPlanHash = null;
+    this.reviewerDecision = null;
+    this.reviewerReasonCodes = "[]";
+    this.reviewerCompletedAt = null;
+    clearReviewerAccounting();
+    this.updatedAt = now;
+    this.lastError = null;
+  }
+
+  public void markReviewerRunning(Instant now) {
+    if (!"AWAITING_REVIEW".equals(state)) return;
+    this.reviewerStatus = "IN_REVIEW";
+    this.updatedAt = now;
+  }
+
+  public void approveReviewer(String planHash, String reasonCodes, Instant now) {
+    if (!"AWAITING_REVIEW".equals(state)) return;
+    this.state = "PLANNED";
+    this.reviewerStatus = "APPROVED";
+    this.reviewedPlanHash = planHash;
+    this.reviewerDecision = "APPROVE";
+    this.reviewerReasonCodes = reasonCodes;
+    this.reviewerCompletedAt = now;
+    this.updatedAt = now;
+    this.lastError = null;
+  }
+
+  public void rejectReviewer(String planHash, String reasonCodes, Instant now) {
+    if (!"AWAITING_REVIEW".equals(state)) return;
+    this.state = "BLOCKED";
+    this.reviewerStatus = "REJECTED";
+    this.reviewedPlanHash = planHash;
+    this.reviewerDecision = "REJECT";
+    this.reviewerReasonCodes = reasonCodes;
+    this.reviewerCompletedAt = now;
+    this.blockedReason = "REVIEWER_REJECTED";
+    this.lastError = "AGENT_REVIEW_REJECTED";
+    this.updatedAt = now;
+  }
+
+  public void failReviewer(String failureCode, Instant now) {
+    if (!"AWAITING_REVIEW".equals(state)) return;
+    this.state = "BLOCKED";
+    this.reviewerStatus = "FAILED";
+    this.reviewerDecision = null;
+    this.reviewerReasonCodes = "[]";
+    this.reviewerCompletedAt = now;
+    this.blockedReason = "REVIEWER_UNAVAILABLE";
+    this.lastError = failureCode;
+    this.reviewerFailureCode = failureCode;
+    this.updatedAt = now;
+  }
+
+  public void requeueReviewer(Instant now) {
+    if (!"AWAITING_REVIEW".equals(state)) return;
+    this.reviewerStatus = "QUEUED";
+    this.updatedAt = now;
+  }
+
+  public void recordReviewerAccounting(
+      String deploymentId,
+      String modelName,
+      String modelRevision,
+      int inputTokens,
+      int outputTokens,
+      long costMicros,
+      int latencyMs) {
+    this.reviewerDeploymentId = deploymentId;
+    this.reviewerModelName = modelName;
+    this.reviewerModelRevision = modelRevision;
+    this.reviewerInputTokens = inputTokens;
+    this.reviewerOutputTokens = outputTokens;
+    this.reviewerCostMicros = costMicros;
+    this.reviewerLatencyMs = latencyMs;
+    this.reviewerFailureCode = null;
+  }
+
+  private void clearReviewerAccounting() {
+    this.reviewerDeploymentId = null;
+    this.reviewerModelName = null;
+    this.reviewerModelRevision = null;
+    this.reviewerInputTokens = null;
+    this.reviewerOutputTokens = null;
+    this.reviewerCostMicros = null;
+    this.reviewerLatencyMs = null;
+    this.reviewerFailureCode = null;
   }
 
   public void releaseExternalWorkerQueue(Instant now) {

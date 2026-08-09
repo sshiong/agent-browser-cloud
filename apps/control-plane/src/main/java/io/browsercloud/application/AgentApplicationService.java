@@ -705,6 +705,24 @@ public class AgentApplicationService {
             entity.getHandoffStatus(),
             entity.getHandoffExpiresAt(),
             entity.getHandoffActorId()),
+        new io.browsercloud.api.AgentReviewerModels.AgentReviewView(
+            entity.getReviewerReviewId(),
+            entity.getReviewerStatus(),
+            entity.getReviewerDecision() == null
+                ? null
+                : io.browsercloud.api.AgentReviewerModels.ReviewerDecision.valueOf(
+                    entity.getReviewerDecision()),
+            read(entity.getReviewerReasonCodes(), new TypeReference<List<String>>() {}),
+            entity.getReviewedPlanHash(),
+            entity.getReviewerDeploymentId(),
+            entity.getReviewerModelName(),
+            entity.getReviewerModelRevision(),
+            entity.getReviewerInputTokens(),
+            entity.getReviewerOutputTokens(),
+            entity.getReviewerCostMicros(),
+            entity.getReviewerLatencyMs(),
+            entity.getReviewerFailureCode(),
+            entity.getReviewerCompletedAt()),
         domains,
         new AgentTaskView.PlanView(
             plan.intentId(), stepViews, plan.maxActions(), plan.replanBudget(), plan.expiresAt()),

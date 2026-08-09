@@ -1974,6 +1974,136 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/agent-review-jobs:claim:
+    post:
+      operationId: claimAgentReviewJob
+      summary: Claim one capability-free Agent plan review with a fenced lease
+      description: Requires REVIEWER_WORKER. The payload excludes capability tokens, sealed values, page state, raw context sources and customer credentials.
+      tags: [Agent, AgentSafety]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimAgentReviewJobRequest"
+      responses:
+        "200":
+          description: A plan review and one-time Claim Token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentReviewJobClaim"
+        "204":
+          description: No ready review job for this pinned deployment and model revision.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-review-jobs/{jobId}:start:
+    post:
+      operationId: startAgentReviewJob
+      summary: ACK start of a claimed Agent plan review
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/AgentReviewJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentReviewJobClaimRequest"
+      responses:
+        "200":
+          description: Review entered EXECUTING.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentReviewJob"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-review-jobs/{jobId}:heartbeat:
+    post:
+      operationId: heartbeatAgentReviewJob
+      summary: Renew a Reviewer Worker fenced lease
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/AgentReviewJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentReviewJobClaimRequest"
+      responses:
+        "200":
+          description: Lease renewed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentReviewJob"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-review-jobs/{jobId}:complete:
+    post:
+      operationId: completeAgentReviewJob
+      summary: Commit a structured model verdict and immutable accounting evidence
+      description: The Control Plane revalidates the exact plan hash, deployment, model revision, confidence and reason-code policy before execution is released.
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/AgentReviewJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteAgentReviewJobRequest"
+      responses:
+        "200":
+          description: Review approved or rejected; approval atomically releases the execution queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentReviewJob"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/agent-review-jobs/{jobId}:fail:
+    post:
+      operationId: failAgentReviewJob
+      summary: Retry or permanently fail a claimed model review
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/AgentReviewJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailAgentReviewJobRequest"
+      responses:
+        "200":
+          description: Failure durably projected to the review queue and Agent task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentReviewJob"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/agent-tasks/{taskId}:approve:
     post:
       operationId: approveAgentTask
@@ -4538,6 +4668,13 @@ components:
       schema:
         type: string
         pattern: "^ajob_[A-Za-z0-9]{20}$"
+    AgentReviewJobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^rjob_[A-Za-z0-9]{20}$"
     BreakGlassRequestId:
       name: requestId
       in: path
@@ -5192,7 +5329,7 @@ components:
           type: string
         state:
           type: string
-          enum: [PLANNED, QUEUED, AWAITING_CONFIRMATION, BLOCKED, RUNNING, WAITING_FOR_HUMAN, PAUSED_BY_RESOURCE_POLICY, COMPLETED, FAILED]
+          enum: [PLANNED, QUEUED, AWAITING_REVIEW, AWAITING_CONFIRMATION, BLOCKED, RUNNING, WAITING_FOR_HUMAN, PAUSED_BY_RESOURCE_POLICY, COMPLETED, FAILED]
         riskClass:
           type: string
           enum: [R0_READ_ONLY, R1_LOW_RISK_CHANGE, R2_DATA_CHANGE, R3_ACCOUNT_CHANGE, R4_FINANCIAL, R5_SECURITY]
@@ -5258,6 +5395,7 @@ components:
           enum:
             - PLANNED
             - QUEUED
+            - AWAITING_REVIEW
             - AWAITING_CONFIRMATION
             - BLOCKED
             - RUNNING
@@ -5290,6 +5428,9 @@ components:
           $ref: "#/components/schemas/AgentConfirmation"
         humanHandoff:
           $ref: "#/components/schemas/AgentHumanHandoff"
+        review:
+          $ref: "#/components/schemas/AgentReview"
+          description: Reviewer evidence. Older Control Planes may omit it during rolling upgrades.
         allowedDomains:
           type: array
           items:
@@ -5422,6 +5563,342 @@ components:
           type: integer
           format: int64
           minimum: 1
+    ClaimAgentReviewJobRequest:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, capabilities, deploymentId, modelRevision]
+      properties:
+        protocolVersion:
+          type: string
+          const: reviewer-worker/v1
+        capabilities:
+          type: object
+          minProperties: 1
+          maxProperties: 16
+          additionalProperties:
+            type: boolean
+          required: [openai-responses-v1]
+          properties:
+            openai-responses-v1:
+              type: boolean
+              const: true
+        deploymentId:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,128}$"
+        modelRevision:
+          type: string
+          pattern: "^[A-Za-z0-9._:/-]{1,200}$"
+    AgentReviewJobClaimRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+    CompleteAgentReviewJobRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken, decision, reasonCodes, confidence, deploymentId, modelRevision, inputTokens, outputTokens, latencyMs, outputHash]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+        reasonCodes:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            enum: [SAFE, EXCESSIVE_SCOPE, DOMAIN_MISMATCH, RISK_UNDERCLASSIFIED, MISSING_CONFIRMATION, UNSUPPORTED_TOOL, DATA_POLICY_VIOLATION, PROMPT_INJECTION_RISK, MODEL_UNCERTAIN]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        deploymentId:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,128}$"
+        modelRevision:
+          type: string
+          pattern: "^[A-Za-z0-9._:/-]{1,200}$"
+        providerRequestId:
+          type: [string, "null"]
+          maxLength: 256
+          pattern: "^[A-Za-z0-9._:/-]{1,256}$"
+        inputTokens:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        outputTokens:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        latencyMs:
+          type: integer
+          minimum: 0
+          maximum: 600000
+        outputHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    FailAgentReviewJobRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken, failureCode, retryable]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        failureCode:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{2,127}$"
+        retryable:
+          type: boolean
+    AgentReviewStep:
+      type: object
+      additionalProperties: false
+      required: [stepId, toolId, riskClass, targetOrigin, targetRefHash, dataClass, payloadLength, requiredConfirmation, strategy, requiredStateQuality, verification]
+      properties:
+        stepId:
+          type: string
+        toolId:
+          type: string
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, TYPE_TEXT, SCROLL, WAIT_FOR, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
+        riskClass:
+          $ref: "#/components/schemas/AgentRiskClass"
+        targetOrigin:
+          type: [string, "null"]
+          description: Origin only; URL paths, queries, fragments and user-info are excluded.
+        targetRefHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        dataClass:
+          type: [string, "null"]
+          enum: [PUBLIC, PII, null]
+        payloadLength:
+          type: [integer, "null"]
+          minimum: 0
+        requiredConfirmation:
+          type: boolean
+        strategy:
+          type: string
+          enum: [SEMANTIC_DOM, ACCESSIBILITY, DESKTOP_INPUT, VISION_DESKTOP, HUMAN_ASSIST, HUMAN_TAKEOVER]
+        requiredStateQuality:
+          type: string
+        verification:
+          type: string
+    AgentReviewPayload:
+      type: object
+      additionalProperties: false
+      required: [taskId, goal, riskClass, allowedDomains, maximumActions, replanBudget, steps, planHash, dataPolicy]
+      properties:
+        taskId:
+          type: string
+          pattern: "^agt_[A-Za-z0-9]{16,}$"
+        goal:
+          type: string
+          maxLength: 2000
+          description: Prompt-security sanitized goal; credential, email and phone patterns are redacted.
+        riskClass:
+          $ref: "#/components/schemas/AgentRiskClass"
+        allowedDomains:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+        maximumActions:
+          type: integer
+          minimum: 1
+          maximum: 20
+        replanBudget:
+          type: integer
+          minimum: 0
+          maximum: 3
+        steps:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentReviewStep"
+        planHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        dataPolicy:
+          type: string
+    ReviewerModelDeployment:
+      type: object
+      additionalProperties: false
+      required: [deploymentId, providerType, modelName, modelRevision, dataPolicy, maximumOutputTokens]
+      properties:
+        deploymentId:
+          type: string
+        providerType:
+          type: string
+          enum: [OPENAI_RESPONSES]
+        modelName:
+          type: string
+        modelRevision:
+          type: string
+        dataPolicy:
+          type: string
+        maximumOutputTokens:
+          type: integer
+          minimum: 64
+          maximum: 4096
+    AgentReviewJob:
+      type: object
+      additionalProperties: false
+      required: [jobId, reviewId, taskId, protocolVersion, state, attempt, maximumAttempts, workerId, claimEpoch, leaseExpiresAt, availableAt, deployment, decision, reasonCodes, confidence, inputHash, outputHash, providerRequestId, inputTokens, outputTokens, costMicros, latencyMs, startedAt, completedAt, failureCode, updatedAt]
+      properties:
+        jobId:
+          type: string
+          pattern: "^rjob_[A-Za-z0-9]{20}$"
+        reviewId:
+          type: string
+          pattern: "^rev_[A-Za-z0-9]{20}$"
+        taskId:
+          type: string
+          pattern: "^agt_[A-Za-z0-9]{16,}$"
+        protocolVersion:
+          type: string
+          const: reviewer-worker/v1
+        state:
+          type: string
+          enum: [QUEUED, CLAIMED, EXECUTING, APPROVED, REJECTED, FAILED]
+        attempt:
+          type: integer
+          minimum: 0
+          maximum: 10
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        workerId:
+          type: [string, "null"]
+        claimEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        leaseExpiresAt:
+          type: [string, "null"]
+          format: date-time
+        availableAt:
+          type: string
+          format: date-time
+        deployment:
+          $ref: "#/components/schemas/ReviewerModelDeployment"
+        decision:
+          type: [string, "null"]
+          enum: [APPROVE, REJECT, null]
+        reasonCodes:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        inputHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        outputHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        providerRequestId:
+          type: [string, "null"]
+        inputTokens:
+          type: [integer, "null"]
+          minimum: 0
+        outputTokens:
+          type: [integer, "null"]
+          minimum: 0
+        costMicros:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        latencyMs:
+          type: [integer, "null"]
+          minimum: 0
+        startedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        failureCode:
+          type: [string, "null"]
+        updatedAt:
+          type: string
+          format: date-time
+    AgentReviewJobClaim:
+      type: object
+      additionalProperties: false
+      required: [claimToken, job, reviewPayload, leaseExpiresAt, claimEpoch]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        job:
+          $ref: "#/components/schemas/AgentReviewJob"
+        reviewPayload:
+          $ref: "#/components/schemas/AgentReviewPayload"
+        leaseExpiresAt:
+          type: string
+          format: date-time
+        claimEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+    AgentReview:
+      type: object
+      additionalProperties: false
+      required: [reviewId, status, decision, reasonCodes, planHash, deploymentId, modelName, modelRevision, inputTokens, outputTokens, costMicros, latencyMs, failureCode, completedAt]
+      properties:
+        reviewId:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [NOT_REQUIRED, PENDING, QUEUED, IN_REVIEW, APPROVED, REJECTED, FAILED]
+        decision:
+          type: [string, "null"]
+          enum: [APPROVE, REJECT, null]
+        reasonCodes:
+          type: array
+          items:
+            type: string
+        planHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        deploymentId:
+          type: [string, "null"]
+        modelName:
+          type: [string, "null"]
+        modelRevision:
+          type: [string, "null"]
+        inputTokens:
+          type: [integer, "null"]
+          minimum: 0
+        outputTokens:
+          type: [integer, "null"]
+          minimum: 0
+        costMicros:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        latencyMs:
+          type: [integer, "null"]
+          minimum: 0
+        failureCode:
+          type: [string, "null"]
+        completedAt:
+          type: [string, "null"]
+          format: date-time
     AgentStepExecution:
       type: object
       additionalProperties: false

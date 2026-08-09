@@ -80,6 +80,21 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void currentLogicalOwnerContinuesDuringPhysicalShardHandover() {
+    when(shardLocality.owns(0)).thenReturn(false);
+    when(ownershipService.isCurrentOwner("ses-1", 1)).thenReturn(true);
+    when(ownershipService.acquireSession("ses-1", 1)).thenReturn(3L);
+    when(sessionRepository.requireForUpdate("ses-1"))
+        .thenReturn(createSession("ses-1", SessionState.RUNNING));
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.empty());
+
+    var result = coordinator.handle(new ReconcileAgentExecution("ses-1", "task-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(ownershipService).acquireSession("ses-1", 1);
+  }
+
+  @Test
   void shouldCreateStartOperation() {
     // Given
     var session = createSession("ses-1", SessionState.CREATED);

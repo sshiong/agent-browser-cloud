@@ -6,6 +6,7 @@ import type { AgentConfirmation } from './AgentConfirmation.js';
 import type { AgentHumanHandoff } from './AgentHumanHandoff.js';
 import type { AgentPlan } from './AgentPlan.js';
 import type { AgentPolicy } from './AgentPolicy.js';
+import type { AgentReview } from './AgentReview.js';
 import type { AgentRiskClass } from './AgentRiskClass.js';
 import type { AgentStepExecution } from './AgentStepExecution.js';
 import type { AgentToolExecutionResult } from './AgentToolExecutionResult.js';
@@ -17,7 +18,7 @@ export type AgentTask = {
      * Data-minimized goal; secrets, email and phone patterns are redacted.
      */
     goal: string;
-    state: 'PLANNED' | 'QUEUED' | 'AWAITING_CONFIRMATION' | 'BLOCKED' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'PAUSED_BY_RESOURCE_POLICY' | 'COMPLETED' | 'FAILED';
+    state: 'PLANNED' | 'QUEUED' | 'AWAITING_REVIEW' | 'AWAITING_CONFIRMATION' | 'BLOCKED' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'PAUSED_BY_RESOURCE_POLICY' | 'COMPLETED' | 'FAILED';
     riskClass: AgentRiskClass;
     intentDecision: 'ALLOWED' | 'CONFIRM_REQUIRED' | 'FORBIDDEN';
     blockedReason: string | null;
@@ -31,6 +32,10 @@ export type AgentTask = {
     stepExecution: AgentStepExecution;
     confirmation: AgentConfirmation;
     humanHandoff: AgentHumanHandoff;
+    /**
+     * Reviewer evidence. Older Control Planes may omit it during rolling upgrades.
+     */
+    review?: AgentReview;
     allowedDomains: Array<string>;
     plan: AgentPlan;
     operationId: string | null;

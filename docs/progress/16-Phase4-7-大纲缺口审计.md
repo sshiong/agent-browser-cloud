@@ -32,8 +32,9 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
    Business Entity，以及 All/Any/Sequence/Negative 组合表达式。
 2. 独立 Agent Worker Sandbox 后续已由进度 113 以 PostgreSQL 队列、固定 IPC、
    无宿主权限 Worker 和 Kata 故障域关闭；目标云强制证书仍是生产 Gate。
-3. Reviewer Agent、真实模型 Provider/模型治理和 Production-like Agent Replay。
-   当前是受限规则 Planner，不是可处理任意网站目标的通用智能体。
+3. Reviewer Agent、固定 Responses Provider 和模型版本/数据/Token/成本治理后续已由
+   进度 114 关闭；客户批准站点的大规模 Replay、模型升级 Gate 和目标云 Provider
+   准入仍未完成。当前 Planner 仍是受限规则 Planner，不是可处理任意网站目标的通用智能体。
 4. Challenge Detection 与一次性 HumanAssist。现有 HumanTakeover 是完整人工接管，
    不能代替 `allowed_action_count=1` 的挑战单击授权。
 5. 已下发 Node 动作的协作取消协议、复杂补偿和跨 Region Agent Workflow。

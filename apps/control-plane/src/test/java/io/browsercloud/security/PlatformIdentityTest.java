@@ -90,4 +90,29 @@ class PlatformIdentityTest {
             new PlatformPrincipal("tenant-local", "operator-local", Set.of("TENANT_OPERATOR")));
     assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
   }
+
+  @Test
+  void localFilterAcceptsTheDedicatedReviewerWorkerRole() throws Exception {
+    var filter = new LocalHeaderAuthenticationFilter();
+    var request = new MockHttpServletRequest("POST", "/api/v1/agent-review-jobs:claim");
+    request.addHeader("X-Tenant-Id", "platform-control");
+    request.addHeader("X-Actor-Id", "reviewer-worker-local");
+    request.addHeader("X-Roles", "REVIEWER_WORKER");
+    var response = new MockHttpServletResponse();
+    var captured = new PlatformPrincipal[1];
+
+    filter.doFilter(
+        request,
+        response,
+        (ignoredRequest, ignoredResponse) ->
+            captured[0] =
+                (PlatformPrincipal)
+                    SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+
+    assertThat(captured[0])
+        .isEqualTo(
+            new PlatformPrincipal(
+                "platform-control", "reviewer-worker-local", Set.of("REVIEWER_WORKER")));
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+  }
 }

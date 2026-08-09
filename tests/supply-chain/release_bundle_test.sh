@@ -12,7 +12,7 @@ digest() {
 SOURCE_COMMIT="0123456789abcdef0123456789abcdef01234567"
 BUNDLE="$TEST_ROOT/bundle"
 EVIDENCE_ARGS=()
-for component in control-plane browser-node web-console operator application-adapter validation-worker; do
+for component in control-plane browser-node web-console operator application-adapter validation-worker gameday-worker; do
   evidence_path="$TEST_ROOT/$component.spdx.json"
   printf '{"spdxVersion":"SPDX-2.3","name":"%s"}\n' "$component" >"$evidence_path"
   EVIDENCE_ARGS+=(--evidence "$component=$evidence_path")
@@ -27,6 +27,7 @@ python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)" \
   --image "application-adapter=ghcr.io/sshiong/agent-browser-cloud-application-adapter@$(digest 5)" \
   --image "validation-worker=ghcr.io/sshiong/agent-browser-cloud-validation-worker@$(digest 6)" \
+  --image "gameday-worker=ghcr.io/sshiong/agent-browser-cloud-gameday-worker@$(digest 7)" \
   "${EVIDENCE_ARGS[@]}"
 
 python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" verify --bundle "$BUNDLE"
@@ -36,8 +37,8 @@ image_count="$(
   awk '/^[[:space:]]+(- )?image: / { count++ } END { print count + 0 }' \
     "$TEST_ROOT/rendered.yaml"
 )"
-if [[ "$image_count" -ne 7 ]]; then
-  echo "expected seven digest-locked workload image references, got $image_count" >&2
+if [[ "$image_count" -ne 8 ]]; then
+  echo "expected eight digest-locked workload image references, got $image_count" >&2
   exit 1
 fi
 if awk '/^[[:space:]]+(- )?image: / && $0 !~ /@sha256:[a-f0-9]{64}$/ { exit 1 }' \
@@ -58,6 +59,7 @@ if python3 "$REPO_ROOT/tools/supply-chain/release_bundle.py" render \
   --image "operator=ghcr.io/sshiong/agent-browser-cloud-operator@$(digest 4)" \
   --image "application-adapter=ghcr.io/sshiong/agent-browser-cloud-application-adapter@$(digest 5)" \
   --image "validation-worker=ghcr.io/sshiong/agent-browser-cloud-validation-worker@$(digest 6)" \
+  --image "gameday-worker=ghcr.io/sshiong/agent-browser-cloud-gameday-worker@$(digest 7)" \
   "${EVIDENCE_ARGS[@]}"; then
   echo "tagged production image was accepted" >&2
   exit 1

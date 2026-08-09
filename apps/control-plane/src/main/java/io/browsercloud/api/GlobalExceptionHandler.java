@@ -36,6 +36,8 @@ import io.browsercloud.application.ProfileImportApplicationService.ProfileImport
 import io.browsercloud.application.ProfileImportApplicationService.ProfileImportUnavailableException;
 import io.browsercloud.application.ProfileImportJobStore.ProfileImportConflictException;
 import io.browsercloud.application.ProfileImportJobStore.ProfileImportNotFoundException;
+import io.browsercloud.application.RecoveryGameDayQueueApplicationService.RecoveryGameDayJobNotFoundException;
+import io.browsercloud.application.RecoveryGameDayQueueApplicationService.RecoveryGameDayJobRejectedException;
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
@@ -790,6 +792,28 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "RUNTIME_VALIDATION_JOB_REJECTED",
         "Runtime Validation Worker claim or transition was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(RecoveryGameDayJobNotFoundException.class)
+  ResponseEntity<ApiError> recoveryGameDayJobNotFound(
+      RecoveryGameDayJobNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "RECOVERY_GAMEDAY_JOB_NOT_FOUND",
+        "Recovery GameDay job was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RecoveryGameDayJobRejectedException.class)
+  ResponseEntity<ApiError> recoveryGameDayJobRejected(
+      RecoveryGameDayJobRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RECOVERY_GAMEDAY_JOB_REJECTED",
+        "Recovery GameDay Worker claim or transition was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

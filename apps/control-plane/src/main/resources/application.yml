@@ -107,6 +107,11 @@ enterprise:
   audit-export:
     signing-key: ${AUDIT_EXPORT_SIGNING_KEY:local-development-audit-export-key}
     signing-key-id: ${AUDIT_EXPORT_SIGNING_KEY_ID:local-development}
+  gameday-worker:
+    claim-lease-seconds: ${GAMEDAY_WORKER_CLAIM_LEASE_SECONDS:60}
+    reaper-interval-ms: ${GAMEDAY_WORKER_REAPER_INTERVAL_MS:15000}
+    # Production remains fail-closed until a reviewed controller catalog and approval flow exist.
+    production-enabled: ${GAMEDAY_WORKER_PRODUCTION_ENABLED:false}
 
 control-plane:
   node-event-port: ${CONTROL_PLANE_NODE_EVENT_PORT:9091}

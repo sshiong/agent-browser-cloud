@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recovery-gameday-catalog
+  namespace: browsercloud-system
+immutable: true
+data:
+  catalog.json: |
+    {"version":1,"scenarios":{}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recovery-gameday-worker
+  namespace: browsercloud-system
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: recovery-gameday-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: recovery-gameday-worker
+    spec:
+      runtimeClassName: gameday-sandbox
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      nodeSelector:
+        browsercloud.io/workload: gameday-worker
+      containers:
+        - name: gameday-worker
+          image: ghcr.io/sshiong/agent-browser-cloud-gameday-worker:0.1.0
+          args:
+            - --control-plane-url=https://control-plane.browsercloud-system.svc
+            - --control-plane-token-file=/var/run/browsercloud/identity/token
+            - --control-plane-ca-file=/var/run/browsercloud/control-plane-ca/ca.crt
+            - --controller-token-file=/var/run/browsercloud/controller/token
+            - --controller-ca-file=/var/run/browsercloud/controller-ca/ca.crt
+            - --catalog-file=/var/run/browsercloud/gameday/catalog.json
+            - --runner=/usr/local/bin/gameday-runner
+            - --worker-id=$(POD_NAME)
+            - --environment=production
+            - --heartbeat-seconds=15
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: identity
+              mountPath: /var/run/browsercloud/identity/token
+              subPath: token
+              readOnly: true
+            - name: control-plane-ca
+              mountPath: /var/run/browsercloud/control-plane-ca/ca.crt
+              subPath: ca.crt
+              readOnly: true
+            - name: controller-identity
+              mountPath: /var/run/browsercloud/controller/token
+              subPath: token
+              readOnly: true
+            - name: controller-ca
+              mountPath: /var/run/browsercloud/controller-ca/ca.crt
+              subPath: ca.crt
+              readOnly: true
+            - name: catalog
+              mountPath: /var/run/browsercloud/gameday/catalog.json
+              subPath: catalog.json
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            appArmorProfile:
+              type: RuntimeDefault
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+      volumes:
+        - name: identity
+          secret:
+            secretName: recovery-gameday-worker-identity
+            defaultMode: 0440
+        - name: control-plane-ca
+          secret:
+            secretName: control-plane-mtls
+            defaultMode: 0440
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: controller-identity
+          secret:
+            secretName: recovery-gameday-controller-identity
+            defaultMode: 0440
+        - name: controller-ca
+          secret:
+            secretName: recovery-gameday-controller-identity
+            defaultMode: 0440
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: catalog
+          configMap:
+            name: recovery-gameday-catalog
+            defaultMode: 0440
+        - name: temporary
+          emptyDir:
+            sizeLimit: 64Mi

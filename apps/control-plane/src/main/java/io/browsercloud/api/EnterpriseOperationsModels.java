@@ -341,12 +341,91 @@ public final class EnterpriseOperationsModels {
       @NotBlank @Pattern(regexp = "^[a-z0-9-]{1,32}$") String sourceRegion,
       @NotBlank @Pattern(regexp = "^[a-z0-9-]{1,32}$") String targetRegion,
       @Min(1) @Max(86400) int rtoTargetSeconds,
-      @Min(0) @Max(86400) int rpoTargetSeconds) {}
+      @Min(0) @Max(86400) int rpoTargetSeconds,
+      @Pattern(regexp = "^(MANUAL|AUTO)$") String executionMode,
+      @Pattern(regexp = "^(TEST|STAGING|PRODUCTION)$") String environment,
+      @Valid RecoveryGameDayBlastRadiusRequest blastRadius,
+      @Min(30) @Max(7200) Integer maximumDurationSeconds,
+      @Pattern(regexp = "^brk_[A-Za-z0-9]{20}$") String approvalRequestId,
+      Map<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_.-]{0,127}$") String, Boolean>
+          requiredWorkerCapabilities,
+      @Min(1) @Max(10) Integer maximumAttempts) {}
+
+  public record RecoveryGameDayBlastRadiusRequest(
+      @NotBlank @Pattern(regexp = "^(TEST_FIXTURE|TENANT|NAMESPACE|REGION)$") String scope,
+      @Min(1) @Max(100) int maximumTargets,
+      @NotNull @Size(max = 100)
+          List<@Pattern(regexp = "^[A-Za-z0-9_.:/-]{1,128}$") String> targetIds) {}
 
   public record CompleteRecoveryGameDayRequest(
       @Min(0) @Max(86400) int observedRtoSeconds,
       @Min(0) @Max(86400) int observedRpoSeconds,
-      @Min(0) int dataLossRecords) {}
+      @Min(0) int dataLossRecords,
+      @Min(0) @Max(86400) Integer detectionTimeSeconds,
+      @Min(0) @Max(86400) Integer failoverTimeSeconds,
+      @Min(0) Integer staleOperationCount,
+      @Min(0) Integer userImpactCount,
+      @Min(0) Integer manualSteps,
+      @Min(0) @Max(100) Integer runbookAccuracyPercent,
+      @Pattern(regexp = "^sha256:[a-f0-9]{64}$") String runnerEvidenceHash,
+      Boolean recoveryConfirmed) {}
+
+  public record ClaimRecoveryGameDayJobRequest(
+      @NotNull @Size(min = 1, max = 3)
+          List<@Pattern(regexp = "^(TEST|STAGING|PRODUCTION)$") String> environments,
+      @NotNull @Size(min = 1, max = 32)
+          List<@Pattern(regexp = "^[A-Z][A-Z0-9_]{2,63}$") String> scenarioCodes,
+      @NotNull
+          Map<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_.-]{0,127}$") String, Boolean> capabilities) {}
+
+  public record RecoveryGameDayJobClaimRequest(
+      @NotBlank @Size(min = 32, max = 128) String claimToken) {}
+
+  public record UpdateRecoveryGameDayStageRequest(
+      @NotBlank @Size(min = 32, max = 128) String claimToken,
+      @NotBlank @Pattern(regexp = "^(INJECTING|FAULT_INJECTED|OBSERVING|RECOVERING|VALIDATING)$")
+          String stage) {}
+
+  public record CompleteRecoveryGameDayJobRequest(
+      @NotBlank @Size(min = 32, max = 128) String claimToken,
+      @NotNull @Valid CompleteRecoveryGameDayRequest result) {}
+
+  public record FailRecoveryGameDayJobRequest(
+      @NotBlank @Size(min = 32, max = 128) String claimToken,
+      @NotBlank @Pattern(regexp = "^[A-Z][A-Z0-9_]{2,127}$") String failureCode,
+      boolean retryable,
+      boolean recoveryConfirmed) {}
+
+  public record RecoveryGameDayJobView(
+      String gameDayId,
+      String scenarioCode,
+      String environment,
+      Map<String, Boolean> requiredWorkerCapabilities,
+      String state,
+      String currentStage,
+      int attempt,
+      int maximumAttempts,
+      int recoveryAttempt,
+      int maximumRecoveryAttempts,
+      String workerId,
+      long claimEpoch,
+      Instant availableAt,
+      Instant leaseExpiresAt,
+      Instant lastHeartbeatAt,
+      Instant abortDeadline,
+      boolean abortRequested,
+      boolean faultInjected,
+      Boolean recoveryConfirmed,
+      String failureCode,
+      String resultHash,
+      Instant updatedAt) {}
+
+  public record RecoveryGameDayJobClaimView(
+      String claimToken,
+      RecoveryGameDayView gameDay,
+      Instant leaseExpiresAt,
+      long claimEpoch,
+      boolean recoveryOnly) {}
 
   public record RecoveryGameDayView(
       String gameDayId,
@@ -362,7 +441,17 @@ public final class EnterpriseOperationsModels {
       String evidenceHash,
       String startedBy,
       Instant startedAt,
-      Instant completedAt) {}
+      Instant completedAt,
+      String executionMode,
+      String environment,
+      RecoveryGameDayBlastRadiusRequest blastRadius,
+      int maximumDurationSeconds,
+      String approvalRequestId,
+      String currentStage,
+      boolean abortRequested,
+      Boolean recoveryConfirmed,
+      String failureCode,
+      RecoveryGameDayJobView job) {}
 
   public record ComplianceSnapshotView(
       String snapshotId,

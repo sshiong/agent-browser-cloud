@@ -262,6 +262,12 @@ function EnterpriseOverview({
                   <p className="mt-1 font-mono text-[10px] text-text-muted">
                     {latestGameDay.sourceRegion} → {latestGameDay.targetRegion}
                   </p>
+                  <p className="mt-1 font-mono text-[9px] uppercase tracking-wide text-text-muted">
+                    {latestGameDay.executionMode} · {latestGameDay.environment}
+                    {latestGameDay.blastRadius
+                      ? ` · ${latestGameDay.blastRadius.scope} ≤ ${latestGameDay.blastRadius.maximumTargets}`
+                      : ''}
+                  </p>
                 </div>
                 <Status
                   value={latestGameDay.state}
@@ -290,6 +296,48 @@ function EnterpriseOverview({
                   value={String(latestGameDay.dataLossRecords ?? '—')}
                 />
               </div>
+              {latestGameDay.job ? (
+                <div className="mt-3 border border-border-subtle bg-surface-2 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[9px] uppercase tracking-wider text-text-muted">
+                        Automated execution
+                      </p>
+                      <p className="mt-1 truncate font-mono text-[10px] text-text-secondary">
+                        {latestGameDay.job.currentStage} · attempt{' '}
+                        {latestGameDay.job.attempt}/
+                        {latestGameDay.job.maximumAttempts}
+                        {latestGameDay.job.workerId
+                          ? ` · ${latestGameDay.job.workerId}`
+                          : ''}
+                      </p>
+                    </div>
+                    <Status
+                      value={latestGameDay.job.state}
+                      tone={tone(latestGameDay.job.state)}
+                    />
+                  </div>
+                  <p className="mt-2 font-mono text-[9px] text-text-muted">
+                    recovery{' '}
+                    {latestGameDay.job.recoveryConfirmed === true
+                      ? 'confirmed'
+                      : latestGameDay.job.faultInjected
+                        ? 'required'
+                        : 'not started'}
+                    {latestGameDay.job.recoveryAttempt > 0
+                      ? ` · recovery attempt ${latestGameDay.job.recoveryAttempt}/${latestGameDay.job.maximumRecoveryAttempts}`
+                      : ''}
+                    {latestGameDay.job.failureCode
+                      ? ` · ${latestGameDay.job.failureCode}`
+                      : ''}
+                  </p>
+                </div>
+              ) : null}
+              {latestGameDay.abortRequested ? (
+                <p className="mt-3 border border-warning/25 bg-warning/8 px-3 py-2 text-[10px] text-warning">
+                  已请求中止；Worker 必须先确认恢复，平台才会关闭本次演练。
+                </p>
+              ) : null}
             </div>
           ) : (
             <Empty label="尚无可复核的 Recovery GameDay" />
@@ -498,12 +546,22 @@ function tone(value?: string): Tone {
     return 'success';
   if (
     value === 'FAILED' ||
+    value === 'ABORTED' ||
     value === 'EXHAUSTED' ||
     value === 'CLOSED' ||
     value === 'FROZEN'
   )
     return 'danger';
-  if (value === 'DEGRADED' || value === 'RUNNING' || value === 'RECOVERING')
+  if (
+    value === 'DEGRADED' ||
+    value === 'RUNNING' ||
+    value === 'QUEUED' ||
+    value === 'CLAIMED' ||
+    value === 'EXECUTING' ||
+    value === 'RECOVERY_REQUIRED' ||
+    value === 'RECOVERING' ||
+    value === 'ACKED'
+  )
     return 'warning';
   return 'neutral';
 }

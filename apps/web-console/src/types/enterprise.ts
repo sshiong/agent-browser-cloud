@@ -143,7 +143,7 @@ export interface RecoveryGameDayView {
   scenario: string;
   sourceRegion: string;
   targetRegion: string;
-  state: 'RUNNING' | 'PASSED' | 'FAILED';
+  state: 'QUEUED' | 'RUNNING' | 'PASSED' | 'FAILED' | 'ABORTED';
   rtoTargetSeconds: number;
   rpoTargetSeconds: number;
   observedRtoSeconds: number | null;
@@ -153,6 +153,54 @@ export interface RecoveryGameDayView {
   startedBy: string;
   startedAt: string;
   completedAt: string | null;
+  executionMode: 'MANUAL' | 'AUTO';
+  environment: 'TEST' | 'STAGING' | 'PRODUCTION';
+  blastRadius: {
+    scope: 'TEST_FIXTURE' | 'TENANT' | 'NAMESPACE' | 'REGION';
+    maximumTargets: number;
+    targetIds: string[];
+  } | null;
+  maximumDurationSeconds: number;
+  approvalRequestId: string | null;
+  currentStage: string;
+  abortRequested: boolean;
+  recoveryConfirmed: boolean | null;
+  failureCode: string | null;
+  job: RecoveryGameDayJobView | null;
+}
+
+export interface RecoveryGameDayJobView {
+  gameDayId: string;
+  scenarioCode: string;
+  environment: 'TEST' | 'STAGING' | 'PRODUCTION';
+  requiredWorkerCapabilities: Record<string, boolean>;
+  state:
+    | 'QUEUED'
+    | 'CLAIMED'
+    | 'EXECUTING'
+    | 'RECOVERY_REQUIRED'
+    | 'RECOVERING'
+    | 'ACKED'
+    | 'COMMITTED'
+    | 'FAILED'
+    | 'ABORTED';
+  currentStage: string;
+  attempt: number;
+  maximumAttempts: number;
+  recoveryAttempt: number;
+  maximumRecoveryAttempts: number;
+  workerId: string | null;
+  claimEpoch: number;
+  availableAt: string;
+  leaseExpiresAt: string | null;
+  lastHeartbeatAt: string | null;
+  abortDeadline: string;
+  abortRequested: boolean;
+  faultInjected: boolean;
+  recoveryConfirmed: boolean | null;
+  failureCode: string | null;
+  resultHash: string | null;
+  updatedAt: string;
 }
 
 export interface ComplianceSnapshotView {

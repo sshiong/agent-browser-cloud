@@ -3,6 +3,7 @@ package io.browsercloud.api;
 import static io.browsercloud.api.EnterpriseOperationsModels.*;
 
 import io.browsercloud.application.EnterpriseOperationsApplicationService;
+import io.browsercloud.application.RecoveryGameDayQueueApplicationService;
 import io.browsercloud.application.RuntimeValidationQueueApplicationService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
@@ -28,14 +29,17 @@ public class EnterpriseOperationsController {
 
   private final EnterpriseOperationsApplicationService service;
   private final RuntimeValidationQueueApplicationService validationQueue;
+  private final RecoveryGameDayQueueApplicationService gameDayQueue;
   private final PlatformIdentity identity;
 
   public EnterpriseOperationsController(
       EnterpriseOperationsApplicationService service,
       RuntimeValidationQueueApplicationService validationQueue,
+      RecoveryGameDayQueueApplicationService gameDayQueue,
       PlatformIdentity identity) {
     this.service = service;
     this.validationQueue = validationQueue;
+    this.gameDayQueue = gameDayQueue;
     this.identity = identity;
   }
 
@@ -255,6 +259,13 @@ public class EnterpriseOperationsController {
     return service.listGameDays();
   }
 
+  @GetMapping("/recovery-gamedays/{gameDayId}")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryGameDayView gameDay(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId) {
+    return service.getGameDay(gameDayId);
+  }
+
   @PostMapping("/recovery-gamedays")
   @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
   public RecoveryGameDayView startGameDay(@Valid @RequestBody StartRecoveryGameDayRequest request) {
@@ -267,6 +278,63 @@ public class EnterpriseOperationsController {
       @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
       @Valid @RequestBody CompleteRecoveryGameDayRequest request) {
     return service.completeGameDay(gameDayId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/recovery-gamedays/{gameDayId}:abort")
+  @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
+  public RecoveryGameDayView abortGameDay(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId) {
+    return gameDayQueue.requestAbort(gameDayId, identity.current().actorId());
+  }
+
+  @PostMapping("/recovery-gameday-jobs:claim")
+  @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
+  public ResponseEntity<RecoveryGameDayJobClaimView> claimGameDayJob(
+      @Valid @RequestBody ClaimRecoveryGameDayJobRequest request) {
+    return gameDayQueue
+        .claim(request, identity.current().actorId())
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
+  @PostMapping("/recovery-gameday-jobs/{gameDayId}:start")
+  @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
+  public RecoveryGameDayJobView startGameDayJob(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
+      @Valid @RequestBody RecoveryGameDayJobClaimRequest request) {
+    return gameDayQueue.start(gameDayId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/recovery-gameday-jobs/{gameDayId}:heartbeat")
+  @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
+  public RecoveryGameDayJobView heartbeatGameDayJob(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
+      @Valid @RequestBody RecoveryGameDayJobClaimRequest request) {
+    return gameDayQueue.heartbeat(gameDayId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/recovery-gameday-jobs/{gameDayId}:stage")
+  @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
+  public RecoveryGameDayJobView updateGameDayJobStage(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
+      @Valid @RequestBody UpdateRecoveryGameDayStageRequest request) {
+    return gameDayQueue.updateStage(gameDayId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/recovery-gameday-jobs/{gameDayId}:complete")
+  @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
+  public RecoveryGameDayView completeGameDayJob(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
+      @Valid @RequestBody CompleteRecoveryGameDayJobRequest request) {
+    return gameDayQueue.complete(gameDayId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/recovery-gameday-jobs/{gameDayId}:fail")
+  @PreAuthorize(PlatformRoles.GAMEDAY_WORKER)
+  public RecoveryGameDayView failGameDayJob(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
+      @Valid @RequestBody FailRecoveryGameDayJobRequest request) {
+    return gameDayQueue.fail(gameDayId, request, identity.current().actorId());
   }
 
   @PostMapping("/compliance-snapshots")

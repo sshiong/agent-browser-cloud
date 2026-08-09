@@ -2369,34 +2369,125 @@ type EnterpriseRegion struct {
 }
 
 type StartRecoveryGameDayRequest struct {
-	Scenario         string `json:"scenario,omitempty"`
-	SourceRegion     string `json:"sourceRegion,omitempty"`
-	TargetRegion     string `json:"targetRegion,omitempty"`
-	RtoTargetSeconds int    `json:"rtoTargetSeconds,omitempty"`
-	RpoTargetSeconds int    `json:"rpoTargetSeconds,omitempty"`
+	Scenario                   string                     `json:"scenario,omitempty"`
+	SourceRegion               string                     `json:"sourceRegion,omitempty"`
+	TargetRegion               string                     `json:"targetRegion,omitempty"`
+	RtoTargetSeconds           int                        `json:"rtoTargetSeconds,omitempty"`
+	RpoTargetSeconds           int                        `json:"rpoTargetSeconds,omitempty"`
+	ExecutionMode              string                     `json:"executionMode,omitempty"`
+	Environment                string                     `json:"environment,omitempty"`
+	BlastRadius                RecoveryGameDayBlastRadius `json:"blastRadius,omitempty"`
+	MaximumDurationSeconds     int                        `json:"maximumDurationSeconds,omitempty"`
+	ApprovalRequestId          string                     `json:"approvalRequestId,omitempty"`
+	RequiredWorkerCapabilities map[string]bool            `json:"requiredWorkerCapabilities,omitempty"`
+	MaximumAttempts            int                        `json:"maximumAttempts,omitempty"`
+}
+
+type RecoveryGameDayBlastRadius struct {
+	Scope          string   `json:"scope,omitempty"`
+	MaximumTargets int      `json:"maximumTargets,omitempty"`
+	TargetIds      []string `json:"targetIds,omitempty"`
 }
 
 type CompleteRecoveryGameDayRequest struct {
-	ObservedRtoSeconds int `json:"observedRtoSeconds,omitempty"`
-	ObservedRpoSeconds int `json:"observedRpoSeconds,omitempty"`
-	DataLossRecords    int `json:"dataLossRecords,omitempty"`
+	ObservedRtoSeconds     int    `json:"observedRtoSeconds,omitempty"`
+	ObservedRpoSeconds     int    `json:"observedRpoSeconds,omitempty"`
+	DataLossRecords        int    `json:"dataLossRecords,omitempty"`
+	DetectionTimeSeconds   int    `json:"detectionTimeSeconds,omitempty"`
+	FailoverTimeSeconds    int    `json:"failoverTimeSeconds,omitempty"`
+	StaleOperationCount    int    `json:"staleOperationCount,omitempty"`
+	UserImpactCount        int    `json:"userImpactCount,omitempty"`
+	ManualSteps            int    `json:"manualSteps,omitempty"`
+	RunbookAccuracyPercent int    `json:"runbookAccuracyPercent,omitempty"`
+	RunnerEvidenceHash     string `json:"runnerEvidenceHash,omitempty"`
+	RecoveryConfirmed      bool   `json:"recoveryConfirmed,omitempty"`
+}
+
+type ClaimRecoveryGameDayJobRequest struct {
+	Environments  []string        `json:"environments,omitempty"`
+	ScenarioCodes []string        `json:"scenarioCodes,omitempty"`
+	Capabilities  map[string]bool `json:"capabilities,omitempty"`
+}
+
+type RecoveryGameDayJobClaimRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+}
+
+type UpdateRecoveryGameDayStageRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+	Stage      string `json:"stage,omitempty"`
+}
+
+type CompleteRecoveryGameDayJobRequest struct {
+	ClaimToken string                         `json:"claimToken,omitempty"`
+	Result     CompleteRecoveryGameDayRequest `json:"result,omitempty"`
+}
+
+type FailRecoveryGameDayJobRequest struct {
+	ClaimToken        string `json:"claimToken,omitempty"`
+	FailureCode       string `json:"failureCode,omitempty"`
+	Retryable         bool   `json:"retryable,omitempty"`
+	RecoveryConfirmed bool   `json:"recoveryConfirmed,omitempty"`
+}
+
+type RecoveryGameDayJob struct {
+	GameDayId                  string          `json:"gameDayId,omitempty"`
+	ScenarioCode               string          `json:"scenarioCode,omitempty"`
+	Environment                string          `json:"environment,omitempty"`
+	RequiredWorkerCapabilities map[string]bool `json:"requiredWorkerCapabilities,omitempty"`
+	State                      string          `json:"state,omitempty"`
+	CurrentStage               string          `json:"currentStage,omitempty"`
+	Attempt                    int             `json:"attempt,omitempty"`
+	MaximumAttempts            int             `json:"maximumAttempts,omitempty"`
+	RecoveryAttempt            int             `json:"recoveryAttempt,omitempty"`
+	MaximumRecoveryAttempts    int             `json:"maximumRecoveryAttempts,omitempty"`
+	WorkerId                   any             `json:"workerId,omitempty"`
+	ClaimEpoch                 int64           `json:"claimEpoch,omitempty"`
+	AvailableAt                string          `json:"availableAt,omitempty"`
+	LeaseExpiresAt             any             `json:"leaseExpiresAt,omitempty"`
+	LastHeartbeatAt            any             `json:"lastHeartbeatAt,omitempty"`
+	AbortDeadline              string          `json:"abortDeadline,omitempty"`
+	AbortRequested             bool            `json:"abortRequested,omitempty"`
+	FaultInjected              bool            `json:"faultInjected,omitempty"`
+	RecoveryConfirmed          any             `json:"recoveryConfirmed,omitempty"`
+	FailureCode                any             `json:"failureCode,omitempty"`
+	ResultHash                 any             `json:"resultHash,omitempty"`
+	UpdatedAt                  string          `json:"updatedAt,omitempty"`
+}
+
+type RecoveryGameDayJobClaim struct {
+	ClaimToken     string          `json:"claimToken,omitempty"`
+	GameDay        RecoveryGameDay `json:"gameDay,omitempty"`
+	LeaseExpiresAt string          `json:"leaseExpiresAt,omitempty"`
+	ClaimEpoch     int64           `json:"claimEpoch,omitempty"`
+	RecoveryOnly   bool            `json:"recoveryOnly,omitempty"`
 }
 
 type RecoveryGameDay struct {
-	GameDayId          string `json:"gameDayId,omitempty"`
-	Scenario           string `json:"scenario,omitempty"`
-	SourceRegion       string `json:"sourceRegion,omitempty"`
-	TargetRegion       string `json:"targetRegion,omitempty"`
-	State              string `json:"state,omitempty"`
-	RtoTargetSeconds   int    `json:"rtoTargetSeconds,omitempty"`
-	RpoTargetSeconds   int    `json:"rpoTargetSeconds,omitempty"`
-	ObservedRtoSeconds any    `json:"observedRtoSeconds,omitempty"`
-	ObservedRpoSeconds any    `json:"observedRpoSeconds,omitempty"`
-	DataLossRecords    any    `json:"dataLossRecords,omitempty"`
-	EvidenceHash       any    `json:"evidenceHash,omitempty"`
-	StartedBy          string `json:"startedBy,omitempty"`
-	StartedAt          string `json:"startedAt,omitempty"`
-	CompletedAt        any    `json:"completedAt,omitempty"`
+	GameDayId              string `json:"gameDayId,omitempty"`
+	Scenario               string `json:"scenario,omitempty"`
+	SourceRegion           string `json:"sourceRegion,omitempty"`
+	TargetRegion           string `json:"targetRegion,omitempty"`
+	State                  string `json:"state,omitempty"`
+	RtoTargetSeconds       int    `json:"rtoTargetSeconds,omitempty"`
+	RpoTargetSeconds       int    `json:"rpoTargetSeconds,omitempty"`
+	ObservedRtoSeconds     any    `json:"observedRtoSeconds,omitempty"`
+	ObservedRpoSeconds     any    `json:"observedRpoSeconds,omitempty"`
+	DataLossRecords        any    `json:"dataLossRecords,omitempty"`
+	EvidenceHash           any    `json:"evidenceHash,omitempty"`
+	StartedBy              string `json:"startedBy,omitempty"`
+	StartedAt              string `json:"startedAt,omitempty"`
+	CompletedAt            any    `json:"completedAt,omitempty"`
+	ExecutionMode          string `json:"executionMode,omitempty"`
+	Environment            string `json:"environment,omitempty"`
+	BlastRadius            any    `json:"blastRadius,omitempty"`
+	MaximumDurationSeconds int    `json:"maximumDurationSeconds,omitempty"`
+	ApprovalRequestId      any    `json:"approvalRequestId,omitempty"`
+	CurrentStage           string `json:"currentStage,omitempty"`
+	AbortRequested         bool   `json:"abortRequested,omitempty"`
+	RecoveryConfirmed      any    `json:"recoveryConfirmed,omitempty"`
+	FailureCode            any    `json:"failureCode,omitempty"`
+	Job                    any    `json:"job,omitempty"`
 }
 
 type ComplianceSnapshot struct {

@@ -441,11 +441,27 @@ public final class Models {
 
   public record EnterpriseRegion(String regionId, String role, String admissionState, Integer replicationLagSeconds, String lastVerifiedAt, String updatedBy) {}
 
-  public record StartRecoveryGameDayRequest(String scenario, String sourceRegion, String targetRegion, Integer rtoTargetSeconds, Integer rpoTargetSeconds) {}
+  public record StartRecoveryGameDayRequest(String scenario, String sourceRegion, String targetRegion, Integer rtoTargetSeconds, Integer rpoTargetSeconds, String executionMode, String environment, RecoveryGameDayBlastRadius blastRadius, Integer maximumDurationSeconds, String approvalRequestId, Map<String, Boolean> requiredWorkerCapabilities, Integer maximumAttempts) {}
 
-  public record CompleteRecoveryGameDayRequest(Integer observedRtoSeconds, Integer observedRpoSeconds, Integer dataLossRecords) {}
+  public record RecoveryGameDayBlastRadius(String scope, Integer maximumTargets, List<String> targetIds) {}
 
-  public record RecoveryGameDay(String gameDayId, String scenario, String sourceRegion, String targetRegion, String state, Integer rtoTargetSeconds, Integer rpoTargetSeconds, Object observedRtoSeconds, Object observedRpoSeconds, Object dataLossRecords, Object evidenceHash, String startedBy, String startedAt, Object completedAt) {}
+  public record CompleteRecoveryGameDayRequest(Integer observedRtoSeconds, Integer observedRpoSeconds, Integer dataLossRecords, Integer detectionTimeSeconds, Integer failoverTimeSeconds, Integer staleOperationCount, Integer userImpactCount, Integer manualSteps, Integer runbookAccuracyPercent, String runnerEvidenceHash, Boolean recoveryConfirmed) {}
+
+  public record ClaimRecoveryGameDayJobRequest(List<String> environments, List<String> scenarioCodes, Map<String, Boolean> capabilities) {}
+
+  public record RecoveryGameDayJobClaimRequest(String claimToken) {}
+
+  public record UpdateRecoveryGameDayStageRequest(String claimToken, String stage) {}
+
+  public record CompleteRecoveryGameDayJobRequest(String claimToken, CompleteRecoveryGameDayRequest result) {}
+
+  public record FailRecoveryGameDayJobRequest(String claimToken, String failureCode, Boolean retryable, Boolean recoveryConfirmed) {}
+
+  public record RecoveryGameDayJob(String gameDayId, String scenarioCode, String environment, Map<String, Boolean> requiredWorkerCapabilities, String state, String currentStage, Integer attempt, Integer maximumAttempts, Integer recoveryAttempt, Integer maximumRecoveryAttempts, Object workerId, Long claimEpoch, String availableAt, Object leaseExpiresAt, Object lastHeartbeatAt, String abortDeadline, Boolean abortRequested, Boolean faultInjected, Object recoveryConfirmed, Object failureCode, Object resultHash, String updatedAt) {}
+
+  public record RecoveryGameDayJobClaim(String claimToken, RecoveryGameDay gameDay, String leaseExpiresAt, Long claimEpoch, Boolean recoveryOnly) {}
+
+  public record RecoveryGameDay(String gameDayId, String scenario, String sourceRegion, String targetRegion, String state, Integer rtoTargetSeconds, Integer rpoTargetSeconds, Object observedRtoSeconds, Object observedRpoSeconds, Object dataLossRecords, Object evidenceHash, String startedBy, String startedAt, Object completedAt, String executionMode, String environment, Object blastRadius, Integer maximumDurationSeconds, Object approvalRequestId, String currentStage, Boolean abortRequested, Object recoveryConfirmed, Object failureCode, Object job) {}
 
   public record ComplianceSnapshot(String snapshotId, String tenantId, String framework, Integer controlCount, Integer passingControls, String evidenceHash, BooleanMap evidence, String generatedBy, String generatedAt) {}
 

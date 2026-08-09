@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import javax.crypto.Mac;
@@ -34,12 +35,57 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EnterpriseOperationsApplicationService {
 
+  private static final Set<String> AUTOMATED_GAMEDAY_SCENARIOS =
+      Set.of(
+          "POSTGRES_PRIMARY_FAILURE",
+          "REDIS_TOTAL_LOSS",
+          "MESSAGE_BUS_PARTITION",
+          "BROWSER_NODE_POWER_LOSS",
+          "OBJECT_STORAGE_UNAVAILABLE",
+          "WARM_TIER_UNAVAILABLE",
+          "KMS_UNAVAILABLE",
+          "PROXY_PROVIDER_MASS_FAILURE",
+          "COORDINATOR_SPLIT_BRAIN",
+          "WORKFLOW_CALLBACK_LOSS",
+          "RUNTIME_BUILD_ROLLBACK",
+          "REGION_NETWORK_ISOLATION",
+          "MEDIA_GATEWAY_FAILURE");
+  private static final String GAMEDAY_VIEW_SELECT =
+      """
+      SELECT g.*,
+             j.gameday_id AS job_gameday_id,
+             j.scenario_code AS job_scenario_code,
+             j.environment AS job_environment,
+             j.required_worker_capabilities AS job_required_worker_capabilities,
+             j.state AS job_state,
+             j.current_stage AS job_current_stage,
+             j.attempt AS job_attempt,
+             j.maximum_attempts AS job_maximum_attempts,
+             j.recovery_attempt AS job_recovery_attempt,
+             j.maximum_recovery_attempts AS job_maximum_recovery_attempts,
+             j.claim_owner AS job_claim_owner,
+             j.claim_epoch AS job_claim_epoch,
+             j.available_at AS job_available_at,
+             j.lease_expires_at AS job_lease_expires_at,
+             j.last_heartbeat_at AS job_last_heartbeat_at,
+             j.abort_deadline AS job_abort_deadline,
+             j.abort_requested AS job_abort_requested,
+             j.fault_injected AS job_fault_injected,
+             j.recovery_confirmed AS job_recovery_confirmed,
+             j.failure_code AS job_failure_code,
+             j.result_hash AS job_result_hash,
+             j.updated_at AS job_updated_at
+        FROM enterprise_recovery_gamedays g
+        LEFT JOIN recovery_gameday_jobs j ON j.gameday_id = g.gameday_id
+      """;
+
   private final JdbcTemplate jdbc;
   private final ObjectMapper objectMapper;
   private final AuditApplicationService auditService;
   private final ReleaseFreezeApplicationService releaseFreezeService;
   private final String auditExportSigningKey;
   private final String auditExportSigningKeyId;
+  private final boolean gameDayProductionEnabled;
 
   public EnterpriseOperationsApplicationService(
       JdbcTemplate jdbc,
@@ -48,13 +94,16 @@ public class EnterpriseOperationsApplicationService {
       ReleaseFreezeApplicationService releaseFreezeService,
       @Value("${enterprise.audit-export.signing-key:local-development-audit-export-key}")
           String auditExportSigningKey,
-      @Value("${enterprise.audit-export.signing-key-id:local-development}") String signingKeyId) {
+      @Value("${enterprise.audit-export.signing-key-id:local-development}") String signingKeyId,
+      @Value("${enterprise.gameday-worker.production-enabled:false}")
+          boolean gameDayProductionEnabled) {
     this.jdbc = jdbc;
     this.objectMapper = objectMapper;
     this.auditService = auditService;
     this.releaseFreezeService = releaseFreezeService;
     this.auditExportSigningKey = auditExportSigningKey;
     this.auditExportSigningKeyId = signingKeyId;
+    this.gameDayProductionEnabled = gameDayProductionEnabled;
   }
 
   @Transactional
@@ -867,31 +916,134 @@ public class EnterpriseOperationsApplicationService {
     }
     requireRegion(request.sourceRegion());
     requireRegion(request.targetRegion());
+    var executionMode = valueOrDefault(request.executionMode(), "MANUAL");
+    var environment = valueOrDefault(request.environment(), "TEST");
+    var blastRadius =
+        request.blastRadius() == null
+            ? new RecoveryGameDayBlastRadiusRequest("TEST_FIXTURE", 1, List.of())
+            : request.blastRadius();
+    var maximumDurationSeconds =
+        request.maximumDurationSeconds() == null ? 900 : request.maximumDurationSeconds();
+    var maximumAttempts = request.maximumAttempts() == null ? 3 : request.maximumAttempts();
+    var requiredCapabilities =
+        request.requiredWorkerCapabilities() == null
+            ? Map.of("faultInjection", true, "recovery", true, "measurement", true)
+            : Map.copyOf(request.requiredWorkerCapabilities());
+    if (blastRadius.targetIds().size() > blastRadius.maximumTargets()) {
+      throw new IllegalArgumentException("GameDay target count exceeds the declared blast radius");
+    }
+    if ("TEST".equals(environment) && !"TEST_FIXTURE".equals(blastRadius.scope())) {
+      throw new IllegalArgumentException("TEST GameDay blast radius must be TEST_FIXTURE");
+    }
+    if ("AUTO".equals(executionMode)) {
+      if (blastRadius.targetIds().isEmpty()) {
+        throw new IllegalArgumentException(
+            "automated GameDay requires at least one bounded target");
+      }
+      if (!AUTOMATED_GAMEDAY_SCENARIOS.contains(request.scenario())) {
+        throw new IllegalArgumentException("unsupported automated GameDay scenario");
+      }
+      if (requiredCapabilities.values().stream().anyMatch(value -> !Boolean.TRUE.equals(value))) {
+        throw new IllegalArgumentException("GameDay required capabilities must be true");
+      }
+      if ("PRODUCTION".equals(environment)) {
+        requireProductionGameDayApproval(
+            request.approvalRequestId(), request.targetRegion(), actorId);
+      }
+    }
     var id = id("gameday_");
+    var now = Instant.now();
+    var initialState = "AUTO".equals(executionMode) ? "QUEUED" : "RUNNING";
+    var initialStage = "AUTO".equals(executionMode) ? "QUEUED" : "MANUAL";
     jdbc.update(
         """
         INSERT INTO enterprise_recovery_gamedays(
           gameday_id, scenario, source_region, target_region, state,
-          rto_target_seconds, rpo_target_seconds, started_by, started_at
-        ) VALUES (?, ?, ?, ?, 'RUNNING', ?, ?, ?, now())
+          rto_target_seconds, rpo_target_seconds, started_by, started_at,
+          execution_mode, environment, blast_radius, maximum_duration_seconds,
+          approval_request_id, current_stage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?)
         """,
         id,
         request.scenario(),
         request.sourceRegion(),
         request.targetRegion(),
+        initialState,
         request.rtoTargetSeconds(),
         request.rpoTargetSeconds(),
-        actorId);
+        actorId,
+        sqlTime(now),
+        executionMode,
+        environment,
+        json(blastRadius),
+        maximumDurationSeconds,
+        request.approvalRequestId(),
+        initialStage);
+    if ("AUTO".equals(executionMode)) {
+      jdbc.update(
+          """
+          INSERT INTO recovery_gameday_jobs(
+            gameday_id, scenario_code, environment, required_worker_capabilities,
+            state, current_stage, maximum_attempts, available_at, abort_deadline,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, CAST(? AS jsonb), 'QUEUED', 'QUEUED', ?, ?, ?, ?, ?)
+          """,
+          id,
+          request.scenario(),
+          environment,
+          json(requiredCapabilities),
+          maximumAttempts,
+          sqlTime(now),
+          sqlTime(now.plusSeconds(maximumDurationSeconds)),
+          sqlTime(now),
+          sqlTime(now));
+      appendGameDayJobEvent(id, "ENQUEUED", null, "QUEUED", "QUEUED", actorId, 0, 0, null, now);
+    }
+    audit(
+        "platform-control",
+        actorId,
+        "RECOVERY_GAMEDAY",
+        id,
+        "START",
+        initialState,
+        Map.of(
+            "executionMode",
+            executionMode,
+            "environment",
+            environment,
+            "blastRadius",
+            blastRadius.scope(),
+            "maximumTargets",
+            blastRadius.maximumTargets()));
     return requireGameDay(id);
   }
 
   @Transactional
   public RecoveryGameDayView completeGameDay(
       String gameDayId, CompleteRecoveryGameDayRequest request, String actorId) {
+    var existing = requireGameDay(gameDayId);
+    if (!"MANUAL".equals(existing.executionMode())) {
+      throw new IllegalArgumentException(
+          "automated Recovery GameDay results must be submitted by a GameDay Worker");
+    }
+    return completeGameDayInternal(gameDayId, request, actorId);
+  }
+
+  @Transactional
+  public RecoveryGameDayView completeGameDayExecution(
+      String gameDayId, CompleteRecoveryGameDayRequest request, String actorId) {
+    if (!Boolean.TRUE.equals(request.recoveryConfirmed())) {
+      throw new IllegalArgumentException("GameDay recovery must be confirmed before completion");
+    }
+    return completeGameDayInternal(gameDayId, request, actorId);
+  }
+
+  private RecoveryGameDayView completeGameDayInternal(
+      String gameDayId, CompleteRecoveryGameDayRequest request, String actorId) {
     var run =
         jdbc
             .query(
-                "SELECT * FROM enterprise_recovery_gamedays WHERE gameday_id = ? FOR UPDATE",
+                GAMEDAY_VIEW_SELECT + " WHERE g.gameday_id = ? FOR UPDATE OF g",
                 this::gameDay,
                 gameDayId)
             .stream()
@@ -905,33 +1057,36 @@ public class EnterpriseOperationsApplicationService {
         request.observedRtoSeconds() <= run.rtoTargetSeconds()
             && request.observedRpoSeconds() <= run.rpoTargetSeconds()
             && request.dataLossRecords() == 0
+            && (request.staleOperationCount() == null || request.staleOperationCount() == 0)
             && target.replicationLagSeconds() <= run.rpoTargetSeconds();
-    var evidence =
-        Map.<String, Object>of(
-            "gameDayId",
-            gameDayId,
-            "scenario",
-            run.scenario(),
-            "sourceRegion",
-            run.sourceRegion(),
-            "targetRegion",
-            run.targetRegion(),
-            "observedRtoSeconds",
-            request.observedRtoSeconds(),
-            "observedRpoSeconds",
-            request.observedRpoSeconds(),
-            "dataLossRecords",
-            request.dataLossRecords(),
-            "replicationLagSeconds",
-            target.replicationLagSeconds(),
-            "passed",
-            passed);
+    var evidence = new LinkedHashMap<String, Object>();
+    evidence.put("gameDayId", gameDayId);
+    evidence.put("scenario", run.scenario());
+    evidence.put("sourceRegion", run.sourceRegion());
+    evidence.put("targetRegion", run.targetRegion());
+    evidence.put("environment", run.environment());
+    evidence.put("blastRadius", run.blastRadius());
+    evidence.put("observedRtoSeconds", request.observedRtoSeconds());
+    evidence.put("observedRpoSeconds", request.observedRpoSeconds());
+    evidence.put("dataLossRecords", request.dataLossRecords());
+    evidence.put("replicationLagSeconds", target.replicationLagSeconds());
+    evidence.put("detectionTimeSeconds", request.detectionTimeSeconds());
+    evidence.put("failoverTimeSeconds", request.failoverTimeSeconds());
+    evidence.put("staleOperationCount", request.staleOperationCount());
+    evidence.put("userImpactCount", request.userImpactCount());
+    evidence.put("manualSteps", request.manualSteps());
+    evidence.put("runbookAccuracyPercent", request.runbookAccuracyPercent());
+    evidence.put("runnerEvidenceHash", request.runnerEvidenceHash());
+    evidence.put("recoveryConfirmed", request.recoveryConfirmed());
+    evidence.put("passed", passed);
     var evidenceHash = hash(evidence);
     jdbc.update(
         """
         UPDATE enterprise_recovery_gamedays
         SET state = ?, observed_rto_seconds = ?, observed_rpo_seconds = ?,
-            data_loss_records = ?, evidence_hash = ?, completed_at = now()
+            data_loss_records = ?, evidence_hash = ?, completed_at = now(),
+            current_stage = ?, recovery_confirmed = TRUE,
+            failure_code = CASE WHEN ? THEN NULL ELSE 'RECOVERY_OBJECTIVES_MISSED' END
         WHERE gameday_id = ?
         """,
         passed ? "PASSED" : "FAILED",
@@ -939,6 +1094,8 @@ public class EnterpriseOperationsApplicationService {
         request.observedRpoSeconds(),
         request.dataLossRecords(),
         evidenceHash,
+        passed ? "COMMITTED" : "FAILED",
+        passed,
         gameDayId);
     audit(
         "platform-control",
@@ -951,11 +1108,49 @@ public class EnterpriseOperationsApplicationService {
     return requireGameDay(gameDayId);
   }
 
+  @Transactional
+  public RecoveryGameDayView failGameDayExecution(
+      String gameDayId,
+      String failureCode,
+      boolean recoveryConfirmed,
+      boolean aborted,
+      String actorId) {
+    var run = requireGameDay(gameDayId);
+    if (List.of("PASSED", "FAILED", "ABORTED").contains(run.state())) {
+      return run;
+    }
+    jdbc.update(
+        """
+        UPDATE enterprise_recovery_gamedays
+           SET state = ?, current_stage = ?, failure_code = ?,
+               recovery_confirmed = ?, completed_at = now(), abort_requested = ?
+         WHERE gameday_id = ?
+        """,
+        aborted && recoveryConfirmed ? "ABORTED" : "FAILED",
+        aborted && recoveryConfirmed ? "ABORTED" : "FAILED",
+        failureCode,
+        recoveryConfirmed,
+        aborted,
+        gameDayId);
+    audit(
+        "platform-control",
+        actorId,
+        "RECOVERY_GAMEDAY",
+        gameDayId,
+        aborted ? "ABORT" : "FAIL",
+        recoveryConfirmed ? "RECOVERY_CONFIRMED" : "RECOVERY_UNKNOWN",
+        Map.of("failureCode", failureCode));
+    return requireGameDay(gameDayId);
+  }
+
+  @Transactional(readOnly = true)
+  public RecoveryGameDayView getGameDay(String gameDayId) {
+    return requireGameDay(gameDayId);
+  }
+
   @Transactional(readOnly = true)
   public List<RecoveryGameDayView> listGameDays() {
-    return jdbc.query(
-        "SELECT * FROM enterprise_recovery_gamedays ORDER BY started_at DESC LIMIT 100",
-        this::gameDay);
+    return jdbc.query(GAMEDAY_VIEW_SELECT + " ORDER BY g.started_at DESC LIMIT 100", this::gameDay);
   }
 
   @Transactional
@@ -1273,9 +1468,7 @@ public class EnterpriseOperationsApplicationService {
   }
 
   private RecoveryGameDayView requireGameDay(String id) {
-    return jdbc
-        .query("SELECT * FROM enterprise_recovery_gamedays WHERE gameday_id = ?", this::gameDay, id)
-        .stream()
+    return jdbc.query(GAMEDAY_VIEW_SELECT + " WHERE g.gameday_id = ?", this::gameDay, id).stream()
         .findFirst()
         .orElseThrow(() -> new EnterpriseResourceNotFoundException("Recovery GameDay"));
   }
@@ -1511,6 +1704,35 @@ public class EnterpriseOperationsApplicationService {
   }
 
   private RecoveryGameDayView gameDay(ResultSet result, int row) throws SQLException {
+    RecoveryGameDayJobView job = null;
+    if (result.getString("job_gameday_id") != null) {
+      job =
+          new RecoveryGameDayJobView(
+              result.getString("job_gameday_id"),
+              result.getString("job_scenario_code"),
+              result.getString("job_environment"),
+              read(
+                  result.getString("job_required_worker_capabilities"),
+                  new TypeReference<Map<String, Boolean>>() {}),
+              result.getString("job_state"),
+              result.getString("job_current_stage"),
+              result.getInt("job_attempt"),
+              result.getInt("job_maximum_attempts"),
+              result.getInt("job_recovery_attempt"),
+              result.getInt("job_maximum_recovery_attempts"),
+              result.getString("job_claim_owner"),
+              result.getLong("job_claim_epoch"),
+              result.getTimestamp("job_available_at").toInstant(),
+              instant(result, "job_lease_expires_at"),
+              instant(result, "job_last_heartbeat_at"),
+              result.getTimestamp("job_abort_deadline").toInstant(),
+              result.getBoolean("job_abort_requested"),
+              result.getBoolean("job_fault_injected"),
+              nullableBoolean(result, "job_recovery_confirmed"),
+              result.getString("job_failure_code"),
+              result.getString("job_result_hash"),
+              result.getTimestamp("job_updated_at").toInstant());
+    }
     return new RecoveryGameDayView(
         result.getString("gameday_id"),
         result.getString("scenario"),
@@ -1525,7 +1747,19 @@ public class EnterpriseOperationsApplicationService {
         result.getString("evidence_hash"),
         result.getString("started_by"),
         result.getTimestamp("started_at").toInstant(),
-        instant(result, "completed_at"));
+        instant(result, "completed_at"),
+        result.getString("execution_mode"),
+        result.getString("environment"),
+        read(
+            result.getString("blast_radius"),
+            new TypeReference<RecoveryGameDayBlastRadiusRequest>() {}),
+        result.getInt("maximum_duration_seconds"),
+        result.getString("approval_request_id"),
+        result.getString("current_stage"),
+        result.getBoolean("abort_requested"),
+        nullableBoolean(result, "recovery_confirmed"),
+        result.getString("failure_code"),
+        job);
   }
 
   private ComplianceSnapshotView compliance(ResultSet result, int row) throws SQLException {
@@ -1683,6 +1917,72 @@ public class EnterpriseOperationsApplicationService {
         sqlTime(occurredAt));
   }
 
+  private void requireProductionGameDayApproval(
+      String approvalRequestId, String targetRegion, String actorId) {
+    if (!gameDayProductionEnabled) {
+      throw new IllegalArgumentException(
+          "automated production GameDays are disabled by platform policy");
+    }
+    if (approvalRequestId == null) {
+      throw new IllegalArgumentException("production GameDay requires dual-control approval");
+    }
+    var approval =
+        jdbc.queryForList(
+            """
+            SELECT requested_by, approved_by
+              FROM break_glass_requests
+             WHERE request_id = ?
+               AND tenant_id = 'platform-control'
+               AND resource_type = 'REGION'
+               AND resource_id = ?
+               AND requested_scope = 'RECOVERY_GAMEDAY'
+               AND state = 'ACTIVE'
+               AND expires_at > now()
+             FOR UPDATE
+            """,
+            approvalRequestId,
+            targetRegion);
+    if (approval.size() != 1 || approval.getFirst().get("approved_by") == null) {
+      throw new IllegalArgumentException(
+          "production GameDay approval is missing, expired, or has the wrong scope");
+    }
+    if (actorId.equals(approval.getFirst().get("approved_by"))) {
+      throw new IllegalArgumentException(
+          "production GameDay approver cannot also start the execution");
+    }
+  }
+
+  private void appendGameDayJobEvent(
+      String gameDayId,
+      String eventType,
+      String fromState,
+      String toState,
+      String stage,
+      String workerId,
+      long claimEpoch,
+      int attempt,
+      String reasonCode,
+      Instant occurredAt) {
+    jdbc.update(
+        """
+        INSERT INTO recovery_gameday_job_events(
+          event_id, gameday_id, event_type, from_state, to_state, stage,
+          worker_id, claim_epoch, attempt, reason_code, occurred_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        id("gev_"),
+        gameDayId,
+        eventType,
+        fromState,
+        toState,
+        stage,
+        workerId,
+        claimEpoch,
+        attempt,
+        reasonCode,
+        sqlTime(occurredAt));
+  }
+
   private long count(String sql, Object... arguments) {
     return Optional.ofNullable(jdbc.queryForObject(sql, Long.class, arguments)).orElse(0L);
   }
@@ -1771,6 +2071,11 @@ public class EnterpriseOperationsApplicationService {
   private static Integer nullableInt(ResultSet result, String column) throws SQLException {
     var value = result.getObject(column);
     return value == null ? null : ((Number) value).intValue();
+  }
+
+  private static Boolean nullableBoolean(ResultSet result, String column) throws SQLException {
+    var value = result.getObject(column);
+    return value == null ? null : (Boolean) value;
   }
 
   private record ReleaseFreezePolicy(

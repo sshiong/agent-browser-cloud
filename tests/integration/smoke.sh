@@ -5221,6 +5221,154 @@ recovery_gameday="$(curl -fsS -X POST \
   -d '{"observedRtoSeconds":30,"observedRpoSeconds":0,"dataLossRecords":0}')"
 printf '%s' "$recovery_gameday" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["state"] == "PASSED"; assert item["observedRtoSeconds"] == 30; assert item["dataLossRecords"] == 0; assert len(item["evidenceHash"]) == 64'
+automated_gameday="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-admin' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"scenario":"OBJECT_STORAGE_UNAVAILABLE","sourceRegion":"local","targetRegion":"dr-local","rtoTargetSeconds":120,"rpoTargetSeconds":60,"executionMode":"AUTO","environment":"TEST","blastRadius":{"scope":"TEST_FIXTURE","maximumTargets":1,"targetIds":["fixture-object-storage"]},"maximumDurationSeconds":300,"requiredWorkerCapabilities":{"faultInjection":true,"recovery":true,"measurement":true},"maximumAttempts":2}')"
+automated_gameday_id="$(printf '%s' "$automated_gameday" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "QUEUED"; assert item["executionMode"] == "AUTO"; assert item["job"]["state"] == "QUEUED"; print(item["gameDayId"])')"
+no_gameday_job_status="$(curl -sS -o "$temp_dir/no-gameday-job.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-wrong-scenario' \
+  -H 'X-Roles: GAMEDAY_WORKER' \
+  -d '{"environments":["TEST"],"scenarioCodes":["REDIS_TOTAL_LOSS"],"capabilities":{"faultInjection":true,"recovery":true,"measurement":true}}')"
+test "$no_gameday_job_status" = "204"
+automated_gameday_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-object-storage' \
+  -H 'X-Roles: GAMEDAY_WORKER' \
+  -d '{"environments":["TEST"],"scenarioCodes":["OBJECT_STORAGE_UNAVAILABLE"],"capabilities":{"faultInjection":true,"recovery":true,"measurement":true}}')"
+automated_gameday_claim_token="$(printf '%s' "$automated_gameday_claim" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["gameDay"]["job"]["state"] == "CLAIMED"; assert item["claimEpoch"] == 1; assert item["recoveryOnly"] is False; print(item["claimToken"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${automated_gameday_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-object-storage' \
+  -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${automated_gameday_claim_token}\"}" \
+  | python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["state"] == "EXECUTING"; assert item["currentStage"] == "PREPARING"'
+stale_gameday_claim_status="$(curl -sS -o "$temp_dir/stale-gameday-claim.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${automated_gameday_id}:heartbeat" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-object-storage' \
+  -H 'X-Roles: GAMEDAY_WORKER' \
+  -d '{"claimToken":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}')"
+test "$stale_gameday_claim_status" = "409"
+grep -q 'GAMEDAY_JOB_CLAIM_TOKEN_INVALID' "$temp_dir/stale-gameday-claim.json"
+for stage in INJECTING FAULT_INJECTED OBSERVING RECOVERING VALIDATING; do
+  curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${automated_gameday_id}:stage" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: platform-control' \
+    -H 'X-Actor-Id: gameday-worker-object-storage' \
+    -H 'X-Roles: GAMEDAY_WORKER' \
+    -d "{\"claimToken\":\"${automated_gameday_claim_token}\",\"stage\":\"${stage}\"}" \
+    >"$temp_dir/gameday-stage.json"
+done
+automated_gameday="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${automated_gameday_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-object-storage' \
+  -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${automated_gameday_claim_token}\",\"result\":{\"observedRtoSeconds\":20,\"observedRpoSeconds\":0,\"dataLossRecords\":0,\"detectionTimeSeconds\":2,\"failoverTimeSeconds\":10,\"staleOperationCount\":0,\"userImpactCount\":0,\"manualSteps\":0,\"runbookAccuracyPercent\":100,\"runnerEvidenceHash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"recoveryConfirmed\":true}}")"
+printf '%s' "$automated_gameday" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "PASSED"; assert item["recoveryConfirmed"] is True; assert item["job"]["state"] == "COMMITTED"; assert item["job"]["faultInjected"] is True; assert item["job"]["resultHash"].startswith("sha256:")'
+automated_gameday_events="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' ||
+          count(*) filter (where event_type='STAGE_CHANGED') || ':' ||
+          count(*) filter (where event_type='ENQUEUED' and to_state='QUEUED') || ':' ||
+          count(*) filter (where event_type='CLAIMED' and to_state='CLAIMED') || ':' ||
+          count(*) filter (where event_type='EXECUTION_STARTED' and to_state='EXECUTING') || ':' ||
+          count(*) filter (where event_type='RESULT_ACKED' and to_state='ACKED') || ':' ||
+          count(*) filter (where event_type='RESULT_COMMITTED' and to_state='COMMITTED')
+     from recovery_gameday_job_events where gameday_id='${automated_gameday_id}'")"
+test "$automated_gameday_events" = "10:5:1:1:1:1:1"
+
+lease_gameday="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-admin' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"scenario":"REDIS_TOTAL_LOSS","sourceRegion":"local","targetRegion":"dr-local","rtoTargetSeconds":120,"rpoTargetSeconds":60,"executionMode":"AUTO","environment":"TEST","blastRadius":{"scope":"TEST_FIXTURE","maximumTargets":1,"targetIds":["fixture-redis"]},"maximumDurationSeconds":300,"maximumAttempts":1}')"
+lease_gameday_id="$(printf '%s' "$lease_gameday" | python3 -c 'import json,sys; print(json.load(sys.stdin)["gameDayId"])')"
+lease_gameday_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-expiring' \
+  -H 'X-Roles: GAMEDAY_WORKER' \
+  -d '{"environments":["TEST"],"scenarioCodes":["REDIS_TOTAL_LOSS"],"capabilities":{"faultInjection":true,"recovery":true,"measurement":true}}')"
+lease_gameday_claim_token="$(printf '%s' "$lease_gameday_claim" | python3 -c 'import json,sys; print(json.load(sys.stdin)["claimToken"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${lease_gameday_id}:start" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-expiring' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${lease_gameday_claim_token}\"}" >"$temp_dir/lease-gameday-start.json"
+for stage in INJECTING FAULT_INJECTED; do
+  curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${lease_gameday_id}:stage" \
+    -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+    -H 'X-Actor-Id: gameday-worker-expiring' -H 'X-Roles: GAMEDAY_WORKER' \
+    -d "{\"claimToken\":\"${lease_gameday_claim_token}\",\"stage\":\"${stage}\"}" \
+    >"$temp_dir/lease-gameday-stage.json"
+done
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "update recovery_gameday_jobs set lease_expires_at = now() - interval '1 second' where gameday_id = '${lease_gameday_id}'" >/dev/null
+recovery_reaper_claim_status="$(curl -sS -o "$temp_dir/recovery-reaper-claim.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs:claim" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-recovery' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d '{"environments":["TEST"],"scenarioCodes":["REDIS_TOTAL_LOSS"],"capabilities":{"faultInjection":true,"recovery":true,"measurement":true}}')"
+test "$recovery_reaper_claim_status" = "204"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "update recovery_gameday_jobs set available_at = now() where gameday_id = '${lease_gameday_id}' and state = 'RECOVERY_REQUIRED'" >/dev/null
+late_gameday_heartbeat_status="$(curl -sS -o "$temp_dir/late-gameday-heartbeat.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${lease_gameday_id}:heartbeat" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-expiring' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${lease_gameday_claim_token}\"}")"
+test "$late_gameday_heartbeat_status" = "409"
+grep -q 'GAMEDAY_JOB_STATE_MISMATCH' "$temp_dir/late-gameday-heartbeat.json"
+recovery_gameday_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs:claim" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-recovery' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d '{"environments":["TEST"],"scenarioCodes":["REDIS_TOTAL_LOSS"],"capabilities":{"faultInjection":true,"recovery":true,"measurement":true}}')"
+recovery_gameday_claim_token="$(printf '%s' "$recovery_gameday_claim" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["recoveryOnly"] is True; assert item["claimEpoch"] == 2; print(item["claimToken"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${lease_gameday_id}:start" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-recovery' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${recovery_gameday_claim_token}\"}" \
+  | python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["state"] == "RECOVERING"; assert item["currentStage"] == "RECOVERING"'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${lease_gameday_id}:stage" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-recovery' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${recovery_gameday_claim_token}\",\"stage\":\"VALIDATING\"}" \
+  >"$temp_dir/recovery-gameday-validating.json"
+lease_gameday="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-jobs/${lease_gameday_id}:fail" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-worker-recovery' -H 'X-Roles: GAMEDAY_WORKER' \
+  -d "{\"claimToken\":\"${recovery_gameday_claim_token}\",\"failureCode\":\"ORIGINAL_EXECUTION_LOST\",\"retryable\":false,\"recoveryConfirmed\":true}")"
+printf '%s' "$lease_gameday" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ABORTED"; assert item["recoveryConfirmed"] is True; assert item["job"]["state"] == "ABORTED"; assert item["job"]["recoveryAttempt"] == 1'
+lease_gameday_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from recovery_gameday_job_events where gameday_id='${lease_gameday_id}' and event_type in ('RECOVERY_REQUIRED','RECOVERY_CLAIMED','RECOVERY_STARTED','ABORTED')")"
+test "$lease_gameday_evidence" = "4"
 session_cost="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/enterprise/sessions/${session_one}/cost-explanation" \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -5263,7 +5411,7 @@ enterprise_overview="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_ADMIN')"
 printf '%s' "$enterprise_overview" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["validations"][0]["state"] == "DEGRADED"; assert len(item["costRates"]) == 5; assert all("resourceTemplate" in rate and "resourceClass" not in rate and "-l1-" not in rate["pricingVersion"] and "-l2-" not in rate["pricingVersion"] and "-l3-" not in rate["pricingVersion"] and "-l4-" not in rate["pricingVersion"] and "-l5-" not in rate["pricingVersion"] for rate in item["costRates"]); assert item["errorBudget"]["consumedUnavailableSeconds"] == 60; assert item["slaExclusions"][0]["exclusionCode"] == "EXTERNAL_PROVIDER"; assert any(policy["dataClass"] == "AUDIT" and policy["legalHold"] for policy in item["retentionPolicies"]); assert any(component["componentType"] == "RUNTIME" for component in item["licenseInventory"]); assert any(component["componentType"] == "EXTENSION" for component in item["licenseInventory"]); assert len(item["regions"]) == 2; assert item["recoveryGameDays"][0]["state"] == "PASSED"; assert item["latestCompliance"]["passingControls"] == 8'
+  'import json,sys; item=json.load(sys.stdin); assert item["validations"][0]["state"] == "DEGRADED"; assert len(item["costRates"]) == 5; assert all("resourceTemplate" in rate and "resourceClass" not in rate and "-l1-" not in rate["pricingVersion"] and "-l2-" not in rate["pricingVersion"] and "-l3-" not in rate["pricingVersion"] and "-l4-" not in rate["pricingVersion"] and "-l5-" not in rate["pricingVersion"] for rate in item["costRates"]); assert item["errorBudget"]["consumedUnavailableSeconds"] == 60; assert item["slaExclusions"][0]["exclusionCode"] == "EXTERNAL_PROVIDER"; assert any(policy["dataClass"] == "AUDIT" and policy["legalHold"] for policy in item["retentionPolicies"]); assert any(component["componentType"] == "RUNTIME" for component in item["licenseInventory"]); assert any(component["componentType"] == "EXTENSION" for component in item["licenseInventory"]); assert len(item["regions"]) == 2; assert any(run["state"] == "PASSED" for run in item["recoveryGameDays"]); assert any(run["executionMode"] == "AUTO" and run["job"] is not None for run in item["recoveryGameDays"]); assert item["latestCompliance"]["passingControls"] == 8'
 
 runtime_validation_matrix="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-matrices" \

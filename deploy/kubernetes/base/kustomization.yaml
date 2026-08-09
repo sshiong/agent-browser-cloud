@@ -11,3 +11,4 @@ resources:
   - operator-deployment.yaml
   - workloads.yaml
   - validation-worker-deployment.yaml
+  - gameday-worker-deployment.yaml

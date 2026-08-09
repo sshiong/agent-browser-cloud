@@ -54,6 +54,56 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: recovery-gameday-worker-default-deny
+  namespace: browsercloud-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: recovery-gameday-worker
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: recovery-gameday-worker-controlled-egress
+  namespace: browsercloud-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: recovery-gameday-worker
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: control-plane
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              browsercloud.io/gameday-controllers: "true"
+          podSelector:
+            matchLabels:
+              browsercloud.io/gameday-controller: "true"
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: runtime-validation-worker-default-deny
   namespace: browsercloud-system
 spec:

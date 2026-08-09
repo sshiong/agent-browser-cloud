@@ -73,4 +73,6 @@
    长期回归；当前 Bundled Runner 是通用执行器，不包含客户数据。
 3. 将矩阵结论接入目标组织外部发布编排、审批和回滚；仓库内 Runtime Promotion Gate
    已可消费 Validation/Freeze 状态，但外部发布系统不在本仓库控制范围内。
-4. GameDay 真实故障执行器、多 Region 切换与 Validation Matrix 联动仍未完成。
+4. 仓库内 GameDay 隔离执行器、恢复栅栏和签名发布已由
+   [进度 111](111-Recovery-GameDay-Runner自动演练与恢复栅栏闭环.md)关闭；目标云故障
+   Controller、真实多 Region 切换和 Validation Matrix/外部发布联动仍未完成。

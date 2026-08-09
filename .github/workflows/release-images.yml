@@ -119,6 +119,18 @@ jobs:
           cache-from: type=gha,scope=release-validation-worker
           cache-to: type=gha,mode=max,scope=release-validation-worker
 
+      - name: Build and push Recovery GameDay Worker
+        id: gameday_worker
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: apps/gameday-worker
+          file: apps/gameday-worker/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-gameday-worker:sha-${{ github.sha }}
+          provenance: mode=max
+          cache-from: type=gha,scope=release-gameday-worker
+          cache-to: type=gha,mode=max,scope=release-gameday-worker
+
       - name: Resolve immutable image references
         id: images
         env:
@@ -128,6 +140,7 @@ jobs:
           OPERATOR_DIGEST: ${{ steps.operator.outputs.digest }}
           APPLICATION_ADAPTER_DIGEST: ${{ steps.application_adapter.outputs.digest }}
           VALIDATION_WORKER_DIGEST: ${{ steps.validation_worker.outputs.digest }}
+          GAMEDAY_WORKER_DIGEST: ${{ steps.gameday_worker.outputs.digest }}
         run: |
           set -euo pipefail
           {
@@ -137,6 +150,7 @@ jobs:
             echo "operator=${REGISTRY}/${IMAGE_PREFIX}-operator@${OPERATOR_DIGEST}"
             echo "application_adapter=${REGISTRY}/${IMAGE_PREFIX}-application-adapter@${APPLICATION_ADAPTER_DIGEST}"
             echo "validation_worker=${REGISTRY}/${IMAGE_PREFIX}-validation-worker@${VALIDATION_WORKER_DIGEST}"
+            echo "gameday_worker=${REGISTRY}/${IMAGE_PREFIX}-gameday-worker@${GAMEDAY_WORKER_DIGEST}"
           } >>"$GITHUB_OUTPUT"
 
       - name: Generate image SBOMs
@@ -147,6 +161,7 @@ jobs:
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
           VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
+          GAMEDAY_WORKER_IMAGE: ${{ steps.images.outputs.gameday_worker }}
         run: |
           set -euo pipefail
           mkdir supply-chain-evidence
@@ -156,6 +171,7 @@ jobs:
           syft "$OPERATOR_IMAGE" -o spdx-json=supply-chain-evidence/operator.spdx.json
           syft "$APPLICATION_ADAPTER_IMAGE" -o spdx-json=supply-chain-evidence/application-adapter.spdx.json
           syft "$VALIDATION_WORKER_IMAGE" -o spdx-json=supply-chain-evidence/validation-worker.spdx.json
+          syft "$GAMEDAY_WORKER_IMAGE" -o spdx-json=supply-chain-evidence/gameday-worker.spdx.json
 
       - name: Keyless-sign images and attest SBOMs
         timeout-minutes: 10
@@ -166,6 +182,7 @@ jobs:
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
           VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
+          GAMEDAY_WORKER_IMAGE: ${{ steps.images.outputs.gameday_worker }}
         run: |
           set -euo pipefail
           for image in \
@@ -174,7 +191,8 @@ jobs:
             "$WEB_CONSOLE_IMAGE" \
             "$OPERATOR_IMAGE" \
             "$APPLICATION_ADAPTER_IMAGE" \
-            "$VALIDATION_WORKER_IMAGE"; do
+            "$VALIDATION_WORKER_IMAGE" \
+            "$GAMEDAY_WORKER_IMAGE"; do
             cosign sign --yes "$image"
           done
           cosign attest --yes --type spdxjson \
@@ -189,6 +207,8 @@ jobs:
             --predicate supply-chain-evidence/application-adapter.spdx.json "$APPLICATION_ADAPTER_IMAGE"
           cosign attest --yes --type spdxjson \
             --predicate supply-chain-evidence/validation-worker.spdx.json "$VALIDATION_WORKER_IMAGE"
+          cosign attest --yes --type spdxjson \
+            --predicate supply-chain-evidence/gameday-worker.spdx.json "$GAMEDAY_WORKER_IMAGE"
 
       - name: Render signed digest-locked release bundle
         env:
@@ -198,6 +218,7 @@ jobs:
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
           VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
+          GAMEDAY_WORKER_IMAGE: ${{ steps.images.outputs.gameday_worker }}
         run: |
           set -euo pipefail
           python3 tools/supply-chain/release_bundle.py render \
@@ -209,12 +230,14 @@ jobs:
             --image "operator=$OPERATOR_IMAGE" \
             --image "application-adapter=$APPLICATION_ADAPTER_IMAGE" \
             --image "validation-worker=$VALIDATION_WORKER_IMAGE" \
+            --image "gameday-worker=$GAMEDAY_WORKER_IMAGE" \
             --evidence "control-plane=supply-chain-evidence/control-plane.spdx.json" \
             --evidence "browser-node=supply-chain-evidence/browser-node.spdx.json" \
             --evidence "web-console=supply-chain-evidence/web-console.spdx.json" \
             --evidence "operator=supply-chain-evidence/operator.spdx.json" \
             --evidence "application-adapter=supply-chain-evidence/application-adapter.spdx.json" \
-            --evidence "validation-worker=supply-chain-evidence/validation-worker.spdx.json"
+            --evidence "validation-worker=supply-chain-evidence/validation-worker.spdx.json" \
+            --evidence "gameday-worker=supply-chain-evidence/gameday-worker.spdx.json"
           cosign sign-blob --yes \
             --bundle release-bundle/release-manifest.sigstore.json \
             release-bundle/release-manifest.json
@@ -228,6 +251,7 @@ jobs:
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
           VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
+          GAMEDAY_WORKER_IMAGE: ${{ steps.images.outputs.gameday_worker }}
         run: |
           set -euo pipefail
           for image in \
@@ -236,7 +260,8 @@ jobs:
             "$WEB_CONSOLE_IMAGE" \
             "$OPERATOR_IMAGE" \
             "$APPLICATION_ADAPTER_IMAGE" \
-            "$VALIDATION_WORKER_IMAGE"; do
+            "$VALIDATION_WORKER_IMAGE" \
+            "$GAMEDAY_WORKER_IMAGE"; do
             signature_ref="$(cosign triangulate --type signature "$image")"
             attestation_ref="$(cosign triangulate --type attestation "$image")"
             timeout --signal=KILL 45s docker buildx imagetools inspect --raw \

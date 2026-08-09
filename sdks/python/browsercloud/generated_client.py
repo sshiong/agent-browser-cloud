@@ -175,6 +175,14 @@ OPERATIONS: dict[str, Operation] = {
     'listRecoveryGameDays': Operation('listRecoveryGameDays', 'GET', '/api/v1/enterprise/recovery-gamedays', (), (), (), '', False, 'array<RecoveryGameDay>'),
     'startRecoveryGameDay': Operation('startRecoveryGameDay', 'POST', '/api/v1/enterprise/recovery-gamedays', (), (), (), 'StartRecoveryGameDayRequest', True, 'RecoveryGameDay'),
     'completeRecoveryGameDay': Operation('completeRecoveryGameDay', 'POST', '/api/v1/enterprise/recovery-gamedays/{gameDayId}:complete', ('gameDayId',), (), (), 'CompleteRecoveryGameDayRequest', True, 'RecoveryGameDay'),
+    'getRecoveryGameDay': Operation('getRecoveryGameDay', 'GET', '/api/v1/enterprise/recovery-gamedays/{gameDayId}', ('gameDayId',), (), (), '', False, 'RecoveryGameDay'),
+    'abortRecoveryGameDay': Operation('abortRecoveryGameDay', 'POST', '/api/v1/enterprise/recovery-gamedays/{gameDayId}:abort', ('gameDayId',), (), (), '', False, 'RecoveryGameDay'),
+    'claimRecoveryGameDayJob': Operation('claimRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs:claim', (), (), (), 'ClaimRecoveryGameDayJobRequest', True, 'RecoveryGameDayJobClaim'),
+    'startRecoveryGameDayJob': Operation('startRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:start', ('gameDayId',), (), (), 'RecoveryGameDayJobClaimRequest', True, 'RecoveryGameDayJob'),
+    'heartbeatRecoveryGameDayJob': Operation('heartbeatRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:heartbeat', ('gameDayId',), (), (), 'RecoveryGameDayJobClaimRequest', True, 'RecoveryGameDayJob'),
+    'updateRecoveryGameDayJobStage': Operation('updateRecoveryGameDayJobStage', 'POST', '/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:stage', ('gameDayId',), (), (), 'UpdateRecoveryGameDayStageRequest', True, 'RecoveryGameDayJob'),
+    'completeRecoveryGameDayJob': Operation('completeRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:complete', ('gameDayId',), (), (), 'CompleteRecoveryGameDayJobRequest', True, 'RecoveryGameDay'),
+    'failRecoveryGameDayJob': Operation('failRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:fail', ('gameDayId',), (), (), 'FailRecoveryGameDayJobRequest', True, 'RecoveryGameDay'),
     'generateComplianceSnapshot': Operation('generateComplianceSnapshot', 'POST', '/api/v1/enterprise/compliance-snapshots', (), ('framework',), ('X-Tenant-Id',), '', False, 'ComplianceSnapshot'),
     'listEnvironmentSavedViews': Operation('listEnvironmentSavedViews', 'GET', '/api/v1/environment-saved-views', (), (), (), '', False, 'EnvironmentSavedViewListResponse'),
     'createEnvironmentSavedView': Operation('createEnvironmentSavedView', 'POST', '/api/v1/environment-saved-views', (), (), ('Idempotency-Key',), 'CreateEnvironmentSavedViewRequest', True, 'EnvironmentSavedView'),
@@ -678,6 +686,30 @@ class BrowserCloudGeneratedClient:
 
     def completeRecoveryGameDay(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('completeRecoveryGameDay', path=path, query=query, body=body, headers=headers)
+
+    def getRecoveryGameDay(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getRecoveryGameDay', path=path, query=query, body=body, headers=headers)
+
+    def abortRecoveryGameDay(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('abortRecoveryGameDay', path=path, query=query, body=body, headers=headers)
+
+    def claimRecoveryGameDayJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('claimRecoveryGameDayJob', path=path, query=query, body=body, headers=headers)
+
+    def startRecoveryGameDayJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startRecoveryGameDayJob', path=path, query=query, body=body, headers=headers)
+
+    def heartbeatRecoveryGameDayJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('heartbeatRecoveryGameDayJob', path=path, query=query, body=body, headers=headers)
+
+    def updateRecoveryGameDayJobStage(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('updateRecoveryGameDayJobStage', path=path, query=query, body=body, headers=headers)
+
+    def completeRecoveryGameDayJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('completeRecoveryGameDayJob', path=path, query=query, body=body, headers=headers)
+
+    def failRecoveryGameDayJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('failRecoveryGameDayJob', path=path, query=query, body=body, headers=headers)
 
     def generateComplianceSnapshot(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('generateComplianceSnapshot', path=path, query=query, body=body, headers=headers)

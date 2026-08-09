@@ -165,6 +165,14 @@ public final class BrowserCloudGeneratedClient {
     operation("listRecoveryGameDays", "GET", "/api/v1/enterprise/recovery-gamedays", List.of(), List.of(), List.of(), "", false, "array<RecoveryGameDay>"),
     operation("startRecoveryGameDay", "POST", "/api/v1/enterprise/recovery-gamedays", List.of(), List.of(), List.of(), "StartRecoveryGameDayRequest", true, "RecoveryGameDay"),
     operation("completeRecoveryGameDay", "POST", "/api/v1/enterprise/recovery-gamedays/{gameDayId}:complete", List.of("gameDayId"), List.of(), List.of(), "CompleteRecoveryGameDayRequest", true, "RecoveryGameDay"),
+    operation("getRecoveryGameDay", "GET", "/api/v1/enterprise/recovery-gamedays/{gameDayId}", List.of("gameDayId"), List.of(), List.of(), "", false, "RecoveryGameDay"),
+    operation("abortRecoveryGameDay", "POST", "/api/v1/enterprise/recovery-gamedays/{gameDayId}:abort", List.of("gameDayId"), List.of(), List.of(), "", false, "RecoveryGameDay"),
+    operation("claimRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs:claim", List.of(), List.of(), List.of(), "ClaimRecoveryGameDayJobRequest", true, "RecoveryGameDayJobClaim"),
+    operation("startRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:start", List.of("gameDayId"), List.of(), List.of(), "RecoveryGameDayJobClaimRequest", true, "RecoveryGameDayJob"),
+    operation("heartbeatRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:heartbeat", List.of("gameDayId"), List.of(), List.of(), "RecoveryGameDayJobClaimRequest", true, "RecoveryGameDayJob"),
+    operation("updateRecoveryGameDayJobStage", "POST", "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:stage", List.of("gameDayId"), List.of(), List.of(), "UpdateRecoveryGameDayStageRequest", true, "RecoveryGameDayJob"),
+    operation("completeRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:complete", List.of("gameDayId"), List.of(), List.of(), "CompleteRecoveryGameDayJobRequest", true, "RecoveryGameDay"),
+    operation("failRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:fail", List.of("gameDayId"), List.of(), List.of(), "FailRecoveryGameDayJobRequest", true, "RecoveryGameDay"),
     operation("generateComplianceSnapshot", "POST", "/api/v1/enterprise/compliance-snapshots", List.of(), List.of("framework"), List.of("X-Tenant-Id"), "", false, "ComplianceSnapshot"),
     operation("listEnvironmentSavedViews", "GET", "/api/v1/environment-saved-views", List.of(), List.of(), List.of(), "", false, "EnvironmentSavedViewListResponse"),
     operation("createEnvironmentSavedView", "POST", "/api/v1/environment-saved-views", List.of(), List.of(), List.of("Idempotency-Key"), "CreateEnvironmentSavedViewRequest", true, "EnvironmentSavedView"),
@@ -363,6 +371,14 @@ public final class BrowserCloudGeneratedClient {
   public Response listRecoveryGameDays(Request request) { return call("listRecoveryGameDays", request); }
   public Response startRecoveryGameDay(Request request) { return call("startRecoveryGameDay", request); }
   public Response completeRecoveryGameDay(Request request) { return call("completeRecoveryGameDay", request); }
+  public Response getRecoveryGameDay(Request request) { return call("getRecoveryGameDay", request); }
+  public Response abortRecoveryGameDay(Request request) { return call("abortRecoveryGameDay", request); }
+  public Response claimRecoveryGameDayJob(Request request) { return call("claimRecoveryGameDayJob", request); }
+  public Response startRecoveryGameDayJob(Request request) { return call("startRecoveryGameDayJob", request); }
+  public Response heartbeatRecoveryGameDayJob(Request request) { return call("heartbeatRecoveryGameDayJob", request); }
+  public Response updateRecoveryGameDayJobStage(Request request) { return call("updateRecoveryGameDayJobStage", request); }
+  public Response completeRecoveryGameDayJob(Request request) { return call("completeRecoveryGameDayJob", request); }
+  public Response failRecoveryGameDayJob(Request request) { return call("failRecoveryGameDayJob", request); }
   public Response generateComplianceSnapshot(Request request) { return call("generateComplianceSnapshot", request); }
   public Response listEnvironmentSavedViews(Request request) { return call("listEnvironmentSavedViews", request); }
   public Response createEnvironmentSavedView(Request request) { return call("createEnvironmentSavedView", request); }

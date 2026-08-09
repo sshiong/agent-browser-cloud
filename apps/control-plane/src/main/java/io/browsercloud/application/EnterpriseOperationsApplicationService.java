@@ -83,6 +83,7 @@ public class EnterpriseOperationsApplicationService {
   private final ObjectMapper objectMapper;
   private final AuditApplicationService auditService;
   private final ReleaseFreezeApplicationService releaseFreezeService;
+  private final RecoveryGameDayGovernanceApplicationService gameDayGovernance;
   private final String auditExportSigningKey;
   private final String auditExportSigningKeyId;
   private final boolean gameDayProductionEnabled;
@@ -92,6 +93,7 @@ public class EnterpriseOperationsApplicationService {
       ObjectMapper objectMapper,
       AuditApplicationService auditService,
       ReleaseFreezeApplicationService releaseFreezeService,
+      RecoveryGameDayGovernanceApplicationService gameDayGovernance,
       @Value("${enterprise.audit-export.signing-key:local-development-audit-export-key}")
           String auditExportSigningKey,
       @Value("${enterprise.audit-export.signing-key-id:local-development}") String signingKeyId,
@@ -101,6 +103,7 @@ public class EnterpriseOperationsApplicationService {
     this.objectMapper = objectMapper;
     this.auditService = auditService;
     this.releaseFreezeService = releaseFreezeService;
+    this.gameDayGovernance = gameDayGovernance;
     this.auditExportSigningKey = auditExportSigningKey;
     this.auditExportSigningKeyId = signingKeyId;
     this.gameDayProductionEnabled = gameDayProductionEnabled;
@@ -1097,6 +1100,10 @@ public class EnterpriseOperationsApplicationService {
         passed ? "COMMITTED" : "FAILED",
         passed,
         gameDayId);
+    if (!passed) {
+      gameDayGovernance.ensureRemediation(
+          gameDayId, run.scenario(), run.environment(), "RECOVERY_OBJECTIVES_MISSED", actorId);
+    }
     audit(
         "platform-control",
         actorId,
@@ -1132,6 +1139,8 @@ public class EnterpriseOperationsApplicationService {
         recoveryConfirmed,
         aborted,
         gameDayId);
+    gameDayGovernance.ensureRemediation(
+        gameDayId, run.scenario(), run.environment(), failureCode, actorId);
     audit(
         "platform-control",
         actorId,
@@ -1257,6 +1266,8 @@ public class EnterpriseOperationsApplicationService {
         listLicenses(),
         listRegions(),
         listGameDays(),
+        gameDayGovernance.trends(90),
+        gameDayGovernance.listRemediations(null),
         latestCompliance(tenantId).orElse(null),
         Instant.now());
   }

@@ -166,6 +166,12 @@ public final class BrowserCloudGeneratedClient {
     operation("startRecoveryGameDay", "POST", "/api/v1/enterprise/recovery-gamedays", List.of(), List.of(), List.of(), "StartRecoveryGameDayRequest", true, "RecoveryGameDay"),
     operation("completeRecoveryGameDay", "POST", "/api/v1/enterprise/recovery-gamedays/{gameDayId}:complete", List.of("gameDayId"), List.of(), List.of(), "CompleteRecoveryGameDayRequest", true, "RecoveryGameDay"),
     operation("getRecoveryGameDay", "GET", "/api/v1/enterprise/recovery-gamedays/{gameDayId}", List.of("gameDayId"), List.of(), List.of(), "", false, "RecoveryGameDay"),
+    operation("listRecoveryGameDayEvents", "GET", "/api/v1/enterprise/recovery-gamedays/{gameDayId}/events", List.of("gameDayId"), List.of("cursor", "limit"), List.of(), "", false, "RecoveryGameDayEventPage"),
+    operation("listRecoveryGameDayTrends", "GET", "/api/v1/enterprise/recovery-gameday-trends", List.of(), List.of("windowDays"), List.of(), "", false, "array<RecoveryGameDayTrend>"),
+    operation("generateRecoveryGameDayReport", "POST", "/api/v1/enterprise/recovery-gamedays/{gameDayId}/exports", List.of("gameDayId"), List.of(), List.of(), "", false, "RecoveryGameDayReportExport"),
+    operation("getRecoveryGameDayReport", "GET", "/api/v1/enterprise/recovery-gameday-exports/{exportId}", List.of("exportId"), List.of(), List.of(), "", false, "RecoveryGameDayReportExport"),
+    operation("listRecoveryGameDayRemediations", "GET", "/api/v1/enterprise/recovery-gameday-remediations", List.of(), List.of("state"), List.of(), "", false, "array<RecoveryGameDayRemediation>"),
+    operation("updateRecoveryGameDayRemediation", "PUT", "/api/v1/enterprise/recovery-gameday-remediations/{ticketId}", List.of("ticketId"), List.of(), List.of(), "UpdateRecoveryGameDayRemediationRequest", true, "RecoveryGameDayRemediation"),
     operation("abortRecoveryGameDay", "POST", "/api/v1/enterprise/recovery-gamedays/{gameDayId}:abort", List.of("gameDayId"), List.of(), List.of(), "", false, "RecoveryGameDay"),
     operation("claimRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs:claim", List.of(), List.of(), List.of(), "ClaimRecoveryGameDayJobRequest", true, "RecoveryGameDayJobClaim"),
     operation("startRecoveryGameDayJob", "POST", "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:start", List.of("gameDayId"), List.of(), List.of(), "RecoveryGameDayJobClaimRequest", true, "RecoveryGameDayJob"),
@@ -372,6 +378,12 @@ public final class BrowserCloudGeneratedClient {
   public Response startRecoveryGameDay(Request request) { return call("startRecoveryGameDay", request); }
   public Response completeRecoveryGameDay(Request request) { return call("completeRecoveryGameDay", request); }
   public Response getRecoveryGameDay(Request request) { return call("getRecoveryGameDay", request); }
+  public Response listRecoveryGameDayEvents(Request request) { return call("listRecoveryGameDayEvents", request); }
+  public Response listRecoveryGameDayTrends(Request request) { return call("listRecoveryGameDayTrends", request); }
+  public Response generateRecoveryGameDayReport(Request request) { return call("generateRecoveryGameDayReport", request); }
+  public Response getRecoveryGameDayReport(Request request) { return call("getRecoveryGameDayReport", request); }
+  public Response listRecoveryGameDayRemediations(Request request) { return call("listRecoveryGameDayRemediations", request); }
+  public Response updateRecoveryGameDayRemediation(Request request) { return call("updateRecoveryGameDayRemediation", request); }
   public Response abortRecoveryGameDay(Request request) { return call("abortRecoveryGameDay", request); }
   public Response claimRecoveryGameDayJob(Request request) { return call("claimRecoveryGameDayJob", request); }
   public Response startRecoveryGameDayJob(Request request) { return call("startRecoveryGameDayJob", request); }

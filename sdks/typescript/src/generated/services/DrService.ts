@@ -8,10 +8,15 @@ import type { CompleteRecoveryGameDayRequest } from '../models/CompleteRecoveryG
 import type { EnterpriseRegion } from '../models/EnterpriseRegion.js';
 import type { FailRecoveryGameDayJobRequest } from '../models/FailRecoveryGameDayJobRequest.js';
 import type { RecoveryGameDay } from '../models/RecoveryGameDay.js';
+import type { RecoveryGameDayEventPage } from '../models/RecoveryGameDayEventPage.js';
 import type { RecoveryGameDayJob } from '../models/RecoveryGameDayJob.js';
 import type { RecoveryGameDayJobClaim } from '../models/RecoveryGameDayJobClaim.js';
 import type { RecoveryGameDayJobClaimRequest } from '../models/RecoveryGameDayJobClaimRequest.js';
+import type { RecoveryGameDayRemediation } from '../models/RecoveryGameDayRemediation.js';
+import type { RecoveryGameDayReportExport } from '../models/RecoveryGameDayReportExport.js';
+import type { RecoveryGameDayTrend } from '../models/RecoveryGameDayTrend.js';
 import type { StartRecoveryGameDayRequest } from '../models/StartRecoveryGameDayRequest.js';
+import type { UpdateRecoveryGameDayRemediationRequest } from '../models/UpdateRecoveryGameDayRemediationRequest.js';
 import type { UpdateRecoveryGameDayStageRequest } from '../models/UpdateRecoveryGameDayStageRequest.js';
 import type { UpsertRegionRequest } from '../models/UpsertRegionRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
@@ -134,6 +139,150 @@ export class DrService {
                 'gameDayId': gameDayId,
             },
             errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Page through the immutable execution and recovery timeline
+     * @returns RecoveryGameDayEventPage Stable keyset page of immutable GameDay events.
+     * @throws ApiError
+     */
+    public listRecoveryGameDayEvents({
+        gameDayId,
+        limit = 50,
+        cursor,
+    }: {
+        gameDayId: string,
+        limit?: number,
+        cursor?: string,
+    }): CancelablePromise<RecoveryGameDayEventPage> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/recovery-gamedays/{gameDayId}/events',
+            path: {
+                'gameDayId': gameDayId,
+            },
+            query: {
+                'limit': limit,
+                'cursor': cursor,
+            },
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Aggregate scenario and environment Recovery GameDay trends
+     * @returns RecoveryGameDayTrend PostgreSQL-derived Recovery GameDay trends.
+     * @throws ApiError
+     */
+    public listRecoveryGameDayTrends({
+        windowDays = 90,
+    }: {
+        windowDays?: number,
+    }): CancelablePromise<Array<RecoveryGameDayTrend>> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/recovery-gameday-trends',
+            query: {
+                'windowDays': windowDays,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+            },
+        });
+    }
+    /**
+     * Generate an immutable signed JSON GameDay report
+     * @returns RecoveryGameDayReportExport Signed report with the run, job, timeline and remediation state.
+     * @throws ApiError
+     */
+    public generateRecoveryGameDayReport({
+        gameDayId,
+    }: {
+        gameDayId: string,
+    }): CancelablePromise<RecoveryGameDayReportExport> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/recovery-gamedays/{gameDayId}/exports',
+            path: {
+                'gameDayId': gameDayId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Get an immutable signed GameDay report
+     * @returns RecoveryGameDayReportExport Signed GameDay report.
+     * @throws ApiError
+     */
+    public getRecoveryGameDayReport({
+        exportId,
+    }: {
+        exportId: string,
+    }): CancelablePromise<RecoveryGameDayReportExport> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/recovery-gameday-exports/{exportId}',
+            path: {
+                'exportId': exportId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * List durable remediation tickets opened by unsuccessful GameDays
+     * @returns RecoveryGameDayRemediation Remediation tickets ordered by severity and age.
+     * @throws ApiError
+     */
+    public listRecoveryGameDayRemediations({
+        state,
+    }: {
+        state?: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED',
+    }): CancelablePromise<Array<RecoveryGameDayRemediation>> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/recovery-gameday-remediations',
+            query: {
+                'state': state,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+            },
+        });
+    }
+    /**
+     * Acknowledge or resolve a durable GameDay remediation ticket
+     * @returns RecoveryGameDayRemediation Updated remediation ownership and resolution state.
+     * @throws ApiError
+     */
+    public updateRecoveryGameDayRemediation({
+        ticketId,
+        requestBody,
+    }: {
+        ticketId: string,
+        requestBody: UpdateRecoveryGameDayRemediationRequest,
+    }): CancelablePromise<RecoveryGameDayRemediation> {
+        return this.httpRequest.request({
+            method: 'PUT',
+            url: '/api/v1/enterprise/recovery-gameday-remediations/{ticketId}',
+            path: {
+                'ticketId': ticketId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
                 403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
             },

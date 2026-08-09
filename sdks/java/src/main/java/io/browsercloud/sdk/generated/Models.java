@@ -463,9 +463,21 @@ public final class Models {
 
   public record RecoveryGameDay(String gameDayId, String scenario, String sourceRegion, String targetRegion, String state, Integer rtoTargetSeconds, Integer rpoTargetSeconds, Object observedRtoSeconds, Object observedRpoSeconds, Object dataLossRecords, Object evidenceHash, String startedBy, String startedAt, Object completedAt, String executionMode, String environment, Object blastRadius, Integer maximumDurationSeconds, Object approvalRequestId, String currentStage, Boolean abortRequested, Object recoveryConfirmed, Object failureCode, Object job) {}
 
+  public record RecoveryGameDayEvent(String eventId, String gameDayId, String eventType, Object fromState, String toState, String stage, Object workerId, Long claimEpoch, Integer attempt, Object reasonCode, String occurredAt) {}
+
+  public record RecoveryGameDayEventPage(List<RecoveryGameDayEvent> items, Object nextCursor, Boolean hasMore) {}
+
+  public record RecoveryGameDayTrend(String scenario, String environment, Long totalRuns, Long passedRuns, Long failedRuns, Long abortedRuns, Long recoveryUnknownRuns, Double passRatePercent, Object p95RtoSeconds, Object p95RpoSeconds, Long openTicketCount, String latestRunAt) {}
+
+  public record RecoveryGameDayReportExport(String exportId, String gameDayId, String reportFormat, Integer eventCount, Map<String, Object> report, String reportHash, String signatureAlgorithm, String signingKeyId, String signature, String generatedBy, String generatedAt) {}
+
+  public record UpdateRecoveryGameDayRemediationRequest(String state, String ownerId, String resolution) {}
+
+  public record RecoveryGameDayRemediation(String ticketId, String gameDayId, String scenario, String environment, String severity, String state, String reasonCode, String summary, Object ownerId, Object resolution, String createdBy, String createdAt, String updatedBy, String updatedAt, Object resolvedAt) {}
+
   public record ComplianceSnapshot(String snapshotId, String tenantId, String framework, Integer controlCount, Integer passingControls, String evidenceHash, BooleanMap evidence, String generatedBy, String generatedAt) {}
 
-  public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, Object mediaQuota, Object errorBudget, Object releaseFreeze, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, Object latestCompliance, String generatedAt) {}
+  public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, Object mediaQuota, Object errorBudget, Object releaseFreeze, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, List<RecoveryGameDayTrend> recoveryGameDayTrends, List<RecoveryGameDayRemediation> recoveryGameDayRemediations, Object latestCompliance, String generatedAt) {}
 
   public record BooleanMap(Map<String, Object> values) {}
 

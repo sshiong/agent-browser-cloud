@@ -3,12 +3,16 @@ package io.browsercloud.api;
 import static io.browsercloud.api.EnterpriseOperationsModels.*;
 
 import io.browsercloud.application.EnterpriseOperationsApplicationService;
+import io.browsercloud.application.RecoveryGameDayGovernanceApplicationService;
 import io.browsercloud.application.RecoveryGameDayQueueApplicationService;
 import io.browsercloud.application.RuntimeValidationQueueApplicationService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,16 +34,19 @@ public class EnterpriseOperationsController {
   private final EnterpriseOperationsApplicationService service;
   private final RuntimeValidationQueueApplicationService validationQueue;
   private final RecoveryGameDayQueueApplicationService gameDayQueue;
+  private final RecoveryGameDayGovernanceApplicationService gameDayGovernance;
   private final PlatformIdentity identity;
 
   public EnterpriseOperationsController(
       EnterpriseOperationsApplicationService service,
       RuntimeValidationQueueApplicationService validationQueue,
       RecoveryGameDayQueueApplicationService gameDayQueue,
+      RecoveryGameDayGovernanceApplicationService gameDayGovernance,
       PlatformIdentity identity) {
     this.service = service;
     this.validationQueue = validationQueue;
     this.gameDayQueue = gameDayQueue;
+    this.gameDayGovernance = gameDayGovernance;
     this.identity = identity;
   }
 
@@ -264,6 +271,53 @@ public class EnterpriseOperationsController {
   public RecoveryGameDayView gameDay(
       @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId) {
     return service.getGameDay(gameDayId);
+  }
+
+  @GetMapping("/recovery-gamedays/{gameDayId}/events")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryGameDayEventPage gameDayEvents(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId,
+      @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
+      @RequestParam(required = false) @Size(max = 512) String cursor) {
+    return gameDayGovernance.listEvents(gameDayId, limit, cursor);
+  }
+
+  @GetMapping("/recovery-gameday-trends")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public List<RecoveryGameDayTrendView> gameDayTrends(
+      @RequestParam(defaultValue = "90") @Min(1) @Max(3650) int windowDays) {
+    return gameDayGovernance.trends(windowDays);
+  }
+
+  @PostMapping("/recovery-gamedays/{gameDayId}/exports")
+  @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
+  public RecoveryGameDayReportExportView generateGameDayReport(
+      @PathVariable @Pattern(regexp = "^gameday_[a-zA-Z0-9]{20}$") String gameDayId) {
+    return gameDayGovernance.generateReport(
+        service.getGameDay(gameDayId), identity.current().actorId());
+  }
+
+  @GetMapping("/recovery-gameday-exports/{exportId}")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public RecoveryGameDayReportExportView gameDayReport(
+      @PathVariable @Pattern(regexp = "^gex_[a-zA-Z0-9]{20}$") String exportId) {
+    return gameDayGovernance.getReport(exportId);
+  }
+
+  @GetMapping("/recovery-gameday-remediations")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public List<RecoveryGameDayRemediationView> gameDayRemediations(
+      @RequestParam(required = false) @Pattern(regexp = "^(OPEN|ACKNOWLEDGED|RESOLVED)$")
+          String state) {
+    return gameDayGovernance.listRemediations(state);
+  }
+
+  @PutMapping("/recovery-gameday-remediations/{ticketId}")
+  @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
+  public RecoveryGameDayRemediationView updateGameDayRemediation(
+      @PathVariable @Pattern(regexp = "^grt_[a-zA-Z0-9]{20}$") String ticketId,
+      @Valid @RequestBody UpdateRecoveryGameDayRemediationRequest request) {
+    return gameDayGovernance.updateRemediation(ticketId, request, identity.current().actorId());
   }
 
   @PostMapping("/recovery-gamedays")

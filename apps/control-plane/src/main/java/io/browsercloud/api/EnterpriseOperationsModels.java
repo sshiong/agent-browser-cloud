@@ -453,6 +453,71 @@ public final class EnterpriseOperationsModels {
       String failureCode,
       RecoveryGameDayJobView job) {}
 
+  public record RecoveryGameDayEventView(
+      String eventId,
+      String gameDayId,
+      String eventType,
+      String fromState,
+      String toState,
+      String stage,
+      String workerId,
+      long claimEpoch,
+      int attempt,
+      String reasonCode,
+      Instant occurredAt) {}
+
+  public record RecoveryGameDayEventPage(
+      List<RecoveryGameDayEventView> items, String nextCursor, boolean hasMore) {}
+
+  public record RecoveryGameDayTrendView(
+      String scenario,
+      String environment,
+      long totalRuns,
+      long passedRuns,
+      long failedRuns,
+      long abortedRuns,
+      long recoveryUnknownRuns,
+      BigDecimal passRatePercent,
+      Integer p95RtoSeconds,
+      Integer p95RpoSeconds,
+      long openTicketCount,
+      Instant latestRunAt) {}
+
+  public record RecoveryGameDayReportExportView(
+      String exportId,
+      String gameDayId,
+      String reportFormat,
+      int eventCount,
+      Map<String, Object> report,
+      String reportHash,
+      String signatureAlgorithm,
+      String signingKeyId,
+      String signature,
+      String generatedBy,
+      Instant generatedAt) {}
+
+  public record UpdateRecoveryGameDayRemediationRequest(
+      @NotBlank @Pattern(regexp = "^(ACKNOWLEDGED|RESOLVED)$") String state,
+      @Size(max = 128) String ownerId,
+      @Size(max = 2048) String resolution) {}
+
+  public record RecoveryGameDayRemediationView(
+      String ticketId,
+      String gameDayId,
+      String scenario,
+      String environment,
+      String severity,
+      String state,
+      String reasonCode,
+      String summary,
+      String ownerId,
+      String resolution,
+      String createdBy,
+      Instant createdAt,
+      String updatedBy,
+      Instant updatedAt,
+      Instant resolvedAt) {}
+
   public record ComplianceSnapshotView(
       String snapshotId,
       String tenantId,
@@ -475,6 +540,8 @@ public final class EnterpriseOperationsModels {
       List<LicenseInventoryView> licenseInventory,
       List<RegionView> regions,
       List<RecoveryGameDayView> recoveryGameDays,
+      List<RecoveryGameDayTrendView> recoveryGameDayTrends,
+      List<RecoveryGameDayRemediationView> recoveryGameDayRemediations,
       ComplianceSnapshotView latestCompliance,
       Instant generatedAt) {}
 }

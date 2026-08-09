@@ -53,8 +53,8 @@ V077 将自动演练改造成：
 9. Secret、CA 和 Catalog 使用精确 `subPath` 文件挂载，和 Worker 的非 Symlink
    fail-closed 检查一致；不会把 Kubernetes 投影目录中的符号链接误当成可执行凭据。
 10. 正式 API 新增单项查询、主动中止以及 Claim/Start/Heartbeat/Stage/Complete/Fail；
-    OpenAPI/TypeScript/Python/Go/Java 已同步为 174 个 Operation、232 个 Schema，
-    TypeScript 为 278 个服务方法、32 个服务。
+    当时 OpenAPI/TypeScript/Python/Go/Java 为 174 个 Operation、232 个 Schema，
+    TypeScript 为 278 个服务方法、32 个服务；进度 112 已扩展为 180/238/290。
 11. 企业运营 UI 读取真实 Job，显示 AUTO/MANUAL、环境、Blast Radius、Stage、Attempt、
     Worker、Recovery Attempt、恢复确认、中止和失败原因，不模拟演练进度。
 12. GameDay Worker 镜像进入 CI Build、GHCR Release、Syft SPDX、Cosign 签名/Attestation、
@@ -85,5 +85,5 @@ V077 将自动演练改造成：
    当前集成使用受控 TEST Fixture 与本地 DR Registry。
 3. 将连续 GameDay 失败或 Recovery 未确认接入外部生产发布编排和组织 Pager；仓库内
    Runtime Release Freeze Gate 已存在，但外部系统与组织审批不在本仓库控制范围内。
-4. 补齐 GameDay 事件分页/导出报表、场景级趋势和自动 Remediation Ticket；当前不可变
-   事件和 Evidence Hash 已在 PostgreSQL 中保留，但 UI 只展示最新 Job 投影。
+4. GameDay 事件分页、签名导出报表、场景级趋势和自动 Remediation Ticket 已由
+   [进度 112](112-Recovery-GameDay治理报表趋势与整改工单闭环.md)关闭，不再属于缺口。

@@ -2490,6 +2490,79 @@ type RecoveryGameDay struct {
 	Job                    any    `json:"job,omitempty"`
 }
 
+type RecoveryGameDayEvent struct {
+	EventId    string `json:"eventId,omitempty"`
+	GameDayId  string `json:"gameDayId,omitempty"`
+	EventType  string `json:"eventType,omitempty"`
+	FromState  any    `json:"fromState,omitempty"`
+	ToState    string `json:"toState,omitempty"`
+	Stage      string `json:"stage,omitempty"`
+	WorkerId   any    `json:"workerId,omitempty"`
+	ClaimEpoch int64  `json:"claimEpoch,omitempty"`
+	Attempt    int    `json:"attempt,omitempty"`
+	ReasonCode any    `json:"reasonCode,omitempty"`
+	OccurredAt string `json:"occurredAt,omitempty"`
+}
+
+type RecoveryGameDayEventPage struct {
+	Items      []RecoveryGameDayEvent `json:"items,omitempty"`
+	NextCursor any                    `json:"nextCursor,omitempty"`
+	HasMore    bool                   `json:"hasMore,omitempty"`
+}
+
+type RecoveryGameDayTrend struct {
+	Scenario            string  `json:"scenario,omitempty"`
+	Environment         string  `json:"environment,omitempty"`
+	TotalRuns           int64   `json:"totalRuns,omitempty"`
+	PassedRuns          int64   `json:"passedRuns,omitempty"`
+	FailedRuns          int64   `json:"failedRuns,omitempty"`
+	AbortedRuns         int64   `json:"abortedRuns,omitempty"`
+	RecoveryUnknownRuns int64   `json:"recoveryUnknownRuns,omitempty"`
+	PassRatePercent     float64 `json:"passRatePercent,omitempty"`
+	P95RtoSeconds       any     `json:"p95RtoSeconds,omitempty"`
+	P95RpoSeconds       any     `json:"p95RpoSeconds,omitempty"`
+	OpenTicketCount     int64   `json:"openTicketCount,omitempty"`
+	LatestRunAt         string  `json:"latestRunAt,omitempty"`
+}
+
+type RecoveryGameDayReportExport struct {
+	ExportId           string         `json:"exportId,omitempty"`
+	GameDayId          string         `json:"gameDayId,omitempty"`
+	ReportFormat       string         `json:"reportFormat,omitempty"`
+	EventCount         int            `json:"eventCount,omitempty"`
+	Report             map[string]any `json:"report,omitempty"`
+	ReportHash         string         `json:"reportHash,omitempty"`
+	SignatureAlgorithm string         `json:"signatureAlgorithm,omitempty"`
+	SigningKeyId       string         `json:"signingKeyId,omitempty"`
+	Signature          string         `json:"signature,omitempty"`
+	GeneratedBy        string         `json:"generatedBy,omitempty"`
+	GeneratedAt        string         `json:"generatedAt,omitempty"`
+}
+
+type UpdateRecoveryGameDayRemediationRequest struct {
+	State      string `json:"state,omitempty"`
+	OwnerId    string `json:"ownerId,omitempty"`
+	Resolution string `json:"resolution,omitempty"`
+}
+
+type RecoveryGameDayRemediation struct {
+	TicketId    string `json:"ticketId,omitempty"`
+	GameDayId   string `json:"gameDayId,omitempty"`
+	Scenario    string `json:"scenario,omitempty"`
+	Environment string `json:"environment,omitempty"`
+	Severity    string `json:"severity,omitempty"`
+	State       string `json:"state,omitempty"`
+	ReasonCode  string `json:"reasonCode,omitempty"`
+	Summary     string `json:"summary,omitempty"`
+	OwnerId     any    `json:"ownerId,omitempty"`
+	Resolution  any    `json:"resolution,omitempty"`
+	CreatedBy   string `json:"createdBy,omitempty"`
+	CreatedAt   string `json:"createdAt,omitempty"`
+	UpdatedBy   string `json:"updatedBy,omitempty"`
+	UpdatedAt   string `json:"updatedAt,omitempty"`
+	ResolvedAt  any    `json:"resolvedAt,omitempty"`
+}
+
 type ComplianceSnapshot struct {
 	SnapshotId      string     `json:"snapshotId,omitempty"`
 	TenantId        string     `json:"tenantId,omitempty"`
@@ -2503,18 +2576,20 @@ type ComplianceSnapshot struct {
 }
 
 type EnterpriseOverview struct {
-	Validations       []RuntimeValidation `json:"validations,omitempty"`
-	CostRates         []CostRate          `json:"costRates,omitempty"`
-	MediaQuota        any                 `json:"mediaQuota,omitempty"`
-	ErrorBudget       any                 `json:"errorBudget,omitempty"`
-	ReleaseFreeze     any                 `json:"releaseFreeze,omitempty"`
-	SlaExclusions     []SlaExclusion      `json:"slaExclusions,omitempty"`
-	RetentionPolicies []RetentionPolicy   `json:"retentionPolicies,omitempty"`
-	LicenseInventory  []LicenseInventory  `json:"licenseInventory,omitempty"`
-	Regions           []EnterpriseRegion  `json:"regions,omitempty"`
-	RecoveryGameDays  []RecoveryGameDay   `json:"recoveryGameDays,omitempty"`
-	LatestCompliance  any                 `json:"latestCompliance,omitempty"`
-	GeneratedAt       string              `json:"generatedAt,omitempty"`
+	Validations                 []RuntimeValidation          `json:"validations,omitempty"`
+	CostRates                   []CostRate                   `json:"costRates,omitempty"`
+	MediaQuota                  any                          `json:"mediaQuota,omitempty"`
+	ErrorBudget                 any                          `json:"errorBudget,omitempty"`
+	ReleaseFreeze               any                          `json:"releaseFreeze,omitempty"`
+	SlaExclusions               []SlaExclusion               `json:"slaExclusions,omitempty"`
+	RetentionPolicies           []RetentionPolicy            `json:"retentionPolicies,omitempty"`
+	LicenseInventory            []LicenseInventory           `json:"licenseInventory,omitempty"`
+	Regions                     []EnterpriseRegion           `json:"regions,omitempty"`
+	RecoveryGameDays            []RecoveryGameDay            `json:"recoveryGameDays,omitempty"`
+	RecoveryGameDayTrends       []RecoveryGameDayTrend       `json:"recoveryGameDayTrends,omitempty"`
+	RecoveryGameDayRemediations []RecoveryGameDayRemediation `json:"recoveryGameDayRemediations,omitempty"`
+	LatestCompliance            any                          `json:"latestCompliance,omitempty"`
+	GeneratedAt                 string                       `json:"generatedAt,omitempty"`
 }
 
 type BooleanMap struct {

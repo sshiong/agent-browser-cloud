@@ -190,6 +190,12 @@ var Operations = map[string]Operation{
 	"startRecoveryGameDay":                       {OperationID: "startRecoveryGameDay", Method: "POST", Path: "/api/v1/enterprise/recovery-gamedays", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "StartRecoveryGameDayRequest", RequestRequired: true, ResponseSchema: "RecoveryGameDay"},
 	"completeRecoveryGameDay":                    {OperationID: "completeRecoveryGameDay", Method: "POST", Path: "/api/v1/enterprise/recovery-gamedays/{gameDayId}:complete", PathParameters: []string{"gameDayId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteRecoveryGameDayRequest", RequestRequired: true, ResponseSchema: "RecoveryGameDay"},
 	"getRecoveryGameDay":                         {OperationID: "getRecoveryGameDay", Method: "GET", Path: "/api/v1/enterprise/recovery-gamedays/{gameDayId}", PathParameters: []string{"gameDayId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecoveryGameDay"},
+	"listRecoveryGameDayEvents":                  {OperationID: "listRecoveryGameDayEvents", Method: "GET", Path: "/api/v1/enterprise/recovery-gamedays/{gameDayId}/events", PathParameters: []string{"gameDayId"}, QueryParameters: []string{"cursor", "limit"}, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecoveryGameDayEventPage"},
+	"listRecoveryGameDayTrends":                  {OperationID: "listRecoveryGameDayTrends", Method: "GET", Path: "/api/v1/enterprise/recovery-gameday-trends", PathParameters: nil, QueryParameters: []string{"windowDays"}, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<RecoveryGameDayTrend>"},
+	"generateRecoveryGameDayReport":              {OperationID: "generateRecoveryGameDayReport", Method: "POST", Path: "/api/v1/enterprise/recovery-gamedays/{gameDayId}/exports", PathParameters: []string{"gameDayId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecoveryGameDayReportExport"},
+	"getRecoveryGameDayReport":                   {OperationID: "getRecoveryGameDayReport", Method: "GET", Path: "/api/v1/enterprise/recovery-gameday-exports/{exportId}", PathParameters: []string{"exportId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecoveryGameDayReportExport"},
+	"listRecoveryGameDayRemediations":            {OperationID: "listRecoveryGameDayRemediations", Method: "GET", Path: "/api/v1/enterprise/recovery-gameday-remediations", PathParameters: nil, QueryParameters: []string{"state"}, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<RecoveryGameDayRemediation>"},
+	"updateRecoveryGameDayRemediation":           {OperationID: "updateRecoveryGameDayRemediation", Method: "PUT", Path: "/api/v1/enterprise/recovery-gameday-remediations/{ticketId}", PathParameters: []string{"ticketId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "UpdateRecoveryGameDayRemediationRequest", RequestRequired: true, ResponseSchema: "RecoveryGameDayRemediation"},
 	"abortRecoveryGameDay":                       {OperationID: "abortRecoveryGameDay", Method: "POST", Path: "/api/v1/enterprise/recovery-gamedays/{gameDayId}:abort", PathParameters: []string{"gameDayId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "RecoveryGameDay"},
 	"claimRecoveryGameDayJob":                    {OperationID: "claimRecoveryGameDayJob", Method: "POST", Path: "/api/v1/enterprise/recovery-gameday-jobs:claim", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ClaimRecoveryGameDayJobRequest", RequestRequired: true, ResponseSchema: "RecoveryGameDayJobClaim"},
 	"startRecoveryGameDayJob":                    {OperationID: "startRecoveryGameDayJob", Method: "POST", Path: "/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:start", PathParameters: []string{"gameDayId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "RecoveryGameDayJobClaimRequest", RequestRequired: true, ResponseSchema: "RecoveryGameDayJob"},
@@ -748,6 +754,24 @@ func (c *Client) CompleteRecoveryGameDay(ctx context.Context, request Request) (
 }
 func (c *Client) GetRecoveryGameDay(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getRecoveryGameDay", request)
+}
+func (c *Client) ListRecoveryGameDayEvents(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listRecoveryGameDayEvents", request)
+}
+func (c *Client) ListRecoveryGameDayTrends(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listRecoveryGameDayTrends", request)
+}
+func (c *Client) GenerateRecoveryGameDayReport(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "generateRecoveryGameDayReport", request)
+}
+func (c *Client) GetRecoveryGameDayReport(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getRecoveryGameDayReport", request)
+}
+func (c *Client) ListRecoveryGameDayRemediations(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listRecoveryGameDayRemediations", request)
+}
+func (c *Client) UpdateRecoveryGameDayRemediation(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "updateRecoveryGameDayRemediation", request)
 }
 func (c *Client) AbortRecoveryGameDay(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "abortRecoveryGameDay", request)

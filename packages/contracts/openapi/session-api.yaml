@@ -3301,6 +3301,156 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/recovery-gamedays/{gameDayId}/events:
+    get:
+      operationId: listRecoveryGameDayEvents
+      summary: Page through the immutable execution and recovery timeline
+      tags: [Enterprise, DR]
+      parameters:
+        - $ref: "#/components/parameters/GameDayId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 512
+      responses:
+        "200":
+          description: Stable keyset page of immutable GameDay events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryGameDayEventPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/recovery-gameday-trends:
+    get:
+      operationId: listRecoveryGameDayTrends
+      summary: Aggregate scenario and environment Recovery GameDay trends
+      tags: [Enterprise, DR]
+      parameters:
+        - name: windowDays
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3650
+            default: 90
+      responses:
+        "200":
+          description: PostgreSQL-derived Recovery GameDay trends.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecoveryGameDayTrend"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/recovery-gamedays/{gameDayId}/exports:
+    post:
+      operationId: generateRecoveryGameDayReport
+      summary: Generate an immutable signed JSON GameDay report
+      tags: [Enterprise, DR]
+      parameters:
+        - $ref: "#/components/parameters/GameDayId"
+      responses:
+        "200":
+          description: Signed report with the run, job, timeline and remediation state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryGameDayReportExport"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/recovery-gameday-exports/{exportId}:
+    get:
+      operationId: getRecoveryGameDayReport
+      summary: Get an immutable signed GameDay report
+      tags: [Enterprise, DR]
+      parameters:
+        - name: exportId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^gex_[A-Za-z0-9]{20}$"
+      responses:
+        "200":
+          description: Signed GameDay report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryGameDayReportExport"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/recovery-gameday-remediations:
+    get:
+      operationId: listRecoveryGameDayRemediations
+      summary: List durable remediation tickets opened by unsuccessful GameDays
+      tags: [Enterprise, DR]
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, ACKNOWLEDGED, RESOLVED]
+      responses:
+        "200":
+          description: Remediation tickets ordered by severity and age.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecoveryGameDayRemediation"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/recovery-gameday-remediations/{ticketId}:
+    put:
+      operationId: updateRecoveryGameDayRemediation
+      summary: Acknowledge or resolve a durable GameDay remediation ticket
+      tags: [Enterprise, DR]
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^grt_[A-Za-z0-9]{20}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecoveryGameDayRemediationRequest"
+      responses:
+        "200":
+          description: Updated remediation ownership and resolution state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryGameDayRemediation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/enterprise/recovery-gamedays/{gameDayId}:abort:
     post:
       operationId: abortRecoveryGameDay
@@ -11400,6 +11550,183 @@ components:
           oneOf:
             - $ref: "#/components/schemas/RecoveryGameDayJob"
             - type: "null"
+    RecoveryGameDayEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, gameDayId, eventType, fromState, toState, stage, workerId, claimEpoch, attempt, reasonCode, occurredAt]
+      properties:
+        eventId:
+          type: string
+          pattern: "^gev_[A-Za-z0-9]{20}$"
+        gameDayId:
+          type: string
+          pattern: "^gameday_[A-Za-z0-9]{20}$"
+        eventType:
+          type: string
+        fromState:
+          type: [string, "null"]
+        toState:
+          type: string
+        stage:
+          type: string
+        workerId:
+          type: [string, "null"]
+        claimEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        attempt:
+          type: integer
+          minimum: 0
+        reasonCode:
+          type: [string, "null"]
+        occurredAt:
+          type: string
+          format: date-time
+    RecoveryGameDayEventPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryGameDayEvent"
+        nextCursor:
+          type: [string, "null"]
+        hasMore:
+          type: boolean
+    RecoveryGameDayTrend:
+      type: object
+      additionalProperties: false
+      required: [scenario, environment, totalRuns, passedRuns, failedRuns, abortedRuns, recoveryUnknownRuns, passRatePercent, p95RtoSeconds, p95RpoSeconds, openTicketCount, latestRunAt]
+      properties:
+        scenario:
+          type: string
+        environment:
+          type: string
+          enum: [TEST, STAGING, PRODUCTION]
+        totalRuns:
+          type: integer
+          format: int64
+        passedRuns:
+          type: integer
+          format: int64
+        failedRuns:
+          type: integer
+          format: int64
+        abortedRuns:
+          type: integer
+          format: int64
+        recoveryUnknownRuns:
+          type: integer
+          format: int64
+        passRatePercent:
+          type: number
+          format: double
+        p95RtoSeconds:
+          type: [integer, "null"]
+        p95RpoSeconds:
+          type: [integer, "null"]
+        openTicketCount:
+          type: integer
+          format: int64
+        latestRunAt:
+          type: string
+          format: date-time
+    RecoveryGameDayReportExport:
+      type: object
+      additionalProperties: false
+      required: [exportId, gameDayId, reportFormat, eventCount, report, reportHash, signatureAlgorithm, signingKeyId, signature, generatedBy, generatedAt]
+      properties:
+        exportId:
+          type: string
+          pattern: "^gex_[A-Za-z0-9]{20}$"
+        gameDayId:
+          type: string
+          pattern: "^gameday_[A-Za-z0-9]{20}$"
+        reportFormat:
+          type: string
+          enum: [JSON]
+        eventCount:
+          type: integer
+          minimum: 0
+        report:
+          type: object
+          additionalProperties: true
+        reportHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        signatureAlgorithm:
+          type: string
+          enum: [HMAC-SHA256]
+        signingKeyId:
+          type: string
+        signature:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        generatedBy:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+    UpdateRecoveryGameDayRemediationRequest:
+      type: object
+      additionalProperties: false
+      required: [state, ownerId]
+      properties:
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, RESOLVED]
+        ownerId:
+          type: string
+          maxLength: 128
+        resolution:
+          type: string
+          maxLength: 2048
+    RecoveryGameDayRemediation:
+      type: object
+      additionalProperties: false
+      required: [ticketId, gameDayId, scenario, environment, severity, state, reasonCode, summary, ownerId, resolution, createdBy, createdAt, updatedBy, updatedAt, resolvedAt]
+      properties:
+        ticketId:
+          type: string
+          pattern: "^grt_[A-Za-z0-9]{20}$"
+        gameDayId:
+          type: string
+          pattern: "^gameday_[A-Za-z0-9]{20}$"
+        scenario:
+          type: string
+        environment:
+          type: string
+          enum: [TEST, STAGING, PRODUCTION]
+        severity:
+          type: string
+          enum: [P1, P2, P3]
+        state:
+          type: string
+          enum: [OPEN, ACKNOWLEDGED, RESOLVED]
+        reasonCode:
+          type: string
+        summary:
+          type: string
+        ownerId:
+          type: [string, "null"]
+        resolution:
+          type: [string, "null"]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: [string, "null"]
+          format: date-time
     ComplianceSnapshot:
       type: object
       additionalProperties: false
@@ -11447,6 +11774,8 @@ components:
         - licenseInventory
         - regions
         - recoveryGameDays
+        - recoveryGameDayTrends
+        - recoveryGameDayRemediations
         - latestCompliance
         - generatedAt
       properties:
@@ -11490,6 +11819,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RecoveryGameDay"
+        recoveryGameDayTrends:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryGameDayTrend"
+        recoveryGameDayRemediations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecoveryGameDayRemediation"
         latestCompliance:
           oneOf:
             - $ref: "#/components/schemas/ComplianceSnapshot"

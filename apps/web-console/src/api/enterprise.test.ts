@@ -17,6 +17,8 @@ describe('enterprise operations API', () => {
           retentionPolicies: [],
           regions: [],
           recoveryGameDays: [],
+          recoveryGameDayTrends: [],
+          recoveryGameDayRemediations: [],
           latestCompliance: null,
           mediaQuota: null,
           slaExclusions: [],

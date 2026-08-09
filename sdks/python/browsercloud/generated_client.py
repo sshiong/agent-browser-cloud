@@ -176,6 +176,12 @@ OPERATIONS: dict[str, Operation] = {
     'startRecoveryGameDay': Operation('startRecoveryGameDay', 'POST', '/api/v1/enterprise/recovery-gamedays', (), (), (), 'StartRecoveryGameDayRequest', True, 'RecoveryGameDay'),
     'completeRecoveryGameDay': Operation('completeRecoveryGameDay', 'POST', '/api/v1/enterprise/recovery-gamedays/{gameDayId}:complete', ('gameDayId',), (), (), 'CompleteRecoveryGameDayRequest', True, 'RecoveryGameDay'),
     'getRecoveryGameDay': Operation('getRecoveryGameDay', 'GET', '/api/v1/enterprise/recovery-gamedays/{gameDayId}', ('gameDayId',), (), (), '', False, 'RecoveryGameDay'),
+    'listRecoveryGameDayEvents': Operation('listRecoveryGameDayEvents', 'GET', '/api/v1/enterprise/recovery-gamedays/{gameDayId}/events', ('gameDayId',), ('cursor', 'limit'), (), '', False, 'RecoveryGameDayEventPage'),
+    'listRecoveryGameDayTrends': Operation('listRecoveryGameDayTrends', 'GET', '/api/v1/enterprise/recovery-gameday-trends', (), ('windowDays',), (), '', False, 'array<RecoveryGameDayTrend>'),
+    'generateRecoveryGameDayReport': Operation('generateRecoveryGameDayReport', 'POST', '/api/v1/enterprise/recovery-gamedays/{gameDayId}/exports', ('gameDayId',), (), (), '', False, 'RecoveryGameDayReportExport'),
+    'getRecoveryGameDayReport': Operation('getRecoveryGameDayReport', 'GET', '/api/v1/enterprise/recovery-gameday-exports/{exportId}', ('exportId',), (), (), '', False, 'RecoveryGameDayReportExport'),
+    'listRecoveryGameDayRemediations': Operation('listRecoveryGameDayRemediations', 'GET', '/api/v1/enterprise/recovery-gameday-remediations', (), ('state',), (), '', False, 'array<RecoveryGameDayRemediation>'),
+    'updateRecoveryGameDayRemediation': Operation('updateRecoveryGameDayRemediation', 'PUT', '/api/v1/enterprise/recovery-gameday-remediations/{ticketId}', ('ticketId',), (), (), 'UpdateRecoveryGameDayRemediationRequest', True, 'RecoveryGameDayRemediation'),
     'abortRecoveryGameDay': Operation('abortRecoveryGameDay', 'POST', '/api/v1/enterprise/recovery-gamedays/{gameDayId}:abort', ('gameDayId',), (), (), '', False, 'RecoveryGameDay'),
     'claimRecoveryGameDayJob': Operation('claimRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs:claim', (), (), (), 'ClaimRecoveryGameDayJobRequest', True, 'RecoveryGameDayJobClaim'),
     'startRecoveryGameDayJob': Operation('startRecoveryGameDayJob', 'POST', '/api/v1/enterprise/recovery-gameday-jobs/{gameDayId}:start', ('gameDayId',), (), (), 'RecoveryGameDayJobClaimRequest', True, 'RecoveryGameDayJob'),
@@ -689,6 +695,24 @@ class BrowserCloudGeneratedClient:
 
     def getRecoveryGameDay(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getRecoveryGameDay', path=path, query=query, body=body, headers=headers)
+
+    def listRecoveryGameDayEvents(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listRecoveryGameDayEvents', path=path, query=query, body=body, headers=headers)
+
+    def listRecoveryGameDayTrends(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listRecoveryGameDayTrends', path=path, query=query, body=body, headers=headers)
+
+    def generateRecoveryGameDayReport(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('generateRecoveryGameDayReport', path=path, query=query, body=body, headers=headers)
+
+    def getRecoveryGameDayReport(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getRecoveryGameDayReport', path=path, query=query, body=body, headers=headers)
+
+    def listRecoveryGameDayRemediations(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listRecoveryGameDayRemediations', path=path, query=query, body=body, headers=headers)
+
+    def updateRecoveryGameDayRemediation(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('updateRecoveryGameDayRemediation', path=path, query=query, body=body, headers=headers)
 
     def abortRecoveryGameDay(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('abortRecoveryGameDay', path=path, query=query, body=body, headers=headers)

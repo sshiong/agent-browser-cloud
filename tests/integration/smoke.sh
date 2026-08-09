@@ -5375,6 +5375,74 @@ printf '%s' "$lease_gameday" | python3 -c \
 lease_gameday_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from recovery_gameday_job_events where gameday_id='${lease_gameday_id}' and event_type in ('RECOVERY_REQUIRED','RECOVERY_CLAIMED','RECOVERY_STARTED','ABORTED')")"
 test "$lease_gameday_evidence" = "4"
+gameday_events_page_one="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays/${automated_gameday_id}/events?limit=3" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN')"
+gameday_events_cursor="$(printf '%s' "$gameday_events_page_one" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert len(item["items"]) == 3; assert item["hasMore"] is True; assert item["nextCursor"]; print(item["nextCursor"])')"
+gameday_events_page_one_ids="$(printf '%s' "$gameday_events_page_one" | python3 -c \
+  'import json,sys; print(":".join(event["eventId"] for event in json.load(sys.stdin)["items"]))')"
+gameday_events_page_two="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays/${automated_gameday_id}/events?limit=3&cursor=${gameday_events_cursor}" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$gameday_events_page_two" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); first=set(sys.argv[1].split(":")); second={event["eventId"] for event in item["items"]}; assert len(second) == 3; assert not first.intersection(second)' \
+  "$gameday_events_page_one_ids"
+invalid_gameday_cursor_status="$(curl -sS -o "$temp_dir/invalid-gameday-cursor.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays/${automated_gameday_id}/events?cursor=not-a-cursor" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN')"
+test "$invalid_gameday_cursor_status" = "400"
+cross_gameday_cursor_status="$(curl -sS -o "$temp_dir/cross-gameday-cursor.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays/${lease_gameday_id}/events?cursor=${gameday_events_cursor}" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN')"
+test "$cross_gameday_cursor_status" = "400"
+gameday_report="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays/${automated_gameday_id}/exports" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: gameday-auditor' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+gameday_export_id="$(printf '%s' "$gameday_report" | python3 -c \
+  'import hashlib,hmac,json,sys; item=json.load(sys.stdin); assert item["gameDayId"] == sys.argv[1]; assert item["eventCount"] == 10; assert item["report"]["schemaVersion"] == "recovery-gameday-report/v1"; assert len(item["report"]["timeline"]) == 10; assert item["signatureAlgorithm"] == "HMAC-SHA256"; expected=hmac.new(b"local-development-audit-export-key", item["reportHash"].encode(), hashlib.sha256).hexdigest(); assert hmac.compare_digest(expected, item["signature"]); print(item["exportId"])' \
+  "$automated_gameday_id")"
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-exports/${gameday_export_id}" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN' \
+  | python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["exportId"] == sys.argv[1]; assert len(item["reportHash"]) == 64' \
+    "$gameday_export_id"
+gameday_remediations="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-remediations?state=OPEN" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN')"
+gameday_remediation_id="$(printf '%s' "$gameday_remediations" | python3 -c \
+  'import json,sys; matches=[item for item in json.load(sys.stdin) if item["gameDayId"] == sys.argv[1]]; assert len(matches) == 1; item=matches[0]; assert item["state"] == "OPEN"; assert item["severity"] == "P3"; assert item["reasonCode"] == "ORIGINAL_EXECUTION_LOST"; print(item["ticketId"])' \
+  "$lease_gameday_id")"
+skip_gameday_remediation_status="$(curl -sS -o "$temp_dir/skip-gameday-remediation.json" -w '%{http_code}' -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-remediations/${gameday_remediation_id}" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: incident-owner' -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"state":"RESOLVED","ownerId":"incident-owner","resolution":"must not skip acknowledgement"}')"
+test "$skip_gameday_remediation_status" = "400"
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-remediations/${gameday_remediation_id}" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: incident-owner' -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"state":"ACKNOWLEDGED","ownerId":"incident-owner"}' \
+  | python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ACKNOWLEDGED"; assert item["ownerId"] == "incident-owner"; assert item["resolvedAt"] is None'
+curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-remediations/${gameday_remediation_id}" \
+  -H 'Content-Type: application/json' -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: incident-owner' -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"state":"RESOLVED","ownerId":"incident-owner","resolution":"Runner lease recovery runbook corrected and verified."}' \
+  | python3 -c 'import json,sys; item=json.load(sys.stdin); assert item["state"] == "RESOLVED"; assert item["resolution"].startswith("Runner lease"); assert item["resolvedAt"] is not None'
+gameday_trends="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/recovery-gameday-trends?windowDays=90" \
+  -H 'X-Tenant-Id: platform-control' -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$gameday_trends" | python3 -c \
+  'import json,sys; items=json.load(sys.stdin); passed=next(item for item in items if item["scenario"] == "OBJECT_STORAGE_UNAVAILABLE"); aborted=next(item for item in items if item["scenario"] == "REDIS_TOTAL_LOSS"); assert passed["passedRuns"] == 1; assert float(passed["passRatePercent"]) == 100.0; assert passed["p95RtoSeconds"] == 20; assert aborted["abortedRuns"] == 1; assert aborted["openTicketCount"] == 0'
+gameday_governance_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select (select count(*) from recovery_gameday_report_exports where export_id='${gameday_export_id}') || ':' ||
+          (select state from recovery_gameday_remediation_tickets where ticket_id='${gameday_remediation_id}') || ':' ||
+          (select count(*) from audit_events where resource_id in ('${gameday_export_id}','${gameday_remediation_id}'))")"
+test "$gameday_governance_evidence" = "1:RESOLVED:4"
 session_cost="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/enterprise/sessions/${session_one}/cost-explanation" \
   -H 'X-Tenant-Id: tenant-integration' \

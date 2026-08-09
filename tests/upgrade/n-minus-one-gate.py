@@ -1430,6 +1430,26 @@ for invariant in (
         f"Recovery GameDay Worker migration lacks rolling invariant: {invariant}"
     )
 
+gameday_governance_migration = read(
+    "database/migrations/V078__recovery_gameday_governance.sql"
+)
+gameday_governance_upper = gameday_governance_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "DROP TABLE", "ALTER TABLE"):
+    assert forbidden not in gameday_governance_upper
+for invariant in (
+    "CREATE INDEX IDX_RECOVERY_GAMEDAY_JOB_EVENTS_TIMELINE",
+    "CREATE TABLE RECOVERY_GAMEDAY_REPORT_EXPORTS",
+    "REPORT_HASH ~ '^[A-F0-9]{64}$'",
+    "SIGNATURE_ALGORITHM = 'HMAC-SHA256'",
+    "CREATE TABLE RECOVERY_GAMEDAY_REMEDIATION_TICKETS",
+    "TEXT NOT NULL UNIQUE REFERENCES ENTERPRISE_RECOVERY_GAMEDAYS(GAMEDAY_ID)",
+    "STATE IN ('OPEN', 'ACKNOWLEDGED', 'RESOLVED')",
+    "ON CONFLICT (GAMEDAY_ID) DO NOTHING",
+):
+    assert invariant in gameday_governance_upper, (
+        f"Recovery GameDay governance migration lacks rolling invariant: {invariant}"
+    )
+
 start_gameday_schema = openapi.split(
     "    StartRecoveryGameDayRequest:", 1
 )[1].split("    RecoveryGameDayBlastRadius:", 1)[0]
@@ -1664,9 +1684,9 @@ for invariant in (
     assert invariant in validation_worker_network_policy
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V076 additive,V077 gameday-expand,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V076 additive,V077 gameday-expand,V078 gameday-governance-additive,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
     "protobuf": "unknown-fields-13-16,optional-28-38,proxy-health-tags-31-34,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,browser-readiness-tags-full-and-diff-11-13,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,proxy-provider-routing-metadata,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-and-notification-stream-and-release-freeze-and-validation-worker-and-gameday-worker-additive-contracts",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,proxy-provider-routing-metadata,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-and-notification-stream-and-release-freeze-and-validation-worker-and-gameday-worker-and-gameday-governance-additive-contracts",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,isolated-validation-worker-lease-and-claim-token-fencing,isolated-gameday-worker-lease-claim-token-and-recovery-fencing,proxy-cold-probe-db-lease-and-node-capability,proxy-routing-snapshot-and-fail-closed-selection,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import {
   BadgeCheck,
   CircleDollarSign,
+  Download,
   Globe2,
   RadioTower,
   ShieldCheck,
@@ -8,8 +10,16 @@ import {
 } from 'lucide-react';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
-import { useEnterpriseOverview } from './enterpriseQueries';
+import {
+  useEnterpriseOverview,
+  useGenerateRecoveryGameDayReport,
+  useRecoveryGameDayEvents,
+  useUpdateRecoveryGameDayRemediation,
+} from './enterpriseQueries';
 import { cn } from '@/shared/lib/utils';
+import { currentActorId } from '@/api/session';
+import { getRuntimeIdentity } from '@/auth/runtimeIdentity';
+import type { RecoveryGameDayRemediationView } from '@/types/enterprise';
 
 export function EnterpriseOperationsPage() {
   const query = useEnterpriseOverview();
@@ -48,6 +58,10 @@ function EnterpriseOverview({
 }) {
   const latestValidation = data.validations[0];
   const latestGameDay = data.recoveryGameDays[0];
+  const gameDayEvents = useRecoveryGameDayEvents(latestGameDay?.gameDayId);
+  const report = useGenerateRecoveryGameDayReport();
+  const canManageGameDay =
+    getRuntimeIdentity()?.roles.includes('PLATFORM_ADMIN') ?? false;
   const readyRegions = data.regions.filter(
     (region) =>
       region.admissionState === 'OPEN' ||
@@ -338,9 +352,116 @@ function EnterpriseOverview({
                   已请求中止；Worker 必须先确认恢复，平台才会关闭本次演练。
                 </p>
               ) : null}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-3">
+                <div>
+                  <p className="text-[9px] uppercase tracking-wider text-text-muted">
+                    Signed evidence report
+                  </p>
+                  <p className="mt-1 font-mono text-[9px] text-text-secondary">
+                    {report.data
+                      ? `${report.data.exportId} · ${report.data.eventCount} events · ${report.data.reportHash.slice(0, 12)}…`
+                      : 'JSON · SHA-256 · HMAC-SHA256'}
+                  </p>
+                  {report.isError ? (
+                    <p className="mt-1 text-[9px] text-danger">
+                      报告生成失败；权限或请求详情可在错误响应中复核。
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  disabled={report.isPending}
+                  onClick={() => report.mutate(latestGameDay.gameDayId)}
+                  className="inline-flex min-h-9 items-center gap-2 border border-border-strong bg-surface-2 px-3 text-[10px] font-medium text-text-primary transition-colors hover:border-accent/60 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="size-3.5" aria-hidden="true" />
+                  {report.isPending ? '生成中' : '生成签名报告'}
+                </button>
+              </div>
+              <div className="mt-3 border-t border-border-subtle pt-3">
+                <p className="text-[9px] uppercase tracking-wider text-text-muted">
+                  Immutable timeline
+                </p>
+                {gameDayEvents.isLoading ? (
+                  <p className="mt-2 text-[10px] text-text-muted">
+                    正在读取事件链…
+                  </p>
+                ) : gameDayEvents.isError ? (
+                  <p className="mt-2 text-[10px] text-danger">事件链暂不可用</p>
+                ) : gameDayEvents.data?.items.length ? (
+                  <div className="mt-2 max-h-48 divide-y divide-border-subtle overflow-y-auto border border-border-subtle">
+                    {gameDayEvents.data.items.map((event) => (
+                      <div
+                        key={event.eventId}
+                        className="grid grid-cols-[72px_minmax(0,1fr)_auto] gap-3 bg-surface-2 px-3 py-2"
+                      >
+                        <span className="font-mono text-[9px] text-text-muted">
+                          {new Date(event.occurredAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </span>
+                        <span className="truncate font-mono text-[9px] text-text-secondary">
+                          {event.eventType} · {event.stage}
+                          {event.reasonCode ? ` · ${event.reasonCode}` : ''}
+                        </span>
+                        <span className="font-mono text-[9px] text-text-muted">
+                          e{event.claimEpoch}/a{event.attempt}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[10px] text-text-muted">
+                    手工演练没有 Worker 事件；最终证据仍由运行记录保留。
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <Empty label="尚无可复核的 Recovery GameDay" />
+          )}
+        </Panel>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Panel title="GameDay 90-day trend">
+          {data.recoveryGameDayTrends.length === 0 ? (
+            <Empty label="尚无可聚合的 GameDay 趋势" />
+          ) : (
+            <div className="divide-y divide-border-subtle">
+              {data.recoveryGameDayTrends.slice(0, 8).map((trend) => (
+                <Row
+                  key={`${trend.scenario}:${trend.environment}`}
+                  title={trend.scenario}
+                  subtitle={`${trend.environment} · P95 RTO ${trend.p95RtoSeconds ?? '—'}s / RPO ${trend.p95RpoSeconds ?? '—'}s`}
+                  value={`${Number(trend.passRatePercent).toFixed(1)}%`}
+                  detail={`${trend.passedRuns}/${trend.totalRuns} passed · ${trend.openTicketCount} open`}
+                  tone={
+                    trend.failedRuns + trend.abortedRuns > 0
+                      ? 'warning'
+                      : 'success'
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="GameDay remediation">
+          {data.recoveryGameDayRemediations.length === 0 ? (
+            <Empty label="没有待处理的 GameDay 整改工单" />
+          ) : (
+            <div className="divide-y divide-border-subtle">
+              {data.recoveryGameDayRemediations.slice(0, 8).map((ticket) => (
+                <RemediationTicketRow
+                  key={ticket.ticketId}
+                  ticket={ticket}
+                  canManage={canManageGameDay}
+                />
+              ))}
+            </div>
           )}
         </Panel>
       </section>
@@ -411,6 +532,113 @@ function EnterpriseOverview({
           </div>
         </Panel>
       </section>
+    </div>
+  );
+}
+
+function RemediationTicketRow({
+  ticket,
+  canManage,
+}: {
+  ticket: RecoveryGameDayRemediationView;
+  canManage: boolean;
+}) {
+  const mutation = useUpdateRecoveryGameDayRemediation();
+  const [resolution, setResolution] = useState('');
+  const resolutionErrorId = `${ticket.ticketId}-resolution-error`;
+
+  const acknowledge = () => {
+    mutation.mutate({
+      ticketId: ticket.ticketId,
+      input: { state: 'ACKNOWLEDGED', ownerId: currentActorId() },
+    });
+  };
+  const resolve = () => {
+    const normalized = resolution.trim();
+    if (!normalized) return;
+    mutation.mutate({
+      ticketId: ticket.ticketId,
+      input: {
+        state: 'RESOLVED',
+        ownerId: ticket.ownerId ?? currentActorId(),
+        resolution: normalized,
+      },
+    });
+  };
+
+  return (
+    <div className="bg-surface-1 px-5 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-medium text-text-primary">
+            {ticket.severity} · {ticket.scenario}
+          </p>
+          <p className="mt-1 truncate font-mono text-[9px] text-text-muted">
+            {ticket.reasonCode}
+            {ticket.ownerId ? ` · ${ticket.ownerId}` : ' · unassigned'}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <Status
+            value={ticket.state}
+            tone={ticket.state === 'RESOLVED' ? 'success' : 'warning'}
+          />
+          <p className="mt-1 font-mono text-[9px] text-text-muted">
+            {relativeTime(ticket.updatedAt)}
+          </p>
+        </div>
+      </div>
+
+      {ticket.resolution ? (
+        <p className="mt-3 border-l-2 border-success/50 pl-3 text-[10px] leading-4 text-text-secondary">
+          {ticket.resolution}
+        </p>
+      ) : null}
+
+      {canManage && ticket.state === 'OPEN' ? (
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={acknowledge}
+          className="mt-3 inline-flex min-h-11 items-center border border-border-strong bg-surface-2 px-3 text-[10px] font-semibold text-text-primary transition-colors hover:border-accent/60 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {mutation.isPending ? '正在确认…' : `确认归属给 ${currentActorId()}`}
+        </button>
+      ) : null}
+
+      {canManage && ticket.state === 'ACKNOWLEDGED' ? (
+        <div className="mt-3 grid gap-2 border-t border-border-subtle pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <label className="block">
+            <span className="text-[9px] font-medium uppercase tracking-wider text-text-muted">
+              关闭说明
+            </span>
+            <input
+              value={resolution}
+              maxLength={2048}
+              onChange={(event) => setResolution(event.target.value)}
+              aria-describedby={
+                mutation.isError ? resolutionErrorId : undefined
+              }
+              className="mt-1 min-h-11 w-full border border-border-default bg-surface-2 px-3 text-[11px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent"
+              placeholder="说明根因、修复和验证证据"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={mutation.isPending || !resolution.trim()}
+            onClick={resolve}
+            className="inline-flex min-h-11 items-center justify-center border border-success/35 bg-success/10 px-4 text-[10px] font-semibold text-success transition-colors hover:border-success/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {mutation.isPending ? '正在关闭…' : '关闭工单'}
+          </button>
+        </div>
+      ) : null}
+
+      {mutation.isError ? (
+        <p id={resolutionErrorId} className="mt-2 text-[9px] text-danger">
+          状态更新失败；请检查平台管理员权限、当前状态和请求详情。
+        </p>
+      ) : null}
     </div>
   );
 }

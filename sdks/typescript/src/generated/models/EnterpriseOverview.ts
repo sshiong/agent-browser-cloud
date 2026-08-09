@@ -9,6 +9,8 @@ import type { ErrorBudget } from './ErrorBudget.js';
 import type { LicenseInventory } from './LicenseInventory.js';
 import type { MediaQuota } from './MediaQuota.js';
 import type { RecoveryGameDay } from './RecoveryGameDay.js';
+import type { RecoveryGameDayRemediation } from './RecoveryGameDayRemediation.js';
+import type { RecoveryGameDayTrend } from './RecoveryGameDayTrend.js';
 import type { ReleaseFreeze } from './ReleaseFreeze.js';
 import type { RetentionPolicy } from './RetentionPolicy.js';
 import type { RuntimeValidation } from './RuntimeValidation.js';
@@ -24,6 +26,8 @@ export type EnterpriseOverview = {
     licenseInventory: Array<LicenseInventory>;
     regions: Array<EnterpriseRegion>;
     recoveryGameDays: Array<RecoveryGameDay>;
+    recoveryGameDayTrends: Array<RecoveryGameDayTrend>;
+    recoveryGameDayRemediations: Array<RecoveryGameDayRemediation>;
     latestCompliance: (ComplianceSnapshot | null);
     generatedAt: string;
 };

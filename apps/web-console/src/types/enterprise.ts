@@ -203,6 +203,73 @@ export interface RecoveryGameDayJobView {
   updatedAt: string;
 }
 
+export interface RecoveryGameDayEventView {
+  eventId: string;
+  gameDayId: string;
+  eventType: string;
+  fromState: string | null;
+  toState: string;
+  stage: string;
+  workerId: string | null;
+  claimEpoch: number;
+  attempt: number;
+  reasonCode: string | null;
+  occurredAt: string;
+}
+
+export interface RecoveryGameDayEventPage {
+  items: RecoveryGameDayEventView[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface RecoveryGameDayTrendView {
+  scenario: string;
+  environment: 'TEST' | 'STAGING' | 'PRODUCTION';
+  totalRuns: number;
+  passedRuns: number;
+  failedRuns: number;
+  abortedRuns: number;
+  recoveryUnknownRuns: number;
+  passRatePercent: number;
+  p95RtoSeconds: number | null;
+  p95RpoSeconds: number | null;
+  openTicketCount: number;
+  latestRunAt: string;
+}
+
+export interface RecoveryGameDayReportExportView {
+  exportId: string;
+  gameDayId: string;
+  reportFormat: 'JSON';
+  eventCount: number;
+  report: Record<string, unknown>;
+  reportHash: string;
+  signatureAlgorithm: 'HMAC-SHA256';
+  signingKeyId: string;
+  signature: string;
+  generatedBy: string;
+  generatedAt: string;
+}
+
+export interface RecoveryGameDayRemediationView {
+  ticketId: string;
+  gameDayId: string;
+  scenario: string;
+  environment: 'TEST' | 'STAGING' | 'PRODUCTION';
+  severity: 'P1' | 'P2' | 'P3';
+  state: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
+  reasonCode: string;
+  summary: string;
+  ownerId: string | null;
+  resolution: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
+
 export interface ComplianceSnapshotView {
   snapshotId: string;
   tenantId: string;
@@ -226,6 +293,8 @@ export interface EnterpriseOverviewResponse {
   licenseInventory: LicenseInventoryView[];
   regions: RegionView[];
   recoveryGameDays: RecoveryGameDayView[];
+  recoveryGameDayTrends: RecoveryGameDayTrendView[];
+  recoveryGameDayRemediations: RecoveryGameDayRemediationView[];
   latestCompliance: ComplianceSnapshotView | null;
   generatedAt: string;
 }

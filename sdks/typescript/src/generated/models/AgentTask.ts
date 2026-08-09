@@ -17,7 +17,7 @@ export type AgentTask = {
      * Data-minimized goal; secrets, email and phone patterns are redacted.
      */
     goal: string;
-    state: 'PLANNED' | 'AWAITING_CONFIRMATION' | 'BLOCKED' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'COMPLETED' | 'FAILED';
+    state: 'PLANNED' | 'QUEUED' | 'AWAITING_CONFIRMATION' | 'BLOCKED' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'PAUSED_BY_RESOURCE_POLICY' | 'COMPLETED' | 'FAILED';
     riskClass: AgentRiskClass;
     intentDecision: 'ALLOWED' | 'CONFIRM_REQUIRED' | 'FORBIDDEN';
     blockedReason: string | null;

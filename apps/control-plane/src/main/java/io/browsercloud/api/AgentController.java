@@ -3,6 +3,7 @@ package io.browsercloud.api;
 import static io.browsercloud.application.CoordinatorCommandPayloads.*;
 
 import io.browsercloud.application.AgentApplicationService;
+import io.browsercloud.application.AgentExecutionWorkerApplicationService;
 import io.browsercloud.application.AgentHumanGovernanceService;
 import io.browsercloud.application.AgentTaskSummaryApplicationService;
 import io.browsercloud.application.CoordinatorCommandRoutingService;
@@ -36,6 +37,7 @@ public class AgentController {
   private final AgentApplicationService service;
   private final AgentTaskSummaryApplicationService summaryService;
   private final io.browsercloud.application.AgentExecutionService executionService;
+  private final AgentExecutionWorkerApplicationService externalWorker;
   private final AgentHumanGovernanceService governanceService;
   private final CoordinatorCommandRoutingService commandRouting;
   private final PlatformIdentity identity;
@@ -44,12 +46,14 @@ public class AgentController {
       AgentApplicationService service,
       AgentTaskSummaryApplicationService summaryService,
       io.browsercloud.application.AgentExecutionService executionService,
+      AgentExecutionWorkerApplicationService externalWorker,
       AgentHumanGovernanceService governanceService,
       CoordinatorCommandRoutingService commandRouting,
       PlatformIdentity identity) {
     this.service = service;
     this.summaryService = summaryService;
     this.executionService = executionService;
+    this.externalWorker = externalWorker;
     this.governanceService = governanceService;
     this.commandRouting = commandRouting;
     this.identity = identity;
@@ -91,6 +95,9 @@ public class AgentController {
       @PathVariable @Pattern(regexp = "^agt_[a-zA-Z0-9]{16,}$") String taskId,
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey) {
     var principal = identity.current();
+    if (externalWorker.enabled()) {
+      return externalWorker.enqueue(taskId, principal.tenantId(), idempotencyKey);
+    }
     var task = service.get(taskId, principal.tenantId());
     return commandRouting.execute(
         task.sessionId(),

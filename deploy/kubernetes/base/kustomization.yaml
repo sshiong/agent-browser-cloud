@@ -12,3 +12,4 @@ resources:
   - workloads.yaml
   - validation-worker-deployment.yaml
   - gameday-worker-deployment.yaml
+  - agent-worker-deployment.yaml

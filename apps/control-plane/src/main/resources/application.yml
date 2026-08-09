@@ -71,6 +71,11 @@ remote-desktop:
 agent:
   capability-token-secret: ${AGENT_CAPABILITY_TOKEN_SECRET:browsercloud-local-agent-capability-token-secret-v1}
   action-payload-secret: ${AGENT_ACTION_PAYLOAD_SECRET:browsercloud-local-agent-action-payload-secret-v1}
+  external-worker:
+    enabled: ${AGENT_EXTERNAL_WORKER_ENABLED:false}
+    claim-lease-seconds: ${AGENT_WORKER_CLAIM_LEASE_SECONDS:60}
+    reaper-interval-ms: ${AGENT_WORKER_REAPER_INTERVAL_MS:15000}
+    maximum-attempts: ${AGENT_WORKER_MAXIMUM_ATTEMPTS:3}
 
 proxy:
   allow-direct: ${PROXY_ALLOW_DIRECT:false}

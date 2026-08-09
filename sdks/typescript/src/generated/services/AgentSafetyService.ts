@@ -2,10 +2,15 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentExecutionJob } from '../models/AgentExecutionJob.js';
+import type { AgentExecutionJobClaim } from '../models/AgentExecutionJobClaim.js';
+import type { AgentExecutionJobClaimRequest } from '../models/AgentExecutionJobClaimRequest.js';
 import type { AgentTask } from '../models/AgentTask.js';
 import type { AgentTaskListResponse } from '../models/AgentTaskListResponse.js';
 import type { AgentTaskSummaryListResponse } from '../models/AgentTaskSummaryListResponse.js';
+import type { ClaimAgentExecutionJobRequest } from '../models/ClaimAgentExecutionJobRequest.js';
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
+import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class AgentSafetyService {
@@ -144,6 +149,137 @@ export class AgentSafetyService {
             },
             errors: {
                 404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Claim one opaque Agent execution job with a fenced lease
+     * Requires the dedicated AGENT_WORKER role. No prompt, plan, page data, capability token, or customer credential crosses this boundary.
+     * @returns AgentExecutionJobClaim Opaque execution job claimed; the single-use Claim Token is returned only once.
+     * @throws ApiError
+     */
+    public claimAgentExecutionJob({
+        requestBody,
+    }: {
+        requestBody: ClaimAgentExecutionJobRequest,
+    }): CancelablePromise<AgentExecutionJobClaim> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-worker-jobs:claim',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * ACK execution start for a claimed Agent job
+     * @returns AgentExecutionJob Job entered EXECUTING.
+     * @throws ApiError
+     */
+    public startAgentExecutionJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentExecutionJobClaimRequest,
+    }): CancelablePromise<AgentExecutionJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-worker-jobs/{jobId}:start',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Renew an Agent Worker fenced lease
+     * @returns AgentExecutionJob Lease renewed.
+     * @throws ApiError
+     */
+    public heartbeatAgentExecutionJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentExecutionJobClaimRequest,
+    }): CancelablePromise<AgentExecutionJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-worker-jobs/{jobId}:heartbeat',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Ask the Control Plane safety kernel to drive an opaque Agent job
+     * The Worker cannot invoke Browser Node tools or modify cgroups directly. Capability, Operation, Outbox, revision and human-governance enforcement remain in the Control Plane.
+     * @returns AgentExecutionJob Job committed or waiting on an authoritative asynchronous task state.
+     * @throws ApiError
+     */
+    public driveAgentExecutionJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: AgentExecutionJobClaimRequest,
+    }): CancelablePromise<AgentExecutionJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-worker-jobs/{jobId}:drive',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Reject, retry, or permanently fail a claimed Agent job
+     * @returns AgentExecutionJob Failure durably projected to the queue and task.
+     * @throws ApiError
+     */
+    public failAgentExecutionJob({
+        jobId,
+        requestBody,
+    }: {
+        jobId: string,
+        requestBody: FailAgentExecutionJobRequest,
+    }): CancelablePromise<AgentExecutionJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/agent-worker-jobs/{jobId}:fail',
+            path: {
+                'jobId': jobId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
             },
         });
     }

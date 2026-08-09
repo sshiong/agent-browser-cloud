@@ -99,6 +99,6 @@ V16 全量生产就绪。
 | OIDC Principal、RBAC、管理员 MFA | Phase 5 / 生产安全 |
 | Human Authorization 长期审计、Legal Hold、删除证明 | Phase 5—7 / 治理 |
 | 高级 Action Validation DSL | MVP-B / 可靠 Agent |
-| 独立 Agent Worker Sandbox 与 Reviewer Agent | V16 Agent Runtime 增强 |
+| Reviewer Agent 与真实模型治理 | 独立 Agent Worker Sandbox 后续已由进度 113 关闭；Reviewer 仍属 V16 Agent Runtime 增强 |
 | Challenge Detection / HumanAssist 单击授权 | MVP-B，不能与通用 Takeover 混淆 |
 | 跨 Region Workflow、复杂 Compensation、全局 Scheduler | Durable Workflow 后续阶段 |

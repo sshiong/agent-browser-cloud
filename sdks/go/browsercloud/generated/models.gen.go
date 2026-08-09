@@ -289,6 +289,45 @@ type AgentTask struct {
 	UpdatedAt        string                     `json:"updatedAt,omitempty"`
 }
 
+type ClaimAgentExecutionJobRequest struct {
+	ProtocolVersion string          `json:"protocolVersion,omitempty"`
+	Capabilities    map[string]bool `json:"capabilities,omitempty"`
+}
+
+type AgentExecutionJobClaimRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+}
+
+type FailAgentExecutionJobRequest struct {
+	ClaimToken  string `json:"claimToken,omitempty"`
+	FailureCode string `json:"failureCode,omitempty"`
+	Retryable   bool   `json:"retryable,omitempty"`
+}
+
+type AgentExecutionJob struct {
+	JobId           string `json:"jobId,omitempty"`
+	TaskId          string `json:"taskId,omitempty"`
+	ProtocolVersion string `json:"protocolVersion,omitempty"`
+	State           string `json:"state,omitempty"`
+	Attempt         int    `json:"attempt,omitempty"`
+	MaximumAttempts int    `json:"maximumAttempts,omitempty"`
+	WorkerId        any    `json:"workerId,omitempty"`
+	ClaimEpoch      int64  `json:"claimEpoch,omitempty"`
+	LeaseExpiresAt  any    `json:"leaseExpiresAt,omitempty"`
+	AvailableAt     string `json:"availableAt,omitempty"`
+	StartedAt       any    `json:"startedAt,omitempty"`
+	CompletedAt     any    `json:"completedAt,omitempty"`
+	FailureCode     any    `json:"failureCode,omitempty"`
+	UpdatedAt       string `json:"updatedAt,omitempty"`
+}
+
+type AgentExecutionJobClaim struct {
+	ClaimToken     string            `json:"claimToken,omitempty"`
+	Job            AgentExecutionJob `json:"job,omitempty"`
+	LeaseExpiresAt string            `json:"leaseExpiresAt,omitempty"`
+	ClaimEpoch     int64             `json:"claimEpoch,omitempty"`
+}
+
 type AgentStepExecution struct {
 	PendingStepId    any `json:"pendingStepId,omitempty"`
 	PendingToolId    any `json:"pendingToolId,omitempty"`

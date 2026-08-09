@@ -3,6 +3,8 @@ package io.browsercloud.api;
 import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
+import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerJobNotFoundException;
+import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerRejectedException;
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
@@ -103,6 +105,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** 将领域异常转换为正式契约中的 Error Envelope，避免向客户端泄露堆栈。 */
 @RestControllerAdvice
@@ -580,6 +583,28 @@ public class GlobalExceptionHandler {
         request);
   }
 
+  @ExceptionHandler(AgentExecutionWorkerJobNotFoundException.class)
+  ResponseEntity<ApiError> agentExecutionWorkerJobNotFound(
+      AgentExecutionWorkerJobNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "AGENT_EXECUTION_JOB_NOT_FOUND",
+        "Agent execution job was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(AgentExecutionWorkerRejectedException.class)
+  ResponseEntity<ApiError> agentExecutionWorkerRejected(
+      AgentExecutionWorkerRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_EXECUTION_JOB_REJECTED",
+        "Agent execution worker request was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
   @ExceptionHandler(HumanGovernanceException.class)
   ResponseEntity<ApiError> humanGovernance(
       HumanGovernanceException exception, HttpServletRequest request) {
@@ -1033,8 +1058,28 @@ public class GlobalExceptionHandler {
     // SSE clients routinely disconnect or rotate long-lived connections after headers commit.
   }
 
+  @ExceptionHandler(NoResourceFoundException.class)
+  ResponseEntity<ApiError> routeNotFound(
+      NoResourceFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "ROUTE_NOT_FOUND",
+        "The requested API route does not exist",
+        Map.of(),
+        request);
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiError> internal(Exception exception, HttpServletRequest request) {
+    if (isAccessDenied(exception)) {
+      log.warn("Authenticated identity was denied by method security");
+      return response(
+          HttpStatus.FORBIDDEN,
+          "ROLE_FORBIDDEN",
+          "The authenticated identity lacks the required role",
+          Map.of(),
+          request);
+    }
     if (isDatabaseTransactionRetry(exception)) {
       log.warn("Authoritative database transaction must be retried after a transient conflict");
       return response(
@@ -1060,6 +1105,21 @@ public class GlobalExceptionHandler {
         "The request could not be completed",
         Map.of(),
         request);
+  }
+
+  private static boolean isAccessDenied(Throwable failure) {
+    Throwable current = failure;
+    for (int depth = 0; current != null && depth < 16; depth++) {
+      if (current instanceof AccessDeniedException
+          || current
+              .getClass()
+              .getName()
+              .equals("org.springframework.security.authorization.AuthorizationDeniedException")) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private boolean isDatabaseTransactionRetry(Throwable failure) {

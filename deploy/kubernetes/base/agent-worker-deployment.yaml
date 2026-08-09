@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-worker
+  namespace: browsercloud-system
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent-worker
+    spec:
+      runtimeClassName: agent-sandbox
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      nodeSelector:
+        browsercloud.io/workload: agent-worker
+      containers:
+        - name: agent-worker
+          image: ghcr.io/sshiong/agent-browser-cloud-agent-worker:0.1.0
+          args:
+            - --control-plane-url=https://control-plane.browsercloud-system.svc
+            - --control-plane-token-file=/var/run/browsercloud/identity/token
+            - --control-plane-ca-file=/var/run/browsercloud/ca/ca.crt
+            - --worker-id=$(POD_NAME)
+            - --environment=production
+            - --poll-seconds=2
+            - --heartbeat-seconds=15
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: identity
+              mountPath: /var/run/browsercloud/identity/token
+              subPath: token
+              readOnly: true
+            - name: control-plane-ca
+              mountPath: /var/run/browsercloud/ca/ca.crt
+              subPath: ca.crt
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            appArmorProfile:
+              type: RuntimeDefault
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: identity
+          secret:
+            secretName: agent-worker-identity
+            defaultMode: 0440
+        - name: control-plane-ca
+          secret:
+            secretName: control-plane-mtls
+            defaultMode: 0440
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: temporary
+          emptyDir:
+            sizeLimit: 16Mi

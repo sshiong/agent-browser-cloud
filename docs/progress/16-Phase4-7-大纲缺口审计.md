@@ -30,8 +30,8 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 
 1. 高级 Action Validation DSL：Network、Toast、Dialog、Visual、Login、
    Business Entity，以及 All/Any/Sequence/Negative 组合表达式。
-2. 独立 Agent Worker Sandbox。Planner/Executor 当前在 Control Plane 进程内运行，
-   没有独立 UID、无宿主权限 Worker、固定 IPC 和单独故障域。
+2. 独立 Agent Worker Sandbox 后续已由进度 113 以 PostgreSQL 队列、固定 IPC、
+   无宿主权限 Worker 和 Kata 故障域关闭；目标云强制证书仍是生产 Gate。
 3. Reviewer Agent、真实模型 Provider/模型治理和 Production-like Agent Replay。
    当前是受限规则 Planner，不是可处理任意网站目标的通用智能体。
 4. Challenge Detection 与一次性 HumanAssist。现有 HumanTakeover 是完整人工接管，

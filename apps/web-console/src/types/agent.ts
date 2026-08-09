@@ -65,10 +65,12 @@ export interface AgentTaskView {
   goal: string;
   state:
     | 'PLANNED'
+    | 'QUEUED'
     | 'AWAITING_CONFIRMATION'
     | 'BLOCKED'
     | 'RUNNING'
     | 'WAITING_FOR_HUMAN'
+    | 'PAUSED_BY_RESOURCE_POLICY'
     | 'COMPLETED'
     | 'FAILED';
   riskClass: AgentRiskClass;

@@ -1034,8 +1034,9 @@ function TaskRow({
   const completed = task.state === 'COMPLETED';
   const waiting =
     task.state === 'AWAITING_CONFIRMATION' ||
-    task.state === 'WAITING_FOR_HUMAN';
-  const running = task.state === 'RUNNING';
+    task.state === 'WAITING_FOR_HUMAN' ||
+    task.state === 'PAUSED_BY_RESOURCE_POLICY';
+  const running = task.state === 'RUNNING' || task.state === 'QUEUED';
   return (
     <button
       type="button"
@@ -1129,6 +1130,8 @@ function TaskInspector({
   const completed = task.state === 'COMPLETED';
   const awaitingConfirmation = task.state === 'AWAITING_CONFIRMATION';
   const waitingForHuman = task.state === 'WAITING_FOR_HUMAN';
+  const queued = task.state === 'QUEUED';
+  const resourcePaused = task.state === 'PAUSED_BY_RESOURCE_POLICY';
   const expiry = useMemo(
     () =>
       new Date(task.plan.expiresAt).toLocaleString('zh-CN', {
@@ -1146,7 +1149,7 @@ function TaskInspector({
               'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
               blocked
                 ? 'bg-danger/12 text-danger'
-                : awaitingConfirmation || waitingForHuman
+                : awaitingConfirmation || waitingForHuman || resourcePaused
                   ? 'bg-warning/12 text-warning'
                   : completed
                     ? 'bg-success/12 text-success'
@@ -1178,6 +1181,35 @@ function TaskInspector({
           />
         </dl>
       </div>
+
+      {queued && (
+        <div className="border-b border-accent/20 bg-accent/5 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <LoaderCircle
+              className="mt-0.5 shrink-0 animate-spin text-accent"
+              size={15}
+            />
+            <div>
+              <p className="text-[11px] font-semibold text-accent">
+                已进入隔离 Agent Worker 队列
+              </p>
+              <p className="mt-1 text-[9px] leading-4 text-text-secondary">
+                PostgreSQL Claim / Lease / Epoch 正在调度。Worker
+                只接收不透明任务标识；计划、网页数据与 Capability Token
+                不会跨越故障域。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resourcePaused && (
+        <div className="border-b border-warning/20 bg-warning/5 px-5 py-4">
+          <p className="text-[11px] font-semibold text-warning">
+            Agent 已被资源策略暂停，浏览器会话仍保持运行
+          </p>
+        </div>
+      )}
 
       {task.state === 'RUNNING' && (
         <div className="border-b border-accent/20 bg-accent/5 px-5 py-4">

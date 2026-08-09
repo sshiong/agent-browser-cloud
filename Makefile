@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -25,6 +25,7 @@ build:
 	python3 -m py_compile apps/validation-worker/runtime_validation_runner.py
 	python3 -m py_compile apps/gameday-worker/gameday_worker.py
 	python3 -m py_compile apps/gameday-worker/gameday_runner.py
+	python3 -m py_compile apps/agent-worker/agent_worker.py
 
 # Build the shared Web UI and native desktop binary without producing unsigned installers.
 build-desktop:
@@ -38,6 +39,7 @@ test:
 	$(MAKE) test-application-adapter
 	$(MAKE) test-validation-worker
 	$(MAKE) test-gameday-worker
+	$(MAKE) test-agent-worker
 
 # Verify the dependency-free, least-privilege Provider/Lease integration runtime.
 test-application-adapter:
@@ -49,6 +51,10 @@ test-validation-worker:
 
 test-gameday-worker:
 	python3 -m unittest discover -s apps/gameday-worker -p 'test_*.py' -v
+
+# Verify the data-minimized fixed-protocol Agent execution dispatcher.
+test-agent-worker:
+	python3 -m unittest discover -s apps/agent-worker -p 'test_*.py' -v
 
 # Run native desktop security-boundary unit tests.
 test-desktop:
@@ -113,7 +119,7 @@ sdk-multilang-generate:
 	pnpm --package=@redocly/cli@1.34.0 dlx redocly bundle packages/contracts/openapi/session-api.yaml --output build/sdk/session-api.json
 	python3 tools/sdk/generate_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 
-# All 180 operations, 238 public schemas and generated file hashes must remain exact.
+# All 185 operations, 243 public schemas and generated file hashes must remain exact.
 sdk-multilang-check: sdk-multilang-generate
 	python3 tools/sdk/verify_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 	git diff --exit-code -- sdks/python/browsercloud/generated_client.py sdks/python/browsercloud/generated_models.py sdks/go/browsercloud/generated sdks/java/src/main/java/io/browsercloud/sdk/generated sdks/generated-multilang-manifest.json
@@ -139,6 +145,7 @@ docker-build:
 	docker build -f apps/application-adapter/Dockerfile -t application-adapter:latest apps/application-adapter
 	docker build -f apps/validation-worker/Dockerfile -t validation-worker:latest apps/validation-worker
 	docker build -f apps/gameday-worker/Dockerfile -t gameday-worker:latest apps/gameday-worker
+	docker build -f apps/agent-worker/Dockerfile -t agent-worker:latest apps/agent-worker
 
 # Validate production release bundle invariants
 supply-chain-check:

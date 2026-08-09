@@ -3821,6 +3821,143 @@ tool_capability_uses="$(docker exec "$postgres_name" psql -U browsercloud -d bro
   "select count(*) from tool_capability_uses where task_id='${read_agent_task_id}'")"
 test "$tool_capability_uses" = "3"
 
+# Production-mode Agent execution must cross the independent, opaque Worker queue. Run a second
+# Control Plane with the production dispatch flag so existing direct-executor fault injection above
+# remains deterministic while this proves cross-shard routing, Claim Token fencing and the real
+# dependency-free Worker process against the same PostgreSQL authority.
+DATABASE_URL="jdbc:postgresql://localhost:${postgres_port}/browsercloud" \
+DATABASE_USER=browsercloud \
+DATABASE_PASSWORD=browsercloud \
+REDIS_HOST=localhost \
+REDIS_PORT="$redis_port" \
+BROWSER_NODE_GRPC_TARGET="localhost:${node_port}" \
+BROWSER_DENSITY_BOOTSTRAP_LOCAL_NODE_ENABLED=false \
+CONTROL_PLANE_NODE_EVENT_PORT="$event_b_port" \
+GRPC_TLS_ENABLED=true \
+GRPC_TLS_CA_CERT="$temp_dir/ca.crt" \
+GRPC_TLS_CERT="$temp_dir/control-plane.crt" \
+GRPC_TLS_KEY="$temp_dir/control-plane.key" \
+BROWSER_NODE_TLS_SERVER_NAME=browser-node.internal \
+PROXY_PROVIDER_CONFIG_FILE="$temp_dir/proxy-provider-config.json" \
+COORDINATOR_INSTANCE_ID=coordinator-agent-worker-integration \
+COORDINATOR_LEASE_SECONDS=3 \
+AGENT_EXECUTOR_LEASE_SECONDS=2 \
+AGENT_EXTERNAL_WORKER_ENABLED=true \
+AGENT_WORKER_CLAIM_LEASE_SECONDS=30 \
+RESOURCE_POLICY_COST_TREND_INTERVAL_MS=1000 \
+SERVER_PORT="$control_b_port" \
+  "$java_bin" -jar apps/control-plane/build/libs/agent-browser-cloud-0.1.0.jar \
+  >"$temp_dir/control-plane-b.log" 2>&1 &
+control_b_pid=$!
+
+control_b_health=""
+for _ in $(seq 1 90); do
+  control_b_health="$(curl -fsS \
+    "http://localhost:${control_b_port}/actuator/health" 2>/dev/null || true)"
+  if printf '%s' "$control_b_health" | grep -q '"status":"UP"'; then break; fi
+  if ! kill -0 "$control_b_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.5
+done
+printf '%s' "$control_b_health" | grep -q '"status":"UP"'
+
+external_agent_task="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-external-agent-task-001' \
+  -d '{"goal":"Summarize the current page through the isolated worker","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+external_agent_task_id="$(printf '%s' "$external_agent_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "PLANNED"; print(task["taskId"])')"
+external_agent_queued="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${external_agent_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-external-agent-execute-001')"
+printf '%s' "$external_agent_queued" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "QUEUED"; assert task["operationId"] is None'
+worker_claim_forbidden="$(curl -sS -o "$temp_dir/agent-worker-forbidden.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-worker-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"protocolVersion":"agent-worker/v1","capabilities":{"task-drive-v1":true}}')"
+if [[ "$worker_claim_forbidden" != "403" ]]; then
+  echo "Tenant Operator Agent Worker claim returned HTTP ${worker_claim_forbidden}" >&2
+  cat "$temp_dir/agent-worker-forbidden.json" >&2
+  exit 1
+fi
+external_agent_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-worker-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: agent-worker-manual' \
+  -H 'X-Roles: AGENT_WORKER' \
+  -d '{"protocolVersion":"agent-worker/v1","capabilities":{"task-drive-v1":true}}')"
+read -r external_agent_job_id external_agent_claim_token < <(printf '%s' "$external_agent_claim" | python3 -c \
+  'import json,sys; claim=json.load(sys.stdin); raw=json.dumps(claim); assert "plan" not in raw and "prompt" not in raw and "capabilityToken" not in raw; assert claim["job"]["state"] == "CLAIMED"; print(claim["job"]["jobId"], claim["claimToken"])')
+bad_worker_token="$(printf 'b%.0s' {1..43})"
+worker_bad_token_status="$(curl -sS -o "$temp_dir/agent-worker-bad-token.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-worker-jobs/${external_agent_job_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: agent-worker-manual' \
+  -H 'X-Roles: AGENT_WORKER' \
+  -d "{\"claimToken\":\"${bad_worker_token}\"}")"
+test "$worker_bad_token_status" = "409"
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-worker-jobs/${external_agent_job_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: agent-worker-manual' \
+  -H 'X-Roles: AGENT_WORKER' \
+  -d "{\"claimToken\":\"${external_agent_claim_token}\"}" >/dev/null
+external_agent_driven="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-worker-jobs/${external_agent_job_id}:drive" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: agent-worker-manual' \
+  -H 'X-Roles: AGENT_WORKER' \
+  -d "{\"claimToken\":\"${external_agent_claim_token}\"}")"
+printf '%s' "$external_agent_driven" | python3 -c \
+  'import json,sys; job=json.load(sys.stdin); assert job["state"] == "COMMITTED"; assert job["workerId"] is None; assert job["leaseExpiresAt"] is None'
+
+worker_process_task="$(curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/sessions/${session_one}/agent-tasks" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-worker-process-task-001' \
+  -d '{"goal":"Read the page through the real worker process","allowedDomains":["example.test"],"maxActions":8,"replanBudget":1}')"
+worker_process_task_id="$(printf '%s' "$worker_process_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_b_port}/api/v1/agent-tasks/${worker_process_task_id}:execute" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-worker-process-execute-001' \
+  | python3 -c 'import json,sys; assert json.load(sys.stdin)["state"] == "QUEUED"'
+printf '%s\n' 'local-agent-worker-token-unused' >"$temp_dir/agent-worker-token"
+chmod 600 "$temp_dir/agent-worker-token"
+python3 apps/agent-worker/agent_worker.py \
+  --control-plane-url="http://127.0.0.1:${control_b_port}" \
+  --control-plane-token-file="$temp_dir/agent-worker-token" \
+  --worker-id=agent-worker-process \
+  --environment=test \
+  --heartbeat-seconds=5 \
+  --once
+worker_process_result="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/agent-tasks/${worker_process_task_id}" \
+  -H 'X-Tenant-Id: tenant-integration')"
+printf '%s' "$worker_process_result" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] == "COMPLETED"; assert len(task["executionResults"]) == 3'
+external_worker_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(event_type, ',' order by event_id) from agent_execution_job_events where job_id='${external_agent_job_id}'")"
+test "$external_worker_audit" = "ENQUEUED,CLAIMED,STARTED,COMMITTED"
+external_worker_secret_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_execution_jobs where claim_token_hash is not null or worker_id is not null")"
+test "$external_worker_secret_rows" = "0"
+
+kill "$control_b_pid" 2>/dev/null || true
+wait "$control_b_pid" 2>/dev/null || true
+control_b_pid=""
+
 session_evidence=""
 for _ in $(seq 1 40); do
   session_evidence="$(curl -fsS \
@@ -4141,7 +4278,9 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-test "$committed_operations" = "13"
+# The isolated Worker section above commits two additional AGENT_EXECUTE operations for this
+# Session: one through the fixed IPC manually and one through the real Python Worker process.
+test "$committed_operations" = "15"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "4"

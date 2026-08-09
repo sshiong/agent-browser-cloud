@@ -45,6 +45,7 @@ public final class AgentModels {
 
   public enum TaskState {
     PLANNED,
+    QUEUED,
     AWAITING_CONFIRMATION,
     BLOCKED,
     RUNNING,

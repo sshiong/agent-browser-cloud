@@ -69,6 +69,16 @@ public final class Models {
 
   public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
 
+  public record ClaimAgentExecutionJobRequest(String protocolVersion, Map<String, Boolean> capabilities) {}
+
+  public record AgentExecutionJobClaimRequest(String claimToken) {}
+
+  public record FailAgentExecutionJobRequest(String claimToken, String failureCode, Boolean retryable) {}
+
+  public record AgentExecutionJob(String jobId, String taskId, String protocolVersion, String state, Integer attempt, Integer maximumAttempts, Object workerId, Long claimEpoch, Object leaseExpiresAt, String availableAt, Object startedAt, Object completedAt, Object failureCode, String updatedAt) {}
+
+  public record AgentExecutionJobClaim(String claimToken, AgentExecutionJob job, String leaseExpiresAt, Long claimEpoch) {}
+
   public record AgentStepExecution(Object pendingStepId, Object pendingToolId, Object baseStateVersion, Object baseContentHash, Object deadline, Object leaseUntil, Object replanReason) {}
 
   public record AgentConfirmation(Object confirmationId, Object status, Object expiresAt, Object decidedAt, Object actorId, Object evidenceHash) {}

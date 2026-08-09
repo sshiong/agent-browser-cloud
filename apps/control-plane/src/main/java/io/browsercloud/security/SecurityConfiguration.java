@@ -110,6 +110,7 @@ public class SecurityConfiguration {
                       || role.equals("APPLICATION_ADAPTER")
                       || role.equals("VALIDATION_WORKER")
                       || role.equals("GAMEDAY_WORKER")
+                      || role.equals("AGENT_WORKER")
                       || role.equals("SECURITY_ADMIN")
                       || role.equals("PLATFORM_ADMIN"))
           .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))

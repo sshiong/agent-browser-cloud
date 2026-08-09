@@ -30,9 +30,13 @@ export function useAgentTasks() {
     queryFn: ({ signal }) => listAgentTasks(undefined, signal),
     refetchInterval: (query) =>
       query.state.data?.items.some((task) =>
-        ['RUNNING', 'AWAITING_CONFIRMATION', 'WAITING_FOR_HUMAN'].includes(
-          task.state
-        )
+        [
+          'QUEUED',
+          'RUNNING',
+          'AWAITING_CONFIRMATION',
+          'WAITING_FOR_HUMAN',
+          'PAUSED_BY_RESOURCE_POLICY',
+        ].includes(task.state)
       )
         ? 2_000
         : 5_000,
@@ -51,9 +55,13 @@ export function useAgentTaskSummaries() {
       const firstPage = pages?.[0];
       if (!firstPage || pages.length !== 1) return false;
       return firstPage.items.some((task) =>
-        ['RUNNING', 'AWAITING_CONFIRMATION', 'WAITING_FOR_HUMAN'].includes(
-          task.state
-        )
+        [
+          'QUEUED',
+          'RUNNING',
+          'AWAITING_CONFIRMATION',
+          'WAITING_FOR_HUMAN',
+          'PAUSED_BY_RESOURCE_POLICY',
+        ].includes(task.state)
       )
         ? 2_000
         : false;
@@ -68,9 +76,13 @@ export function useAgentTask(taskId: string) {
     enabled: Boolean(taskId),
     refetchInterval: (query) =>
       query.state.data &&
-      ['RUNNING', 'AWAITING_CONFIRMATION', 'WAITING_FOR_HUMAN'].includes(
-        query.state.data.state
-      )
+      [
+        'QUEUED',
+        'RUNNING',
+        'AWAITING_CONFIRMATION',
+        'WAITING_FOR_HUMAN',
+        'PAUSED_BY_RESOURCE_POLICY',
+      ].includes(query.state.data.state)
         ? 2_000
         : false,
   });

@@ -100,6 +100,11 @@ public final class BrowserCloudGeneratedClient {
     operation("listAgentTaskSummaries", "GET", "/api/v1/agent-task-summaries", List.of(), List.of("cursor", "limit"), List.of("X-Tenant-Id"), "", false, "AgentTaskSummaryListResponse"),
     operation("getAgentTask", "GET", "/api/v1/agent-tasks/{taskId}", List.of("taskId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentTask"),
     operation("executeAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:execute", List.of("taskId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "", false, "AgentTask"),
+    operation("claimAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs:claim", List.of(), List.of(), List.of(), "ClaimAgentExecutionJobRequest", true, "AgentExecutionJobClaim"),
+    operation("startAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs/{jobId}:start", List.of("jobId"), List.of(), List.of(), "AgentExecutionJobClaimRequest", true, "AgentExecutionJob"),
+    operation("heartbeatAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "AgentExecutionJobClaimRequest", true, "AgentExecutionJob"),
+    operation("driveAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs/{jobId}:drive", List.of("jobId"), List.of(), List.of(), "AgentExecutionJobClaimRequest", true, "AgentExecutionJob"),
+    operation("failAgentExecutionJob", "POST", "/api/v1/agent-worker-jobs/{jobId}:fail", List.of("jobId"), List.of(), List.of(), "FailAgentExecutionJobRequest", true, "AgentExecutionJob"),
     operation("approveAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:approve", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("rejectAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:reject", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("acceptAgentHandoff", "POST", "/api/v1/agent-tasks/{taskId}:accept-handoff", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
@@ -312,6 +317,11 @@ public final class BrowserCloudGeneratedClient {
   public Response listAgentTaskSummaries(Request request) { return call("listAgentTaskSummaries", request); }
   public Response getAgentTask(Request request) { return call("getAgentTask", request); }
   public Response executeAgentTask(Request request) { return call("executeAgentTask", request); }
+  public Response claimAgentExecutionJob(Request request) { return call("claimAgentExecutionJob", request); }
+  public Response startAgentExecutionJob(Request request) { return call("startAgentExecutionJob", request); }
+  public Response heartbeatAgentExecutionJob(Request request) { return call("heartbeatAgentExecutionJob", request); }
+  public Response driveAgentExecutionJob(Request request) { return call("driveAgentExecutionJob", request); }
+  public Response failAgentExecutionJob(Request request) { return call("failAgentExecutionJob", request); }
   public Response approveAgentTask(Request request) { return call("approveAgentTask", request); }
   public Response rejectAgentTask(Request request) { return call("rejectAgentTask", request); }
   public Response acceptAgentHandoff(Request request) { return call("acceptAgentHandoff", request); }

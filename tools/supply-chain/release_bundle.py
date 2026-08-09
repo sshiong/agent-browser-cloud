@@ -21,6 +21,7 @@ COMPONENTS = {
     "application-adapter": "ghcr.io/sshiong/agent-browser-cloud-application-adapter",
     "validation-worker": "ghcr.io/sshiong/agent-browser-cloud-validation-worker",
     "gameday-worker": "ghcr.io/sshiong/agent-browser-cloud-gameday-worker",
+    "agent-worker": "ghcr.io/sshiong/agent-browser-cloud-agent-worker",
 }
 REFERENCE_PATTERN = re.compile(
     r"^(?P<repository>[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+)"

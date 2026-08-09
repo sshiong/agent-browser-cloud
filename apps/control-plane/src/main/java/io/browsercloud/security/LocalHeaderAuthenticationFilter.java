@@ -27,6 +27,7 @@ public final class LocalHeaderAuthenticationFilter extends OncePerRequestFilter 
           "APPLICATION_ADAPTER",
           "VALIDATION_WORKER",
           "GAMEDAY_WORKER",
+          "AGENT_WORKER",
           "SECURITY_ADMIN",
           "PLATFORM_ADMIN");
 

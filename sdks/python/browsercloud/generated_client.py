@@ -110,6 +110,11 @@ OPERATIONS: dict[str, Operation] = {
     'listAgentTaskSummaries': Operation('listAgentTaskSummaries', 'GET', '/api/v1/agent-task-summaries', (), ('cursor', 'limit'), ('X-Tenant-Id',), '', False, 'AgentTaskSummaryListResponse'),
     'getAgentTask': Operation('getAgentTask', 'GET', '/api/v1/agent-tasks/{taskId}', ('taskId',), (), ('X-Tenant-Id',), '', False, 'AgentTask'),
     'executeAgentTask': Operation('executeAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:execute', ('taskId',), (), ('Idempotency-Key', 'X-Tenant-Id'), '', False, 'AgentTask'),
+    'claimAgentExecutionJob': Operation('claimAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs:claim', (), (), (), 'ClaimAgentExecutionJobRequest', True, 'AgentExecutionJobClaim'),
+    'startAgentExecutionJob': Operation('startAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs/{jobId}:start', ('jobId',), (), (), 'AgentExecutionJobClaimRequest', True, 'AgentExecutionJob'),
+    'heartbeatAgentExecutionJob': Operation('heartbeatAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'AgentExecutionJobClaimRequest', True, 'AgentExecutionJob'),
+    'driveAgentExecutionJob': Operation('driveAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs/{jobId}:drive', ('jobId',), (), (), 'AgentExecutionJobClaimRequest', True, 'AgentExecutionJob'),
+    'failAgentExecutionJob': Operation('failAgentExecutionJob', 'POST', '/api/v1/agent-worker-jobs/{jobId}:fail', ('jobId',), (), (), 'FailAgentExecutionJobRequest', True, 'AgentExecutionJob'),
     'approveAgentTask': Operation('approveAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:approve', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'rejectAgentTask': Operation('rejectAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:reject', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'acceptAgentHandoff': Operation('acceptAgentHandoff', 'POST', '/api/v1/agent-tasks/{taskId}:accept-handoff', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
@@ -497,6 +502,21 @@ class BrowserCloudGeneratedClient:
 
     def executeAgentTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('executeAgentTask', path=path, query=query, body=body, headers=headers)
+
+    def claimAgentExecutionJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('claimAgentExecutionJob', path=path, query=query, body=body, headers=headers)
+
+    def startAgentExecutionJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startAgentExecutionJob', path=path, query=query, body=body, headers=headers)
+
+    def heartbeatAgentExecutionJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('heartbeatAgentExecutionJob', path=path, query=query, body=body, headers=headers)
+
+    def driveAgentExecutionJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('driveAgentExecutionJob', path=path, query=query, body=body, headers=headers)
+
+    def failAgentExecutionJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('failAgentExecutionJob', path=path, query=query, body=body, headers=headers)
 
     def approveAgentTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('approveAgentTask', path=path, query=query, body=body, headers=headers)

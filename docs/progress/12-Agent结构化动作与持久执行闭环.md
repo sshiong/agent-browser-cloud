@@ -115,6 +115,6 @@ make test-e2e
 | 缺口 | 说明 |
 |---|---|
 | 高级 Validation DSL | 尚未实现 Network、Toast、Dialog、Visual、Login、Business Entity 以及 All/Any/Sequence/Negative 组合表达式 |
-| 独立 Agent Worker Sandbox | 当前为 Control Plane 内受限规则 Planner/Executor，尚未拆成无宿主权限的独立 Worker |
+| 独立 Agent Worker Sandbox | 后续已由进度 113 以 PostgreSQL 队列、固定 IPC、独立 Worker 与 Kata 故障域关闭；Planner/Reviewer/真实模型治理仍是后续项 |
 | 通用 Workflow DeadLetter | Agent Deadline 能终止并恢复活性，但跨领域 DLQ、复杂 Compensation 和全局 Scheduler 尚未实现 |
 | 生产级取消语义 | 尚无对已下发 Node 动作的协作取消协议；当前以 Deadline、Operation 抢占和 Fail Closed 为主 |

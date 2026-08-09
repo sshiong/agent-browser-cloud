@@ -332,6 +332,24 @@ public class AgentTaskEntity {
     this.lastError = null;
   }
 
+  public void queueForExternalWorker(Instant now) {
+    if (!"PLANNED".equals(state)) return;
+    this.state = "QUEUED";
+    this.updatedAt = now;
+    this.lastError = null;
+  }
+
+  public void releaseExternalWorkerQueue(Instant now) {
+    if (!"QUEUED".equals(state)) return;
+    this.state = "PLANNED";
+    this.updatedAt = now;
+  }
+
+  public void failExternalWorkerQueue(String error, Instant now) {
+    if (!"QUEUED".equals(state) && !"PLANNED".equals(state)) return;
+    failExecution(this.currentStep, this.executionResults, error, now);
+  }
+
   public void markAsyncPending(
       int stepIndex,
       String stepId,

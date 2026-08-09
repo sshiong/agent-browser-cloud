@@ -379,11 +379,27 @@ public final class Models {
 
   public record SecureDebugSnapshot(String debugSessionId, String sessionId, String sessionState, Object runtimeBuildId, Integer contextEpoch, Integer browserGeneration, Integer networkRevision, Object urlOrigin, Integer stateVersion, Integer targetRevision, String stateQuality, Object stateHash, Integer interactiveTargetCount, Integer sensitiveTargetCount, String capturedAt, Integer accessCount, String accessEvidenceHash, String dataClassification, String fieldProjection) {}
 
-  public record StartRuntimeValidationRequest(String buildId, String suiteVersion, String environmentDigest, String replayDatasetId, String persona) {}
+  public record StartRuntimeValidationRequest(String buildId, String suiteVersion, String environmentDigest, String replayDatasetId, String persona, String browserEngine, String browserVersion, String operatingSystem, String architecture, BooleanMap requiredWorkerCapabilities, Integer maximumAttempts) {}
+
+  public record RuntimeValidationMatrixCellRequest(String environmentDigest, String browserEngine, String browserVersion, String operatingSystem, String architecture, BooleanMap requiredWorkerCapabilities, Integer maximumAttempts) {}
+
+  public record StartRuntimeValidationMatrixRequest(String buildId, String suiteVersion, String replayDatasetId, String persona, List<RuntimeValidationMatrixCellRequest> cells) {}
 
   public record CompleteRuntimeValidationRequest(Integer requiredTests, Integer requiredFailures, Integer optionalTests, Integer optionalFailures, BooleanMap declaredCapabilities, BooleanMap observedCapabilities, List<String> optionalFailureCodes, Boolean personaConsistent) {}
 
-  public record RuntimeValidation(String validationId, String buildId, String suiteVersion, String environmentDigest, String replayDatasetId, String persona, String state, Integer requiredTests, Integer requiredFailures, Integer optionalTests, Integer optionalFailures, BooleanMap declaredCapabilities, BooleanMap observedCapabilities, List<String> optionalFailureCodes, Object evidenceHash, String requestedBy, String startedAt, Object completedAt) {}
+  public record RuntimeValidation(String validationId, String buildId, String suiteVersion, String environmentDigest, String replayDatasetId, String persona, String state, Integer requiredTests, Integer requiredFailures, Integer optionalTests, Integer optionalFailures, BooleanMap declaredCapabilities, BooleanMap observedCapabilities, List<String> optionalFailureCodes, Object evidenceHash, String requestedBy, String startedAt, Object completedAt, Object job) {}
+
+  public record RuntimeValidationJob(String validationId, String browserEngine, String browserVersion, String operatingSystem, String architecture, BooleanMap requiredWorkerCapabilities, String state, Integer attempt, Integer maximumAttempts, Object workerId, Long claimEpoch, String availableAt, Object leaseExpiresAt, Object lastHeartbeatAt, Object failureCode, Object resultHash, String updatedAt) {}
+
+  public record ClaimRuntimeValidationJobRequest(String browserEngine, List<String> browserVersions, String operatingSystem, String architecture, BooleanMap capabilities) {}
+
+  public record RuntimeValidationJobClaimRequest(String claimToken) {}
+
+  public record RuntimeValidationJobClaim(String claimToken, RuntimeValidation validation, String leaseExpiresAt, Long claimEpoch) {}
+
+  public record CompleteRuntimeValidationJobRequest(String claimToken, CompleteRuntimeValidationRequest result) {}
+
+  public record FailRuntimeValidationJobRequest(String claimToken, String failureCode, Boolean retryable) {}
 
   public record CreateCostRateRequest(String region, ResourceTemplate resourceTemplate, Double baseHourlyUsd, Double cpuCoreHourlyUsd, Double memoryGibHourlyUsd, Double desktopHourlyUsd, Double gpuHourlyUsd, Double mediaHourlyUsd, String effectiveAt) {}
 

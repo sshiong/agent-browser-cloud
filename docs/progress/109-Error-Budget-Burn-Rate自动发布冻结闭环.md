@@ -23,8 +23,8 @@
 6. 新增 `GET /api/v1/enterprise/release-freeze`，并将当前 Gate 投影到 Enterprise
    Overview。Web/Tauri 共用企业运营页面展示当前阶段、Burn Rate、冻结/恢复阈值、
    观察窗口、原因、评估时间和版本，不伪造状态。
-7. 正式 OpenAPI 和 TypeScript/Python/Go/Java SDK 已重新生成；当前契约为 160 个唯一
-   Operation、216 个公开 Schema，TypeScript 为 250 个服务方法、32 个服务和 233 个
+7. 正式 OpenAPI 和 TypeScript/Python/Go/Java SDK 已重新生成；当前契约为 166 个唯一
+   Operation、224 个公开 Schema，TypeScript 为 262 个服务方法、32 个服务和 241 个
    Model。V075 的加法迁移和新增可选 JSON 字段进入 N/N-1 Gate。
 
 ## 安全与可靠性语义

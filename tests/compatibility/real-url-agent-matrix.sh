@@ -203,6 +203,23 @@ for _ in $(seq 1 120); do
 done
 printf '%s' "$health" | grep -q '"status":"UP"'
 
+browser_nodes=""
+for _ in $(seq 1 60); do
+  browser_nodes="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/browser-nodes" \
+    -H 'X-Tenant-Id: tenant-real-url' \
+    -H 'X-Roles: TENANT_ADMIN' 2>/dev/null || true)"
+  if printf '%s' "$browser_nodes" | python3 -c \
+    'import json,sys; items=json.load(sys.stdin)["items"]; node=next(item for item in items if item["nodeId"] == "node_real_url"); assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["proxyProviderDescriptor"] == "v1"' \
+    2>/dev/null; then
+    break
+  fi
+  if ! kill -0 "$node_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.25
+done
+printf '%s' "$browser_nodes" | python3 -c \
+  'import json,sys; items=json.load(sys.stdin)["items"]; node=next(item for item in items if item["nodeId"] == "node_real_url"); assert node["admissionState"] == "OPEN"; assert node["labels"]["proxyProviderDescriptor"] == "v1"'
+
 BROWSER_VERSION="$("$chromium_path" --version 2>/dev/null || echo unknown)" \
 python3 "$repo_root/tests/compatibility/real_url_agent_matrix.py" \
   "http://localhost:${control_port}" \

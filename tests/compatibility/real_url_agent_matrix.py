@@ -6,6 +6,7 @@ import hashlib
 import os
 import pathlib
 import platform
+import re
 import sys
 import time
 import urllib.error
@@ -42,17 +43,27 @@ def request(
     if actor_id:
         headers["X-Actor-Id"] = actor_id
     data = None if body is None else json.dumps(body).encode()
-    call = urllib.request.Request(
-        BASE_URL + path, data=data, headers=headers, method=method
-    )
-    try:
-        with urllib.request.urlopen(call, timeout=20) as response:
-            payload = response.read()
-            return response.status, json.loads(payload) if payload else None
-    except urllib.error.HTTPError as error:
-        payload = error.read()
-        parsed = json.loads(payload) if payload else None
-        return error.code, parsed
+    for attempt in range(3):
+        call = urllib.request.Request(
+            BASE_URL + path, data=data, headers=headers, method=method
+        )
+        try:
+            with urllib.request.urlopen(call, timeout=20) as response:
+                payload = response.read()
+                return response.status, json.loads(payload) if payload else None
+        except urllib.error.HTTPError as error:
+            payload = error.read()
+            parsed = json.loads(payload) if payload else None
+            if (
+                error.code == 503
+                and isinstance(parsed, dict)
+                and parsed.get("code") == "DATABASE_TRANSACTION_RETRY"
+                and attempt < 2
+            ):
+                time.sleep(0.1 * (attempt + 1))
+                continue
+            return error.code, parsed
+    raise AssertionError("database retry loop exhausted without a response")
 
 
 def require_status(actual, expected, context):
@@ -73,17 +84,47 @@ def wait_for(path, predicate, timeout=45):
     raise AssertionError(f"timed out polling {path}: {last}")
 
 
+def wait_for_executable_state(session_id, timeout=45):
+    path = f"/api/v1/sessions/{session_id}/state"
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        status, state = request("GET", path)
+        if status == 204:
+            last = None
+        elif status == 200:
+            last = state
+            if state.get("stateQuality") in {"COMPLETE", "DEPTH_LIMITED"}:
+                return state
+        else:
+            raise AssertionError(
+                f"poll {path}: expected HTTP 200 or 204, got {status}: {state}"
+            )
+        time.sleep(0.25)
+    raise AssertionError(f"timed out polling executable state {path}: {last}")
+
+
 def create_execute_task(session_id, body, label, terminal_states=("COMPLETED",)):
-    created = require_status(
-        request(
-            "POST",
-            f"/api/v1/sessions/{session_id}/agent-tasks",
-            body,
-            f"real-{label}-create-{uuid.uuid4().hex}",
-        ),
-        201,
-        f"create Agent task {label}",
-    )
+    created = None
+    for _ in range(3):
+        wait_for_executable_state(session_id)
+        created = require_status(
+            request(
+                "POST",
+                f"/api/v1/sessions/{session_id}/agent-tasks",
+                body,
+                f"real-{label}-create-{uuid.uuid4().hex}",
+            ),
+            201,
+            f"create Agent task {label}",
+        )
+        if not (
+            created.get("state") == "BLOCKED"
+            and created.get("blockedReason") == "STATE_QUALITY_NOT_EXECUTABLE"
+        ):
+            break
+    if created is None:
+        raise AssertionError(f"Agent task {label} was not created")
     if created["state"] != "PLANNED":
         raise AssertionError(f"Agent task {label} was not planned: {created}")
     task_id = created["taskId"]
@@ -115,11 +156,7 @@ def require_verified(task, expected_tools):
 
 
 def current_state(session_id):
-    return require_status(
-        request("GET", f"/api/v1/sessions/{session_id}/state"),
-        200,
-        "read browser state",
-    )
+    return wait_for_executable_state(session_id)
 
 
 session = require_status(
@@ -317,8 +354,12 @@ wait_for(
     f"/api/v1/sessions/{session_id}",
     lambda item: item["state"] == "TERMINATED",
 )
+browser_product = os.environ.get("BROWSER_VERSION", "unknown")
+browser_version_match = re.search(r"\b\d+(?:\.\d+){1,3}\b", browser_product)
+browser_version = browser_version_match.group(0) if browser_version_match else "unknown"
 environment_facts = {
-    "browserVersion": os.environ.get("BROWSER_VERSION", "unknown"),
+    "browserProduct": browser_product,
+    "browserVersion": browser_version,
     "datasetDigest": f"sha256:{DATASET_DIGEST}",
     "os": platform.platform(),
 }
@@ -335,6 +376,18 @@ validation = require_status(
             "environmentDigest": environment_digest,
             "replayDatasetId": DATASET["datasetId"],
             "persona": DATASET["persona"],
+            "browserEngine": "chromium",
+            "browserVersion": environment_facts["browserVersion"],
+            "operatingSystem": "macos" if platform.system() == "Darwin" else platform.system().lower(),
+            "architecture": {"x86_64": "amd64", "aarch64": "arm64"}.get(
+                platform.machine().lower(), platform.machine().lower()
+            ),
+            "requiredWorkerCapabilities": {
+                "agentControl": True,
+                "cdp": True,
+                "stateCollector": True,
+            },
+            "maximumAttempts": 3,
         },
         tenant="platform-control",
         roles="PLATFORM_ADMIN",
@@ -343,36 +396,81 @@ validation = require_status(
     200,
     "start Build-bound Runtime Validation",
 )
+validation_claim = require_status(
+    request(
+        "POST",
+        "/api/v1/enterprise/runtime-validation-jobs:claim",
+        {
+            "browserEngine": "chromium",
+            "browserVersions": [environment_facts["browserVersion"]],
+            "operatingSystem": "macos" if platform.system() == "Darwin" else platform.system().lower(),
+            "architecture": {"x86_64": "amd64", "aarch64": "arm64"}.get(
+                platform.machine().lower(), platform.machine().lower()
+            ),
+            "capabilities": {
+                "agentControl": True,
+                "cdp": True,
+                "stateCollector": True,
+            },
+        },
+        tenant="platform-control",
+        roles="VALIDATION_WORKER",
+        actor_id="validation-worker-real-url",
+    ),
+    200,
+    "claim Build-bound Runtime Validation",
+)
+if validation_claim["validation"]["validationId"] != validation["validationId"]:
+    raise AssertionError(f"claimed a different Runtime Validation: {validation_claim}")
+require_status(
+    request(
+        "POST",
+        f"/api/v1/enterprise/runtime-validation-jobs/{validation['validationId']}:start",
+        {"claimToken": validation_claim["claimToken"]},
+        tenant="platform-control",
+        roles="VALIDATION_WORKER",
+        actor_id="validation-worker-real-url",
+    ),
+    200,
+    "start claimed Runtime Validation job",
+)
 validation = require_status(
     request(
         "POST",
-        f"/api/v1/enterprise/runtime-validations/{validation['validationId']}:complete",
+        f"/api/v1/enterprise/runtime-validation-jobs/{validation['validationId']}:complete",
         {
-            "requiredTests": len(DATASET["cases"]),
-            "requiredFailures": 0,
-            "optionalTests": 0,
-            "optionalFailures": 0,
-            "declaredCapabilities": {
-                "agentControl": True,
-                "cdp": True,
-                "stateCollector": True,
+            "claimToken": validation_claim["claimToken"],
+            "result": {
+                "requiredTests": len(DATASET["cases"]),
+                "requiredFailures": 0,
+                "optionalTests": 0,
+                "optionalFailures": 0,
+                "declaredCapabilities": {
+                    "agentControl": True,
+                    "cdp": True,
+                    "stateCollector": True,
+                },
+                "observedCapabilities": {
+                    "agentControl": True,
+                    "cdp": True,
+                    "stateCollector": True,
+                },
+                "optionalFailureCodes": [],
+                "personaConsistent": True,
             },
-            "observedCapabilities": {
-                "agentControl": True,
-                "cdp": True,
-                "stateCollector": True,
-            },
-            "optionalFailureCodes": [],
-            "personaConsistent": True,
         },
         tenant="platform-control",
-        roles="PLATFORM_ADMIN",
-        actor_id="validation-farm",
+        roles="VALIDATION_WORKER",
+        actor_id="validation-worker-real-url",
     ),
     200,
     "complete Build-bound Runtime Validation",
 )
-if validation["state"] != "PASSED" or len(validation["evidenceHash"]) != 64:
+if (
+    validation["state"] != "PASSED"
+    or validation["job"]["state"] != "COMMITTED"
+    or len(validation["evidenceHash"]) != 64
+):
     raise AssertionError(f"Runtime Validation evidence is incomplete: {validation}")
 print(
     json.dumps(

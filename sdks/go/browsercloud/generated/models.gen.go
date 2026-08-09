@@ -2037,11 +2037,35 @@ type SecureDebugSnapshot struct {
 }
 
 type StartRuntimeValidationRequest struct {
-	BuildId           string `json:"buildId,omitempty"`
-	SuiteVersion      string `json:"suiteVersion,omitempty"`
-	EnvironmentDigest string `json:"environmentDigest,omitempty"`
-	ReplayDatasetId   string `json:"replayDatasetId,omitempty"`
-	Persona           string `json:"persona,omitempty"`
+	BuildId                    string     `json:"buildId,omitempty"`
+	SuiteVersion               string     `json:"suiteVersion,omitempty"`
+	EnvironmentDigest          string     `json:"environmentDigest,omitempty"`
+	ReplayDatasetId            string     `json:"replayDatasetId,omitempty"`
+	Persona                    string     `json:"persona,omitempty"`
+	BrowserEngine              string     `json:"browserEngine,omitempty"`
+	BrowserVersion             string     `json:"browserVersion,omitempty"`
+	OperatingSystem            string     `json:"operatingSystem,omitempty"`
+	Architecture               string     `json:"architecture,omitempty"`
+	RequiredWorkerCapabilities BooleanMap `json:"requiredWorkerCapabilities,omitempty"`
+	MaximumAttempts            int        `json:"maximumAttempts,omitempty"`
+}
+
+type RuntimeValidationMatrixCellRequest struct {
+	EnvironmentDigest          string     `json:"environmentDigest,omitempty"`
+	BrowserEngine              string     `json:"browserEngine,omitempty"`
+	BrowserVersion             string     `json:"browserVersion,omitempty"`
+	OperatingSystem            string     `json:"operatingSystem,omitempty"`
+	Architecture               string     `json:"architecture,omitempty"`
+	RequiredWorkerCapabilities BooleanMap `json:"requiredWorkerCapabilities,omitempty"`
+	MaximumAttempts            int        `json:"maximumAttempts,omitempty"`
+}
+
+type StartRuntimeValidationMatrixRequest struct {
+	BuildId         string                               `json:"buildId,omitempty"`
+	SuiteVersion    string                               `json:"suiteVersion,omitempty"`
+	ReplayDatasetId string                               `json:"replayDatasetId,omitempty"`
+	Persona         string                               `json:"persona,omitempty"`
+	Cells           []RuntimeValidationMatrixCellRequest `json:"cells,omitempty"`
 }
 
 type CompleteRuntimeValidationRequest struct {
@@ -2074,6 +2098,57 @@ type RuntimeValidation struct {
 	RequestedBy          string     `json:"requestedBy,omitempty"`
 	StartedAt            string     `json:"startedAt,omitempty"`
 	CompletedAt          any        `json:"completedAt,omitempty"`
+	Job                  any        `json:"job,omitempty"`
+}
+
+type RuntimeValidationJob struct {
+	ValidationId               string     `json:"validationId,omitempty"`
+	BrowserEngine              string     `json:"browserEngine,omitempty"`
+	BrowserVersion             string     `json:"browserVersion,omitempty"`
+	OperatingSystem            string     `json:"operatingSystem,omitempty"`
+	Architecture               string     `json:"architecture,omitempty"`
+	RequiredWorkerCapabilities BooleanMap `json:"requiredWorkerCapabilities,omitempty"`
+	State                      string     `json:"state,omitempty"`
+	Attempt                    int        `json:"attempt,omitempty"`
+	MaximumAttempts            int        `json:"maximumAttempts,omitempty"`
+	WorkerId                   any        `json:"workerId,omitempty"`
+	ClaimEpoch                 int64      `json:"claimEpoch,omitempty"`
+	AvailableAt                string     `json:"availableAt,omitempty"`
+	LeaseExpiresAt             any        `json:"leaseExpiresAt,omitempty"`
+	LastHeartbeatAt            any        `json:"lastHeartbeatAt,omitempty"`
+	FailureCode                any        `json:"failureCode,omitempty"`
+	ResultHash                 any        `json:"resultHash,omitempty"`
+	UpdatedAt                  string     `json:"updatedAt,omitempty"`
+}
+
+type ClaimRuntimeValidationJobRequest struct {
+	BrowserEngine   string     `json:"browserEngine,omitempty"`
+	BrowserVersions []string   `json:"browserVersions,omitempty"`
+	OperatingSystem string     `json:"operatingSystem,omitempty"`
+	Architecture    string     `json:"architecture,omitempty"`
+	Capabilities    BooleanMap `json:"capabilities,omitempty"`
+}
+
+type RuntimeValidationJobClaimRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+}
+
+type RuntimeValidationJobClaim struct {
+	ClaimToken     string            `json:"claimToken,omitempty"`
+	Validation     RuntimeValidation `json:"validation,omitempty"`
+	LeaseExpiresAt string            `json:"leaseExpiresAt,omitempty"`
+	ClaimEpoch     int64             `json:"claimEpoch,omitempty"`
+}
+
+type CompleteRuntimeValidationJobRequest struct {
+	ClaimToken string                           `json:"claimToken,omitempty"`
+	Result     CompleteRuntimeValidationRequest `json:"result,omitempty"`
+}
+
+type FailRuntimeValidationJobRequest struct {
+	ClaimToken  string `json:"claimToken,omitempty"`
+	FailureCode string `json:"failureCode,omitempty"`
+	Retryable   bool   `json:"retryable,omitempty"`
 }
 
 type CreateCostRateRequest struct {

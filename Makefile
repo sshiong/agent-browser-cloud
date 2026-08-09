@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -21,6 +21,8 @@ build:
 	cargo build --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console build
 	python3 -m py_compile apps/application-adapter/application_adapter.py
+	python3 -m py_compile apps/validation-worker/validation_worker.py
+	python3 -m py_compile apps/validation-worker/runtime_validation_runner.py
 
 # Build the shared Web UI and native desktop binary without producing unsigned installers.
 build-desktop:
@@ -32,10 +34,15 @@ test:
 	cargo test --locked --workspace --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console test
 	$(MAKE) test-application-adapter
+	$(MAKE) test-validation-worker
 
 # Verify the dependency-free, least-privilege Provider/Lease integration runtime.
 test-application-adapter:
 	python3 -m unittest discover -s apps/application-adapter -p 'test_*.py' -v
+
+# Verify the isolated, leased and fenced Runtime Validation Worker runtime.
+test-validation-worker:
+	python3 -m unittest discover -s apps/validation-worker -p 'test_*.py' -v
 
 # Run native desktop security-boundary unit tests.
 test-desktop:
@@ -100,7 +107,7 @@ sdk-multilang-generate:
 	pnpm --package=@redocly/cli@1.34.0 dlx redocly bundle packages/contracts/openapi/session-api.yaml --output build/sdk/session-api.json
 	python3 tools/sdk/generate_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 
-# All 160 operations, 216 public schemas and generated file hashes must remain exact.
+# All 166 operations, 224 public schemas and generated file hashes must remain exact.
 sdk-multilang-check: sdk-multilang-generate
 	python3 tools/sdk/verify_multilang_sdks.py build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 	git diff --exit-code -- sdks/python/browsercloud/generated_client.py sdks/python/browsercloud/generated_models.py sdks/go/browsercloud/generated sdks/java/src/main/java/io/browsercloud/sdk/generated sdks/generated-multilang-manifest.json
@@ -124,6 +131,7 @@ docker-build:
 	docker build -f apps/browser-node/Dockerfile -t browser-node:latest .
 	docker build -f apps/web-console/Dockerfile -t web-console:latest .
 	docker build -f apps/application-adapter/Dockerfile -t application-adapter:latest apps/application-adapter
+	docker build -f apps/validation-worker/Dockerfile -t validation-worker:latest apps/validation-worker
 
 # Validate production release bundle invariants
 supply-chain-check:

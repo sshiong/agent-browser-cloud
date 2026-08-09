@@ -8,8 +8,8 @@
 
 此前 `sdks/typescript` 只有少量手写方法和手写请求类型，OpenAPI 新增接口或修改字段时，
 SDK 不会自动变化，也没有证据证明 SDK 覆盖正式契约。现在权威来源固定为
-`packages/contracts/openapi/session-api.yaml`，生成结果当前覆盖全部 160 个唯一
-`operationId`、32 个服务和 233 个 Schema Model。
+`packages/contracts/openapi/session-api.yaml`，生成结果当前覆盖全部 166 个唯一
+`operationId`、32 个服务和 241 个 Schema Model。
 
 ## 已完成
 
@@ -47,7 +47,7 @@ make test-sdk
 关键输出：
 
 ```text
-typescript_sdk_generated=true operations=160 service_methods=250 services=32
+typescript_sdk_generated=true operations=166 service_methods=262 services=32
 typescript_sdk_package=true esm=true isolated_clients=true
 typescript_sdk_pack=true source_files=false
 ```

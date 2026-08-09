@@ -5151,18 +5151,58 @@ runtime_validation="$(curl -fsS -X POST \
   -H 'X-Tenant-Id: platform-control' \
   -H 'X-Actor-Id: validation-farm' \
   -H 'X-Roles: PLATFORM_ADMIN' \
-  -d '{"buildId":"runtime_local_chromium","suiteVersion":"v1","environmentDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","replayDatasetId":"replay-integration-v1","persona":"default"}')"
+  -d '{"buildId":"runtime_local_chromium","suiteVersion":"v1","environmentDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","replayDatasetId":"replay-integration-v1","persona":"default","browserEngine":"chromium","browserVersion":"128.0.6613.84","operatingSystem":"linux","architecture":"amd64","requiredWorkerCapabilities":{"cdp":true,"stateCollector":true},"maximumAttempts":3}')"
 runtime_validation_id="$(printf '%s' "$runtime_validation" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "RUNNING"; print(item["validationId"])')"
-runtime_validation="$(curl -fsS -X POST \
-  "http://localhost:${control_port}/api/v1/enterprise/runtime-validations/${runtime_validation_id}:complete" \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "RUNNING"; assert item["job"]["state"] == "QUEUED"; assert item["job"]["browserVersion"] == "128.0.6613.84"; print(item["validationId"])')"
+no_validation_job_status="$(curl -sS -o "$temp_dir/no-validation-job.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs:claim" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: platform-control' \
-  -H 'X-Actor-Id: validation-farm' \
-  -H 'X-Roles: PLATFORM_ADMIN' \
-  -d '{"requiredTests":10,"requiredFailures":0,"optionalTests":2,"optionalFailures":1,"declaredCapabilities":{"cdp":true,"stateCollector":true},"observedCapabilities":{"cdp":true,"stateCollector":true},"optionalFailureCodes":["VIDEO_CODEC"],"personaConsistent":true}')"
+  -H 'X-Actor-Id: validation-worker-wrong-version' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d '{"browserEngine":"chromium","browserVersions":["127.0"],"operatingSystem":"linux","architecture":"amd64","capabilities":{"cdp":true,"stateCollector":true}}')"
+test "$no_validation_job_status" = "204"
+runtime_validation_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-linux-128' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d '{"browserEngine":"chromium","browserVersions":["128.0.6613.84"],"operatingSystem":"linux","architecture":"amd64","capabilities":{"cdp":true,"stateCollector":true,"replay":true}}')"
+runtime_validation_claim_token="$(printf '%s' "$runtime_validation_claim" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["validation"]["job"]["state"] == "CLAIMED"; assert item["validation"]["job"]["attempt"] == 1; assert item["claimEpoch"] == 1; print(item["claimToken"])')"
+runtime_validation_job="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs/${runtime_validation_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-linux-128' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d "{\"claimToken\":\"${runtime_validation_claim_token}\"}")"
+printf '%s' "$runtime_validation_job" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "EXECUTING"; assert item["workerId"] == "validation-worker-linux-128"'
+stale_validation_claim_status="$(curl -sS -o "$temp_dir/stale-validation-claim.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs/${runtime_validation_id}:heartbeat" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-linux-128' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d '{"claimToken":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}')"
+test "$stale_validation_claim_status" = "409"
+grep -q 'VALIDATION_JOB_CLAIM_TOKEN_INVALID' "$temp_dir/stale-validation-claim.json"
+runtime_validation="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs/${runtime_validation_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-linux-128' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d "{\"claimToken\":\"${runtime_validation_claim_token}\",\"result\":{\"requiredTests\":10,\"requiredFailures\":0,\"optionalTests\":2,\"optionalFailures\":1,\"declaredCapabilities\":{\"cdp\":true,\"stateCollector\":true},\"observedCapabilities\":{\"cdp\":true,\"stateCollector\":true},\"optionalFailureCodes\":[\"VIDEO_CODEC\"],\"personaConsistent\":true}}")"
 printf '%s' "$runtime_validation" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "DEGRADED"; assert item["requiredFailures"] == 0; assert item["optionalFailureCodes"] == ["VIDEO_CODEC"]; assert len(item["evidenceHash"]) == 64'
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "DEGRADED"; assert item["job"]["state"] == "COMMITTED"; assert item["job"]["workerId"] == "validation-worker-linux-128"; assert item["requiredFailures"] == 0; assert item["optionalFailureCodes"] == ["VIDEO_CODEC"]; assert len(item["evidenceHash"]) == 64; assert len(item["job"]["resultHash"]) == 64'
+validation_job_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(event_type || ':' || to_state, ',' order by occurred_at, event_id)
+     from runtime_validation_job_events
+    where validation_id='${runtime_validation_id}'")"
+test "$validation_job_evidence" = "ENQUEUED:QUEUED,CLAIMED:CLAIMED,EXECUTION_STARTED:EXECUTING,RESULT_ACKED:ACKED,RESULT_COMMITTED:COMMITTED"
 recovery_gameday="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/enterprise/recovery-gamedays" \
   -H 'Content-Type: application/json' \
@@ -5224,6 +5264,60 @@ enterprise_overview="$(curl -fsS \
   -H 'X-Roles: TENANT_ADMIN')"
 printf '%s' "$enterprise_overview" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["validations"][0]["state"] == "DEGRADED"; assert len(item["costRates"]) == 5; assert all("resourceTemplate" in rate and "resourceClass" not in rate and "-l1-" not in rate["pricingVersion"] and "-l2-" not in rate["pricingVersion"] and "-l3-" not in rate["pricingVersion"] and "-l4-" not in rate["pricingVersion"] and "-l5-" not in rate["pricingVersion"] for rate in item["costRates"]); assert item["errorBudget"]["consumedUnavailableSeconds"] == 60; assert item["slaExclusions"][0]["exclusionCode"] == "EXTERNAL_PROVIDER"; assert any(policy["dataClass"] == "AUDIT" and policy["legalHold"] for policy in item["retentionPolicies"]); assert any(component["componentType"] == "RUNTIME" for component in item["licenseInventory"]); assert any(component["componentType"] == "EXTENSION" for component in item["licenseInventory"]); assert len(item["regions"]) == 2; assert item["recoveryGameDays"][0]["state"] == "PASSED"; assert item["latestCompliance"]["passingControls"] == 8'
+
+runtime_validation_matrix="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-matrices" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-farm' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"buildId":"runtime_local_chromium","suiteVersion":"lease-v1","replayDatasetId":"replay-integration-v1","persona":"default","cells":[{"environmentDigest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","browserEngine":"chromium","browserVersion":"128.0.6613.84","operatingSystem":"linux","architecture":"amd64","requiredWorkerCapabilities":{"cdp":true},"maximumAttempts":1}]}')"
+lease_validation_id="$(printf '%s' "$runtime_validation_matrix" | python3 -c \
+  'import json,sys; items=json.load(sys.stdin); assert len(items) == 1; item=items[0]; assert item["job"]["state"] == "QUEUED"; assert item["job"]["maximumAttempts"] == 1; print(item["validationId"])')"
+lease_validation_claim="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-expiring' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d '{"browserEngine":"chromium","browserVersions":["128.0.6613.84"],"operatingSystem":"linux","architecture":"amd64","capabilities":{"cdp":true}}')"
+lease_validation_claim_token="$(printf '%s' "$lease_validation_claim" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["validation"]["job"]["state"] == "CLAIMED"; assert item["validation"]["job"]["attempt"] == 1; print(item["claimToken"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs/${lease_validation_id}:start" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-expiring' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d "{\"claimToken\":\"${lease_validation_claim_token}\"}" \
+  | python3 -c 'import json,sys; assert json.load(sys.stdin)["state"] == "EXECUTING"'
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "update runtime_validation_jobs set lease_expires_at = now() - interval '1 second' where validation_id = '${lease_validation_id}'" \
+  >/dev/null
+lease_reaper_claim_status="$(curl -sS -o "$temp_dir/lease-reaper-claim.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs:claim" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-reaper' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d '{"browserEngine":"chromium","browserVersions":["128.0.6613.84"],"operatingSystem":"linux","architecture":"amd64","capabilities":{"cdp":true}}')"
+test "$lease_reaper_claim_status" = "204"
+lease_validation_evidence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select job.state || ':' || job.failure_code || ':' || run.state || ':' || worker.state
+     from runtime_validation_jobs job
+     join runtime_validation_runs run using (validation_id)
+     join runtime_validation_workers worker on worker.worker_id = job.claim_owner
+    where job.validation_id='${lease_validation_id}'")"
+test "$lease_validation_evidence" = "FAILED:VALIDATION_WORKER_LEASE_EXHAUSTED:FAILED:OFFLINE"
+late_lease_completion_status="$(curl -sS -o "$temp_dir/late-lease-completion.json" -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/runtime-validation-jobs/${lease_validation_id}:complete" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: validation-worker-expiring' \
+  -H 'X-Roles: VALIDATION_WORKER' \
+  -d "{\"claimToken\":\"${lease_validation_claim_token}\",\"result\":{\"requiredTests\":1,\"requiredFailures\":0,\"optionalTests\":0,\"optionalFailures\":0,\"declaredCapabilities\":{\"cdp\":true},\"observedCapabilities\":{\"cdp\":true},\"optionalFailureCodes\":[],\"personaConsistent\":true}}")"
+test "$late_lease_completion_status" = "409"
+grep -q 'VALIDATION_JOB_STATE_MISMATCH' "$temp_dir/late-lease-completion.json"
 
 audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?limit=500" \
@@ -5364,6 +5458,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_validation_worker_queue=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

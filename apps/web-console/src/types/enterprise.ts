@@ -17,6 +17,27 @@ export interface RuntimeValidationView {
   requestedBy: string;
   startedAt: string;
   completedAt: string | null;
+  job?: RuntimeValidationJobView | null;
+}
+
+export interface RuntimeValidationJobView {
+  validationId: string;
+  browserEngine: string;
+  browserVersion: string;
+  operatingSystem: string;
+  architecture: string;
+  requiredWorkerCapabilities: Record<string, boolean>;
+  state: 'QUEUED' | 'CLAIMED' | 'EXECUTING' | 'ACKED' | 'COMMITTED' | 'FAILED';
+  attempt: number;
+  maximumAttempts: number;
+  workerId: string | null;
+  claimEpoch: number;
+  availableAt: string;
+  leaseExpiresAt: string | null;
+  lastHeartbeatAt: string | null;
+  failureCode: string | null;
+  resultHash: string | null;
+  updatedAt: string;
 }
 
 export interface CostRateView {

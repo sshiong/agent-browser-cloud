@@ -161,6 +161,12 @@ var Operations = map[string]Operation{
 	"listRuntimeValidations":                     {OperationID: "listRuntimeValidations", Method: "GET", Path: "/api/v1/enterprise/runtime-validations", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<RuntimeValidation>"},
 	"startRuntimeValidation":                     {OperationID: "startRuntimeValidation", Method: "POST", Path: "/api/v1/enterprise/runtime-validations", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "StartRuntimeValidationRequest", RequestRequired: true, ResponseSchema: "RuntimeValidation"},
 	"completeRuntimeValidation":                  {OperationID: "completeRuntimeValidation", Method: "POST", Path: "/api/v1/enterprise/runtime-validations/{validationId}:complete", PathParameters: []string{"validationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteRuntimeValidationRequest", RequestRequired: true, ResponseSchema: "RuntimeValidation"},
+	"startRuntimeValidationMatrix":               {OperationID: "startRuntimeValidationMatrix", Method: "POST", Path: "/api/v1/enterprise/runtime-validation-matrices", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "StartRuntimeValidationMatrixRequest", RequestRequired: true, ResponseSchema: "array<RuntimeValidation>"},
+	"claimRuntimeValidationJob":                  {OperationID: "claimRuntimeValidationJob", Method: "POST", Path: "/api/v1/enterprise/runtime-validation-jobs:claim", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ClaimRuntimeValidationJobRequest", RequestRequired: true, ResponseSchema: "RuntimeValidationJobClaim"},
+	"startClaimedRuntimeValidationJob":           {OperationID: "startClaimedRuntimeValidationJob", Method: "POST", Path: "/api/v1/enterprise/runtime-validation-jobs/{validationId}:start", PathParameters: []string{"validationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "RuntimeValidationJobClaimRequest", RequestRequired: true, ResponseSchema: "RuntimeValidationJob"},
+	"heartbeatRuntimeValidationJob":              {OperationID: "heartbeatRuntimeValidationJob", Method: "POST", Path: "/api/v1/enterprise/runtime-validation-jobs/{validationId}:heartbeat", PathParameters: []string{"validationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "RuntimeValidationJobClaimRequest", RequestRequired: true, ResponseSchema: "RuntimeValidationJob"},
+	"completeRuntimeValidationJob":               {OperationID: "completeRuntimeValidationJob", Method: "POST", Path: "/api/v1/enterprise/runtime-validation-jobs/{validationId}:complete", PathParameters: []string{"validationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteRuntimeValidationJobRequest", RequestRequired: true, ResponseSchema: "RuntimeValidation"},
+	"failRuntimeValidationJob":                   {OperationID: "failRuntimeValidationJob", Method: "POST", Path: "/api/v1/enterprise/runtime-validation-jobs/{validationId}:fail", PathParameters: []string{"validationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "FailRuntimeValidationJobRequest", RequestRequired: true, ResponseSchema: "RuntimeValidation"},
 	"listEnterpriseCostRates":                    {OperationID: "listEnterpriseCostRates", Method: "GET", Path: "/api/v1/enterprise/cost-rates", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<CostRate>"},
 	"createEnterpriseCostRate":                   {OperationID: "createEnterpriseCostRate", Method: "POST", Path: "/api/v1/enterprise/cost-rates", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CreateCostRateRequest", RequestRequired: true, ResponseSchema: "CostRate"},
 	"explainSessionCost":                         {OperationID: "explainSessionCost", Method: "GET", Path: "/api/v1/enterprise/sessions/{sessionId}/cost-explanation", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionCostExplanation"},
@@ -647,6 +653,24 @@ func (c *Client) StartRuntimeValidation(ctx context.Context, request Request) (a
 }
 func (c *Client) CompleteRuntimeValidation(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "completeRuntimeValidation", request)
+}
+func (c *Client) StartRuntimeValidationMatrix(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "startRuntimeValidationMatrix", request)
+}
+func (c *Client) ClaimRuntimeValidationJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "claimRuntimeValidationJob", request)
+}
+func (c *Client) StartClaimedRuntimeValidationJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "startClaimedRuntimeValidationJob", request)
+}
+func (c *Client) HeartbeatRuntimeValidationJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "heartbeatRuntimeValidationJob", request)
+}
+func (c *Client) CompleteRuntimeValidationJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "completeRuntimeValidationJob", request)
+}
+func (c *Client) FailRuntimeValidationJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "failRuntimeValidationJob", request)
 }
 func (c *Client) ListEnterpriseCostRates(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listEnterpriseCostRates", request)

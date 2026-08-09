@@ -3,7 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AuditExportManifest } from '../models/AuditExportManifest.js';
+import type { ClaimRuntimeValidationJobRequest } from '../models/ClaimRuntimeValidationJobRequest.js';
 import type { CompleteRecoveryGameDayRequest } from '../models/CompleteRecoveryGameDayRequest.js';
+import type { CompleteRuntimeValidationJobRequest } from '../models/CompleteRuntimeValidationJobRequest.js';
 import type { CompleteRuntimeValidationRequest } from '../models/CompleteRuntimeValidationRequest.js';
 import type { ComplianceSnapshot } from '../models/ComplianceSnapshot.js';
 import type { CostRate } from '../models/CostRate.js';
@@ -13,6 +15,7 @@ import type { DeletionReceipt } from '../models/DeletionReceipt.js';
 import type { EnterpriseOverview } from '../models/EnterpriseOverview.js';
 import type { EnterpriseRegion } from '../models/EnterpriseRegion.js';
 import type { ErrorBudget } from '../models/ErrorBudget.js';
+import type { FailRuntimeValidationJobRequest } from '../models/FailRuntimeValidationJobRequest.js';
 import type { LicenseInventory } from '../models/LicenseInventory.js';
 import type { MediaQuota } from '../models/MediaQuota.js';
 import type { RecordServiceLevelEventRequest } from '../models/RecordServiceLevelEventRequest.js';
@@ -20,9 +23,13 @@ import type { RecoveryGameDay } from '../models/RecoveryGameDay.js';
 import type { ReleaseFreeze } from '../models/ReleaseFreeze.js';
 import type { RetentionPolicy } from '../models/RetentionPolicy.js';
 import type { RuntimeValidation } from '../models/RuntimeValidation.js';
+import type { RuntimeValidationJob } from '../models/RuntimeValidationJob.js';
+import type { RuntimeValidationJobClaim } from '../models/RuntimeValidationJobClaim.js';
+import type { RuntimeValidationJobClaimRequest } from '../models/RuntimeValidationJobClaimRequest.js';
 import type { SessionCostExplanation } from '../models/SessionCostExplanation.js';
 import type { SlaExclusion } from '../models/SlaExclusion.js';
 import type { StartRecoveryGameDayRequest } from '../models/StartRecoveryGameDayRequest.js';
+import type { StartRuntimeValidationMatrixRequest } from '../models/StartRuntimeValidationMatrixRequest.js';
 import type { StartRuntimeValidationRequest } from '../models/StartRuntimeValidationRequest.js';
 import type { UpsertLicenseInventoryRequest } from '../models/UpsertLicenseInventoryRequest.js';
 import type { UpsertMediaQuotaRequest } from '../models/UpsertMediaQuotaRequest.js';
@@ -116,6 +123,161 @@ export class EnterpriseService {
             errors: {
                 400: `Invalid request.`,
                 404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Enqueue an immutable browser/OS Runtime Validation matrix
+     * Requires PLATFORM_ADMIN. Every matrix cell becomes an independently leased job.
+     * @returns RuntimeValidation Matrix cells durably enqueued.
+     * @throws ApiError
+     */
+    public startRuntimeValidationMatrix({
+        requestBody,
+    }: {
+        requestBody: StartRuntimeValidationMatrixRequest,
+    }): CancelablePromise<Array<RuntimeValidation>> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/runtime-validation-matrices',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Claim one compatible Runtime Validation job with a fenced lease
+     * Requires the dedicated VALIDATION_WORKER role. A claim token is returned only once.
+     * @returns RuntimeValidationJobClaim Compatible job claimed.
+     * @throws ApiError
+     */
+    public claimRuntimeValidationJob({
+        requestBody,
+    }: {
+        requestBody: ClaimRuntimeValidationJobRequest,
+    }): CancelablePromise<RuntimeValidationJobClaim> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/runtime-validation-jobs:claim',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * ACK execution start for a claimed Runtime Validation job
+     * @returns RuntimeValidationJob Job entered EXECUTING.
+     * @throws ApiError
+     */
+    public startClaimedRuntimeValidationJob({
+        validationId,
+        requestBody,
+    }: {
+        validationId: string,
+        requestBody: RuntimeValidationJobClaimRequest,
+    }): CancelablePromise<RuntimeValidationJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/runtime-validation-jobs/{validationId}:start',
+            path: {
+                'validationId': validationId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Renew a fenced Runtime Validation Worker lease
+     * @returns RuntimeValidationJob Lease renewed.
+     * @throws ApiError
+     */
+    public heartbeatRuntimeValidationJob({
+        validationId,
+        requestBody,
+    }: {
+        validationId: string,
+        requestBody: RuntimeValidationJobClaimRequest,
+    }): CancelablePromise<RuntimeValidationJob> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/runtime-validation-jobs/{validationId}:heartbeat',
+            path: {
+                'validationId': validationId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * ACK and atomically commit a Runtime Validation Worker result
+     * @returns RuntimeValidation Result committed and Runtime Build status updated.
+     * @throws ApiError
+     */
+    public completeRuntimeValidationJob({
+        validationId,
+        requestBody,
+    }: {
+        validationId: string,
+        requestBody: CompleteRuntimeValidationJobRequest,
+    }): CancelablePromise<RuntimeValidation> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/runtime-validation-jobs/{validationId}:complete',
+            path: {
+                'validationId': validationId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Reject a Runtime Validation attempt and retry or quarantine the build
+     * @returns RuntimeValidation Failure durably requeued or finalized.
+     * @throws ApiError
+     */
+    public failRuntimeValidationJob({
+        validationId,
+        requestBody,
+    }: {
+        validationId: string,
+        requestBody: FailRuntimeValidationJobRequest,
+    }): CancelablePromise<RuntimeValidation> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/enterprise/runtime-validation-jobs/{validationId}:fail',
+            path: {
+                'validationId': validationId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
             },
         });
     }

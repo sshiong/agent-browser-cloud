@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { BooleanMap } from './BooleanMap.js';
+import type { RuntimeValidationJob } from './RuntimeValidationJob.js';
 export type RuntimeValidation = {
     validationId: string;
     buildId: string;
@@ -22,4 +23,5 @@ export type RuntimeValidation = {
     requestedBy: string;
     startedAt: string;
     completedAt: string | null;
+    job?: (RuntimeValidationJob | null);
 };

@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -22,7 +23,33 @@ public final class EnterpriseOperationsModels {
       @NotBlank @Size(max = 64) String suiteVersion,
       @NotBlank @Pattern(regexp = "^sha256:[a-f0-9]{64}$") String environmentDigest,
       @NotBlank @Size(max = 128) String replayDatasetId,
-      @NotBlank @Size(max = 64) String persona) {}
+      @NotBlank @Size(max = 64) String persona,
+      @Pattern(regexp = "^[a-z0-9_.-]{1,64}$") String browserEngine,
+      @Pattern(regexp = "^[A-Za-z0-9_.+-]{1,64}$") String browserVersion,
+      @Pattern(regexp = "^[a-z0-9_.-]{1,64}$") String operatingSystem,
+      @Pattern(regexp = "^[a-z0-9_.-]{1,32}$") String architecture,
+      Map<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_.-]{0,127}$") String, Boolean>
+          requiredWorkerCapabilities,
+      @Min(1) @Max(10) Integer maximumAttempts) {}
+
+  public record RuntimeValidationMatrixCellRequest(
+      @NotBlank @Pattern(regexp = "^sha256:[a-f0-9]{64}$") String environmentDigest,
+      @NotBlank @Pattern(regexp = "^[a-z0-9_.-]{1,64}$") String browserEngine,
+      @NotBlank @Pattern(regexp = "^[A-Za-z0-9_.+-]{1,64}$") String browserVersion,
+      @NotBlank @Pattern(regexp = "^[a-z0-9_.-]{1,64}$") String operatingSystem,
+      @NotBlank @Pattern(regexp = "^[a-z0-9_.-]{1,32}$") String architecture,
+      @NotNull
+          Map<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_.-]{0,127}$") String, Boolean>
+              requiredWorkerCapabilities,
+      @Min(1) @Max(10) Integer maximumAttempts) {}
+
+  public record StartRuntimeValidationMatrixRequest(
+      @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") String buildId,
+      @NotBlank @Size(max = 64) String suiteVersion,
+      @NotBlank @Size(max = 128) String replayDatasetId,
+      @NotBlank @Size(max = 64) String persona,
+      @NotNull @Size(min = 1, max = 64)
+          List<@Valid @NotNull RuntimeValidationMatrixCellRequest> cells) {}
 
   public record CompleteRuntimeValidationRequest(
       @Min(1) @Max(100000) int requiredTests,
@@ -52,7 +79,54 @@ public final class EnterpriseOperationsModels {
       String evidenceHash,
       String requestedBy,
       Instant startedAt,
-      Instant completedAt) {}
+      Instant completedAt,
+      RuntimeValidationJobView job) {}
+
+  public record RuntimeValidationJobView(
+      String validationId,
+      String browserEngine,
+      String browserVersion,
+      String operatingSystem,
+      String architecture,
+      Map<String, Boolean> requiredWorkerCapabilities,
+      String state,
+      int attempt,
+      int maximumAttempts,
+      String workerId,
+      long claimEpoch,
+      Instant availableAt,
+      Instant leaseExpiresAt,
+      Instant lastHeartbeatAt,
+      String failureCode,
+      String resultHash,
+      Instant updatedAt) {}
+
+  public record ClaimRuntimeValidationJobRequest(
+      @NotBlank @Pattern(regexp = "^[a-z0-9_.-]{1,64}$") String browserEngine,
+      @NotNull @Size(min = 1, max = 64)
+          List<@Pattern(regexp = "^[A-Za-z0-9_.+-]{1,64}$") String> browserVersions,
+      @NotBlank @Pattern(regexp = "^[a-z0-9_.-]{1,64}$") String operatingSystem,
+      @NotBlank @Pattern(regexp = "^[a-z0-9_.-]{1,32}$") String architecture,
+      @NotNull
+          Map<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_.-]{0,127}$") String, Boolean> capabilities) {}
+
+  public record RuntimeValidationJobClaimView(
+      String claimToken,
+      RuntimeValidationView validation,
+      Instant leaseExpiresAt,
+      long claimEpoch) {}
+
+  public record RuntimeValidationJobClaimRequest(
+      @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{43}$") String claimToken) {}
+
+  public record CompleteRuntimeValidationJobRequest(
+      @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{43}$") String claimToken,
+      @Valid @NotNull CompleteRuntimeValidationRequest result) {}
+
+  public record FailRuntimeValidationJobRequest(
+      @NotBlank @Pattern(regexp = "^[A-Za-z0-9_-]{43}$") String claimToken,
+      @NotBlank @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,127}$") String failureCode,
+      boolean retryable) {}
 
   public record CreateCostRateRequest(
       @NotBlank @Pattern(regexp = "^[a-z0-9-]{1,32}$") String region,

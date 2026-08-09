@@ -137,6 +137,12 @@ public final class BrowserCloudGeneratedClient {
     operation("listRuntimeValidations", "GET", "/api/v1/enterprise/runtime-validations", List.of(), List.of(), List.of(), "", false, "array<RuntimeValidation>"),
     operation("startRuntimeValidation", "POST", "/api/v1/enterprise/runtime-validations", List.of(), List.of(), List.of(), "StartRuntimeValidationRequest", true, "RuntimeValidation"),
     operation("completeRuntimeValidation", "POST", "/api/v1/enterprise/runtime-validations/{validationId}:complete", List.of("validationId"), List.of(), List.of(), "CompleteRuntimeValidationRequest", true, "RuntimeValidation"),
+    operation("startRuntimeValidationMatrix", "POST", "/api/v1/enterprise/runtime-validation-matrices", List.of(), List.of(), List.of(), "StartRuntimeValidationMatrixRequest", true, "array<RuntimeValidation>"),
+    operation("claimRuntimeValidationJob", "POST", "/api/v1/enterprise/runtime-validation-jobs:claim", List.of(), List.of(), List.of(), "ClaimRuntimeValidationJobRequest", true, "RuntimeValidationJobClaim"),
+    operation("startClaimedRuntimeValidationJob", "POST", "/api/v1/enterprise/runtime-validation-jobs/{validationId}:start", List.of("validationId"), List.of(), List.of(), "RuntimeValidationJobClaimRequest", true, "RuntimeValidationJob"),
+    operation("heartbeatRuntimeValidationJob", "POST", "/api/v1/enterprise/runtime-validation-jobs/{validationId}:heartbeat", List.of("validationId"), List.of(), List.of(), "RuntimeValidationJobClaimRequest", true, "RuntimeValidationJob"),
+    operation("completeRuntimeValidationJob", "POST", "/api/v1/enterprise/runtime-validation-jobs/{validationId}:complete", List.of("validationId"), List.of(), List.of(), "CompleteRuntimeValidationJobRequest", true, "RuntimeValidation"),
+    operation("failRuntimeValidationJob", "POST", "/api/v1/enterprise/runtime-validation-jobs/{validationId}:fail", List.of("validationId"), List.of(), List.of(), "FailRuntimeValidationJobRequest", true, "RuntimeValidation"),
     operation("listEnterpriseCostRates", "GET", "/api/v1/enterprise/cost-rates", List.of(), List.of(), List.of(), "", false, "array<CostRate>"),
     operation("createEnterpriseCostRate", "POST", "/api/v1/enterprise/cost-rates", List.of(), List.of(), List.of(), "CreateCostRateRequest", true, "CostRate"),
     operation("explainSessionCost", "GET", "/api/v1/enterprise/sessions/{sessionId}/cost-explanation", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionCostExplanation"),
@@ -329,6 +335,12 @@ public final class BrowserCloudGeneratedClient {
   public Response listRuntimeValidations(Request request) { return call("listRuntimeValidations", request); }
   public Response startRuntimeValidation(Request request) { return call("startRuntimeValidation", request); }
   public Response completeRuntimeValidation(Request request) { return call("completeRuntimeValidation", request); }
+  public Response startRuntimeValidationMatrix(Request request) { return call("startRuntimeValidationMatrix", request); }
+  public Response claimRuntimeValidationJob(Request request) { return call("claimRuntimeValidationJob", request); }
+  public Response startClaimedRuntimeValidationJob(Request request) { return call("startClaimedRuntimeValidationJob", request); }
+  public Response heartbeatRuntimeValidationJob(Request request) { return call("heartbeatRuntimeValidationJob", request); }
+  public Response completeRuntimeValidationJob(Request request) { return call("completeRuntimeValidationJob", request); }
+  public Response failRuntimeValidationJob(Request request) { return call("failRuntimeValidationJob", request); }
   public Response listEnterpriseCostRates(Request request) { return call("listEnterpriseCostRates", request); }
   public Response createEnterpriseCostRate(Request request) { return call("createEnterpriseCostRate", request); }
   public Response explainSessionCost(Request request) { return call("explainSessionCost", request); }

@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runtime-validation-worker-chromium-stable
+  namespace: browsercloud-system
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: runtime-validation-worker
+      browsercloud.io/browser-version: stable
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: runtime-validation-worker
+        browsercloud.io/browser-version: stable
+    spec:
+      runtimeClassName: validation-sandbox
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      nodeSelector:
+        browsercloud.io/workload: validation-worker
+      containers:
+        - name: validation-worker
+          image: ghcr.io/sshiong/agent-browser-cloud-validation-worker:0.1.0
+          args:
+            - serve
+            - --control-plane-url=https://control-plane.browsercloud-system.svc
+            - --control-plane-token-file=/var/run/browsercloud/identity/token
+            - --control-plane-ca-file=/var/run/browsercloud/ca/ca.crt
+            - --worker-id=$(POD_NAME)
+            - --browser-engine=chromium
+            - --browser-version=$(VALIDATION_BROWSER_VERSION)
+            - --operating-system=linux
+            - --architecture=amd64
+            - --capability=navigate=true
+            - --capability=browserLaunch=true
+            - --runner=/usr/local/bin/runtime-validation-runner
+            - --runner-arg=--browser
+            - --runner-arg=/usr/bin/chromium
+            - --runner-arg=--suite-catalog
+            - --runner-arg=/var/run/browsercloud/validation/suites.json
+            - --heartbeat-seconds=20
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # Production overlays must replace "stable" with the exact browser version baked into
+            # the image; exact matrix cells cannot be claimed by a different worker pool.
+            - name: VALIDATION_BROWSER_VERSION
+              value: stable
+          volumeMounts:
+            - name: identity
+              mountPath: /var/run/browsercloud/identity
+              readOnly: true
+            - name: control-plane-ca
+              mountPath: /var/run/browsercloud/ca
+              readOnly: true
+            - name: suite-catalog
+              mountPath: /var/run/browsercloud/validation
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            appArmorProfile:
+              type: RuntimeDefault
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+      volumes:
+        - name: identity
+          secret:
+            secretName: runtime-validation-worker-identity
+            defaultMode: 0440
+        - name: control-plane-ca
+          secret:
+            secretName: control-plane-mtls
+            defaultMode: 0440
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: suite-catalog
+          secret:
+            secretName: runtime-validation-suite-catalog
+            defaultMode: 0440
+        - name: temporary
+          emptyDir:
+            sizeLimit: 2Gi

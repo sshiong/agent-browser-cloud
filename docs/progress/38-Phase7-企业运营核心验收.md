@@ -38,6 +38,11 @@
     PostgreSQL 权威状态、上下阈值 Hysteresis、稳定恢复、30 秒评估、申请/审批双 Gate、
     Emergency Disable 旁路、Audit、正式 API/UI 和 N/N-1 均已验收，详见
     [进度 109](109-Error-Budget-Burn-Rate自动发布冻结闭环.md)。
+15. `V076` 已完成 PostgreSQL 权威 Validation Job、不可变事件、Worker Liveness、
+    `SKIP LOCKED` Claim、Token Hash/Epoch/Lease Fencing、有界重试与自动 Browser/OS/能力
+    矩阵；独立最小权限 Worker 只执行部署固定 Runner，真实 Chromium Runner、Sandbox
+    Kubernetes 清单、OpenAPI/四语言 SDK、UI 和第七个签名发布镜像已闭环，详见
+    [进度 110](110-Runtime-Validation-Worker队列与自动矩阵闭环.md)。
 
 ## 验收证据
 
@@ -57,7 +62,8 @@
 
 ## 仍未完成
 
-1. Validation Worker 的隔离队列编排、全浏览器版本矩阵与大规模业务页面 Replay；
+1. 目标 Chromium/Firefox/WebKit、Windows/macOS/多架构 Worker Fleet、客户批准 Fixture
+   与大规模业务页面长期 Replay；仓库内隔离队列和自动矩阵已由进度 110 关闭；
 2. 将已完成的 Runtime Release Freeze Gate 接入目标组织真实外部发布流水线；
 3. GameDay Runner 对真实基础设施执行故障注入并联动已完成的冻结 Gate；
 4. 真实多 Region 数据/对象复制、流量切换和目标 RTO/RPO；

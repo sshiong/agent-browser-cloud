@@ -131,10 +131,20 @@ function EnterpriseOverview({
                 <Row
                   key={run.validationId}
                   title={run.buildId}
-                  subtitle={`${run.suiteVersion} · ${run.replayDatasetId} · ${run.persona}`}
-                  value={run.state}
-                  detail={`${run.requiredTests - run.requiredFailures}/${run.requiredTests} required`}
-                  tone={tone(run.state)}
+                  subtitle={
+                    run.job
+                      ? `${run.job.browserEngine} ${run.job.browserVersion} · ${run.job.operatingSystem}/${run.job.architecture} · ${run.replayDatasetId}`
+                      : `${run.suiteVersion} · ${run.replayDatasetId} · ${run.persona}`
+                  }
+                  value={run.job?.state ?? run.state}
+                  detail={
+                    run.job?.failureCode
+                      ? `${run.job.failureCode} · attempt ${run.job.attempt}/${run.job.maximumAttempts}`
+                      : run.job && run.job.state !== 'COMMITTED'
+                        ? `attempt ${run.job.attempt}/${run.job.maximumAttempts}${run.job.workerId ? ` · ${run.job.workerId}` : ''}`
+                        : `${run.requiredTests - run.requiredFailures}/${run.requiredTests} required`
+                  }
+                  tone={tone(run.job?.state ?? run.state)}
                 />
               ))}
             </div>

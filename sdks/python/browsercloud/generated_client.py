@@ -147,6 +147,12 @@ OPERATIONS: dict[str, Operation] = {
     'listRuntimeValidations': Operation('listRuntimeValidations', 'GET', '/api/v1/enterprise/runtime-validations', (), (), (), '', False, 'array<RuntimeValidation>'),
     'startRuntimeValidation': Operation('startRuntimeValidation', 'POST', '/api/v1/enterprise/runtime-validations', (), (), (), 'StartRuntimeValidationRequest', True, 'RuntimeValidation'),
     'completeRuntimeValidation': Operation('completeRuntimeValidation', 'POST', '/api/v1/enterprise/runtime-validations/{validationId}:complete', ('validationId',), (), (), 'CompleteRuntimeValidationRequest', True, 'RuntimeValidation'),
+    'startRuntimeValidationMatrix': Operation('startRuntimeValidationMatrix', 'POST', '/api/v1/enterprise/runtime-validation-matrices', (), (), (), 'StartRuntimeValidationMatrixRequest', True, 'array<RuntimeValidation>'),
+    'claimRuntimeValidationJob': Operation('claimRuntimeValidationJob', 'POST', '/api/v1/enterprise/runtime-validation-jobs:claim', (), (), (), 'ClaimRuntimeValidationJobRequest', True, 'RuntimeValidationJobClaim'),
+    'startClaimedRuntimeValidationJob': Operation('startClaimedRuntimeValidationJob', 'POST', '/api/v1/enterprise/runtime-validation-jobs/{validationId}:start', ('validationId',), (), (), 'RuntimeValidationJobClaimRequest', True, 'RuntimeValidationJob'),
+    'heartbeatRuntimeValidationJob': Operation('heartbeatRuntimeValidationJob', 'POST', '/api/v1/enterprise/runtime-validation-jobs/{validationId}:heartbeat', ('validationId',), (), (), 'RuntimeValidationJobClaimRequest', True, 'RuntimeValidationJob'),
+    'completeRuntimeValidationJob': Operation('completeRuntimeValidationJob', 'POST', '/api/v1/enterprise/runtime-validation-jobs/{validationId}:complete', ('validationId',), (), (), 'CompleteRuntimeValidationJobRequest', True, 'RuntimeValidation'),
+    'failRuntimeValidationJob': Operation('failRuntimeValidationJob', 'POST', '/api/v1/enterprise/runtime-validation-jobs/{validationId}:fail', ('validationId',), (), (), 'FailRuntimeValidationJobRequest', True, 'RuntimeValidation'),
     'listEnterpriseCostRates': Operation('listEnterpriseCostRates', 'GET', '/api/v1/enterprise/cost-rates', (), (), (), '', False, 'array<CostRate>'),
     'createEnterpriseCostRate': Operation('createEnterpriseCostRate', 'POST', '/api/v1/enterprise/cost-rates', (), (), (), 'CreateCostRateRequest', True, 'CostRate'),
     'explainSessionCost': Operation('explainSessionCost', 'GET', '/api/v1/enterprise/sessions/{sessionId}/cost-explanation', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionCostExplanation'),
@@ -588,6 +594,24 @@ class BrowserCloudGeneratedClient:
 
     def completeRuntimeValidation(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('completeRuntimeValidation', path=path, query=query, body=body, headers=headers)
+
+    def startRuntimeValidationMatrix(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startRuntimeValidationMatrix', path=path, query=query, body=body, headers=headers)
+
+    def claimRuntimeValidationJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('claimRuntimeValidationJob', path=path, query=query, body=body, headers=headers)
+
+    def startClaimedRuntimeValidationJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startClaimedRuntimeValidationJob', path=path, query=query, body=body, headers=headers)
+
+    def heartbeatRuntimeValidationJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('heartbeatRuntimeValidationJob', path=path, query=query, body=body, headers=headers)
+
+    def completeRuntimeValidationJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('completeRuntimeValidationJob', path=path, query=query, body=body, headers=headers)
+
+    def failRuntimeValidationJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('failRuntimeValidationJob', path=path, query=query, body=body, headers=headers)
 
     def listEnterpriseCostRates(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listEnterpriseCostRates', path=path, query=query, body=body, headers=headers)

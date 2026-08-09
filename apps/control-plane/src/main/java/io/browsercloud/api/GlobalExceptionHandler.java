@@ -39,6 +39,8 @@ import io.browsercloud.application.ProfileImportJobStore.ProfileImportNotFoundEx
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
+import io.browsercloud.application.RuntimeValidationQueueApplicationService.RuntimeValidationJobNotFoundException;
+import io.browsercloud.application.RuntimeValidationQueueApplicationService.RuntimeValidationJobRejectedException;
 import io.browsercloud.application.SafePointApplicationService.SafePointNotFoundException;
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugNotFoundException;
 import io.browsercloud.application.SecureDebugApplicationService.SecureDebugRejectedException;
@@ -770,6 +772,28 @@ public class GlobalExceptionHandler {
         request);
   }
 
+  @ExceptionHandler(RuntimeValidationJobNotFoundException.class)
+  ResponseEntity<ApiError> runtimeValidationJobNotFound(
+      RuntimeValidationJobNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "RUNTIME_VALIDATION_JOB_NOT_FOUND",
+        "Runtime Validation job was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RuntimeValidationJobRejectedException.class)
+  ResponseEntity<ApiError> runtimeValidationJobRejected(
+      RuntimeValidationJobRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "RUNTIME_VALIDATION_JOB_REJECTED",
+        "Runtime Validation Worker claim or transition was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
   @ExceptionHandler(ExtensionProfileRejectedException.class)
   ResponseEntity<ApiError> extensionProfileRejected(
       ExtensionProfileRejectedException exception, HttpServletRequest request) {
@@ -987,6 +1011,15 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiError> internal(Exception exception, HttpServletRequest request) {
+    if (isDatabaseTransactionRetry(exception)) {
+      log.warn("Authoritative database transaction must be retried after a transient conflict");
+      return response(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          "DATABASE_TRANSACTION_RETRY",
+          "The authoritative database transaction encountered a transient conflict",
+          Map.of("retryable", true),
+          request);
+    }
     if (isDatabaseUnavailable(exception)) {
       log.warn("Authoritative database is temporarily unavailable");
       return response(
@@ -1003,6 +1036,22 @@ public class GlobalExceptionHandler {
         "The request could not be completed",
         Map.of(),
         request);
+  }
+
+  private boolean isDatabaseTransactionRetry(Throwable failure) {
+    Throwable current = failure;
+    for (int depth = 0; current != null && depth < 16; depth++) {
+      if (current instanceof SQLException sqlException
+          && ("40P01".equals(sqlException.getSQLState())
+              || "40001".equals(sqlException.getSQLState()))) {
+        return true;
+      }
+      if (current.getCause() == current) {
+        break;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private boolean isDatabaseUnavailable(Throwable failure) {

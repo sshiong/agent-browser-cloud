@@ -2666,6 +2666,166 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/runtime-validation-matrices:
+    post:
+      operationId: startRuntimeValidationMatrix
+      summary: Enqueue an immutable browser/OS Runtime Validation matrix
+      description: Requires PLATFORM_ADMIN. Every matrix cell becomes an independently leased job.
+      tags: [Enterprise, Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRuntimeValidationMatrixRequest"
+      responses:
+        "200":
+          description: Matrix cells durably enqueued.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RuntimeValidation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/runtime-validation-jobs:claim:
+    post:
+      operationId: claimRuntimeValidationJob
+      summary: Claim one compatible Runtime Validation job with a fenced lease
+      description: Requires the dedicated VALIDATION_WORKER role. A claim token is returned only once.
+      tags: [Enterprise, Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimRuntimeValidationJobRequest"
+      responses:
+        "200":
+          description: Compatible job claimed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidationJobClaim"
+        "204":
+          description: No compatible ready job.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/enterprise/runtime-validation-jobs/{validationId}:start:
+    post:
+      operationId: startClaimedRuntimeValidationJob
+      summary: ACK execution start for a claimed Runtime Validation job
+      tags: [Enterprise, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/ValidationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeValidationJobClaimRequest"
+      responses:
+        "200":
+          description: Job entered EXECUTING.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidationJob"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/enterprise/runtime-validation-jobs/{validationId}:heartbeat:
+    post:
+      operationId: heartbeatRuntimeValidationJob
+      summary: Renew a fenced Runtime Validation Worker lease
+      tags: [Enterprise, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/ValidationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeValidationJobClaimRequest"
+      responses:
+        "200":
+          description: Lease renewed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidationJob"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/enterprise/runtime-validation-jobs/{validationId}:complete:
+    post:
+      operationId: completeRuntimeValidationJob
+      summary: ACK and atomically commit a Runtime Validation Worker result
+      tags: [Enterprise, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/ValidationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteRuntimeValidationJobRequest"
+      responses:
+        "200":
+          description: Result committed and Runtime Build status updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/enterprise/runtime-validation-jobs/{validationId}:fail:
+    post:
+      operationId: failRuntimeValidationJob
+      summary: Reject a Runtime Validation attempt and retry or quarantine the build
+      tags: [Enterprise, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/ValidationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailRuntimeValidationJobRequest"
+      responses:
+        "200":
+          description: Failure durably requeued or finalized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeValidation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/enterprise/cost-rates:
     get:
       operationId: listEnterpriseCostRates
@@ -9736,6 +9896,85 @@ components:
         persona:
           type: string
           maxLength: 64
+        browserEngine:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,64}$"
+          default: chromium
+        browserVersion:
+          type: string
+          pattern: "^[A-Za-z0-9_.+-]{1,64}$"
+          default: stable
+        operatingSystem:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,64}$"
+          default: linux
+        architecture:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,32}$"
+          default: amd64
+        requiredWorkerCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+    RuntimeValidationMatrixCellRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - environmentDigest
+        - browserEngine
+        - browserVersion
+        - operatingSystem
+        - architecture
+        - requiredWorkerCapabilities
+      properties:
+        environmentDigest:
+          type: string
+          pattern: "^sha256:[a-f0-9]{64}$"
+        browserEngine:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,64}$"
+        browserVersion:
+          type: string
+          pattern: "^[A-Za-z0-9_.+-]{1,64}$"
+        operatingSystem:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,64}$"
+        architecture:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,32}$"
+        requiredWorkerCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+    StartRuntimeValidationMatrixRequest:
+      type: object
+      additionalProperties: false
+      required: [buildId, suiteVersion, replayDatasetId, persona, cells]
+      properties:
+        buildId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,128}$"
+        suiteVersion:
+          type: string
+          maxLength: 64
+        replayDatasetId:
+          type: string
+          maxLength: 128
+        persona:
+          type: string
+          maxLength: 64
+        cells:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            $ref: "#/components/schemas/RuntimeValidationMatrixCellRequest"
     CompleteRuntimeValidationRequest:
       type: object
       additionalProperties: false
@@ -9843,6 +10082,154 @@ components:
         completedAt:
           type: [string, "null"]
           format: date-time
+        job:
+          anyOf:
+            - $ref: "#/components/schemas/RuntimeValidationJob"
+            - type: "null"
+    RuntimeValidationJob:
+      type: object
+      additionalProperties: false
+      required:
+        - validationId
+        - browserEngine
+        - browserVersion
+        - operatingSystem
+        - architecture
+        - requiredWorkerCapabilities
+        - state
+        - attempt
+        - maximumAttempts
+        - workerId
+        - claimEpoch
+        - availableAt
+        - leaseExpiresAt
+        - lastHeartbeatAt
+        - failureCode
+        - resultHash
+        - updatedAt
+      properties:
+        validationId:
+          type: string
+          pattern: "^val_[A-Za-z0-9]{20}$"
+        browserEngine:
+          type: string
+        browserVersion:
+          type: string
+        operatingSystem:
+          type: string
+        architecture:
+          type: string
+        requiredWorkerCapabilities:
+          $ref: "#/components/schemas/BooleanMap"
+        state:
+          type: string
+          enum: [QUEUED, CLAIMED, EXECUTING, ACKED, COMMITTED, FAILED]
+        attempt:
+          type: integer
+          minimum: 0
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        workerId:
+          type: [string, "null"]
+        claimEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        availableAt:
+          type: string
+          format: date-time
+        leaseExpiresAt:
+          type: [string, "null"]
+          format: date-time
+        lastHeartbeatAt:
+          type: [string, "null"]
+          format: date-time
+        failureCode:
+          type: [string, "null"]
+        resultHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        updatedAt:
+          type: string
+          format: date-time
+    ClaimRuntimeValidationJobRequest:
+      type: object
+      additionalProperties: false
+      required: [browserEngine, browserVersions, operatingSystem, architecture, capabilities]
+      properties:
+        browserEngine:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,64}$"
+        browserVersions:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^[A-Za-z0-9_.+-]{1,64}$"
+        operatingSystem:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,64}$"
+        architecture:
+          type: string
+          pattern: "^[a-z0-9_.-]{1,32}$"
+        capabilities:
+          $ref: "#/components/schemas/BooleanMap"
+    RuntimeValidationJobClaimRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+    RuntimeValidationJobClaim:
+      type: object
+      additionalProperties: false
+      required: [claimToken, validation, leaseExpiresAt, claimEpoch]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        validation:
+          $ref: "#/components/schemas/RuntimeValidation"
+        leaseExpiresAt:
+          type: string
+          format: date-time
+        claimEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+    CompleteRuntimeValidationJobRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken, result]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        result:
+          $ref: "#/components/schemas/CompleteRuntimeValidationRequest"
+    FailRuntimeValidationJobRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken, failureCode, retryable]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        failureCode:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{1,127}$"
+        retryable:
+          type: boolean
     CreateCostRateRequest:
       type: object
       additionalProperties: false

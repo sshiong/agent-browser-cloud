@@ -10,3 +10,4 @@ resources:
   - operator-rbac.yaml
   - operator-deployment.yaml
   - workloads.yaml
+  - validation-worker-deployment.yaml

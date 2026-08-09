@@ -19,6 +19,7 @@ COMPONENTS = {
     "web-console": "ghcr.io/sshiong/agent-browser-cloud-web-console",
     "operator": "ghcr.io/sshiong/agent-browser-cloud-operator",
     "application-adapter": "ghcr.io/sshiong/agent-browser-cloud-application-adapter",
+    "validation-worker": "ghcr.io/sshiong/agent-browser-cloud-validation-worker",
 }
 REFERENCE_PATTERN = re.compile(
     r"^(?P<repository>[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+)"

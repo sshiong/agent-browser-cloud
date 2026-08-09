@@ -29,11 +29,12 @@ func TestGeneratedSurfaceAndRuntimeRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(Operations) != 160 || result.(map[string]any)["sessionId"] != "ses_1" {
+	if len(Operations) != 166 || result.(map[string]any)["sessionId"] != "ses_1" {
 		t.Fatalf("generated contract surface or response is incomplete")
 	}
 	var _ SessionView
 	var _ ProxyRoutingDecision
+	var _ RuntimeValidationJobClaim
 }
 
 func TestGeneratedQueryAllowlistAndStructuredError(t *testing.T) {

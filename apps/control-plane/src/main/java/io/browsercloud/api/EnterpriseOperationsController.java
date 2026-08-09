@@ -3,11 +3,13 @@ package io.browsercloud.api;
 import static io.browsercloud.api.EnterpriseOperationsModels.*;
 
 import io.browsercloud.application.EnterpriseOperationsApplicationService;
+import io.browsercloud.application.RuntimeValidationQueueApplicationService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.util.List;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,11 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class EnterpriseOperationsController {
 
   private final EnterpriseOperationsApplicationService service;
+  private final RuntimeValidationQueueApplicationService validationQueue;
   private final PlatformIdentity identity;
 
   public EnterpriseOperationsController(
-      EnterpriseOperationsApplicationService service, PlatformIdentity identity) {
+      EnterpriseOperationsApplicationService service,
+      RuntimeValidationQueueApplicationService validationQueue,
+      PlatformIdentity identity) {
     this.service = service;
+    this.validationQueue = validationQueue;
     this.identity = identity;
   }
 
@@ -52,12 +58,61 @@ public class EnterpriseOperationsController {
     return service.startValidation(request, identity.current().actorId());
   }
 
+  @PostMapping("/runtime-validation-matrices")
+  @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
+  public List<RuntimeValidationView> startValidationMatrix(
+      @Valid @RequestBody StartRuntimeValidationMatrixRequest request) {
+    return service.startValidationMatrix(request, identity.current().actorId());
+  }
+
   @PostMapping("/runtime-validations/{validationId}:complete")
   @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
   public RuntimeValidationView completeValidation(
       @PathVariable @Pattern(regexp = "^val_[a-zA-Z0-9]{20}$") String validationId,
       @Valid @RequestBody CompleteRuntimeValidationRequest request) {
     return service.completeValidation(validationId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/runtime-validation-jobs:claim")
+  @PreAuthorize(PlatformRoles.VALIDATION_WORKER)
+  public ResponseEntity<RuntimeValidationJobClaimView> claimValidationJob(
+      @Valid @RequestBody ClaimRuntimeValidationJobRequest request) {
+    return validationQueue
+        .claim(request, identity.current().actorId())
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
+  @PostMapping("/runtime-validation-jobs/{validationId}:start")
+  @PreAuthorize(PlatformRoles.VALIDATION_WORKER)
+  public RuntimeValidationJobView startValidationJob(
+      @PathVariable @Pattern(regexp = "^val_[a-zA-Z0-9]{20}$") String validationId,
+      @Valid @RequestBody RuntimeValidationJobClaimRequest request) {
+    return validationQueue.start(validationId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/runtime-validation-jobs/{validationId}:heartbeat")
+  @PreAuthorize(PlatformRoles.VALIDATION_WORKER)
+  public RuntimeValidationJobView heartbeatValidationJob(
+      @PathVariable @Pattern(regexp = "^val_[a-zA-Z0-9]{20}$") String validationId,
+      @Valid @RequestBody RuntimeValidationJobClaimRequest request) {
+    return validationQueue.heartbeat(validationId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/runtime-validation-jobs/{validationId}:complete")
+  @PreAuthorize(PlatformRoles.VALIDATION_WORKER)
+  public RuntimeValidationView completeValidationJob(
+      @PathVariable @Pattern(regexp = "^val_[a-zA-Z0-9]{20}$") String validationId,
+      @Valid @RequestBody CompleteRuntimeValidationJobRequest request) {
+    return validationQueue.complete(validationId, request, identity.current().actorId());
+  }
+
+  @PostMapping("/runtime-validation-jobs/{validationId}:fail")
+  @PreAuthorize(PlatformRoles.VALIDATION_WORKER)
+  public RuntimeValidationView failValidationJob(
+      @PathVariable @Pattern(regexp = "^val_[a-zA-Z0-9]{20}$") String validationId,
+      @Valid @RequestBody FailRuntimeValidationJobRequest request) {
+    return validationQueue.fail(validationId, request, identity.current().actorId());
   }
 
   @GetMapping("/cost-rates")

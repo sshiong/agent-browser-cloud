@@ -60,6 +60,38 @@ public class EnterpriseOperationsApplicationService {
   @Transactional
   public RuntimeValidationView startValidation(
       StartRuntimeValidationRequest request, String actorId) {
+    return enqueueValidation(request, actorId);
+  }
+
+  @Transactional
+  public List<RuntimeValidationView> startValidationMatrix(
+      StartRuntimeValidationMatrixRequest request, String actorId) {
+    requireExists(
+        "SELECT count(*) FROM runtime_builds WHERE build_id = ?",
+        request.buildId(),
+        "Runtime Build");
+    return request.cells().stream()
+        .map(
+            cell ->
+                enqueueValidation(
+                    new StartRuntimeValidationRequest(
+                        request.buildId(),
+                        request.suiteVersion(),
+                        cell.environmentDigest(),
+                        request.replayDatasetId(),
+                        request.persona(),
+                        cell.browserEngine(),
+                        cell.browserVersion(),
+                        cell.operatingSystem(),
+                        cell.architecture(),
+                        cell.requiredWorkerCapabilities(),
+                        cell.maximumAttempts()),
+                    actorId))
+        .toList();
+  }
+
+  private RuntimeValidationView enqueueValidation(
+      StartRuntimeValidationRequest request, String actorId) {
     requireExists(
         "SELECT count(*) FROM runtime_builds WHERE build_id = ?",
         request.buildId(),
@@ -81,6 +113,27 @@ public class EnterpriseOperationsApplicationService {
         request.persona(),
         actorId,
         sqlTime(now));
+    jdbc.update(
+        """
+        INSERT INTO runtime_validation_jobs(
+          validation_id, browser_engine, browser_version, operating_system, architecture,
+          required_worker_capabilities, maximum_attempts, available_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?)
+        """,
+        id,
+        valueOrDefault(request.browserEngine(), "chromium"),
+        valueOrDefault(request.browserVersion(), "stable"),
+        valueOrDefault(request.operatingSystem(), "linux"),
+        valueOrDefault(request.architecture(), "amd64"),
+        json(
+            request.requiredWorkerCapabilities() == null
+                ? Map.of()
+                : request.requiredWorkerCapabilities()),
+        request.maximumAttempts() == null ? 3 : request.maximumAttempts(),
+        sqlTime(now),
+        sqlTime(now),
+        sqlTime(now));
+    appendValidationJobEvent(id, "ENQUEUED", null, "QUEUED", null, 0, 0, null, now);
     return requireValidation(id);
   }
 
@@ -91,10 +144,11 @@ public class EnterpriseOperationsApplicationService {
         || request.optionalFailures() > request.optionalTests()) {
       throw new IllegalArgumentException("validation failures cannot exceed test count");
     }
+    lockValidationJobIfPresent(validationId);
     var current =
         jdbc
             .query(
-                "SELECT * FROM runtime_validation_runs WHERE validation_id = ? FOR UPDATE",
+                validationSelect() + " WHERE run.validation_id = ? FOR UPDATE OF run",
                 this::validation,
                 validationId)
             .stream()
@@ -171,14 +225,69 @@ public class EnterpriseOperationsApplicationService {
         "COMPLETE",
         state,
         Map.of("buildId", current.buildId(), "evidenceHash", evidenceHash));
+    commitValidationJobIfPresent(validationId, actorId, evidenceHash, now);
     return requireValidation(validationId);
   }
 
   @Transactional(readOnly = true)
   public List<RuntimeValidationView> listValidations() {
     return jdbc.query(
-        "SELECT * FROM runtime_validation_runs ORDER BY started_at DESC LIMIT 100",
-        this::validation);
+        validationSelect() + " ORDER BY run.started_at DESC LIMIT 100", this::validation);
+  }
+
+  @Transactional(readOnly = true)
+  public RuntimeValidationView getValidation(String validationId) {
+    return requireValidation(validationId);
+  }
+
+  @Transactional
+  public RuntimeValidationView failValidationExecution(
+      String validationId, String failureCode, String actorId) {
+    var current = requireValidationForUpdate(validationId);
+    if (!current.state().equals("RUNNING")) {
+      return current;
+    }
+    var now = Instant.now();
+    var evidence =
+        Map.<String, Object>of(
+            "validationId",
+            validationId,
+            "buildId",
+            current.buildId(),
+            "state",
+            "FAILED",
+            "failureCode",
+            failureCode);
+    var evidenceHash = hash(evidence);
+    jdbc.update(
+        """
+        UPDATE runtime_validation_runs
+           SET state = 'FAILED', evidence_hash = ?, completed_at = ?
+         WHERE validation_id = ? AND state = 'RUNNING'
+        """,
+        evidenceHash,
+        sqlTime(now),
+        validationId);
+    jdbc.update(
+        """
+        UPDATE runtime_builds
+           SET regression_status = 'QUARANTINED', validated_at = ?
+         WHERE build_id = ?
+        """,
+        sqlTime(now),
+        current.buildId());
+    audit(
+        "platform-control",
+        actorId,
+        "RUNTIME_VALIDATION",
+        validationId,
+        "WORKER_FAILED",
+        "FAILED",
+        Map.of(
+            "buildId", current.buildId(),
+            "failureCode", failureCode,
+            "evidenceHash", evidenceHash));
+    return requireValidation(validationId);
   }
 
   @Transactional
@@ -1106,11 +1215,45 @@ public class EnterpriseOperationsApplicationService {
 
   private RuntimeValidationView requireValidation(String id) {
     return jdbc
-        .query(
-            "SELECT * FROM runtime_validation_runs WHERE validation_id = ?", this::validation, id)
+        .query(validationSelect() + " WHERE run.validation_id = ?", this::validation, id)
         .stream()
         .findFirst()
         .orElseThrow(() -> new EnterpriseResourceNotFoundException("Runtime Validation"));
+  }
+
+  private RuntimeValidationView requireValidationForUpdate(String id) {
+    return jdbc
+        .query(
+            validationSelect() + " WHERE run.validation_id = ? FOR UPDATE OF run",
+            this::validation,
+            id)
+        .stream()
+        .findFirst()
+        .orElseThrow(() -> new EnterpriseResourceNotFoundException("Runtime Validation"));
+  }
+
+  private static String validationSelect() {
+    return """
+        SELECT run.*,
+               job.browser_engine AS job_browser_engine,
+               job.browser_version AS job_browser_version,
+               job.operating_system AS job_operating_system,
+               job.architecture AS job_architecture,
+               job.required_worker_capabilities AS job_required_worker_capabilities,
+               job.state AS job_state,
+               job.attempt AS job_attempt,
+               job.maximum_attempts AS job_maximum_attempts,
+               job.claim_owner AS job_claim_owner,
+               job.claim_epoch AS job_claim_epoch,
+               job.available_at AS job_available_at,
+               job.lease_expires_at AS job_lease_expires_at,
+               job.last_heartbeat_at AS job_last_heartbeat_at,
+               job.failure_code AS job_failure_code,
+               job.result_hash AS job_result_hash,
+               job.updated_at AS job_updated_at
+          FROM runtime_validation_runs run
+          LEFT JOIN runtime_validation_jobs job ON job.validation_id = run.validation_id
+        """;
   }
 
   private CostRateView requireCostRate(String id) {
@@ -1225,6 +1368,31 @@ public class EnterpriseOperationsApplicationService {
   }
 
   private RuntimeValidationView validation(ResultSet result, int row) throws SQLException {
+    RuntimeValidationJobView job = null;
+    var jobState = result.getString("job_state");
+    if (jobState != null) {
+      job =
+          new RuntimeValidationJobView(
+              result.getString("validation_id"),
+              result.getString("job_browser_engine"),
+              result.getString("job_browser_version"),
+              result.getString("job_operating_system"),
+              result.getString("job_architecture"),
+              read(
+                  result.getString("job_required_worker_capabilities"),
+                  new TypeReference<Map<String, Boolean>>() {}),
+              jobState,
+              result.getInt("job_attempt"),
+              result.getInt("job_maximum_attempts"),
+              result.getString("job_claim_owner"),
+              result.getLong("job_claim_epoch"),
+              result.getTimestamp("job_available_at").toInstant(),
+              instant(result, "job_lease_expires_at"),
+              instant(result, "job_last_heartbeat_at"),
+              result.getString("job_failure_code"),
+              result.getString("job_result_hash"),
+              result.getTimestamp("job_updated_at").toInstant());
+    }
     return new RuntimeValidationView(
         result.getString("validation_id"),
         result.getString("build_id"),
@@ -1247,7 +1415,8 @@ public class EnterpriseOperationsApplicationService {
         result.getString("evidence_hash"),
         result.getString("requested_by"),
         result.getTimestamp("started_at").toInstant(),
-        instant(result, "completed_at"));
+        instant(result, "completed_at"),
+        job);
   }
 
   private CostRateView costRate(ResultSet result, int row) throws SQLException {
@@ -1419,6 +1588,101 @@ public class EnterpriseOperationsApplicationService {
         .orElseThrow(() -> new EnterpriseResourceNotFoundException("Audit Export"));
   }
 
+  private void commitValidationJobIfPresent(
+      String validationId, String actorId, String evidenceHash, Instant now) {
+    var jobs =
+        jdbc.queryForList(
+            """
+            SELECT state, claim_owner, claim_epoch, attempt
+              FROM runtime_validation_jobs
+             WHERE validation_id = ?
+             FOR UPDATE
+            """,
+            validationId);
+    if (jobs.isEmpty()) {
+      return;
+    }
+    var job = jobs.getFirst();
+    var fromState = String.valueOf(job.get("state"));
+    if (fromState.equals("COMMITTED") || fromState.equals("FAILED")) {
+      return;
+    }
+    var workerId =
+        job.get("claim_owner") == null ? actorId : String.valueOf(job.get("claim_owner"));
+    var claimEpoch = ((Number) job.get("claim_epoch")).longValue();
+    var attempt = ((Number) job.get("attempt")).intValue();
+    var changed =
+        jdbc.update(
+            """
+            UPDATE runtime_validation_jobs
+               SET state = 'COMMITTED', result_hash = ?, failure_code = NULL,
+                   claim_token_hash = NULL, lease_expires_at = NULL,
+                   updated_at = ?
+             WHERE validation_id = ? AND state = ?
+            """,
+            evidenceHash,
+            sqlTime(now),
+            validationId,
+            fromState);
+    if (changed != 1) {
+      throw new IllegalStateException("runtime validation commit was fenced");
+    }
+    appendValidationJobEvent(
+        validationId,
+        fromState.equals("ACKED") ? "RESULT_COMMITTED" : "MANUAL_OVERRIDE_COMMITTED",
+        fromState,
+        "COMMITTED",
+        workerId,
+        claimEpoch,
+        attempt,
+        fromState.equals("ACKED") ? null : "PLATFORM_ADMIN_OVERRIDE",
+        now);
+    jdbc.update(
+        """
+        UPDATE runtime_validation_workers
+           SET state = 'ONLINE', active_validation_id = NULL, last_seen_at = ?
+         WHERE worker_id = ? AND active_validation_id = ?
+        """,
+        sqlTime(now),
+        workerId,
+        validationId);
+  }
+
+  private void lockValidationJobIfPresent(String validationId) {
+    jdbc.queryForList(
+        "SELECT validation_id FROM runtime_validation_jobs WHERE validation_id = ? FOR UPDATE",
+        validationId);
+  }
+
+  private void appendValidationJobEvent(
+      String validationId,
+      String eventType,
+      String fromState,
+      String toState,
+      String workerId,
+      long claimEpoch,
+      int attempt,
+      String reasonCode,
+      Instant occurredAt) {
+    jdbc.update(
+        """
+        INSERT INTO runtime_validation_job_events(
+          event_id, validation_id, event_type, from_state, to_state,
+          worker_id, claim_epoch, attempt, reason_code, occurred_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        id("vev_"),
+        validationId,
+        eventType,
+        fromState,
+        toState,
+        workerId,
+        claimEpoch,
+        attempt,
+        reasonCode,
+        sqlTime(occurredAt));
+  }
+
   private long count(String sql, Object... arguments) {
     return Optional.ofNullable(jdbc.queryForObject(sql, Long.class, arguments)).orElse(0L);
   }
@@ -1489,6 +1753,10 @@ public class EnterpriseOperationsApplicationService {
 
   private static String id(String prefix) {
     return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
+  }
+
+  private static String valueOrDefault(String value, String fallback) {
+    return value == null || value.isBlank() ? fallback : value;
   }
 
   private static Instant instant(ResultSet result, String column) throws SQLException {

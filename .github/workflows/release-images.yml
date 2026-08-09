@@ -107,6 +107,18 @@ jobs:
           cache-from: type=gha,scope=release-application-adapter
           cache-to: type=gha,mode=max,scope=release-application-adapter
 
+      - name: Build and push Runtime Validation Worker
+        id: validation_worker
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: apps/validation-worker
+          file: apps/validation-worker/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-validation-worker:sha-${{ github.sha }}
+          provenance: mode=max
+          cache-from: type=gha,scope=release-validation-worker
+          cache-to: type=gha,mode=max,scope=release-validation-worker
+
       - name: Resolve immutable image references
         id: images
         env:
@@ -115,6 +127,7 @@ jobs:
           WEB_CONSOLE_DIGEST: ${{ steps.web_console.outputs.digest }}
           OPERATOR_DIGEST: ${{ steps.operator.outputs.digest }}
           APPLICATION_ADAPTER_DIGEST: ${{ steps.application_adapter.outputs.digest }}
+          VALIDATION_WORKER_DIGEST: ${{ steps.validation_worker.outputs.digest }}
         run: |
           set -euo pipefail
           {
@@ -123,6 +136,7 @@ jobs:
             echo "web_console=${REGISTRY}/${IMAGE_PREFIX}-web-console@${WEB_CONSOLE_DIGEST}"
             echo "operator=${REGISTRY}/${IMAGE_PREFIX}-operator@${OPERATOR_DIGEST}"
             echo "application_adapter=${REGISTRY}/${IMAGE_PREFIX}-application-adapter@${APPLICATION_ADAPTER_DIGEST}"
+            echo "validation_worker=${REGISTRY}/${IMAGE_PREFIX}-validation-worker@${VALIDATION_WORKER_DIGEST}"
           } >>"$GITHUB_OUTPUT"
 
       - name: Generate image SBOMs
@@ -132,6 +146,7 @@ jobs:
           WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
+          VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
         run: |
           set -euo pipefail
           mkdir supply-chain-evidence
@@ -140,6 +155,7 @@ jobs:
           syft "$WEB_CONSOLE_IMAGE" -o spdx-json=supply-chain-evidence/web-console.spdx.json
           syft "$OPERATOR_IMAGE" -o spdx-json=supply-chain-evidence/operator.spdx.json
           syft "$APPLICATION_ADAPTER_IMAGE" -o spdx-json=supply-chain-evidence/application-adapter.spdx.json
+          syft "$VALIDATION_WORKER_IMAGE" -o spdx-json=supply-chain-evidence/validation-worker.spdx.json
 
       - name: Keyless-sign images and attest SBOMs
         timeout-minutes: 10
@@ -149,6 +165,7 @@ jobs:
           WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
+          VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
         run: |
           set -euo pipefail
           for image in \
@@ -156,7 +173,8 @@ jobs:
             "$BROWSER_NODE_IMAGE" \
             "$WEB_CONSOLE_IMAGE" \
             "$OPERATOR_IMAGE" \
-            "$APPLICATION_ADAPTER_IMAGE"; do
+            "$APPLICATION_ADAPTER_IMAGE" \
+            "$VALIDATION_WORKER_IMAGE"; do
             cosign sign --yes "$image"
           done
           cosign attest --yes --type spdxjson \
@@ -169,6 +187,8 @@ jobs:
             --predicate supply-chain-evidence/operator.spdx.json "$OPERATOR_IMAGE"
           cosign attest --yes --type spdxjson \
             --predicate supply-chain-evidence/application-adapter.spdx.json "$APPLICATION_ADAPTER_IMAGE"
+          cosign attest --yes --type spdxjson \
+            --predicate supply-chain-evidence/validation-worker.spdx.json "$VALIDATION_WORKER_IMAGE"
 
       - name: Render signed digest-locked release bundle
         env:
@@ -177,6 +197,7 @@ jobs:
           WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
+          VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
         run: |
           set -euo pipefail
           python3 tools/supply-chain/release_bundle.py render \
@@ -187,11 +208,13 @@ jobs:
             --image "web-console=$WEB_CONSOLE_IMAGE" \
             --image "operator=$OPERATOR_IMAGE" \
             --image "application-adapter=$APPLICATION_ADAPTER_IMAGE" \
+            --image "validation-worker=$VALIDATION_WORKER_IMAGE" \
             --evidence "control-plane=supply-chain-evidence/control-plane.spdx.json" \
             --evidence "browser-node=supply-chain-evidence/browser-node.spdx.json" \
             --evidence "web-console=supply-chain-evidence/web-console.spdx.json" \
             --evidence "operator=supply-chain-evidence/operator.spdx.json" \
-            --evidence "application-adapter=supply-chain-evidence/application-adapter.spdx.json"
+            --evidence "application-adapter=supply-chain-evidence/application-adapter.spdx.json" \
+            --evidence "validation-worker=supply-chain-evidence/validation-worker.spdx.json"
           cosign sign-blob --yes \
             --bundle release-bundle/release-manifest.sigstore.json \
             release-bundle/release-manifest.json
@@ -204,6 +227,7 @@ jobs:
           WEB_CONSOLE_IMAGE: ${{ steps.images.outputs.web_console }}
           OPERATOR_IMAGE: ${{ steps.images.outputs.operator }}
           APPLICATION_ADAPTER_IMAGE: ${{ steps.images.outputs.application_adapter }}
+          VALIDATION_WORKER_IMAGE: ${{ steps.images.outputs.validation_worker }}
         run: |
           set -euo pipefail
           for image in \
@@ -211,7 +235,8 @@ jobs:
             "$BROWSER_NODE_IMAGE" \
             "$WEB_CONSOLE_IMAGE" \
             "$OPERATOR_IMAGE" \
-            "$APPLICATION_ADAPTER_IMAGE"; do
+            "$APPLICATION_ADAPTER_IMAGE" \
+            "$VALIDATION_WORKER_IMAGE"; do
             signature_ref="$(cosign triangulate --type signature "$image")"
             attestation_ref="$(cosign triangulate --type attestation "$image")"
             timeout --signal=KILL 45s docker buildx imagetools inspect --raw \

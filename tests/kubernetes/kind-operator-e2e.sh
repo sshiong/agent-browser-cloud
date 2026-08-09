@@ -33,7 +33,8 @@ failure_context() {
     "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
       get deployments,pods -l app.kubernetes.io/name=mock-control-plane >&2 || true
     "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
-      logs deployment/browser-session-operator --tail=100 --prefix=true >&2 || true
+      logs -l app.kubernetes.io/name=browser-session-operator \
+      --all-containers=true --max-log-requests=10 --tail=100 --prefix=true >&2 || true
   fi
   exit "${exit_code}"
 }
@@ -237,16 +238,18 @@ wait_for_jsonpath "browsersession/kind-after-failover" "{.status.phase}" "Ready"
   rollout status deployment/browser-session-operator --timeout=90s
 deadline=$((SECONDS + 90))
 while ((SECONDS < deadline)); do
-  if "${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
-    logs deployment/browser-session-operator --prefix=true 2>/dev/null |
-    grep -q "list-watch cache synchronized"; then
+  operator_logs="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+    logs -l app.kubernetes.io/name=browser-session-operator \
+    --all-containers=true --max-log-requests=10 --prefix=true 2>/dev/null || true)"
+  if grep -q "list-watch cache synchronized" <<<"${operator_logs}"; then
     break
   fi
   sleep 2
 done
-"${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
-  logs deployment/browser-session-operator --prefix=true |
-  grep -q "list-watch cache synchronized"
+operator_logs="$("${KUBECTL_BIN}" --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" \
+  logs -l app.kubernetes.io/name=browser-session-operator \
+  --all-containers=true --max-log-requests=10 --prefix=true)"
+grep -q "list-watch cache synchronized" <<<"${operator_logs}"
 metrics_leader=""
 deadline=$((SECONDS + 90))
 while ((SECONDS < deadline)); do

@@ -46,7 +46,8 @@
   N/N−1 Gate 通过，证据 Hash 为
   `65d1419eac5a8478c87a81ce32fe28760b99a5e7b7ea4bb06daee7822b4dd903`。
 - Kubernetes：`kubectl kustomize deploy/kubernetes/base` 成功，Reviewer Deployment、
-  Kata RuntimeClass 和默认拒绝/受控出口 NetworkPolicy 均可渲染。
+  Kata RuntimeClass 和默认拒绝/受控出口 NetworkPolicy 均可渲染；Kind 双副本升级测试的
+  cache 同步证据按 Label Selector 汇总全部 Pod，避免随机选中非 Leader 产生假失败。
 - 完整 PostgreSQL 17 + 双 Control Plane + Browser Node Integration 通过：验证非法角色
   403、错误 Claim Token 409、人工 Reviewer、真实 Python Reviewer Worker、固定 HTTP
   Responses Fixture、结构化 JSON Schema、Provider Authorization、输入最小化、

@@ -4890,6 +4890,47 @@ for _ in $(seq 1 120); do
 done
 test "$dual_node_terminal_state" = "TERMINATED"
 
+platform_slo_budget="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/enterprise/slo-policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: release-sre' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"availabilityTarget":0.99,"latencyP95TargetMs":2000,"windowMinutes":60,"releaseFreezeEnabled":true,"releaseFreezeBurnRateThreshold":1.0,"releaseRecoveryBurnRateThreshold":0.25,"releaseFreezeWindowMinutes":5,"releaseRecoveryStableMinutes":1}')"
+printf '%s' "$platform_slo_budget" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "HEALTHY"; assert item["consumedUnavailableSeconds"] == 0'
+release_gate="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/release-freeze" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$release_gate" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["enabled"] is True; assert item["phase"] == "OPEN"; assert item["frozen"] is False; assert item["version"] >= 1'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/service-level-events" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: platform-monitor' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"eventType\":\"UNAVAILABLE\",\"durationSeconds\":60,\"latencyP95Ms\":9000,\"source\":\"release-freeze-integration\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+  >"$temp_dir/platform-slo-frozen.json"
+release_gate="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/release-freeze" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$release_gate" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["phase"] == "FROZEN"; assert item["frozen"] is True; assert float(item["currentBurnRate"]) >= float(item["freezeBurnRateThreshold"]); assert item["reasonCode"] == "ERROR_BUDGET_BURN_RATE_EXCEEDED"; assert item["frozenAt"]'
+frozen_promotion_status="$(curl -sS -o "$temp_dir/runtime-promotion-frozen.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/runtime-builds/runtime_local_chromium:promote" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: release-requester' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d '{"targetChannel":"STABLE","reason":"Attempt promotion while the automatic Error Budget gate is frozen"}')"
+test "$frozen_promotion_status" = "409"
+grep -q 'RELEASE_FROZEN_ERROR_BUDGET_BURN_RATE_EXCEEDED' \
+  "$temp_dir/runtime-promotion-frozen.json"
+
+# Emergency disable remains available while Runtime promotion is frozen.
 runtime_disable_request="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/runtime-builds/runtime_local_chromium:disable" \
   -H 'Content-Type: application/json' \
@@ -4924,6 +4965,50 @@ runtime_disabled="$(curl -fsS \
   -H 'X-Roles: PLATFORM_ADMIN')"
 printf '%s' "$runtime_disabled" | python3 -c \
   'import json,sys; item=json.load(sys.stdin)["items"][0]; assert item["releaseChannel"] == "DISABLED"; assert item["regressionStatus"] == "DISABLED"; assert item["disabledBy"] == "release-approver"; assert item["disabledAt"] is not None'
+
+# Move the bounded outage outside the five-minute window, then prove recovery hysteresis.
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update enterprise_service_level_events
+      set occurred_at = now() - interval '6 minutes'
+    where tenant_id = 'platform-control'
+      and source = 'release-freeze-integration';" >/dev/null
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/service-level-events" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: platform-monitor' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"eventType\":\"HEALTHY\",\"durationSeconds\":0,\"latencyP95Ms\":100,\"source\":\"release-freeze-recovery\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+  >"$temp_dir/platform-slo-recovering.json"
+release_gate="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/release-freeze" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$release_gate" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["phase"] == "RECOVERING"; assert item["frozen"] is True; assert item["stableSince"]'
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "update enterprise_release_freeze_states
+      set stable_since = now() - interval '2 minutes'
+    where tenant_id = 'platform-control';" >/dev/null
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/enterprise/service-level-events" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Actor-Id: platform-monitor' \
+  -H 'X-Roles: PLATFORM_ADMIN' \
+  -d "{\"eventType\":\"HEALTHY\",\"durationSeconds\":0,\"latencyP95Ms\":100,\"source\":\"release-freeze-recovery\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+  >"$temp_dir/platform-slo-cleared.json"
+release_gate="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/enterprise/release-freeze" \
+  -H 'X-Tenant-Id: platform-control' \
+  -H 'X-Roles: PLATFORM_ADMIN')"
+printf '%s' "$release_gate" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["phase"] == "OPEN"; assert item["frozen"] is False; assert item["reasonCode"] == "BURN_RATE_RECOVERED"; assert item["clearedAt"]'
+release_freeze_transitions="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select string_agg(transition, ',' order by occurred_at)
+     from enterprise_release_freeze_events
+    where tenant_id = 'platform-control'")"
+test "$release_freeze_transitions" = "FROZEN,CLEARED"
 
 key_rotation_request="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/key-rotation-requests" \
@@ -5152,7 +5237,7 @@ runtime_audit_result="$(curl -fsS \
   -H 'X-Tenant-Id: platform-control' \
   -H 'X-Roles: SECURITY_ADMIN')"
 printf '%s' "$runtime_audit_result" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 3; assert len(result["items"]) == 3; assert {item["action"] for item in result["items"]} == {"RUNTIME_RELEASE_REQUESTED","RUNTIME_RELEASE_APPROVAL_DENIED","RUNTIME_RELEASE_APPROVED"}'
+  'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; actions={item["action"] for item in result["items"]}; required={"RUNTIME_RELEASE_AUTO_FROZEN","RUNTIME_RELEASE_PROMOTION_BLOCKED","RUNTIME_RELEASE_REQUESTED","RUNTIME_RELEASE_APPROVAL_DENIED","RUNTIME_RELEASE_APPROVED","RUNTIME_RELEASE_AUTO_CLEARED"}; assert result["total"] >= 6; assert required.issubset(actions), required-actions'
 key_rotation_audit_result="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/audit-events?eventType=KEY_ROTATION&limit=50" \
   -H 'X-Tenant-Id: platform-control' \
@@ -5279,6 +5364,6 @@ reconcile_metrics="$(curl -fsS "http://localhost:${control_port}/actuator/promet
 printf '%s' "$reconcile_metrics" | python3 -c \
   'import re,sys; text=sys.stdin.read(); value=lambda name: float(re.search(r"^"+re.escape(name)+r"(?:\\{[^}]*\\})? ([0-9.eE+-]+)$", text, re.M).group(1)); assert value("browsercloud_coordinator_reconcile_duration_seconds_count") >= 1; assert value("browsercloud_coordinator_reconcile_stale_operations_aborted_total") >= 1; assert value("browsercloud_coordinator_reconcile_cleanup_started_total") == 0; assert value("browsercloud_coordinator_reconcile_cleanup_failures_total") == 0'
 
-printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
+printf 'health=%s\nsecurity_headers=true\nruntime_registry=true\nunauthenticated_rejected=%s\nviewer_write_rejected=%s\nunknown_field_rejected=%s\ninternal_grpc_mtls=true\nnode_certificate_rotation=true\nsession_id=%s\nidempotent_replay=true\nidempotency_conflict=%s\ntenant_list_total=%s\nsession_descriptor_visible=true\npublic_resource_templates=true\ncross_tenant_access=%s\ntenant_route_migration=true\nnode_command_route_fenced=true\ncoordinator_command_routed=true\nstart_operation_committed=%s\nsafe_point_browser_activity=true\napplication_safety_lease=true\napplication_business_recovery=true\ndual_node_migration=true\ncoordinator_failover_term=2\ncoordinator_inflight_operation_reconciled=true\ncoordinator_reconcile_metrics=true\ncoordinator_agent_step_aborted=true\ncoordinator_agent_side_effect_once=true\ncoordinator_lifecycle_start_aborted=true\ncoordinator_lifecycle_stop_aborted=true\ncoordinator_lifecycle_recovery_aborted=true\ncoordinator_barrier_preparing_rebuilt=true\ncoordinator_barrier_completing_rebuilt=true\ncoordinator_final_term=4\nbrowser_state_persisted=%s\nautomatic_crash_recovery=%s\nnode_restart_reconciliation=%s\nrecovery_operation_committed=%s\nhuman_takeover_committed=%s\nterminate_operation_committed=%s\nnode_events_inbox=%s\nnode_command_published=%s\npublic_tables=%s\nprofile_checkpoint_epoch=2\nprofile_restore_starts=4\nprofile_cross_tenant_access=%s\nproxy_exit_verified=203.0.113.10\nproxy_cold_health=true\nproxy_active_health=true\nproxy_direct_fallback=false\nproxy_release=true\nnetwork_helper_process_isolated=true\nnetwork_helper_failure_closed=true\nnetwork_helper_restart_recovered=true\nstorage_helper_process_isolated=true\nstorage_helper_checkpoint_failure_closed=true\nstorage_helper_restart_recovered=true\nstorage_checkpoint_idempotent=true\ndurable_workflows=%s\nworkflow_dead_letters=%s\nbreak_glass_dual_approval=true\nbreak_glass_cross_tenant=%s\nbreak_glass_reviewed=true\nbreak_glass_expiry_persisted=true\nsecure_debug_minimized=true\nsecure_debug_single_operator=true\nsecure_debug_cross_tenant=%s\nsecure_debug_evidence_chain=true\nsecure_debug_revocation_closed=true\nruntime_release_dual_approval=true\nruntime_release_cross_tenant=%s\nruntime_release_audit=true\nrelease_freeze=true\nkey_rotation_dual_approval=true\nkey_rotation_cross_tenant=%s\nkey_rotation_verification_gate=true\nkey_rotation_audit=true\nworkspace_notification_center=true\nworkspace_overview=true\nworkspace_theme_preferences=true\nruntime_validation_farm=true\nruntime_replay_dataset_bound=true\nruntime_n_minus_one_gate=true\ncost_explainability=true\nresource_cost_trend=true\ntab_resource_actuators=true\nextension_background_actuator=true\nsuccess_trace_actuator=true\nobserver_frame_rate_actuator=true\nvideo_recording_actuator=true\nscreenshot_evidence=true\nobserver_manual_evidence=true\ncost_aware_placement=true\nsla_error_budget=true\nsla_exclusions=true\nretention_policy=true\nlegal_hold_blocks_delete=true\nretention_deletion_receipt=true\nresidency_admission_gate=true\nlicense_inventory=true\nsigned_audit_export=true\nmedia_resource_admission=true\nmedia_tenant_quota=true\nadaptive_extension_sampling=true\ncompliance_snapshot=true\nrecovery_gameday=true\nmulti_region_dr_registry=true\nsdk_languages=4\nterraform_module_validated=true\naudit_chain_valid=true\naudit_events=%s\n' \
   "$health" "$unauthenticated_status" "$viewer_write_status" "$unknown_field_status" "$session_one" "$conflict_status" "$total" "$forbidden_status" \
   "$operation_id" "$browser_states" "$recovered_epoch" "$reconciled_epoch" "$recovery_operations" "$takeover_operation_id" "$terminate_operation_id" "$inbox_events" "$published_commands" "$public_tables" "$profile_forbidden_status" "$completed_workflows" "$workflow_dead_letters" "$break_glass_cross_tenant_status" "$debug_cross_tenant_status" "$runtime_release_cross_tenant_status" "$key_rotation_cross_tenant_status" "$audit_total"

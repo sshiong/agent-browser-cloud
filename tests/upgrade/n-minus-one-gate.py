@@ -1370,6 +1370,25 @@ for invariant in (
         f"Business Recovery readiness migration lacks rolling invariant: {invariant}"
     )
 
+release_freeze_migration = read(
+    "database/migrations/V075__error_budget_release_freeze.sql"
+)
+release_freeze_upper = release_freeze_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN", "DROP TABLE"):
+    assert forbidden not in release_freeze_upper
+for invariant in (
+    "ADD COLUMN RELEASE_FREEZE_ENABLED BOOLEAN NOT NULL DEFAULT FALSE",
+    "ADD COLUMN RELEASE_FREEZE_BURN_RATE_THRESHOLD NUMERIC(12,6) NOT NULL DEFAULT 1.000000",
+    "ADD COLUMN RELEASE_RECOVERY_BURN_RATE_THRESHOLD NUMERIC(12,6) NOT NULL DEFAULT 0.500000",
+    "CREATE TABLE ENTERPRISE_RELEASE_FREEZE_STATES",
+    "INSERT INTO ENTERPRISE_RELEASE_FREEZE_STATES",
+    "CREATE TABLE ENTERPRISE_RELEASE_FREEZE_EVENTS",
+    "TRANSITION IN ('FROZEN', 'CLEARED')",
+):
+    assert invariant in release_freeze_upper, (
+        f"Release freeze migration lacks rolling invariant: {invariant}"
+    )
+
 for message_name in ("BrowserStateEvent", "BrowserStateDiffEvent"):
     state_message = proto.split(f"message {message_name} {{", 1)[1].split("}", 1)[0]
     for field, tag in (
@@ -1457,6 +1476,37 @@ for notification_stream_contract in (
 ):
     assert notification_stream_contract in openapi
 
+for release_freeze_contract in (
+    "/api/v1/enterprise/release-freeze:",
+    "operationId: getReleaseFreezeState",
+    "ReleaseFreeze:",
+    "releaseFreezeEnabled:",
+    "releaseFreezeBurnRateThreshold:",
+    "releaseRecoveryBurnRateThreshold:",
+):
+    assert release_freeze_contract in openapi
+
+slo_policy_request = openapi.split(
+    "    UpsertSloPolicyRequest:", 1
+)[1].split("    SloPolicy:", 1)[0]
+slo_policy_required = slo_policy_request.split("      properties:", 1)[0]
+for optional_field in (
+    "releaseFreezeEnabled",
+    "releaseFreezeBurnRateThreshold",
+    "releaseRecoveryBurnRateThreshold",
+    "releaseFreezeWindowMinutes",
+    "releaseRecoveryStableMinutes",
+):
+    assert optional_field not in slo_policy_required
+
+enterprise_overview_contract = openapi.split(
+    "    EnterpriseOverview:", 1
+)[1].split("\n    ", 1)[0]
+enterprise_overview_required = enterprise_overview_contract.split(
+    "      properties:", 1
+)[0]
+assert "releaseFreeze" not in enterprise_overview_required
+
 recovery_contract_request = openapi.split(
     "    UpsertRecoveryContractRequest:", 1
 )[1].split("    RecoveryContract:", 1)[0]
@@ -1492,9 +1542,9 @@ assert "COORDINATOR_INSTANCE_ID" in workloads
 assert "fieldPath: metadata.name" in workloads
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V074 additive,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070 expand-validate-contract,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V075 additive,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
     "protobuf": "unknown-fields-13-16,optional-28-38,proxy-health-tags-31-34,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,browser-readiness-tags-full-and-diff-11-13,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
-    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,proxy-provider-routing-metadata,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-and-notification-stream-additive-contracts",
+    "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,proxy-provider-routing-metadata,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-and-notification-stream-and-release-freeze-additive-contracts",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,proxy-cold-probe-db-lease-and-node-capability,proxy-routing-snapshot-and-fail-closed-selection,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }
 evidence = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()

@@ -6,4 +6,9 @@ export type UpsertSloPolicyRequest = {
     availabilityTarget: number;
     latencyP95TargetMs: number;
     windowMinutes: number;
+    releaseFreezeEnabled?: boolean;
+    releaseFreezeBurnRateThreshold?: number;
+    releaseRecoveryBurnRateThreshold?: number;
+    releaseFreezeWindowMinutes?: number;
+    releaseRecoveryStableMinutes?: number;
 };

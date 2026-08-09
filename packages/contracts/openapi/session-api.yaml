@@ -2795,6 +2795,27 @@ paths:
                 $ref: "#/components/schemas/ErrorBudget"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/enterprise/release-freeze:
+    get:
+      operationId: getReleaseFreezeState
+      summary: Read the authoritative Error Budget release gate
+      description: >
+        Returns the PostgreSQL-backed automatic Runtime promotion freeze state. Emergency
+        Runtime disable operations remain available while the promotion gate is frozen.
+      tags: [Enterprise, SLO, Runtime]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current automatic release gate and hysteresis state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseFreeze"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/enterprise/service-level-events:
     post:
       operationId: recordServiceLevelEvent
@@ -10024,6 +10045,29 @@ components:
           type: integer
           minimum: 60
           maximum: 527040
+        releaseFreezeEnabled:
+          type: boolean
+          default: false
+        releaseFreezeBurnRateThreshold:
+          type: number
+          minimum: 0.000001
+          maximum: 1000
+          default: 1
+        releaseRecoveryBurnRateThreshold:
+          type: number
+          minimum: 0
+          maximum: 999.999999
+          default: 0.5
+        releaseFreezeWindowMinutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+          default: 60
+        releaseRecoveryStableMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          default: 30
     RecordServiceLevelEventRequest:
       type: object
       additionalProperties: false
@@ -10122,6 +10166,68 @@ components:
         calculatedAt:
           type: string
           format: date-time
+    ReleaseFreeze:
+      type: object
+      additionalProperties: false
+      required:
+        - tenantId
+        - enabled
+        - phase
+        - frozen
+        - currentBurnRate
+        - freezeBurnRateThreshold
+        - recoveryBurnRateThreshold
+        - evaluationWindowMinutes
+        - recoveryStableMinutes
+        - reasonCode
+        - stableSince
+        - frozenAt
+        - clearedAt
+        - evaluatedAt
+        - version
+      properties:
+        tenantId:
+          type: string
+        enabled:
+          type: boolean
+        phase:
+          type: string
+          enum: [OPEN, FROZEN, RECOVERING]
+        frozen:
+          type: boolean
+        currentBurnRate:
+          type: number
+          minimum: 0
+        freezeBurnRateThreshold:
+          type: number
+          minimum: 0
+        recoveryBurnRateThreshold:
+          type: number
+          minimum: 0
+        evaluationWindowMinutes:
+          type: integer
+          minimum: 5
+        recoveryStableMinutes:
+          type: integer
+          minimum: 1
+        reasonCode:
+          type: string
+        stableSince:
+          type: [string, "null"]
+          format: date-time
+        frozenAt:
+          type: [string, "null"]
+          format: date-time
+        clearedAt:
+          type: [string, "null"]
+          format: date-time
+        evaluatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 1
     UpsertRetentionPolicyRequest:
       type: object
       additionalProperties: false
@@ -10542,6 +10648,10 @@ components:
         errorBudget:
           oneOf:
             - $ref: "#/components/schemas/ErrorBudget"
+            - type: "null"
+        releaseFreeze:
+          oneOf:
+            - $ref: "#/components/schemas/ReleaseFreeze"
             - type: "null"
         slaExclusions:
           type: array

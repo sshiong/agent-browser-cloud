@@ -48,6 +48,24 @@ export interface ErrorBudgetView {
   calculatedAt: string;
 }
 
+export interface ReleaseFreezeView {
+  tenantId: string;
+  enabled: boolean;
+  phase: 'OPEN' | 'FROZEN' | 'RECOVERING';
+  frozen: boolean;
+  currentBurnRate: number;
+  freezeBurnRateThreshold: number;
+  recoveryBurnRateThreshold: number;
+  evaluationWindowMinutes: number;
+  recoveryStableMinutes: number;
+  reasonCode: string;
+  stableSince: string | null;
+  frozenAt: string | null;
+  clearedAt: string | null;
+  evaluatedAt: string;
+  version: number;
+}
+
 export interface MediaQuotaView {
   tenantId: string;
   maxConcurrentStreams: number;
@@ -133,6 +151,7 @@ export interface EnterpriseOverviewResponse {
   costRates: CostRateView[];
   mediaQuota: MediaQuotaView | null;
   errorBudget: ErrorBudgetView | null;
+  releaseFreeze?: ReleaseFreezeView | null;
   slaExclusions: SlaExclusionView[];
   retentionPolicies: RetentionPolicyView[];
   licenseInventory: LicenseInventoryView[];

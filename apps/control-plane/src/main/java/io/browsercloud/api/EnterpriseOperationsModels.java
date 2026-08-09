@@ -119,7 +119,12 @@ public final class EnterpriseOperationsModels {
       @NotNull @DecimalMin("0.900000") @DecimalMax(value = "0.999999")
           BigDecimal availabilityTarget,
       @Min(1) @Max(600000) int latencyP95TargetMs,
-      @Min(60) @Max(527040) int windowMinutes) {}
+      @Min(60) @Max(527040) int windowMinutes,
+      Boolean releaseFreezeEnabled,
+      @DecimalMin("0.000001") @DecimalMax("1000") BigDecimal releaseFreezeBurnRateThreshold,
+      @DecimalMin("0") @DecimalMax("999.999999") BigDecimal releaseRecoveryBurnRateThreshold,
+      @Min(5) @Max(1440) Integer releaseFreezeWindowMinutes,
+      @Min(1) @Max(1440) Integer releaseRecoveryStableMinutes) {}
 
   public record RecordServiceLevelEventRequest(
       @NotBlank @Pattern(regexp = "^(UNAVAILABLE|LATENCY_BREACH|HEALTHY)$") String eventType,
@@ -152,6 +157,23 @@ public final class EnterpriseOperationsModels {
       String state,
       Instant windowStartedAt,
       Instant calculatedAt) {}
+
+  public record ReleaseFreezeView(
+      String tenantId,
+      boolean enabled,
+      String phase,
+      boolean frozen,
+      BigDecimal currentBurnRate,
+      BigDecimal freezeBurnRateThreshold,
+      BigDecimal recoveryBurnRateThreshold,
+      int evaluationWindowMinutes,
+      int recoveryStableMinutes,
+      String reasonCode,
+      Instant stableSince,
+      Instant frozenAt,
+      Instant clearedAt,
+      Instant evaluatedAt,
+      long version) {}
 
   public record UpsertRetentionPolicyRequest(
       @NotBlank
@@ -284,6 +306,7 @@ public final class EnterpriseOperationsModels {
       List<CostRateView> costRates,
       MediaQuotaView mediaQuota,
       ErrorBudgetView errorBudget,
+      ReleaseFreezeView releaseFreeze,
       List<SlaExclusionView> slaExclusions,
       List<RetentionPolicyView> retentionPolicies,
       List<LicenseInventoryView> licenseInventory,

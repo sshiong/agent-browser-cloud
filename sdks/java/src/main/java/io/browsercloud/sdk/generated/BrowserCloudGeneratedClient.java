@@ -144,6 +144,7 @@ public final class BrowserCloudGeneratedClient {
     operation("upsertTenantMediaQuota", "PUT", "/api/v1/enterprise/media-quota", List.of(), List.of(), List.of(), "UpsertMediaQuotaRequest", true, "MediaQuota"),
     operation("upsertSloPolicy", "PUT", "/api/v1/enterprise/slo-policy", List.of(), List.of(), List.of("X-Tenant-Id"), "UpsertSloPolicyRequest", true, "ErrorBudget"),
     operation("getErrorBudget", "GET", "/api/v1/enterprise/error-budget", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "ErrorBudget"),
+    operation("getReleaseFreezeState", "GET", "/api/v1/enterprise/release-freeze", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "ReleaseFreeze"),
     operation("recordServiceLevelEvent", "POST", "/api/v1/enterprise/service-level-events", List.of(), List.of(), List.of("X-Tenant-Id"), "RecordServiceLevelEventRequest", true, "ErrorBudget"),
     operation("listSlaExclusions", "GET", "/api/v1/enterprise/sla-exclusions", List.of(), List.of(), List.of(), "", false, "array<SlaExclusion>"),
     operation("upsertSlaExclusion", "PUT", "/api/v1/enterprise/sla-exclusions/{exclusionCode}", List.of("exclusionCode"), List.of(), List.of(), "UpsertSlaExclusionRequest", true, "SlaExclusion"),
@@ -335,6 +336,7 @@ public final class BrowserCloudGeneratedClient {
   public Response upsertTenantMediaQuota(Request request) { return call("upsertTenantMediaQuota", request); }
   public Response upsertSloPolicy(Request request) { return call("upsertSloPolicy", request); }
   public Response getErrorBudget(Request request) { return call("getErrorBudget", request); }
+  public Response getReleaseFreezeState(Request request) { return call("getReleaseFreezeState", request); }
   public Response recordServiceLevelEvent(Request request) { return call("recordServiceLevelEvent", request); }
   public Response listSlaExclusions(Request request) { return call("listSlaExclusions", request); }
   public Response upsertSlaExclusion(Request request) { return call("upsertSlaExclusion", request); }

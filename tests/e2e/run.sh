@@ -192,6 +192,15 @@ printf '%s' "$browser_nodes" | python3 -c \
   'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_e2e"; assert node["admissionState"] == "OPEN"'
 
 curl -fsS -X PUT \
+  "http://127.0.0.1:${control_port}/api/v1/enterprise/slo-policy" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-local' \
+  -H 'X-Actor-Id: e2e-slo-owner' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -d '{"availabilityTarget":0.99,"latencyP95TargetMs":1500,"windowMinutes":60,"releaseFreezeEnabled":true,"releaseFreezeBurnRateThreshold":1,"releaseRecoveryBurnRateThreshold":0.25,"releaseFreezeWindowMinutes":5,"releaseRecoveryStableMinutes":1}' \
+  >"$temp_dir/slo-policy.json"
+
+curl -fsS -X PUT \
   "http://127.0.0.1:${control_port}/api/v1/extensions/jdgnleokimdbblcflcfcohbinohmmmlb" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-local' \

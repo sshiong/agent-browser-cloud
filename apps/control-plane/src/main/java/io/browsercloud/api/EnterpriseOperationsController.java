@@ -105,6 +105,12 @@ public class EnterpriseOperationsController {
     return service.errorBudget(identity.current().tenantId());
   }
 
+  @GetMapping("/release-freeze")
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public ReleaseFreezeView releaseFreeze() {
+    return service.releaseFreeze(identity.current().tenantId());
+  }
+
   @PostMapping("/service-level-events")
   @PreAuthorize(PlatformRoles.PLATFORM_ADMIN)
   public ErrorBudgetView recordServiceLevelEvent(

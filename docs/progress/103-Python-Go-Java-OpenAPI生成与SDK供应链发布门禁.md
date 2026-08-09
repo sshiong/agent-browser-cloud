@@ -15,7 +15,7 @@
 ## 已完成
 
 1. `tools/sdk/generate_multilang_sdks.py` 读取 Redocly 生成的 OpenAPI 3.1 JSON Bundle，
-   确定性生成 Python、Go、Java 的 159 个唯一 Operation 和 215 个公开 Component
+   确定性生成 Python、Go、Java 的 160 个唯一 Operation 和 216 个公开 Component
    Schema；不维护第二份接口描述或生产 Mock。
 2. Python 生成标准库 Client 与 `TypedDict/Literal`，Go 生成标准库 Client 与
    Struct/Enum，Java 17 生成 JDK HttpClient Client 与 Record/Enum；原手写兼容 Client
@@ -51,8 +51,8 @@ make build-sdk-release
 关键输出：
 
 ```text
-multilang_sdk_generated=true operations=159 schemas=215
-multilang_sdk_verified=true operations=159 schemas=215 languages=python,go,java
+multilang_sdk_generated=true operations=160 schemas=216
+multilang_sdk_verified=true operations=160 schemas=216 languages=python,go,java
 multilang_sdk_release=true version=0.1.0 artifacts=8
 ```
 

@@ -21,21 +21,25 @@ public class RuntimeReleaseApplicationService {
   private final RuntimeBuildJpaRepository buildRepository;
   private final RuntimeBuildPolicy buildPolicy;
   private final AuditApplicationService auditService;
+  private final ReleaseFreezeApplicationService releaseFreezeService;
 
   public RuntimeReleaseApplicationService(
       RuntimeReleaseRequestJpaRepository releaseRepository,
       RuntimeBuildJpaRepository buildRepository,
       RuntimeBuildPolicy buildPolicy,
-      AuditApplicationService auditService) {
+      AuditApplicationService auditService,
+      ReleaseFreezeApplicationService releaseFreezeService) {
     this.releaseRepository = releaseRepository;
     this.buildRepository = buildRepository;
     this.buildPolicy = buildPolicy;
     this.auditService = auditService;
+    this.releaseFreezeService = releaseFreezeService;
   }
 
   @Transactional
   public RuntimeReleaseRequestView requestPromotion(
       String tenantId, String actorId, String buildId, String targetChannel, String reason) {
+    requirePromotionGateOpen(tenantId, actorId, buildId, targetChannel);
     buildPolicy.requireReleaseCandidate(buildId);
     return create(tenantId, actorId, buildId, targetChannel, reason);
   }
@@ -70,6 +74,9 @@ public class RuntimeReleaseApplicationService {
       auditService.appendIndependent(
           auditRecord(request, actorId, "RUNTIME_RELEASE_APPROVAL_DENIED", "SEPARATION_OF_DUTIES"));
       throw new RuntimeReleaseRejectedException("REQUESTER_CANNOT_APPROVE");
+    }
+    if (!"DISABLED".equals(request.getTargetChannel())) {
+      requirePromotionGateOpen(tenantId, actorId, request.getBuildId(), request.getTargetChannel());
     }
     var build =
         buildRepository
@@ -139,6 +146,29 @@ public class RuntimeReleaseApplicationService {
     if (!"REQUESTED".equals(request.getState())) {
       throw new RuntimeReleaseRejectedException("INVALID_STATE_" + request.getState());
     }
+  }
+
+  private void requirePromotionGateOpen(
+      String tenantId, String actorId, String buildId, String targetChannel) {
+    releaseFreezeService
+        .promotionBlockReason(tenantId)
+        .ifPresent(
+            reason -> {
+              auditService.appendIndependent(
+                  new AuditApplicationService.AuditRecord(
+                      tenantId,
+                      null,
+                      "RUNTIME_RELEASE",
+                      "USER",
+                      actorId,
+                      "RUNTIME_BUILD",
+                      buildId,
+                      "RUNTIME_RELEASE_PROMOTION_BLOCKED",
+                      "FROZEN",
+                      Map.of("targetChannel", targetChannel, "reason", reason),
+                      "release-freeze:" + buildId + ":" + targetChannel));
+              throw new RuntimeReleaseRejectedException(reason);
+            });
   }
 
   private void appendAudit(

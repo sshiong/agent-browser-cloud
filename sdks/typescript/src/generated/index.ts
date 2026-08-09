@@ -145,6 +145,7 @@ export type { RecoveryTargetIndicator } from './models/RecoveryTargetIndicator.j
 export type { RedeemEvidenceAccessResponse } from './models/RedeemEvidenceAccessResponse.js';
 export type { RegionId } from './models/RegionId.js';
 export type { RegisterBrowserNodeRequest } from './models/RegisterBrowserNodeRequest.js';
+export type { ReleaseFreeze } from './models/ReleaseFreeze.js';
 export type { RemoteDesktopConnection } from './models/RemoteDesktopConnection.js';
 export type { RenewSafetyLeaseRequest } from './models/RenewSafetyLeaseRequest.js';
 export type { RequestRecoveryContractApprovalRequest } from './models/RequestRecoveryContractApprovalRequest.js';

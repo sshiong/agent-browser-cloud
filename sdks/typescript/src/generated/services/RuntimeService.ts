@@ -5,6 +5,7 @@
 import type { CompleteRuntimeValidationRequest } from '../models/CompleteRuntimeValidationRequest.js';
 import type { CreateRuntimeDisableRequest } from '../models/CreateRuntimeDisableRequest.js';
 import type { CreateRuntimeReleaseRequest } from '../models/CreateRuntimeReleaseRequest.js';
+import type { ReleaseFreeze } from '../models/ReleaseFreeze.js';
 import type { RuntimeBuildListResponse } from '../models/RuntimeBuildListResponse.js';
 import type { RuntimeReleaseRequest } from '../models/RuntimeReleaseRequest.js';
 import type { RuntimeReleaseRequestListResponse } from '../models/RuntimeReleaseRequestListResponse.js';
@@ -272,6 +273,33 @@ export class RuntimeService {
             mediaType: 'application/json',
             errors: {
                 400: `Invalid request.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Read the authoritative Error Budget release gate
+     * Returns the PostgreSQL-backed automatic Runtime promotion freeze state. Emergency Runtime disable operations remain available while the promotion gate is frozen.
+     *
+     * @returns ReleaseFreeze Current automatic release gate and hysteresis state.
+     * @throws ApiError
+     */
+    public getReleaseFreezeState({
+        xTenantId,
+    }: {
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<ReleaseFreeze> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/release-freeze',
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
             },
         });

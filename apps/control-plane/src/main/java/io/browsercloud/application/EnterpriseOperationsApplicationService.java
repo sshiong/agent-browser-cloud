@@ -37,6 +37,7 @@ public class EnterpriseOperationsApplicationService {
   private final JdbcTemplate jdbc;
   private final ObjectMapper objectMapper;
   private final AuditApplicationService auditService;
+  private final ReleaseFreezeApplicationService releaseFreezeService;
   private final String auditExportSigningKey;
   private final String auditExportSigningKeyId;
 
@@ -44,12 +45,14 @@ public class EnterpriseOperationsApplicationService {
       JdbcTemplate jdbc,
       ObjectMapper objectMapper,
       AuditApplicationService auditService,
+      ReleaseFreezeApplicationService releaseFreezeService,
       @Value("${enterprise.audit-export.signing-key:local-development-audit-export-key}")
           String auditExportSigningKey,
       @Value("${enterprise.audit-export.signing-key-id:local-development}") String signingKeyId) {
     this.jdbc = jdbc;
     this.objectMapper = objectMapper;
     this.auditService = auditService;
+    this.releaseFreezeService = releaseFreezeService;
     this.auditExportSigningKey = auditExportSigningKey;
     this.auditExportSigningKeyId = signingKeyId;
   }
@@ -299,16 +302,27 @@ public class EnterpriseOperationsApplicationService {
   @Transactional
   public ErrorBudgetView upsertSlo(
       String tenantId, UpsertSloPolicyRequest request, String actorId) {
+    var freezePolicy = resolveReleaseFreezePolicy(tenantId, request);
     jdbc.update(
         """
         INSERT INTO enterprise_slo_policies(
           tenant_id, availability_target, latency_p95_target_ms,
-          window_minutes, updated_by, updated_at
-        ) VALUES (?, ?, ?, ?, ?, now())
+          window_minutes, release_freeze_enabled,
+          release_freeze_burn_rate_threshold,
+          release_recovery_burn_rate_threshold,
+          release_freeze_window_minutes,
+          release_recovery_stable_minutes,
+          updated_by, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
         ON CONFLICT (tenant_id) DO UPDATE SET
           availability_target = EXCLUDED.availability_target,
           latency_p95_target_ms = EXCLUDED.latency_p95_target_ms,
           window_minutes = EXCLUDED.window_minutes,
+          release_freeze_enabled = EXCLUDED.release_freeze_enabled,
+          release_freeze_burn_rate_threshold = EXCLUDED.release_freeze_burn_rate_threshold,
+          release_recovery_burn_rate_threshold = EXCLUDED.release_recovery_burn_rate_threshold,
+          release_freeze_window_minutes = EXCLUDED.release_freeze_window_minutes,
+          release_recovery_stable_minutes = EXCLUDED.release_recovery_stable_minutes,
           updated_by = EXCLUDED.updated_by,
           updated_at = EXCLUDED.updated_at
         """,
@@ -316,7 +330,13 @@ public class EnterpriseOperationsApplicationService {
         request.availabilityTarget(),
         request.latencyP95TargetMs(),
         request.windowMinutes(),
+        freezePolicy.enabled(),
+        freezePolicy.freezeThreshold(),
+        freezePolicy.recoveryThreshold(),
+        freezePolicy.evaluationWindowMinutes(),
+        freezePolicy.recoveryStableMinutes(),
         actorId);
+    releaseFreezeService.evaluateTenant(tenantId, Instant.now());
     return errorBudget(tenantId);
   }
 
@@ -353,7 +373,15 @@ public class EnterpriseOperationsApplicationService {
         sqlTime(request.occurredAt()),
         excluded,
         request.exclusionCode());
+    releaseFreezeService.evaluateTenant(tenantId, Instant.now());
     return errorBudget(tenantId);
+  }
+
+  @Transactional(readOnly = true)
+  public ReleaseFreezeView releaseFreeze(String tenantId) {
+    return releaseFreezeService
+        .current(tenantId)
+        .orElseThrow(() -> new EnterpriseResourceNotFoundException("Release Freeze State"));
   }
 
   @Transactional
@@ -919,6 +947,7 @@ public class EnterpriseOperationsApplicationService {
         listCostRates(),
         optionalMediaQuota(tenantId).orElse(null),
         optionalErrorBudget(tenantId).orElse(null),
+        releaseFreezeService.current(tenantId).orElse(null),
         listSlaExclusions(tenantId),
         listRetention(tenantId),
         listLicenses(),
@@ -1145,6 +1174,54 @@ public class EnterpriseOperationsApplicationService {
         .stream()
         .findFirst()
         .orElseThrow(() -> new EnterpriseResourceNotFoundException("SLO Policy"));
+  }
+
+  private ReleaseFreezePolicy resolveReleaseFreezePolicy(
+      String tenantId, UpsertSloPolicyRequest request) {
+    var existing =
+        jdbc
+            .queryForList("SELECT * FROM enterprise_slo_policies WHERE tenant_id = ?", tenantId)
+            .stream()
+            .findFirst()
+            .orElse(Map.of());
+    var enabled =
+        request.releaseFreezeEnabled() != null
+            ? request.releaseFreezeEnabled()
+            : existing.isEmpty() ? false : (Boolean) existing.get("release_freeze_enabled");
+    var freezeThreshold =
+        request.releaseFreezeBurnRateThreshold() != null
+            ? request.releaseFreezeBurnRateThreshold()
+            : existing.isEmpty()
+                ? BigDecimal.ONE
+                : (BigDecimal) existing.get("release_freeze_burn_rate_threshold");
+    var recoveryThreshold =
+        request.releaseRecoveryBurnRateThreshold() != null
+            ? request.releaseRecoveryBurnRateThreshold()
+            : existing.isEmpty()
+                ? new BigDecimal("0.500000")
+                : (BigDecimal) existing.get("release_recovery_burn_rate_threshold");
+    var evaluationWindowMinutes =
+        request.releaseFreezeWindowMinutes() != null
+            ? request.releaseFreezeWindowMinutes()
+            : existing.isEmpty()
+                ? 60
+                : ((Number) existing.get("release_freeze_window_minutes")).intValue();
+    var recoveryStableMinutes =
+        request.releaseRecoveryStableMinutes() != null
+            ? request.releaseRecoveryStableMinutes()
+            : existing.isEmpty()
+                ? 30
+                : ((Number) existing.get("release_recovery_stable_minutes")).intValue();
+    if (recoveryThreshold.compareTo(freezeThreshold) >= 0) {
+      throw new IllegalArgumentException(
+          "release recovery burn-rate threshold must be lower than freeze threshold");
+    }
+    return new ReleaseFreezePolicy(
+        enabled,
+        freezeThreshold,
+        recoveryThreshold,
+        evaluationWindowMinutes,
+        recoveryStableMinutes);
   }
 
   private RuntimeValidationView validation(ResultSet result, int row) throws SQLException {
@@ -1427,6 +1504,13 @@ public class EnterpriseOperationsApplicationService {
     var value = result.getObject(column);
     return value == null ? null : ((Number) value).intValue();
   }
+
+  private record ReleaseFreezePolicy(
+      boolean enabled,
+      BigDecimal freezeThreshold,
+      BigDecimal recoveryThreshold,
+      int evaluationWindowMinutes,
+      int recoveryStableMinutes) {}
 
   public static class EnterpriseResourceNotFoundException extends RuntimeException {
     public EnterpriseResourceNotFoundException(String resource) {

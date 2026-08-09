@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { ErrorBudget } from '../models/ErrorBudget.js';
 import type { RecordServiceLevelEventRequest } from '../models/RecordServiceLevelEventRequest.js';
+import type { ReleaseFreeze } from '../models/ReleaseFreeze.js';
 import type { SlaExclusion } from '../models/SlaExclusion.js';
 import type { UpsertSlaExclusionRequest } from '../models/UpsertSlaExclusionRequest.js';
 import type { UpsertSloPolicyRequest } from '../models/UpsertSloPolicyRequest.js';
@@ -59,6 +60,33 @@ export class SloService {
                 'X-Tenant-Id': xTenantId,
             },
             errors: {
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Read the authoritative Error Budget release gate
+     * Returns the PostgreSQL-backed automatic Runtime promotion freeze state. Emergency Runtime disable operations remain available while the promotion gate is frozen.
+     *
+     * @returns ReleaseFreeze Current automatic release gate and hysteresis state.
+     * @throws ApiError
+     */
+    public getReleaseFreezeState({
+        xTenantId,
+    }: {
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<ReleaseFreeze> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/release-freeze',
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
             },
         });

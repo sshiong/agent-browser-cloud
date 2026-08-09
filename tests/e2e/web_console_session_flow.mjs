@@ -64,9 +64,30 @@ async function executeSelectedTaskAndWait(
   throw new Error(`Agent task ${taskId} did not reach ${expectedState}`);
 }
 
+async function waitForProxyAllocation(sessionId, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const response = await page.request.get(`${baseUrl}/api/v1/proxies`, {
+      headers: {
+        "X-Tenant-Id": "tenant-local",
+        "X-Roles": "TENANT_ADMIN",
+      },
+    });
+    if (response.ok()) {
+      const overview = await response.json();
+      const allocation = overview.allocations?.find(
+        (item) => item.sessionId === sessionId && item.state === "BOUND",
+      );
+      if (allocation) return allocation;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`Proxy allocation for ${sessionId} did not become BOUND`);
+}
+
 try {
   await page.goto(`${baseUrl}/nodes`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("heading", { name: "Browser Node" }),
   ).toBeVisible();
@@ -75,7 +96,7 @@ try {
   await expect(page.getByText("NORMAL", { exact: true }).first()).toBeVisible();
 
   await page.goto(`${baseUrl}/extensions`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("button", { name: /扩展资源画像/ }),
   ).toBeVisible();
@@ -85,7 +106,7 @@ try {
   await expect(page.getByText("CERTIFIED", { exact: true })).toBeVisible();
 
   await page.goto(`${baseUrl}/extensions?view=recovery`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("heading", { name: "Application Recovery Contract" }),
   ).toBeVisible();
@@ -118,7 +139,7 @@ try {
   ).toBeVisible();
 
   await page.goto(`${baseUrl}/enterprise`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.getByRole("heading", { name: "企业运营" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Runtime Validation Farm" }),
@@ -127,9 +148,11 @@ try {
     page.getByText("local / standard-lite-v1", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("PRIMARY · replication lag 0s")).toBeVisible();
+  await expect(page.getByText("Runtime promotion gate")).toBeVisible();
+  await expect(page.getByText(/BURN_RATE_WITHIN_POLICY/)).toBeVisible();
 
   await page.goto(`${baseUrl}/environments`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.getByRole("heading", { name: "环境管理" })).toBeVisible();
 
   const personalSavedViewName = `E2E Personal View ${runSuffix}`;
@@ -413,6 +436,7 @@ try {
   await expect(page.getByText("COMPLETE", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
+  await waitForProxyAllocation(startSessionId);
 
   await page.getByRole("link", { name: "代理与出口" }).click();
   await expect(page.getByRole("heading", { name: "代理与出口" })).toBeVisible();
@@ -746,7 +770,7 @@ try {
   });
 
   await page.goto(`${baseUrl}/runtimes`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("heading", { name: "Runtime 验证" }),
   ).toBeVisible();
@@ -760,7 +784,7 @@ try {
   ).toBeVisible();
 
   await page.goto(`${baseUrl}/security`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.getByRole("heading", { name: "安全中心" })).toBeVisible();
   await expect(page.getByText("完整", { exact: true })).toBeVisible();
   await expect(page.getByText(/SESSION_CONTEXT_COMMIT/).first()).toBeVisible();
@@ -915,7 +939,7 @@ try {
   });
 
   await page.goto(`${baseUrl}/logs`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.getByRole("heading", { name: "事件流" })).toBeVisible();
   await expect(
     page.getByText("SESSION_CONTEXT_COMMIT", { exact: true }).first(),
@@ -1020,7 +1044,7 @@ try {
   });
 
   await page.goto(`${baseUrl}/environments?create=1`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("heading", { name: "新建浏览器环境" }),
   ).toBeVisible();

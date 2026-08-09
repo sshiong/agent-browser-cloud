@@ -168,6 +168,7 @@ var Operations = map[string]Operation{
 	"upsertTenantMediaQuota":                     {OperationID: "upsertTenantMediaQuota", Method: "PUT", Path: "/api/v1/enterprise/media-quota", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "UpsertMediaQuotaRequest", RequestRequired: true, ResponseSchema: "MediaQuota"},
 	"upsertSloPolicy":                            {OperationID: "upsertSloPolicy", Method: "PUT", Path: "/api/v1/enterprise/slo-policy", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "UpsertSloPolicyRequest", RequestRequired: true, ResponseSchema: "ErrorBudget"},
 	"getErrorBudget":                             {OperationID: "getErrorBudget", Method: "GET", Path: "/api/v1/enterprise/error-budget", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ErrorBudget"},
+	"getReleaseFreezeState":                      {OperationID: "getReleaseFreezeState", Method: "GET", Path: "/api/v1/enterprise/release-freeze", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ReleaseFreeze"},
 	"recordServiceLevelEvent":                    {OperationID: "recordServiceLevelEvent", Method: "POST", Path: "/api/v1/enterprise/service-level-events", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "RecordServiceLevelEventRequest", RequestRequired: true, ResponseSchema: "ErrorBudget"},
 	"listSlaExclusions":                          {OperationID: "listSlaExclusions", Method: "GET", Path: "/api/v1/enterprise/sla-exclusions", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<SlaExclusion>"},
 	"upsertSlaExclusion":                         {OperationID: "upsertSlaExclusion", Method: "PUT", Path: "/api/v1/enterprise/sla-exclusions/{exclusionCode}", PathParameters: []string{"exclusionCode"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "UpsertSlaExclusionRequest", RequestRequired: true, ResponseSchema: "SlaExclusion"},
@@ -667,6 +668,9 @@ func (c *Client) UpsertSloPolicy(ctx context.Context, request Request) (any, *ht
 }
 func (c *Client) GetErrorBudget(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getErrorBudget", request)
+}
+func (c *Client) GetReleaseFreezeState(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getReleaseFreezeState", request)
 }
 func (c *Client) RecordServiceLevelEvent(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "recordServiceLevelEvent", request)

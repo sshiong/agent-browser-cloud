@@ -2140,9 +2140,14 @@ type MediaQuota struct {
 }
 
 type UpsertSloPolicyRequest struct {
-	AvailabilityTarget float64 `json:"availabilityTarget,omitempty"`
-	LatencyP95TargetMs int     `json:"latencyP95TargetMs,omitempty"`
-	WindowMinutes      int     `json:"windowMinutes,omitempty"`
+	AvailabilityTarget               float64 `json:"availabilityTarget,omitempty"`
+	LatencyP95TargetMs               int     `json:"latencyP95TargetMs,omitempty"`
+	WindowMinutes                    int     `json:"windowMinutes,omitempty"`
+	ReleaseFreezeEnabled             bool    `json:"releaseFreezeEnabled,omitempty"`
+	ReleaseFreezeBurnRateThreshold   float64 `json:"releaseFreezeBurnRateThreshold,omitempty"`
+	ReleaseRecoveryBurnRateThreshold float64 `json:"releaseRecoveryBurnRateThreshold,omitempty"`
+	ReleaseFreezeWindowMinutes       int     `json:"releaseFreezeWindowMinutes,omitempty"`
+	ReleaseRecoveryStableMinutes     int     `json:"releaseRecoveryStableMinutes,omitempty"`
 }
 
 type RecordServiceLevelEventRequest struct {
@@ -2180,6 +2185,24 @@ type ErrorBudget struct {
 	State                       string  `json:"state,omitempty"`
 	WindowStartedAt             string  `json:"windowStartedAt,omitempty"`
 	CalculatedAt                string  `json:"calculatedAt,omitempty"`
+}
+
+type ReleaseFreeze struct {
+	TenantId                  string  `json:"tenantId,omitempty"`
+	Enabled                   bool    `json:"enabled,omitempty"`
+	Phase                     string  `json:"phase,omitempty"`
+	Frozen                    bool    `json:"frozen,omitempty"`
+	CurrentBurnRate           float64 `json:"currentBurnRate,omitempty"`
+	FreezeBurnRateThreshold   float64 `json:"freezeBurnRateThreshold,omitempty"`
+	RecoveryBurnRateThreshold float64 `json:"recoveryBurnRateThreshold,omitempty"`
+	EvaluationWindowMinutes   int     `json:"evaluationWindowMinutes,omitempty"`
+	RecoveryStableMinutes     int     `json:"recoveryStableMinutes,omitempty"`
+	ReasonCode                string  `json:"reasonCode,omitempty"`
+	StableSince               any     `json:"stableSince,omitempty"`
+	FrozenAt                  any     `json:"frozenAt,omitempty"`
+	ClearedAt                 any     `json:"clearedAt,omitempty"`
+	EvaluatedAt               string  `json:"evaluatedAt,omitempty"`
+	Version                   int64   `json:"version,omitempty"`
 }
 
 type UpsertRetentionPolicyRequest struct {
@@ -2318,6 +2341,7 @@ type EnterpriseOverview struct {
 	CostRates         []CostRate          `json:"costRates,omitempty"`
 	MediaQuota        any                 `json:"mediaQuota,omitempty"`
 	ErrorBudget       any                 `json:"errorBudget,omitempty"`
+	ReleaseFreeze     any                 `json:"releaseFreeze,omitempty"`
 	SlaExclusions     []SlaExclusion      `json:"slaExclusions,omitempty"`
 	RetentionPolicies []RetentionPolicy   `json:"retentionPolicies,omitempty"`
 	LicenseInventory  []LicenseInventory  `json:"licenseInventory,omitempty"`

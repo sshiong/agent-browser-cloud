@@ -70,9 +70,17 @@ function EnterpriseOverview({
         />
         <Metric
           icon={TimerReset}
-          label="Error budget"
-          value={data.errorBudget?.state ?? 'NOT SET'}
-          tone={tone(data.errorBudget?.state)}
+          label="Release gate"
+          value={
+            data.releaseFreeze?.enabled
+              ? data.releaseFreeze.phase
+              : (data.errorBudget?.state ?? 'NOT SET')
+          }
+          tone={tone(
+            data.releaseFreeze?.enabled
+              ? data.releaseFreeze.phase
+              : data.errorBudget?.state
+          )}
         />
         <Metric
           icon={ShieldCheck}
@@ -165,9 +173,47 @@ function EnterpriseOverview({
                 />
                 <Small
                   label="Burn"
-                  value={`${(data.errorBudget.burnRatio * 100).toFixed(2)}%`}
+                  value={`${data.errorBudget.burnRatio.toFixed(3)}×`}
                 />
               </div>
+              {data.releaseFreeze ? (
+                <div className="mt-3 border border-border-subtle bg-surface-2 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wider text-text-muted">
+                        Runtime promotion gate
+                      </p>
+                      <p className="mt-1 font-mono text-[10px] text-text-secondary">
+                        {data.releaseFreeze.currentBurnRate.toFixed(3)}× burn ·
+                        freeze{' '}
+                        {data.releaseFreeze.freezeBurnRateThreshold.toFixed(3)}×
+                        · recover below{' '}
+                        {data.releaseFreeze.recoveryBurnRateThreshold.toFixed(
+                          3
+                        )}
+                        × for {data.releaseFreeze.recoveryStableMinutes}m
+                      </p>
+                    </div>
+                    <Status
+                      value={
+                        data.releaseFreeze.enabled
+                          ? data.releaseFreeze.phase
+                          : 'DISABLED'
+                      }
+                      tone={tone(
+                        data.releaseFreeze.enabled
+                          ? data.releaseFreeze.phase
+                          : undefined
+                      )}
+                    />
+                  </div>
+                  <p className="mt-2 font-mono text-[9px] text-text-muted">
+                    {data.releaseFreeze.reasonCode} · evaluated{' '}
+                    {relativeTime(data.releaseFreeze.evaluatedAt)} · v
+                    {data.releaseFreeze.version}
+                  </p>
+                </div>
+              ) : null}
               {data.slaExclusions.length > 0 ? (
                 <p className="mt-3 text-[10px] text-text-muted">
                   {data.slaExclusions.filter((item) => item.enabled).length}{' '}
@@ -440,9 +486,15 @@ function tone(value?: string): Tone {
     value === 'FAILOVER_READY'
   )
     return 'success';
-  if (value === 'FAILED' || value === 'EXHAUSTED' || value === 'CLOSED')
+  if (
+    value === 'FAILED' ||
+    value === 'EXHAUSTED' ||
+    value === 'CLOSED' ||
+    value === 'FROZEN'
+  )
     return 'danger';
-  if (value === 'DEGRADED' || value === 'RUNNING') return 'warning';
+  if (value === 'DEGRADED' || value === 'RUNNING' || value === 'RECOVERING')
+    return 'warning';
   return 'neutral';
 }
 

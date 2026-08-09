@@ -1,8 +1,8 @@
 # Phase 7：企业运营核心验收
 
-> 状态：仓库内核心功能和本地验收闭环；真实多 Region、目标云 KMS/HSM、发布系统联动
+> 状态：仓库内核心功能和本地验收闭环；真实多 Region、目标云 KMS/HSM、外部发布系统联动
 > 与正式 SDK Distribution 仍属于生产 Gate
-> 日期：2026-07-26
+> 日期：2026-08-09
 
 ## 已完成
 
@@ -34,6 +34,10 @@
 12. 提供 TypeScript、Python、Go、Java 四个依赖最小 SDK，并提供统一 `make test-sdk`。
 13. 提供 AWS Terraform Module，包含网络、KMS、S3、RDS、Redis、EKS、IAM 和安全
     默认值；Terraform 1.9.8 已完成 `fmt -check`、`init -backend=false` 和 `validate`。
+14. `V075` 已完成 Error Budget Burn Rate 到仓库内 Runtime Promotion 的自动冻结：
+    PostgreSQL 权威状态、上下阈值 Hysteresis、稳定恢复、30 秒评估、申请/审批双 Gate、
+    Emergency Disable 旁路、Audit、正式 API/UI 和 N/N-1 均已验收，详见
+    [进度 109](109-Error-Budget-Burn-Rate自动发布冻结闭环.md)。
 
 ## 验收证据
 
@@ -54,11 +58,12 @@
 ## 仍未完成
 
 1. Validation Worker 的隔离队列编排、全浏览器版本矩阵与大规模业务页面 Replay；
-2. Error Budget Burn Rate 自动冻结真实发布流水线；
-3. GameDay Runner 对真实基础设施执行故障注入并联动发布冻结；
+2. 将已完成的 Runtime Release Freeze Gate 接入目标组织真实外部发布流水线；
+3. GameDay Runner 对真实基础设施执行故障注入并联动已完成的冻结 Gate；
 4. 真实多 Region 数据/对象复制、流量切换和目标 RTO/RPO；
 5. 目标云 KMS/HSM 的 Audit Export 签名、WORM Export Object 和外部审计系统；
 6. Terraform Provider；当前交付是 Terraform Module；
-7. 四 SDK 的自动生成、包仓发布、签名、版本兼容和弃用策略。
+7. 四 SDK 的目标包仓发布、签名、版本兼容和弃用策略；自动生成和 GitHub OIDC
+   Provenance Release 已完成。
 
 这些剩余项不影响仓库内 Phase 7 核心 API/UI/数据模型验收，但继续阻塞 V16 生产发布。

@@ -154,6 +154,7 @@ OPERATIONS: dict[str, Operation] = {
     'upsertTenantMediaQuota': Operation('upsertTenantMediaQuota', 'PUT', '/api/v1/enterprise/media-quota', (), (), (), 'UpsertMediaQuotaRequest', True, 'MediaQuota'),
     'upsertSloPolicy': Operation('upsertSloPolicy', 'PUT', '/api/v1/enterprise/slo-policy', (), (), ('X-Tenant-Id',), 'UpsertSloPolicyRequest', True, 'ErrorBudget'),
     'getErrorBudget': Operation('getErrorBudget', 'GET', '/api/v1/enterprise/error-budget', (), (), ('X-Tenant-Id',), '', False, 'ErrorBudget'),
+    'getReleaseFreezeState': Operation('getReleaseFreezeState', 'GET', '/api/v1/enterprise/release-freeze', (), (), ('X-Tenant-Id',), '', False, 'ReleaseFreeze'),
     'recordServiceLevelEvent': Operation('recordServiceLevelEvent', 'POST', '/api/v1/enterprise/service-level-events', (), (), ('X-Tenant-Id',), 'RecordServiceLevelEventRequest', True, 'ErrorBudget'),
     'listSlaExclusions': Operation('listSlaExclusions', 'GET', '/api/v1/enterprise/sla-exclusions', (), (), (), '', False, 'array<SlaExclusion>'),
     'upsertSlaExclusion': Operation('upsertSlaExclusion', 'PUT', '/api/v1/enterprise/sla-exclusions/{exclusionCode}', ('exclusionCode',), (), (), 'UpsertSlaExclusionRequest', True, 'SlaExclusion'),
@@ -608,6 +609,9 @@ class BrowserCloudGeneratedClient:
 
     def getErrorBudget(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getErrorBudget', path=path, query=query, body=body, headers=headers)
+
+    def getReleaseFreezeState(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getReleaseFreezeState', path=path, query=query, body=body, headers=headers)
 
     def recordServiceLevelEvent(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('recordServiceLevelEvent', path=path, query=query, body=body, headers=headers)

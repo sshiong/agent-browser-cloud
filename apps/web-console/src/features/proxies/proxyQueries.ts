@@ -18,6 +18,7 @@ export function useProxyOverview() {
   return useQuery({
     queryKey: proxyKeys.overview(),
     queryFn: ({ signal }) => getProxyOverview(undefined, signal),
+    refetchOnMount: 'always',
   });
 }
 

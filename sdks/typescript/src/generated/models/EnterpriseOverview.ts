@@ -9,6 +9,7 @@ import type { ErrorBudget } from './ErrorBudget.js';
 import type { LicenseInventory } from './LicenseInventory.js';
 import type { MediaQuota } from './MediaQuota.js';
 import type { RecoveryGameDay } from './RecoveryGameDay.js';
+import type { ReleaseFreeze } from './ReleaseFreeze.js';
 import type { RetentionPolicy } from './RetentionPolicy.js';
 import type { RuntimeValidation } from './RuntimeValidation.js';
 import type { SlaExclusion } from './SlaExclusion.js';
@@ -17,6 +18,7 @@ export type EnterpriseOverview = {
     costRates: Array<CostRate>;
     mediaQuota: (MediaQuota | null);
     errorBudget: (ErrorBudget | null);
+    releaseFreeze?: (ReleaseFreeze | null);
     slaExclusions: Array<SlaExclusion>;
     retentionPolicies: Array<RetentionPolicy>;
     licenseInventory: Array<LicenseInventory>;

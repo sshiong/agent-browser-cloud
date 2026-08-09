@@ -395,7 +395,7 @@ public final class Models {
 
   public record MediaQuota(String tenantId, Integer maxConcurrentStreams, Integer maxBitrateKbps, Long activeStreams, Long activeBitrateKbps, String updatedBy, String updatedAt) {}
 
-  public record UpsertSloPolicyRequest(Double availabilityTarget, Integer latencyP95TargetMs, Integer windowMinutes) {}
+  public record UpsertSloPolicyRequest(Double availabilityTarget, Integer latencyP95TargetMs, Integer windowMinutes, Boolean releaseFreezeEnabled, Double releaseFreezeBurnRateThreshold, Double releaseRecoveryBurnRateThreshold, Integer releaseFreezeWindowMinutes, Integer releaseRecoveryStableMinutes) {}
 
   public record RecordServiceLevelEventRequest(String eventType, Integer durationSeconds, Object latencyP95Ms, String source, String occurredAt, Object exclusionCode) {}
 
@@ -404,6 +404,8 @@ public final class Models {
   public record SlaExclusion(String tenantId, String exclusionCode, String description, Boolean enabled, String updatedBy, String updatedAt) {}
 
   public record ErrorBudget(String tenantId, Double availabilityTarget, Integer latencyP95TargetMs, Integer windowMinutes, Long allowedUnavailableSeconds, Long consumedUnavailableSeconds, Long remainingUnavailableSeconds, Double burnRatio, String state, String windowStartedAt, String calculatedAt) {}
+
+  public record ReleaseFreeze(String tenantId, Boolean enabled, String phase, Boolean frozen, Double currentBurnRate, Double freezeBurnRateThreshold, Double recoveryBurnRateThreshold, Integer evaluationWindowMinutes, Integer recoveryStableMinutes, String reasonCode, Object stableSince, Object frozenAt, Object clearedAt, String evaluatedAt, Long version) {}
 
   public record UpsertRetentionPolicyRequest(String dataClass, Integer retentionDays, Boolean legalHold, String residencyRegion) {}
 
@@ -431,7 +433,7 @@ public final class Models {
 
   public record ComplianceSnapshot(String snapshotId, String tenantId, String framework, Integer controlCount, Integer passingControls, String evidenceHash, BooleanMap evidence, String generatedBy, String generatedAt) {}
 
-  public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, Object mediaQuota, Object errorBudget, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, Object latestCompliance, String generatedAt) {}
+  public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, Object mediaQuota, Object errorBudget, Object releaseFreeze, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, Object latestCompliance, String generatedAt) {}
 
   public record BooleanMap(Map<String, Object> values) {}
 

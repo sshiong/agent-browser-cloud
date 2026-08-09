@@ -23,6 +23,7 @@ class RuntimeReleaseApplicationServiceTest {
   @Mock private RuntimeBuildJpaRepository buildRepository;
   @Mock private RuntimeBuildPolicy buildPolicy;
   @Mock private AuditApplicationService auditService;
+  @Mock private ReleaseFreezeApplicationService releaseFreezeService;
 
   private RuntimeReleaseApplicationService service;
 
@@ -30,7 +31,7 @@ class RuntimeReleaseApplicationServiceTest {
   void setUp() {
     service =
         new RuntimeReleaseApplicationService(
-            releaseRepository, buildRepository, buildPolicy, auditService);
+            releaseRepository, buildRepository, buildPolicy, auditService, releaseFreezeService);
   }
 
   @Test
@@ -81,6 +82,47 @@ class RuntimeReleaseApplicationServiceTest {
     verify(build).release(eq("STABLE"), any());
     verify(buildRepository).save(build);
     verify(auditService).append(any());
+  }
+
+  @Test
+  void burnRateFreezeBlocksPromotionRequestBeforeBuildMutation() {
+    when(releaseFreezeService.promotionBlockReason("platform"))
+        .thenReturn(Optional.of("RELEASE_FROZEN_ERROR_BUDGET_BURN_RATE_EXCEEDED"));
+
+    var error =
+        assertThrows(
+            RuntimeReleaseApplicationService.RuntimeReleaseRejectedException.class,
+            () ->
+                service.requestPromotion(
+                    "platform", "release-a", "runtime-126", "CANARY", "unsafe promotion"));
+
+    assertEquals("RELEASE_FROZEN_ERROR_BUDGET_BURN_RATE_EXCEEDED", error.getMessage());
+    verifyNoInteractions(buildPolicy, releaseRepository);
+  }
+
+  @Test
+  void burnRateFreezeBlocksSecondAdminApprovalButNotEmergencyDisable() {
+    var promotion = requestEntity("STABLE");
+    when(releaseRepository.findForUpdate(promotion.getReleaseId(), promotion.getTenantId()))
+        .thenReturn(Optional.of(promotion));
+    when(releaseFreezeService.promotionBlockReason("platform"))
+        .thenReturn(Optional.of("RELEASE_FROZEN_ERROR_BUDGET_BURN_RATE_EXCEEDED"));
+
+    var error =
+        assertThrows(
+            RuntimeReleaseApplicationService.RuntimeReleaseRejectedException.class,
+            () -> service.approve(promotion.getReleaseId(), "platform", "release-b"));
+    assertEquals("RELEASE_FROZEN_ERROR_BUDGET_BURN_RATE_EXCEEDED", error.getMessage());
+    verifyNoInteractions(buildRepository);
+
+    var disable = requestEntity("DISABLED");
+    var build = mock(RuntimeBuildEntity.class);
+    when(releaseRepository.findForUpdate(disable.getReleaseId(), disable.getTenantId()))
+        .thenReturn(Optional.of(disable));
+    when(buildRepository.findForUpdate("runtime-126")).thenReturn(Optional.of(build));
+    var approved = service.approve(disable.getReleaseId(), "platform", "release-b");
+    assertEquals("APPROVED", approved.state());
+    verify(build).disable(eq("release-b"), any());
   }
 
   private static RuntimeReleaseRequestEntity requestEntity(String targetChannel) {

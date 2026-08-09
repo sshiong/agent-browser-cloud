@@ -70,6 +70,9 @@ V077 将自动演练改造成：
 - PostgreSQL Integration 覆盖不匹配场景 204、能力 Claim、Start、伪 Token 409、五阶段
   单调推进、Recovery Confirmed 后 ACK/COMMIT 和不可变事件顺序；另覆盖故障注入后 Lease
   Expiry、旧 Token 迟到拒绝、Recovery-only 二次 Claim、恢复确认后安全 ABORT。
+- GitHub 首轮完整 Integration 暴露出慢 Runner 上 Coordinator 故障接管清理的 25 秒测试
+  等待小于 60 秒生产恢复门禁；断言已统一为 60 秒有界等待并增加终态诊断，修复后本地
+  完整 Integration 再次通过，避免将 Runner 调度抖动误判为恢复失败。
 - 本机 Docker 构建命令已执行，但基础镜像解析被本机配置的 USTC Docker Mirror EOF
   阻断；GitHub CI 使用正式 Runner 重新构建该镜像，仓库不把本地镜像站故障伪报为通过。
 

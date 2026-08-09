@@ -3437,7 +3437,10 @@ recovering_cleanup_operation_id="$(printf '%s' "$recovering_failover_cleanup" | 
   'import json,sys; print(json.load(sys.stdin)["operationId"])')"
 test "$recovering_cleanup_operation_id" != "$recovering_active_operation_id"
 recovering_cleanup_state=""
-for _ in $(seq 1 100); do
+# GitHub-hosted runners can take longer to drain the pre-failover Node Event
+# backlog after the replacement coordinator starts. Keep the assertion bounded,
+# but allow the same 60-second recovery budget used by the production SLO gate.
+for _ in $(seq 1 240); do
   recovering_cleanup_state="$(curl -fsS \
     "http://localhost:${control_port}/api/v1/sessions/${recovering_failover_session}" \
     -H 'X-Tenant-Id: tenant-integration' | python3 -c \
@@ -3445,7 +3448,10 @@ for _ in $(seq 1 100); do
   if [[ "$recovering_cleanup_state" = "TERMINATED" ]]; then break; fi
   sleep 0.25
 done
-test "$recovering_cleanup_state" = "TERMINATED"
+if [[ "$recovering_cleanup_state" != "TERMINATED" ]]; then
+  echo "recovering failover cleanup did not terminate within 60 seconds: ${recovering_cleanup_state:-missing}" >&2
+  exit 1
+fi
 recovering_operation_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select operation_id || ':' || state || ':' || coordinator_term from exclusive_operations where operation_id in ('${recovering_active_operation_id}','${recovering_cleanup_operation_id}') order by coordinator_term")"
 test "$recovering_operation_states" = "${recovering_active_operation_id}:ABORTED:1

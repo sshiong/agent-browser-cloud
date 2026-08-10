@@ -2,6 +2,7 @@ package io.browsercloud.application;
 
 import io.browsercloud.api.*;
 import io.browsercloud.coordinator.*;
+import io.browsercloud.coordinator.exceptions.InvalidSessionStateException;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.agent.AgentPolicy;
@@ -10,6 +11,7 @@ import io.browsercloud.domain.capacity.RuntimeResourceLimits;
 import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.operation.OperationMode;
 import io.browsercloud.domain.operation.OperationPhase;
+import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.domain.resource.ExecutionEnvironment;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -493,24 +495,37 @@ public class SessionApplicationService {
         result.operationId(), io.browsercloud.domain.operation.OperationState.ACTIVE);
   }
 
-  /** 仅向正在执行接管、且 Actor 完全匹配的客户端签发一次性远程桌面票据。 */
+  /**
+   * 为运行中的 Session 签发一次性协作远程桌面票据。
+   *
+   * <p>该路径不会创建或抢占 Operation。普通 Agent/无 Operation 场景签发协作票据；如果调用者已经持有显式
+   * HumanTakeover，则保留原独占票据与断线释放语义。
+   */
   @Transactional(readOnly = true)
   public RemoteDesktopConnectionResponse createDesktopConnection(
       String sessionId, String tenantId, String userId) {
     var session = requireTenant(sessionId, tenantId);
-    var operation =
-        operationRepository
-            .findActive(sessionId)
-            .filter(active -> active.mode() == OperationMode.HUMAN_TAKEOVER)
-            .filter(active -> active.phase() == OperationPhase.EXECUTING)
-            .orElseThrow(
-                () ->
-                    new StaleOperationException(
-                        sessionId, "EXECUTING_HUMAN_TAKEOVER", "NOT_FOUND"));
-    if (!userId.equals(operation.actorId())) {
-      throw new TenantAccessDeniedException(sessionId);
+    if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
+      throw new InvalidSessionStateException(sessionId, session.state(), "remote-desktop");
     }
-    return remoteDesktopTicketService.issue(tenantId, sessionId, userId, operation);
+    var activeOperation = operationRepository.findActive(sessionId);
+    if (activeOperation.isPresent()
+        && activeOperation.get().mode() == OperationMode.HUMAN_TAKEOVER) {
+      var takeover = activeOperation.get();
+      if (takeover.phase() != OperationPhase.EXECUTING) {
+        throw new StaleOperationException(
+            sessionId, "EXECUTING_HUMAN_TAKEOVER", takeover.phase().name());
+      }
+      if (!userId.equals(takeover.actorId())) {
+        throw new TenantAccessDeniedException(sessionId);
+      }
+      return remoteDesktopTicketService.issueExclusive(tenantId, sessionId, userId, takeover);
+    }
+    if (activeOperation.isPresent() && activeOperation.get().ownerType() != OwnerType.AGENT) {
+      throw new StaleOperationException(
+          sessionId, "NONE_OR_AGENT_OPERATION", activeOperation.get().mode().name());
+    }
+    return remoteDesktopTicketService.issueCollaborative(tenantId, sessionId, userId, session);
   }
 
   /** 获取 Session。 */

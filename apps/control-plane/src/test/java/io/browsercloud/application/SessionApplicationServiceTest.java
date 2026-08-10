@@ -2,11 +2,13 @@ package io.browsercloud.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.browsercloud.api.RemoteDesktopConnectionResponse;
 import io.browsercloud.api.WorkspaceTagModels.WorkspaceTagSummary;
 import io.browsercloud.coordinator.BrowserStateRepository;
 import io.browsercloud.coordinator.OperationRepository;
@@ -15,6 +17,11 @@ import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.agent.AgentPolicy;
+import io.browsercloud.domain.operation.ExclusiveOperation;
+import io.browsercloud.domain.operation.OperationMode;
+import io.browsercloud.domain.operation.OperationPhase;
+import io.browsercloud.domain.operation.OperationState;
+import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -22,6 +29,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -165,6 +173,119 @@ class SessionApplicationServiceTest {
     assertThatThrownBy(() -> service.requestTakeover("ses_test", "tenant-test", "operator-test"))
         .isInstanceOf(SessionApplicationService.HumanTakeoverDisabledException.class);
     verifyNoInteractions(coordinator);
+  }
+
+  @Test
+  void issuesCollaborativeDesktopTicketWithoutReplacingActiveOperation() {
+    var now = Instant.parse("2026-08-10T00:00:00Z");
+    var context =
+        new SessionContext(
+            "ses_test",
+            "tenant-test",
+            "profile-test",
+            "node-test",
+            "runtime-test",
+            "isolation-test",
+            "proxy-test",
+            2,
+            4,
+            8,
+            1,
+            ResourceClass.L3,
+            SessionState.RUNNING,
+            "policy-hash",
+            now,
+            now);
+    var activeAgentOperation =
+        new ExclusiveOperation(
+            "op_agent",
+            "ses_test",
+            OwnerType.AGENT,
+            "agent-worker",
+            OperationMode.AGENT_INTERACTIVE,
+            50,
+            2,
+            4,
+            9,
+            null,
+            true,
+            true,
+            OperationPhase.EXECUTING,
+            OperationState.ACTIVE,
+            Set.of("browser.action"),
+            now.plusSeconds(3600),
+            now,
+            null);
+    var response =
+        new RemoteDesktopConnectionResponse(
+            "/desktop/v1/sessions/ses_test?ticket=test", now.plusSeconds(45), "rfb", 4, false);
+    when(sessionRepository.require("ses_test")).thenReturn(context);
+    when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(activeAgentOperation));
+    when(remoteDesktopTicketService.issueCollaborative(
+            eq("tenant-test"), eq("ses_test"), eq("operator-test"), eq(context)))
+        .thenReturn(response);
+
+    assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
+        .isEqualTo(response);
+    verify(operationRepository).findActive("ses_test");
+    verifyNoInteractions(coordinator);
+  }
+
+  @Test
+  void preservesExplicitHumanTakeoverTicketAndActorBoundary() {
+    var now = Instant.parse("2026-08-10T00:00:00Z");
+    var context = runningContext(now);
+    var takeover =
+        new ExclusiveOperation(
+            "op_takeover",
+            "ses_test",
+            OwnerType.HUMAN,
+            "operator-test",
+            OperationMode.HUMAN_TAKEOVER,
+            90,
+            2,
+            4,
+            7,
+            null,
+            true,
+            false,
+            OperationPhase.EXECUTING,
+            OperationState.ACTIVE,
+            Set.of("desktop.control"),
+            now.plusSeconds(3600),
+            now,
+            null);
+    var response =
+        new RemoteDesktopConnectionResponse(
+            "/desktop/v1/sessions/ses_test?ticket=exclusive", now.plusSeconds(45), "rfb", 7, false);
+    when(sessionRepository.require("ses_test")).thenReturn(context);
+    when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(takeover));
+    when(remoteDesktopTicketService.issueExclusive(
+            "tenant-test", "ses_test", "operator-test", takeover))
+        .thenReturn(response);
+
+    assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
+        .isEqualTo(response);
+  }
+
+  private SessionContext runningContext(Instant now) {
+    return new SessionContext(
+        "ses_test",
+        "tenant-test",
+        "profile-test",
+        "node-test",
+        "runtime-test",
+        "isolation-test",
+        "proxy-test",
+        2,
+        4,
+        8,
+        1,
+        ResourceClass.L3,
+        SessionState.RUNNING,
+        "policy-hash",
+        now,
+        now);
   }
 
   @Test

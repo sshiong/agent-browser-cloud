@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.RemoteDesktopConnectionResponse;
 import io.browsercloud.domain.operation.ExclusiveOperation;
+import io.browsercloud.domain.session.SessionContext;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
@@ -57,16 +58,55 @@ public class RemoteDesktopTicketService {
     this.clock = clock;
   }
 
-  public RemoteDesktopConnectionResponse issue(
+  /**
+   * Issues a Session-bound collaborative desktop ticket.
+   *
+   * <p>The legacy response field is still named {@code operationEpoch} for wire compatibility, but
+   * collaborative tickets bind it to the current Context Epoch. Opening the observer therefore does
+   * not create, replace, or abort an exclusive Agent/Human operation.
+   */
+  public RemoteDesktopConnectionResponse issueCollaborative(
+      String tenantId, String sessionId, String actorId, SessionContext session) {
+    return issue(
+        tenantId,
+        sessionId,
+        actorId,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        session.contextEpoch(),
+        "COLLABORATIVE");
+  }
+
+  /** Issues a ticket for an already established explicit HumanTakeover barrier. */
+  public RemoteDesktopConnectionResponse issueExclusive(
       String tenantId, String sessionId, String actorId, ExclusiveOperation operation) {
+    return issue(
+        tenantId,
+        sessionId,
+        actorId,
+        operation.coordinatorTerm(),
+        operation.contextEpoch(),
+        operation.operationEpoch(),
+        "EXCLUSIVE_TAKEOVER");
+  }
+
+  private RemoteDesktopConnectionResponse issue(
+      String tenantId,
+      String sessionId,
+      String actorId,
+      long coordinatorTerm,
+      long contextEpoch,
+      long bindingEpoch,
+      String accessMode) {
     var expiresAt = Instant.now(clock).plusSeconds(ttlSeconds);
     var claims = new LinkedHashMap<String, Object>();
     claims.put("tenantId", tenantId);
     claims.put("sessionId", sessionId);
     claims.put("actorId", actorId);
-    claims.put("coordinatorTerm", operation.coordinatorTerm());
-    claims.put("contextEpoch", operation.contextEpoch());
-    claims.put("operationEpoch", operation.operationEpoch());
+    claims.put("coordinatorTerm", coordinatorTerm);
+    claims.put("contextEpoch", contextEpoch);
+    claims.put("operationEpoch", bindingEpoch);
+    claims.put("accessMode", accessMode);
     claims.put("expiresAtEpochSeconds", expiresAt.getEpochSecond());
     claims.put("nonce", UUID.randomUUID().toString().replace("-", ""));
     try {
@@ -79,7 +119,7 @@ public class RemoteDesktopTicketService {
           "/desktop/v1/sessions/" + sessionId + "?ticket=" + payload + "." + signature,
           expiresAt,
           "rfb",
-          operation.operationEpoch(),
+          bindingEpoch,
           false);
     } catch (JsonProcessingException | GeneralSecurityException exception) {
       throw new IllegalStateException("remote desktop ticket signing failed", exception);

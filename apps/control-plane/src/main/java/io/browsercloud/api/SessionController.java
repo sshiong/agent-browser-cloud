@@ -196,7 +196,7 @@ public class SessionController {
                     service.releaseTakeover(sessionId, principal.tenantId(), principal.actorId())));
   }
 
-  /** 为当前 HumanTakeover Actor 签发短期、单次使用的 noVNC 数据面票据。 */
+  /** 为运行中的 Session 签发协作 noVNC 票据；连接本身不抢占或停止 Agent。 */
   @PostMapping("/{sessionId}:desktop-connection")
   @PreAuthorize(PlatformRoles.OPERATE)
   public RemoteDesktopConnectionResponse createDesktopConnection(

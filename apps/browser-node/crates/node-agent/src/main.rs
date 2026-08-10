@@ -52,6 +52,8 @@ use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 
+const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
+
 #[derive(Clone)]
 struct NodeControlService {
     node_id: String,
@@ -1001,6 +1003,24 @@ impl NodeControlService {
         }
     }
 
+    fn human_input_has_priority(&self, session_id: &str) -> bool {
+        self.remote_desktop_gateway.as_ref().is_some_and(|gateway| {
+            gateway.human_input_active(session_id, HUMAN_INPUT_PRIORITY_IDLE)
+        })
+    }
+
+    fn defer_for_human_input(command: &CommandEnvelope) -> CommandResult {
+        Self::result(
+            Self::ack(
+                &command.message_id,
+                false,
+                "HUMAN_INPUT_PRIORITY",
+                "fresh human VNC input has priority; retry after the idle window",
+            ),
+            None,
+        )
+    }
+
     fn state_result(
         acknowledgement: CommandAck,
         event: EventEnvelope,
@@ -1448,6 +1468,7 @@ impl NodeControlService {
             Some(input) => Some(input.ledger_snapshot().await),
             None => None,
         };
+        let human_input_active = self.human_input_has_priority(session_id);
         let browser_safety = self
             .state_collector
             .browser_safety_observation(session_id)
@@ -1556,14 +1577,22 @@ impl NodeControlService {
                     .then_some(media_encoder_percent)
                     .flatten(),
                 danger_event: danger_event.to_owned(),
-                input_active: input_ledger.as_ref().map(|ledger| ledger.has_any_input()),
-                active_drag: input_ledger.as_ref().map(|ledger| ledger.active_drag),
+                input_active: input_ledger
+                    .as_ref()
+                    .map(|ledger| ledger.has_any_input() || human_input_active)
+                    .or(human_input_active.then_some(true)),
+                active_drag: input_ledger
+                    .as_ref()
+                    .map(|ledger| ledger.active_drag)
+                    .or(human_input_active.then_some(false)),
                 pressed_key_count: input_ledger
                     .as_ref()
-                    .map(|ledger| ledger.pressed_keys.len().try_into().unwrap_or(u32::MAX)),
+                    .map(|ledger| ledger.pressed_keys.len().try_into().unwrap_or(u32::MAX))
+                    .or(human_input_active.then_some(0)),
                 pressed_button_count: input_ledger
                     .as_ref()
-                    .map(|ledger| ledger.pressed_buttons.len().try_into().unwrap_or(u32::MAX)),
+                    .map(|ledger| ledger.pressed_buttons.len().try_into().unwrap_or(u32::MAX))
+                    .or(human_input_active.then_some(0)),
                 active_upload_count: browser_safety
                     .fresh
                     .then_some(browser_safety.active_upload_count),
@@ -1976,6 +2005,14 @@ impl NodeControlService {
         let state = state.ok_or_else(|| {
             last_error.unwrap_or_else(|| anyhow::anyhow!("desktop disconnect barrier failed"))
         })?;
+        if claims.access_mode == "COLLABORATIVE" {
+            tracing::debug!(
+                session_id = claims.session_id,
+                actor_id = claims.actor_id,
+                "Collaborative desktop disconnected; Agent operation remains active"
+            );
+            return Ok(());
+        }
         self.active_human_takeovers
             .lock()
             .await
@@ -3676,6 +3713,9 @@ impl NodeControlService {
                             )
                         }
                     };
+                    if self.human_input_has_priority(&command.session_id) {
+                        return Self::defer_for_human_input(command);
+                    }
                     if self
                         .state_collector
                         .navigate(&command.session_id, target.as_str())
@@ -3733,6 +3773,11 @@ impl NodeControlService {
                     {
                         return self
                             .failed(command, anyhow::anyhow!("agent action payload is invalid"));
+                    }
+                    if payload.tool_id != "WAIT_FOR"
+                        && self.human_input_has_priority(&command.session_id)
+                    {
+                        return Self::defer_for_human_input(command);
                     }
                     let action_started = Instant::now();
                     let action_result = self.execute_agent_action(&payload).await;

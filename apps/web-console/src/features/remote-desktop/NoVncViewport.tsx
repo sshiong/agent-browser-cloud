@@ -11,12 +11,12 @@ export type DesktopConnectionState =
 
 export function NoVncViewport({
   sessionId,
-  operationEpoch,
+  bindingEpoch,
   onConnectionState,
   onUnexpectedDisconnect,
 }: {
   sessionId: string;
-  operationEpoch: number;
+  bindingEpoch: number;
   onConnectionState?: (state: DesktopConnectionState) => void;
   onUnexpectedDisconnect?: () => void;
 }) {
@@ -50,8 +50,10 @@ export function NoVncViewport({
           controller.signal
         );
         if (disposed || !viewportRef.current) return;
-        if (connection.operationEpoch !== operationEpoch) {
-          throw new Error('远程桌面票据属于过期 Operation，请刷新后重试。');
+        if (connection.operationEpoch !== bindingEpoch) {
+          throw new Error(
+            '远程桌面票据属于过期 Session Context，请刷新后重试。'
+          );
         }
         const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const websocketUrl = new URL(
@@ -81,7 +83,9 @@ export function NoVncViewport({
           const clean = (event as RfbDisconnectEvent).detail.clean;
           transition('DISCONNECTED');
           if (!clean) {
-            setError('远程桌面连接意外中断，接管权将被安全释放。');
+            setError(
+              '远程桌面连接意外中断，输入会被安全释放；Agent 会保持会话并在真人输入空闲后继续。'
+            );
             onUnexpectedDisconnectRef.current?.();
           }
         });
@@ -109,7 +113,7 @@ export function NoVncViewport({
       controller.abort();
       client?.disconnect();
     };
-  }, [operationEpoch, sessionId]);
+  }, [bindingEpoch, sessionId]);
 
   return (
     <div className="relative h-full min-h-[420px] overflow-hidden bg-[#080d13]">

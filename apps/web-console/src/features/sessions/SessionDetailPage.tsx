@@ -22,7 +22,6 @@ import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import {
   useSession,
   useBrowserState,
-  useRequestHumanTakeover,
   useResyncBrowserState,
   useSessionResourceEvents,
   useSessionEvidence,
@@ -71,7 +70,6 @@ export function SessionDetailPage() {
   );
   const startMutation = useStartSession(id);
   const terminateMutation = useTerminateSession(id);
-  const takeoverMutation = useRequestHumanTakeover(id);
   const resyncMutation = useResyncBrowserState(id);
   const resourceQuery = useSessionResources(id);
   const resourceEventsQuery = useSessionResourceEvents(id);
@@ -109,26 +107,19 @@ export function SessionDetailPage() {
   const takeoverActive = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
     takeoverActive && session.currentOperation?.actorId === currentActorId();
-  const takeoverHeldByOther = takeoverActive && !takeoverOwned;
-  const canTakeover =
+  const canOpenDesktop =
     auth.canOperate &&
     session &&
-    session.humanTakeoverEnabled !== false &&
     ['RUNNING', 'DEGRADED'].includes(session.state) &&
-    (!session.currentOperation || takeoverOwned);
+    (!takeoverActive || takeoverOwned);
 
   const terminate = async () => {
     await terminateMutation.mutateAsync();
     setTerminateOpen(false);
   };
 
-  const openTakeover = async () => {
-    try {
-      if (!takeoverOwned) await takeoverMutation.mutateAsync();
-      navigate(`/remote-desktop?session=${encodeURIComponent(id)}`);
-    } catch {
-      // React Query exposes the structured error in MutationFeedback.
-    }
+  const openRemoteDesktop = () => {
+    navigate(`/remote-desktop?session=${encodeURIComponent(id)}`);
   };
 
   return (
@@ -261,22 +252,16 @@ export function SessionDetailPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void openTakeover()}
-                    disabled={!canTakeover || takeoverMutation.isPending}
+                    onClick={openRemoteDesktop}
+                    disabled={!canOpenDesktop}
                     className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-accent/35 px-3 text-[11px] text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted disabled:opacity-45"
                   >
-                    {takeoverMutation.isPending ? (
-                      <LoaderCircle size={13} className="animate-spin" />
-                    ) : (
-                      <Hand size={13} />
-                    )}
-                    {takeoverHeldByOther
-                      ? '他人接管中'
-                      : takeoverOwned
-                        ? '打开接管'
-                        : session.humanTakeoverEnabled === false
-                          ? '接管已禁用'
-                          : '人工接管'}
+                    <Monitor size={13} />
+                    {takeoverActive
+                      ? takeoverOwned
+                        ? '打开显式接管'
+                        : '他人接管中'
+                      : '打开远程桌面'}
                   </button>
                   {canStart && (
                     <button
@@ -309,7 +294,6 @@ export function SessionDetailPage() {
             <MutationFeedback
               startError={startMutation.error}
               terminateError={terminateMutation.error}
-              takeoverError={takeoverMutation.error}
               hasActiveOperation={Boolean(session.currentOperation)}
               sessionState={session.state}
             />
@@ -890,17 +874,15 @@ function TargetFlag({ active, label }: { active: boolean; label: string }) {
 function MutationFeedback({
   startError,
   terminateError,
-  takeoverError,
   hasActiveOperation,
   sessionState,
 }: {
   startError: unknown;
   terminateError: unknown;
-  takeoverError: unknown;
   hasActiveOperation: boolean;
   sessionState: SessionState;
 }) {
-  const error = startError || terminateError || takeoverError;
+  const error = startError || terminateError;
   if (error) {
     const requestId = isSessionApiError(error)
       ? error.body.requestId

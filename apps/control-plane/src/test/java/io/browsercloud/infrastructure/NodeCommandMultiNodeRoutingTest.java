@@ -124,6 +124,64 @@ class NodeCommandMultiNodeRoutingTest {
   }
 
   @Test
+  void defersAgentCommandWithoutConsumingAttemptsWhileHumanInputHasPriority() throws Exception {
+    var server = startRejectingServer("HUMAN_INPUT_PRIORITY");
+    var mapper = new ObjectMapper();
+    var event =
+        outbox(
+            mapper,
+            new NodeCommand(
+                "msg_human_priority",
+                "AgentNavigate",
+                "node_one",
+                "ses_0000000000000004",
+                "tenant-a",
+                2,
+                1,
+                1,
+                "agent-human-priority",
+                new byte[0]));
+    event.setRouteEpoch(2L);
+    event.setCoordinatorShardId(3);
+    event.setDispatchOwner("dispatcher-test");
+    var outboxRepository = mock(OutboxEventJpaRepository.class);
+    when(outboxRepository.findById(event.getEventId())).thenReturn(Optional.of(event));
+    when(outboxRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    var claimService = mock(NodeCommandDispatchClaimService.class);
+    when(claimService.claimReady(any())).thenReturn(List.of(event.getEventId()));
+    when(claimService.workerId()).thenReturn("dispatcher-test");
+    var routeAuthority = mock(CoordinatorRouteAuthority.class);
+    when(routeAuthority.resolve("ses_0000000000000004"))
+        .thenReturn(
+            new CoordinatorRouteAuthority.SessionRoute(
+                "ses_0000000000000004", "tenant-a", 2, 0, 3));
+    var nodeRepository = mock(BrowserNodeJpaRepository.class);
+    when(nodeRepository.findById("node_one"))
+        .thenReturn(Optional.of(node("node_one", server.getPort())));
+    var dispatcher =
+        new NodeCommandOutboxDispatcher(
+            outboxRepository,
+            claimService,
+            mapper,
+            mock(AgentActionPayloadService.class),
+            mock(SessionEvidenceGovernanceStore.class),
+            routeAuthority,
+            nodeRepository,
+            new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
+            "127.0.0.1:1");
+
+    dispatcher.dispatchPending();
+    dispatcher.closeChannels();
+
+    assertThat(event.getPublishedAt()).isNull();
+    assertThat(event.getPublishAttempts()).isZero();
+    assertThat(event.getLastError()).isEqualTo("HUMAN_INPUT_PRIORITY");
+    assertThat(event.getNextAttemptAt()).isAfter(Instant.now());
+    assertThat(event.getDeadLetteredAt()).isNull();
+    assertThat(event.getDispatchOwner()).isNull();
+  }
+
+  @Test
   void deadLettersAnOutboxCommandAfterItsRouteEpochMoves() throws Exception {
     var mapper = new ObjectMapper();
     var event =
@@ -198,6 +256,31 @@ class NodeCommandMultiNodeRoutingTest {
                                 CommandAck.newBuilder()
                                     .setMessageId(request.getCommand().getMessageId())
                                     .setAccepted(true))
+                            .build());
+                    observer.onCompleted();
+                  }
+                })
+            .build()
+            .start();
+    servers.add(server);
+    return server;
+  }
+
+  private Server startRejectingServer(String errorCode) throws Exception {
+    var server =
+        NettyServerBuilder.forPort(0)
+            .addService(
+                new NodeControlServiceGrpc.NodeControlServiceImplBase() {
+                  @Override
+                  public void dispatch(
+                      DispatchRequest request, StreamObserver<DispatchResponse> observer) {
+                    observer.onNext(
+                        DispatchResponse.newBuilder()
+                            .setAcknowledgement(
+                                CommandAck.newBuilder()
+                                    .setMessageId(request.getCommand().getMessageId())
+                                    .setAccepted(false)
+                                    .setErrorCode(errorCode))
                             .build());
                     observer.onCompleted();
                   }

@@ -1409,15 +1409,21 @@ paths:
   /api/v1/sessions/{sessionId}:desktop-connection:
     post:
       operationId: createRemoteDesktopConnection
-      summary: Issue a short-lived, single-use noVNC connection ticket
-      tags: [Session, HumanTakeover, RemoteDesktop]
+      summary: Issue a collaborative noVNC ticket without preempting the Agent
+      description: >-
+        The ticket is bound to the current Session Context rather than an exclusive
+        HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node
+        gives fresh human input priority and resumes deferred Agent input after the human
+        input idle window. If the same actor already owns an explicit EXECUTING
+        HumanTakeover, the endpoint preserves that exclusive operation and its release barrier.
+      tags: [Session, RemoteDesktop]
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - $ref: "#/components/parameters/TenantId"
         - $ref: "#/components/parameters/ActorId"
       responses:
         "200":
-          description: Connection ticket issued for the active HumanTakeover actor.
+          description: Session-bound collaborative connection ticket issued.
           content:
             application/json:
               schema:
@@ -10305,6 +10311,10 @@ components:
           type: integer
           format: int64
           minimum: 1
+          description: >-
+            Compatibility field containing the Session Context Epoch for collaborative
+            desktop tickets; for an already established explicit HumanTakeover it contains
+            that Operation Epoch. Its presence alone does not imply an exclusive operation.
         viewOnly:
           type: boolean
     AuditEvent:

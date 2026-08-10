@@ -10,6 +10,7 @@ import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.persistence.ToolCapabilityUseJpaRepository;
 import java.net.IDN;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ import org.springframework.stereotype.Service;
 /** 导航 Tool Service；Capability 在 Control Plane 消费，Node 只收到最小化导航命令。 */
 @Service
 public class AgentNavigationToolService {
+
+  private static final Duration COLLABORATIVE_INPUT_WAIT = Duration.ofMinutes(30);
 
   private final BrowserStateRepository stateRepository;
   private final ToolCapabilityUseJpaRepository capabilityUses;
@@ -76,7 +79,8 @@ public class AgentNavigationToolService {
     nodeCommandGateway.send(
         NodeCommands.agentNavigate(
             session, operation, taskId, step.stepId(), step.targetUrl(), baseStateVersion));
-    return new PendingNavigation(baseStateVersion, baseContentHash, now.plusSeconds(15));
+    return new PendingNavigation(
+        baseStateVersion, baseContentHash, now.plus(COLLABORATIVE_INPUT_WAIT));
   }
 
   public record PendingNavigation(

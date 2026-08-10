@@ -53,14 +53,14 @@
 - Session 详情在 `RUNNING` 期间也持续同步权威 Session 状态，因此能发现突发 Crash；
   `RECOVERING` 明确显示写入冻结、替代 Runtime 与状态重采集过程，Recovery 熔断后的
   `FAILED` 显示 Circuit Open 与人工排查指引。
-- Session 详情接入真实 HumanTakeover 获取接口；Control Plane 确认 Node 输入屏障后
-  进入远程桌面工作区，并展示权威 Actor、Operation Phase、State Version 与输入安全状态。
-- 结束接管调用真实 Release API，等待 Node All-keys-up 和 State Resync 完成后才显示
-  `NO CONTROL`；前端同时阻止其他 Actor 打开或释放不属于自己的接管 Operation。
+- Session 详情的普通“打开远程桌面”接入 Session-bound 协作票据，不再隐式调用
+  HumanTakeover 获取接口；远程桌面展示 Agent/Human 协作状态、State Version 与输入安全状态。
+- VNC 连接本身不会暂停 Agent；真人真实输入优先，Agent 命令延后并自动续行。显式
+  HumanTakeover 获取/释放接口仍保留给 Agent→Human Handoff 和高风险独占流程。
 - 远程桌面已使用正式 noVNC RFB Client、短期一次性 Ticket 和同源 WebSocket，
   实时显示 Browser Node 的真实像素并转发键鼠输入。
-- RFB 协商、在线、断线和失败状态均显式呈现；意外断线会触发前端安全释放，同时由
-  Browser Node 独立执行权威输入释放与 Operation 回收。
+- RFB 协商、在线、断线和失败状态均显式呈现；意外断线由 Browser Node 独立执行权威
+  输入释放和 State 重采集，但不会回收或结束 Agent Operation。
 - Profile 页面已删除开发 Fixture，接入租户隔离的 Create/List/Get API，真实展示
   Core 大小、文件数、Checkpoint/Write Epoch、恢复来源和更新时间。
 - Profile 页面支持真实创建、搜索、Loading/Empty/Error、桌面表格与移动端卡片；
@@ -101,8 +101,8 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 2. 创建 Session；
 3. 打开详情；
 4. Start Operation 经真实 Node Event 自动提交，页面显示“运行中”；
-5. 获取 HumanTakeover，等待输入屏障完成并进入受控工作区；
-6. 释放 HumanTakeover，等待结束 State Resync 和 Operation 提交；
+5. 不创建 HumanTakeover，直接进入协作远程桌面；
+6. 真实 RFB 键鼠输入到达 Node，离开后完成输入释放且 Agent Operation 不变；
 7. 终止运行中的 Session 并在真实 Profile 页面观察 Checkpoint Epoch 1；
 8. 从 Browser State 面板发起真实 Full Resync；
 9. 运行中打开 Proxy 页面，验证 Provider、Binding、出口 IP 与禁止直连；
@@ -113,8 +113,8 @@ E2E 使用真实 PostgreSQL、Redis、Java Control Plane、Rust Browser Node 和
 新增 Agent E2E：从运行中 Session 创建受限导航/状态计划，并验证
 `PROMPT_INJECTION_DETECTED`、`NAVIGATE` 与 Executor Pending 的真实界面状态。
 
-E2E 还覆盖实时 RFB 像素/输入回环，以及未发送 Shift KeyUp 就离开远程桌面时的
-服务端 x11 清键和 HumanTakeover 自动提交。
+E2E 还覆盖实时 RFB 像素/输入回环，以及未发送 Shift KeyUp 就离开或发生网络分区时的
+服务端 x11 清键；协作连接不会自动提交或结束 Agent Operation。
 
 测试入口：`make test-e2e`；启动器为 `tests/e2e/run.sh`，浏览器流程为
 `tests/e2e/web_console_session_flow.mjs`。该入口会自动托管 PostgreSQL、Redis、

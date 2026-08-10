@@ -30,7 +30,7 @@ export function RemoteDesktopPage() {
   useSessionResourceStream(sessionId, Boolean(sessionId));
   const stateQuery = useBrowserState(
     sessionId,
-    sessionQuery.data?.state === 'RUNNING'
+    ['RUNNING', 'DEGRADED'].includes(sessionQuery.data?.state ?? '')
   );
   const releaseMutation = useReleaseHumanTakeover(sessionId);
   const [desktopState, setDesktopState] =
@@ -40,24 +40,26 @@ export function RemoteDesktopPage() {
   const takeoverOwned =
     takeover && session.currentOperation?.actorId === currentActorId();
   const takeoverHeldByOther = takeover && !takeoverOwned;
-  const ready =
-    takeoverOwned && session.currentOperation?.phase === 'EXECUTING';
-  const releasing =
-    releaseMutation.isPending ||
-    (takeoverOwned && session.currentOperation?.phase === 'COMPLETING');
-
+  const runtimeReady = ['RUNNING', 'DEGRADED'].includes(session?.state ?? '');
+  const ready = takeover
+    ? takeoverOwned && session.currentOperation?.phase === 'EXECUTING'
+    : runtimeReady;
+  const agentActive = session?.currentOperation?.ownerType === 'AGENT';
+  const bindingEpoch = takeover
+    ? (session?.currentOperation?.operationEpoch ?? 0)
+    : (session?.contextEpoch ?? 0);
   const release = async () => {
     try {
       await releaseMutation.mutateAsync();
     } catch {
-      // The structured mutation error is rendered below.
+      // The structured mutation error is rendered in the safety rail.
     }
   };
   const releaseAfterDisconnect = useCallback(() => {
-    if (!releaseMutation.isPending) {
+    if (takeoverOwned && !releaseMutation.isPending) {
       void releaseMutation.mutateAsync().catch(() => undefined);
     }
-  }, [releaseMutation]);
+  }, [releaseMutation, takeoverOwned]);
 
   return (
     <div>
@@ -66,14 +68,14 @@ export function RemoteDesktopPage() {
         subtitle={
           session
             ? `${session.displayName} · ${session.sessionId}`
-            : 'HumanTakeover / Exclusive Operation'
+            : 'Agent / Human Collaborative Control'
         }
       />
 
       {!sessionId ? (
         <EmptySelection />
       ) : sessionQuery.isLoading ? (
-        <LoadingPanel label="正在校验 HumanTakeover 权限" />
+        <LoadingPanel label="正在读取 Session 协作控制状态" />
       ) : sessionQuery.error || !session ? (
         <ErrorState
           error={sessionQuery.error}
@@ -104,24 +106,27 @@ export function RemoteDesktopPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <TakeoverStatus
+              <CollaborationStatus
                 ready={ready}
-                takeover={takeoverOwned}
+                agentActive={agentActive}
+                exclusive={takeoverOwned}
                 heldByOther={takeoverHeldByOther}
               />
-              <button
-                type="button"
-                onClick={() => void release()}
-                disabled={!takeoverOwned || releasing}
-                className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-danger/35 px-3 text-[10px] font-medium text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {releasing ? (
-                  <LoaderCircle size={12} className="animate-spin" />
-                ) : (
-                  <Unplug size={12} />
-                )}
-                {releasing ? '正在释放输入' : '结束接管'}
-              </button>
+              {takeoverOwned && (
+                <button
+                  type="button"
+                  onClick={() => void release()}
+                  disabled={releaseMutation.isPending}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-danger/35 px-3 text-[10px] font-medium text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {releaseMutation.isPending ? (
+                    <LoaderCircle size={12} className="animate-spin" />
+                  ) : (
+                    <Unplug size={12} />
+                  )}
+                  {releaseMutation.isPending ? '正在释放输入' : '结束显式接管'}
+                </button>
+              )}
             </div>
           </header>
 
@@ -145,16 +150,17 @@ export function RemoteDesktopPage() {
                   </span>
                 </div>
                 <div className="aspect-[16/10] min-h-[420px]">
-                  {ready && session.currentOperation ? (
+                  {ready ? (
                     <NoVncViewport
                       sessionId={sessionId}
-                      operationEpoch={session.currentOperation.operationEpoch}
+                      bindingEpoch={bindingEpoch}
                       onConnectionState={setDesktopState}
                       onUnexpectedDisconnect={releaseAfterDisconnect}
                     />
                   ) : (
                     <DisplayProvisioning
                       ready={ready}
+                      takeover={takeover}
                       heldByOther={takeoverHeldByOther}
                       title={stateQuery.data?.title}
                       url={stateQuery.data?.url}
@@ -165,18 +171,22 @@ export function RemoteDesktopPage() {
             </section>
 
             <aside className="border-l border-border-subtle bg-surface-1/55">
-              <RailSection title="控制边界">
+              <RailSection title="协作控制">
                 <RailRow
                   icon={Hand}
-                  label="Owner"
-                  value={session.currentOperation?.actorId || '未持有'}
-                  active={takeoverOwned}
+                  label="Human Input"
+                  value={
+                    takeoverOwned
+                      ? 'EXCLUSIVE TAKEOVER'
+                      : 'PRIORITY WHEN ACTIVE'
+                  }
+                  active={ready}
                 />
                 <RailRow
                   icon={ShieldCheck}
-                  label="Operation"
-                  value={session.currentOperation?.phase || 'INACTIVE'}
-                  active={ready}
+                  label="Agent"
+                  value={agentActive ? 'ACTIVE / VISIBLE' : 'IDLE'}
+                  active={agentActive}
                 />
                 <RailRow
                   icon={Crosshair}
@@ -189,23 +199,26 @@ export function RemoteDesktopPage() {
                   active={Boolean(stateQuery.data)}
                 />
               </RailSection>
-
-              <RailSection title="输入安全">
-                <dl className="space-y-3 text-[10px]">
-                  <RailMetric label="Input Ledger" value="Node authoritative" />
-                  <RailMetric label="Idle watchdog" value="5 seconds" />
-                  <RailMetric label="Release barrier" value="Required" />
-                  <RailMetric label="End resync" value="Required" />
-                </dl>
-              </RailSection>
-
               {releaseMutation.error && (
                 <div className="m-4 border border-danger/25 bg-danger/8 p-3 text-[10px] leading-5 text-danger">
                   {releaseMutation.error instanceof Error
                     ? releaseMutation.error.message
-                    : '无法结束接管，请刷新后重试。'}
+                    : '无法结束显式接管，请刷新后重试。'}
                 </div>
               )}
+
+              <RailSection title="输入安全">
+                <dl className="space-y-3 text-[10px]">
+                  <RailMetric label="Input Ledger" value="Node authoritative" />
+                  <RailMetric label="Human idle window" value="2 seconds" />
+                  <RailMetric
+                    label="Agent command"
+                    value="Deferred, not stopped"
+                  />
+                  <RailMetric label="Disconnect cleanup" value="Required" />
+                  <RailMetric label="Agent session" value="Preserved" />
+                </dl>
+              </RailSection>
             </aside>
           </div>
         </main>
@@ -216,11 +229,13 @@ export function RemoteDesktopPage() {
 
 function DisplayProvisioning({
   ready,
+  takeover,
   heldByOther,
   title,
   url,
 }: {
   ready: boolean;
+  takeover: boolean;
   heldByOther: boolean;
   title?: string;
   url?: string;
@@ -231,8 +246,6 @@ function DisplayProvisioning({
       <div className="relative max-w-md px-8 text-center">
         {ready ? (
           <Monitor size={24} className="mx-auto text-accent" />
-        ) : heldByOther ? (
-          <ShieldCheck size={24} className="mx-auto text-warning" />
         ) : (
           <LoaderCircle
             size={24}
@@ -241,17 +254,25 @@ function DisplayProvisioning({
         )}
         <p className="mt-4 text-[12px] font-medium text-text-primary">
           {ready
-            ? '接管输入屏障已建立'
+            ? takeover
+              ? '显式人工接管已就绪'
+              : '协作远程桌面已就绪'
             : heldByOther
-              ? '此 Session 已由其他 Actor 接管'
-              : '正在建立排他接管边界'}
+              ? '显式接管由其他 Actor 持有'
+              : takeover
+                ? '正在建立显式接管屏障'
+                : 'Session Runtime 尚未就绪'}
         </p>
         <p className="mt-2 text-[10px] leading-5 text-text-muted">
-          {ready
-            ? 'Control Plane 已确认 Input Ledger 清空和 State Resync，正在签发短期 noVNC 数据面票据。'
-            : heldByOther
-              ? '当前 Actor 无权读取或释放他人的控制边界。请返回 Session 详情等待接管结束。'
-              : 'Browser Node 正在释放 Agent 遗留按键并采集接管前状态。'}
+          {ready && !takeover
+            ? '连接不会停止 Agent；仅在真人实际输入时短暂获得优先级。'
+            : ready
+              ? '这是明确的 HumanTakeover；Agent 已按治理流程交接执行权。'
+              : heldByOther
+                ? '当前 Actor 不能进入或释放他人的显式接管。'
+                : takeover
+                  ? 'Browser Node 正在完成输入释放与接管前状态同步。'
+                  : '远程桌面仅可连接 RUNNING 或 DEGRADED Session。'}
         </p>
         {(title || url) && (
           <div className="mt-5 border-y border-border-subtle py-3 text-left">
@@ -266,13 +287,15 @@ function DisplayProvisioning({
   );
 }
 
-function TakeoverStatus({
+function CollaborationStatus({
   ready,
-  takeover,
+  agentActive,
+  exclusive,
   heldByOther,
 }: {
   ready: boolean;
-  takeover: boolean;
+  agentActive: boolean;
+  exclusive: boolean;
   heldByOther: boolean;
 }) {
   return (
@@ -283,22 +306,19 @@ function TakeoverStatus({
           ? 'border-success/25 bg-success/8 text-success'
           : heldByOther
             ? 'border-warning/25 bg-warning/8 text-warning'
-            : takeover
-              ? 'border-warning/25 bg-warning/8 text-warning'
-              : 'border-border-default text-text-muted'
+            : 'border-border-default text-text-muted'
       )}
     >
-      <CircleDot
-        size={9}
-        className={takeover || heldByOther ? 'animate-pulse' : ''}
-      />
+      <CircleDot size={9} className={ready ? 'animate-pulse' : ''} />
       {ready
-        ? 'CONTROL ACQUIRED'
+        ? exclusive
+          ? 'EXCLUSIVE HUMAN CONTROL'
+          : agentActive
+            ? 'AGENT + HUMAN READY'
+            : 'HUMAN READY'
         : heldByOther
           ? 'LOCKED BY OTHER'
-          : takeover
-            ? 'PREPARING'
-            : 'NO CONTROL'}
+          : 'SESSION NOT READY'}
     </span>
   );
 }
@@ -362,8 +382,7 @@ function EmptySelection() {
           选择运行中的 Session
         </h2>
         <p className="mt-2 text-[11px] leading-5 text-text-muted">
-          HumanTakeover 必须从 Session 详情发起，确保租户、Actor 和排他
-          Operation 已绑定。
+          从运行中的 Session 详情打开协作远程桌面，无需先暂停或交接 Agent。
         </p>
         <Link
           to="/environments"

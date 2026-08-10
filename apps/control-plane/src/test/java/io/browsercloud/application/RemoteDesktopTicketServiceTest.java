@@ -4,17 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.browsercloud.domain.operation.ExclusiveOperation;
-import io.browsercloud.domain.operation.OperationMode;
-import io.browsercloud.domain.operation.OperationPhase;
-import io.browsercloud.domain.operation.OperationState;
-import io.browsercloud.domain.operation.OwnerType;
+import io.browsercloud.domain.session.ResourceClass;
+import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.domain.session.SessionState;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
-import java.util.Set;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
@@ -24,15 +21,16 @@ class RemoteDesktopTicketServiceTest {
   private static final String SECRET = "test-remote-desktop-ticket-secret-32-bytes";
 
   @Test
-  void shouldIssueShortLivedTicketBoundToOperationAndActor() throws Exception {
+  void shouldIssueShortLivedCollaborativeTicketBoundToSessionWithoutTakeover() throws Exception {
     var clock = Clock.fixed(Instant.parse("2026-07-26T00:00:00Z"), ZoneOffset.UTC);
     var service = new RemoteDesktopTicketService(new ObjectMapper(), SECRET, 45, "test", clock);
 
     var response =
-        service.issue("tenant-test", "ses_1234567890abcdef", "user-test", takeoverOperation());
+        service.issueCollaborative(
+            "tenant-test", "ses_1234567890abcdef", "user-test", runningSession());
 
     assertThat(response.expiresAt()).isEqualTo(Instant.parse("2026-07-26T00:00:45Z"));
-    assertThat(response.operationEpoch()).isEqualTo(7);
+    assertThat(response.operationEpoch()).isEqualTo(3);
     assertThat(response.webSocketPath())
         .startsWith("/desktop/v1/sessions/ses_1234567890abcdef?ticket=");
     var ticket = response.webSocketPath().substring(response.webSocketPath().indexOf('=') + 1);
@@ -45,7 +43,8 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"actorId\":\"user-test\"")
         .contains("\"coordinatorTerm\":1")
         .contains("\"contextEpoch\":3")
-        .contains("\"operationEpoch\":7");
+        .contains("\"operationEpoch\":3")
+        .contains("\"accessMode\":\"COLLABORATIVE\"");
 
     var mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
@@ -67,26 +66,24 @@ class RemoteDesktopTicketServiceTest {
         .hasMessageContaining("must be overridden");
   }
 
-  private ExclusiveOperation takeoverOperation() {
+  private SessionContext runningSession() {
     var now = Instant.parse("2026-07-26T00:00:00Z");
-    return new ExclusiveOperation(
-        "op_takeover",
+    return new SessionContext(
         "ses_1234567890abcdef",
-        OwnerType.HUMAN,
-        "user-test",
-        OperationMode.HUMAN_TAKEOVER,
-        90,
+        "tenant-test",
+        "profile-test",
+        "node-test",
+        "runtime-test",
+        "isolation-test",
+        "proxy-test",
         1,
         3,
-        7,
-        null,
-        true,
-        false,
-        OperationPhase.EXECUTING,
-        OperationState.ACTIVE,
-        Set.of("desktop.control"),
-        now.plusSeconds(3600),
+        4,
+        1,
+        ResourceClass.L3,
+        SessionState.RUNNING,
+        "policy-hash",
         now,
-        null);
+        now);
   }
 }

@@ -31,6 +31,7 @@ public class NodeCommandOutboxDispatcher {
 
   private static final Logger log = LoggerFactory.getLogger(NodeCommandOutboxDispatcher.class);
   private static final int MAX_ATTEMPTS = 10;
+  private static final String HUMAN_INPUT_PRIORITY = "HUMAN_INPUT_PRIORITY";
   private static final Set<String> TERMINAL_REJECTIONS =
       Set.of(
           "UNSUPPORTED_COMMAND",
@@ -94,6 +95,13 @@ public class NodeCommandOutboxDispatcher {
           event.releaseDispatchClaim();
           outboxRepository.save(event);
         } else {
+          if (HUMAN_INPUT_PRIORITY.equals(acknowledgement.getErrorCode())) {
+            recordHumanInputDeferral(event);
+            log.debug(
+                "Browser Node deferred Agent command {} while human input has priority",
+                command.messageId());
+            continue;
+          }
           recordFailure(
               event,
               acknowledgement.getErrorCode(),
@@ -164,6 +172,16 @@ public class NodeCommandOutboxDispatcher {
       event.setNextAttemptAt(
           Instant.now().plus(Duration.ofSeconds(backoffSeconds)).plusMillis(jitterMillis));
     }
+    event.releaseDispatchClaim();
+    outboxRepository.save(event);
+  }
+
+  /**
+   * 真人输入优先是瞬时仲裁结果，不是命令失败。保持原 publishAttempts，使同一条 Agent 命令可以在真人停止输入后继续，且不会因人工协作时间较长进入 Dead Letter。
+   */
+  private void recordHumanInputDeferral(io.browsercloud.persistence.OutboxEventEntity event) {
+    event.setLastError(HUMAN_INPUT_PRIORITY);
+    event.setNextAttemptAt(Instant.now().plusMillis(500));
     event.releaseDispatchClaim();
     outboxRepository.save(event);
   }

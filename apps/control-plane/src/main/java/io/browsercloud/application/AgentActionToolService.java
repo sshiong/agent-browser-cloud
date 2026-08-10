@@ -10,6 +10,7 @@ import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.persistence.ToolCapabilityUseJpaRepository;
 import java.net.IDN;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
@@ -22,6 +23,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AgentActionToolService {
+
+  private static final Duration COLLABORATIVE_INPUT_WAIT = Duration.ofMinutes(30);
 
   private static final Set<ToolId> SUPPORTED =
       Set.of(ToolId.CLICK_TARGET, ToolId.TYPE_TEXT, ToolId.SCROLL, ToolId.WAIT_FOR);
@@ -84,14 +87,8 @@ public class AgentActionToolService {
     nodeCommandGateway.send(
         NodeCommands.agentAction(
             session, operation, taskId, step, state.stateVersion(), state.stateHash()));
-    var timeoutMs =
-        step.toolId() == ToolId.WAIT_FOR && step.input().timeoutMs() != null
-            ? step.input().timeoutMs()
-            : 10_000;
     return new PendingAction(
-        state.stateVersion(),
-        state.stateHash(),
-        now.plusMillis(Math.min(15_000L, (long) timeoutMs + 5_000L)));
+        state.stateVersion(), state.stateHash(), now.plus(COLLABORATIVE_INPUT_WAIT));
   }
 
   private static void validateInput(

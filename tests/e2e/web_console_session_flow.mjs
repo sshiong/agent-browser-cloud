@@ -458,19 +458,38 @@ try {
   });
 
   await page.goto(`${baseUrl}/environments/${startSessionId}`);
-  await expect(page.getByRole("button", { name: "人工接管" })).toBeEnabled({
+  const desktopSessionBefore = await (
+    await page.request.get(`${baseUrl}/api/v1/sessions/${startSessionId}`, {
+      headers: { "X-Tenant-Id": "tenant-local" },
+    })
+  ).json();
+  const desktopOperationBefore =
+    desktopSessionBefore.currentOperation?.operationId ?? null;
+  await expect(page.getByRole("button", { name: "打开远程桌面" })).toBeEnabled({
     timeout: 15_000,
   });
-  await page.getByRole("button", { name: "人工接管" }).click();
+  await page.getByRole("button", { name: "打开远程桌面" }).click();
   await page.waitForURL("**/remote-desktop?session=ses_*");
-  await expect(page.getByText("CONTROL ACQUIRED", { exact: true })).toBeVisible(
-    {
-      timeout: 15_000,
-    },
-  );
+  await expect(page.getByText("HUMAN READY", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
+  const desktopSessionAfter = await (
+    await page.request.get(`${baseUrl}/api/v1/sessions/${startSessionId}`, {
+      headers: { "X-Tenant-Id": "tenant-local" },
+    })
+  ).json();
+  if (desktopSessionAfter.currentOperation?.mode === "HUMAN_TAKEOVER") {
+    throw new Error("ordinary VNC connection unexpectedly created HumanTakeover");
+  }
+  if (
+    (desktopSessionAfter.currentOperation?.operationId ?? null) !==
+    desktopOperationBefore
+  ) {
+    throw new Error("ordinary VNC connection changed the active Operation");
+  }
   const remoteCanvas = page.getByLabel("实时远程桌面画面").locator("canvas");
   await expect(remoteCanvas).toBeVisible();
   await remoteCanvas.click({ position: { x: 96, y: 72 } });
@@ -492,16 +511,11 @@ try {
   if (!inputLoopClosed) {
     throw new Error("noVNC pixel/input loop did not reach the fake RFB server");
   }
-  await page.getByRole("button", { name: "结束接管" }).click();
-  await expect(page.getByText("NO CONTROL", { exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
-
   await page.getByRole("link", { name: "Session", exact: true }).click();
-  await expect(page.getByRole("button", { name: "人工接管" })).toBeEnabled({
+  await expect(page.getByRole("button", { name: "打开远程桌面" })).toBeEnabled({
     timeout: 15_000,
   });
-  await page.getByRole("button", { name: "人工接管" }).click();
+  await page.getByRole("button", { name: "打开远程桌面" }).click();
   await page.waitForURL("**/remote-desktop?session=ses_*");
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible({
     timeout: 15_000,
@@ -559,7 +573,7 @@ try {
     );
   }
   await page.goto(`${baseUrl}/environments/${startSessionId}`);
-  await expect(page.getByRole("button", { name: "人工接管" })).toBeEnabled({
+  await expect(page.getByRole("button", { name: "打开远程桌面" })).toBeEnabled({
     timeout: 15_000,
   });
 

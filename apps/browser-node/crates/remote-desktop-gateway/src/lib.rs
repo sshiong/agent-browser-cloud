@@ -1,7 +1,8 @@
 //! Browser Node 的受控远程桌面数据面。
 //!
 //! 浏览器只连接此 WebSocket 网关，VNC TCP 端口始终限制在 Node 回环地址。
-//! 网关校验 Control Plane 签发的短期 HMAC 票据，并阻止并发接管与票据重放。
+//! 网关校验 Control Plane 签发的短期 HMAC 票据，并阻止并发连接与票据重放。
+//! 普通远程桌面连接允许与 Agent 协作；只有真实 RFB 输入会触发短时真人优先窗口。
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -30,6 +31,7 @@ const MAX_VNC_FRAME_BYTES: usize = 1024 * 1024;
 const DEFAULT_DISCONNECT_GRACE: Duration = Duration::from_secs(2);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 const CLIENT_LIVENESS_TIMEOUT: Duration = Duration::from_secs(30);
+const RFB_CLIENT_HANDSHAKE_BYTES: usize = 14;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -40,8 +42,14 @@ pub struct RemoteDesktopTicketClaims {
     pub coordinator_term: i64,
     pub context_epoch: i64,
     pub operation_epoch: u64,
+    #[serde(default = "default_access_mode")]
+    pub access_mode: String,
     pub expires_at_epoch_seconds: u64,
     pub nonce: String,
+}
+
+fn default_access_mode() -> String {
+    "EXCLUSIVE_TAKEOVER".to_owned()
 }
 
 #[async_trait]
@@ -64,6 +72,7 @@ struct GatewayState {
     active_sessions: Mutex<HashSet<String>>,
     connection_generations: Mutex<HashMap<String, u64>>,
     last_server_frame_at: Mutex<HashMap<String, Instant>>,
+    last_human_input_at: Mutex<HashMap<String, Instant>>,
     bitrate_limits_kbps: Mutex<HashMap<String, u32>>,
     observer_frame_rates_fps: Mutex<HashMap<String, u32>>,
     used_nonces: Mutex<HashMap<String, u64>>,
@@ -164,6 +173,7 @@ impl RemoteDesktopGateway {
                 active_sessions: Mutex::new(HashSet::new()),
                 connection_generations: Mutex::new(HashMap::new()),
                 last_server_frame_at: Mutex::new(HashMap::new()),
+                last_human_input_at: Mutex::new(HashMap::new()),
                 bitrate_limits_kbps: Mutex::new(HashMap::new()),
                 observer_frame_rates_fps: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
@@ -215,6 +225,11 @@ impl RemoteDesktopGateway {
             .last_server_frame_at
             .lock()
             .expect("frame timestamp lock poisoned")
+            .remove(session_id);
+        self.state
+            .last_human_input_at
+            .lock()
+            .expect("human input timestamp lock poisoned")
             .remove(session_id);
         self.state
             .bitrate_limits_kbps
@@ -363,6 +378,26 @@ impl RemoteDesktopGateway {
             })
     }
 
+    /// 真人最近产生键鼠或剪贴板输入时返回 `true`。
+    ///
+    /// 仅建立或保持 VNC 观察连接不会激活该窗口，因此 Agent 可继续操作并被真人观察。
+    pub fn human_input_active(&self, session_id: &str, idle_window: Duration) -> bool {
+        self.state
+            .last_human_input_at
+            .lock()
+            .expect("human input timestamp lock poisoned")
+            .get(session_id)
+            .is_some_and(|observed| observed.elapsed() <= idle_window)
+    }
+
+    fn mark_human_input(&self, session_id: &str) {
+        self.state
+            .last_human_input_at
+            .lock()
+            .expect("human input timestamp lock poisoned")
+            .insert(session_id.to_owned(), Instant::now());
+    }
+
     pub async fn serve(self, listener: TcpListener) -> anyhow::Result<()> {
         loop {
             let (stream, peer) = listener.accept().await?;
@@ -473,6 +508,7 @@ impl RemoteDesktopGateway {
         let mut last_server_forwarded_at = None;
         let mut pending_server_payload = None;
         let mut pending_server_ready_at = tokio::time::Instant::now();
+        let mut input_detector = RfbClientInputDetector::default();
         loop {
             tokio::select! {
                 _ = heartbeat.tick() => {
@@ -517,6 +553,9 @@ impl RemoteDesktopGateway {
                                 payload.len() <= MAX_VNC_FRAME_BYTES,
                                 "VNC client frame exceeds 1 MiB"
                             );
+                            if input_detector.observe(&payload) {
+                                self.mark_human_input(&authorized.claims.session_id);
+                            }
                             vnc.write_all(&payload).await?;
                         }
                         Some(Ok(Message::Ping(payload))) => {
@@ -538,6 +577,90 @@ impl RemoteDesktopGateway {
         }
         let _ = websocket.close(None).await;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct RfbClientInputDetector {
+    handshake_remaining: usize,
+    buffered: Vec<u8>,
+}
+
+impl Default for RfbClientInputDetector {
+    fn default() -> Self {
+        Self {
+            handshake_remaining: RFB_CLIENT_HANDSHAKE_BYTES,
+            buffered: Vec::new(),
+        }
+    }
+}
+
+impl RfbClientInputDetector {
+    /// 识别 RFB Client → Server 的 KeyEvent、PointerEvent 与 ClientCutText。
+    /// 协议未知消息保守地按真人输入处理，确保真人优先而不丢失输入。
+    fn observe(&mut self, payload: &[u8]) -> bool {
+        let mut offset = 0;
+        if self.handshake_remaining > 0 {
+            let consumed = self.handshake_remaining.min(payload.len());
+            self.handshake_remaining -= consumed;
+            offset += consumed;
+            if offset == payload.len() {
+                return false;
+            }
+        }
+
+        self.buffered.extend_from_slice(&payload[offset..]);
+        if self.buffered.len() > MAX_VNC_FRAME_BYTES {
+            self.buffered.clear();
+            return true;
+        }
+
+        let mut human_input = false;
+        while let Some(message_type) = self.buffered.first().copied() {
+            let (message_length, is_human) = match message_type {
+                0 => (20, false), // SetPixelFormat
+                2 => {
+                    if self.buffered.len() < 4 {
+                        break;
+                    }
+                    let encoding_count = u16::from_be_bytes([self.buffered[2], self.buffered[3]]);
+                    (
+                        4usize.saturating_add(usize::from(encoding_count).saturating_mul(4)),
+                        false,
+                    )
+                }
+                3 => (10, false), // FramebufferUpdateRequest
+                4 => (8, true),   // KeyEvent
+                5 => (6, true),   // PointerEvent
+                6 => {
+                    if self.buffered.len() < 8 {
+                        break;
+                    }
+                    let text_length = u32::from_be_bytes([
+                        self.buffered[4],
+                        self.buffered[5],
+                        self.buffered[6],
+                        self.buffered[7],
+                    ]) as usize;
+                    (8usize.saturating_add(text_length), true)
+                }
+                150 => (10, false), // EnableContinuousUpdates
+                _ => {
+                    self.buffered.clear();
+                    return true;
+                }
+            };
+            if message_length > MAX_VNC_FRAME_BYTES {
+                self.buffered.clear();
+                return true;
+            }
+            if self.buffered.len() < message_length {
+                break;
+            }
+            human_input |= is_human;
+            self.buffered.drain(..message_length);
+        }
+        human_input
     }
 }
 
@@ -587,6 +710,10 @@ fn authorize(
         || claims.context_epoch <= 0
         || claims.operation_epoch == 0
         || claims.operation_epoch > i64::MAX as u64
+        || !matches!(
+            claims.access_mode.as_str(),
+            "COLLABORATIVE" | "EXCLUSIVE_TAKEOVER"
+        )
         || claims.nonce.len() < 16
         || claims.nonce.len() > 128
     {
@@ -726,6 +853,7 @@ mod tests {
             coordinator_term: 3,
             context_epoch: 4,
             operation_epoch: 7,
+            access_mode: "COLLABORATIVE".to_owned(),
             expires_at_epoch_seconds: unix_seconds() + 60,
             nonce: nonce.to_owned(),
         };
@@ -734,6 +862,17 @@ mod tests {
         mac.update(payload.as_bytes());
         let signature = URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
         format!("{payload}.{signature}")
+    }
+
+    #[test]
+    fn detects_real_human_rfb_input_but_not_observer_protocol_messages() {
+        let mut detector = RfbClientInputDetector::default();
+        assert!(!detector.observe(b"RFB 003.008\n"));
+        assert!(!detector.observe(&[1, 1]));
+        assert!(!detector.observe(&[3, 0, 0, 0, 0, 0, 0, 100, 0, 100]));
+        assert!(detector.observe(&[4, 1, 0, 0, 0, 0, 0, 65]));
+        assert!(!detector.observe(&[5, 1, 0]));
+        assert!(detector.observe(&[10, 0, 20]));
     }
 
     #[tokio::test]

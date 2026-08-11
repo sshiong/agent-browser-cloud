@@ -200,9 +200,11 @@ public class SessionController {
   @PostMapping("/{sessionId}:desktop-connection")
   @PreAuthorize(PlatformRoles.OPERATE)
   public RemoteDesktopConnectionResponse createDesktopConnection(
-      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId) {
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestParam(defaultValue = "false") boolean viewOnly) {
     var principal = identity.current();
-    return service.createDesktopConnection(sessionId, principal.tenantId(), principal.actorId());
+    return service.createDesktopConnection(
+        sessionId, principal.tenantId(), principal.actorId(), viewOnly);
   }
 
   /**

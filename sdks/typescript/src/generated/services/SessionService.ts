@@ -1234,7 +1234,7 @@ export class SessionService {
     }
     /**
      * Issue a collaborative noVNC ticket without preempting the Agent
-     * The ticket is bound to the current Session Context rather than an exclusive HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node gives fresh human input priority and resumes deferred Agent input after the human input idle window. If the same actor already owns an explicit EXECUTING HumanTakeover, the endpoint preserves that exclusive operation and its release barrier.
+     * The ticket is bound to the current Session Context rather than an exclusive HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node gives fresh human input priority and resumes deferred Agent input after the human input idle window. Multiple collaborative clients are bounded per Session and use the shared RFB mode. A view-only ticket is enforced by both noVNC and Browser Node; attempted Key, Pointer or Clipboard input is rejected before x11vnc. If the same actor already owns an explicit EXECUTING HumanTakeover, the endpoint preserves that exclusive operation and its release barrier; the Gateway revokes collaborative clients before admitting it.
      * @returns RemoteDesktopConnection Session-bound collaborative connection ticket issued.
      * @throws ApiError
      */
@@ -1242,6 +1242,7 @@ export class SessionService {
         sessionId,
         xTenantId,
         xActorId,
+        viewOnly = false,
     }: {
         sessionId: string,
         /**
@@ -1252,6 +1253,10 @@ export class SessionService {
          * Optional Local/Test actor identity. Ignored in Production, where actor identity is the JWT subject.
          */
         xActorId?: string,
+        /**
+         * Request a server-enforced observation-only connection.
+         */
+        viewOnly?: boolean,
     }): CancelablePromise<RemoteDesktopConnection> {
         return this.httpRequest.request({
             method: 'POST',
@@ -1262,6 +1267,9 @@ export class SessionService {
             headers: {
                 'X-Tenant-Id': xTenantId,
                 'X-Actor-Id': xActorId,
+            },
+            query: {
+                'viewOnly': viewOnly,
             },
             errors: {
                 403: `Resource is outside the caller tenant scope.`,

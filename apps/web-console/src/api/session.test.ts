@@ -3,6 +3,7 @@ import {
   acquireSessionSafetyLease,
   captureSessionEvidence,
   createSessionEvidenceAccessGrant,
+  createRemoteDesktopConnection,
   createSession,
   getBrowserState,
   getBusinessRecovery,
@@ -80,6 +81,42 @@ describe('session API', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('requests a server-enforced view-only remote desktop ticket', async () => {
+    const connection = {
+      webSocketPath: '/desktop/v1/sessions/ses_1234567890abcdef?ticket=opaque',
+      expiresAt: new Date(Date.now() + 45_000).toISOString(),
+      protocol: 'rfb',
+      operationEpoch: 3,
+      viewOnly: true,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(connection), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createRemoteDesktopConnection(
+      'ses_1234567890abcdef',
+      'tenant-test',
+      'viewer-test',
+      undefined,
+      true
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef:desktop-connection?viewOnly=true',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'viewer-test',
         }),
       })
     );

@@ -268,6 +268,24 @@ class SessionApplicationServiceTest {
         .isEqualTo(response);
   }
 
+  @Test
+  void issuesServerEnforcedViewOnlyCollaborativeTicketWithoutCreatingAnOperation() {
+    var now = Instant.parse("2026-08-10T00:00:00Z");
+    var context = runningContext(now);
+    var response =
+        new RemoteDesktopConnectionResponse(
+            "/desktop/v1/sessions/ses_test?ticket=view-only", now.plusSeconds(45), "rfb", 4, true);
+    when(sessionRepository.require("ses_test")).thenReturn(context);
+    when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
+    when(remoteDesktopTicketService.issueCollaborative(
+            "tenant-test", "ses_test", "viewer-test", context, true))
+        .thenReturn(response);
+
+    assertThat(service.createDesktopConnection("ses_test", "tenant-test", "viewer-test", true))
+        .isEqualTo(response);
+    verifyNoInteractions(coordinator);
+  }
+
   private SessionContext runningContext(Instant now) {
     return new SessionContext(
         "ses_test",

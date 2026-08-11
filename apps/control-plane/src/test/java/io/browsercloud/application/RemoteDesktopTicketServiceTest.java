@@ -44,12 +44,32 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"coordinatorTerm\":1")
         .contains("\"contextEpoch\":3")
         .contains("\"operationEpoch\":3")
-        .contains("\"accessMode\":\"COLLABORATIVE\"");
+        .contains("\"accessMode\":\"COLLABORATIVE\"")
+        .contains("\"viewOnly\":false");
 
     var mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
     assertThat(Base64.getUrlDecoder().decode(parts[1]))
         .isEqualTo(mac.doFinal(parts[0].getBytes(StandardCharsets.US_ASCII)));
+  }
+
+  @Test
+  void shouldBindViewOnlyModeIntoTheSignedTicketAndResponse() throws Exception {
+    var clock = Clock.fixed(Instant.parse("2026-07-26T00:00:00Z"), ZoneOffset.UTC);
+    var service = new RemoteDesktopTicketService(new ObjectMapper(), SECRET, 45, "test", clock);
+
+    var response =
+        service.issueCollaborative(
+            "tenant-test", "ses_1234567890abcdef", "viewer-test", runningSession(), true);
+
+    assertThat(response.viewOnly()).isTrue();
+    var ticket = response.webSocketPath().substring(response.webSocketPath().indexOf('=') + 1);
+    var payload =
+        new String(Base64.getUrlDecoder().decode(ticket.split("\\.")[0]), StandardCharsets.UTF_8);
+    assertThat(payload)
+        .contains("\"actorId\":\"viewer-test\"")
+        .contains("\"accessMode\":\"COLLABORATIVE\"")
+        .contains("\"viewOnly\":true");
   }
 
   @Test

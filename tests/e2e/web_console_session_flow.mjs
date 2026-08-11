@@ -376,8 +376,7 @@ try {
   const [globalSearchResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().includes("/api/v1/search?") &&
-        response.status() === 200,
+        response.url().includes("/api/v1/search?") && response.status() === 200,
     ),
     searchDialog.getByLabel("全局搜索关键词").fill(startName),
   ]);
@@ -476,13 +475,45 @@ try {
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
+  const sharedObserverContext = await browser.newContext({
+    viewport: { width: 1024, height: 768 },
+  });
+  const sharedObserverPage = await sharedObserverContext.newPage();
+  await sharedObserverPage.goto(
+    `${baseUrl}/remote-desktop?session=${startSessionId}`,
+  );
+  const [viewOnlyTicketResponse] = await Promise.all([
+    sharedObserverPage.waitForResponse(
+      (response) =>
+        response.url().includes(":desktop-connection?viewOnly=true") &&
+        response.status() === 200,
+    ),
+    sharedObserverPage.getByRole("button", { name: "只读观察" }).click(),
+  ]);
+  const viewOnlyTicket = await viewOnlyTicketResponse.json();
+  if (viewOnlyTicket.viewOnly !== true) {
+    throw new Error(
+      "view-only desktop mode was not bound into the server ticket",
+    );
+  }
+  await expect(
+    sharedObserverPage.getByText("RFB LIVE", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    sharedObserverPage.getByText("· VIEW ONLY", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible();
+  await sharedObserverContext.close();
+  await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible();
   const desktopSessionAfter = await (
     await page.request.get(`${baseUrl}/api/v1/sessions/${startSessionId}`, {
       headers: { "X-Tenant-Id": "tenant-local" },
     })
   ).json();
   if (desktopSessionAfter.currentOperation?.mode === "HUMAN_TAKEOVER") {
-    throw new Error("ordinary VNC connection unexpectedly created HumanTakeover");
+    throw new Error(
+      "ordinary VNC connection unexpectedly created HumanTakeover",
+    );
   }
   if (
     (desktopSessionAfter.currentOperation?.operationId ?? null) !==
@@ -624,9 +655,9 @@ try {
   await observerPage.goto(
     `${baseUrl}/remote-desktop?session=${startSessionId}`,
   );
-  await expect(
-    observerPage.getByText("RFB LIVE", { exact: true }),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(observerPage.getByText("RFB LIVE", { exact: true })).toBeVisible(
+    { timeout: 15_000 },
+  );
   const observerCanvas = observerPage
     .getByLabel("实时远程桌面画面")
     .locator("canvas");
@@ -1121,9 +1152,7 @@ try {
   await expect(
     page.getByRole("button", { name: /选择或拖入 .tar.zst/ }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Storage Helper", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Storage Helper", { exact: true })).toBeVisible();
   await page.screenshot({
     path: screenshotPath.replace(/\.png$/, "-profile-import.png"),
     fullPage: true,
@@ -1252,7 +1281,9 @@ try {
       },
     });
     if (assignment.status() !== 200) {
-      throw new Error(`Batch selector assignment failed: ${await assignment.text()}`);
+      throw new Error(
+        `Batch selector assignment failed: ${await assignment.text()}`,
+      );
     }
   }
 
@@ -1298,11 +1329,14 @@ try {
       `Group/Tag Saved View failed: ${await filterSavedViewResponse.text()}`,
     );
   }
-  const filterSavedViewRequest = filterSavedViewResponse.request().postDataJSON();
+  const filterSavedViewRequest = filterSavedViewResponse
+    .request()
+    .postDataJSON();
   if (
     filterSavedViewRequest.groupId !== batchGroupId ||
     filterSavedViewRequest.tagMatch !== "ANY" ||
-    JSON.stringify(filterSavedViewRequest.tagIds) !== JSON.stringify([batchTagId])
+    JSON.stringify(filterSavedViewRequest.tagIds) !==
+      JSON.stringify([batchTagId])
   ) {
     throw new Error(
       `Group/Tag Saved View request lost filters: ${JSON.stringify(filterSavedViewRequest)}`,
@@ -1335,7 +1369,9 @@ try {
   });
 
   await page.goto(`${baseUrl}/groups`);
-  await expect(page.getByRole("heading", { name: batchGroupName })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: batchGroupName }),
+  ).toBeVisible();
   const batchGroupCard = page
     .locator("article")
     .filter({ has: page.getByRole("heading", { name: batchGroupName }) });
@@ -1393,7 +1429,11 @@ try {
     );
     const status = await statusResponse.json();
     metadataBatchState = status.state;
-    if (["SUCCEEDED", "PARTIAL_SUCCESS", "FAILED", "CANCELLED"].includes(metadataBatchState)) {
+    if (
+      ["SUCCEEDED", "PARTIAL_SUCCESS", "FAILED", "CANCELLED"].includes(
+        metadataBatchState,
+      )
+    ) {
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -1401,9 +1441,9 @@ try {
   if (metadataBatchState !== "SUCCEEDED") {
     throw new Error(`Metadata batch did not succeed: ${metadataBatchState}`);
   }
-  await expect(
-    batchTagCard.getByText("全部成功", { exact: true }),
-  ).toBeVisible({ timeout: 5_000 });
+  await expect(batchTagCard.getByText("全部成功", { exact: true })).toBeVisible(
+    { timeout: 5_000 },
+  );
   await page.screenshot({
     path: screenshotPath.replace(/\.png$/, "-metadata-batch.png"),
     fullPage: true,
@@ -1420,7 +1460,9 @@ try {
     },
   );
   if (restoredBatchTag.status() !== 200) {
-    throw new Error(`Metadata batch restore failed: ${await restoredBatchTag.text()}`);
+    throw new Error(
+      `Metadata batch restore failed: ${await restoredBatchTag.text()}`,
+    );
   }
   await batchGroupCard
     .getByLabel(`${batchGroupName}批量动作`)
@@ -1437,7 +1479,9 @@ try {
   await batchGroupCard.getByRole("button", { name: "提交 1 项" }).click();
   const batchResponse = await batchResponsePromise;
   if (batchResponse.status() !== 202) {
-    throw new Error(`Workspace batch submit failed: ${await batchResponse.text()}`);
+    throw new Error(
+      `Workspace batch submit failed: ${await batchResponse.text()}`,
+    );
   }
   const batchOperationId = (await batchResponse.json()).batchOperationId;
   let batchState = "ACCEPTED";

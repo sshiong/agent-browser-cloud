@@ -67,6 +67,11 @@ public class RemoteDesktopTicketService {
    */
   public RemoteDesktopConnectionResponse issueCollaborative(
       String tenantId, String sessionId, String actorId, SessionContext session) {
+    return issueCollaborative(tenantId, sessionId, actorId, session, false);
+  }
+
+  public RemoteDesktopConnectionResponse issueCollaborative(
+      String tenantId, String sessionId, String actorId, SessionContext session, boolean viewOnly) {
     return issue(
         tenantId,
         sessionId,
@@ -74,7 +79,8 @@ public class RemoteDesktopTicketService {
         session.coordinatorTerm(),
         session.contextEpoch(),
         session.contextEpoch(),
-        "COLLABORATIVE");
+        "COLLABORATIVE",
+        viewOnly);
   }
 
   /** Issues a ticket for an already established explicit HumanTakeover barrier. */
@@ -87,7 +93,8 @@ public class RemoteDesktopTicketService {
         operation.coordinatorTerm(),
         operation.contextEpoch(),
         operation.operationEpoch(),
-        "EXCLUSIVE_TAKEOVER");
+        "EXCLUSIVE_TAKEOVER",
+        false);
   }
 
   private RemoteDesktopConnectionResponse issue(
@@ -97,7 +104,8 @@ public class RemoteDesktopTicketService {
       long coordinatorTerm,
       long contextEpoch,
       long bindingEpoch,
-      String accessMode) {
+      String accessMode,
+      boolean viewOnly) {
     var expiresAt = Instant.now(clock).plusSeconds(ttlSeconds);
     var claims = new LinkedHashMap<String, Object>();
     claims.put("tenantId", tenantId);
@@ -107,6 +115,7 @@ public class RemoteDesktopTicketService {
     claims.put("contextEpoch", contextEpoch);
     claims.put("operationEpoch", bindingEpoch);
     claims.put("accessMode", accessMode);
+    claims.put("viewOnly", viewOnly);
     claims.put("expiresAtEpochSeconds", expiresAt.getEpochSecond());
     claims.put("nonce", UUID.randomUUID().toString().replace("-", ""));
     try {
@@ -120,7 +129,7 @@ public class RemoteDesktopTicketService {
           expiresAt,
           "rfb",
           bindingEpoch,
-          false);
+          viewOnly);
     } catch (JsonProcessingException | GeneralSecurityException exception) {
       throw new IllegalStateException("remote desktop ticket signing failed", exception);
     }

@@ -1414,13 +1414,23 @@ paths:
         The ticket is bound to the current Session Context rather than an exclusive
         HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node
         gives fresh human input priority and resumes deferred Agent input after the human
-        input idle window. If the same actor already owns an explicit EXECUTING
-        HumanTakeover, the endpoint preserves that exclusive operation and its release barrier.
+        input idle window. Multiple collaborative clients are bounded per Session and use the
+        shared RFB mode. A view-only ticket is enforced by both noVNC and Browser Node; attempted
+        Key, Pointer or Clipboard input is rejected before x11vnc. If the same actor already owns
+        an explicit EXECUTING HumanTakeover, the endpoint preserves that exclusive operation and
+        its release barrier; the Gateway revokes collaborative clients before admitting it.
       tags: [Session, RemoteDesktop]
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - $ref: "#/components/parameters/TenantId"
         - $ref: "#/components/parameters/ActorId"
+        - name: viewOnly
+          in: query
+          required: false
+          description: Request a server-enforced observation-only connection.
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
           description: Session-bound collaborative connection ticket issued.

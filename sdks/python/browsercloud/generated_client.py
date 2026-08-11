@@ -93,7 +93,7 @@ OPERATIONS: dict[str, Operation] = {
     'terminateSession': Operation('terminateSession', 'POST', '/api/v1/sessions/{sessionId}:terminate', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'OperationResponse'),
     'requestHumanTakeover': Operation('requestHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
     'releaseHumanTakeover': Operation('releaseHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:release-takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
-    'createRemoteDesktopConnection': Operation('createRemoteDesktopConnection', 'POST', '/api/v1/sessions/{sessionId}:desktop-connection', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'RemoteDesktopConnection'),
+    'createRemoteDesktopConnection': Operation('createRemoteDesktopConnection', 'POST', '/api/v1/sessions/{sessionId}:desktop-connection', ('sessionId',), ('viewOnly',), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'RemoteDesktopConnection'),
     'listProfiles': Operation('listProfiles', 'GET', '/api/v1/profiles', (), (), ('X-Tenant-Id',), '', False, 'ProfileListResponse'),
     'createProfile': Operation('createProfile', 'POST', '/api/v1/profiles', (), (), ('X-Tenant-Id',), 'CreateProfileRequest', True, 'Profile'),
     'getProfile': Operation('getProfile', 'GET', '/api/v1/profiles/{profileId}', ('profileId',), (), ('X-Tenant-Id',), '', False, 'Profile'),

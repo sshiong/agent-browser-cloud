@@ -12,11 +12,13 @@ export type DesktopConnectionState =
 export function NoVncViewport({
   sessionId,
   bindingEpoch,
+  viewOnly = false,
   onConnectionState,
   onUnexpectedDisconnect,
 }: {
   sessionId: string;
   bindingEpoch: number;
+  viewOnly?: boolean;
   onConnectionState?: (state: DesktopConnectionState) => void;
   onUnexpectedDisconnect?: () => void;
 }) {
@@ -47,7 +49,8 @@ export function NoVncViewport({
           sessionId,
           undefined,
           undefined,
-          controller.signal
+          controller.signal,
+          viewOnly
         );
         if (disposed || !viewportRef.current) return;
         if (connection.operationEpoch !== bindingEpoch) {
@@ -63,7 +66,9 @@ export function NoVncViewport({
         const { default: RFB } = await import('@novnc/novnc');
         if (disposed || !viewportRef.current) return;
         client = new RFB(viewportRef.current, websocketUrl, {
-          shared: false,
+          // Gateway 对协作连接做有界并发和独占接管仲裁；RFB shared flag 可避免
+          // 新 Viewer 让 x11vnc 主动断开已有 Agent 辅助观察者。
+          shared: true,
           wsProtocols: ['binary'],
         });
         client.background = '#080d13';
@@ -113,7 +118,7 @@ export function NoVncViewport({
       controller.abort();
       client?.disconnect();
     };
-  }, [bindingEpoch, sessionId]);
+  }, [bindingEpoch, sessionId, viewOnly]);
 
   return (
     <div className="relative h-full min-h-[420px] overflow-hidden bg-[#080d13]">
@@ -148,7 +153,8 @@ export function NoVncViewport({
       {state === 'CONNECTED' && (
         <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 border border-success/25 bg-canvas/85 px-2 py-1 font-mono text-[9px] text-success">
           <Radio size={9} className="animate-pulse" />
-          RFB LIVE
+          <span>RFB LIVE</span>
+          <span>· {viewOnly ? 'VIEW ONLY' : 'SHARED CONTROL'}</span>
         </div>
       )}
     </div>

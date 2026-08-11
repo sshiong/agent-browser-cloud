@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   CircleDot,
   Crosshair,
+  Eye,
   Hand,
   LoaderCircle,
   Monitor,
@@ -35,6 +36,7 @@ export function RemoteDesktopPage() {
   const releaseMutation = useReleaseHumanTakeover(sessionId);
   const [desktopState, setDesktopState] =
     useState<DesktopConnectionState>('DISCONNECTED');
+  const [viewOnly, setViewOnly] = useState(false);
   const session = sessionQuery.data;
   const takeover = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
@@ -106,6 +108,39 @@ export function RemoteDesktopPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {!takeover && (
+                <div
+                  className="inline-flex h-8 border border-border-default bg-surface-2"
+                  aria-label="远程桌面连接模式"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={!viewOnly}
+                    onClick={() => setViewOnly(false)}
+                    className={cn(
+                      'px-2.5 font-mono text-[9px]',
+                      !viewOnly
+                        ? 'bg-accent/12 text-accent'
+                        : 'text-text-muted hover:text-text-primary'
+                    )}
+                  >
+                    协作控制
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={viewOnly}
+                    onClick={() => setViewOnly(true)}
+                    className={cn(
+                      'border-l border-border-default px-2.5 font-mono text-[9px]',
+                      viewOnly
+                        ? 'bg-accent/12 text-accent'
+                        : 'text-text-muted hover:text-text-primary'
+                    )}
+                  >
+                    只读观察
+                  </button>
+                </div>
+              )}
               <CollaborationStatus
                 ready={ready}
                 agentActive={agentActive}
@@ -154,6 +189,7 @@ export function RemoteDesktopPage() {
                     <NoVncViewport
                       sessionId={sessionId}
                       bindingEpoch={bindingEpoch}
+                      viewOnly={takeover ? false : viewOnly}
                       onConnectionState={setDesktopState}
                       onUnexpectedDisconnect={releaseAfterDisconnect}
                     />
@@ -189,6 +225,18 @@ export function RemoteDesktopPage() {
                   active={agentActive}
                 />
                 <RailRow
+                  icon={Eye}
+                  label="Connection"
+                  value={
+                    takeoverOwned
+                      ? 'EXCLUSIVE'
+                      : viewOnly
+                        ? 'VIEW ONLY / SHARED'
+                        : 'CONTROL / SHARED'
+                  }
+                  active={ready}
+                />
+                <RailRow
                   icon={Crosshair}
                   label="State"
                   value={
@@ -217,6 +265,8 @@ export function RemoteDesktopPage() {
                   />
                   <RailMetric label="Disconnect cleanup" value="Required" />
                   <RailMetric label="Agent session" value="Preserved" />
+                  <RailMetric label="Collaborators" value="Bounded to 8" />
+                  <RailMetric label="View-only input" value="Node rejected" />
                 </dl>
               </RailSection>
             </aside>

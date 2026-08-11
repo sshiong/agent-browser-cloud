@@ -7,6 +7,7 @@ import os
 import socket
 import struct
 import sys
+import threading
 import time
 
 
@@ -18,14 +19,16 @@ def argument(name: str) -> str | None:
 
 
 EVENT_LOG = os.environ.get("FAKE_VNC_EVENT_LOG")
+EVENT_LOG_LOCK = threading.Lock()
 
 
 def record(event: dict[str, object]) -> None:
     if not EVENT_LOG:
         return
     event["at"] = time.time()
-    with open(EVENT_LOG, "a", encoding="utf-8") as stream:
-        stream.write(json.dumps(event, separators=(",", ":")) + "\n")
+    with EVENT_LOG_LOCK:
+        with open(EVENT_LOG, "a", encoding="utf-8") as stream:
+            stream.write(json.dumps(event, separators=(",", ":")) + "\n")
 
 
 if argument("-remote") is not None:
@@ -167,9 +170,9 @@ listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 listener.bind(("127.0.0.1", int(port_value)))
 listener.listen(4)
 record({"type": "listening", "port": int(port_value)})
-while True:
-    client, _ = listener.accept()
-    record({"type": "accepted"})
+
+
+def serve_client(client: socket.socket) -> None:
     try:
         serve(client)
     except (EOFError, ConnectionError, OSError, socket.timeout) as error:
@@ -177,3 +180,9 @@ while True:
     finally:
         client.close()
         record({"type": "disconnected"})
+
+
+while True:
+    client, _ = listener.accept()
+    record({"type": "accepted"})
+    threading.Thread(target=serve_client, args=(client,), daemon=True).start()

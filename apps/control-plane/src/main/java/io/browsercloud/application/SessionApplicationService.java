@@ -504,6 +504,12 @@ public class SessionApplicationService {
   @Transactional(readOnly = true)
   public RemoteDesktopConnectionResponse createDesktopConnection(
       String sessionId, String tenantId, String userId) {
+    return createDesktopConnection(sessionId, tenantId, userId, false);
+  }
+
+  @Transactional(readOnly = true)
+  public RemoteDesktopConnectionResponse createDesktopConnection(
+      String sessionId, String tenantId, String userId, boolean viewOnly) {
     var session = requireTenant(sessionId, tenantId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
       throw new InvalidSessionStateException(sessionId, session.state(), "remote-desktop");
@@ -525,7 +531,9 @@ public class SessionApplicationService {
       throw new StaleOperationException(
           sessionId, "NONE_OR_AGENT_OPERATION", activeOperation.get().mode().name());
     }
-    return remoteDesktopTicketService.issueCollaborative(tenantId, sessionId, userId, session);
+    return viewOnly
+        ? remoteDesktopTicketService.issueCollaborative(tenantId, sessionId, userId, session, true)
+        : remoteDesktopTicketService.issueCollaborative(tenantId, sessionId, userId, session);
   }
 
   /** 获取 Session。 */

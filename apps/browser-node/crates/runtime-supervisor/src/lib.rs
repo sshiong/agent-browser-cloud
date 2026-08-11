@@ -147,6 +147,28 @@ pub struct DesktopRuntimeConfig {
     pub depth: u8,
 }
 
+fn x11vnc_command(binary: &Path, display: &str, vnc_port: u16) -> tokio::process::Command {
+    let mut command = tokio::process::Command::new(binary);
+    command
+        .arg("-display")
+        .arg(display)
+        .arg("-localhost")
+        .arg("-rfbport")
+        .arg(vnc_port.to_string())
+        .arg("-forever")
+        .arg("-shared")
+        .arg("-dontdisconnect")
+        .arg("-nopw")
+        .arg("-clear_keys")
+        .arg("-clear_mods")
+        .arg("-noxdamage")
+        .arg("-quiet")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true);
+    command
+}
+
 /// A cgroup v2 subtree that has been delegated to the unprivileged Node Agent.
 ///
 /// The Node Agent never receives host-level cgroup privileges. Node provisioning must create
@@ -785,25 +807,7 @@ impl ChromiumRuntimeSupervisor {
             anyhow::bail!("Xvfb exited during startup with {status}");
         }
 
-        let mut vnc = match tokio::process::Command::new(&config.x11vnc_binary)
-            .arg("-display")
-            .arg(&spec.display)
-            .arg("-localhost")
-            .arg("-rfbport")
-            .arg(vnc_port.to_string())
-            .arg("-forever")
-            .arg("-nevershared")
-            .arg("-dontdisconnect")
-            .arg("-nopw")
-            .arg("-clear_keys")
-            .arg("-clear_mods")
-            .arg("-noxdamage")
-            .arg("-quiet")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-        {
+        let mut vnc = match x11vnc_command(&config.x11vnc_binary, &spec.display, vnc_port).spawn() {
             Ok(child) => child,
             Err(error) => {
                 let _ = xvfb.start_kill();
@@ -1350,6 +1354,22 @@ mod tests {
             })
             .await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn configures_x11vnc_for_shared_collaboration_without_public_tcp() {
+        let command = x11vnc_command(Path::new("/usr/bin/x11vnc"), ":42", 5942);
+        let args = command
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(args.iter().any(|arg| arg == "-localhost"));
+        assert!(args.iter().any(|arg| arg == "-shared"));
+        assert!(args.iter().any(|arg| arg == "-dontdisconnect"));
+        assert!(!args.iter().any(|arg| arg == "-nevershared"));
+        assert!(args.windows(2).any(|pair| pair == ["-rfbport", "5942"]));
     }
 
     #[test]

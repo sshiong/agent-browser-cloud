@@ -83,7 +83,7 @@ public final class BrowserCloudGeneratedClient {
     operation("terminateSession", "POST", "/api/v1/sessions/{sessionId}:terminate", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "OperationResponse"),
     operation("requestHumanTakeover", "POST", "/api/v1/sessions/{sessionId}:takeover", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "OperationResponse"),
     operation("releaseHumanTakeover", "POST", "/api/v1/sessions/{sessionId}:release-takeover", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "OperationResponse"),
-    operation("createRemoteDesktopConnection", "POST", "/api/v1/sessions/{sessionId}:desktop-connection", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "RemoteDesktopConnection"),
+    operation("createRemoteDesktopConnection", "POST", "/api/v1/sessions/{sessionId}:desktop-connection", List.of("sessionId"), List.of("viewOnly"), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "RemoteDesktopConnection"),
     operation("listProfiles", "GET", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "ProfileListResponse"),
     operation("createProfile", "POST", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "CreateProfileRequest", true, "Profile"),
     operation("getProfile", "GET", "/api/v1/profiles/{profileId}", List.of("profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "Profile"),

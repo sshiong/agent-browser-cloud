@@ -843,10 +843,11 @@ export async function createRemoteDesktopConnection(
   sessionId: string,
   tenantId = DEFAULT_TENANT_ID,
   actorId = currentActorId(),
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  viewOnly = false
 ): Promise<RemoteDesktopConnection> {
   return request<RemoteDesktopConnection>(
-    `/sessions/${sessionId}:desktop-connection`,
+    `/sessions/${sessionId}:desktop-connection${viewOnly ? '?viewOnly=true' : ''}`,
     {
       method: 'POST',
       signal,

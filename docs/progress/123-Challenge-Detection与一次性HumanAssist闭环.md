@@ -74,6 +74,7 @@ make lint
 pnpm --dir apps/web-console build
 make contracts-check
 make sdk-typescript-generate sdk-multilang-generate
+make test-sdk
 make test-e2e
 make test-integration
 ```
@@ -82,6 +83,8 @@ make test-integration
   HumanAssist 后仍有挑战时禁止误恢复；
 - Rust：Java/Rust 视觉锚点固定向量一致，Browser Node/Remote Desktop 全量测试通过；
 - Web：69 项测试、ESLint、Prettier 和 Production Build 通过；
+- SDK：Python、TypeScript、Go、Java 的 194 Operation 运行时/打包测试通过，260 个公开
+  Schema 与 34 个 TypeScript Service 的生成 Manifest 无漂移；
 - 托管 E2E：真实 Web、PostgreSQL、Redis、Control Plane、Browser Node、noVNC 和 Agent
   计划/执行链通过；普通 VNC 观察与真人输入优先不切断 Agent；
 - Integration：88 个 Flyway 迁移全部应用，Hibernate Schema Validate、真实 PostgreSQL、

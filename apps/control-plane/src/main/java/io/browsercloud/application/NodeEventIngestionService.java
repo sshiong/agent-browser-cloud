@@ -11,6 +11,7 @@ import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.persistence.InboxEventEntity;
 import io.browsercloud.persistence.InboxEventJpaRepository;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -161,6 +162,17 @@ public class NodeEventIngestionService {
         command.event() instanceof NodeEvent.RuntimeStarted
             || command.event() instanceof NodeEvent.RuntimeStopped
             || command.event() instanceof NodeEvent.RuntimeCrashed;
+    var details = new LinkedHashMap<String, Object>();
+    details.put("coordinatorTerm", command.coordinatorTerm());
+    details.put("contextEpoch", command.contextEpoch());
+    details.put("operationEpoch", command.operationEpoch());
+    details.put("sequence", command.sequence());
+    if (command.event() instanceof NodeEvent.StateDiff diff && !diff.snapshotKind().isBlank()) {
+      details.put("snapshotKind", diff.snapshotKind());
+      details.put("requestedRootRef", diff.requestedRootRef());
+      details.put("baseStateVersion", diff.baseStateVersion());
+      details.put("stateVersion", diff.stateVersion());
+    }
     auditService.append(
         new AuditApplicationService.AuditRecord(
             command.tenantId(),
@@ -172,15 +184,7 @@ public class NodeEventIngestionService {
             command.sessionId(),
             eventName,
             "COMMITTED",
-            Map.of(
-                "coordinatorTerm",
-                command.coordinatorTerm(),
-                "contextEpoch",
-                command.contextEpoch(),
-                "operationEpoch",
-                command.operationEpoch(),
-                "sequence",
-                command.sequence()),
+            Map.copyOf(details),
             command.eventId()));
   }
 

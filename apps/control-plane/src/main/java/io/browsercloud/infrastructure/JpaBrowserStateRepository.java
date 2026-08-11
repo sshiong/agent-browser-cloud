@@ -24,7 +24,7 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
 
   @Override
   public boolean applyDiff(String tenantId, long contextEpoch, NodeEvent.StateDiff diff) {
-    var entity = repository.findById(diff.sessionId()).orElse(null);
+    var entity = repository.findByIdForUpdate(diff.sessionId()).orElse(null);
     if (entity == null
         || !entity.getTenantId().equals(tenantId)
         || entity.getContextEpoch() != contextEpoch
@@ -33,6 +33,10 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
     }
     var previous = read(entity.getStateJson());
     if (previous.stateQuality().equals("INVALID") || previous.stateQuality().equals("RESYNCING")) {
+      return false;
+    }
+    if (diff.snapshotKind().equals("REGION_RESYNC")
+        && previous.targetRevision() != diff.targetRevision()) {
       return false;
     }
     var targets = new LinkedHashMap<String, NodeEvent.InteractiveTarget>();
@@ -55,8 +59,8 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.documentReadyState(),
             diff.networkQuietMillis(),
             diff.networkEvidenceFresh(),
-            "",
-            "");
+            diff.snapshotKind(),
+            diff.requestedRootRef());
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
     entity.setUpdatedAt(Instant.now());

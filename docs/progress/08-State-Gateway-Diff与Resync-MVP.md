@@ -1,6 +1,6 @@
 # State Gateway Diff 与 Resync MVP
 
-> 状态：Phase 3 / 9.4 主链路、事件背压、持久请求预算与自动 Full 循环断路器已完成；原生 Region 裁剪和流式 Snapshot 仍待开发。
+> 状态：Phase 3 / 9.4 主链路、原生 Region 裁剪、事件背压、持久请求预算与自动 Full 循环断路器已完成；流式 Snapshot 仍待开发。
 > 日期：2026-08-11
 
 ## 已完成
@@ -55,6 +55,11 @@
   人工请求返回 `429`、`Retry-After`、稳定错误码、Scope 和 Request ID。
 - Admission Ledger 只持久化 Region Root 的 SHA-256，不保存原始页面语义；拒绝和断路事件
   写入防篡改审计，其中人工拒绝由独立事务保存；默认账本保留七天并定时清理。
+- Region Resync 现在只评估指定 CSS/Target Ref 对应的 DOM 子树，在 Node 本地基线中
+  删除该子树旧目标并合并新目标；区域外 Target Ref 和 Target Revision 保持不变。
+- Region 结果使用带 `baseStateVersion` 的 `BrowserStateDiffEvent`，Control Plane 在
+  PostgreSQL Pessimistic Write Lock、Context Epoch、Base Version 和 Target Revision 栅栏下
+  原子替换；失配走现有 `INVALID → AUTO FULL` 恢复链。
 
 ### Web Console
 
@@ -89,6 +94,8 @@ make test-e2e
 - Session/Tenant 加权预算在 PostgreSQL 并发锁下精确阻断超额请求；幂等重放不重复计费，
   拒绝请求不残留幂等 Claim；自动 Full 循环断路时不重试消费触发事件。
 - Region 请求缺失 Root 时拒绝；合法请求写入带 Context Epoch 的 Node Command。
+- 原生 Region 从真实 CDP 语义模拟的 Full 基线开始，删除区域内旧 Target、新增
+  替换 Target，保持区域外 Ref 不变，且后续周期 Full 采集不增加 Target Revision。
 - 集成链路从 Full v1 经真实 Diff 应用到 v2，再经过
   `RESYNCING → Full Resync v3 / COMPLETE`。
 - Web E2E 通过真实详情页发起 Full Resync，并验证后端返回 `QUEUED`。
@@ -97,7 +104,6 @@ make test-e2e
 
 | 缺口 | 说明 |
 |---|---|
-| 原生 Region Snapshot | `REGION` 命令与 API 已存在，但 Collector 当前显式返回 `REGION_RESYNC_FULL_FALLBACK`，尚未只重建被替换 Root |
 | Chunked Snapshot | Full Snapshot 仍是单 Event，尚无 Chunk、Checksum、Commit Frame、流式 Backpressure、Compression 和 Cancellation；当前高水位背压只保护持久 Diff 事件队列 |
 | Resync Budget 深度 | V082 已完成 Session/Tenant 请求 Token 和自动 Full 循环断路；尚无按 Snapshot 字节、CPU、Region 及目标节点容量计费的多维 Token Bucket |
 | Diff Buffer | 当前只保留 Node 内单份基线和 PostgreSQL Current State，尚无可观测的有界 Diff Buffer、Consumer Cursor 和重放 API |
@@ -108,6 +114,5 @@ make test-e2e
 ## 结论
 
 开发计划 9.4 的 Current State、State Version、Target Ref、Diff Event、DiffTruncated、
-Full Resync、State Quality、事件高水位和持久请求预算已形成可重复的技术闭环。Region
-Resync 目前只有协议与安全全量回退，不能计为原生区域重建完成；V16 的 Chunked/流式
+Full Resync、原生 Region Resync、State Quality、事件高水位和持久请求预算已形成可重复的技术闭环。V16 的 Chunked/流式
 传输、字节/CPU/Region 多维预算、Checkpoint 和 Agent 强制 Gate 仍属于后续生产能力。

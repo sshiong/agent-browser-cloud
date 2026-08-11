@@ -496,7 +496,7 @@ message BrowserStateEvent {
   string state_quality = 6;
   string content_hash = 7;
   repeated InteractiveTargetState targets = 8;
-  // PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+  // PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
   string snapshot_kind = 9;
   string requested_root_ref = 10;
   // 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
@@ -613,6 +613,9 @@ message BrowserStateDiffEvent {
   string document_ready_state = 11;
   uint64 network_quiet_millis = 12;
   bool network_evidence_fresh = 13;
+  // 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+  string snapshot_kind = 14;
+  string requested_root_ref = 15;
 }
 
 message DiffTruncatedEvent {

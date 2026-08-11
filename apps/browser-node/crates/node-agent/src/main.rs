@@ -1218,6 +1218,8 @@ impl NodeControlService {
             document_ready_state: diff.document_ready_state,
             network_quiet_millis: diff.network_quiet_millis,
             network_evidence_fresh: diff.network_evidence_fresh,
+            snapshot_kind: diff.snapshot_kind,
+            requested_root_ref: diff.requested_root_ref,
         }
     }
 
@@ -2210,7 +2212,7 @@ impl NodeControlService {
         }
         let state = self
             .state_collector
-            .collect_current_state(&payload.session_id)
+            .collect_action_confirmation(&payload.session_id)
             .await?;
         anyhow::ensure!(
             state.state_version > payload.base_state_version,
@@ -3519,42 +3521,111 @@ impl NodeControlService {
                         }
                         if payload.mode == "REGION"
                             && (payload.root_ref.is_empty()
-                                || payload.root_ref.chars().count() > 512)
+                                || payload.root_ref.chars().count() > 512
+                                || payload.root_ref.chars().any(char::is_control))
                         {
                             return self.failed(
                                 command,
                                 anyhow::anyhow!("REGION state resync requires a bounded root_ref"),
                             );
                         }
-                        let collected = if payload.mode == "REGION" {
-                            self.state_collector
-                                .resync_region(&command.session_id, &payload.root_ref)
+                        if payload.mode == "REGION" {
+                            if self
+                                .resync_required
+                                .lock()
                                 .await
+                                .contains(&command.session_id)
+                            {
+                                return self.failed(
+                                    command,
+                                    anyhow::anyhow!(
+                                        "REGION_RESYNC_REQUIRES_VALID_BASELINE; request FULL resync"
+                                    ),
+                                );
+                            }
+                            let baseline = self
+                                .state_baselines
+                                .lock()
+                                .await
+                                .get(&command.session_id)
+                                .cloned();
+                            let Some(baseline) = baseline else {
+                                return self.failed(
+                                    command,
+                                    anyhow::anyhow!(
+                                        "REGION_RESYNC_BASELINE_UNAVAILABLE; request FULL resync"
+                                    ),
+                                );
+                            };
+                            let state = match self
+                                .state_collector
+                                .resync_region(&command.session_id, &payload.root_ref, &baseline)
+                                .await
+                            {
+                                Ok(state) => state,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            let mut diff = match diff_states(
+                                &baseline,
+                                &state,
+                                self.diff_max_bytes,
+                                self.diff_max_changes,
+                            ) {
+                                Ok(DiffOutcome::Diff(diff)) => diff,
+                                Ok(DiffOutcome::Truncated(_)) => {
+                                    return self.failed(
+                                        command,
+                                        anyhow::anyhow!(
+                                            "REGION_RESYNC_RESULT_TOO_LARGE; request FULL resync"
+                                        ),
+                                    )
+                                }
+                                Err(error) => return self.failed(command, error),
+                            };
+                            diff.snapshot_kind = "REGION_RESYNC".to_owned();
+                            diff.requested_root_ref = payload.root_ref;
+                            let sequence = match self.next_event_sequence(&command.session_id).await
+                            {
+                                Ok(sequence) => sequence,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            let event = Self::event(
+                                command,
+                                "BrowserStateDiff",
+                                sequence,
+                                Self::state_diff_payload(diff),
+                            );
+                            Self::state_result(
+                                Self::ack(&command.message_id, true, "", ""),
+                                event,
+                                state,
+                            )
                         } else {
-                            self.state_collector.resync_full(&command.session_id).await
-                        };
-                        let state = match collected {
-                            Ok(state) => state,
-                            Err(error) => return self.failed(command, error),
-                        };
-                        let sequence = match self.next_event_sequence(&command.session_id).await {
-                            Ok(sequence) => sequence,
-                            Err(error) => return self.failed(command, error),
-                        };
-                        let mut state_payload = Self::browser_state_payload(state.clone());
-                        state_payload.snapshot_kind = if payload.mode == "REGION" {
-                            "REGION_RESYNC_FULL_FALLBACK".to_owned()
-                        } else {
-                            "FULL_RESYNC".to_owned()
-                        };
-                        state_payload.requested_root_ref = payload.root_ref;
-                        let event =
-                            Self::event(command, "BrowserStateUpdated", sequence, state_payload);
-                        Self::state_result(
-                            Self::ack(&command.message_id, true, "", ""),
-                            event,
-                            state,
-                        )
+                            let state =
+                                match self.state_collector.resync_full(&command.session_id).await {
+                                    Ok(state) => state,
+                                    Err(error) => return self.failed(command, error),
+                                };
+                            let sequence = match self.next_event_sequence(&command.session_id).await
+                            {
+                                Ok(sequence) => sequence,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            let mut state_payload = Self::browser_state_payload(state.clone());
+                            state_payload.snapshot_kind = "FULL_RESYNC".to_owned();
+                            state_payload.requested_root_ref = payload.root_ref;
+                            let event = Self::event(
+                                command,
+                                "BrowserStateUpdated",
+                                sequence,
+                                state_payload,
+                            );
+                            Self::state_result(
+                                Self::ack(&command.message_id, true, "", ""),
+                                event,
+                                state,
+                            )
+                        }
                     }
                     Err(error) => self.failed(command, error.into()),
                 }

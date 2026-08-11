@@ -2999,7 +2999,7 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
   targets: InteractiveTargetState[] = [];
 
   /**
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    *
    * @generated from field: string snapshot_kind = 9;
    */
@@ -3009,6 +3009,27 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
    * @generated from field: string requested_root_ref = 10;
    */
   requestedRootRef = "";
+
+  /**
+   * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+   *
+   * @generated from field: string document_ready_state = 11;
+   */
+  documentReadyState = "";
+
+  /**
+   * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+   *
+   * @generated from field: uint64 network_quiet_millis = 12;
+   */
+  networkQuietMillis = protoInt64.zero;
+
+  /**
+   * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+   *
+   * @generated from field: bool network_evidence_fresh = 13;
+   */
+  networkEvidenceFresh = false;
 
   constructor(data?: PartialMessage<BrowserStateEvent>) {
     super();
@@ -3028,6 +3049,9 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
     { no: 8, name: "targets", kind: "message", T: InteractiveTargetState, repeated: true },
     { no: 9, name: "snapshot_kind", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 10, name: "requested_root_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 11, name: "document_ready_state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 12, name: "network_quiet_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 13, name: "network_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateEvent {
@@ -3694,6 +3718,33 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
    */
   removedTargetRefs: string[] = [];
 
+  /**
+   * @generated from field: string document_ready_state = 11;
+   */
+  documentReadyState = "";
+
+  /**
+   * @generated from field: uint64 network_quiet_millis = 12;
+   */
+  networkQuietMillis = protoInt64.zero;
+
+  /**
+   * @generated from field: bool network_evidence_fresh = 13;
+   */
+  networkEvidenceFresh = false;
+
+  /**
+   * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+   *
+   * @generated from field: string snapshot_kind = 14;
+   */
+  snapshotKind = "";
+
+  /**
+   * @generated from field: string requested_root_ref = 15;
+   */
+  requestedRootRef = "";
+
   constructor(data?: PartialMessage<BrowserStateDiffEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -3712,6 +3763,11 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
     { no: 8, name: "content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 9, name: "upserted_targets", kind: "message", T: InteractiveTargetState, repeated: true },
     { no: 10, name: "removed_target_refs", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 11, name: "document_ready_state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 12, name: "network_quiet_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 13, name: "network_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 14, name: "snapshot_kind", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 15, name: "requested_root_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateDiffEvent {

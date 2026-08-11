@@ -106,7 +106,7 @@ public interface BrowserStateEventOrBuilder extends
 
   /**
    * <pre>
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -115,7 +115,7 @@ public interface BrowserStateEventOrBuilder extends
   java.lang.String getSnapshotKind();
   /**
    * <pre>
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -135,4 +135,44 @@ public interface BrowserStateEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRequestedRootRefBytes();
+
+  /**
+   * <pre>
+   * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+   * </pre>
+   *
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The documentReadyState.
+   */
+  java.lang.String getDocumentReadyState();
+  /**
+   * <pre>
+   * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+   * </pre>
+   *
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The bytes for documentReadyState.
+   */
+  com.google.protobuf.ByteString
+      getDocumentReadyStateBytes();
+
+  /**
+   * <pre>
+   * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+   * </pre>
+   *
+   * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   * @return The networkQuietMillis.
+   */
+  long getNetworkQuietMillis();
+
+  /**
+   * <pre>
+   * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+   * </pre>
+   *
+   * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   * @return The networkEvidenceFresh.
+   */
+  boolean getNetworkEvidenceFresh();
 }

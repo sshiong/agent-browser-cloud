@@ -25,6 +25,9 @@ private static final long serialVersionUID = 0L;
     upsertedTargets_ = java.util.Collections.emptyList();
     removedTargetRefs_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    documentReadyState_ = "";
+    snapshotKind_ = "";
+    requestedRootRef_ = "";
   }
 
   @java.lang.Override
@@ -353,6 +356,153 @@ private static final long serialVersionUID = 0L;
     return removedTargetRefs_.getByteString(index);
   }
 
+  public static final int DOCUMENT_READY_STATE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object documentReadyState_ = "";
+  /**
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The documentReadyState.
+   */
+  @java.lang.Override
+  public java.lang.String getDocumentReadyState() {
+    java.lang.Object ref = documentReadyState_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      documentReadyState_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The bytes for documentReadyState.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDocumentReadyStateBytes() {
+    java.lang.Object ref = documentReadyState_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      documentReadyState_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int NETWORK_QUIET_MILLIS_FIELD_NUMBER = 12;
+  private long networkQuietMillis_ = 0L;
+  /**
+   * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   * @return The networkQuietMillis.
+   */
+  @java.lang.Override
+  public long getNetworkQuietMillis() {
+    return networkQuietMillis_;
+  }
+
+  public static final int NETWORK_EVIDENCE_FRESH_FIELD_NUMBER = 13;
+  private boolean networkEvidenceFresh_ = false;
+  /**
+   * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   * @return The networkEvidenceFresh.
+   */
+  @java.lang.Override
+  public boolean getNetworkEvidenceFresh() {
+    return networkEvidenceFresh_;
+  }
+
+  public static final int SNAPSHOT_KIND_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object snapshotKind_ = "";
+  /**
+   * <pre>
+   * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+   * </pre>
+   *
+   * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+   * @return The snapshotKind.
+   */
+  @java.lang.Override
+  public java.lang.String getSnapshotKind() {
+    java.lang.Object ref = snapshotKind_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      snapshotKind_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+   * </pre>
+   *
+   * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+   * @return The bytes for snapshotKind.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSnapshotKindBytes() {
+    java.lang.Object ref = snapshotKind_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      snapshotKind_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REQUESTED_ROOT_REF_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object requestedRootRef_ = "";
+  /**
+   * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+   * @return The requestedRootRef.
+   */
+  @java.lang.Override
+  public java.lang.String getRequestedRootRef() {
+    java.lang.Object ref = requestedRootRef_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      requestedRootRef_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+   * @return The bytes for requestedRootRef.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRequestedRootRefBytes() {
+    java.lang.Object ref = requestedRootRef_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      requestedRootRef_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -396,6 +546,21 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < removedTargetRefs_.size(); i++) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 10, removedTargetRefs_.getRaw(i));
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(documentReadyState_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 11, documentReadyState_);
+    }
+    if (networkQuietMillis_ != 0L) {
+      output.writeUInt64(12, networkQuietMillis_);
+    }
+    if (networkEvidenceFresh_ != false) {
+      output.writeBool(13, networkEvidenceFresh_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(snapshotKind_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 14, snapshotKind_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 15, requestedRootRef_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -445,6 +610,23 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getRemovedTargetRefsList().size();
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(documentReadyState_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, documentReadyState_);
+    }
+    if (networkQuietMillis_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(12, networkQuietMillis_);
+    }
+    if (networkEvidenceFresh_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(13, networkEvidenceFresh_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(snapshotKind_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, snapshotKind_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, requestedRootRef_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -480,6 +662,16 @@ private static final long serialVersionUID = 0L;
         .equals(other.getUpsertedTargetsList())) return false;
     if (!getRemovedTargetRefsList()
         .equals(other.getRemovedTargetRefsList())) return false;
+    if (!getDocumentReadyState()
+        .equals(other.getDocumentReadyState())) return false;
+    if (getNetworkQuietMillis()
+        != other.getNetworkQuietMillis()) return false;
+    if (getNetworkEvidenceFresh()
+        != other.getNetworkEvidenceFresh()) return false;
+    if (!getSnapshotKind()
+        .equals(other.getSnapshotKind())) return false;
+    if (!getRequestedRootRef()
+        .equals(other.getRequestedRootRef())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -518,6 +710,18 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + REMOVED_TARGET_REFS_FIELD_NUMBER;
       hash = (53 * hash) + getRemovedTargetRefsList().hashCode();
     }
+    hash = (37 * hash) + DOCUMENT_READY_STATE_FIELD_NUMBER;
+    hash = (53 * hash) + getDocumentReadyState().hashCode();
+    hash = (37 * hash) + NETWORK_QUIET_MILLIS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getNetworkQuietMillis());
+    hash = (37 * hash) + NETWORK_EVIDENCE_FRESH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getNetworkEvidenceFresh());
+    hash = (37 * hash) + SNAPSHOT_KIND_FIELD_NUMBER;
+    hash = (53 * hash) + getSnapshotKind().hashCode();
+    hash = (37 * hash) + REQUESTED_ROOT_REF_FIELD_NUMBER;
+    hash = (53 * hash) + getRequestedRootRef().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -666,6 +870,11 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000100);
       removedTargetRefs_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      documentReadyState_ = "";
+      networkQuietMillis_ = 0L;
+      networkEvidenceFresh_ = false;
+      snapshotKind_ = "";
+      requestedRootRef_ = "";
       return this;
     }
 
@@ -739,6 +948,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000200) != 0)) {
         removedTargetRefs_.makeImmutable();
         result.removedTargetRefs_ = removedTargetRefs_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.documentReadyState_ = documentReadyState_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.networkQuietMillis_ = networkQuietMillis_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.networkEvidenceFresh_ = networkEvidenceFresh_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.snapshotKind_ = snapshotKind_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.requestedRootRef_ = requestedRootRef_;
       }
     }
 
@@ -856,6 +1080,27 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (!other.getDocumentReadyState().isEmpty()) {
+        documentReadyState_ = other.documentReadyState_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (other.getNetworkQuietMillis() != 0L) {
+        setNetworkQuietMillis(other.getNetworkQuietMillis());
+      }
+      if (other.getNetworkEvidenceFresh() != false) {
+        setNetworkEvidenceFresh(other.getNetworkEvidenceFresh());
+      }
+      if (!other.getSnapshotKind().isEmpty()) {
+        snapshotKind_ = other.snapshotKind_;
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (!other.getRequestedRootRef().isEmpty()) {
+        requestedRootRef_ = other.requestedRootRef_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -941,6 +1186,31 @@ private static final long serialVersionUID = 0L;
               removedTargetRefs_.add(s);
               break;
             } // case 82
+            case 90: {
+              documentReadyState_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 96: {
+              networkQuietMillis_ = input.readUInt64();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 96
+            case 104: {
+              networkEvidenceFresh_ = input.readBool();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
+            case 114: {
+              snapshotKind_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 114
+            case 122: {
+              requestedRootRef_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1761,6 +2031,306 @@ private static final long serialVersionUID = 0L;
       ensureRemovedTargetRefsIsMutable();
       removedTargetRefs_.add(value);
       bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object documentReadyState_ = "";
+    /**
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @return The documentReadyState.
+     */
+    public java.lang.String getDocumentReadyState() {
+      java.lang.Object ref = documentReadyState_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        documentReadyState_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @return The bytes for documentReadyState.
+     */
+    public com.google.protobuf.ByteString
+        getDocumentReadyStateBytes() {
+      java.lang.Object ref = documentReadyState_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        documentReadyState_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @param value The documentReadyState to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentReadyState(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      documentReadyState_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDocumentReadyState() {
+      documentReadyState_ = getDefaultInstance().getDocumentReadyState();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @param value The bytes for documentReadyState to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentReadyStateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      documentReadyState_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private long networkQuietMillis_ ;
+    /**
+     * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     * @return The networkQuietMillis.
+     */
+    @java.lang.Override
+    public long getNetworkQuietMillis() {
+      return networkQuietMillis_;
+    }
+    /**
+     * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     * @param value The networkQuietMillis to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNetworkQuietMillis(long value) {
+
+      networkQuietMillis_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNetworkQuietMillis() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      networkQuietMillis_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private boolean networkEvidenceFresh_ ;
+    /**
+     * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     * @return The networkEvidenceFresh.
+     */
+    @java.lang.Override
+    public boolean getNetworkEvidenceFresh() {
+      return networkEvidenceFresh_;
+    }
+    /**
+     * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     * @param value The networkEvidenceFresh to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNetworkEvidenceFresh(boolean value) {
+
+      networkEvidenceFresh_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNetworkEvidenceFresh() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      networkEvidenceFresh_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object snapshotKind_ = "";
+    /**
+     * <pre>
+     * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+     * </pre>
+     *
+     * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+     * @return The snapshotKind.
+     */
+    public java.lang.String getSnapshotKind() {
+      java.lang.Object ref = snapshotKind_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        snapshotKind_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+     * </pre>
+     *
+     * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+     * @return The bytes for snapshotKind.
+     */
+    public com.google.protobuf.ByteString
+        getSnapshotKindBytes() {
+      java.lang.Object ref = snapshotKind_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        snapshotKind_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+     * </pre>
+     *
+     * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+     * @param value The snapshotKind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSnapshotKind(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      snapshotKind_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+     * </pre>
+     *
+     * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSnapshotKind() {
+      snapshotKind_ = getDefaultInstance().getSnapshotKind();
+      bitField0_ = (bitField0_ & ~0x00002000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+     * </pre>
+     *
+     * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+     * @param value The bytes for snapshotKind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSnapshotKindBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      snapshotKind_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object requestedRootRef_ = "";
+    /**
+     * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+     * @return The requestedRootRef.
+     */
+    public java.lang.String getRequestedRootRef() {
+      java.lang.Object ref = requestedRootRef_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        requestedRootRef_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+     * @return The bytes for requestedRootRef.
+     */
+    public com.google.protobuf.ByteString
+        getRequestedRootRefBytes() {
+      java.lang.Object ref = requestedRootRef_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        requestedRootRef_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+     * @param value The requestedRootRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequestedRootRef(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      requestedRootRef_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRequestedRootRef() {
+      requestedRootRef_ = getDefaultInstance().getRequestedRootRef();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+     * @param value The bytes for requestedRootRef to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequestedRootRefBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      requestedRootRef_ = value;
+      bitField0_ |= 0x00004000;
       onChanged();
       return this;
     }

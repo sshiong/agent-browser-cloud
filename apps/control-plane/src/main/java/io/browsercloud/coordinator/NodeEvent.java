@@ -262,11 +262,45 @@ public sealed interface NodeEvent
       long networkQuietMillis,
       boolean networkEvidenceFresh,
       List<InteractiveTarget> upsertedTargets,
-      List<String> removedTargetRefs)
+      List<String> removedTargetRefs,
+      String snapshotKind,
+      String requestedRootRef)
       implements NodeEvent {
     public StateDiff {
       upsertedTargets = List.copyOf(upsertedTargets);
       removedTargetRefs = List.copyOf(removedTargetRefs);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          "",
+          "");
     }
 
     public StateDiff(
@@ -293,7 +327,9 @@ public sealed interface NodeEvent
           0,
           false,
           upsertedTargets,
-          removedTargetRefs);
+          removedTargetRefs,
+          "",
+          "");
     }
   }
 

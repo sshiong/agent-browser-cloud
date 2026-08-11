@@ -105,6 +105,10 @@ pub struct StateDiff {
     pub network_evidence_fresh: bool,
     pub upserted_targets: Vec<InteractiveTarget>,
     pub removed_target_refs: Vec<String>,
+    #[serde(default)]
+    pub snapshot_kind: String,
+    #[serde(default)]
+    pub requested_root_ref: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -169,6 +173,8 @@ pub fn diff_states(
         network_evidence_fresh: current.network_evidence_fresh,
         upserted_targets,
         removed_target_refs,
+        snapshot_kind: String::new(),
+        requested_root_ref: String::new(),
     };
     let changed_targets = diff.upserted_targets.len() + diff.removed_target_refs.len();
     let encoded_bytes = serde_json::to_vec(&diff)?.len();
@@ -195,12 +201,23 @@ pub trait BrowserStateCollector: Send + Sync {
     /// 采集当前状态。
     async fn collect_current_state(&self, session_id: &str) -> anyhow::Result<CurrentState>;
 
+    /// 在已确认的 Agent 动作后采集一个提交屏障。
+    ///
+    /// 即使公开 State 内容没有变化，也必须推进 State Version，以证明动作后的采集
+    /// 确实发生；Target Revision 仍只在页面身份或目标集合变化时推进。周期探测不得
+    /// 使用该入口，避免无变化轮询制造幽灵版本。
+    async fn collect_action_confirmation(&self, session_id: &str) -> anyhow::Result<CurrentState>;
+
     /// 强制重建全量交互状态并递增 Target Revision。
     async fn resync_full(&self, session_id: &str) -> anyhow::Result<CurrentState>;
 
     /// 重新同步区域。
-    async fn resync_region(&self, session_id: &str, root_ref: &str)
-        -> anyhow::Result<CurrentState>;
+    async fn resync_region(
+        &self,
+        session_id: &str,
+        root_ref: &str,
+        baseline: &CurrentState,
+    ) -> anyhow::Result<CurrentState>;
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -260,12 +277,17 @@ struct EvaluatedPageState {
     title: String,
     #[serde(default, rename = "documentReadyState")]
     document_ready_state: String,
+    #[serde(default)]
     targets: Vec<EvaluatedTarget>,
     #[serde(default)]
     truncated: bool,
+    #[serde(default, rename = "rootPath")]
+    root_path: Option<String>,
+    #[serde(default)]
+    error: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct EvaluatedTarget {
     path: String,
     role: String,
@@ -285,6 +307,7 @@ pub struct CdpStateCollector {
     endpoints: Arc<RwLock<HashMap<String, String>>>,
     cursors: Arc<Mutex<HashMap<String, CollectorCursor>>>,
     target_registries: Arc<Mutex<HashMap<String, TargetRegistry>>>,
+    collection_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     resource_budget_percentages: Arc<RwLock<HashMap<String, u32>>>,
     tab_resource_policies: Arc<RwLock<HashMap<String, TabResourcePolicyState>>>,
     tab_policy_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
@@ -292,18 +315,26 @@ pub struct CdpStateCollector {
     safety_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct CollectorCursor {
     state_version: u64,
     target_revision: u64,
     url: String,
     target_fingerprint: String,
+    content_hash: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct TargetRegistry {
     target_revision: u64,
-    targets: HashMap<String, ResolvedTarget>,
+    targets: HashMap<String, RegisteredTarget>,
+}
+
+#[derive(Debug, Clone)]
+struct RegisteredTarget {
+    evaluated: EvaluatedTarget,
+    interactive: InteractiveTarget,
+    resolved: Option<ResolvedTarget>,
 }
 
 #[derive(Debug, Clone)]
@@ -339,12 +370,25 @@ impl CdpStateCollector {
             .await
             .entry(session_id.to_owned())
             .or_insert(100);
+        self.collection_locks
+            .lock()
+            .await
+            .entry(session_id.to_owned())
+            .or_insert_with(|| Arc::new(Mutex::new(())));
         Ok(())
     }
 
     pub async fn unregister_runtime(&self, session_id: &str) {
         self.endpoints.write().await.remove(session_id);
+        if let Some(cursor) = self.cursors.lock().await.get_mut(session_id) {
+            // State Version must remain monotonic across Browser generations. Clearing the page
+            // identity forces the first snapshot from the next generation to rotate Target
+            // Revision so no pre-crash target reference can become actionable again.
+            cursor.url.clear();
+            cursor.target_fingerprint.clear();
+        }
         self.target_registries.lock().await.remove(session_id);
+        self.collection_locks.lock().await.remove(session_id);
         self.resource_budget_percentages
             .write()
             .await
@@ -1000,14 +1044,33 @@ impl CdpStateCollector {
     }
 
     async fn evaluate_page(&self, websocket_url: &str) -> anyhow::Result<EvaluatedPageState> {
+        self.evaluate_state(websocket_url, None).await
+    }
+
+    async fn evaluate_region(
+        &self,
+        websocket_url: &str,
+        root_selector: &str,
+    ) -> anyhow::Result<EvaluatedPageState> {
+        self.evaluate_state(websocket_url, Some(root_selector))
+            .await
+    }
+
+    async fn evaluate_state(
+        &self,
+        websocket_url: &str,
+        root_selector: Option<&str>,
+    ) -> anyhow::Result<EvaluatedPageState> {
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(websocket_url),
         )
         .await
         .map_err(|_| anyhow::anyhow!("CDP websocket connection timed out"))??;
+        let requested_root = serde_json::to_string(&root_selector)?;
         let expression = r#"
             (() => {
+              const requestedRoot = __REQUESTED_ROOT__;
               const selector = [
                 'a[href]', 'button', 'input', 'select', 'textarea',
                 '[role="button"]', '[role="link"]', '[role="checkbox"]',
@@ -1083,7 +1146,37 @@ impl CdpStateCollector {
                 }
                 return parts.join('>');
               };
-              const candidates = Array.from(document.querySelectorAll(selector));
+              let root = document;
+              if (requestedRoot !== null) {
+                if (requestedRoot === 'document') {
+                  root = document.documentElement;
+                } else {
+                  try {
+                    root = document.querySelector(requestedRoot);
+                  } catch (_) {
+                    return {
+                      url: location.href,
+                      title: document.title.slice(0, 1024),
+                      documentReadyState: document.readyState,
+                      error: 'REGION_SELECTOR_INVALID'
+                    };
+                  }
+                }
+                if (!root) {
+                  return {
+                    url: location.href,
+                    title: document.title.slice(0, 1024),
+                    documentReadyState: document.readyState,
+                    error: 'REGION_ROOT_NOT_FOUND'
+                  };
+                }
+              }
+              const candidates = root === document
+                ? Array.from(document.querySelectorAll(selector))
+                : [
+                    ...(root.matches(selector) ? [root] : []),
+                    ...Array.from(root.querySelectorAll(selector))
+                  ];
               const targets = candidates
                 .slice(0, 40)
                 .map((element) => {
@@ -1108,10 +1201,12 @@ impl CdpStateCollector {
                 title: document.title.slice(0, 1024),
                 documentReadyState: document.readyState,
                 targets,
-                truncated: candidates.length > 40
+                truncated: candidates.length > 40,
+                rootPath: requestedRoot === null ? null : pathFor(root)
               };
             })()
-        "#;
+        "#
+        .replace("__REQUESTED_ROOT__", &requested_root);
         let request = serde_json::json!({
             "id": 1,
             "method": "Runtime.evaluate",
@@ -1142,7 +1237,11 @@ impl CdpStateCollector {
                 .pointer("/result/result/value")
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("CDP response has no by-value result"))?;
-            return Ok(serde_json::from_value(value)?);
+            let evaluated: EvaluatedPageState = serde_json::from_value(value)?;
+            if let Some(error) = evaluated.error.as_deref() {
+                anyhow::bail!(error.to_owned());
+            }
+            return Ok(evaluated);
         }
         anyhow::bail!("CDP websocket closed before Runtime.evaluate completed")
     }
@@ -1340,8 +1439,10 @@ impl CdpStateCollector {
         let target = registry
             .targets
             .get(target_ref)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("target reference is stale or unknown"))?;
+            .and_then(|target| target.resolved.clone())
+            .ok_or_else(|| {
+                anyhow::anyhow!("target reference is stale, unknown, or not actionable")
+            })?;
         anyhow::ensure!(target.visible, "target is not visible");
         anyhow::ensure!(target.enabled, "target is not enabled");
         anyhow::ensure!(
@@ -1392,23 +1493,129 @@ impl CdpStateCollector {
         anyhow::bail!("CDP websocket closed before scroll acknowledgement")
     }
 
+    async fn collection_lock(&self, session_id: &str) -> anyhow::Result<Arc<Mutex<()>>> {
+        self.collection_locks
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("state collection lock is unavailable"))
+    }
+
+    fn target_ref(target_revision: u64, path: &str) -> String {
+        format!(
+            "target:{target_revision}:{}",
+            &hex_sha256(path.as_bytes())[..16]
+        )
+    }
+
+    fn registered_target(target_revision: u64, evaluated: EvaluatedTarget) -> RegisteredTarget {
+        let target_ref = Self::target_ref(target_revision, &evaluated.path);
+        let resolved = evaluated.bounds.clone().map(|bounds| ResolvedTarget {
+            role: evaluated.role.clone(),
+            bounds,
+            enabled: evaluated.enabled,
+            visible: evaluated.visible,
+            sensitive: evaluated.sensitive,
+        });
+        let interactive = InteractiveTarget {
+            target_ref,
+            role: evaluated.role.clone(),
+            name: (!evaluated.sensitive)
+                .then_some(evaluated.name.clone())
+                .flatten(),
+            bounds: evaluated.bounds.clone(),
+            enabled: evaluated.enabled,
+            visible: evaluated.visible,
+            sensitive: evaluated.sensitive,
+        };
+        RegisteredTarget {
+            evaluated,
+            interactive,
+            resolved,
+        }
+    }
+
+    fn canonical_targets(
+        registry: &TargetRegistry,
+    ) -> Vec<(String, EvaluatedTarget, InteractiveTarget)> {
+        let mut targets = registry
+            .targets
+            .iter()
+            .map(|(target_ref, registered)| {
+                (
+                    target_ref.clone(),
+                    registered.evaluated.clone(),
+                    registered.interactive.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        targets.sort_by(|left, right| left.1.path.cmp(&right.1.path));
+        targets
+    }
+
+    fn state_hash(
+        url: &str,
+        title: &str,
+        evaluated_targets: &[EvaluatedTarget],
+        truncated: bool,
+        document_ready_state: &str,
+        network_readiness_hash_bucket: u64,
+    ) -> anyhow::Result<(String, String)> {
+        let serialized_targets = serde_json::to_string(evaluated_targets)?;
+        let content_hash = hex_sha256(
+            format!(
+                "{}\n{}\n{}\n{}\n{}\n{}",
+                url,
+                title,
+                serialized_targets,
+                truncated,
+                document_ready_state,
+                network_readiness_hash_bucket
+            )
+            .as_bytes(),
+        );
+        Ok((serialized_targets, content_hash))
+    }
+
     async fn collect(
         &self,
         session_id: &str,
+        force_state_version: bool,
         force_target_revision: bool,
     ) -> anyhow::Result<CurrentState> {
+        let collection_lock = self.collection_lock(session_id).await?;
+        let _collection_guard = collection_lock.lock().await;
         let websocket_url = self.target_websocket(session_id).await?;
-        let page = self.evaluate_page(&websocket_url).await?;
+        let mut page = self.evaluate_page(&websocket_url).await?;
+        page.targets
+            .sort_by(|left, right| left.path.cmp(&right.path));
         let network_observation = self.browser_safety_observation(session_id).await;
         let network_quiet_millis = network_observation.network_quiet_millis();
         let network_readiness_hash_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
-        let serialized_targets = serde_json::to_string(&page.targets)?;
+        let (serialized_targets, content_hash) = Self::state_hash(
+            &page.url,
+            &page.title,
+            &page.targets,
+            page.truncated,
+            &page.document_ready_state,
+            network_readiness_hash_bucket,
+        )?;
         let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
         let (state_version, target_revision) = {
             let mut cursors = self.cursors.lock().await;
             let cursor = cursors.entry(session_id.to_owned()).or_default();
-            cursor.state_version += 1;
+            if cursor.state_version == 0
+                || cursor.content_hash != content_hash
+                || force_state_version
+                || force_target_revision
+            {
+                cursor.state_version = cursor
+                    .state_version
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::anyhow!("State version overflow"))?;
+            }
             if cursor.target_revision == 0
                 || cursor.url != page.url
                 || cursor.target_fingerprint != target_fingerprint
@@ -1418,59 +1625,29 @@ impl CdpStateCollector {
             }
             cursor.url = page.url.clone();
             cursor.target_fingerprint = target_fingerprint;
+            cursor.content_hash = content_hash.clone();
             (cursor.state_version, cursor.target_revision)
         };
-        let content_hash = hex_sha256(
-            format!(
-                "{}\n{}\n{}\n{}\n{}\n{}",
-                page.url,
-                page.title,
-                serialized_targets,
-                page.truncated,
-                page.document_ready_state,
-                network_readiness_hash_bucket
-            )
-            .as_bytes(),
-        );
-        let mut registry_targets = HashMap::new();
-        let targets = page
+        let registry_targets = page
             .targets
             .into_iter()
             .map(|target| {
-                let target_ref = format!(
-                    "target:{target_revision}:{}",
-                    &hex_sha256(target.path.as_bytes())[..16]
-                );
-                if let Some(bounds) = target.bounds.clone() {
-                    registry_targets.insert(
-                        target_ref.clone(),
-                        ResolvedTarget {
-                            role: target.role.clone(),
-                            bounds,
-                            enabled: target.enabled,
-                            visible: target.visible,
-                            sensitive: target.sensitive,
-                        },
-                    );
-                }
-                InteractiveTarget {
-                    target_ref,
-                    role: target.role,
-                    name: (!target.sensitive).then_some(target.name).flatten(),
-                    bounds: target.bounds,
-                    enabled: target.enabled,
-                    visible: target.visible,
-                    sensitive: target.sensitive,
-                }
+                let registered = Self::registered_target(target_revision, target);
+                (registered.interactive.target_ref.clone(), registered)
             })
-            .collect::<Vec<_>>();
-        self.target_registries.lock().await.insert(
-            session_id.to_owned(),
-            TargetRegistry {
-                target_revision,
-                targets: registry_targets,
-            },
-        );
+            .collect::<HashMap<_, _>>();
+        let registry = TargetRegistry {
+            target_revision,
+            targets: registry_targets,
+        };
+        let targets = Self::canonical_targets(&registry)
+            .into_iter()
+            .map(|(_, _, interactive)| interactive)
+            .collect();
+        self.target_registries
+            .lock()
+            .await
+            .insert(session_id.to_owned(), registry);
 
         Ok(CurrentState {
             session_id: session_id.to_owned(),
@@ -1490,25 +1667,196 @@ impl CdpStateCollector {
             network_evidence_fresh: network_observation.fresh,
         })
     }
+
+    async fn collect_region(
+        &self,
+        session_id: &str,
+        root_ref: &str,
+        baseline: &CurrentState,
+    ) -> anyhow::Result<CurrentState> {
+        anyhow::ensure!(
+            baseline.session_id == session_id,
+            "Region baseline session mismatch"
+        );
+        anyhow::ensure!(
+            !root_ref.is_empty()
+                && root_ref.chars().count() <= 512
+                && !root_ref.chars().any(char::is_control),
+            "Region root_ref is invalid"
+        );
+        anyhow::ensure!(
+            matches!(
+                baseline.quality,
+                StateQuality::Complete | StateQuality::DepthLimited
+            ),
+            "Region baseline is not mergeable"
+        );
+
+        let collection_lock = self.collection_lock(session_id).await?;
+        let _collection_guard = collection_lock.lock().await;
+        let cursor = self
+            .cursors
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Region baseline cursor is unavailable"))?;
+        let mut registry = self
+            .target_registries
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Region target registry is unavailable"))?;
+        anyhow::ensure!(
+            cursor.state_version == baseline.state_version
+                && cursor.target_revision == baseline.target_revision
+                && cursor.url == baseline.url
+                && cursor.content_hash == baseline.content_hash
+                && registry.target_revision == baseline.target_revision,
+            "Region baseline is stale"
+        );
+        anyhow::ensure!(
+            baseline.targets.len() == registry.targets.len()
+                && baseline
+                    .targets
+                    .iter()
+                    .all(|target| registry.targets.contains_key(&target.target_ref)),
+            "Region target registry does not match baseline"
+        );
+
+        let root_selector = if root_ref.starts_with("target:") {
+            registry
+                .targets
+                .get(root_ref)
+                .map(|target| target.evaluated.path.clone())
+                .ok_or_else(|| anyhow::anyhow!("Region target root is stale or unknown"))?
+        } else {
+            root_ref.to_owned()
+        };
+        let websocket_url = self.target_websocket(session_id).await?;
+        let mut page = self.evaluate_region(&websocket_url, &root_selector).await?;
+        anyhow::ensure!(
+            page.url == baseline.url,
+            "Region page URL changed during collection"
+        );
+        let root_path = page
+            .root_path
+            .take()
+            .filter(|path| !path.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("Region collector did not resolve a root path"))?;
+        let descendant_prefix = format!("{root_path}>");
+        anyhow::ensure!(
+            page.targets.iter().all(|target| {
+                target.path == root_path || target.path.starts_with(&descendant_prefix)
+            }),
+            "Region collector returned a target outside the requested root"
+        );
+        page.targets
+            .sort_by(|left, right| left.path.cmp(&right.path));
+
+        registry.targets.retain(|_, target| {
+            target.evaluated.path != root_path
+                && !target.evaluated.path.starts_with(&descendant_prefix)
+        });
+        for target in page.targets {
+            let registered = Self::registered_target(baseline.target_revision, target);
+            registry
+                .targets
+                .insert(registered.interactive.target_ref.clone(), registered);
+        }
+        anyhow::ensure!(
+            registry.targets.len() <= 40,
+            "Region result exceeds the bounded state target limit; request FULL resync"
+        );
+        let canonical = Self::canonical_targets(&registry);
+        let evaluated_targets = canonical
+            .iter()
+            .map(|(_, evaluated, _)| evaluated.clone())
+            .collect::<Vec<_>>();
+        let targets = canonical
+            .into_iter()
+            .map(|(_, _, interactive)| interactive)
+            .collect::<Vec<_>>();
+        let network_observation = self.browser_safety_observation(session_id).await;
+        let network_quiet_millis = network_observation.network_quiet_millis();
+        let readiness_bucket =
+            network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
+        let truncated = page.truncated || matches!(baseline.quality, StateQuality::DepthLimited);
+        let (serialized_targets, content_hash) = Self::state_hash(
+            &page.url,
+            &page.title,
+            &evaluated_targets,
+            truncated,
+            &page.document_ready_state,
+            readiness_bucket,
+        )?;
+        let state_version = baseline.state_version.saturating_add(1);
+        anyhow::ensure!(
+            state_version > baseline.state_version,
+            "State version overflow"
+        );
+        {
+            let mut cursors = self.cursors.lock().await;
+            let current = cursors
+                .get_mut(session_id)
+                .ok_or_else(|| anyhow::anyhow!("Region baseline cursor disappeared"))?;
+            anyhow::ensure!(
+                current.state_version == baseline.state_version
+                    && current.target_revision == baseline.target_revision,
+                "Region baseline changed during collection"
+            );
+            current.state_version = state_version;
+            current.url = page.url.clone();
+            current.target_fingerprint = hex_sha256(serialized_targets.as_bytes());
+            current.content_hash = content_hash.clone();
+        }
+        self.target_registries
+            .lock()
+            .await
+            .insert(session_id.to_owned(), registry);
+
+        Ok(CurrentState {
+            session_id: session_id.to_owned(),
+            state_version,
+            target_revision: baseline.target_revision,
+            url: page.url,
+            title: page.title,
+            targets,
+            quality: if truncated {
+                StateQuality::DepthLimited
+            } else {
+                StateQuality::Complete
+            },
+            content_hash,
+            document_ready_state: page.document_ready_state,
+            network_quiet_millis,
+            network_evidence_fresh: network_observation.fresh,
+        })
+    }
 }
 
 #[async_trait]
 impl BrowserStateCollector for CdpStateCollector {
     async fn collect_current_state(&self, session_id: &str) -> anyhow::Result<CurrentState> {
-        self.collect(session_id, false).await
+        self.collect(session_id, false, false).await
+    }
+
+    async fn collect_action_confirmation(&self, session_id: &str) -> anyhow::Result<CurrentState> {
+        self.collect(session_id, true, false).await
     }
 
     async fn resync_full(&self, session_id: &str) -> anyhow::Result<CurrentState> {
-        self.collect(session_id, true).await
+        self.collect(session_id, true, true).await
     }
 
     async fn resync_region(
         &self,
         session_id: &str,
-        _root_ref: &str,
+        root_ref: &str,
+        baseline: &CurrentState,
     ) -> anyhow::Result<CurrentState> {
-        // 首版以全量重建作为安全 fallback；命令与结果显式保留 REGION 请求语义。
-        self.collect(session_id, true).await
+        self.collect_region(session_id, root_ref, baseline).await
     }
 }
 
@@ -1556,7 +1904,7 @@ mod tests {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_address = websocket_listener.local_addr().unwrap();
         let websocket_task = tokio::spawn(async move {
-            for _ in 0..2 {
+            for _ in 0..3 {
                 let (stream, _) = websocket_listener.accept().await.unwrap();
                 let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
                 let request = socket.next().await.unwrap().unwrap();
@@ -1613,7 +1961,7 @@ mod tests {
                 "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
             }])
             .to_string();
-            for _ in 0..2 {
+            for _ in 0..3 {
                 let (mut stream, _) = http_listener.accept().await.unwrap();
                 let mut request = vec![0_u8; 4096];
                 let count = stream.read(&mut request).await.unwrap();
@@ -1662,10 +2010,160 @@ mod tests {
             .is_err());
         assert!(matches!(state.quality, StateQuality::Complete));
         let repeated = collector.collect_current_state("ses_state").await.unwrap();
-        assert_eq!(repeated.state_version, 2);
+        assert_eq!(repeated.state_version, 1);
         assert_eq!(repeated.targets[0].target_ref, state.targets[0].target_ref);
         assert_eq!(repeated.target_revision, state.target_revision);
         assert_eq!(repeated.content_hash, state.content_hash);
+        let action_confirmation = collector
+            .collect_action_confirmation("ses_state")
+            .await
+            .unwrap();
+        assert_eq!(action_confirmation.state_version, 2);
+        assert_eq!(action_confirmation.target_revision, state.target_revision);
+        assert_eq!(action_confirmation.content_hash, state.content_hash);
+        assert_eq!(action_confirmation.targets, state.targets);
+
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn resyncs_only_the_requested_region_and_preserves_outside_target_refs() {
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            for index in 0..3 {
+                let (stream, _) = websocket_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected CDP text request");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                let expression = request["params"]["expression"].as_str().unwrap();
+                if index == 1 {
+                    assert!(expression.contains("const requestedRoot = \"#app\";"));
+                    assert!(expression.contains("root.querySelectorAll(selector)"));
+                } else {
+                    assert!(expression.contains("const requestedRoot = null;"));
+                }
+                let outside = serde_json::json!({
+                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
+                    "role": "button",
+                    "name": "Outside",
+                    "bounds": {"x": 10.0, "y": 10.0, "width": 80.0, "height": 24.0},
+                    "enabled": true,
+                    "visible": true
+                });
+                let old_inside = serde_json::json!({
+                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)>button:nth-of-type(1)",
+                    "role": "button",
+                    "name": "Old inside",
+                    "bounds": {"x": 10.0, "y": 50.0, "width": 80.0, "height": 24.0},
+                    "enabled": true,
+                    "visible": true
+                });
+                let new_inside = serde_json::json!({
+                    "path": "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)>input:nth-of-type(1)",
+                    "role": "textbox",
+                    "name": "New inside",
+                    "bounds": {"x": 10.0, "y": 50.0, "width": 120.0, "height": 24.0},
+                    "enabled": true,
+                    "visible": true
+                });
+                let (targets, root_path) = match index {
+                    0 => (vec![outside, old_inside], serde_json::Value::Null),
+                    1 => (
+                        vec![new_inside],
+                        serde_json::Value::String(
+                            "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)".to_owned(),
+                        ),
+                    ),
+                    _ => (vec![outside, new_inside], serde_json::Value::Null),
+                };
+                let response = serde_json::json!({
+                    "id": 1,
+                    "result": {"result": {"type": "object", "value": {
+                        "url": "https://example.test/app",
+                        "title": "Region test",
+                        "documentReadyState": "complete",
+                        "targets": targets,
+                        "truncated": false,
+                        "rootPath": root_path
+                    }}}
+                });
+                socket
+                    .send(Message::Text(response.to_string()))
+                    .await
+                    .unwrap();
+            }
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let body = serde_json::json!([{
+                "id": "page-1",
+                "type": "page",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
+            }])
+            .to_string();
+            for _ in 0..3 {
+                let (mut stream, _) = http_listener.accept().await.unwrap();
+                let mut request = vec![0_u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(), body
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_region", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+        let baseline = collector.collect_current_state("ses_region").await.unwrap();
+        let outside_ref = baseline
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("Outside"))
+            .unwrap()
+            .target_ref
+            .clone();
+        let old_inside_ref = baseline
+            .targets
+            .iter()
+            .find(|target| target.name.as_deref() == Some("Old inside"))
+            .unwrap()
+            .target_ref
+            .clone();
+
+        let region = collector
+            .resync_region("ses_region", "#app", &baseline)
+            .await
+            .unwrap();
+        assert_eq!(region.state_version, baseline.state_version + 1);
+        assert_eq!(region.target_revision, baseline.target_revision);
+        assert!(region
+            .targets
+            .iter()
+            .any(|target| target.target_ref == outside_ref));
+        assert!(!region
+            .targets
+            .iter()
+            .any(|target| target.target_ref == old_inside_ref));
+        assert!(region
+            .targets
+            .iter()
+            .any(|target| target.name.as_deref() == Some("New inside")));
+
+        let periodic = collector.collect_current_state("ses_region").await.unwrap();
+        assert_eq!(periodic.target_revision, region.target_revision);
+        assert_eq!(periodic.content_hash, region.content_hash);
+        assert_eq!(periodic.targets, region.targets);
 
         websocket_task.await.unwrap();
         http_task.await.unwrap();
@@ -1829,6 +2327,41 @@ mod tests {
 
         collector.unregister_runtime("ses_budget").await;
         assert_eq!(collector.resource_budget_percent("ses_budget").await, 100);
+    }
+
+    #[tokio::test]
+    async fn preserves_monotonic_state_version_but_rotates_page_identity_after_runtime_unregister()
+    {
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_generation", "http://127.0.0.1:9222")
+            .await
+            .unwrap();
+        collector.cursors.lock().await.insert(
+            "ses_generation".to_owned(),
+            CollectorCursor {
+                state_version: 7,
+                target_revision: 3,
+                url: "https://example.test/app".to_owned(),
+                target_fingerprint: "fingerprint".to_owned(),
+                content_hash: "content-hash".to_owned(),
+            },
+        );
+
+        collector.unregister_runtime("ses_generation").await;
+
+        let cursors = collector.cursors.lock().await;
+        let cursor = cursors.get("ses_generation").unwrap();
+        assert_eq!(cursor.state_version, 7);
+        assert_eq!(cursor.target_revision, 3);
+        assert!(cursor.url.is_empty());
+        assert!(cursor.target_fingerprint.is_empty());
+        drop(cursors);
+        assert!(!collector
+            .collection_locks
+            .lock()
+            .await
+            .contains_key("ses_generation"));
     }
 
     #[test]

@@ -322,6 +322,7 @@ public class NodeEventMapper {
             throw new IllegalArgumentException("State Diff target count exceeds 500");
           }
           payload.getRemovedTargetRefsList().forEach(value -> requireText(value, "target_ref"));
+          validateDiffSnapshotMetadata(payload.getSnapshotKind(), payload.getRequestedRootRef());
           var upsertedTargets =
               payload.getUpsertedTargetsList().stream().map(this::target).toList();
           validateReadinessEvidence(
@@ -339,7 +340,9 @@ public class NodeEventMapper {
               payload.getNetworkQuietMillis(),
               payload.getNetworkEvidenceFresh(),
               upsertedTargets,
-              payload.getRemovedTargetRefsList());
+              payload.getRemovedTargetRefsList(),
+              payload.getSnapshotKind(),
+              payload.getRequestedRootRef());
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -566,6 +569,23 @@ public class NodeEventMapper {
     }
     if (networkQuietMillis < 0 || networkQuietMillis > 300_000) {
       throw new IllegalArgumentException("network_quiet_millis is outside the bounded range");
+    }
+  }
+
+  private void validateDiffSnapshotMetadata(String snapshotKind, String requestedRootRef) {
+    if (snapshotKind.isBlank()) {
+      if (!requestedRootRef.isBlank()) {
+        throw new IllegalArgumentException("legacy State Diff cannot carry requested_root_ref");
+      }
+      return;
+    }
+    if (!snapshotKind.equals("REGION_RESYNC")) {
+      throw new IllegalArgumentException("unsupported State Diff snapshot_kind");
+    }
+    if (requestedRootRef.isBlank()
+        || requestedRootRef.length() > 512
+        || requestedRootRef.chars().anyMatch(Character::isISOControl)) {
+      throw new IllegalArgumentException("REGION_RESYNC requested_root_ref is invalid");
     }
   }
 

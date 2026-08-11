@@ -134,4 +134,60 @@ public interface BrowserStateDiffEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRemovedTargetRefsBytes(int index);
+
+  /**
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The documentReadyState.
+   */
+  java.lang.String getDocumentReadyState();
+  /**
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The bytes for documentReadyState.
+   */
+  com.google.protobuf.ByteString
+      getDocumentReadyStateBytes();
+
+  /**
+   * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   * @return The networkQuietMillis.
+   */
+  long getNetworkQuietMillis();
+
+  /**
+   * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   * @return The networkEvidenceFresh.
+   */
+  boolean getNetworkEvidenceFresh();
+
+  /**
+   * <pre>
+   * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+   * </pre>
+   *
+   * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+   * @return The snapshotKind.
+   */
+  java.lang.String getSnapshotKind();
+  /**
+   * <pre>
+   * 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+   * </pre>
+   *
+   * <code>string snapshot_kind = 14 [json_name = "snapshotKind"];</code>
+   * @return The bytes for snapshotKind.
+   */
+  com.google.protobuf.ByteString
+      getSnapshotKindBytes();
+
+  /**
+   * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+   * @return The requestedRootRef.
+   */
+  java.lang.String getRequestedRootRef();
+  /**
+   * <code>string requested_root_ref = 15 [json_name = "requestedRootRef"];</code>
+   * @return The bytes for requestedRootRef.
+   */
+  com.google.protobuf.ByteString
+      getRequestedRootRefBytes();
 }

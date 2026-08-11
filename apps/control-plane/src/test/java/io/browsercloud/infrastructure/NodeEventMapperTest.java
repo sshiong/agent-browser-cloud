@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
+import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
@@ -347,6 +348,79 @@ class NodeEventMapperTest {
         .isInstanceOfSatisfying(
             NodeEvent.DiffTruncated.class,
             event -> assertThat(event.reason()).isEqualTo("BACKPRESSURE_LIMIT"));
+  }
+
+  @Test
+  void shouldMapNativeRegionResyncDiffMetadata() {
+    var payload =
+        BrowserStateDiffEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setBaseStateVersion(7)
+            .setStateVersion(8)
+            .setTargetRevision(3)
+            .setUrl("https://example.test/app")
+            .setTitle("App")
+            .setContentHash("hash-8")
+            .setStateQuality("COMPLETE")
+            .setDocumentReadyState("complete")
+            .setSnapshotKind("REGION_RESYNC")
+            .setRequestedRootRef("#app")
+            .addRemovedTargetRefs("target:3:old")
+            .addUpsertedTargets(
+                InteractiveTargetState.newBuilder()
+                    .setTargetRef("target:3:new")
+                    .setRole("button")
+                    .setEnabled(true)
+                    .setVisible(true))
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_region")
+            .setEventType(NodeEventMapper.BROWSER_STATE_DIFF)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.StateDiff.class,
+            diff -> {
+              assertThat(diff.snapshotKind()).isEqualTo("REGION_RESYNC");
+              assertThat(diff.requestedRootRef()).isEqualTo("#app");
+              assertThat(diff.baseStateVersion()).isEqualTo(7);
+              assertThat(diff.removedTargetRefs()).containsExactly("target:3:old");
+            });
+  }
+
+  @Test
+  void shouldRejectRegionResyncDiffWithoutBoundedRoot() {
+    var payload =
+        BrowserStateDiffEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setBaseStateVersion(7)
+            .setStateVersion(8)
+            .setTargetRevision(3)
+            .setUrl("https://example.test/app")
+            .setContentHash("hash-8")
+            .setStateQuality("COMPLETE")
+            .setSnapshotKind("REGION_RESYNC")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_region_invalid")
+            .setEventType(NodeEventMapper.BROWSER_STATE_DIFF)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("requested_root_ref");
   }
 
   @Test

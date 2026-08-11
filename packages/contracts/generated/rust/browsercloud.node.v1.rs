@@ -796,11 +796,20 @@ pub struct BrowserStateEvent {
     pub content_hash: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="8")]
     pub targets: ::prost::alloc::vec::Vec<InteractiveTargetState>,
-    /// PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+    /// PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
     #[prost(string, tag="9")]
     pub snapshot_kind: ::prost::alloc::string::String,
     #[prost(string, tag="10")]
     pub requested_root_ref: ::prost::alloc::string::String,
+    /// 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+    #[prost(string, tag="11")]
+    pub document_ready_state: ::prost::alloc::string::String,
+    /// 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+    #[prost(uint64, tag="12")]
+    pub network_quiet_millis: u64,
+    /// 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+    #[prost(bool, tag="13")]
+    pub network_evidence_fresh: bool,
 }
 /// Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -979,6 +988,17 @@ pub struct BrowserStateDiffEvent {
     pub upserted_targets: ::prost::alloc::vec::Vec<InteractiveTargetState>,
     #[prost(string, repeated, tag="10")]
     pub removed_target_refs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="11")]
+    pub document_ready_state: ::prost::alloc::string::String,
+    #[prost(uint64, tag="12")]
+    pub network_quiet_millis: u64,
+    #[prost(bool, tag="13")]
+    pub network_evidence_fresh: bool,
+    /// 空值表示旧版周期 Diff；REGION_RESYNC 表示受 root_ref 约束的原子区域替换。
+    #[prost(string, tag="14")]
+    pub snapshot_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="15")]
+    pub requested_root_ref: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

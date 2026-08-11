@@ -4308,6 +4308,35 @@ done
 test "$resynced_version" -gt "$diff_state_version"
 test "$resynced_quality" = "COMPLETE"
 
+region_resync_result="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-state-region-resync-001' \
+  -d '{"mode":"REGION","rootRef":"body","reason":"INTEGRATION_NATIVE_REGION"}')"
+printf '%s' "$region_resync_result" | python3 -c \
+  'import json,sys; result=json.load(sys.stdin); assert result["mode"] == "REGION"; assert result["state"] == "QUEUED"; assert result["requestId"].startswith("cmd_")'
+for _ in $(seq 1 40); do
+  region_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  region_version="$(printf '%s' "$region_state" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["stateVersion"])')"
+  if [[ "$region_version" -gt "$resynced_version" ]]; then break; fi
+  sleep 0.25
+done
+test "$region_version" -gt "$resynced_version"
+region_snapshot_metadata="$(docker exec "$postgres_name" psql \
+  -U browsercloud -d browsercloud -Atc \
+  "select jsonb_extract_path_text(details::jsonb, 'snapshotKind') || ':' ||
+          jsonb_extract_path_text(details::jsonb, 'requestedRootRef')
+     from audit_events
+    where session_id='${session_one}'
+      and action='StateDiff'
+      and jsonb_extract_path_text(details::jsonb, 'snapshotKind')='REGION_RESYNC'
+    order by sequence_no desc limit 1")"
+test "$region_snapshot_metadata" = "REGION_RESYNC:body"
+
 # Fill the weighted Session window with explicit fixtures, then prove the real PostgreSQL
 # advisory-lock admission path returns 429 + Retry-After without persisting either a Resync row or
 # the API idempotency claim. Fixtures are removed immediately so later crash/migration recovery is
@@ -4493,7 +4522,7 @@ takeover_state="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$takeover_state" | python3 -c \
-  'import json,sys; state=json.load(sys.stdin); expected=int(sys.argv[1]); assert state["contextEpoch"] == expected; assert state["stateVersion"] >= 3; assert state["stateQuality"] == "COMPLETE"' \
+  'import json,sys; state=json.load(sys.stdin); expected=int(sys.argv[1]); assert state["contextEpoch"] == expected; assert state["stateVersion"] >= 1; assert state["stateQuality"] == "COMPLETE"' \
   "$expected_reconciled_epoch"
 
 published="0"

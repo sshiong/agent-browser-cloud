@@ -199,6 +199,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.write_websocket_text(json.dumps(response))
                         continue
                     evaluation_count += 1
+                    requested_root = None
+                    root_marker = "const requestedRoot = "
+                    if root_marker in expression:
+                        encoded_root = expression.split(root_marker, 1)[1].split(";", 1)[0]
+                        requested_root = json.loads(encoded_root)
                     target_name = (
                         "Continue integration"
                         if mutate_after > 0 and evaluation_count >= mutate_after
@@ -234,7 +239,21 @@ class Handler(BaseHTTPRequestHandler):
                             "sensitive": True,
                         }],
                     }
-                    if business_recovery_completed:
+                    if requested_root is not None:
+                        if requested_root not in ("body", "document"):
+                            result = {
+                                "url": "https://example.test/runtime",
+                                "title": "Browser Cloud Test Page",
+                                "documentReadyState": "complete",
+                                "error": "REGION_ROOT_NOT_FOUND",
+                            }
+                        else:
+                            result["rootPath"] = (
+                                "html:nth-of-type(1)>body:nth-of-type(1)"
+                                if requested_root == "body"
+                                else "html:nth-of-type(1)"
+                            )
+                    if business_recovery_completed and "targets" in result:
                         result["targets"].append({
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>div:nth-of-type(1)",
                             "role": "status",

@@ -25,6 +25,7 @@ private static final long serialVersionUID = 0L;
     targets_ = java.util.Collections.emptyList();
     snapshotKind_ = "";
     requestedRootRef_ = "";
+    documentReadyState_ = "";
   }
 
   @java.lang.Override
@@ -310,7 +311,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object snapshotKind_ = "";
   /**
    * <pre>
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -331,7 +332,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+   * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
    * </pre>
    *
    * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -391,6 +392,83 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int DOCUMENT_READY_STATE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object documentReadyState_ = "";
+  /**
+   * <pre>
+   * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+   * </pre>
+   *
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The documentReadyState.
+   */
+  @java.lang.Override
+  public java.lang.String getDocumentReadyState() {
+    java.lang.Object ref = documentReadyState_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      documentReadyState_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+   * </pre>
+   *
+   * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+   * @return The bytes for documentReadyState.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDocumentReadyStateBytes() {
+    java.lang.Object ref = documentReadyState_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      documentReadyState_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int NETWORK_QUIET_MILLIS_FIELD_NUMBER = 12;
+  private long networkQuietMillis_ = 0L;
+  /**
+   * <pre>
+   * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+   * </pre>
+   *
+   * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+   * @return The networkQuietMillis.
+   */
+  @java.lang.Override
+  public long getNetworkQuietMillis() {
+    return networkQuietMillis_;
+  }
+
+  public static final int NETWORK_EVIDENCE_FRESH_FIELD_NUMBER = 13;
+  private boolean networkEvidenceFresh_ = false;
+  /**
+   * <pre>
+   * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+   * </pre>
+   *
+   * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+   * @return The networkEvidenceFresh.
+   */
+  @java.lang.Override
+  public boolean getNetworkEvidenceFresh() {
+    return networkEvidenceFresh_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -435,6 +513,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 10, requestedRootRef_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(documentReadyState_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 11, documentReadyState_);
+    }
+    if (networkQuietMillis_ != 0L) {
+      output.writeUInt64(12, networkQuietMillis_);
+    }
+    if (networkEvidenceFresh_ != false) {
+      output.writeBool(13, networkEvidenceFresh_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -477,6 +564,17 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, requestedRootRef_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(documentReadyState_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, documentReadyState_);
+    }
+    if (networkQuietMillis_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(12, networkQuietMillis_);
+    }
+    if (networkEvidenceFresh_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(13, networkEvidenceFresh_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -512,6 +610,12 @@ private static final long serialVersionUID = 0L;
         .equals(other.getSnapshotKind())) return false;
     if (!getRequestedRootRef()
         .equals(other.getRequestedRootRef())) return false;
+    if (!getDocumentReadyState()
+        .equals(other.getDocumentReadyState())) return false;
+    if (getNetworkQuietMillis()
+        != other.getNetworkQuietMillis()) return false;
+    if (getNetworkEvidenceFresh()
+        != other.getNetworkEvidenceFresh()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -547,6 +651,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getSnapshotKind().hashCode();
     hash = (37 * hash) + REQUESTED_ROOT_REF_FIELD_NUMBER;
     hash = (53 * hash) + getRequestedRootRef().hashCode();
+    hash = (37 * hash) + DOCUMENT_READY_STATE_FIELD_NUMBER;
+    hash = (53 * hash) + getDocumentReadyState().hashCode();
+    hash = (37 * hash) + NETWORK_QUIET_MILLIS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getNetworkQuietMillis());
+    hash = (37 * hash) + NETWORK_EVIDENCE_FRESH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getNetworkEvidenceFresh());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -694,6 +806,9 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000080);
       snapshotKind_ = "";
       requestedRootRef_ = "";
+      documentReadyState_ = "";
+      networkQuietMillis_ = 0L;
+      networkEvidenceFresh_ = false;
       return this;
     }
 
@@ -766,6 +881,15 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000200) != 0)) {
         result.requestedRootRef_ = requestedRootRef_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.documentReadyState_ = documentReadyState_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.networkQuietMillis_ = networkQuietMillis_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.networkEvidenceFresh_ = networkEvidenceFresh_;
       }
     }
 
@@ -880,6 +1004,17 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000200;
         onChanged();
       }
+      if (!other.getDocumentReadyState().isEmpty()) {
+        documentReadyState_ = other.documentReadyState_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (other.getNetworkQuietMillis() != 0L) {
+        setNetworkQuietMillis(other.getNetworkQuietMillis());
+      }
+      if (other.getNetworkEvidenceFresh() != false) {
+        setNetworkEvidenceFresh(other.getNetworkEvidenceFresh());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -964,6 +1099,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 82
+            case 90: {
+              documentReadyState_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 96: {
+              networkQuietMillis_ = input.readUInt64();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 96
+            case 104: {
+              networkEvidenceFresh_ = input.readBool();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1648,7 +1798,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object snapshotKind_ = "";
     /**
      * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+     * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -1668,7 +1818,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+     * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -1689,7 +1839,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+     * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -1706,7 +1856,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+     * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -1720,7 +1870,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * PERIODIC、FULL_RESYNC 或 REGION_RESYNC_FULL_FALLBACK。
+     * PERIODIC 或 FULL_RESYNC；原生 REGION_RESYNC 使用 BrowserStateDiffEvent。
      * </pre>
      *
      * <code>string snapshot_kind = 9 [json_name = "snapshotKind"];</code>
@@ -1805,6 +1955,186 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       requestedRootRef_ = value;
       bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object documentReadyState_ = "";
+    /**
+     * <pre>
+     * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+     * </pre>
+     *
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @return The documentReadyState.
+     */
+    public java.lang.String getDocumentReadyState() {
+      java.lang.Object ref = documentReadyState_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        documentReadyState_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+     * </pre>
+     *
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @return The bytes for documentReadyState.
+     */
+    public com.google.protobuf.ByteString
+        getDocumentReadyStateBytes() {
+      java.lang.Object ref = documentReadyState_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        documentReadyState_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+     * </pre>
+     *
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @param value The documentReadyState to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentReadyState(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      documentReadyState_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+     * </pre>
+     *
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDocumentReadyState() {
+      documentReadyState_ = getDefaultInstance().getDocumentReadyState();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 由 Runtime.evaluate 读取的 document.readyState；旧 Node 为空。
+     * </pre>
+     *
+     * <code>string document_ready_state = 11 [json_name = "documentReadyState"];</code>
+     * @param value The bytes for documentReadyState to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentReadyStateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      documentReadyState_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private long networkQuietMillis_ ;
+    /**
+     * <pre>
+     * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+     * </pre>
+     *
+     * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     * @return The networkQuietMillis.
+     */
+    @java.lang.Override
+    public long getNetworkQuietMillis() {
+      return networkQuietMillis_;
+    }
+    /**
+     * <pre>
+     * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+     * </pre>
+     *
+     * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     * @param value The networkQuietMillis to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNetworkQuietMillis(long value) {
+
+      networkQuietMillis_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 自最近一次 CDP Network 活动结束后的安静时长；存在在途请求时为 0。
+     * </pre>
+     *
+     * <code>uint64 network_quiet_millis = 12 [json_name = "networkQuietMillis"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNetworkQuietMillis() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      networkQuietMillis_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private boolean networkEvidenceFresh_ ;
+    /**
+     * <pre>
+     * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+     * </pre>
+     *
+     * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     * @return The networkEvidenceFresh.
+     */
+    @java.lang.Override
+    public boolean getNetworkEvidenceFresh() {
+      return networkEvidenceFresh_;
+    }
+    /**
+     * <pre>
+     * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+     * </pre>
+     *
+     * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     * @param value The networkEvidenceFresh to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNetworkEvidenceFresh(boolean value) {
+
+      networkEvidenceFresh_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
+     * </pre>
+     *
+     * <code>bool network_evidence_fresh = 13 [json_name = "networkEvidenceFresh"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNetworkEvidenceFresh() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      networkEvidenceFresh_ = false;
       onChanged();
       return this;
     }

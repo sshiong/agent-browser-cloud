@@ -72,8 +72,9 @@ make test-integration
 
 ## 仍未完成
 
-- Full Snapshot 仍是单 Event，尚缺 Chunk/Checksum/Commit Frame、Compression、Cancellation
-  和端到端流式 Backpressure。
-- Resync Admission 已有 Session/Tenant 加权请求 Token，尚缺按实际 Snapshot 字节、
+- Full Snapshot 的 Chunk/Checksum/Commit Frame、旧流取消/过期和端到端持久事件
+  Backpressure 已由[进度 120](120-Full-State-Snapshot流式原子提交闭环.md)关闭；当前
+  有 512 KiB 解码后硬上限，未启用需要额外压缩比与 CPU 防护的压缩。
+- Resync Admission 已有 Session/Tenant 加权请求 Token和实际字节硬边界，尚缺按实际 Snapshot 字节、
   CPU、Region 和目标节点容量的多维预算。
 - 目标 Linux 多 Node 长稳、网络分区与大 DOM Region 容量证书仍是生产 Gate。

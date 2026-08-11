@@ -39,6 +39,7 @@ class NodeEventIngestionServiceTest {
   @Mock private BusinessRecoveryActionApplicationService recoveryActionService;
   @Mock private SessionEvidenceApplicationService evidenceService;
   @Mock private StateResyncAdmissionService stateResyncAdmissionService;
+  @Mock private BrowserStateSnapshotAssembler stateSnapshotAssembler;
 
   private NodeEventIngestionService service;
 
@@ -60,7 +61,8 @@ class NodeEventIngestionServiceTest {
             resourceService,
             recoveryActionService,
             evidenceService,
-            stateResyncAdmissionService);
+            stateResyncAdmissionService,
+            stateSnapshotAssembler);
   }
 
   @Test

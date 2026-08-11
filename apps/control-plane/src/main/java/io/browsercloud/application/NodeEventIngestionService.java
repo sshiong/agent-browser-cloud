@@ -37,6 +37,7 @@ public class NodeEventIngestionService {
   private final BusinessRecoveryActionApplicationService recoveryActionService;
   private final SessionEvidenceApplicationService evidenceService;
   private final StateResyncAdmissionService stateResyncAdmissionService;
+  private final BrowserStateSnapshotAssembler stateSnapshotAssembler;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -53,7 +54,8 @@ public class NodeEventIngestionService {
       SessionResourceApplicationService resourceService,
       BusinessRecoveryActionApplicationService recoveryActionService,
       SessionEvidenceApplicationService evidenceService,
-      StateResyncAdmissionService stateResyncAdmissionService) {
+      StateResyncAdmissionService stateResyncAdmissionService,
+      BrowserStateSnapshotAssembler stateSnapshotAssembler) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -69,6 +71,7 @@ public class NodeEventIngestionService {
     this.recoveryActionService = recoveryActionService;
     this.evidenceService = evidenceService;
     this.stateResyncAdmissionService = stateResyncAdmissionService;
+    this.stateSnapshotAssembler = stateSnapshotAssembler;
   }
 
   @Transactional
@@ -87,6 +90,9 @@ public class NodeEventIngestionService {
         agentNavigationCompletionService.stateUpdated(command, state);
         recoveryActionService.stateUpdated(command, state);
       }
+      case NodeEvent.StateSnapshotBegin ignored -> acceptStateSnapshot(command);
+      case NodeEvent.StateSnapshotChunk ignored -> acceptStateSnapshot(command);
+      case NodeEvent.StateSnapshotCommit ignored -> acceptStateSnapshot(command);
       case NodeEvent.StateDiff diff -> {
         if (!browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff)) {
           browserStateRepository.invalidate(
@@ -157,6 +163,9 @@ public class NodeEventIngestionService {
   public record Receipt(boolean duplicate) {}
 
   private void appendAudit(NodeEventReceived command) {
+    if (command.event() instanceof NodeEvent.StateSnapshotChunk) {
+      return;
+    }
     var eventName = command.event().getClass().getSimpleName();
     var contextCommit =
         command.event() instanceof NodeEvent.RuntimeStarted
@@ -172,6 +181,17 @@ public class NodeEventIngestionService {
       details.put("requestedRootRef", diff.requestedRootRef());
       details.put("baseStateVersion", diff.baseStateVersion());
       details.put("stateVersion", diff.stateVersion());
+    }
+    if (command.event() instanceof NodeEvent.StateSnapshotBegin begin) {
+      details.put("snapshotId", begin.snapshotId());
+      details.put("snapshotKind", begin.snapshotKind());
+      details.put("stateVersion", begin.stateVersion());
+      details.put("totalChunks", begin.totalChunks());
+      details.put("totalBytes", begin.totalBytes());
+    } else if (command.event() instanceof NodeEvent.StateSnapshotCommit commit) {
+      details.put("snapshotId", commit.snapshotId());
+      details.put("totalChunks", commit.totalChunks());
+      details.put("totalBytes", commit.totalBytes());
     }
     auditService.append(
         new AuditApplicationService.AuditRecord(
@@ -195,6 +215,17 @@ public class NodeEventIngestionService {
     // EventEnvelope does not carry node_id for every event type; the authenticated stream is the
     // actor until the protocol adds it to the signed envelope.
     return "node-event-stream";
+  }
+
+  private void acceptStateSnapshot(NodeEventReceived command) {
+    stateSnapshotAssembler
+        .accept(command)
+        .ifPresent(
+            state -> {
+              browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
+              agentNavigationCompletionService.stateUpdated(command, state);
+              recoveryActionService.stateUpdated(command, state);
+            });
   }
 
   private void requestAutomaticFullResync(

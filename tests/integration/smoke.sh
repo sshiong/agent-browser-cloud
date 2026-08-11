@@ -4276,6 +4276,8 @@ resync_result="$(curl -fsS -X POST \
   -d '{"mode":"FULL","reason":"INTEGRATION_TEST"}')"
 printf '%s' "$resync_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["mode"] == "FULL"; assert result["state"] == "QUEUED"; assert result["requestId"].startswith("cmd_")'
+resync_request_id="$(printf '%s' "$resync_result" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["requestId"])')"
 resync_replay="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
   -H 'Content-Type: application/json' \
@@ -4307,6 +4309,13 @@ for _ in $(seq 1 40); do
 done
 test "$resynced_version" -gt "$diff_state_version"
 test "$resynced_quality" = "COMPLETE"
+snapshot_stream_state="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select status || ':' || total_chunks || ':' || total_bytes
+     from browser_state_snapshot_streams where snapshot_id='${resync_request_id}'")"
+[[ "$snapshot_stream_state" = COMMITTED:* ]]
+snapshot_staged_chunks="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from browser_state_snapshot_chunks where snapshot_id='${resync_request_id}'")"
+test "$snapshot_staged_chunks" = "0"
 
 region_resync_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \

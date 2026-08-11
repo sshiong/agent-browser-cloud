@@ -12,7 +12,8 @@ use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent,
     AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
-    BrowserStateDiffEvent, BrowserStateEvent, BusinessRecoveryActionCommand,
+    BrowserStateDiffEvent, BrowserStateEvent, BrowserStateSnapshotBeginEvent,
+    BrowserStateSnapshotChunkEvent, BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
     CaptureObserverScreenshotCommand, CommandAck, CommandEnvelope, DiffTruncatedEvent,
     DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
     ExtensionBackgroundPolicy, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
@@ -53,6 +54,9 @@ use tonic::{Request, Response, Status};
 use tracing_subscriber::EnvFilter;
 
 const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
+const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
+const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
+const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
 
 fn state_backpressure_truncation(
     previous: &CurrentState,
@@ -754,6 +758,7 @@ impl DisconnectHandler for DesktopDisconnectPublisher {
 struct CommandResult {
     acknowledgement: CommandAck,
     event: Option<EventEnvelope>,
+    additional_events: Vec<EventEnvelope>,
     runtime_lease: Option<RuntimeLease>,
     stop_runtime_lease: bool,
     state_baseline: Option<CurrentState>,
@@ -1014,6 +1019,7 @@ impl NodeControlService {
         CommandResult {
             acknowledgement,
             event,
+            additional_events: Vec::new(),
             runtime_lease: None,
             stop_runtime_lease: false,
             state_baseline: None,
@@ -1046,6 +1052,7 @@ impl NodeControlService {
         CommandResult {
             acknowledgement,
             event: Some(event),
+            additional_events: Vec::new(),
             runtime_lease: None,
             stop_runtime_lease: false,
             state_baseline: Some(state_baseline),
@@ -1060,6 +1067,7 @@ impl NodeControlService {
         CommandResult {
             acknowledgement,
             event: Some(event),
+            additional_events: Vec::new(),
             runtime_lease: Some(runtime_lease),
             stop_runtime_lease: false,
             state_baseline: None,
@@ -1070,6 +1078,7 @@ impl NodeControlService {
         CommandResult {
             acknowledgement,
             event: Some(event),
+            additional_events: Vec::new(),
             runtime_lease: None,
             stop_runtime_lease: true,
             state_baseline: None,
@@ -1082,8 +1091,24 @@ impl NodeControlService {
         sequence: i64,
         payload: impl Message,
     ) -> EventEnvelope {
+        Self::event_with_id(
+            command,
+            format!("evt_{}", command.message_id),
+            event_type,
+            sequence,
+            payload,
+        )
+    }
+
+    fn event_with_id(
+        command: &CommandEnvelope,
+        event_id: String,
+        event_type: &str,
+        sequence: i64,
+        payload: impl Message,
+    ) -> EventEnvelope {
         EventEnvelope {
-            event_id: format!("evt_{}", command.message_id),
+            event_id,
             event_type: event_type.to_owned(),
             tenant_id: command.tenant_id.clone(),
             session_id: command.session_id.clone(),
@@ -1092,6 +1117,119 @@ impl NodeControlService {
             operation_epoch: command.operation_epoch,
             sequence,
             payload: payload.encode_to_vec(),
+        }
+    }
+
+    async fn full_state_snapshot_result(
+        &self,
+        command: &CommandEnvelope,
+        state: CurrentState,
+        requested_root_ref: String,
+    ) -> CommandResult {
+        let mut state_payload = Self::browser_state_payload(state.clone());
+        state_payload.snapshot_kind = "FULL_RESYNC".to_owned();
+        state_payload.requested_root_ref = requested_root_ref;
+        let encoded = state_payload.encode_to_vec();
+        if encoded.len() > STATE_SNAPSHOT_MAX_BYTES {
+            return self.failed(
+                command,
+                anyhow::anyhow!(
+                    "FULL_STATE_SNAPSHOT_TOO_LARGE: {} bytes exceeds {} byte limit",
+                    encoded.len(),
+                    STATE_SNAPSHOT_MAX_BYTES
+                ),
+            );
+        }
+        let chunks = encoded
+            .chunks(STATE_SNAPSHOT_CHUNK_BYTES)
+            .collect::<Vec<_>>();
+        if chunks.is_empty() || chunks.len() > STATE_SNAPSHOT_MAX_CHUNKS {
+            return self.failed(command, anyhow::anyhow!("FULL_STATE_SNAPSHOT_INVALID_SIZE"));
+        }
+        let stream_event_count = chunks.len().saturating_add(2);
+        let pending = self
+            .pending_state_events
+            .lock()
+            .await
+            .get(&command.session_id)
+            .copied()
+            .unwrap_or_default();
+        if pending.saturating_add(stream_event_count as u32) > self.state_event_backlog_limit {
+            return self.failed(
+                command,
+                anyhow::anyhow!("FULL_STATE_SNAPSHOT_BACKPRESSURE_LIMIT"),
+            );
+        }
+
+        let payload_sha256 = format!("{:x}", Sha256::digest(&encoded));
+        let snapshot_id = command.message_id.clone();
+        let total_chunks = chunks.len() as u32;
+        let total_bytes = encoded.len() as u64;
+        let begin_sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let begin = Self::event_with_id(
+            command,
+            format!("evt_{}_snapshot_begin", command.message_id),
+            "BrowserStateSnapshotBegin",
+            begin_sequence,
+            BrowserStateSnapshotBeginEvent {
+                session_id: command.session_id.clone(),
+                snapshot_id: snapshot_id.clone(),
+                state_version: state_payload.state_version,
+                target_revision: state_payload.target_revision,
+                total_chunks,
+                total_bytes,
+                payload_sha256: payload_sha256.clone(),
+                snapshot_kind: "FULL_RESYNC".to_owned(),
+            },
+        );
+        let mut additional_events = Vec::with_capacity(chunks.len().saturating_add(1));
+        for (index, chunk) in chunks.into_iter().enumerate() {
+            let sequence = match self.next_event_sequence(&command.session_id).await {
+                Ok(sequence) => sequence,
+                Err(error) => return self.failed(command, error),
+            };
+            additional_events.push(Self::event_with_id(
+                command,
+                format!("evt_{}_snapshot_chunk_{index:04}", command.message_id),
+                "BrowserStateSnapshotChunk",
+                sequence,
+                BrowserStateSnapshotChunkEvent {
+                    session_id: command.session_id.clone(),
+                    snapshot_id: snapshot_id.clone(),
+                    chunk_index: index as u32,
+                    total_chunks,
+                    data: chunk.to_vec(),
+                    chunk_sha256: format!("{:x}", Sha256::digest(chunk)),
+                },
+            ));
+        }
+        let commit_sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        additional_events.push(Self::event_with_id(
+            command,
+            format!("evt_{}_snapshot_commit", command.message_id),
+            "BrowserStateSnapshotCommit",
+            commit_sequence,
+            BrowserStateSnapshotCommitEvent {
+                session_id: command.session_id.clone(),
+                snapshot_id,
+                total_chunks,
+                total_bytes,
+                payload_sha256,
+            },
+        ));
+        CommandResult {
+            acknowledgement: Self::ack(&command.message_id, true, "", ""),
+            event: Some(begin),
+            additional_events,
+            runtime_lease: None,
+            stop_runtime_lease: false,
+            state_baseline: Some(state),
         }
     }
 
@@ -1803,7 +1941,14 @@ impl NodeControlService {
     }
 
     fn is_state_backlog_event_type(event_type: &str) -> bool {
-        matches!(event_type, "BrowserStateDiff" | "DiffTruncated")
+        matches!(
+            event_type,
+            "BrowserStateDiff"
+                | "DiffTruncated"
+                | "BrowserStateSnapshotBegin"
+                | "BrowserStateSnapshotChunk"
+                | "BrowserStateSnapshotCommit"
+        )
     }
 
     fn is_state_backlog_event(event: &EventEnvelope) -> bool {
@@ -1870,6 +2015,29 @@ impl NodeControlService {
             event_payload: result.event.as_ref().map(|event| event.encode_to_vec()),
             event_delivered: false,
         }
+    }
+
+    fn persisted_batch(result: &CommandResult) -> Vec<PersistedCommandResult> {
+        let mut persisted = Vec::with_capacity(result.additional_events.len().saturating_add(1));
+        persisted.push(Self::persisted(result));
+        for (index, event) in result.additional_events.iter().enumerate() {
+            persisted.push(PersistedCommandResult {
+                acknowledgement: PersistedAcknowledgement {
+                    message_id: format!(
+                        "{}_snapshot_event_{:04}",
+                        result.acknowledgement.message_id,
+                        index.saturating_add(1)
+                    ),
+                    accepted: true,
+                    error_code: String::new(),
+                    error_message: String::new(),
+                },
+                event_id: Some(event.event_id.clone()),
+                event_payload: Some(event.encode_to_vec()),
+                event_delivered: false,
+            });
+        }
+        persisted
     }
 
     fn acknowledgement(persisted: &PersistedCommandResult, duplicate: bool) -> CommandAck {
@@ -3606,25 +3774,8 @@ impl NodeControlService {
                                     Ok(state) => state,
                                     Err(error) => return self.failed(command, error),
                                 };
-                            let sequence = match self.next_event_sequence(&command.session_id).await
-                            {
-                                Ok(sequence) => sequence,
-                                Err(error) => return self.failed(command, error),
-                            };
-                            let mut state_payload = Self::browser_state_payload(state.clone());
-                            state_payload.snapshot_kind = "FULL_RESYNC".to_owned();
-                            state_payload.requested_root_ref = payload.root_ref;
-                            let event = Self::event(
-                                command,
-                                "BrowserStateUpdated",
-                                sequence,
-                                state_payload,
-                            );
-                            Self::state_result(
-                                Self::ack(&command.message_id, true, "", ""),
-                                event,
-                                state,
-                            )
+                            self.full_state_snapshot_result(command, state, payload.root_ref)
+                                .await
                         }
                     }
                     Err(error) => self.failed(command, error.into()),
@@ -4810,20 +4961,35 @@ impl NodeControlService {
         }
         let result = self.execute(&command).await;
         let evidence_request = Self::evidence_request(&command, &result);
+        let events_to_publish = result
+            .event
+            .iter()
+            .chain(result.additional_events.iter())
+            .cloned()
+            .collect::<Vec<_>>();
+        let state_backlog_events = events_to_publish
+            .iter()
+            .filter(|event| Self::is_state_backlog_event(event))
+            .count();
         if result.acknowledgement.accepted
             || result.acknowledgement.error_code == "UNSUPPORTED_COMMAND"
         {
-            let persisted = Self::persisted(&result);
+            let persisted_batch = Self::persisted_batch(&result);
+            let persisted = &persisted_batch[0];
             let persistence = if let Some(lease) = result.runtime_lease.as_ref() {
                 self.journal
-                    .record_command_result_and_start_runtime(&persisted, lease)
+                    .record_command_result_and_start_runtime(persisted, lease)
                     .await
             } else if result.stop_runtime_lease {
                 self.journal
-                    .record_command_result_and_stop_runtime(&persisted, &command.session_id)
+                    .record_command_result_and_stop_runtime(persisted, &command.session_id)
+                    .await
+            } else if persisted_batch.len() > 1 {
+                self.journal
+                    .record_command_results_atomic(&persisted_batch)
                     .await
             } else {
-                self.journal.record_command_result(&persisted).await
+                self.journal.record_command_result(persisted).await
             };
             if let Err(error) = persistence {
                 if result.runtime_lease.is_some() {
@@ -4846,6 +5012,10 @@ impl NodeControlService {
                 );
                 return Err(Status::internal("node journal unavailable"));
             }
+            for _ in 0..state_backlog_events {
+                self.increment_pending_state_event(&command.session_id)
+                    .await;
+            }
         }
 
         if let Some(state) = result.state_baseline.as_ref() {
@@ -4861,7 +5031,7 @@ impl NodeControlService {
 
         let mut acknowledgement = result.acknowledgement;
         if acknowledgement.accepted {
-            if let Some(event) = result.event {
+            for event in events_to_publish {
                 if let Err(error) = self.publish_and_mark(event).await {
                     tracing::warn!(
                         message_id = %command.message_id,
@@ -4874,6 +5044,7 @@ impl NodeControlService {
                         "EVENT_DELIVERY_FAILED",
                         "node event delivery failed",
                     );
+                    break;
                 }
             }
             if acknowledgement.accepted {

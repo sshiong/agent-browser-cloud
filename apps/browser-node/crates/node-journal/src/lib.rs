@@ -180,6 +180,54 @@ impl SqliteNodeJournal {
         .await
     }
 
+    /// 原子记录一个命令产生的有序事件批次。首项仍以原始 command message_id 作为
+    /// 幂等权威，后续项使用确定性的派生 message_id。created_at_ms 单调递增，确保
+    /// Node 重启后的 pending_events 仍按 Begin -> Chunk -> Commit 重放。
+    pub async fn record_command_results_atomic(
+        &self,
+        results: &[PersistedCommandResult],
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !results.is_empty(),
+            "command result batch must not be empty"
+        );
+        let results = results.to_vec();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let created_at_ms: i64 = transaction.query_row(
+                "SELECT CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)",
+                [],
+                |row| row.get(0),
+            )?;
+            for (index, result) in results.iter().enumerate() {
+                let offset = i64::try_from(index).unwrap_or(i64::MAX);
+                transaction.execute(
+                    r#"
+                    INSERT INTO command_results (
+                        message_id, accepted, error_code, error_message,
+                        event_id, event_payload, event_delivered, created_at_ms
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                    ON CONFLICT(message_id) DO NOTHING
+                    "#,
+                    params![
+                        result.acknowledgement.message_id,
+                        result.acknowledgement.accepted,
+                        result.acknowledgement.error_code,
+                        result.acknowledgement.error_message,
+                        result.event_id,
+                        result.event_payload,
+                        result.event_delivered,
+                        created_at_ms.saturating_add(offset),
+                    ],
+                )?;
+            }
+            transaction.commit()?;
+            Ok(())
+        })
+        .await
+    }
+
     /// 原子记录 Crash Event 并关闭 Runtime Lease，避免 Node 重启产生重复恢复。
     pub async fn record_crash_and_stop_runtime(
         &self,
@@ -790,6 +838,48 @@ mod tests {
         reopened.mark_event_delivered("evt_1").await.unwrap();
         assert!(reopened.is_event_delivered("evt_1").await.unwrap());
         assert!(reopened.pending_events(10).await.unwrap().is_empty());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn atomically_persists_snapshot_events_in_declared_order() {
+        let path = temporary_database("snapshot-batch");
+        let journal = SqliteNodeJournal::open(&path).await.unwrap();
+        let results = (0..4)
+            .map(|index| PersistedCommandResult {
+                acknowledgement: PersistedAcknowledgement {
+                    message_id: format!("msg_snapshot_{index}"),
+                    accepted: true,
+                    error_code: String::new(),
+                    error_message: String::new(),
+                },
+                event_id: Some(format!("evt_snapshot_{index}")),
+                event_payload: Some(vec![index as u8]),
+                event_delivered: false,
+            })
+            .collect::<Vec<_>>();
+
+        journal
+            .record_command_results_atomic(&results)
+            .await
+            .unwrap();
+        drop(journal);
+
+        let reopened = SqliteNodeJournal::open(&path).await.unwrap();
+        let pending = reopened.pending_events(10).await.unwrap();
+        assert_eq!(pending.len(), 4);
+        assert_eq!(
+            pending
+                .iter()
+                .map(|result| result.event_id.as_deref().unwrap())
+                .collect::<Vec<_>>(),
+            vec![
+                "evt_snapshot_0",
+                "evt_snapshot_1",
+                "evt_snapshot_2",
+                "evt_snapshot_3"
+            ]
+        );
         let _ = std::fs::remove_file(path);
     }
 

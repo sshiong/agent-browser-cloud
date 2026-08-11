@@ -13,6 +13,9 @@ public sealed interface NodeEvent
         NodeEvent.RuntimeResourcesAdjusted,
         NodeEvent.RuntimeCrashed,
         NodeEvent.StateUpdated,
+        NodeEvent.StateSnapshotBegin,
+        NodeEvent.StateSnapshotChunk,
+        NodeEvent.StateSnapshotCommit,
         NodeEvent.StateDiff,
         NodeEvent.DiffTruncated,
         NodeEvent.AgentNavigationFailed,
@@ -248,6 +251,39 @@ public sealed interface NodeEvent
           requestedRootRef);
     }
   }
+
+  record StateSnapshotBegin(
+      String sessionId,
+      String snapshotId,
+      long stateVersion,
+      long targetRevision,
+      int totalChunks,
+      long totalBytes,
+      String payloadSha256,
+      String snapshotKind)
+      implements NodeEvent {}
+
+  record StateSnapshotChunk(
+      String sessionId,
+      String snapshotId,
+      int chunkIndex,
+      int totalChunks,
+      byte[] data,
+      String chunkSha256)
+      implements NodeEvent {
+    public StateSnapshotChunk {
+      data = data.clone();
+    }
+
+    @Override
+    public byte[] data() {
+      return data.clone();
+    }
+  }
+
+  record StateSnapshotCommit(
+      String sessionId, String snapshotId, int totalChunks, long totalBytes, String payloadSha256)
+      implements NodeEvent {}
 
   record StateDiff(
       String sessionId,

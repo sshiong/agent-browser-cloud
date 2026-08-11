@@ -8,6 +8,9 @@ import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
+import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
+import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
+import io.browsercloud.proto.node.v1.BrowserStateSnapshotCommitEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
@@ -16,6 +19,8 @@ import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +33,9 @@ public class NodeEventMapper {
   static final String RUNTIME_RESOURCES_ADJUSTED = "RuntimeResourcesAdjusted";
   static final String BROWSER_CRASHED = "BrowserCrashed";
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
+  static final String BROWSER_STATE_SNAPSHOT_BEGIN = "BrowserStateSnapshotBegin";
+  static final String BROWSER_STATE_SNAPSHOT_CHUNK = "BrowserStateSnapshotChunk";
+  static final String BROWSER_STATE_SNAPSHOT_COMMIT = "BrowserStateSnapshotCommit";
   static final String BROWSER_STATE_DIFF = "BrowserStateDiff";
   static final String DIFF_TRUNCATED = "DiffTruncated";
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
@@ -36,6 +44,9 @@ public class NodeEventMapper {
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
+  static final int MAX_SNAPSHOT_CHUNK_BYTES = 16 * 1024;
+  static final int MAX_SNAPSHOT_CHUNKS = 32;
+  static final long MAX_SNAPSHOT_BYTES = (long) MAX_SNAPSHOT_CHUNK_BYTES * MAX_SNAPSHOT_CHUNKS;
 
   public NodeEventReceived toCommand(EventEnvelope envelope) {
     requireText(envelope.getEventId(), "event_id");
@@ -302,7 +313,71 @@ public class NodeEventMapper {
         }
         case BROWSER_STATE_UPDATED -> {
           var payload = BrowserStateEvent.parseFrom(envelope.getPayload());
-          yield state(payload);
+          yield toState(payload);
+        }
+        case BROWSER_STATE_SNAPSHOT_BEGIN -> {
+          var payload = BrowserStateSnapshotBeginEvent.parseFrom(envelope.getPayload());
+          validateSnapshotManifest(
+              payload.getSessionId(),
+              payload.getSnapshotId(),
+              payload.getTotalChunks(),
+              payload.getTotalBytes(),
+              payload.getPayloadSha256());
+          if (payload.getStateVersion() <= 0
+              || payload.getTargetRevision() <= 0
+              || !payload.getSnapshotKind().equals("FULL_RESYNC")) {
+            throw new IllegalArgumentException("snapshot Begin state metadata is invalid");
+          }
+          yield new NodeEvent.StateSnapshotBegin(
+              payload.getSessionId(),
+              payload.getSnapshotId(),
+              payload.getStateVersion(),
+              payload.getTargetRevision(),
+              payload.getTotalChunks(),
+              payload.getTotalBytes(),
+              payload.getPayloadSha256(),
+              payload.getSnapshotKind());
+        }
+        case BROWSER_STATE_SNAPSHOT_CHUNK -> {
+          var payload = BrowserStateSnapshotChunkEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getSessionId(), "session_id");
+          validateSnapshotId(payload.getSnapshotId());
+          if (payload.getTotalChunks() <= 0
+              || payload.getTotalChunks() > MAX_SNAPSHOT_CHUNKS
+              || payload.getChunkIndex() >= payload.getTotalChunks()
+              || payload.getData().isEmpty()
+              || payload.getData().size() > MAX_SNAPSHOT_CHUNK_BYTES
+              || !payload.getChunkSha256().matches("^[0-9a-f]{64}$")) {
+            throw new IllegalArgumentException("snapshot Chunk boundary metadata is invalid");
+          }
+          var observedHash = sha256(payload.getData().toByteArray());
+          if (!MessageDigest.isEqual(
+              observedHash.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+              payload.getChunkSha256().getBytes(java.nio.charset.StandardCharsets.US_ASCII))) {
+            throw new IllegalArgumentException("snapshot Chunk checksum does not match");
+          }
+          yield new NodeEvent.StateSnapshotChunk(
+              payload.getSessionId(),
+              payload.getSnapshotId(),
+              payload.getChunkIndex(),
+              payload.getTotalChunks(),
+              payload.getData().toByteArray(),
+              payload.getChunkSha256());
+        }
+        case BROWSER_STATE_SNAPSHOT_COMMIT -> {
+          var payload = BrowserStateSnapshotCommitEvent.parseFrom(envelope.getPayload());
+          validateSnapshotManifest(
+              payload.getSessionId(),
+              payload.getSnapshotId(),
+              payload.getTotalChunks(),
+              payload.getTotalBytes(),
+              payload.getPayloadSha256());
+          yield new NodeEvent.StateSnapshotCommit(
+              payload.getSessionId(),
+              payload.getSnapshotId(),
+              payload.getTotalChunks(),
+              payload.getTotalBytes(),
+              payload.getPayloadSha256());
         }
         case BROWSER_STATE_DIFF -> {
           var payload = BrowserStateDiffEvent.parseFrom(envelope.getPayload());
@@ -483,7 +558,7 @@ public class NodeEventMapper {
           if (!payload.hasState()) {
             throw new IllegalArgumentException("HumanTakeoverReady state is required");
           }
-          var state = state(payload.getState());
+          var state = toState(payload.getState());
           if (!payload.getSessionId().equals(state.sessionId())) {
             throw new IllegalArgumentException("takeover state session_id does not match payload");
           }
@@ -495,7 +570,7 @@ public class NodeEventMapper {
           if (!payload.hasState()) {
             throw new IllegalArgumentException("HumanTakeoverEnded state is required");
           }
-          var state = state(payload.getState());
+          var state = toState(payload.getState());
           if (!payload.getSessionId().equals(state.sessionId())) {
             throw new IllegalArgumentException("takeover state session_id does not match payload");
           }
@@ -522,6 +597,9 @@ public class NodeEventMapper {
       case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
+      case NodeEvent.StateSnapshotBegin begin -> begin.sessionId();
+      case NodeEvent.StateSnapshotChunk chunk -> chunk.sessionId();
+      case NodeEvent.StateSnapshotCommit commit -> commit.sessionId();
       case NodeEvent.StateDiff diff -> diff.sessionId();
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
@@ -532,7 +610,7 @@ public class NodeEventMapper {
     };
   }
 
-  private NodeEvent.StateUpdated state(BrowserStateEvent payload) {
+  public NodeEvent.StateUpdated toState(BrowserStateEvent payload) {
     validateStateMetadata(
         payload.getSessionId(),
         payload.getStateVersion(),
@@ -560,6 +638,36 @@ public class NodeEventMapper {
         payload.getNetworkEvidenceFresh(),
         payload.getSnapshotKind(),
         payload.getRequestedRootRef());
+  }
+
+  private void validateSnapshotManifest(
+      String sessionId, String snapshotId, int totalChunks, long totalBytes, String payloadSha256) {
+    requireText(sessionId, "session_id");
+    validateSnapshotId(snapshotId);
+    if (totalChunks <= 0
+        || totalChunks > MAX_SNAPSHOT_CHUNKS
+        || totalBytes <= 0
+        || totalBytes > MAX_SNAPSHOT_BYTES
+        || totalBytes > (long) totalChunks * MAX_SNAPSHOT_CHUNK_BYTES
+        || totalBytes <= (long) (totalChunks - 1) * MAX_SNAPSHOT_CHUNK_BYTES
+        || !payloadSha256.matches("^[0-9a-f]{64}$")) {
+      throw new IllegalArgumentException("snapshot manifest boundary metadata is invalid");
+    }
+  }
+
+  private void validateSnapshotId(String snapshotId) {
+    requireText(snapshotId, "snapshot_id");
+    if (snapshotId.length() > 160 || snapshotId.chars().anyMatch(Character::isISOControl)) {
+      throw new IllegalArgumentException("snapshot_id is invalid");
+    }
+  }
+
+  private String sha256(byte[] value) {
+    try {
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+    } catch (java.security.NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is unavailable", exception);
+    }
   }
 
   private void validateReadinessEvidence(String documentReadyState, long networkQuietMillis) {

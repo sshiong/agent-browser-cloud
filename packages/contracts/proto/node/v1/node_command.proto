@@ -507,6 +507,37 @@ message BrowserStateEvent {
   bool network_evidence_fresh = 13;
 }
 
+// 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
+// protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
+// 周期 State 和 Agent 动作确认仍使用 BrowserStateUpdated，保持 N/N-1 兼容。
+message BrowserStateSnapshotBeginEvent {
+  string session_id = 1;
+  string snapshot_id = 2;
+  uint64 state_version = 3;
+  uint64 target_revision = 4;
+  uint32 total_chunks = 5;
+  uint64 total_bytes = 6;
+  string payload_sha256 = 7;
+  string snapshot_kind = 8;
+}
+
+message BrowserStateSnapshotChunkEvent {
+  string session_id = 1;
+  string snapshot_id = 2;
+  uint32 chunk_index = 3;
+  uint32 total_chunks = 4;
+  bytes data = 5;
+  string chunk_sha256 = 6;
+}
+
+message BrowserStateSnapshotCommitEvent {
+  string session_id = 1;
+  string snapshot_id = 2;
+  uint32 total_chunks = 3;
+  uint64 total_bytes = 4;
+  string payload_sha256 = 5;
+}
+
 // Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
 message RequestStateResyncCommand {
   string session_id = 1;

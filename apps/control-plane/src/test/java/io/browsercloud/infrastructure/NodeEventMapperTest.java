@@ -9,6 +9,8 @@ import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
+import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
+import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
@@ -20,6 +22,8 @@ import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
 import io.browsercloud.proto.node.v1.TargetBounds;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
 class NodeEventMapperTest {
@@ -754,5 +758,88 @@ class NodeEventMapperTest {
               assertThat(ended.reason()).isEqualTo("GATEWAY_DISCONNECT");
               assertThat(ended.state().stateVersion()).isEqualTo(9);
             });
+  }
+
+  @Test
+  void shouldMapBoundedSnapshotBeginAndCheckedChunk() throws Exception {
+    var bytes = "checked-state-chunk".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    var hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    var begin =
+        BrowserStateSnapshotBeginEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setSnapshotId("cmd_1234567890abcdef")
+            .setStateVersion(10)
+            .setTargetRevision(8)
+            .setTotalChunks(1)
+            .setTotalBytes(bytes.length)
+            .setPayloadSha256(hash)
+            .setSnapshotKind("FULL_RESYNC")
+            .build();
+    var chunk =
+        BrowserStateSnapshotChunkEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setSnapshotId("cmd_1234567890abcdef")
+            .setChunkIndex(0)
+            .setTotalChunks(1)
+            .setData(ByteString.copyFrom(bytes))
+            .setChunkSha256(hash)
+            .build();
+
+    assertThat(
+            mapper
+                .toCommand(
+                    envelope(
+                        "evt_snapshot_begin",
+                        NodeEventMapper.BROWSER_STATE_SNAPSHOT_BEGIN,
+                        begin.toByteString()))
+                .event())
+        .isInstanceOf(NodeEvent.StateSnapshotBegin.class);
+    assertThat(
+            mapper
+                .toCommand(
+                    envelope(
+                        "evt_snapshot_chunk",
+                        NodeEventMapper.BROWSER_STATE_SNAPSHOT_CHUNK,
+                        chunk.toByteString()))
+                .event())
+        .isInstanceOfSatisfying(
+            NodeEvent.StateSnapshotChunk.class,
+            mapped -> assertThat(mapped.data()).containsExactly(bytes));
+  }
+
+  @Test
+  void shouldRejectSnapshotChunkWithMismatchedChecksum() {
+    var payload =
+        BrowserStateSnapshotChunkEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setSnapshotId("cmd_1234567890abcdef")
+            .setChunkIndex(0)
+            .setTotalChunks(1)
+            .setData(ByteString.copyFromUtf8("corrupt"))
+            .setChunkSha256("a".repeat(64))
+            .build();
+
+    assertThatThrownBy(
+            () ->
+                mapper.toCommand(
+                    envelope(
+                        "evt_snapshot_corrupt",
+                        NodeEventMapper.BROWSER_STATE_SNAPSHOT_CHUNK,
+                        payload.toByteString())))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("checksum");
+  }
+
+  private EventEnvelope envelope(String eventId, String eventType, ByteString payload) {
+    return EventEnvelope.newBuilder()
+        .setEventId(eventId)
+        .setEventType(eventType)
+        .setTenantId("tenant-test")
+        .setSessionId("ses_test")
+        .setCoordinatorTerm(1)
+        .setContextEpoch(2)
+        .setSequence(1)
+        .setPayload(payload)
+        .build();
   }
 }

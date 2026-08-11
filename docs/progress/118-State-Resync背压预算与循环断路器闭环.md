@@ -1,7 +1,7 @@
 # State Resync 背压、预算与循环断路器闭环
 
 > 日期：2026-08-11
-> 状态：代码、迁移、契约、单元测试、N/N−1 与完整 PostgreSQL Integration 已完成；流式 Snapshot 和多维资源预算仍待开发。
+> 状态：代码、迁移、契约、单元测试、N/N−1 与完整 PostgreSQL Integration 已完成；后续流式 Snapshot 由进度 120 关闭，多维资源预算由进度 122 关闭。
 
 ## 问题
 

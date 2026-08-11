@@ -1125,6 +1125,7 @@ impl NodeControlService {
         command: &CommandEnvelope,
         state: CurrentState,
         requested_root_ref: String,
+        collection_cpu_millis: Option<u64>,
     ) -> CommandResult {
         let mut state_payload = Self::browser_state_payload(state.clone());
         state_payload.snapshot_kind = "FULL_RESYNC".to_owned();
@@ -1183,6 +1184,7 @@ impl NodeControlService {
                 total_bytes,
                 payload_sha256: payload_sha256.clone(),
                 snapshot_kind: "FULL_RESYNC".to_owned(),
+                collection_cpu_millis,
             },
         );
         let mut additional_events = Vec::with_capacity(chunks.len().saturating_add(1));
@@ -1358,7 +1360,24 @@ impl NodeControlService {
             network_evidence_fresh: diff.network_evidence_fresh,
             snapshot_kind: diff.snapshot_kind,
             requested_root_ref: diff.requested_root_ref,
+            resync_request_id: String::new(),
+            collection_cpu_millis: None,
         }
+    }
+
+    fn collection_cpu_millis(before_micros: Option<u64>, after_micros: Option<u64>) -> Option<u64> {
+        after_micros
+            .zip(before_micros)
+            .and_then(|(after, before)| after.checked_sub(before))
+            .map(|micros| micros.saturating_add(999) / 1_000)
+    }
+
+    async fn runtime_cpu_usage_micros(&self, session_id: &str) -> Option<u64> {
+        self.runtime_supervisor
+            .metrics(session_id)
+            .await
+            .ok()
+            .and_then(|metrics| metrics.cumulative_cpu_usage_micros)
     }
 
     async fn publish_event_receipt(&self, event: EventEnvelope) -> anyhow::Result<PublishResponse> {
@@ -3725,6 +3744,8 @@ impl NodeControlService {
                                     ),
                                 );
                             };
+                            let cpu_before =
+                                self.runtime_cpu_usage_micros(&command.session_id).await;
                             let state = match self
                                 .state_collector
                                 .resync_region(&command.session_id, &payload.root_ref, &baseline)
@@ -3733,6 +3754,10 @@ impl NodeControlService {
                                 Ok(state) => state,
                                 Err(error) => return self.failed(command, error),
                             };
+                            let collection_cpu_millis = Self::collection_cpu_millis(
+                                cpu_before,
+                                self.runtime_cpu_usage_micros(&command.session_id).await,
+                            );
                             let mut diff = match diff_states(
                                 &baseline,
                                 &state,
@@ -3757,25 +3782,35 @@ impl NodeControlService {
                                 Ok(sequence) => sequence,
                                 Err(error) => return self.failed(command, error),
                             };
-                            let event = Self::event(
-                                command,
-                                "BrowserStateDiff",
-                                sequence,
-                                Self::state_diff_payload(diff),
-                            );
+                            let mut event_payload = Self::state_diff_payload(diff);
+                            event_payload.resync_request_id = command.message_id.clone();
+                            event_payload.collection_cpu_millis = collection_cpu_millis;
+                            let event =
+                                Self::event(command, "BrowserStateDiff", sequence, event_payload);
                             Self::state_result(
                                 Self::ack(&command.message_id, true, "", ""),
                                 event,
                                 state,
                             )
                         } else {
+                            let cpu_before =
+                                self.runtime_cpu_usage_micros(&command.session_id).await;
                             let state =
                                 match self.state_collector.resync_full(&command.session_id).await {
                                     Ok(state) => state,
                                     Err(error) => return self.failed(command, error),
                                 };
-                            self.full_state_snapshot_result(command, state, payload.root_ref)
-                                .await
+                            let collection_cpu_millis = Self::collection_cpu_millis(
+                                cpu_before,
+                                self.runtime_cpu_usage_micros(&command.session_id).await,
+                            );
+                            self.full_state_snapshot_result(
+                                command,
+                                state,
+                                payload.root_ref,
+                                collection_cpu_millis,
+                            )
+                            .await
                         }
                     }
                     Err(error) => self.failed(command, error.into()),
@@ -6066,6 +6101,26 @@ mod tests {
         );
         assert_eq!(
             classify_resource_danger(Some(0), Some(0), Some((2_000_000_000, 10_000_000_000))),
+            None
+        );
+    }
+
+    #[test]
+    fn resync_collection_cpu_uses_a_rounded_monotonic_cgroup_delta() {
+        assert_eq!(
+            NodeControlService::collection_cpu_millis(Some(1_000), Some(1_001)),
+            Some(1)
+        );
+        assert_eq!(
+            NodeControlService::collection_cpu_millis(Some(1_000), Some(2_001)),
+            Some(2)
+        );
+        assert_eq!(
+            NodeControlService::collection_cpu_millis(Some(2_000), Some(1_000)),
+            None
+        );
+        assert_eq!(
+            NodeControlService::collection_cpu_millis(None, Some(2_000)),
             None
         );
     }

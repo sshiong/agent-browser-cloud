@@ -369,6 +369,8 @@ class NodeEventMapperTest {
             .setDocumentReadyState("complete")
             .setSnapshotKind("REGION_RESYNC")
             .setRequestedRootRef("#app")
+            .setResyncRequestId("cmd_1234567890abcdef")
+            .setCollectionCpuMillis(37)
             .addRemovedTargetRefs("target:3:old")
             .addUpsertedTargets(
                 InteractiveTargetState.newBuilder()
@@ -394,9 +396,81 @@ class NodeEventMapperTest {
             diff -> {
               assertThat(diff.snapshotKind()).isEqualTo("REGION_RESYNC");
               assertThat(diff.requestedRootRef()).isEqualTo("#app");
+              assertThat(diff.resyncRequestId()).isEqualTo("cmd_1234567890abcdef");
+              assertThat(diff.collectionCpuMillis()).isEqualTo(37);
+              assertThat(diff.snapshotBytes()).isPositive();
               assertThat(diff.baseStateVersion()).isEqualTo(7);
               assertThat(diff.removedTargetRefs()).containsExactly("target:3:old");
             });
+  }
+
+  @Test
+  void shouldRecoverRegionResyncRequestIdFromAnNMinusOneCommandEvent() {
+    var payload =
+        BrowserStateDiffEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setBaseStateVersion(7)
+            .setStateVersion(8)
+            .setTargetRevision(3)
+            .setUrl("https://example.test/app")
+            .setTitle("App")
+            .setContentHash("hash-8")
+            .setStateQuality("COMPLETE")
+            .setDocumentReadyState("complete")
+            .setSnapshotKind("REGION_RESYNC")
+            .setRequestedRootRef("#app")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_cmd_1234567890abcdef")
+            .setEventType(NodeEventMapper.BROWSER_STATE_DIFF)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.StateDiff.class,
+            diff -> {
+              assertThat(diff.resyncRequestId()).isEqualTo("cmd_1234567890abcdef");
+              assertThat(diff.collectionCpuMillis()).isNull();
+              assertThat(diff.snapshotBytes()).isPositive();
+            });
+  }
+
+  @Test
+  void shouldRejectRegionResyncWithoutAnExplicitOrRecoverableRequestId() {
+    var payload =
+        BrowserStateDiffEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setBaseStateVersion(7)
+            .setStateVersion(8)
+            .setTargetRevision(3)
+            .setUrl("https://example.test/app")
+            .setTitle("App")
+            .setContentHash("hash-8")
+            .setStateQuality("COMPLETE")
+            .setDocumentReadyState("complete")
+            .setSnapshotKind("REGION_RESYNC")
+            .setRequestedRootRef("#app")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_unrelated")
+            .setEventType(NodeEventMapper.BROWSER_STATE_DIFF)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("requested_root_ref");
   }
 
   @Test
@@ -774,6 +848,7 @@ class NodeEventMapperTest {
             .setTotalBytes(bytes.length)
             .setPayloadSha256(hash)
             .setSnapshotKind("FULL_RESYNC")
+            .setCollectionCpuMillis(42)
             .build();
     var chunk =
         BrowserStateSnapshotChunkEvent.newBuilder()
@@ -793,7 +868,9 @@ class NodeEventMapperTest {
                         NodeEventMapper.BROWSER_STATE_SNAPSHOT_BEGIN,
                         begin.toByteString()))
                 .event())
-        .isInstanceOf(NodeEvent.StateSnapshotBegin.class);
+        .isInstanceOfSatisfying(
+            NodeEvent.StateSnapshotBegin.class,
+            mapped -> assertThat(mapped.collectionCpuMillis()).isEqualTo(42));
     assertThat(
             mapper
                 .toCommand(

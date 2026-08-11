@@ -260,8 +260,30 @@ public sealed interface NodeEvent
       int totalChunks,
       long totalBytes,
       String payloadSha256,
-      String snapshotKind)
-      implements NodeEvent {}
+      String snapshotKind,
+      Long collectionCpuMillis)
+      implements NodeEvent {
+    public StateSnapshotBegin(
+        String sessionId,
+        String snapshotId,
+        long stateVersion,
+        long targetRevision,
+        int totalChunks,
+        long totalBytes,
+        String payloadSha256,
+        String snapshotKind) {
+      this(
+          sessionId,
+          snapshotId,
+          stateVersion,
+          targetRevision,
+          totalChunks,
+          totalBytes,
+          payloadSha256,
+          snapshotKind,
+          null);
+    }
+  }
 
   record StateSnapshotChunk(
       String sessionId,
@@ -300,11 +322,51 @@ public sealed interface NodeEvent
       List<InteractiveTarget> upsertedTargets,
       List<String> removedTargetRefs,
       String snapshotKind,
-      String requestedRootRef)
+      String requestedRootRef,
+      String resyncRequestId,
+      long snapshotBytes,
+      Long collectionCpuMillis)
       implements NodeEvent {
     public StateDiff {
       upsertedTargets = List.copyOf(upsertedTargets);
       removedTargetRefs = List.copyOf(removedTargetRefs);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          "",
+          0,
+          null);
     }
 
     public StateDiff(
@@ -336,7 +398,10 @@ public sealed interface NodeEvent
           upsertedTargets,
           removedTargetRefs,
           "",
-          "");
+          "",
+          "",
+          0,
+          null);
     }
 
     public StateDiff(
@@ -365,7 +430,10 @@ public sealed interface NodeEvent
           upsertedTargets,
           removedTargetRefs,
           "",
-          "");
+          "",
+          "",
+          0,
+          null);
     }
   }
 

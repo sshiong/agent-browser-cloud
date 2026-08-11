@@ -94,6 +94,15 @@ public class NodeEventIngestionService {
       case NodeEvent.StateSnapshotChunk ignored -> acceptStateSnapshot(command);
       case NodeEvent.StateSnapshotCommit ignored -> acceptStateSnapshot(command);
       case NodeEvent.StateDiff diff -> {
+        if (diff.snapshotKind().equals("REGION_RESYNC")) {
+          stateResyncAdmissionService.settleActual(
+              command.tenantId(),
+              command.sessionId(),
+              diff.resyncRequestId(),
+              io.browsercloud.api.StateResyncRequest.Mode.REGION,
+              diff.snapshotBytes(),
+              diff.collectionCpuMillis());
+        }
         if (!browserStateRepository.applyDiff(command.tenantId(), command.contextEpoch(), diff)) {
           browserStateRepository.invalidate(
               command.tenantId(),
@@ -181,6 +190,13 @@ public class NodeEventIngestionService {
       details.put("requestedRootRef", diff.requestedRootRef());
       details.put("baseStateVersion", diff.baseStateVersion());
       details.put("stateVersion", diff.stateVersion());
+      if (diff.snapshotKind().equals("REGION_RESYNC")) {
+        details.put("resyncRequestId", diff.resyncRequestId());
+        details.put("snapshotBytes", diff.snapshotBytes());
+        details.put(
+            "collectionCpuMillis",
+            diff.collectionCpuMillis() == null ? "UNAVAILABLE" : diff.collectionCpuMillis());
+      }
     }
     if (command.event() instanceof NodeEvent.StateSnapshotBegin begin) {
       details.put("snapshotId", begin.snapshotId());
@@ -188,6 +204,9 @@ public class NodeEventIngestionService {
       details.put("stateVersion", begin.stateVersion());
       details.put("totalChunks", begin.totalChunks());
       details.put("totalBytes", begin.totalBytes());
+      details.put(
+          "collectionCpuMillis",
+          begin.collectionCpuMillis() == null ? "UNAVAILABLE" : begin.collectionCpuMillis());
     } else if (command.event() instanceof NodeEvent.StateSnapshotCommit commit) {
       details.put("snapshotId", commit.snapshotId());
       details.put("totalChunks", commit.totalChunks());

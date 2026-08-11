@@ -4316,6 +4316,21 @@ snapshot_stream_state="$(docker exec "$postgres_name" psql -U browsercloud -d br
 snapshot_staged_chunks="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from browser_state_snapshot_chunks where snapshot_id='${resync_request_id}'")"
 test "$snapshot_staged_chunks" = "0"
+full_resync_budget_diagnostic="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select concat_ws(':', budget_state, reserved_bytes, coalesce(actual_bytes, -1),
+                     reserved_cpu_millis, coalesce(actual_cpu_millis, -1),
+                     coalesce(node_id, 'NULL'), coalesce(region, 'NULL'))
+     from state_resync_requests where request_id='${resync_request_id}'")"
+printf 'Full State Resync budget settlement: %s\n' "$full_resync_budget_diagnostic"
+IFS=: read -r full_budget_state full_reserved_bytes full_actual_bytes \
+  full_reserved_cpu full_actual_cpu full_budget_node full_budget_region \
+  <<<"$full_resync_budget_diagnostic"
+test "$full_budget_state" = "SETTLED"
+test "$full_actual_bytes" -gt 0
+test "$full_actual_bytes" -le "$full_reserved_bytes"
+if test "$full_actual_cpu" -lt 0; then test "$full_reserved_cpu" -gt 0; fi
+test "$full_budget_node" != "NULL"
+test "$full_budget_region" != "NULL"
 
 region_resync_result="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
@@ -4325,6 +4340,8 @@ region_resync_result="$(curl -fsS -X POST \
   -d '{"mode":"REGION","rootRef":"body","reason":"INTEGRATION_NATIVE_REGION"}')"
 printf '%s' "$region_resync_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["mode"] == "REGION"; assert result["state"] == "QUEUED"; assert result["requestId"].startswith("cmd_")'
+region_resync_request_id="$(printf '%s' "$region_resync_result" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["requestId"])')"
 for _ in $(seq 1 40); do
   region_state="$(curl -fsS \
     "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
@@ -4345,6 +4362,21 @@ region_snapshot_metadata="$(docker exec "$postgres_name" psql \
       and jsonb_extract_path_text(details::jsonb, 'snapshotKind')='REGION_RESYNC'
     order by sequence_no desc limit 1")"
 test "$region_snapshot_metadata" = "REGION_RESYNC:body"
+region_resync_budget_diagnostic="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select concat_ws(':', budget_state, reserved_bytes, coalesce(actual_bytes, -1),
+                     reserved_cpu_millis, coalesce(actual_cpu_millis, -1),
+                     coalesce(node_id, 'NULL'), coalesce(region, 'NULL'))
+     from state_resync_requests where request_id='${region_resync_request_id}'")"
+printf 'Region State Resync budget settlement: %s\n' "$region_resync_budget_diagnostic"
+IFS=: read -r region_budget_state region_reserved_bytes region_actual_bytes \
+  region_reserved_cpu region_actual_cpu region_budget_node region_budget_region \
+  <<<"$region_resync_budget_diagnostic"
+test "$region_budget_state" = "SETTLED"
+test "$region_actual_bytes" -gt 0
+test "$region_actual_bytes" -le "$region_reserved_bytes"
+if test "$region_actual_cpu" -lt 0; then test "$region_reserved_cpu" -gt 0; fi
+test "$region_budget_node" != "NULL"
+test "$region_budget_region" != "NULL"
 
 # Fill the weighted Session window with explicit fixtures, then prove the real PostgreSQL
 # advisory-lock admission path returns 429 + Retry-After without persisting either a Resync row or

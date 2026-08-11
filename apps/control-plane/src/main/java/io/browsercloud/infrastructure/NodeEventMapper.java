@@ -328,6 +328,9 @@ public class NodeEventMapper {
               || !payload.getSnapshotKind().equals("FULL_RESYNC")) {
             throw new IllegalArgumentException("snapshot Begin state metadata is invalid");
           }
+          var collectionCpuMillis =
+              payload.hasCollectionCpuMillis() ? payload.getCollectionCpuMillis() : null;
+          validateCollectionCpuMillis(collectionCpuMillis);
           yield new NodeEvent.StateSnapshotBegin(
               payload.getSessionId(),
               payload.getSnapshotId(),
@@ -336,7 +339,8 @@ public class NodeEventMapper {
               payload.getTotalChunks(),
               payload.getTotalBytes(),
               payload.getPayloadSha256(),
-              payload.getSnapshotKind());
+              payload.getSnapshotKind(),
+              collectionCpuMillis);
         }
         case BROWSER_STATE_SNAPSHOT_CHUNK -> {
           var payload = BrowserStateSnapshotChunkEvent.parseFrom(envelope.getPayload());
@@ -397,7 +401,14 @@ public class NodeEventMapper {
             throw new IllegalArgumentException("State Diff target count exceeds 500");
           }
           payload.getRemovedTargetRefsList().forEach(value -> requireText(value, "target_ref"));
-          validateDiffSnapshotMetadata(payload.getSnapshotKind(), payload.getRequestedRootRef());
+          var resyncRequestId =
+              regionResyncRequestId(
+                  payload.getSnapshotKind(), payload.getResyncRequestId(), envelope.getEventId());
+          validateDiffSnapshotMetadata(
+              payload.getSnapshotKind(), payload.getRequestedRootRef(), resyncRequestId);
+          var collectionCpuMillis =
+              payload.hasCollectionCpuMillis() ? payload.getCollectionCpuMillis() : null;
+          validateCollectionCpuMillis(collectionCpuMillis);
           var upsertedTargets =
               payload.getUpsertedTargetsList().stream().map(this::target).toList();
           validateReadinessEvidence(
@@ -417,7 +428,10 @@ public class NodeEventMapper {
               upsertedTargets,
               payload.getRemovedTargetRefsList(),
               payload.getSnapshotKind(),
-              payload.getRequestedRootRef());
+              payload.getRequestedRootRef(),
+              resyncRequestId,
+              envelope.getPayload().size(),
+              collectionCpuMillis);
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -680,9 +694,10 @@ public class NodeEventMapper {
     }
   }
 
-  private void validateDiffSnapshotMetadata(String snapshotKind, String requestedRootRef) {
+  private void validateDiffSnapshotMetadata(
+      String snapshotKind, String requestedRootRef, String resyncRequestId) {
     if (snapshotKind.isBlank()) {
-      if (!requestedRootRef.isBlank()) {
+      if (!requestedRootRef.isBlank() || !resyncRequestId.isBlank()) {
         throw new IllegalArgumentException("legacy State Diff cannot carry requested_root_ref");
       }
       return;
@@ -692,8 +707,29 @@ public class NodeEventMapper {
     }
     if (requestedRootRef.isBlank()
         || requestedRootRef.length() > 512
-        || requestedRootRef.chars().anyMatch(Character::isISOControl)) {
+        || requestedRootRef.chars().anyMatch(Character::isISOControl)
+        || !resyncRequestId.matches("^cmd_[a-zA-Z0-9]{16,}$")) {
       throw new IllegalArgumentException("REGION_RESYNC requested_root_ref is invalid");
+    }
+  }
+
+  private String regionResyncRequestId(
+      String snapshotKind, String resyncRequestId, String eventId) {
+    if (!snapshotKind.equals("REGION_RESYNC") || !resyncRequestId.isBlank()) {
+      return resyncRequestId;
+    }
+    if (eventId.startsWith("evt_")) {
+      var legacyCommandId = eventId.substring("evt_".length());
+      if (legacyCommandId.matches("^cmd_[a-zA-Z0-9]{16,}$")) {
+        return legacyCommandId;
+      }
+    }
+    return "";
+  }
+
+  private void validateCollectionCpuMillis(Long collectionCpuMillis) {
+    if (collectionCpuMillis != null && (collectionCpuMillis < 0 || collectionCpuMillis > 300_000)) {
+      throw new IllegalArgumentException("collection_cpu_millis is outside the bounded range");
     }
   }
 

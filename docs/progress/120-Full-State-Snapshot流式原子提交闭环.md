@@ -72,8 +72,9 @@ make test-integration
 
 ## 仍未完成
 
-- Resync Admission 已有请求 Token、实际字节与 Node 事件队列硬边界；尚缺把实际字节、
-  采集 CPU、Region 权重和目标节点容量统一计费的多维全局预算。
+- Resync Admission 的实际字节、采集 CPU、Region 和目标节点容量统一预算已由
+  [进度 122](122-State-Resync多维预算与实际结算闭环.md)关闭；仍缺目标 Linux 多 Node
+  压力长稳和跨 Region 全局预算一致性证书。
 - 当前 protobuf 已有 512 KiB 上限，因此未启用压缩；如后续引入压缩，必须同时加入
   解压后大小、压缩比炸弹和 CPU 预算，不能只降低网络字节。
 - 目标 Linux 多 Node 长稳、网络分区、大 DOM 容量证书和跨 Region Event Bus 仍属于

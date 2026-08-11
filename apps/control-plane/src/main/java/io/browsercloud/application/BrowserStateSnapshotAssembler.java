@@ -27,10 +27,15 @@ public class BrowserStateSnapshotAssembler {
 
   private final JdbcTemplate jdbc;
   private final NodeEventMapper mapper;
+  private final StateResyncAdmissionService stateResyncAdmissionService;
 
-  public BrowserStateSnapshotAssembler(JdbcTemplate jdbc, NodeEventMapper mapper) {
+  public BrowserStateSnapshotAssembler(
+      JdbcTemplate jdbc,
+      NodeEventMapper mapper,
+      StateResyncAdmissionService stateResyncAdmissionService) {
     this.jdbc = jdbc;
     this.mapper = mapper;
+    this.stateResyncAdmissionService = stateResyncAdmissionService;
   }
 
   public Optional<NodeEvent.StateUpdated> accept(NodeEventReceived command) {
@@ -50,7 +55,9 @@ public class BrowserStateSnapshotAssembler {
       if (!manifestMatches(
           existing.orElseThrow(), begin.totalChunks(), begin.totalBytes(), begin.payloadSha256())) {
         reject(begin.snapshotId());
+        return Optional.empty();
       }
+      settleFullReservation(command, begin);
       return Optional.empty();
     }
 
@@ -74,8 +81,9 @@ public class BrowserStateSnapshotAssembler {
         """
         INSERT INTO browser_state_snapshot_streams (
             snapshot_id, tenant_id, session_id, coordinator_term, context_epoch, operation_epoch,
-            state_version, target_revision, total_chunks, total_bytes, payload_sha256, snapshot_kind)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            state_version, target_revision, total_chunks, total_bytes, payload_sha256, snapshot_kind,
+            collection_cpu_millis)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         begin.snapshotId(),
         command.tenantId(),
@@ -88,8 +96,21 @@ public class BrowserStateSnapshotAssembler {
         begin.totalChunks(),
         begin.totalBytes(),
         begin.payloadSha256(),
-        begin.snapshotKind());
+        begin.snapshotKind(),
+        begin.collectionCpuMillis());
+    settleFullReservation(command, begin);
     return Optional.empty();
+  }
+
+  private void settleFullReservation(
+      NodeEventReceived command, NodeEvent.StateSnapshotBegin begin) {
+    stateResyncAdmissionService.settleActual(
+        command.tenantId(),
+        command.sessionId(),
+        begin.snapshotId(),
+        io.browsercloud.api.StateResyncRequest.Mode.FULL,
+        begin.totalBytes(),
+        begin.collectionCpuMillis());
   }
 
   private Optional<NodeEvent.StateUpdated> acceptChunk(

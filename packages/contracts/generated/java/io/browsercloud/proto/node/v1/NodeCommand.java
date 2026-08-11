@@ -206,6 +206,21 @@ public final class NodeCommand {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_BrowserStateEvent_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotChunkEvent_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_BrowserStateSnapshotChunkEvent_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotCommitEvent_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_BrowserStateSnapshotCommitEvent_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_RequestStateResyncCommand_descriptor;
   static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -235,6 +250,16 @@ public final class NodeCommand {
   static final
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_browsercloud_node_v1_AgentActionFailedEvent_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_HumanAssistClickCommand_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_HumanAssistClickCommand_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_browsercloud_node_v1_HumanAssistFailedEvent_descriptor;
+  static final
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_browsercloud_node_v1_HumanAssistFailedEvent_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_descriptor;
   static final
@@ -674,112 +699,154 @@ public final class NodeCommand {
       "Ref\0220\n\024document_ready_state\030\013 \001(\tR\022docum" +
       "entReadyState\0220\n\024network_quiet_millis\030\014 " +
       "\001(\004R\022networkQuietMillis\0224\n\026network_evide",
-      "nce_fresh\030\r \001(\010R\024networkEvidenceFresh\"\201\001" +
-      "\n\031RequestStateResyncCommand\022\035\n\nsession_i" +
-      "d\030\001 \001(\tR\tsessionId\022\022\n\004mode\030\002 \001(\tR\004mode\022\031" +
-      "\n\010root_ref\030\003 \001(\tR\007rootRef\022\026\n\006reason\030\004 \001(" +
-      "\tR\006reason\"\247\001\n\024AgentNavigateCommand\022\035\n\nse" +
-      "ssion_id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001" +
-      "(\tR\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\020\n\003u" +
-      "rl\030\004 \001(\tR\003url\022,\n\022base_state_version\030\005 \001(" +
-      "\004R\020baseStateVersion\"\343\001\n\035BusinessRecovery" +
-      "ActionCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessi" +
-      "onId\022\033\n\taction_id\030\002 \001(\tR\010actionId\022\026\n\006act" +
-      "ion\030\003 \001(\tR\006action\022\035\n\ntarget_url\030\004 \001(\tR\tt" +
-      "argetUrl\022,\n\022base_state_version\030\005 \001(\004R\020ba" +
-      "seStateVersion\022!\n\014extension_id\030\006 \001(\tR\013ex" +
-      "tensionId\"\214\001\n\032AgentNavigationFailedEvent" +
-      "\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\027\n\007task_" +
-      "id\030\002 \001(\tR\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepI" +
-      "d\022\035\n\nerror_code\030\004 \001(\tR\terrorCode\"\301\003\n\022Age" +
-      "ntActionCommand\022\035\n\nsession_id\030\001 \001(\tR\tses" +
-      "sionId\022\027\n\007task_id\030\002 \001(\tR\006taskId\022\027\n\007step_" +
-      "id\030\003 \001(\tR\006stepId\022\027\n\007tool_id\030\004 \001(\tR\006toolI" +
-      "d\022\035\n\ntarget_ref\030\005 \001(\tR\ttargetRef\022\'\n\017targ" +
-      "et_revision\030\006 \001(\004R\016targetRevision\022\037\n\013sea" +
-      "led_text\030\007 \001(\tR\nsealedText\022\022\n\004text\030\010 \001(\t" +
-      "R\004text\022$\n\016scroll_delta_y\030\t \001(\005R\014scrollDe" +
-      "ltaY\022%\n\016wait_condition\030\n \001(\tR\rwaitCondit" +
-      "ion\022\035\n\ntimeout_ms\030\013 \001(\rR\ttimeoutMs\022,\n\022ba" +
-      "se_state_version\030\014 \001(\004R\020baseStateVersion" +
-      "\022*\n\021base_content_hash\030\r \001(\tR\017baseContent" +
-      "Hash\"\241\001\n\026AgentActionFailedEvent\022\035\n\nsessi" +
-      "on_id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001(\tR" +
-      "\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\027\n\007tool" +
-      "_id\030\004 \001(\tR\006toolId\022\035\n\nerror_code\030\005 \001(\tR\te" +
-      "rrorCode\"`\n CaptureObserverScreenshotCom" +
-      "mand\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\035\n\nc" +
-      "apture_id\030\002 \001(\tR\tcaptureId\"\227\004\n\034SessionEv" +
-      "idenceCapturedEvent\022\035\n\nsession_id\030\001 \001(\tR" +
-      "\tsessionId\022\037\n\013evidence_id\030\002 \001(\tR\nevidenc" +
-      "eId\022#\n\revidence_kind\030\003 \001(\tR\014evidenceKind" +
-      "\022\027\n\007task_id\030\004 \001(\tR\006taskId\022\027\n\007step_id\030\005 \001" +
-      "(\tR\006stepId\022\035\n\ncommand_id\030\006 \001(\tR\tcommandI" +
-      "d\022%\n\016content_sha256\030\007 \001(\tR\rcontentSha256" +
-      "\022#\n\rcontent_bytes\030\010 \001(\004R\014contentBytes\022\035\n" +
-      "\nobject_key\030\t \001(\tR\tobjectKey\022$\n\016captured" +
-      "_at_ms\030\n \001(\003R\014capturedAtMs\022\034\n\tmandatory\030" +
-      "\013 \001(\010R\tmandatory\022\026\n\006result\030\014 \001(\tR\006result" +
-      "\022\035\n\nerror_code\030\r \001(\tR\terrorCode\022\'\n\017redac" +
-      "tion_state\030\016 \001(\tR\016redactionState\0222\n\025reda" +
-      "cted_region_count\030\017 \001(\rR\023redactedRegionC" +
-      "ount\"\230\005\n\025BrowserStateDiffEvent\022\035\n\nsessio" +
-      "n_id\030\001 \001(\tR\tsessionId\022,\n\022base_state_vers" +
-      "ion\030\002 \001(\004R\020baseStateVersion\022#\n\rstate_ver" +
-      "sion\030\003 \001(\004R\014stateVersion\022\'\n\017target_revis" +
-      "ion\030\004 \001(\004R\016targetRevision\022\020\n\003url\030\005 \001(\tR\003" +
-      "url\022\024\n\005title\030\006 \001(\tR\005title\022#\n\rstate_quali" +
-      "ty\030\007 \001(\tR\014stateQuality\022!\n\014content_hash\030\010" +
-      " \001(\tR\013contentHash\022W\n\020upserted_targets\030\t " +
-      "\003(\0132,.browsercloud.node.v1.InteractiveTa" +
-      "rgetStateR\017upsertedTargets\022.\n\023removed_ta" +
-      "rget_refs\030\n \003(\tR\021removedTargetRefs\0220\n\024do" +
-      "cument_ready_state\030\013 \001(\tR\022documentReadyS" +
-      "tate\0220\n\024network_quiet_millis\030\014 \001(\004R\022netw" +
-      "orkQuietMillis\0224\n\026network_evidence_fresh" +
-      "\030\r \001(\010R\024networkEvidenceFresh\022#\n\rsnapshot" +
-      "_kind\030\016 \001(\tR\014snapshotKind\022,\n\022requested_r" +
-      "oot_ref\030\017 \001(\tR\020requestedRootRef\"\210\002\n\022Diff" +
-      "TruncatedEvent\022\035\n\nsession_id\030\001 \001(\tR\tsess" +
-      "ionId\022\026\n\006reason\030\002 \001(\tR\006reason\0225\n\027last_go" +
-      "od_state_version\030\003 \001(\004R\024lastGoodStateVer" +
-      "sion\0222\n\025current_state_version\030\004 \001(\004R\023cur" +
-      "rentStateVersion\022#\n\raffected_root\030\005 \001(\tR" +
-      "\014affectedRoot\022+\n\021estimated_targets\030\006 \001(\004" +
-      "R\020estimatedTargets\"\213\002\n\026InteractiveTarget" +
-      "State\022\035\n\ntarget_ref\030\001 \001(\tR\ttargetRef\022\022\n\004" +
-      "role\030\002 \001(\tR\004role\022\027\n\004name\030\003 \001(\tH\000R\004name\210\001" +
-      "\001\022?\n\006bounds\030\004 \001(\0132\".browsercloud.node.v1" +
-      ".TargetBoundsH\001R\006bounds\210\001\001\022\030\n\007enabled\030\005 " +
-      "\001(\010R\007enabled\022\030\n\007visible\030\006 \001(\010R\007visible\022\034" +
-      "\n\tsensitive\030\007 \001(\010R\tsensitiveB\007\n\005_nameB\t\n" +
-      "\007_bounds\"X\n\014TargetBounds\022\014\n\001x\030\001 \001(\001R\001x\022\014" +
-      "\n\001y\030\002 \001(\001R\001y\022\024\n\005width\030\003 \001(\001R\005width\022\026\n\006he" +
-      "ight\030\004 \001(\001R\006height2\273\004\n\022NodeControlServic" +
-      "e\022M\n\004Ping\022!.browsercloud.node.v1.PingReq" +
-      "uest\032\".browsercloud.node.v1.PingResponse" +
-      "\022Y\n\010Dispatch\022%.browsercloud.node.v1.Disp" +
-      "atchRequest\032&.browsercloud.node.v1.Dispa" +
-      "tchResponse\022t\n\021ProbeProxyBinding\022..brows" +
-      "ercloud.node.v1.ProbeProxyBindingRequest" +
-      "\032/.browsercloud.node.v1.ProbeProxyBindin" +
-      "gResponse\022|\n\023UploadProfileImport\0220.brows" +
-      "ercloud.node.v1.UploadProfileImportReque" +
-      "st\0321.browsercloud.node.v1.UploadProfileI" +
-      "mportResponse(\001\022\206\001\n\027PresignEvidenceDownl" +
-      "oad\0224.browsercloud.node.v1.PresignEviden" +
-      "ceDownloadRequest\0325.browsercloud.node.v1" +
-      ".PresignEvidenceDownloadResponse2\335\002\n\020Nod" +
-      "eEventService\022V\n\007Publish\022$.browsercloud." +
-      "node.v1.PublishRequest\032%.browsercloud.no" +
-      "de.v1.PublishResponse\022k\n\016ReportCapacity\022" +
-      "+.browsercloud.node.v1.ReportCapacityReq" +
-      "uest\032,.browsercloud.node.v1.ReportCapaci" +
-      "tyResponse\022\203\001\n\026ReportSessionResources\0223." +
-      "browsercloud.node.v1.ReportSessionResour" +
-      "cesRequest\0324.browsercloud.node.v1.Report" +
-      "SessionResourcesResponseB!\n\035io.browsercl" +
-      "oud.proto.node.v1P\001b\006proto3"
+      "nce_fresh\030\r \001(\010R\024networkEvidenceFresh\"\221\003" +
+      "\n\036BrowserStateSnapshotBeginEvent\022\035\n\nsess" +
+      "ion_id\030\001 \001(\tR\tsessionId\022\037\n\013snapshot_id\030\002" +
+      " \001(\tR\nsnapshotId\022#\n\rstate_version\030\003 \001(\004R" +
+      "\014stateVersion\022\'\n\017target_revision\030\004 \001(\004R\016" +
+      "targetRevision\022!\n\014total_chunks\030\005 \001(\rR\013to" +
+      "talChunks\022\037\n\013total_bytes\030\006 \001(\004R\ntotalByt" +
+      "es\022%\n\016payload_sha256\030\007 \001(\tR\rpayloadSha25" +
+      "6\022#\n\rsnapshot_kind\030\010 \001(\tR\014snapshotKind\0227" +
+      "\n\025collection_cpu_millis\030\t \001(\004H\000R\023collect" +
+      "ionCpuMillis\210\001\001B\030\n\026_collection_cpu_milli" +
+      "s\"\333\001\n\036BrowserStateSnapshotChunkEvent\022\035\n\n" +
+      "session_id\030\001 \001(\tR\tsessionId\022\037\n\013snapshot_" +
+      "id\030\002 \001(\tR\nsnapshotId\022\037\n\013chunk_index\030\003 \001(" +
+      "\rR\nchunkIndex\022!\n\014total_chunks\030\004 \001(\rR\013tot" +
+      "alChunks\022\022\n\004data\030\005 \001(\014R\004data\022!\n\014chunk_sh" +
+      "a256\030\006 \001(\tR\013chunkSha256\"\314\001\n\037BrowserState" +
+      "SnapshotCommitEvent\022\035\n\nsession_id\030\001 \001(\tR" +
+      "\tsessionId\022\037\n\013snapshot_id\030\002 \001(\tR\nsnapsho" +
+      "tId\022!\n\014total_chunks\030\003 \001(\rR\013totalChunks\022\037" +
+      "\n\013total_bytes\030\004 \001(\004R\ntotalBytes\022%\n\016paylo" +
+      "ad_sha256\030\005 \001(\tR\rpayloadSha256\"\201\001\n\031Reque" +
+      "stStateResyncCommand\022\035\n\nsession_id\030\001 \001(\t" +
+      "R\tsessionId\022\022\n\004mode\030\002 \001(\tR\004mode\022\031\n\010root_" +
+      "ref\030\003 \001(\tR\007rootRef\022\026\n\006reason\030\004 \001(\tR\006reas" +
+      "on\"\247\001\n\024AgentNavigateCommand\022\035\n\nsession_i" +
+      "d\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001(\tR\006tas" +
+      "kId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\020\n\003url\030\004 \001(" +
+      "\tR\003url\022,\n\022base_state_version\030\005 \001(\004R\020base" +
+      "StateVersion\"\343\001\n\035BusinessRecoveryActionC" +
+      "ommand\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\033\n" +
+      "\taction_id\030\002 \001(\tR\010actionId\022\026\n\006action\030\003 \001" +
+      "(\tR\006action\022\035\n\ntarget_url\030\004 \001(\tR\ttargetUr" +
+      "l\022,\n\022base_state_version\030\005 \001(\004R\020baseState" +
+      "Version\022!\n\014extension_id\030\006 \001(\tR\013extension" +
+      "Id\"\214\001\n\032AgentNavigationFailedEvent\022\035\n\nses" +
+      "sion_id\030\001 \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001(" +
+      "\tR\006taskId\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\035\n\ner" +
+      "ror_code\030\004 \001(\tR\terrorCode\"\301\003\n\022AgentActio" +
+      "nCommand\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022" +
+      "\027\n\007task_id\030\002 \001(\tR\006taskId\022\027\n\007step_id\030\003 \001(" +
+      "\tR\006stepId\022\027\n\007tool_id\030\004 \001(\tR\006toolId\022\035\n\nta" +
+      "rget_ref\030\005 \001(\tR\ttargetRef\022\'\n\017target_revi" +
+      "sion\030\006 \001(\004R\016targetRevision\022\037\n\013sealed_tex" +
+      "t\030\007 \001(\tR\nsealedText\022\022\n\004text\030\010 \001(\tR\004text\022" +
+      "$\n\016scroll_delta_y\030\t \001(\005R\014scrollDeltaY\022%\n" +
+      "\016wait_condition\030\n \001(\tR\rwaitCondition\022\035\n\n" +
+      "timeout_ms\030\013 \001(\rR\ttimeoutMs\022,\n\022base_stat" +
+      "e_version\030\014 \001(\004R\020baseStateVersion\022*\n\021bas" +
+      "e_content_hash\030\r \001(\tR\017baseContentHash\"\241\001" +
+      "\n\026AgentActionFailedEvent\022\035\n\nsession_id\030\001" +
+      " \001(\tR\tsessionId\022\027\n\007task_id\030\002 \001(\tR\006taskId" +
+      "\022\027\n\007step_id\030\003 \001(\tR\006stepId\022\027\n\007tool_id\030\004 \001" +
+      "(\tR\006toolId\022\035\n\nerror_code\030\005 \001(\tR\terrorCod" +
+      "e\"\223\004\n\027HumanAssistClickCommand\022\035\n\nsession" +
+      "_id\030\001 \001(\tR\tsessionId\022,\n\022challenge_event_" +
+      "id\030\002 \001(\tR\020challengeEventId\022\033\n\tintent_id\030" +
+      "\003 \001(\tR\010intentId\022\035\n\ntarget_ref\030\004 \001(\tR\ttar" +
+      "getRef\022\'\n\017target_revision\030\005 \001(\004R\016targetR" +
+      "evision\022,\n\022base_state_version\030\006 \001(\004R\020bas" +
+      "eStateVersion\022*\n\021base_content_hash\030\007 \001(\t" +
+      "R\017baseContentHash\0220\n\024allowed_action_coun" +
+      "t\030\010 \001(\rR\022allowedActionCount\022\035\n\nexpected_" +
+      "x\030\t \001(\001R\texpectedX\022\035\n\nexpected_y\030\n \001(\001R\t" +
+      "expectedY\022%\n\016expected_width\030\013 \001(\001R\rexpec" +
+      "tedWidth\022\'\n\017expected_height\030\014 \001(\001R\016expec" +
+      "tedHeight\022,\n\022visual_anchor_hash\030\r \001(\tR\020v" +
+      "isualAnchorHash\"\241\001\n\026HumanAssistFailedEve" +
+      "nt\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022,\n\022cha" +
+      "llenge_event_id\030\002 \001(\tR\020challengeEventId\022" +
+      "\033\n\tintent_id\030\003 \001(\tR\010intentId\022\035\n\nerror_co" +
+      "de\030\004 \001(\tR\terrorCode\"`\n CaptureObserverSc" +
+      "reenshotCommand\022\035\n\nsession_id\030\001 \001(\tR\tses" +
+      "sionId\022\035\n\ncapture_id\030\002 \001(\tR\tcaptureId\"\227\004" +
+      "\n\034SessionEvidenceCapturedEvent\022\035\n\nsessio" +
+      "n_id\030\001 \001(\tR\tsessionId\022\037\n\013evidence_id\030\002 \001" +
+      "(\tR\nevidenceId\022#\n\revidence_kind\030\003 \001(\tR\014e" +
+      "videnceKind\022\027\n\007task_id\030\004 \001(\tR\006taskId\022\027\n\007" +
+      "step_id\030\005 \001(\tR\006stepId\022\035\n\ncommand_id\030\006 \001(" +
+      "\tR\tcommandId\022%\n\016content_sha256\030\007 \001(\tR\rco" +
+      "ntentSha256\022#\n\rcontent_bytes\030\010 \001(\004R\014cont" +
+      "entBytes\022\035\n\nobject_key\030\t \001(\tR\tobjectKey\022" +
+      "$\n\016captured_at_ms\030\n \001(\003R\014capturedAtMs\022\034\n" +
+      "\tmandatory\030\013 \001(\010R\tmandatory\022\026\n\006result\030\014 " +
+      "\001(\tR\006result\022\035\n\nerror_code\030\r \001(\tR\terrorCo" +
+      "de\022\'\n\017redaction_state\030\016 \001(\tR\016redactionSt" +
+      "ate\0222\n\025redacted_region_count\030\017 \001(\rR\023reda" +
+      "ctedRegionCount\"\227\006\n\025BrowserStateDiffEven" +
+      "t\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022,\n\022base" +
+      "_state_version\030\002 \001(\004R\020baseStateVersion\022#" +
+      "\n\rstate_version\030\003 \001(\004R\014stateVersion\022\'\n\017t" +
+      "arget_revision\030\004 \001(\004R\016targetRevision\022\020\n\003" +
+      "url\030\005 \001(\tR\003url\022\024\n\005title\030\006 \001(\tR\005title\022#\n\r" +
+      "state_quality\030\007 \001(\tR\014stateQuality\022!\n\014con" +
+      "tent_hash\030\010 \001(\tR\013contentHash\022W\n\020upserted" +
+      "_targets\030\t \003(\0132,.browsercloud.node.v1.In" +
+      "teractiveTargetStateR\017upsertedTargets\022.\n" +
+      "\023removed_target_refs\030\n \003(\tR\021removedTarge" +
+      "tRefs\0220\n\024document_ready_state\030\013 \001(\tR\022doc" +
+      "umentReadyState\0220\n\024network_quiet_millis\030" +
+      "\014 \001(\004R\022networkQuietMillis\0224\n\026network_evi" +
+      "dence_fresh\030\r \001(\010R\024networkEvidenceFresh\022" +
+      "#\n\rsnapshot_kind\030\016 \001(\tR\014snapshotKind\022,\n\022" +
+      "requested_root_ref\030\017 \001(\tR\020requestedRootR" +
+      "ef\022*\n\021resync_request_id\030\020 \001(\tR\017resyncReq" +
+      "uestId\0227\n\025collection_cpu_millis\030\021 \001(\004H\000R" +
+      "\023collectionCpuMillis\210\001\001B\030\n\026_collection_c" +
+      "pu_millis\"\210\002\n\022DiffTruncatedEvent\022\035\n\nsess" +
+      "ion_id\030\001 \001(\tR\tsessionId\022\026\n\006reason\030\002 \001(\tR" +
+      "\006reason\0225\n\027last_good_state_version\030\003 \001(\004" +
+      "R\024lastGoodStateVersion\0222\n\025current_state_" +
+      "version\030\004 \001(\004R\023currentStateVersion\022#\n\raf" +
+      "fected_root\030\005 \001(\tR\014affectedRoot\022+\n\021estim" +
+      "ated_targets\030\006 \001(\004R\020estimatedTargets\"\213\002\n" +
+      "\026InteractiveTargetState\022\035\n\ntarget_ref\030\001 " +
+      "\001(\tR\ttargetRef\022\022\n\004role\030\002 \001(\tR\004role\022\027\n\004na" +
+      "me\030\003 \001(\tH\000R\004name\210\001\001\022?\n\006bounds\030\004 \001(\0132\".br" +
+      "owsercloud.node.v1.TargetBoundsH\001R\006bound" +
+      "s\210\001\001\022\030\n\007enabled\030\005 \001(\010R\007enabled\022\030\n\007visibl" +
+      "e\030\006 \001(\010R\007visible\022\034\n\tsensitive\030\007 \001(\010R\tsen" +
+      "sitiveB\007\n\005_nameB\t\n\007_bounds\"X\n\014TargetBoun" +
+      "ds\022\014\n\001x\030\001 \001(\001R\001x\022\014\n\001y\030\002 \001(\001R\001y\022\024\n\005width\030" +
+      "\003 \001(\001R\005width\022\026\n\006height\030\004 \001(\001R\006height2\273\004\n" +
+      "\022NodeControlService\022M\n\004Ping\022!.browserclo" +
+      "ud.node.v1.PingRequest\032\".browsercloud.no" +
+      "de.v1.PingResponse\022Y\n\010Dispatch\022%.browser" +
+      "cloud.node.v1.DispatchRequest\032&.browserc" +
+      "loud.node.v1.DispatchResponse\022t\n\021ProbePr" +
+      "oxyBinding\022..browsercloud.node.v1.ProbeP" +
+      "roxyBindingRequest\032/.browsercloud.node.v" +
+      "1.ProbeProxyBindingResponse\022|\n\023UploadPro" +
+      "fileImport\0220.browsercloud.node.v1.Upload" +
+      "ProfileImportRequest\0321.browsercloud.node" +
+      ".v1.UploadProfileImportResponse(\001\022\206\001\n\027Pr" +
+      "esignEvidenceDownload\0224.browsercloud.nod" +
+      "e.v1.PresignEvidenceDownloadRequest\0325.br" +
+      "owsercloud.node.v1.PresignEvidenceDownlo" +
+      "adResponse2\335\002\n\020NodeEventService\022V\n\007Publi" +
+      "sh\022$.browsercloud.node.v1.PublishRequest" +
+      "\032%.browsercloud.node.v1.PublishResponse\022" +
+      "k\n\016ReportCapacity\022+.browsercloud.node.v1" +
+      ".ReportCapacityRequest\032,.browsercloud.no" +
+      "de.v1.ReportCapacityResponse\022\203\001\n\026ReportS" +
+      "essionResources\0223.browsercloud.node.v1.R" +
+      "eportSessionResourcesRequest\0324.browsercl" +
+      "oud.node.v1.ReportSessionResourcesRespon" +
+      "seB!\n\035io.browsercloud.proto.node.v1P\001b\006p" +
+      "roto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1013,74 +1080,104 @@ public final class NodeCommand {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BrowserStateEvent_descriptor,
         new java.lang.String[] { "SessionId", "StateVersion", "TargetRevision", "Url", "Title", "StateQuality", "ContentHash", "Targets", "SnapshotKind", "RequestedRootRef", "DocumentReadyState", "NetworkQuietMillis", "NetworkEvidenceFresh", });
-    internal_static_browsercloud_node_v1_RequestStateResyncCommand_descriptor =
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor =
       getDescriptor().getMessageTypes().get(37);
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_BrowserStateSnapshotBeginEvent_descriptor,
+        new java.lang.String[] { "SessionId", "SnapshotId", "StateVersion", "TargetRevision", "TotalChunks", "TotalBytes", "PayloadSha256", "SnapshotKind", "CollectionCpuMillis", });
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotChunkEvent_descriptor =
+      getDescriptor().getMessageTypes().get(38);
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotChunkEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_BrowserStateSnapshotChunkEvent_descriptor,
+        new java.lang.String[] { "SessionId", "SnapshotId", "ChunkIndex", "TotalChunks", "Data", "ChunkSha256", });
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotCommitEvent_descriptor =
+      getDescriptor().getMessageTypes().get(39);
+    internal_static_browsercloud_node_v1_BrowserStateSnapshotCommitEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_BrowserStateSnapshotCommitEvent_descriptor,
+        new java.lang.String[] { "SessionId", "SnapshotId", "TotalChunks", "TotalBytes", "PayloadSha256", });
+    internal_static_browsercloud_node_v1_RequestStateResyncCommand_descriptor =
+      getDescriptor().getMessageTypes().get(40);
     internal_static_browsercloud_node_v1_RequestStateResyncCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_RequestStateResyncCommand_descriptor,
         new java.lang.String[] { "SessionId", "Mode", "RootRef", "Reason", });
     internal_static_browsercloud_node_v1_AgentNavigateCommand_descriptor =
-      getDescriptor().getMessageTypes().get(38);
+      getDescriptor().getMessageTypes().get(41);
     internal_static_browsercloud_node_v1_AgentNavigateCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentNavigateCommand_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "Url", "BaseStateVersion", });
     internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor =
-      getDescriptor().getMessageTypes().get(39);
+      getDescriptor().getMessageTypes().get(42);
     internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BusinessRecoveryActionCommand_descriptor,
         new java.lang.String[] { "SessionId", "ActionId", "Action", "TargetUrl", "BaseStateVersion", "ExtensionId", });
     internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(40);
+      getDescriptor().getMessageTypes().get(43);
     internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentNavigationFailedEvent_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "ErrorCode", });
     internal_static_browsercloud_node_v1_AgentActionCommand_descriptor =
-      getDescriptor().getMessageTypes().get(41);
+      getDescriptor().getMessageTypes().get(44);
     internal_static_browsercloud_node_v1_AgentActionCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentActionCommand_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "ToolId", "TargetRef", "TargetRevision", "SealedText", "Text", "ScrollDeltaY", "WaitCondition", "TimeoutMs", "BaseStateVersion", "BaseContentHash", });
     internal_static_browsercloud_node_v1_AgentActionFailedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(42);
+      getDescriptor().getMessageTypes().get(45);
     internal_static_browsercloud_node_v1_AgentActionFailedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_AgentActionFailedEvent_descriptor,
         new java.lang.String[] { "SessionId", "TaskId", "StepId", "ToolId", "ErrorCode", });
+    internal_static_browsercloud_node_v1_HumanAssistClickCommand_descriptor =
+      getDescriptor().getMessageTypes().get(46);
+    internal_static_browsercloud_node_v1_HumanAssistClickCommand_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_HumanAssistClickCommand_descriptor,
+        new java.lang.String[] { "SessionId", "ChallengeEventId", "IntentId", "TargetRef", "TargetRevision", "BaseStateVersion", "BaseContentHash", "AllowedActionCount", "ExpectedX", "ExpectedY", "ExpectedWidth", "ExpectedHeight", "VisualAnchorHash", });
+    internal_static_browsercloud_node_v1_HumanAssistFailedEvent_descriptor =
+      getDescriptor().getMessageTypes().get(47);
+    internal_static_browsercloud_node_v1_HumanAssistFailedEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_browsercloud_node_v1_HumanAssistFailedEvent_descriptor,
+        new java.lang.String[] { "SessionId", "ChallengeEventId", "IntentId", "ErrorCode", });
     internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_descriptor =
-      getDescriptor().getMessageTypes().get(43);
+      getDescriptor().getMessageTypes().get(48);
     internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_CaptureObserverScreenshotCommand_descriptor,
         new java.lang.String[] { "SessionId", "CaptureId", });
     internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(44);
+      getDescriptor().getMessageTypes().get(49);
     internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_SessionEvidenceCapturedEvent_descriptor,
         new java.lang.String[] { "SessionId", "EvidenceId", "EvidenceKind", "TaskId", "StepId", "CommandId", "ContentSha256", "ContentBytes", "ObjectKey", "CapturedAtMs", "Mandatory", "Result", "ErrorCode", "RedactionState", "RedactedRegionCount", });
     internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor =
-      getDescriptor().getMessageTypes().get(45);
+      getDescriptor().getMessageTypes().get(50);
     internal_static_browsercloud_node_v1_BrowserStateDiffEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_BrowserStateDiffEvent_descriptor,
-        new java.lang.String[] { "SessionId", "BaseStateVersion", "StateVersion", "TargetRevision", "Url", "Title", "StateQuality", "ContentHash", "UpsertedTargets", "RemovedTargetRefs", "DocumentReadyState", "NetworkQuietMillis", "NetworkEvidenceFresh", "SnapshotKind", "RequestedRootRef", });
+        new java.lang.String[] { "SessionId", "BaseStateVersion", "StateVersion", "TargetRevision", "Url", "Title", "StateQuality", "ContentHash", "UpsertedTargets", "RemovedTargetRefs", "DocumentReadyState", "NetworkQuietMillis", "NetworkEvidenceFresh", "SnapshotKind", "RequestedRootRef", "ResyncRequestId", "CollectionCpuMillis", });
     internal_static_browsercloud_node_v1_DiffTruncatedEvent_descriptor =
-      getDescriptor().getMessageTypes().get(46);
+      getDescriptor().getMessageTypes().get(51);
     internal_static_browsercloud_node_v1_DiffTruncatedEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_DiffTruncatedEvent_descriptor,
         new java.lang.String[] { "SessionId", "Reason", "LastGoodStateVersion", "CurrentStateVersion", "AffectedRoot", "EstimatedTargets", });
     internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor =
-      getDescriptor().getMessageTypes().get(47);
+      getDescriptor().getMessageTypes().get(52);
     internal_static_browsercloud_node_v1_InteractiveTargetState_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_InteractiveTargetState_descriptor,
         new java.lang.String[] { "TargetRef", "Role", "Name", "Bounds", "Enabled", "Visible", "Sensitive", });
     internal_static_browsercloud_node_v1_TargetBounds_descriptor =
-      getDescriptor().getMessageTypes().get(48);
+      getDescriptor().getMessageTypes().get(53);
     internal_static_browsercloud_node_v1_TargetBounds_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_browsercloud_node_v1_TargetBounds_descriptor,

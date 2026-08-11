@@ -616,10 +616,19 @@ public final class SessionCoordinator {
       case NodeEvent.StateUpdated updated -> {
         if (command.operationEpoch() != 0) {
           var operation = matchingActiveOperation(session.sessionId(), command);
-          if (operation.isEmpty()
-              || operation.orElseThrow().ownerType() != OwnerType.AGENT
-              || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE) {
-            yield CoordinatorResult.rejected("STALE_AGENT_OPERATION");
+          if (operation.isEmpty()) {
+            yield CoordinatorResult.rejected("STALE_OPERATION");
+          }
+          var active = operation.orElseThrow();
+          var agentState =
+              active.ownerType() == OwnerType.AGENT
+                  && active.mode() == OperationMode.AGENT_INTERACTIVE;
+          var humanAssistState =
+              active.ownerType() == OwnerType.HUMAN
+                  && active.mode() == OperationMode.HUMAN_ASSIST
+                  && "HUMAN_ASSIST".equals(updated.snapshotKind());
+          if (!agentState && !humanAssistState) {
+            yield CoordinatorResult.rejected("STALE_OPERATION");
           }
         }
         // 状态更新不修改 Session Context；Agent 状态回调已绑定当前 Operation。
@@ -647,6 +656,15 @@ public final class SessionCoordinator {
             || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE
             || !operation.orElseThrow().actorId().equals(failed.taskId())) {
           yield CoordinatorResult.rejected("STALE_AGENT_OPERATION");
+        }
+        yield CoordinatorResult.completed();
+      }
+      case NodeEvent.HumanAssistFailed failed -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().ownerType() != OwnerType.HUMAN
+            || operation.orElseThrow().mode() != OperationMode.HUMAN_ASSIST) {
+          yield CoordinatorResult.rejected("STALE_HUMAN_ASSIST");
         }
         yield CoordinatorResult.completed();
       }
@@ -716,6 +734,7 @@ public final class SessionCoordinator {
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
+      case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();

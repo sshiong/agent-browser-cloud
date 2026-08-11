@@ -106,6 +106,10 @@ OPERATIONS: dict[str, Operation] = {
     'updateProxyBinding': Operation('updateProxyBinding', 'PUT', '/api/v1/proxy-bindings/{bindingProfileId}', ('bindingProfileId',), (), ('Idempotency-Key',), 'ProxyBindingRequest', True, 'ProxyBinding'),
     'deleteProxyBinding': Operation('deleteProxyBinding', 'DELETE', '/api/v1/proxy-bindings/{bindingProfileId}', ('bindingProfileId',), (), ('Idempotency-Key',), '', False, ''),
     'createAgentTask': Operation('createAgentTask', 'POST', '/api/v1/sessions/{sessionId}/agent-tasks', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateAgentTaskRequest', True, 'AgentTask'),
+    'listSessionChallenges': Operation('listSessionChallenges', 'GET', '/api/v1/sessions/{sessionId}/challenges', ('sessionId',), ('limit',), ('X-Tenant-Id',), '', False, 'ChallengeEventListResponse'),
+    'getChallengeEvent': Operation('getChallengeEvent', 'GET', '/api/v1/challenges/{eventId}', ('eventId',), (), ('X-Tenant-Id',), '', False, 'ChallengeEvent'),
+    'previewHumanAssist': Operation('previewHumanAssist', 'GET', '/api/v1/challenges/{eventId}/preview', ('eventId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'ChallengePreview'),
+    'authorizeHumanAssist': Operation('authorizeHumanAssist', 'POST', '/api/v1/challenges/{eventId}/assist-authorizations', ('eventId',), (), ('Idempotency-Key', 'X-Actor-Id', 'X-Tenant-Id'), 'AuthorizeHumanAssistRequest', True, 'HumanAssistIntent'),
     'listAgentTasks': Operation('listAgentTasks', 'GET', '/api/v1/agent-tasks', (), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'AgentTaskListResponse'),
     'listAgentTaskSummaries': Operation('listAgentTaskSummaries', 'GET', '/api/v1/agent-task-summaries', (), ('cursor', 'limit'), ('X-Tenant-Id',), '', False, 'AgentTaskSummaryListResponse'),
     'getAgentTask': Operation('getAgentTask', 'GET', '/api/v1/agent-tasks/{taskId}', ('taskId',), (), ('X-Tenant-Id',), '', False, 'AgentTask'),
@@ -495,6 +499,18 @@ class BrowserCloudGeneratedClient:
 
     def createAgentTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('createAgentTask', path=path, query=query, body=body, headers=headers)
+
+    def listSessionChallenges(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listSessionChallenges', path=path, query=query, body=body, headers=headers)
+
+    def getChallengeEvent(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getChallengeEvent', path=path, query=query, body=body, headers=headers)
+
+    def previewHumanAssist(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('previewHumanAssist', path=path, query=query, body=body, headers=headers)
+
+    def authorizeHumanAssist(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('authorizeHumanAssist', path=path, query=query, body=body, headers=headers)
 
     def listAgentTasks(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listAgentTasks', path=path, query=query, body=body, headers=headers)

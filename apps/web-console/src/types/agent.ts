@@ -108,6 +108,7 @@ export interface AgentTaskView {
     expiresAt?: string;
     actorId?: string;
   };
+  challengeEventId?: string;
   review?: {
     reviewId?: string;
     status:

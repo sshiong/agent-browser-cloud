@@ -120,6 +120,10 @@ var Operations = map[string]Operation{
 	"updateProxyBinding":                         {OperationID: "updateProxyBinding", Method: "PUT", Path: "/api/v1/proxy-bindings/{bindingProfileId}", PathParameters: []string{"bindingProfileId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "ProxyBindingRequest", RequestRequired: true, ResponseSchema: "ProxyBinding"},
 	"deleteProxyBinding":                         {OperationID: "deleteProxyBinding", Method: "DELETE", Path: "/api/v1/proxy-bindings/{bindingProfileId}", PathParameters: []string{"bindingProfileId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key"}, RequestSchema: "", RequestRequired: false, ResponseSchema: ""},
 	"createAgentTask":                            {OperationID: "createAgentTask", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-tasks", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateAgentTaskRequest", RequestRequired: true, ResponseSchema: "AgentTask"},
+	"listSessionChallenges":                      {OperationID: "listSessionChallenges", Method: "GET", Path: "/api/v1/sessions/{sessionId}/challenges", PathParameters: []string{"sessionId"}, QueryParameters: []string{"limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeEventListResponse"},
+	"getChallengeEvent":                          {OperationID: "getChallengeEvent", Method: "GET", Path: "/api/v1/challenges/{eventId}", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeEvent"},
+	"previewHumanAssist":                         {OperationID: "previewHumanAssist", Method: "GET", Path: "/api/v1/challenges/{eventId}/preview", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengePreview"},
+	"authorizeHumanAssist":                       {OperationID: "authorizeHumanAssist", Method: "POST", Path: "/api/v1/challenges/{eventId}/assist-authorizations", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "AuthorizeHumanAssistRequest", RequestRequired: true, ResponseSchema: "HumanAssistIntent"},
 	"listAgentTasks":                             {OperationID: "listAgentTasks", Method: "GET", Path: "/api/v1/agent-tasks", PathParameters: nil, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTaskListResponse"},
 	"listAgentTaskSummaries":                     {OperationID: "listAgentTaskSummaries", Method: "GET", Path: "/api/v1/agent-task-summaries", PathParameters: nil, QueryParameters: []string{"cursor", "limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTaskSummaryListResponse"},
 	"getAgentTask":                               {OperationID: "getAgentTask", Method: "GET", Path: "/api/v1/agent-tasks/{taskId}", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
@@ -554,6 +558,18 @@ func (c *Client) DeleteProxyBinding(ctx context.Context, request Request) (any, 
 }
 func (c *Client) CreateAgentTask(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "createAgentTask", request)
+}
+func (c *Client) ListSessionChallenges(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listSessionChallenges", request)
+}
+func (c *Client) GetChallengeEvent(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getChallengeEvent", request)
+}
+func (c *Client) PreviewHumanAssist(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "previewHumanAssist", request)
+}
+func (c *Client) AuthorizeHumanAssist(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "authorizeHumanAssist", request)
 }
 func (c *Client) ListAgentTasks(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listAgentTasks", request)

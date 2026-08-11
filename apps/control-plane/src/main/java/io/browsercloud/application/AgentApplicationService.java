@@ -707,6 +707,7 @@ public class AgentApplicationService {
             entity.getHandoffStatus(),
             entity.getHandoffExpiresAt(),
             entity.getHandoffActorId()),
+        entity.getChallengeEventId(),
         new io.browsercloud.api.AgentReviewerModels.AgentReviewView(
             entity.getReviewerReviewId(),
             entity.getReviewerStatus(),

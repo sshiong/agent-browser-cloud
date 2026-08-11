@@ -13,6 +13,7 @@ import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotCommitEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
+import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
@@ -40,6 +41,7 @@ public class NodeEventMapper {
   static final String DIFF_TRUNCATED = "DiffTruncated";
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String AGENT_ACTION_FAILED = "AgentActionFailed";
+  static final String HUMAN_ASSIST_FAILED = "HumanAssistFailed";
   static final String SESSION_EVIDENCE_CAPTURED = "SessionEvidenceCaptured";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
@@ -483,6 +485,22 @@ public class NodeEventMapper {
               payload.getToolId(),
               payload.getErrorCode());
         }
+        case HUMAN_ASSIST_FAILED -> {
+          var payload = HumanAssistFailedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getChallengeEventId(), "challenge_event_id");
+          requireText(payload.getIntentId(), "intent_id");
+          requireText(payload.getErrorCode(), "error_code");
+          if (!payload.getChallengeEventId().matches("^chl_[A-Za-z0-9]{20}$")
+              || !payload.getIntentId().matches("^hint_[A-Za-z0-9]{20}$")
+              || !payload.getErrorCode().matches("^[A-Z][A-Z0-9_]{2,127}$")) {
+            throw new IllegalArgumentException("Human Assist failure metadata is invalid");
+          }
+          yield new NodeEvent.HumanAssistFailed(
+              payload.getSessionId(),
+              payload.getChallengeEventId(),
+              payload.getIntentId(),
+              payload.getErrorCode());
+        }
         case SESSION_EVIDENCE_CAPTURED -> {
           var payload = SessionEvidenceCapturedEvent.parseFrom(envelope.getPayload());
           requireText(payload.getEvidenceId(), "evidence_id");
@@ -618,6 +636,7 @@ public class NodeEventMapper {
       case NodeEvent.DiffTruncated truncated -> truncated.sessionId();
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
+      case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();

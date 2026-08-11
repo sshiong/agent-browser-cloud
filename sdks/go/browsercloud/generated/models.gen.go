@@ -266,6 +266,75 @@ type AgentTaskSummary struct {
 	UpdatedAt           string `json:"updatedAt,omitempty"`
 }
 
+type ChallengeRegion struct {
+	X      float64 `json:"x,omitempty"`
+	Y      float64 `json:"y,omitempty"`
+	Width  float64 `json:"width,omitempty"`
+	Height float64 `json:"height,omitempty"`
+}
+
+type ChallengeEvent struct {
+	ChallengeEventId      string         `json:"challengeEventId,omitempty"`
+	SessionId             string         `json:"sessionId,omitempty"`
+	ContextEpoch          int64          `json:"contextEpoch,omitempty"`
+	StateVersion          int64          `json:"stateVersion,omitempty"`
+	TargetRevision        int64          `json:"targetRevision,omitempty"`
+	Confidence            float64        `json:"confidence,omitempty"`
+	Evidence              map[string]any `json:"evidence,omitempty"`
+	SuspectedType         string         `json:"suspectedType,omitempty"`
+	AccessOutcome         string         `json:"accessOutcome,omitempty"`
+	TargetRef             any            `json:"targetRef,omitempty"`
+	TargetSummary         string         `json:"targetSummary,omitempty"`
+	Status                string         `json:"status,omitempty"`
+	OneClickEligible      bool           `json:"oneClickEligible,omitempty"`
+	DetectedAt            string         `json:"detectedAt,omitempty"`
+	AuthorizationDeadline string         `json:"authorizationDeadline,omitempty"`
+	ExpiresAt             string         `json:"expiresAt,omitempty"`
+	UpdatedAt             string         `json:"updatedAt,omitempty"`
+}
+
+type ChallengeEventListResponse struct {
+	Items []ChallengeEvent `json:"items,omitempty"`
+}
+
+type ChallengePreview struct {
+	Challenge      ChallengeEvent `json:"challenge,omitempty"`
+	PreviewHash    string         `json:"previewHash,omitempty"`
+	Highlight      any            `json:"highlight,omitempty"`
+	Fresh          bool           `json:"fresh,omitempty"`
+	CanAuthorize   bool           `json:"canAuthorize,omitempty"`
+	BlockingReason any            `json:"blockingReason,omitempty"`
+	PreviewedAt    string         `json:"previewedAt,omitempty"`
+}
+
+type AuthorizeHumanAssistRequest struct {
+	PreviewHash            string `json:"previewHash,omitempty"`
+	ExpectedStateVersion   int64  `json:"expectedStateVersion,omitempty"`
+	ExpectedTargetRevision int64  `json:"expectedTargetRevision,omitempty"`
+}
+
+type HumanAssistIntent struct {
+	IntentId             string `json:"intentId,omitempty"`
+	ChallengeEventId     string `json:"challengeEventId,omitempty"`
+	SessionId            string `json:"sessionId,omitempty"`
+	UserId               string `json:"userId,omitempty"`
+	ContextEpoch         int64  `json:"contextEpoch,omitempty"`
+	StateVersion         int64  `json:"stateVersion,omitempty"`
+	TargetRevision       int64  `json:"targetRevision,omitempty"`
+	AllowedTargetRef     string `json:"allowedTargetRef,omitempty"`
+	AllowedActionCount   int    `json:"allowedActionCount,omitempty"`
+	ConsumedCount        int    `json:"consumedCount,omitempty"`
+	AuthorizationEventId string `json:"authorizationEventId,omitempty"`
+	OperationId          any    `json:"operationId,omitempty"`
+	RequestId            string `json:"requestId,omitempty"`
+	State                string `json:"state,omitempty"`
+	ExpiresAt            string `json:"expiresAt,omitempty"`
+	CreatedAt            string `json:"createdAt,omitempty"`
+	ConsumedAt           any    `json:"consumedAt,omitempty"`
+	CompletedAt          any    `json:"completedAt,omitempty"`
+	ErrorCode            any    `json:"errorCode,omitempty"`
+}
+
 type AgentTask struct {
 	TaskId           string                     `json:"taskId,omitempty"`
 	SessionId        string                     `json:"sessionId,omitempty"`
@@ -282,6 +351,7 @@ type AgentTask struct {
 	ExecutionWait    AgentExecutionWait         `json:"executionWait,omitempty"`
 	Confirmation     AgentConfirmation          `json:"confirmation,omitempty"`
 	HumanHandoff     AgentHumanHandoff          `json:"humanHandoff,omitempty"`
+	ChallengeEventId any                        `json:"challengeEventId,omitempty"`
 	Review           AgentReview                `json:"review,omitempty"`
 	AllowedDomains   []string                   `json:"allowedDomains,omitempty"`
 	Plan             AgentPlan                  `json:"plan,omitempty"`

@@ -67,7 +67,19 @@ public final class Models {
 
   public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, Object executionWaitReason, Object executionWaitSince, String createdAt, String updatedAt) {}
 
-  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
+  public record ChallengeRegion(Double x, Double y, Double width, Double height) {}
+
+  public record ChallengeEvent(String challengeEventId, String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, Double confidence, Map<String, Object> evidence, String suspectedType, String accessOutcome, Object targetRef, String targetSummary, String status, Boolean oneClickEligible, String detectedAt, String authorizationDeadline, String expiresAt, String updatedAt) {}
+
+  public record ChallengeEventListResponse(List<ChallengeEvent> items) {}
+
+  public record ChallengePreview(ChallengeEvent challenge, String previewHash, Object highlight, Boolean fresh, Boolean canAuthorize, Object blockingReason, String previewedAt) {}
+
+  public record AuthorizeHumanAssistRequest(String previewHash, Long expectedStateVersion, Long expectedTargetRevision) {}
+
+  public record HumanAssistIntent(String intentId, String challengeEventId, String sessionId, String userId, Long contextEpoch, Long stateVersion, Long targetRevision, String allowedTargetRef, Integer allowedActionCount, Integer consumedCount, String authorizationEventId, Object operationId, String requestId, String state, String expiresAt, String createdAt, Object consumedAt, Object completedAt, Object errorCode) {}
+
+  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, Object challengeEventId, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
 
   public record ClaimAgentExecutionJobRequest(String protocolVersion, Map<String, Boolean> capabilities) {}
 

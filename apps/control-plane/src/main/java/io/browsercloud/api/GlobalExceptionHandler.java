@@ -31,6 +31,8 @@ import io.browsercloud.application.EnvironmentImportApplicationService.Environme
 import io.browsercloud.application.EnvironmentImportApplicationService.EnvironmentImportRejectedException;
 import io.browsercloud.application.EnvironmentSavedViewApplicationService.EnvironmentSavedViewNotFoundException;
 import io.browsercloud.application.EnvironmentSavedViewApplicationService.EnvironmentSavedViewRejectedException;
+import io.browsercloud.application.HumanAssistApplicationService.ChallengeEventNotFoundException;
+import io.browsercloud.application.HumanAssistApplicationService.HumanAssistRejectedException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotFoundException;
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
@@ -114,6 +116,28 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(ChallengeEventNotFoundException.class)
+  ResponseEntity<ApiError> challengeNotFound(
+      ChallengeEventNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "CHALLENGE_EVENT_NOT_FOUND",
+        "Challenge Event was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(HumanAssistRejectedException.class)
+  ResponseEntity<ApiError> humanAssistRejected(
+      HumanAssistRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "HUMAN_ASSIST_REJECTED",
+        "Human Assist authorization or execution was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(EnvironmentImportNotFoundException.class)
   ResponseEntity<ApiError> environmentImportNotFound(

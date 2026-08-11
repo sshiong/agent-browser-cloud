@@ -63,4 +63,23 @@ public interface AgentTaskJpaRepository extends JpaRepository<AgentTaskEntity, S
 
   List<AgentTaskEntity> findAllBySessionIdAndStateIn(
       String sessionId, java.util.Collection<String> states);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      "select task from AgentTaskEntity task where task.challengeEventId = :eventId and task.tenantId = :tenantId")
+  Optional<AgentTaskEntity> findByChallengeEventForUpdate(
+      @Param("eventId") String eventId, @Param("tenantId") String tenantId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select task from AgentTaskEntity task
+      where task.sessionId = :sessionId
+        and task.tenantId = :tenantId
+        and task.state = 'WAITING_FOR_HUMAN'
+        and task.challengeEventId is not null
+      order by task.updatedAt desc
+      """)
+  List<AgentTaskEntity> findWaitingForChallengeBySessionForUpdate(
+      @Param("sessionId") String sessionId, @Param("tenantId") String tenantId, Pageable pageable);
 }

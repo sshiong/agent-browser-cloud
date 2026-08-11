@@ -156,6 +156,31 @@ public final class OperationFactory {
         null);
   }
 
+  /** Creates a short-lived, non-retryable single-click Human Assist Operation. */
+  public static ExclusiveOperation humanAssist(
+      SessionContext session, String userId, long operationEpoch) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.HUMAN,
+        userId,
+        OperationMode.HUMAN_ASSIST,
+        85,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.EXECUTING,
+        OperationState.ACTIVE,
+        Set.of("challenge.click.once"),
+        now.plusSeconds(30),
+        now,
+        null);
+  }
+
   /** 创建受限 Agent Task Operation。 */
   public static ExclusiveOperation agentTask(
       SessionContext session, String taskId, long operationEpoch, Set<String> capabilities) {

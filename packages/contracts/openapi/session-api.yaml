@@ -1753,6 +1753,103 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/challenges:
+    get:
+      operationId: listSessionChallenges
+      summary: List authoritative Challenge Detection events for a Session
+      description: Detection is input-free and stores only bounded signal codes and hashes.
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Challenge timeline ordered newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeEventListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/challenges/{eventId}:
+    get:
+      operationId: getChallengeEvent
+      summary: Get one tenant-scoped Challenge Event
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeEventId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current Challenge Event state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeEvent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/challenges/{eventId}/preview:
+    get:
+      operationId: previewHumanAssist
+      summary: Revalidate and preview the exact current Human Assist target
+      description: The preview hash is actor-, context-, state-, target- and visual-anchor-bound.
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeEventId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      responses:
+        "200":
+          description: Current highlight and authorization gate result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengePreview"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/challenges/{eventId}/assist-authorizations:
+    post:
+      operationId: authorizeHumanAssist
+      summary: Authorize and consume exactly one Human Assist click
+      description: >
+        Creates a HUMAN_ASSIST Operation only after revalidating the current preview. The action
+        budget is exactly one and an execution failure is never retried automatically.
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeEventId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorizeHumanAssistRequest"
+      responses:
+        "202":
+          description: Single-use intent consumed and Node Operation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HumanAssistIntent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/agent-tasks:
     get:
       operationId: listAgentTasks
@@ -4611,6 +4708,13 @@ components:
       bearerFormat: JWT
       description: Production authentication. Tenant and actor are derived from validated JWT claims.
   parameters:
+    ChallengeEventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^chl_[A-Za-z0-9]{20}$"
     SessionId:
       name: sessionId
       in: path
@@ -5382,6 +5486,227 @@ components:
         updatedAt:
           type: string
           format: date-time
+    ChallengeRegion:
+      type: object
+      additionalProperties: false
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+          minimum: 0
+        y:
+          type: number
+          minimum: 0
+        width:
+          type: number
+          exclusiveMinimum: 0
+        height:
+          type: number
+          exclusiveMinimum: 0
+    ChallengeEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - challengeEventId
+        - sessionId
+        - contextEpoch
+        - stateVersion
+        - targetRevision
+        - confidence
+        - evidence
+        - suspectedType
+        - accessOutcome
+        - targetRef
+        - targetSummary
+        - status
+        - oneClickEligible
+        - detectedAt
+        - authorizationDeadline
+        - expiresAt
+        - updatedAt
+      properties:
+        challengeEventId:
+          type: string
+          pattern: "^chl_[A-Za-z0-9]{20}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[A-Za-z0-9]{16,}$"
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        stateVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        targetRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidence:
+          type: object
+          description: Bounded signal codes and hashes; no screenshot, OTP or raw sensitive content.
+          additionalProperties: true
+        suspectedType:
+          type: string
+          enum: [SINGLE_CLICK, IMAGE_SELECTION, PUZZLE, OTP, DEVICE_CONFIRMATION, MULTI_ROUND, USER_JUDGMENT, PAYMENT_CONFIRMATION, UNKNOWN]
+        accessOutcome:
+          type: string
+          enum: [CHALLENGE_SUSPECTED, CHALLENGE_CONFIRMED]
+        targetRef:
+          type: [string, "null"]
+        targetSummary:
+          type: string
+          maxLength: 512
+        status:
+          type: string
+          enum: [SUSPECTED, CONFIRMED, AUTHORIZED, EXECUTING, RESOLVED, FAILED, EXPIRED, SUPERSEDED, TAKEOVER_REQUIRED]
+        oneClickEligible:
+          type: boolean
+        detectedAt:
+          type: string
+          format: date-time
+        authorizationDeadline:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ChallengeEventListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ChallengeEvent"
+    ChallengePreview:
+      type: object
+      additionalProperties: false
+      required: [challenge, previewHash, highlight, fresh, canAuthorize, blockingReason, previewedAt]
+      properties:
+        challenge:
+          $ref: "#/components/schemas/ChallengeEvent"
+        previewHash:
+          type: string
+          maxLength: 64
+          description: Empty when the current State cannot be authorized.
+        highlight:
+          oneOf:
+            - $ref: "#/components/schemas/ChallengeRegion"
+            - type: "null"
+        fresh:
+          type: boolean
+        canAuthorize:
+          type: boolean
+        blockingReason:
+          type: [string, "null"]
+        previewedAt:
+          type: string
+          format: date-time
+    AuthorizeHumanAssistRequest:
+      type: object
+      additionalProperties: false
+      required: [previewHash, expectedStateVersion, expectedTargetRevision]
+      properties:
+        previewHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        expectedStateVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        expectedTargetRevision:
+          type: integer
+          format: int64
+          minimum: 1
+    HumanAssistIntent:
+      type: object
+      additionalProperties: false
+      required:
+        - intentId
+        - challengeEventId
+        - sessionId
+        - userId
+        - contextEpoch
+        - stateVersion
+        - targetRevision
+        - allowedTargetRef
+        - allowedActionCount
+        - consumedCount
+        - authorizationEventId
+        - operationId
+        - requestId
+        - state
+        - expiresAt
+        - createdAt
+        - consumedAt
+        - completedAt
+        - errorCode
+      properties:
+        intentId:
+          type: string
+          pattern: "^hint_[A-Za-z0-9]{20}$"
+        challengeEventId:
+          type: string
+          pattern: "^chl_[A-Za-z0-9]{20}$"
+        sessionId:
+          type: string
+        userId:
+          type: string
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        stateVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        targetRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        allowedTargetRef:
+          type: string
+        allowedActionCount:
+          type: integer
+          const: 1
+        consumedCount:
+          type: integer
+          minimum: 0
+          maximum: 1
+        authorizationEventId:
+          type: string
+        operationId:
+          type: [string, "null"]
+        requestId:
+          type: string
+        state:
+          type: string
+          enum: [AUTHORIZED, EXECUTING, COMMITTED, FAILED, EXPIRED]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        consumedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        errorCode:
+          type: [string, "null"]
     AgentTask:
       type: object
       additionalProperties: false
@@ -5399,6 +5724,7 @@ components:
         - stepExecution
         - confirmation
         - humanHandoff
+        - challengeEventId
         - allowedDomains
         - plan
         - operationId
@@ -5457,6 +5783,10 @@ components:
           $ref: "#/components/schemas/AgentConfirmation"
         humanHandoff:
           $ref: "#/components/schemas/AgentHumanHandoff"
+        challengeEventId:
+          type: [string, "null"]
+          pattern: "^chl_[A-Za-z0-9]{20}$"
+          description: Challenge currently pausing this Agent after its last verified step.
         review:
           $ref: "#/components/schemas/AgentReview"
           description: Reviewer evidence. Older Control Planes may omit it during rolling upgrades.

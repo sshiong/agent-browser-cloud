@@ -811,6 +811,63 @@ pub struct BrowserStateEvent {
     #[prost(bool, tag="13")]
     pub network_evidence_fresh: bool,
 }
+/// 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
+/// protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
+/// 周期 State 和 Agent 动作确认仍使用 BrowserStateUpdated，保持 N/N-1 兼容。
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserStateSnapshotBeginEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub snapshot_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub state_version: u64,
+    #[prost(uint64, tag="4")]
+    pub target_revision: u64,
+    #[prost(uint32, tag="5")]
+    pub total_chunks: u32,
+    #[prost(uint64, tag="6")]
+    pub total_bytes: u64,
+    #[prost(string, tag="7")]
+    pub payload_sha256: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub snapshot_kind: ::prost::alloc::string::String,
+    /// Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
+    /// N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
+    #[prost(uint64, optional, tag="9")]
+    pub collection_cpu_millis: ::core::option::Option<u64>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserStateSnapshotChunkEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub snapshot_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub chunk_index: u32,
+    #[prost(uint32, tag="4")]
+    pub total_chunks: u32,
+    #[prost(bytes="vec", tag="5")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag="6")]
+    pub chunk_sha256: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BrowserStateSnapshotCommitEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub snapshot_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub total_chunks: u32,
+    #[prost(uint64, tag="4")]
+    pub total_bytes: u64,
+    #[prost(string, tag="5")]
+    pub payload_sha256: ::prost::alloc::string::String,
+}
 /// Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -917,6 +974,51 @@ pub struct AgentActionFailedEvent {
     #[prost(string, tag="5")]
     pub error_code: ::prost::alloc::string::String,
 }
+/// User-authorized single-use click bound to a current Challenge Event and visual target anchor.
+/// The Browser Node never accepts text, coordinates without a target_ref, multiple actions, or an
+/// automatic retry budget through this command.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HumanAssistClickCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub challenge_event_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub intent_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub target_ref: ::prost::alloc::string::String,
+    #[prost(uint64, tag="5")]
+    pub target_revision: u64,
+    #[prost(uint64, tag="6")]
+    pub base_state_version: u64,
+    #[prost(string, tag="7")]
+    pub base_content_hash: ::prost::alloc::string::String,
+    #[prost(uint32, tag="8")]
+    pub allowed_action_count: u32,
+    #[prost(double, tag="9")]
+    pub expected_x: f64,
+    #[prost(double, tag="10")]
+    pub expected_y: f64,
+    #[prost(double, tag="11")]
+    pub expected_width: f64,
+    #[prost(double, tag="12")]
+    pub expected_height: f64,
+    #[prost(string, tag="13")]
+    pub visual_anchor_hash: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HumanAssistFailedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub challenge_event_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub intent_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub error_code: ::prost::alloc::string::String,
+}
 /// Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
 /// method or Object Storage coordinate.
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -999,6 +1101,12 @@ pub struct BrowserStateDiffEvent {
     pub snapshot_kind: ::prost::alloc::string::String,
     #[prost(string, tag="15")]
     pub requested_root_ref: ::prost::alloc::string::String,
+    /// 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+    /// N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+    #[prost(string, tag="16")]
+    pub resync_request_id: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag="17")]
+    pub collection_cpu_millis: ::core::option::Option<u64>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

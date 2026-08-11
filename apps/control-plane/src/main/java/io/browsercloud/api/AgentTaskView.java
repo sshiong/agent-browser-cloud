@@ -30,6 +30,7 @@ public record AgentTaskView(
     ExecutionWaitView executionWait,
     ConfirmationView confirmation,
     HumanHandoffView humanHandoff,
+    String challengeEventId,
     AgentReviewView review,
     List<String> allowedDomains,
     PlanView plan,

@@ -39,6 +39,10 @@ import type {
   EvidenceCaptureView,
   EvidenceAccessGrantView,
   RedeemEvidenceAccessResponse,
+  ChallengeEventListResponse,
+  ChallengePreviewView,
+  AuthorizeHumanAssistRequest,
+  HumanAssistView,
 } from '../types/session';
 import type {
   ProxyRebindOperation,
@@ -851,6 +855,53 @@ export async function createRemoteDesktopConnection(
     {
       method: 'POST',
       signal,
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export async function getSessionChallenges(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ChallengeEventListResponse> {
+  return request<ChallengeEventListResponse>(
+    `/sessions/${sessionId}/challenges?limit=20`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getChallengePreview(
+  eventId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<ChallengePreviewView> {
+  return request<ChallengePreviewView>(
+    `/challenges/${eventId}/preview`,
+    { signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function authorizeHumanAssist(
+  eventId: string,
+  body: AuthorizeHumanAssistRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<HumanAssistView> {
+  return request<HumanAssistView>(
+    `/challenges/${eventId}/assist-authorizations`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
     },
     tenantId,
     actorId

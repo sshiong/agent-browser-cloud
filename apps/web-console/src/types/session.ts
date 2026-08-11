@@ -547,7 +547,9 @@ export interface ResourceStreamEvent {
     | 'AGENT_TASK'
     | 'RESOURCE_SAMPLE'
     | 'RESOURCE_EVENT'
-    | 'SAFETY_LEASE_EVENT';
+    | 'SAFETY_LEASE_EVENT'
+    | 'CHALLENGE_EVENT'
+    | 'HUMAN_ASSIST_INTENT';
   entityId: string;
   occurredAt: string;
   replayed: boolean;
@@ -777,4 +779,95 @@ export interface RemoteDesktopConnection {
   protocol: 'rfb';
   operationEpoch: number;
   viewOnly: boolean;
+}
+
+export type ChallengeType =
+  | 'SINGLE_CLICK'
+  | 'IMAGE_SELECTION'
+  | 'PUZZLE'
+  | 'OTP'
+  | 'DEVICE_CONFIRMATION'
+  | 'MULTI_ROUND'
+  | 'USER_JUDGMENT'
+  | 'PAYMENT_CONFIRMATION'
+  | 'UNKNOWN';
+
+export type ChallengeStatus =
+  | 'SUSPECTED'
+  | 'CONFIRMED'
+  | 'AUTHORIZED'
+  | 'EXECUTING'
+  | 'RESOLVED'
+  | 'FAILED'
+  | 'EXPIRED'
+  | 'SUPERSEDED'
+  | 'TAKEOVER_REQUIRED';
+
+export interface ChallengeRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ChallengeEventView {
+  challengeEventId: string;
+  sessionId: string;
+  contextEpoch: number;
+  stateVersion: number;
+  targetRevision: number;
+  confidence: number;
+  evidence: Record<string, unknown>;
+  suspectedType: ChallengeType;
+  accessOutcome: 'CHALLENGE_SUSPECTED' | 'CHALLENGE_CONFIRMED';
+  targetRef?: string;
+  targetSummary: string;
+  status: ChallengeStatus;
+  oneClickEligible: boolean;
+  detectedAt: string;
+  authorizationDeadline: string;
+  expiresAt: string;
+  updatedAt: string;
+}
+
+export interface ChallengeEventListResponse {
+  items: ChallengeEventView[];
+}
+
+export interface ChallengePreviewView {
+  challenge: ChallengeEventView;
+  previewHash: string;
+  highlight?: ChallengeRegion;
+  fresh: boolean;
+  canAuthorize: boolean;
+  blockingReason?: string;
+  previewedAt: string;
+}
+
+export interface AuthorizeHumanAssistRequest {
+  previewHash: string;
+  expectedStateVersion: number;
+  expectedTargetRevision: number;
+}
+
+export interface HumanAssistView {
+  intentId: string;
+  challengeEventId: string;
+  sessionId: string;
+  userId: string;
+  contextEpoch: number;
+  stateVersion: number;
+  targetRevision: number;
+  allowedTargetRef: string;
+  allowedActionCount: 1;
+  consumedCount: 0 | 1;
+  authorizationEventId: string;
+  operationId?: string;
+  requestId: string;
+  state: 'AUTHORIZED' | 'EXECUTING' | 'COMMITTED' | 'FAILED' | 'EXPIRED';
+  expiresAt: string;
+  createdAt: string;
+  consumedAt?: string;
+  completedAt?: string;
+  errorCode?: string;
 }

@@ -38,6 +38,8 @@ public class NodeEventIngestionService {
   private final SessionEvidenceApplicationService evidenceService;
   private final StateResyncAdmissionService stateResyncAdmissionService;
   private final BrowserStateSnapshotAssembler stateSnapshotAssembler;
+  private final ChallengeDetectionService challengeDetectionService;
+  private final HumanAssistApplicationService humanAssistService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -55,7 +57,9 @@ public class NodeEventIngestionService {
       BusinessRecoveryActionApplicationService recoveryActionService,
       SessionEvidenceApplicationService evidenceService,
       StateResyncAdmissionService stateResyncAdmissionService,
-      BrowserStateSnapshotAssembler stateSnapshotAssembler) {
+      BrowserStateSnapshotAssembler stateSnapshotAssembler,
+      ChallengeDetectionService challengeDetectionService,
+      HumanAssistApplicationService humanAssistService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -72,6 +76,8 @@ public class NodeEventIngestionService {
     this.evidenceService = evidenceService;
     this.stateResyncAdmissionService = stateResyncAdmissionService;
     this.stateSnapshotAssembler = stateSnapshotAssembler;
+    this.challengeDetectionService = challengeDetectionService;
+    this.humanAssistService = humanAssistService;
   }
 
   @Transactional
@@ -87,8 +93,7 @@ public class NodeEventIngestionService {
     switch (command.event()) {
       case NodeEvent.StateUpdated state -> {
         browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
-        agentNavigationCompletionService.stateUpdated(command, state);
-        recoveryActionService.stateUpdated(command, state);
+        processAuthoritativeState(command, state);
       }
       case NodeEvent.StateSnapshotBegin ignored -> acceptStateSnapshot(command);
       case NodeEvent.StateSnapshotChunk ignored -> acceptStateSnapshot(command);
@@ -126,10 +131,14 @@ public class NodeEventIngestionService {
           agentNavigationCompletionService.navigationFailed(command, failed);
       case NodeEvent.AgentActionFailed failed ->
           agentNavigationCompletionService.actionFailed(command, failed);
+      case NodeEvent.HumanAssistFailed failed -> humanAssistService.failed(command, failed);
       case NodeEvent.HumanTakeoverReady ready ->
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ready.state());
-      case NodeEvent.HumanTakeoverEnded ended ->
-          browserStateRepository.save(command.tenantId(), command.contextEpoch(), ended.state());
+      case NodeEvent.HumanTakeoverEnded ended -> {
+        browserStateRepository.save(command.tenantId(), command.contextEpoch(), ended.state());
+        var challenge = challengeDetectionService.observe(command, ended.state()).orElse(null);
+        humanAssistService.humanTakeoverEnded(command, ended, challenge);
+      }
       case NodeEvent.RuntimeResourcesAdjusted adjusted ->
           resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
       case NodeEvent.RuntimeCrashed crashed ->
@@ -242,9 +251,24 @@ public class NodeEventIngestionService {
         .ifPresent(
             state -> {
               browserStateRepository.save(command.tenantId(), command.contextEpoch(), state);
-              agentNavigationCompletionService.stateUpdated(command, state);
-              recoveryActionService.stateUpdated(command, state);
+              processAuthoritativeState(command, state);
             });
+  }
+
+  private void processAuthoritativeState(NodeEventReceived command, NodeEvent.StateUpdated state) {
+    var assist = humanAssistService.stateUpdated(command, state);
+    var challenge = challengeDetectionService.observe(command, state).orElse(null);
+    if (challenge != null) {
+      agentNavigationCompletionService.challengeObserved(
+          command.sessionId(), command.tenantId(), challenge);
+    }
+    if (!assist.humanAssist()) {
+      agentNavigationCompletionService.stateUpdated(command, state, challenge);
+    } else if (assist.committed()) {
+      humanAssistService.continueAgentAfterState(
+          assist.challengeEventId(), challenge, command.tenantId());
+    }
+    recoveryActionService.stateUpdated(command, state);
   }
 
   private void requestAutomaticFullResync(

@@ -156,6 +156,112 @@ public class AgentExecutionService {
     drive(task, session, operation, plan, results);
   }
 
+  /**
+   * Commits the already verified Agent step but stops before the next write when a Challenge was
+   * detected in the returned authoritative State.
+   */
+  @Transactional
+  public void pauseAfterVerifiedStepForChallenge(
+      String taskId,
+      String tenantId,
+      String operationId,
+      String expectedStepId,
+      ToolExecutionResult result,
+      String challengeEventId) {
+    var task = requireTask(taskId, tenantId);
+    if (!task.getState().equals(TaskState.RUNNING.name())
+        || !operationId.equals(task.getOperationId())
+        || !expectedStepId.equals(task.getPendingStepId())) {
+      throw new AgentExecutionRejectedException("STALE_AGENT_STEP");
+    }
+    var operation =
+        operationRepository
+            .findActive(task.getSessionId())
+            .filter(value -> value.operationId().equals(operationId))
+            .orElseThrow(() -> new AgentExecutionRejectedException("STALE_AGENT_OPERATION"));
+    var results = readResults(task.getExecutionResults());
+    results.add(result);
+    var now = Instant.now();
+    operationRepository.transitionPhase(
+        operation.operationId(), OperationPhase.EXECUTING, OperationPhase.COMPLETING);
+    operationRepository.transition(
+        operation.operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
+    task.awaitChallenge(task.getCurrentStep() + 1, write(results), challengeEventId, now);
+    taskRepository.save(task);
+  }
+
+  /** Starts a fresh Agent Operation from the persisted checkpoint after Human Assist commits. */
+  @Transactional
+  public void resumeAfterHumanAssist(String challengeEventId, String tenantId) {
+    var task =
+        taskRepository.findByChallengeEventForUpdate(challengeEventId, tenantId).orElse(null);
+    if (task == null) return;
+    if (!task.getState().equals(TaskState.WAITING_FOR_HUMAN.name())
+        || !challengeEventId.equals(task.getChallengeEventId())) {
+      throw new AgentExecutionRejectedException("STALE_CHALLENGE_AGENT_TASK");
+    }
+    var session = requireRunningSession(task, tenantId);
+    operationRepository.ensureNoActiveOperation(session.sessionId());
+    var plan = readPlan(task.getPlan());
+    var operation =
+        OperationFactory.agentTask(
+            session,
+            task.getTaskId(),
+            operationRepository.nextOperationEpoch(session.sessionId()),
+            plan.steps().stream()
+                .map(step -> step.toolId().name())
+                .collect(java.util.stream.Collectors.toSet()));
+    operationRepository.insert(operation);
+    operationRepository.transitionPhase(
+        operation.operationId(), OperationPhase.PREPARING, OperationPhase.EXECUTING);
+    var now = Instant.now();
+    task.resumeAfterHumanAssist(operation.operationId(), executorId, leaseUntil(now), now);
+    taskRepository.save(task);
+    drive(task, session, operation, plan, readResults(task.getExecutionResults()));
+  }
+
+  /** Keeps an already paused Agent bound to the newest Challenge instead of resuming it. */
+  @Transactional
+  public void bindWaitingTaskToChallenge(
+      String sessionId, String tenantId, String challengeEventId) {
+    var task =
+        taskRepository
+            .findWaitingForChallengeBySessionForUpdate(
+                sessionId, tenantId, org.springframework.data.domain.PageRequest.of(0, 1))
+            .stream()
+            .findFirst()
+            .orElse(null);
+    if (task == null || challengeEventId.equals(task.getChallengeEventId())) return;
+    task.rebindChallenge(challengeEventId, Instant.now());
+    taskRepository.save(task);
+  }
+
+  /**
+   * Continues a Challenge-paused Agent after explicit takeover, unless another Challenge remains.
+   */
+  @Transactional
+  public String continueAfterHumanTakeover(
+      String sessionId, String tenantId, String nextChallengeEventId) {
+    var task =
+        taskRepository
+            .findWaitingForChallengeBySessionForUpdate(
+                sessionId, tenantId, org.springframework.data.domain.PageRequest.of(0, 1))
+            .stream()
+            .findFirst()
+            .orElse(null);
+    if (task == null) return null;
+    var completedChallengeEventId = task.getChallengeEventId();
+    if (nextChallengeEventId != null) {
+      if (!nextChallengeEventId.equals(completedChallengeEventId)) {
+        task.rebindChallenge(nextChallengeEventId, Instant.now());
+        taskRepository.save(task);
+      }
+      return completedChallengeEventId;
+    }
+    resumeAfterHumanAssist(completedChallengeEventId, tenantId);
+    return completedChallengeEventId;
+  }
+
   @Transactional
   public void failPendingStep(
       String taskId, String tenantId, String operationId, String expectedStepId, String errorCode) {

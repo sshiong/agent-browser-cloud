@@ -16,13 +16,14 @@ use node_contracts::proto::{
     BrowserStateSnapshotChunkEvent, BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
     CaptureObserverScreenshotCommand, CommandAck, CommandEnvelope, DiffTruncatedEvent,
     DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
-    ExtensionBackgroundPolicy, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
-    InteractiveTargetState, PingRequest, PingResponse, PresignEvidenceDownloadRequest,
-    PresignEvidenceDownloadResponse, ProbeProxyBindingRequest, ProbeProxyBindingResponse,
-    PublishRequest, PublishResponse, ReleaseAllInputCommand, ReportCapacityRequest,
-    ReportSessionResourcesRequest, RequestStateResyncCommand, RuntimeResourcesAdjustedEvent,
-    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand,
-    StopRuntimeCommand, TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
+    ExtensionBackgroundPolicy, HumanAssistClickCommand, HumanAssistFailedEvent,
+    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
+    PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
+    ProbeProxyBindingRequest, ProbeProxyBindingResponse, PublishRequest, PublishResponse,
+    ReleaseAllInputCommand, ReportCapacityRequest, ReportSessionResourcesRequest,
+    RequestStateResyncCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
+    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand,
+    TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -1282,6 +1283,44 @@ impl NodeControlService {
             },
         );
         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    async fn human_assist_failed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &HumanAssistClickCommand,
+        error_code: &str,
+    ) -> CommandResult {
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "HumanAssistFailed",
+            sequence,
+            HumanAssistFailedEvent {
+                session_id: command.session_id.clone(),
+                challenge_event_id: payload.challenge_event_id.clone(),
+                intent_id: payload.intent_id.clone(),
+                error_code: error_code.to_owned(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    fn human_assist_anchor(
+        target_ref: &str,
+        role: &str,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> String {
+        format!(
+            "{:x}",
+            Sha256::digest(format!("{target_ref}\n{role}\n{x}\n{y}\n{width}\n{height}").as_bytes())
+        )
     }
 
     fn browser_state_payload(state: CurrentState) -> BrowserStateEvent {
@@ -4096,6 +4135,197 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "HumanAssistClick" => {
+                match HumanAssistClickCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id
+                            || !payload.challenge_event_id.starts_with("chl_")
+                            || payload.challenge_event_id.chars().count() != 24
+                            || !payload.intent_id.starts_with("hint_")
+                            || payload.intent_id.chars().count() != 25
+                            || payload.target_ref.is_empty()
+                            || payload.target_ref.chars().count() > 256
+                            || payload.target_revision == 0
+                            || payload.base_state_version == 0
+                            || payload.base_content_hash.len() != 64
+                            || payload.visual_anchor_hash.len() != 64
+                            || !payload.base_content_hash.bytes().all(|value| {
+                                value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                            })
+                            || !payload.visual_anchor_hash.bytes().all(|value| {
+                                value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                            })
+                            || payload.allowed_action_count != 1
+                            || ![
+                                payload.expected_x,
+                                payload.expected_y,
+                                payload.expected_width,
+                                payload.expected_height,
+                            ]
+                            .iter()
+                            .all(|value| value.is_finite())
+                            || payload.expected_x < 0.0
+                            || payload.expected_y < 0.0
+                            || payload.expected_width <= 0.0
+                            || payload.expected_height <= 0.0
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Human Assist payload is invalid"),
+                            );
+                        }
+                        if self
+                            .active_human_takeovers
+                            .lock()
+                            .await
+                            .contains(&command.session_id)
+                        {
+                            return self
+                                .human_assist_failed(command, &payload, "HUMAN_TAKEOVER_ACTIVE")
+                                .await;
+                        }
+                        if self.human_input_has_priority(&command.session_id) {
+                            return self
+                                .human_assist_failed(command, &payload, "HUMAN_INPUT_ACTIVE")
+                                .await;
+                        }
+                        let current = match self
+                            .state_collector
+                            .collect_current_state(&command.session_id)
+                            .await
+                        {
+                            Ok(state) => state,
+                            Err(_) => {
+                                return self
+                                    .human_assist_failed(
+                                        command,
+                                        &payload,
+                                        "CURRENT_STATE_UNAVAILABLE",
+                                    )
+                                    .await
+                            }
+                        };
+                        if !matches!(
+                            current.quality,
+                            StateQuality::Complete | StateQuality::DepthLimited
+                        ) {
+                            return self
+                                .human_assist_failed(command, &payload, "STATE_NOT_EXECUTABLE")
+                                .await;
+                        }
+                        if current.state_version < payload.base_state_version
+                            || current.target_revision != payload.target_revision
+                            || (current.state_version == payload.base_state_version
+                                && current.content_hash != payload.base_content_hash)
+                        {
+                            return self
+                                .human_assist_failed(command, &payload, "STALE_HUMAN_ASSIST_STATE")
+                                .await;
+                        }
+                        let target = match self
+                            .state_collector
+                            .resolve_target(
+                                &command.session_id,
+                                &payload.target_ref,
+                                payload.target_revision,
+                            )
+                            .await
+                        {
+                            Ok(target) => target,
+                            Err(_) => {
+                                return self
+                                    .human_assist_failed(
+                                        command,
+                                        &payload,
+                                        "HUMAN_ASSIST_TARGET_UNAVAILABLE",
+                                    )
+                                    .await
+                            }
+                        };
+                        let expected = [
+                            payload.expected_x,
+                            payload.expected_y,
+                            payload.expected_width,
+                            payload.expected_height,
+                        ];
+                        let actual = [
+                            target.bounds.x,
+                            target.bounds.y,
+                            target.bounds.width,
+                            target.bounds.height,
+                        ];
+                        if !target.visible
+                            || !target.enabled
+                            || target.sensitive
+                            || !matches!(target.role.as_str(), "button" | "checkbox")
+                            || expected
+                                .iter()
+                                .zip(actual.iter())
+                                .any(|(expected, actual)| (expected - actual).abs() > 0.01)
+                            || Self::human_assist_anchor(
+                                &payload.target_ref,
+                                &target.role,
+                                target.bounds.x,
+                                target.bounds.y,
+                                target.bounds.width,
+                                target.bounds.height,
+                            ) != payload.visual_anchor_hash
+                        {
+                            return self
+                                .human_assist_failed(command, &payload, "VISUAL_ANCHOR_MISMATCH")
+                                .await;
+                        }
+                        let click = AgentActionCommand {
+                            session_id: payload.session_id.clone(),
+                            task_id: "agt_humanassist00000000".to_owned(),
+                            step_id: "step_humanassist_once".to_owned(),
+                            tool_id: "CLICK_TARGET".to_owned(),
+                            target_ref: payload.target_ref.clone(),
+                            target_revision: payload.target_revision,
+                            sealed_text: String::new(),
+                            text: String::new(),
+                            scroll_delta_y: 0,
+                            wait_condition: String::new(),
+                            timeout_ms: 0,
+                            base_state_version: current.state_version,
+                            base_content_hash: current.content_hash,
+                        };
+                        let state = match self.execute_agent_action(&click).await {
+                            Ok(state) => state,
+                            Err(error) => {
+                                tracing::warn!(
+                                    challenge_event_id = payload.challenge_event_id,
+                                    intent_id = payload.intent_id,
+                                    error = %error,
+                                    "Human Assist one-click execution failed"
+                                );
+                                return self
+                                    .human_assist_failed(
+                                        command,
+                                        &payload,
+                                        "HUMAN_ASSIST_CLICK_FAILED",
+                                    )
+                                    .await;
+                            }
+                        };
+                        let sequence = match self.next_event_sequence(&command.session_id).await {
+                            Ok(sequence) => sequence,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let mut state_payload = Self::browser_state_payload(state.clone());
+                        state_payload.snapshot_kind = "HUMAN_ASSIST".to_owned();
+                        state_payload.requested_root_ref = payload.intent_id;
+                        let event =
+                            Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                        Self::state_result(
+                            Self::ack(&command.message_id, true, "", ""),
+                            event,
+                            state,
+                        )
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "CaptureObserverScreenshot" => {
                 match CaptureObserverScreenshotCommand::decode(command.payload.as_slice()) {
                     Ok(payload) => {
@@ -6090,6 +6320,21 @@ mod tests {
         assert_eq!(
             classify_resource_danger(Some(4), Some(5), None),
             Some("OOM")
+        );
+    }
+
+    #[test]
+    fn human_assist_anchor_matches_the_control_plane_canonical_hash() {
+        assert_eq!(
+            NodeControlService::human_assist_anchor(
+                "target:7:abc",
+                "checkbox",
+                10.0,
+                20.0,
+                100.0,
+                30.0
+            ),
+            "6dc7a8367775c215991f36f2d4553d38a64f6e5df58b813cc77d8d8e448647a5"
         );
     }
 

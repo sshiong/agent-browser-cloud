@@ -13,6 +13,7 @@ import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
 import io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
+import io.browsercloud.proto.node.v1.HumanAssistClickCommand;
 import io.browsercloud.proto.node.v1.ReleaseAllInputCommand;
 import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
 import io.browsercloud.proto.node.v1.StartRuntimeCommand;
@@ -231,6 +232,37 @@ public final class NodeCommands {
             .build()
             .toByteArray();
     return command(session, operation, "EndHumanTakeover", payload);
+  }
+
+  public static NodeCommand humanAssistClick(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String challengeEventId,
+      String intentId,
+      String targetRef,
+      long targetRevision,
+      long stateVersion,
+      String stateHash,
+      NodeEvent.Bounds bounds,
+      String visualAnchorHash) {
+    var payload =
+        HumanAssistClickCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setChallengeEventId(challengeEventId)
+            .setIntentId(intentId)
+            .setTargetRef(targetRef)
+            .setTargetRevision(targetRevision)
+            .setBaseStateVersion(stateVersion)
+            .setBaseContentHash(stateHash)
+            .setAllowedActionCount(1)
+            .setExpectedX(bounds.x())
+            .setExpectedY(bounds.y())
+            .setExpectedWidth(bounds.width())
+            .setExpectedHeight(bounds.height())
+            .setVisualAnchorHash(visualAnchorHash)
+            .build()
+            .toByteArray();
+    return command(session, operation, "HumanAssistClick", payload);
   }
 
   /**

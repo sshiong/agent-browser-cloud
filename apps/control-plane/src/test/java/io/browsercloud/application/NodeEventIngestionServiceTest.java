@@ -40,6 +40,8 @@ class NodeEventIngestionServiceTest {
   @Mock private SessionEvidenceApplicationService evidenceService;
   @Mock private StateResyncAdmissionService stateResyncAdmissionService;
   @Mock private BrowserStateSnapshotAssembler stateSnapshotAssembler;
+  @Mock private ChallengeDetectionService challengeDetectionService;
+  @Mock private HumanAssistApplicationService humanAssistService;
 
   private NodeEventIngestionService service;
 
@@ -62,7 +64,12 @@ class NodeEventIngestionServiceTest {
             recoveryActionService,
             evidenceService,
             stateResyncAdmissionService,
-            stateSnapshotAssembler);
+            stateSnapshotAssembler,
+            challengeDetectionService,
+            humanAssistService);
+    org.mockito.Mockito.lenient()
+        .when(humanAssistService.stateUpdated(any(), any()))
+        .thenReturn(HumanAssistApplicationService.StateCommit.notHumanAssist());
   }
 
   @Test
@@ -147,6 +154,62 @@ class NodeEventIngestionServiceTest {
 
     verify(browserStateRepository).save("tenant-test", 2, state);
     verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldKeepAgentPausedWhenHumanAssistRevealsAnotherChallenge() {
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-test",
+            13,
+            5,
+            "https://example.test",
+            "Verify",
+            "hash-13",
+            "COMPLETE",
+            java.util.List.of(),
+            "HUMAN_ASSIST",
+            "hint_1234567890abcdefghij");
+    var command = new NodeEventReceived("evt-assist", "tenant-test", "ses-test", 1, 2, 3, 4, state);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+    when(humanAssistService.stateUpdated(command, state))
+        .thenReturn(
+            HumanAssistApplicationService.StateCommit.committed("chl_1234567890abcdefghij"));
+    when(challengeDetectionService.observe(command, state))
+        .thenReturn(java.util.Optional.of("chl_abcdefghijklmnopqrst"));
+
+    service.receive(command);
+
+    verify(agentNavigationCompletionService)
+        .challengeObserved("ses-test", "tenant-test", "chl_abcdefghijklmnopqrst");
+    verify(agentNavigationCompletionService, never()).stateUpdated(any(), any(), any());
+    verify(humanAssistService)
+        .continueAgentAfterState(
+            "chl_1234567890abcdefghij", "chl_abcdefghijklmnopqrst", "tenant-test");
+  }
+
+  @Test
+  void shouldContinueChallengeFlowFromAuthoritativeHumanTakeoverEndState() {
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-test",
+            14,
+            6,
+            "https://example.test",
+            "Verified",
+            "hash-14",
+            "COMPLETE",
+            java.util.List.of());
+    var ended = new NodeEvent.HumanTakeoverEnded("ses-test", "user-test", "USER_RELEASE", state);
+    var command =
+        new NodeEventReceived("evt-takeover-end", "tenant-test", "ses-test", 1, 2, 4, 5, ended);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(browserStateRepository).save("tenant-test", 2, state);
+    verify(humanAssistService).humanTakeoverEnded(command, ended, null);
+    verify(agentNavigationCompletionService, never()).stateUpdated(any(), any(), any());
   }
 
   @Test

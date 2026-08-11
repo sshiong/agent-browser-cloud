@@ -42,4 +42,33 @@ class AgentTaskEntityHumanInputWaitTest {
     assertThat(task.getExecutionWaitReason()).isNull();
     assertThat(task.getExecutionWaitSince()).isNull();
   }
+
+  @Test
+  void rebindsAWaitingAgentToTheNextChallengeWithoutResumingIt() {
+    var createdAt = Instant.parse("2026-08-11T08:00:00Z");
+    var task =
+        new AgentTaskEntity(
+            "agt_1234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "Inspect current page",
+            "PLANNED",
+            "R0_READ_ONLY",
+            "ALLOWED",
+            null,
+            AgentPolicy.BALANCED,
+            "[]",
+            "{}",
+            "[]",
+            createdAt);
+    task.startExecution(
+        "op_1234567890abcdef", "worker-test", createdAt.plusSeconds(30), createdAt.plusSeconds(1));
+    task.awaitChallenge(1, "[]", "chl_1234567890abcdefghij", createdAt.plusSeconds(2));
+
+    task.rebindChallenge("chl_abcdefghijklmnopqrst", createdAt.plusSeconds(3));
+
+    assertThat(task.getState()).isEqualTo("WAITING_FOR_HUMAN");
+    assertThat(task.getChallengeEventId()).isEqualTo("chl_abcdefghijklmnopqrst");
+    assertThat(task.getBlockedReason()).isEqualTo("CHALLENGE_DETECTED");
+  }
 }

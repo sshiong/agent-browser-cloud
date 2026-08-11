@@ -3072,6 +3072,226 @@ export class BrowserStateEvent extends Message<BrowserStateEvent> {
 }
 
 /**
+ * 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
+ * protobuf 字节，Commit 允许 Control Plane 在校验全部分块和整流 SHA-256 后原子发布。
+ * 周期 State 和 Agent 动作确认仍使用 BrowserStateUpdated，保持 N/N-1 兼容。
+ *
+ * @generated from message browsercloud.node.v1.BrowserStateSnapshotBeginEvent
+ */
+export class BrowserStateSnapshotBeginEvent extends Message<BrowserStateSnapshotBeginEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string snapshot_id = 2;
+   */
+  snapshotId = "";
+
+  /**
+   * @generated from field: uint64 state_version = 3;
+   */
+  stateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 target_revision = 4;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: uint32 total_chunks = 5;
+   */
+  totalChunks = 0;
+
+  /**
+   * @generated from field: uint64 total_bytes = 6;
+   */
+  totalBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: string payload_sha256 = 7;
+   */
+  payloadSha256 = "";
+
+  /**
+   * @generated from field: string snapshot_kind = 8;
+   */
+  snapshotKind = "";
+
+  /**
+   * Browser Runtime cgroup 在本次采集期间的累计 CPU 时间增量；无委派 cgroup 的
+   * N-1/本地 Node 留空，Control Plane 保留准入时的保守预留。
+   *
+   * @generated from field: optional uint64 collection_cpu_millis = 9;
+   */
+  collectionCpuMillis?: bigint;
+
+  constructor(data?: PartialMessage<BrowserStateSnapshotBeginEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BrowserStateSnapshotBeginEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "snapshot_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "total_chunks", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 6, name: "total_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "payload_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "snapshot_kind", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 9, name: "collection_cpu_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateSnapshotBeginEvent {
+    return new BrowserStateSnapshotBeginEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BrowserStateSnapshotBeginEvent {
+    return new BrowserStateSnapshotBeginEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BrowserStateSnapshotBeginEvent {
+    return new BrowserStateSnapshotBeginEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BrowserStateSnapshotBeginEvent | PlainMessage<BrowserStateSnapshotBeginEvent> | undefined, b: BrowserStateSnapshotBeginEvent | PlainMessage<BrowserStateSnapshotBeginEvent> | undefined): boolean {
+    return proto3.util.equals(BrowserStateSnapshotBeginEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.BrowserStateSnapshotChunkEvent
+ */
+export class BrowserStateSnapshotChunkEvent extends Message<BrowserStateSnapshotChunkEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string snapshot_id = 2;
+   */
+  snapshotId = "";
+
+  /**
+   * @generated from field: uint32 chunk_index = 3;
+   */
+  chunkIndex = 0;
+
+  /**
+   * @generated from field: uint32 total_chunks = 4;
+   */
+  totalChunks = 0;
+
+  /**
+   * @generated from field: bytes data = 5;
+   */
+  data = new Uint8Array(0);
+
+  /**
+   * @generated from field: string chunk_sha256 = 6;
+   */
+  chunkSha256 = "";
+
+  constructor(data?: PartialMessage<BrowserStateSnapshotChunkEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BrowserStateSnapshotChunkEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "snapshot_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "chunk_index", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 4, name: "total_chunks", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 5, name: "data", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 6, name: "chunk_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateSnapshotChunkEvent {
+    return new BrowserStateSnapshotChunkEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BrowserStateSnapshotChunkEvent {
+    return new BrowserStateSnapshotChunkEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BrowserStateSnapshotChunkEvent {
+    return new BrowserStateSnapshotChunkEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BrowserStateSnapshotChunkEvent | PlainMessage<BrowserStateSnapshotChunkEvent> | undefined, b: BrowserStateSnapshotChunkEvent | PlainMessage<BrowserStateSnapshotChunkEvent> | undefined): boolean {
+    return proto3.util.equals(BrowserStateSnapshotChunkEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.BrowserStateSnapshotCommitEvent
+ */
+export class BrowserStateSnapshotCommitEvent extends Message<BrowserStateSnapshotCommitEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string snapshot_id = 2;
+   */
+  snapshotId = "";
+
+  /**
+   * @generated from field: uint32 total_chunks = 3;
+   */
+  totalChunks = 0;
+
+  /**
+   * @generated from field: uint64 total_bytes = 4;
+   */
+  totalBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: string payload_sha256 = 5;
+   */
+  payloadSha256 = "";
+
+  constructor(data?: PartialMessage<BrowserStateSnapshotCommitEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.BrowserStateSnapshotCommitEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "snapshot_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "total_chunks", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 4, name: "total_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "payload_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateSnapshotCommitEvent {
+    return new BrowserStateSnapshotCommitEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BrowserStateSnapshotCommitEvent {
+    return new BrowserStateSnapshotCommitEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BrowserStateSnapshotCommitEvent {
+    return new BrowserStateSnapshotCommitEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BrowserStateSnapshotCommitEvent | PlainMessage<BrowserStateSnapshotCommitEvent> | undefined, b: BrowserStateSnapshotCommitEvent | PlainMessage<BrowserStateSnapshotCommitEvent> | undefined): boolean {
+    return proto3.util.equals(BrowserStateSnapshotCommitEvent, a, b);
+  }
+}
+
+/**
  * Control Plane 请求重建 State。REGION 在首版无法安全裁剪时必须显式回退 FULL。
  *
  * @generated from message browsercloud.node.v1.RequestStateResyncCommand
@@ -3492,6 +3712,174 @@ export class AgentActionFailedEvent extends Message<AgentActionFailedEvent> {
 }
 
 /**
+ * User-authorized single-use click bound to a current Challenge Event and visual target anchor.
+ * The Browser Node never accepts text, coordinates without a target_ref, multiple actions, or an
+ * automatic retry budget through this command.
+ *
+ * @generated from message browsercloud.node.v1.HumanAssistClickCommand
+ */
+export class HumanAssistClickCommand extends Message<HumanAssistClickCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string challenge_event_id = 2;
+   */
+  challengeEventId = "";
+
+  /**
+   * @generated from field: string intent_id = 3;
+   */
+  intentId = "";
+
+  /**
+   * @generated from field: string target_ref = 4;
+   */
+  targetRef = "";
+
+  /**
+   * @generated from field: uint64 target_revision = 5;
+   */
+  targetRevision = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 base_state_version = 6;
+   */
+  baseStateVersion = protoInt64.zero;
+
+  /**
+   * @generated from field: string base_content_hash = 7;
+   */
+  baseContentHash = "";
+
+  /**
+   * @generated from field: uint32 allowed_action_count = 8;
+   */
+  allowedActionCount = 0;
+
+  /**
+   * @generated from field: double expected_x = 9;
+   */
+  expectedX = 0;
+
+  /**
+   * @generated from field: double expected_y = 10;
+   */
+  expectedY = 0;
+
+  /**
+   * @generated from field: double expected_width = 11;
+   */
+  expectedWidth = 0;
+
+  /**
+   * @generated from field: double expected_height = 12;
+   */
+  expectedHeight = 0;
+
+  /**
+   * @generated from field: string visual_anchor_hash = 13;
+   */
+  visualAnchorHash = "";
+
+  constructor(data?: PartialMessage<HumanAssistClickCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.HumanAssistClickCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "challenge_event_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "intent_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "target_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "target_revision", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "base_state_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "base_content_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "allowed_action_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 9, name: "expected_x", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 10, name: "expected_y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 11, name: "expected_width", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 12, name: "expected_height", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 13, name: "visual_anchor_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HumanAssistClickCommand {
+    return new HumanAssistClickCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HumanAssistClickCommand {
+    return new HumanAssistClickCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HumanAssistClickCommand {
+    return new HumanAssistClickCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: HumanAssistClickCommand | PlainMessage<HumanAssistClickCommand> | undefined, b: HumanAssistClickCommand | PlainMessage<HumanAssistClickCommand> | undefined): boolean {
+    return proto3.util.equals(HumanAssistClickCommand, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.HumanAssistFailedEvent
+ */
+export class HumanAssistFailedEvent extends Message<HumanAssistFailedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string challenge_event_id = 2;
+   */
+  challengeEventId = "";
+
+  /**
+   * @generated from field: string intent_id = 3;
+   */
+  intentId = "";
+
+  /**
+   * @generated from field: string error_code = 4;
+   */
+  errorCode = "";
+
+  constructor(data?: PartialMessage<HumanAssistFailedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.HumanAssistFailedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "challenge_event_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "intent_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HumanAssistFailedEvent {
+    return new HumanAssistFailedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HumanAssistFailedEvent {
+    return new HumanAssistFailedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HumanAssistFailedEvent {
+    return new HumanAssistFailedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: HumanAssistFailedEvent | PlainMessage<HumanAssistFailedEvent> | undefined, b: HumanAssistFailedEvent | PlainMessage<HumanAssistFailedEvent> | undefined): boolean {
+    return proto3.util.equals(HumanAssistFailedEvent, a, b);
+  }
+}
+
+/**
  * Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
  * method or Object Storage coordinate.
  *
@@ -3745,6 +4133,19 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
    */
   requestedRootRef = "";
 
+  /**
+   * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+   * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+   *
+   * @generated from field: string resync_request_id = 16;
+   */
+  resyncRequestId = "";
+
+  /**
+   * @generated from field: optional uint64 collection_cpu_millis = 17;
+   */
+  collectionCpuMillis?: bigint;
+
   constructor(data?: PartialMessage<BrowserStateDiffEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -3768,6 +4169,8 @@ export class BrowserStateDiffEvent extends Message<BrowserStateDiffEvent> {
     { no: 13, name: "network_evidence_fresh", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 14, name: "snapshot_kind", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 15, name: "requested_root_ref", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 16, name: "resync_request_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 17, name: "collection_cpu_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BrowserStateDiffEvent {

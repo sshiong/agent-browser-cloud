@@ -96,6 +96,10 @@ public final class BrowserCloudGeneratedClient {
     operation("updateProxyBinding", "PUT", "/api/v1/proxy-bindings/{bindingProfileId}", List.of("bindingProfileId"), List.of(), List.of("Idempotency-Key"), "ProxyBindingRequest", true, "ProxyBinding"),
     operation("deleteProxyBinding", "DELETE", "/api/v1/proxy-bindings/{bindingProfileId}", List.of("bindingProfileId"), List.of(), List.of("Idempotency-Key"), "", false, ""),
     operation("createAgentTask", "POST", "/api/v1/sessions/{sessionId}/agent-tasks", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateAgentTaskRequest", true, "AgentTask"),
+    operation("listSessionChallenges", "GET", "/api/v1/sessions/{sessionId}/challenges", List.of("sessionId"), List.of("limit"), List.of("X-Tenant-Id"), "", false, "ChallengeEventListResponse"),
+    operation("getChallengeEvent", "GET", "/api/v1/challenges/{eventId}", List.of("eventId"), List.of(), List.of("X-Tenant-Id"), "", false, "ChallengeEvent"),
+    operation("previewHumanAssist", "GET", "/api/v1/challenges/{eventId}/preview", List.of("eventId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "ChallengePreview"),
+    operation("authorizeHumanAssist", "POST", "/api/v1/challenges/{eventId}/assist-authorizations", List.of("eventId"), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "AuthorizeHumanAssistRequest", true, "HumanAssistIntent"),
     operation("listAgentTasks", "GET", "/api/v1/agent-tasks", List.of(), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "AgentTaskListResponse"),
     operation("listAgentTaskSummaries", "GET", "/api/v1/agent-task-summaries", List.of(), List.of("cursor", "limit"), List.of("X-Tenant-Id"), "", false, "AgentTaskSummaryListResponse"),
     operation("getAgentTask", "GET", "/api/v1/agent-tasks/{taskId}", List.of("taskId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentTask"),
@@ -318,6 +322,10 @@ public final class BrowserCloudGeneratedClient {
   public Response updateProxyBinding(Request request) { return call("updateProxyBinding", request); }
   public Response deleteProxyBinding(Request request) { return call("deleteProxyBinding", request); }
   public Response createAgentTask(Request request) { return call("createAgentTask", request); }
+  public Response listSessionChallenges(Request request) { return call("listSessionChallenges", request); }
+  public Response getChallengeEvent(Request request) { return call("getChallengeEvent", request); }
+  public Response previewHumanAssist(Request request) { return call("previewHumanAssist", request); }
+  public Response authorizeHumanAssist(Request request) { return call("authorizeHumanAssist", request); }
   public Response listAgentTasks(Request request) { return call("listAgentTasks", request); }
   public Response listAgentTaskSummaries(Request request) { return call("listAgentTaskSummaries", request); }
   public Response getAgentTask(Request request) { return call("getAgentTask", request); }

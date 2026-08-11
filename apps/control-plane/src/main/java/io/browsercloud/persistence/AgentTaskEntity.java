@@ -104,6 +104,9 @@ public class AgentTaskEntity {
   @Column(name = "handoff_actor_id")
   private String handoffActorId;
 
+  @Column(name = "challenge_event_id")
+  private String challengeEventId;
+
   @Column(name = "reviewer_status", nullable = false)
   private String reviewerStatus;
 
@@ -432,6 +435,10 @@ public class AgentTaskEntity {
     return executionWaitReason;
   }
 
+  public String getChallengeEventId() {
+    return challengeEventId;
+  }
+
   public Instant getExecutionWaitSince() {
     return executionWaitSince;
   }
@@ -690,6 +697,38 @@ public class AgentTaskEntity {
     clearPendingStep();
     clearLease();
     clearExecutionWaitFields();
+    this.updatedAt = now;
+  }
+
+  public void awaitChallenge(
+      int completedSteps, String results, String challengeEventId, Instant now) {
+    this.state = "WAITING_FOR_HUMAN";
+    this.blockedReason = "CHALLENGE_DETECTED";
+    this.currentStep = completedSteps;
+    this.executionResults = results;
+    this.challengeEventId = challengeEventId;
+    clearPendingStep();
+    clearLease();
+    clearExecutionWaitFields();
+    this.updatedAt = now;
+  }
+
+  public void resumeAfterHumanAssist(
+      String operationId, String leaseOwner, Instant leaseUntil, Instant now) {
+    if (!"WAITING_FOR_HUMAN".equals(state) || challengeEventId == null) {
+      throw new IllegalStateException("agent task is not waiting for Human Assist");
+    }
+    this.challengeEventId = null;
+    this.blockedReason = null;
+    startExecution(operationId, leaseOwner, leaseUntil, now);
+  }
+
+  public void rebindChallenge(String challengeEventId, Instant now) {
+    if (!"WAITING_FOR_HUMAN".equals(state) || this.challengeEventId == null) {
+      throw new IllegalStateException("agent task is not waiting for a Challenge");
+    }
+    this.challengeEventId = challengeEventId;
+    this.blockedReason = "CHALLENGE_DETECTED";
     this.updatedAt = now;
   }
 

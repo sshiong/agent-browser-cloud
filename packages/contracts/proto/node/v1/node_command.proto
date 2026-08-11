@@ -604,6 +604,32 @@ message AgentActionFailedEvent {
   string error_code = 5;
 }
 
+// User-authorized single-use click bound to a current Challenge Event and visual target anchor.
+// The Browser Node never accepts text, coordinates without a target_ref, multiple actions, or an
+// automatic retry budget through this command.
+message HumanAssistClickCommand {
+  string session_id = 1;
+  string challenge_event_id = 2;
+  string intent_id = 3;
+  string target_ref = 4;
+  uint64 target_revision = 5;
+  uint64 base_state_version = 6;
+  string base_content_hash = 7;
+  uint32 allowed_action_count = 8;
+  double expected_x = 9;
+  double expected_y = 10;
+  double expected_width = 11;
+  double expected_height = 12;
+  string visual_anchor_hash = 13;
+}
+
+message HumanAssistFailedEvent {
+  string session_id = 1;
+  string challenge_event_id = 2;
+  string intent_id = 3;
+  string error_code = 4;
+}
+
 // Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
 // method or Object Storage coordinate.
 message CaptureObserverScreenshotCommand {

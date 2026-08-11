@@ -14,6 +14,7 @@ import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
+import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
@@ -29,6 +30,35 @@ import org.junit.jupiter.api.Test;
 class NodeEventMapperTest {
 
   private final NodeEventMapper mapper = new NodeEventMapper();
+
+  @Test
+  void shouldMapHumanAssistFailureWithoutExposingRetryableInput() {
+    var payload =
+        HumanAssistFailedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setChallengeEventId("chl_1234567890abcdefghij")
+            .setIntentId("hint_1234567890abcdefghij")
+            .setErrorCode("TARGET_MOVED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-assist-failed")
+            .setEventType(NodeEventMapper.HUMAN_ASSIST_FAILED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setOperationEpoch(7)
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.HumanAssistFailed.class,
+            failed -> {
+              assertThat(failed.intentId()).isEqualTo("hint_1234567890abcdefghij");
+              assertThat(failed.errorCode()).isEqualTo("TARGET_MOVED");
+            });
+  }
 
   @Test
   void shouldMapVersionedRuntimeStartedEvent() {

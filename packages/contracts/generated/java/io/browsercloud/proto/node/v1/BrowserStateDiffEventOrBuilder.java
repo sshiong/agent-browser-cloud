@@ -190,4 +190,37 @@ public interface BrowserStateDiffEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRequestedRootRefBytes();
+
+  /**
+   * <pre>
+   * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+   * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+   * </pre>
+   *
+   * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+   * @return The resyncRequestId.
+   */
+  java.lang.String getResyncRequestId();
+  /**
+   * <pre>
+   * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+   * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+   * </pre>
+   *
+   * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+   * @return The bytes for resyncRequestId.
+   */
+  com.google.protobuf.ByteString
+      getResyncRequestIdBytes();
+
+  /**
+   * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+   * @return Whether the collectionCpuMillis field is set.
+   */
+  boolean hasCollectionCpuMillis();
+  /**
+   * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+   * @return The collectionCpuMillis.
+   */
+  long getCollectionCpuMillis();
 }

@@ -51,10 +51,19 @@ public class AgentNavigationCompletionService {
   }
 
   public void stateUpdated(NodeEventReceived event, NodeEvent.StateUpdated state) {
+    stateUpdated(event, state, null);
+  }
+
+  public void stateUpdated(
+      NodeEventReceived event, NodeEvent.StateUpdated state, String challengeEventId) {
     if (event.operationEpoch() == 0) {
       return;
     }
     var operation = activeOperation(event);
+    if (operation.mode() != io.browsercloud.domain.operation.OperationMode.AGENT_INTERACTIVE
+        || operation.ownerType() != io.browsercloud.domain.operation.OwnerType.AGENT) {
+      return;
+    }
     var task = runningTask(operation.actorId(), event.tenantId(), operation.operationId());
     if (task.getPendingStepId() == null) {
       return;
@@ -66,12 +75,23 @@ public class AgentNavigationCompletionService {
       replanOrFail(event, task, plan, operation, failure);
       return;
     }
-    executionService.resumeAfterVerifiedStep(
-        task.getTaskId(),
-        event.tenantId(),
-        operation.operationId(),
-        step.stepId(),
-        verifiedResult(step, state));
+    var verified = verifiedResult(step, state);
+    if (challengeEventId != null) {
+      executionService.pauseAfterVerifiedStepForChallenge(
+          task.getTaskId(),
+          event.tenantId(),
+          operation.operationId(),
+          step.stepId(),
+          verified,
+          challengeEventId);
+    } else {
+      executionService.resumeAfterVerifiedStep(
+          task.getTaskId(), event.tenantId(), operation.operationId(), step.stepId(), verified);
+    }
+  }
+
+  public void challengeObserved(String sessionId, String tenantId, String challengeEventId) {
+    executionService.bindWaitingTaskToChallenge(sessionId, tenantId, challengeEventId);
   }
 
   public void navigationFailed(

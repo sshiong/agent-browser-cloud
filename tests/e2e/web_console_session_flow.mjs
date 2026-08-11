@@ -464,6 +464,10 @@ try {
   ).json();
   const desktopOperationBefore =
     desktopSessionBefore.currentOperation?.operationId ?? null;
+  await expect(
+    page.getByRole("heading", { name: "Challenge / Human Assist" }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("当前没有待处理挑战", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "打开远程桌面" })).toBeEnabled({
     timeout: 15_000,
   });

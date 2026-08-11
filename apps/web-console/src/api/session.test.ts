@@ -1,16 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   acquireSessionSafetyLease,
+  authorizeHumanAssist,
   captureSessionEvidence,
   createSessionEvidenceAccessGrant,
   createRemoteDesktopConnection,
   createSession,
   getBrowserState,
   getBusinessRecovery,
+  getChallengePreview,
   getRecoveryContractDiff,
   getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
+  getSessionChallenges,
   getSessionProxyRebind,
   listRecoveryContracts,
   listRecoveryContractRevisions,
@@ -869,6 +872,108 @@ describe('session API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
           'X-Actor-Id': 'user-test',
+        }),
+      })
+    );
+  });
+
+  it('loads a Challenge preview and authorizes exactly one bound Human Assist click', async () => {
+    const eventId = 'chl_1234567890abcdefghij';
+    const preview = {
+      challenge: {
+        challengeEventId: eventId,
+        sessionId: 'ses_1234567890abcdef',
+        contextEpoch: 2,
+        stateVersion: 12,
+        targetRevision: 4,
+        confidence: 0.99,
+        evidence: {},
+        suspectedType: 'SINGLE_CLICK',
+        accessOutcome: 'CHALLENGE_CONFIRMED',
+        targetRef: 'target:4:captcha',
+        targetSummary: 'Verification checkbox',
+        status: 'CONFIRMED',
+        oneClickEligible: true,
+        detectedAt: new Date().toISOString(),
+        authorizationDeadline: new Date(Date.now() + 60_000).toISOString(),
+        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      previewHash: 'a'.repeat(64),
+      highlight: { x: 10, y: 20, width: 30, height: 40 },
+      fresh: true,
+      canAuthorize: true,
+      previewedAt: new Date().toISOString(),
+    };
+    const intent = {
+      intentId: 'hint_1234567890abcdefghij',
+      challengeEventId: eventId,
+      sessionId: preview.challenge.sessionId,
+      userId: 'user-test',
+      contextEpoch: 2,
+      stateVersion: 12,
+      targetRevision: 4,
+      allowedTargetRef: 'target:4:captcha',
+      allowedActionCount: 1,
+      consumedCount: 1,
+      authorizationEventId: 'evt_1234567890abcdef',
+      operationId: 'op_1234567890abcdef',
+      requestId: 'req-test',
+      state: 'EXECUTING',
+      expiresAt: preview.challenge.expiresAt,
+      createdAt: preview.previewedAt,
+      consumedAt: preview.previewedAt,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ items: [preview.challenge] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(preview), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(intent), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getSessionChallenges(preview.challenge.sessionId, 'tenant-test');
+    await getChallengePreview(eventId, 'tenant-test', 'user-test');
+    await authorizeHumanAssist(
+      eventId,
+      {
+        previewHash: preview.previewHash,
+        expectedStateVersion: 12,
+        expectedTargetRevision: 4,
+      },
+      'idem-human-assist-1',
+      'tenant-test',
+      'user-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `/api/v1/challenges/${eventId}/assist-authorizations`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'user-test',
+          'Idempotency-Key': 'idem-human-assist-1',
+        }),
+        body: JSON.stringify({
+          previewHash: preview.previewHash,
+          expectedStateVersion: 12,
+          expectedTargetRevision: 4,
         }),
       })
     );

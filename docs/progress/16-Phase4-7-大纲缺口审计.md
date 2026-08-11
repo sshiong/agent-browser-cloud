@@ -35,8 +35,9 @@ Farm，也不能把 Kubernetes 清单等同于真实集群容量证书。
 3. Reviewer Agent、固定 Responses Provider 和模型版本/数据/Token/成本治理后续已由
    进度 114 关闭；客户批准站点的大规模 Replay、模型升级 Gate 和目标云 Provider
    准入仍未完成。当前 Planner 仍是受限规则 Planner，不是可处理任意网站目标的通用智能体。
-4. Challenge Detection 与一次性 HumanAssist。现有 HumanTakeover 是完整人工接管，
-   不能代替 `allowed_action_count=1` 的挑战单击授权。
+4. Challenge Detection 与一次性 HumanAssist 已由
+   [进度 123](123-Challenge-Detection与一次性HumanAssist闭环.md)关闭；检测器保持零输入
+   权限，用户授权意图强制 `allowed_action_count=1`，多步骤挑战转 HumanTakeover。
 5. 已下发 Node 动作的协作取消协议、复杂补偿和跨 Region Agent Workflow。
 6. Purpose-bound 截图访问后续已由进度 87 关闭；仍缺完整 State 数据分类和截图敏感
    区域模糊。

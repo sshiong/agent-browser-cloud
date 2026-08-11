@@ -28,6 +28,7 @@ private static final long serialVersionUID = 0L;
     documentReadyState_ = "";
     snapshotKind_ = "";
     requestedRootRef_ = "";
+    resyncRequestId_ = "";
   }
 
   @java.lang.Override
@@ -50,6 +51,7 @@ private static final long serialVersionUID = 0L;
             io.browsercloud.proto.node.v1.BrowserStateDiffEvent.class, io.browsercloud.proto.node.v1.BrowserStateDiffEvent.Builder.class);
   }
 
+  private int bitField0_;
   public static final int SESSION_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object sessionId_ = "";
@@ -503,6 +505,74 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int RESYNC_REQUEST_ID_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object resyncRequestId_ = "";
+  /**
+   * <pre>
+   * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+   * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+   * </pre>
+   *
+   * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+   * @return The resyncRequestId.
+   */
+  @java.lang.Override
+  public java.lang.String getResyncRequestId() {
+    java.lang.Object ref = resyncRequestId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      resyncRequestId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+   * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+   * </pre>
+   *
+   * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+   * @return The bytes for resyncRequestId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getResyncRequestIdBytes() {
+    java.lang.Object ref = resyncRequestId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      resyncRequestId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COLLECTION_CPU_MILLIS_FIELD_NUMBER = 17;
+  private long collectionCpuMillis_ = 0L;
+  /**
+   * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+   * @return Whether the collectionCpuMillis field is set.
+   */
+  @java.lang.Override
+  public boolean hasCollectionCpuMillis() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+   * @return The collectionCpuMillis.
+   */
+  @java.lang.Override
+  public long getCollectionCpuMillis() {
+    return collectionCpuMillis_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -561,6 +631,12 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 15, requestedRootRef_);
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(resyncRequestId_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 16, resyncRequestId_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeUInt64(17, collectionCpuMillis_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -627,6 +703,13 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(requestedRootRef_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, requestedRootRef_);
     }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(resyncRequestId_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(16, resyncRequestId_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(17, collectionCpuMillis_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -672,6 +755,13 @@ private static final long serialVersionUID = 0L;
         .equals(other.getSnapshotKind())) return false;
     if (!getRequestedRootRef()
         .equals(other.getRequestedRootRef())) return false;
+    if (!getResyncRequestId()
+        .equals(other.getResyncRequestId())) return false;
+    if (hasCollectionCpuMillis() != other.hasCollectionCpuMillis()) return false;
+    if (hasCollectionCpuMillis()) {
+      if (getCollectionCpuMillis()
+          != other.getCollectionCpuMillis()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -722,6 +812,13 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getSnapshotKind().hashCode();
     hash = (37 * hash) + REQUESTED_ROOT_REF_FIELD_NUMBER;
     hash = (53 * hash) + getRequestedRootRef().hashCode();
+    hash = (37 * hash) + RESYNC_REQUEST_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getResyncRequestId().hashCode();
+    if (hasCollectionCpuMillis()) {
+      hash = (37 * hash) + COLLECTION_CPU_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          getCollectionCpuMillis());
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -875,6 +972,8 @@ private static final long serialVersionUID = 0L;
       networkEvidenceFresh_ = false;
       snapshotKind_ = "";
       requestedRootRef_ = "";
+      resyncRequestId_ = "";
+      collectionCpuMillis_ = 0L;
       return this;
     }
 
@@ -964,6 +1063,15 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.requestedRootRef_ = requestedRootRef_;
       }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.resyncRequestId_ = resyncRequestId_;
+      }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.collectionCpuMillis_ = collectionCpuMillis_;
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -1101,6 +1209,14 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00004000;
         onChanged();
       }
+      if (!other.getResyncRequestId().isEmpty()) {
+        resyncRequestId_ = other.resyncRequestId_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (other.hasCollectionCpuMillis()) {
+        setCollectionCpuMillis(other.getCollectionCpuMillis());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1211,6 +1327,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00004000;
               break;
             } // case 122
+            case 130: {
+              resyncRequestId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
+            case 136: {
+              collectionCpuMillis_ = input.readUInt64();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2331,6 +2457,143 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       requestedRootRef_ = value;
       bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object resyncRequestId_ = "";
+    /**
+     * <pre>
+     * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+     * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+     * </pre>
+     *
+     * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+     * @return The resyncRequestId.
+     */
+    public java.lang.String getResyncRequestId() {
+      java.lang.Object ref = resyncRequestId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        resyncRequestId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+     * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+     * </pre>
+     *
+     * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+     * @return The bytes for resyncRequestId.
+     */
+    public com.google.protobuf.ByteString
+        getResyncRequestIdBytes() {
+      java.lang.Object ref = resyncRequestId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        resyncRequestId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+     * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+     * </pre>
+     *
+     * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+     * @param value The resyncRequestId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setResyncRequestId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      resyncRequestId_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+     * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+     * </pre>
+     *
+     * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearResyncRequestId() {
+      resyncRequestId_ = getDefaultInstance().getResyncRequestId();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 仅 REGION_RESYNC 设置；用于关联 State Resync Admission 预留与实际结算。
+     * N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
+     * </pre>
+     *
+     * <code>string resync_request_id = 16 [json_name = "resyncRequestId"];</code>
+     * @param value The bytes for resyncRequestId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setResyncRequestIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      resyncRequestId_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private long collectionCpuMillis_ ;
+    /**
+     * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+     * @return Whether the collectionCpuMillis field is set.
+     */
+    @java.lang.Override
+    public boolean hasCollectionCpuMillis() {
+      return ((bitField0_ & 0x00010000) != 0);
+    }
+    /**
+     * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+     * @return The collectionCpuMillis.
+     */
+    @java.lang.Override
+    public long getCollectionCpuMillis() {
+      return collectionCpuMillis_;
+    }
+    /**
+     * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+     * @param value The collectionCpuMillis to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCollectionCpuMillis(long value) {
+
+      collectionCpuMillis_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint64 collection_cpu_millis = 17 [json_name = "collectionCpuMillis"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCollectionCpuMillis() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      collectionCpuMillis_ = 0L;
       onChanged();
       return this;
     }

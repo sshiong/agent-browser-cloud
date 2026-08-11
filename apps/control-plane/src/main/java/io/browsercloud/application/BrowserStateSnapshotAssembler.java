@@ -10,6 +10,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
@@ -331,7 +332,7 @@ public class BrowserStateSnapshotAssembler {
                 "DELETE FROM browser_state_snapshot_chunks WHERE snapshot_id = ?", snapshotId));
     jdbc.update(
         "DELETE FROM browser_state_snapshot_streams WHERE status IN ('CANCELLED', 'EXPIRED', 'REJECTED') AND updated_at < ?",
-        Instant.now().minus(java.time.Duration.ofDays(1)));
+        Timestamp.from(Instant.now().minus(java.time.Duration.ofDays(1))));
   }
 
   private String sha256(byte[] payload) {

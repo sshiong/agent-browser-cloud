@@ -11,6 +11,7 @@ import { AgentToolService } from './services/AgentToolService.js';
 import { AuditService } from './services/AuditService.js';
 import { BusinessRecoveryService } from './services/BusinessRecoveryService.js';
 import { CapacityService } from './services/CapacityService.js';
+import { ChallengeService } from './services/ChallengeService.js';
 import { ComplianceService } from './services/ComplianceService.js';
 import { CoordinatorService } from './services/CoordinatorService.js';
 import { CostService } from './services/CostService.js';
@@ -19,6 +20,7 @@ import { EnterpriseService } from './services/EnterpriseService.js';
 import { EnvironmentImportService } from './services/EnvironmentImportService.js';
 import { EvidenceService } from './services/EvidenceService.js';
 import { GroupsService } from './services/GroupsService.js';
+import { HumanAssistService } from './services/HumanAssistService.js';
 import { HumanTakeoverService } from './services/HumanTakeoverService.js';
 import { NotificationService } from './services/NotificationService.js';
 import { OperationService } from './services/OperationService.js';
@@ -45,6 +47,7 @@ export class BrowserCloudGeneratedClient {
     public readonly audit: AuditService;
     public readonly businessRecovery: BusinessRecoveryService;
     public readonly capacity: CapacityService;
+    public readonly challenge: ChallengeService;
     public readonly compliance: ComplianceService;
     public readonly coordinator: CoordinatorService;
     public readonly cost: CostService;
@@ -53,6 +56,7 @@ export class BrowserCloudGeneratedClient {
     public readonly environmentImport: EnvironmentImportService;
     public readonly evidence: EvidenceService;
     public readonly groups: GroupsService;
+    public readonly humanAssist: HumanAssistService;
     public readonly humanTakeover: HumanTakeoverService;
     public readonly notification: NotificationService;
     public readonly operation: OperationService;
@@ -91,6 +95,7 @@ export class BrowserCloudGeneratedClient {
         this.audit = new AuditService(this.request);
         this.businessRecovery = new BusinessRecoveryService(this.request);
         this.capacity = new CapacityService(this.request);
+        this.challenge = new ChallengeService(this.request);
         this.compliance = new ComplianceService(this.request);
         this.coordinator = new CoordinatorService(this.request);
         this.cost = new CostService(this.request);
@@ -99,6 +104,7 @@ export class BrowserCloudGeneratedClient {
         this.environmentImport = new EnvironmentImportService(this.request);
         this.evidence = new EvidenceService(this.request);
         this.groups = new GroupsService(this.request);
+        this.humanAssist = new HumanAssistService(this.request);
         this.humanTakeover = new HumanTakeoverService(this.request);
         this.notification = new NotificationService(this.request);
         this.operation = new OperationService(this.request);

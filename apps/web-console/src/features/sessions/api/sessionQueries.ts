@@ -35,6 +35,9 @@ import {
   getSessionApplicationBinding,
   rebindSessionApplication,
   rebindSessionProxy,
+  getSessionChallenges,
+  getChallengePreview,
+  authorizeHumanAssist,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -47,6 +50,7 @@ import type {
   RebindSessionApplicationRequest,
   RestoreRecoveryContractRevisionRequest,
   EvidencePurpose,
+  AuthorizeHumanAssistRequest,
 } from '@/types/session';
 import type { ProxyRebindRequest } from '@/types/proxy';
 
@@ -87,6 +91,10 @@ export const sessionKeys = {
     [...sessionKeys.businessRecovery(sessionId), 'provider-evidence'] as const,
   applicationBinding: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'application-binding'] as const,
+  challenges: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'challenges'] as const,
+  challengePreview: (sessionId: string, eventId: string) =>
+    [...sessionKeys.challenges(sessionId), eventId, 'preview'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
   recoveryContractRevisions: (applicationId: string) =>
     [...sessionKeys.recoveryContracts, applicationId, 'revisions'] as const,
@@ -151,6 +159,58 @@ export function useBrowserState(sessionId: string, enabled: boolean) {
     queryKey: sessionKeys.browserState(sessionId),
     queryFn: ({ signal }) => getBrowserState(sessionId, undefined, signal),
     enabled: Boolean(sessionId) && enabled,
+  });
+}
+
+export function useSessionChallenges(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.challenges(sessionId),
+    queryFn: ({ signal }) => getSessionChallenges(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useChallengePreview(
+  sessionId: string,
+  eventId: string | undefined
+) {
+  return useQuery({
+    queryKey: sessionKeys.challengePreview(sessionId, eventId ?? ''),
+    queryFn: ({ signal }) =>
+      getChallengePreview(eventId ?? '', undefined, undefined, signal),
+    enabled: Boolean(sessionId && eventId),
+    staleTime: 0,
+  });
+}
+
+export function useAuthorizeHumanAssist(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      request,
+    }: {
+      eventId: string;
+      request: AuthorizeHumanAssistRequest;
+    }) =>
+      authorizeHumanAssist(
+        eventId,
+        request,
+        `human-assist-${crypto.randomUUID()}`
+      ),
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.challenges(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.challengePreview(sessionId, variables.eventId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.detail(sessionId),
+        }),
+      ]);
+    },
   });
 }
 
@@ -488,6 +548,9 @@ export function useRebindSessionApplication(sessionId: string) {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: sessionKeys.applicationBinding(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.challenges(sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.businessRecovery(sessionId),

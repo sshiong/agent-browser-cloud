@@ -43,6 +43,7 @@ import {
   useStartSession,
   useTerminateSession,
   useUpdateResourcePolicy,
+  useRequestHumanTakeover,
 } from '@/features/sessions/api/sessionQueries';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
 import { currentActorId, isSessionApiError } from '@/api/session';
@@ -58,6 +59,7 @@ import { BusinessRecoveryCard } from '@/features/sessions/components/BusinessRec
 import { SessionEvidenceCard } from '@/features/sessions/components/SessionEvidenceCard';
 import { ProxyRebindPanel } from '@/features/sessions/components/ProxyRebindPanel';
 import { useProxyBindings } from '@/features/proxies/proxyQueries';
+import { ChallengeAssistCard } from '@/features/sessions/components/ChallengeAssistCard';
 
 export function SessionDetailPage() {
   const auth = useAuth();
@@ -91,6 +93,7 @@ export function SessionDetailPage() {
   const applicationRebindMutation = useRebindSessionApplication(id);
   const resourceStreamState = useSessionResourceStream(id, Boolean(id));
   const resourcePolicyMutation = useUpdateResourcePolicy(id);
+  const takeoverMutation = useRequestHumanTakeover(id);
   const [terminateOpen, setTerminateOpen] = useState(false);
 
   const session = sessionQuery.data;
@@ -376,6 +379,18 @@ export function SessionDetailPage() {
                   }
                 />
 
+                <ChallengeAssistCard
+                  sessionId={id}
+                  canOperate={
+                    auth.canOperate &&
+                    ['RUNNING', 'DEGRADED'].includes(session.state) &&
+                    session.humanTakeoverEnabled !== false
+                  }
+                  requestingTakeover={takeoverMutation.isPending}
+                  takeoverError={takeoverMutation.error}
+                  onRequestTakeover={() => takeoverMutation.mutateAsync()}
+                />
+
                 <BusinessRecoveryCard
                   validation={businessRecoveryQuery.data}
                   providerEvidence={providerEvidenceQuery.data?.items}
@@ -493,7 +508,8 @@ export function SessionDetailPage() {
                     <CapabilityRow
                       icon={Monitor}
                       title="远程桌面"
-                      detail="等待 WebRTC / noVNC 会话契约"
+                      detail="真实 noVNC 协作观察已接入；真人输入优先且 Agent 保持连接"
+                      ready
                     />
                     <CapabilityRow
                       icon={Crosshair}
@@ -528,7 +544,8 @@ export function SessionDetailPage() {
                     <CapabilityRow
                       icon={ShieldAlert}
                       title="安全事件"
-                      detail="等待脱敏后的 Session Security Timeline"
+                      detail="Challenge Detection、一次性 HumanAssist 授权与审计时间线已接入"
+                      ready
                     />
                   </div>
                 </section>

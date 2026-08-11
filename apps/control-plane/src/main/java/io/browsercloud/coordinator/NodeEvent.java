@@ -20,6 +20,7 @@ public sealed interface NodeEvent
         NodeEvent.DiffTruncated,
         NodeEvent.AgentNavigationFailed,
         NodeEvent.AgentActionFailed,
+        NodeEvent.HumanAssistFailed,
         NodeEvent.EvidenceCaptured,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
@@ -451,6 +452,10 @@ public sealed interface NodeEvent
 
   record AgentActionFailed(
       String sessionId, String taskId, String stepId, String toolId, String errorCode)
+      implements NodeEvent {}
+
+  record HumanAssistFailed(
+      String sessionId, String challengeEventId, String intentId, String errorCode)
       implements NodeEvent {}
 
   record EvidenceCaptured(

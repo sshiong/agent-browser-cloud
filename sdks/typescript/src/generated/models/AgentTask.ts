@@ -38,6 +38,10 @@ export type AgentTask = {
     confirmation: AgentConfirmation;
     humanHandoff: AgentHumanHandoff;
     /**
+     * Challenge currently pausing this Agent after its last verified step.
+     */
+    challengeEventId: string | null;
+    /**
      * Reviewer evidence. Older Control Planes may omit it during rolling upgrades.
      */
     review?: AgentReview;

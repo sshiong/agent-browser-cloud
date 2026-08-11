@@ -1,4 +1,4 @@
-.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
+.PHONY: install install-desktop build build-desktop build-sdk-release test test-desktop test-application-adapter test-validation-worker test-gameday-worker test-agent-worker test-terraform-provider lint lint-desktop fmt compose-up compose-down clean contracts contracts-check sdk-typescript-generate sdk-typescript-check sdk-multilang-generate sdk-multilang-check migrate migrate-info docker-build supply-chain-check test-integration test-real-url-agent test-postgres-outage test-object-storage test-coordinator-capacity test-browser-runtime-capacity test-browser-density-capacity test-kubernetes-operator test-kubernetes-e2e test-upgrade-compatibility test-e2e test-sdk ci
 
 BUF ?= pnpm dlx @bufbuild/buf@1.50.0
 CAPACITY_BUILD_ID ?= $(shell git rev-parse HEAD)
@@ -27,6 +27,7 @@ build:
 	python3 -m py_compile apps/gameday-worker/gameday_runner.py
 	python3 -m py_compile apps/agent-worker/agent_worker.py
 	python3 -m py_compile apps/agent-worker/reviewer_worker.py
+	go -C deploy/terraform/provider build -trimpath -o ../../../build/terraform-provider-browsercloud .
 
 # Build the shared Web UI and native desktop binary without producing unsigned installers.
 build-desktop:
@@ -41,6 +42,7 @@ test:
 	$(MAKE) test-validation-worker
 	$(MAKE) test-gameday-worker
 	$(MAKE) test-agent-worker
+	$(MAKE) test-terraform-provider
 
 # Verify the dependency-free, least-privilege Provider/Lease integration runtime.
 test-application-adapter:
@@ -57,6 +59,10 @@ test-gameday-worker:
 test-agent-worker:
 	python3 -m unittest discover -s apps/agent-worker -p 'test_*.py' -v
 
+# Verify the protocol-v6 Terraform Provider, API client, and fail-closed configuration.
+test-terraform-provider:
+	go -C deploy/terraform/provider test -race ./...
+
 # Run native desktop security-boundary unit tests.
 test-desktop:
 	cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
@@ -68,6 +74,8 @@ lint:
 	cargo clippy --locked --workspace --all-targets --manifest-path apps/browser-node/Cargo.toml -- -D warnings
 	pnpm --dir apps/web-console lint
 	pnpm --dir apps/web-console format:check
+	test -z "$$(gofmt -l deploy/terraform/provider)"
+	go -C deploy/terraform/provider vet ./...
 
 # Validate native formatting and the least-privilege Tauri configuration.
 lint-desktop:
@@ -79,6 +87,7 @@ fmt:
 	./gradlew -p apps/control-plane spotlessApply
 	cargo fmt --all --manifest-path apps/browser-node/Cargo.toml
 	pnpm --dir apps/web-console format
+	gofmt -w deploy/terraform/provider
 
 # Start local services
 compose-up:
@@ -151,6 +160,7 @@ docker-build:
 # Validate production release bundle invariants
 supply-chain-check:
 	./tests/supply-chain/release_bundle_test.sh
+	./tests/supply-chain/terraform_provider_release_test.sh
 
 # Run integration tests
 test-integration:

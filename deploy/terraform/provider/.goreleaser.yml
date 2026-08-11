@@ -1,0 +1,42 @@
+version: 2
+
+project_name: terraform-provider-browsercloud
+
+builds:
+  - id: provider
+    binary: terraform-provider-browsercloud_v{{ .Env.PROVIDER_VERSION }}
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Env.PROVIDER_VERSION }}
+
+archives:
+  - ids: [provider]
+    formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Env.PROVIDER_VERSION }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Env.PROVIDER_VERSION }}_SHA256SUMS"
+
+signs:
+  - id: checksum
+    artifacts: checksum
+    cmd: gpg
+    args:
+      - --batch
+      - --local-user
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - --output
+      - ${signature}
+      - --detach-sign
+      - ${artifact}
+
+changelog:
+  disable: true
+
+release:
+  disable: true

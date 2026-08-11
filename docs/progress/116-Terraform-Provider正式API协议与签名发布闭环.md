@@ -5,7 +5,7 @@
 
 ## 本轮完成
 
-在 `deploy/terraform/provider` 新增独立 Go 1.22 Terraform Plugin Framework Provider，
+在 `deploy/terraform/provider` 新增独立 Go 1.25 Terraform Plugin Framework Provider，
 通过 Protocol 6 暴露：
 
 - `browsercloud_group`：正式 Control Plane API CRUD、Import，以及 Session 成员精确收敛；
@@ -32,6 +32,8 @@ Provider 因此按 ID 从列表读取，不访问 PostgreSQL 或内部 Node/cgro
 
 - 根 `make build/test/lint/ci` 已纳入 Provider build、race test、Protocol Schema、vet 和 gofmt；
 - 主 CI 固定 `actions/setup-go` commit，并按 `go.sum` 缓存；
+- 远端 Trivy HIGH/CRITICAL 门禁首轮检出旧传递依赖后，已升级 Framework 1.19、plugin-go
+  0.31、x/net 0.55、x/text 0.39 与 gRPC 1.82.1；不使用 ignore 漏洞或关闭扫描绕过；
 - tag Workflow 校验 `VERSION` 与不可变 tag 完全一致；
 - 由于 GoReleaser OSS 不支持 monorepo component-prefix tag，Workflow 在进入 GoReleaser
   前自行严格校验 `terraform-provider-vX.Y.Z`，再只从已提交 `VERSION` 注入 artifact version；

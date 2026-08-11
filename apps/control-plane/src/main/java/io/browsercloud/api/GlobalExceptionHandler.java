@@ -65,6 +65,7 @@ import io.browsercloud.application.SessionResourceEventStreamService.ResourceStr
 import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseNotFoundException;
 import io.browsercloud.application.SessionSafetyLeaseApplicationService.SafetyLeaseRejectedException;
 import io.browsercloud.application.StateGatewayApplicationService.InvalidStateResyncRequestException;
+import io.browsercloud.application.StateResyncAdmissionService.StateResyncBudgetExceededException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyBindingNotFoundException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyBindingRejectedException;
 import io.browsercloud.application.StaticProxyApplicationService.ProxyUnavailableException;
@@ -1029,6 +1030,23 @@ public class GlobalExceptionHandler {
         "State Resync request is not valid for the current Session",
         Map.of(),
         request);
+  }
+
+  @ExceptionHandler(StateResyncBudgetExceededException.class)
+  ResponseEntity<ApiError> stateResyncBudgetExceeded(
+      StateResyncBudgetExceededException exception, HttpServletRequest request) {
+    String requestId = (String) request.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE);
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .header("Retry-After", Integer.toString(exception.retryAfterSeconds()))
+        .body(
+            new ApiError(
+                "STATE_RESYNC_BUDGET_EXHAUSTED",
+                "State Resync admission budget is temporarily exhausted",
+                Map.of(
+                    "scope", exception.scope(),
+                    "retryAfterSeconds", exception.retryAfterSeconds()),
+                requestId,
+                Instant.now()));
   }
 
   @ExceptionHandler(StaleContextEpochException.class)

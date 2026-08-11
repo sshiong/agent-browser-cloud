@@ -474,10 +474,11 @@ public class SessionController {
       @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
       @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
       @Valid @RequestBody StateResyncRequest request) {
+    var principal = identity.current();
     return ResponseEntity.accepted()
         .body(
             stateGateway.requestResync(
-                sessionId, identity.current().tenantId(), request, idempotencyKey));
+                sessionId, principal.tenantId(), principal.actorId(), request, idempotencyKey));
   }
 
   /**

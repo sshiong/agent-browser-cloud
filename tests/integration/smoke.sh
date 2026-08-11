@@ -4308,6 +4308,62 @@ done
 test "$resynced_version" -gt "$diff_state_version"
 test "$resynced_quality" = "COMPLETE"
 
+# Fill the weighted Session window with explicit fixtures, then prove the real PostgreSQL
+# advisory-lock admission path returns 429 + Retry-After without persisting either a Resync row or
+# the API idempotency claim. Fixtures are removed immediately so later crash/migration recovery is
+# not intentionally circuit-limited.
+docker exec -i "$postgres_name" psql -v ON_ERROR_STOP=1 -U browsercloud -d browsercloud <<SQL >/dev/null
+BEGIN;
+SELECT pg_advisory_xact_lock(
+  hashtextextended('state-resync:tenant:tenant-integration', 0));
+SELECT pg_advisory_xact_lock(
+  hashtextextended('state-resync:session:${session_one}', 0));
+INSERT INTO state_resync_requests(
+    request_id, tenant_id, session_id, mode, source, reason, token_cost, requested_at)
+SELECT 'cmd_budgetfull' || lpad(generated.series::text, 16, '0'),
+       'tenant-integration', '${session_one}', 'FULL', 'USER',
+       'INTEGRATION_BUDGET_FIXTURE', 10, now()
+FROM generate_series(1, 6) AS generated(series);
+COMMIT;
+SQL
+resync_budget_tokens="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select coalesce(sum(token_cost),0) from state_resync_requests
+   where session_id='${session_one}' and requested_at >= now() - interval '5 minutes'")"
+# The fixture deliberately contributes 60 tokens in addition to any real Resync already admitted
+# for this active Session. The API under test must therefore reject another Full request.
+if ! [[ "$resync_budget_tokens" =~ ^[0-9]+$ ]] || (( resync_budget_tokens < 60 )); then
+  echo "State Resync fixture did not saturate the Session window: ${resync_budget_tokens}" >&2
+  exit 1
+fi
+resync_budget_status="$(curl -sS -D "$temp_dir/resync-budget.headers" \
+  -o "$temp_dir/resync-budget.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}:resync-state" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-state-resync-budget-rejected' \
+  -d '{"mode":"FULL","reason":"INTEGRATION_BUDGET_TEST"}')"
+test "$resync_budget_status" = "429"
+grep -Eqi '^Retry-After: 300\r?$' "$temp_dir/resync-budget.headers"
+python3 - "$temp_dir/resync-budget.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    error = json.load(source)
+assert error["code"] == "STATE_RESYNC_BUDGET_EXHAUSTED"
+assert error["details"]["scope"] == "SESSION"
+assert error["details"]["retryAfterSeconds"] == 300
+assert error["requestId"]
+PY
+resync_budget_rejected_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from api_idempotency_records
+   where tenant_id='tenant-integration'
+     and idempotency_key='smoke-state-resync-budget-rejected'")"
+test "$resync_budget_rejected_rows" = "0"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -c \
+  "delete from state_resync_requests where session_id='${session_one}'
+   and reason='INTEGRATION_BUDGET_FIXTURE'" >/dev/null
+
 runtime_pid="$(pgrep -P "$node_pid" | head -n 1)"
 test -n "$runtime_pid"
 pre_crash_session="$(curl -fsS \

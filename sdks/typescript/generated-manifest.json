@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "6ebe05d0b93827e363c563089f4fa9de7a10d4d131981e945365a885356e12f9",
+  "contractSha256": "11f9fb546163aee782b98b1c6cbf7d1615a6d295362dd113fdc269ab4caea1fc",
   "files": {
     "BrowserCloudGeneratedClient.ts": "d10b66b849fd1ee628699fea39626f771128667b115ef18005b95a80037b5551",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -310,10 +310,10 @@
     "services/SavedViewService.ts": "3917820daf3ad127569135eff7a42bd483e9e6b493a42c697bb92732e389d9b6",
     "services/SearchService.ts": "e9a377b859d1739f541427e82014cce14fe7db5d87811d6bd3f19264934d537e",
     "services/SecurityService.ts": "98216738f7b7c46fca65525ea7f3ed5c272ed6bcded877d1950c04331759e9ed",
-    "services/SessionService.ts": "3eba68b3406e48204e05fce34b50b71ab93f9ab6fd7d8ec32c1943ae82e0320b",
+    "services/SessionService.ts": "549910e9194948964b15427715a8df5ca352127ec35274405f66ea5c6633bc89",
     "services/SettingsService.ts": "c5ed6d84ca3ae8afe42a9376c616bc76e8bba365145552a8db0b159c9ded312f",
     "services/SloService.ts": "5c2cb8e04af3245a690ef846dca3a3f0cb2e44bfef88b5dbf73c4bcd68ea86c1",
-    "services/StateService.ts": "8677ba3ef1c12487ebcdf838f97ae315e5bf1b0c7865a864365796d61b82a108",
+    "services/StateService.ts": "322b59daf2ef83ad2cd377cc744c9f97a95bf69dab63a822974d87eb8c8c65e2",
     "services/TagsService.ts": "da5e7ab9e178beba95b79857ebcf0ece1dbabb7ee578cf492ddc9675aa288d89",
     "services/UserPreferenceService.ts": "f894d3d5541ee887d09f5c12ca4b98b296ad5b26ff5db18960dafbe8947d38b5",
     "services/WorkspaceOverviewService.ts": "dfd7a651c65e242c5e6c83572594437fea96352414f690dd0bb12c898e074132"

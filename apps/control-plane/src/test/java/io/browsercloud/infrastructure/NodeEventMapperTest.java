@@ -8,6 +8,7 @@ import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
+import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
@@ -318,6 +319,34 @@ class NodeEventMapperTest {
     assertThatThrownBy(() -> mapper.toCommand(envelope))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("64 KiB");
+  }
+
+  @Test
+  void shouldAcceptTheBoundedBackpressureTruncationReason() {
+    var payload =
+        DiffTruncatedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setReason("BACKPRESSURE_LIMIT")
+            .setLastGoodStateVersion(7)
+            .setCurrentStateVersion(9)
+            .setAffectedRoot("document")
+            .setEstimatedTargets(40)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_backpressure")
+            .setEventType(NodeEventMapper.DIFF_TRUNCATED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setContextEpoch(3)
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.DiffTruncated.class,
+            event -> assertThat(event.reason()).isEqualTo("BACKPRESSURE_LIMIT"));
   }
 
   @Test

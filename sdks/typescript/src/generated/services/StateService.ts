@@ -75,6 +75,7 @@ export class StateService {
                 403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
                 409: `State or idempotency conflict.`,
+                429: `The bounded concurrent stream capacity has been reached.`,
             },
         });
     }

@@ -54,6 +54,22 @@ use tracing_subscriber::EnvFilter;
 
 const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
 
+fn state_backpressure_truncation(
+    previous: &CurrentState,
+    current: &CurrentState,
+    pending_events: u32,
+    backlog_limit: u32,
+) -> Option<state_collector::DiffTruncated> {
+    (pending_events >= backlog_limit).then(|| state_collector::DiffTruncated {
+        session_id: current.session_id.clone(),
+        reason: "BACKPRESSURE_LIMIT".to_owned(),
+        last_good_state_version: previous.state_version,
+        current_state_version: current.state_version,
+        affected_root: "document".to_owned(),
+        estimated_targets: current.targets.len(),
+    })
+}
+
 #[derive(Clone)]
 struct NodeControlService {
     node_id: String,
@@ -70,6 +86,7 @@ struct NodeControlService {
     resync_required: Arc<Mutex<HashSet<String>>>,
     diff_max_bytes: usize,
     diff_max_changes: usize,
+    state_event_backlog_limit: u32,
     input_brokers: Arc<Mutex<HashMap<String, Arc<CdpDesktopInput>>>>,
     active_human_takeovers: Arc<Mutex<HashSet<String>>>,
     journal: Arc<SqliteNodeJournal>,
@@ -1783,11 +1800,12 @@ impl NodeControlService {
         }
     }
 
+    fn is_state_backlog_event_type(event_type: &str) -> bool {
+        matches!(event_type, "BrowserStateDiff" | "DiffTruncated")
+    }
+
     fn is_state_backlog_event(event: &EventEnvelope) -> bool {
-        matches!(
-            event.event_type.as_str(),
-            "BrowserStateDiff" | "DiffTruncated"
-        )
+        Self::is_state_backlog_event_type(&event.event_type)
     }
 
     async fn increment_pending_state_event(&self, session_id: &str) {
@@ -4122,51 +4140,68 @@ impl NodeControlService {
                                             continue;
                                         }
                                         Some(previous) => {
-                                            let (diff_max_bytes, diff_max_changes) = service
-                                                .state_collector
-                                                .bounded_diff_limits(
-                                                    &session_id,
-                                                    service.diff_max_bytes,
-                                                    service.diff_max_changes,
-                                                )
-                                                .await;
-                                            match diff_states(
+                                            let pending_events = service
+                                                .pending_state_events
+                                                .lock()
+                                                .await
+                                                .get(&session_id)
+                                                .copied()
+                                                .unwrap_or_default();
+                                            if let Some(truncated) = state_backpressure_truncation(
                                                 &previous,
                                                 &state,
-                                                diff_max_bytes,
-                                                diff_max_changes,
+                                                pending_events,
+                                                service.state_event_backlog_limit,
                                             ) {
-                                                Ok(DiffOutcome::Diff(diff)) => {
-                                                    service
-                                                        .record_and_publish_state_diff(
-                                                            &tenant_id,
-                                                            &session_id,
-                                                            coordinator_term,
-                                                            running_context_epoch,
-                                                            diff,
-                                                        )
-                                                        .await
-                                                }
-                                                Ok(DiffOutcome::Truncated(truncated)) => {
-                                                    let result = service
-                                                        .record_and_publish_diff_truncated(
-                                                            &tenant_id,
-                                                            &session_id,
-                                                            coordinator_term,
-                                                            running_context_epoch,
-                                                            truncated,
-                                                        )
-                                                        .await;
-                                                    if result.is_ok() {
+                                                let result = service
+                                                    .record_diff_truncated_with_resync_barrier(
+                                                        &tenant_id,
+                                                        &session_id,
+                                                        coordinator_term,
+                                                        running_context_epoch,
+                                                        truncated,
+                                                    )
+                                                    .await;
+                                                result
+                                            } else {
+                                                let (diff_max_bytes, diff_max_changes) = service
+                                                    .state_collector
+                                                    .bounded_diff_limits(
+                                                        &session_id,
+                                                        service.diff_max_bytes,
+                                                        service.diff_max_changes,
+                                                    )
+                                                    .await;
+                                                match diff_states(
+                                                    &previous,
+                                                    &state,
+                                                    diff_max_bytes,
+                                                    diff_max_changes,
+                                                ) {
+                                                    Ok(DiffOutcome::Diff(diff)) => {
                                                         service
-                                                            .resync_required
-                                                            .lock()
+                                                            .record_and_publish_state_diff(
+                                                                &tenant_id,
+                                                                &session_id,
+                                                                coordinator_term,
+                                                                running_context_epoch,
+                                                                diff,
+                                                            )
                                                             .await
-                                                            .insert(session_id.clone());
                                                     }
-                                                    result
+                                                    Ok(DiffOutcome::Truncated(truncated)) => {
+                                                        service
+                                                            .record_diff_truncated_with_resync_barrier(
+                                                                &tenant_id,
+                                                                &session_id,
+                                                                coordinator_term,
+                                                                running_context_epoch,
+                                                                truncated,
+                                                            )
+                                                            .await
+                                                    }
+                                                    Err(error) => Err(error),
                                                 }
-                                                Err(error) => Err(error),
                                             }
                                         }
                                     };
@@ -4264,11 +4299,6 @@ impl NodeControlService {
                             .remove(&session_id);
                         service
                             .agent_action_latencies
-                            .lock()
-                            .await
-                            .remove(&session_id);
-                        service
-                            .pending_state_events
                             .lock()
                             .await
                             .remove(&session_id);
@@ -4418,6 +4448,37 @@ impl NodeControlService {
         .await
     }
 
+    /// Install the local collection barrier before publishing the truncation event. The Control
+    /// Plane may dispatch Full Resync immediately after accepting the event; setting the barrier
+    /// afterwards could race with that command and freeze collection again after a successful
+    /// resync. Journal persistence failure removes the barrier because no durable trigger exists.
+    async fn record_diff_truncated_with_resync_barrier(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        truncated: state_collector::DiffTruncated,
+    ) -> anyhow::Result<()> {
+        self.resync_required
+            .lock()
+            .await
+            .insert(session_id.to_owned());
+        let result = self
+            .record_and_publish_diff_truncated(
+                tenant_id,
+                session_id,
+                coordinator_term,
+                context_epoch,
+                truncated,
+            )
+            .await;
+        if result.is_err() {
+            self.resync_required.lock().await.remove(session_id);
+        }
+        result
+    }
+
     async fn record_and_publish_background_event(
         &self,
         tenant_id: &str,
@@ -4427,6 +4488,7 @@ impl NodeControlService {
         event_type: &str,
         payload: impl Message,
     ) -> anyhow::Result<()> {
+        let tracks_state_backlog = Self::is_state_backlog_event_type(event_type);
         let event_id = format!("evt_state_{}", uuid::Uuid::new_v4().simple());
         let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
         let sequence = self.next_event_sequence(session_id).await?;
@@ -4452,9 +4514,13 @@ impl NodeControlService {
             event_payload: Some(event.encode_to_vec()),
             event_delivered: false,
         };
-        self.increment_pending_state_event(session_id).await;
+        if tracks_state_backlog {
+            self.increment_pending_state_event(session_id).await;
+        }
         if let Err(error) = self.journal.record_command_result(&persisted).await {
-            self.decrement_pending_state_event(session_id).await;
+            if tracks_state_backlog {
+                self.decrement_pending_state_event(session_id).await;
+            }
             return Err(error);
         }
         if let Err(error) = self.publish_and_mark(event).await {
@@ -4667,10 +4733,6 @@ impl NodeControlService {
                 .await
                 .remove(&command.session_id);
             self.agent_action_latencies
-                .lock()
-                .await
-                .remove(&command.session_id);
-            self.pending_state_events
                 .lock()
                 .await
                 .remove(&command.session_id);
@@ -5324,8 +5386,13 @@ async fn main() -> Result<()> {
     let diff_max_changes = std::env::var("STATE_DIFF_MAX_CHANGES")
         .unwrap_or_else(|_| "200".to_owned())
         .parse::<usize>()?;
+    let state_event_backlog_limit = std::env::var("STATE_EVENT_BACKLOG_LIMIT")
+        .unwrap_or_else(|_| "64".to_owned())
+        .parse::<u32>()?;
     anyhow::ensure!(
-        (1024..=60_000).contains(&diff_max_bytes) && diff_max_changes > 0,
+        (1024..=60_000).contains(&diff_max_bytes)
+            && diff_max_changes > 0
+            && (4..=4096).contains(&state_event_backlog_limit),
         "State Diff limits are invalid"
     );
     let resource_report_interval_probes = std::env::var("SESSION_RESOURCE_REPORT_INTERVAL_SECONDS")
@@ -5606,6 +5673,7 @@ async fn main() -> Result<()> {
         resync_required: Arc::new(Mutex::new(HashSet::new())),
         diff_max_bytes,
         diff_max_changes,
+        state_event_backlog_limit,
         input_brokers,
         active_human_takeovers: Arc::new(Mutex::new(HashSet::new())),
         journal,
@@ -5781,6 +5849,41 @@ mod tests {
             "PROBE_FAILED",
             "arbitrary helper text must never cross the Node boundary"
         );
+    }
+
+    #[test]
+    fn state_event_backpressure_emits_one_resync_barrier_at_the_high_watermark() {
+        let state = |version| CurrentState {
+            session_id: "ses_backpressure".to_owned(),
+            state_version: version,
+            target_revision: 2,
+            url: "https://example.test/".to_owned(),
+            title: "Example".to_owned(),
+            targets: Vec::new(),
+            quality: StateQuality::Complete,
+            content_hash: format!("hash-{version}"),
+            document_ready_state: "complete".to_owned(),
+            network_quiet_millis: 1_000,
+            network_evidence_fresh: true,
+        };
+        let previous = state(11);
+        let current = state(12);
+
+        assert!(state_backpressure_truncation(&previous, &current, 63, 64).is_none());
+        let truncated = state_backpressure_truncation(&previous, &current, 64, 64).unwrap();
+        assert_eq!(truncated.reason, "BACKPRESSURE_LIMIT");
+        assert_eq!(truncated.last_good_state_version, 11);
+        assert_eq!(truncated.current_state_version, 12);
+        assert_eq!(truncated.affected_root, "document");
+        assert!(NodeControlService::is_state_backlog_event_type(
+            "BrowserStateDiff"
+        ));
+        assert!(NodeControlService::is_state_backlog_event_type(
+            "DiffTruncated"
+        ));
+        assert!(!NodeControlService::is_state_backlog_event_type(
+            "SessionEvidenceCaptured"
+        ));
     }
 
     struct CapturingEventService {
@@ -6008,6 +6111,7 @@ mod tests {
             resync_required: Arc::new(Mutex::new(HashSet::new())),
             diff_max_bytes: 60_000,
             diff_max_changes: 200,
+            state_event_backlog_limit: 64,
             input_brokers: Arc::new(Mutex::new(HashMap::new())),
             active_human_takeovers: Arc::new(Mutex::new(HashSet::new())),
             journal: reopened.clone(),

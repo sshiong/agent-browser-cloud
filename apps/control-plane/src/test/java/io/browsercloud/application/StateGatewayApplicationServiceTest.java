@@ -3,6 +3,7 @@ package io.browsercloud.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.browsercloud.api.StateResyncRequest;
@@ -28,6 +29,8 @@ class StateGatewayApplicationServiceTest {
   @Mock private BrowserStateRepository stateRepository;
   @Mock private NodeCommandGateway nodeCommandGateway;
   @Mock private IdempotencyService idempotencyService;
+  @Mock private StateResyncAdmissionService admissionService;
+  @Mock private AuditApplicationService auditService;
 
   private StateGatewayApplicationService service;
 
@@ -35,7 +38,12 @@ class StateGatewayApplicationServiceTest {
   void setUp() {
     service =
         new StateGatewayApplicationService(
-            sessionRepository, stateRepository, nodeCommandGateway, idempotencyService);
+            sessionRepository,
+            stateRepository,
+            nodeCommandGateway,
+            idempotencyService,
+            admissionService,
+            auditService);
   }
 
   @Test
@@ -54,6 +62,7 @@ class StateGatewayApplicationServiceTest {
         service.requestResync(
             session.sessionId(),
             session.tenantId(),
+            "operator-test",
             new StateResyncRequest(StateResyncRequest.Mode.REGION, "#app", "TEST"),
             "idem-resync-1");
 
@@ -66,6 +75,74 @@ class StateGatewayApplicationServiceTest {
     assertThat(command.getValue().idempotencyKey()).isEqualTo("idem-resync-1");
     assertThat(response.requestId()).isEqualTo(command.getValue().messageId());
     assertThat(response.state()).isEqualTo("QUEUED");
+    verify(admissionService)
+        .admitUser(
+            session.tenantId(),
+            session.sessionId(),
+            "operator-test",
+            command.getValue().messageId(),
+            StateResyncRequest.Mode.REGION,
+            "#app",
+            "TEST");
+  }
+
+  @Test
+  void idempotentReplayDoesNotConsumeAnotherResyncBudget() {
+    var session = session(SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate(session.sessionId())).thenReturn(session);
+    when(idempotencyService.claimStateResync(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn("cmd_existing_1234567890");
+
+    var response =
+        service.requestResync(
+            session.sessionId(),
+            session.tenantId(),
+            "operator-test",
+            new StateResyncRequest(StateResyncRequest.Mode.FULL, null, "TEST"),
+            "idem-resync-replay");
+
+    assertThat(response.requestId()).isEqualTo("cmd_existing_1234567890");
+    verifyNoInteractions(admissionService, stateRepository, nodeCommandGateway);
+  }
+
+  @Test
+  void workflowOwnedFullResyncConsumesTheAutomaticCircuitBudget() {
+    var session = session(SessionState.RUNNING);
+    when(sessionRepository.requireForUpdate(session.sessionId())).thenReturn(session);
+    when(idempotencyService.claimStateResync(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(invocation -> invocation.getArgument(4));
+
+    var response =
+        service.requestResync(
+            session.sessionId(),
+            session.tenantId(),
+            new StateResyncRequest(
+                StateResyncRequest.Mode.FULL, null, "MIGRATION_BUSINESS_RECOVERY"),
+            "migration-test-resync");
+
+    verify(admissionService)
+        .admitAutomatic(
+            session.tenantId(),
+            session.sessionId(),
+            "state-resync-workflow",
+            response.requestId(),
+            "MIGRATION_BUSINESS_RECOVERY");
+    verify(auditService)
+        .append(
+            org.mockito.ArgumentMatchers.argThat(
+                record ->
+                    record.eventType().equals("STATE_RESYNC_REQUESTED")
+                        && record.actorType().equals("SYSTEM")));
   }
 
   @Test
@@ -78,6 +155,7 @@ class StateGatewayApplicationServiceTest {
                 service.requestResync(
                     session.sessionId(),
                     session.tenantId(),
+                    "operator-test",
                     new StateResyncRequest(StateResyncRequest.Mode.REGION, "", "TEST"),
                     "idem-resync-2"))
         .isInstanceOf(StateGatewayApplicationService.InvalidStateResyncRequestException.class);

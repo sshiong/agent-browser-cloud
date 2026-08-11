@@ -38,6 +38,7 @@ class NodeEventIngestionServiceTest {
   @Mock private SessionResourceApplicationService resourceService;
   @Mock private BusinessRecoveryActionApplicationService recoveryActionService;
   @Mock private SessionEvidenceApplicationService evidenceService;
+  @Mock private StateResyncAdmissionService stateResyncAdmissionService;
 
   private NodeEventIngestionService service;
 
@@ -58,7 +59,8 @@ class NodeEventIngestionServiceTest {
             browserCapacityService,
             resourceService,
             recoveryActionService,
-            evidenceService);
+            evidenceService,
+            stateResyncAdmissionService);
   }
 
   @Test
@@ -247,25 +249,13 @@ class NodeEventIngestionServiceTest {
     var command = new NodeEventReceived("evt-gap", "tenant-test", "ses-test", 0, 2, 0, 4, diff);
     when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
     when(browserStateRepository.applyDiff("tenant-test", 2, diff)).thenReturn(false);
-    when(sessionRepository.require("ses-test"))
-        .thenReturn(
-            new io.browsercloud.domain.session.SessionContext(
-                "ses-test",
-                "tenant-test",
-                "profile-test",
-                "node-test",
-                "runtime-test",
-                null,
-                null,
-                0,
-                2,
-                1,
-                0,
-                io.browsercloud.domain.session.ResourceClass.L2,
-                io.browsercloud.domain.session.SessionState.RUNNING,
-                "",
-                java.time.Instant.EPOCH,
-                java.time.Instant.EPOCH));
+    when(sessionRepository.requireForUpdate("ses-test")).thenReturn(runningSession());
+    when(stateResyncAdmissionService.tryAdmitAutomaticFull(
+            org.mockito.ArgumentMatchers.eq("tenant-test"),
+            org.mockito.ArgumentMatchers.eq("ses-test"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.eq("AUTO_BASE_VERSION_MISMATCH")))
+        .thenReturn(new StateResyncAdmissionService.AdmissionDecision(true, "", 0));
 
     service.receive(command);
 
@@ -273,6 +263,57 @@ class NodeEventIngestionServiceTest {
         .invalidate("tenant-test", 2, "ses-test", 6, "BASE_VERSION_MISMATCH");
     verify(nodeCommandGateway).send(any());
     verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldCommitInvalidStateButNotQueueAnotherResyncWhenAutomaticCircuitIsOpen() {
+    var truncated =
+        new NodeEvent.DiffTruncated("ses-test", "BACKPRESSURE_LIMIT", 4, 8, "document", 40);
+    var command =
+        new NodeEventReceived("evt-backpressure", "tenant-test", "ses-test", 0, 2, 0, 5, truncated);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+    when(sessionRepository.requireForUpdate("ses-test")).thenReturn(runningSession());
+    when(stateResyncAdmissionService.tryAdmitAutomaticFull(
+            org.mockito.ArgumentMatchers.eq("tenant-test"),
+            org.mockito.ArgumentMatchers.eq("ses-test"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.eq("AUTO_BACKPRESSURE_LIMIT")))
+        .thenReturn(
+            new StateResyncAdmissionService.AdmissionDecision(false, "AUTOMATIC_CIRCUIT", 60));
+
+    service.receive(command);
+
+    verify(browserStateRepository)
+        .invalidate("tenant-test", 2, "ses-test", 8, "BACKPRESSURE_LIMIT");
+    verify(nodeCommandGateway, never()).send(any());
+    verify(auditService)
+        .append(
+            org.mockito.ArgumentMatchers.argThat(
+                record ->
+                    record.eventType().equals("STATE_RESYNC_CIRCUIT_OPEN")
+                        && record.result().equals("BLOCKED")
+                        && record.requestId().equals("evt-backpressure")));
+    verify(inboxRepository).save(any());
+  }
+
+  private static io.browsercloud.domain.session.SessionContext runningSession() {
+    return new io.browsercloud.domain.session.SessionContext(
+        "ses-test",
+        "tenant-test",
+        "profile-test",
+        "node-test",
+        "runtime-test",
+        null,
+        null,
+        0,
+        2,
+        1,
+        0,
+        io.browsercloud.domain.session.ResourceClass.L2,
+        io.browsercloud.domain.session.SessionState.RUNNING,
+        "",
+        java.time.Instant.EPOCH,
+        java.time.Instant.EPOCH);
   }
 
   private NodeEventReceived command() {

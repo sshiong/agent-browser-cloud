@@ -35,6 +35,7 @@ public class NodeEventIngestionService {
   private final SessionResourceApplicationService resourceService;
   private final BusinessRecoveryActionApplicationService recoveryActionService;
   private final SessionEvidenceApplicationService evidenceService;
+  private final StateResyncAdmissionService stateResyncAdmissionService;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -50,7 +51,8 @@ public class NodeEventIngestionService {
       BrowserCapacityApplicationService browserCapacityService,
       SessionResourceApplicationService resourceService,
       BusinessRecoveryActionApplicationService recoveryActionService,
-      SessionEvidenceApplicationService evidenceService) {
+      SessionEvidenceApplicationService evidenceService,
+      StateResyncAdmissionService stateResyncAdmissionService) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -65,6 +67,7 @@ public class NodeEventIngestionService {
     this.resourceService = resourceService;
     this.recoveryActionService = recoveryActionService;
     this.evidenceService = evidenceService;
+    this.stateResyncAdmissionService = stateResyncAdmissionService;
   }
 
   @Transactional
@@ -192,10 +195,38 @@ public class NodeEventIngestionService {
 
   private void requestAutomaticFullResync(
       NodeEventReceived event, String reason, String affectedRoot) {
-    var session = sessionRepository.require(event.sessionId());
-    nodeCommandGateway.send(
+    var session = sessionRepository.requireForUpdate(event.sessionId());
+    var command =
         NodeCommands.requestStateResync(
-            session, "FULL", affectedRoot, "AUTO_" + reason, "state-event:" + event.eventId()));
+            session, "FULL", affectedRoot, "AUTO_" + reason, "state-event:" + event.eventId());
+    var admission =
+        stateResyncAdmissionService.tryAdmitAutomaticFull(
+            event.tenantId(), event.sessionId(), command.messageId(), "AUTO_" + reason);
+    if (admission.admitted()) {
+      nodeCommandGateway.send(command);
+      return;
+    }
+    auditService.append(
+        new AuditApplicationService.AuditRecord(
+            event.tenantId(),
+            event.sessionId(),
+            "STATE_RESYNC_CIRCUIT_OPEN",
+            "NODE",
+            "node-event-stream",
+            "SESSION",
+            event.sessionId(),
+            "REQUEST_FULL_RESYNC",
+            "BLOCKED",
+            Map.of(
+                "scope",
+                admission.scope(),
+                "retryAfterSeconds",
+                admission.retryAfterSeconds(),
+                "reason",
+                reason,
+                "affectedRoot",
+                affectedRoot),
+            event.eventId()));
   }
 
   public static final class NodeEventRejectedException extends RuntimeException {

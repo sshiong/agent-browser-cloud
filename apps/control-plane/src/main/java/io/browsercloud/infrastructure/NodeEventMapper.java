@@ -345,6 +345,12 @@ public class NodeEventMapper {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
           requireText(payload.getReason(), "reason");
           requireText(payload.getAffectedRoot(), "affected_root");
+          if (!java.util.Set.of("TARGET_LIMIT", "BYTE_LIMIT", "BACKPRESSURE_LIMIT")
+                  .contains(payload.getReason())
+              || payload.getAffectedRoot().length() > 512
+              || payload.getAffectedRoot().chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("DiffTruncated boundary metadata is invalid");
+          }
           if (payload.getLastGoodStateVersion() <= 0
               || payload.getCurrentStateVersion() <= payload.getLastGoodStateVersion()) {
             throw new IllegalArgumentException("DiffTruncated versions are invalid");

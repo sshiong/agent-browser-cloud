@@ -4343,7 +4343,8 @@ resync_budget_status="$(curl -sS -D "$temp_dir/resync-budget.headers" \
   -H 'Idempotency-Key: smoke-state-resync-budget-rejected' \
   -d '{"mode":"FULL","reason":"INTEGRATION_BUDGET_TEST"}')"
 test "$resync_budget_status" = "429"
-grep -Eqi '^Retry-After: 300\r?$' "$temp_dir/resync-budget.headers"
+tr -d '\r' <"$temp_dir/resync-budget.headers" \
+  | grep -Eqi '^Retry-After:[[:space:]]*300$'
 python3 - "$temp_dir/resync-budget.json" <<'PY'
 import json
 import sys

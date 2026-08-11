@@ -92,6 +92,8 @@ class AgentTaskSummaryQueryRepositoryTest {
         0,
         3,
         0,
+        null,
+        null,
         instant,
         instant);
   }

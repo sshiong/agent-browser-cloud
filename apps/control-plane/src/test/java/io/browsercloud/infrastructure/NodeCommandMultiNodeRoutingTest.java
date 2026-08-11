@@ -3,16 +3,19 @@ package io.browsercloud.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeEntity;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.persistence.OutboxEventEntity;
+import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.CommandAck;
 import io.browsercloud.proto.node.v1.DispatchRequest;
 import io.browsercloud.proto.node.v1.DispatchResponse;
@@ -106,6 +109,7 @@ class NodeCommandMultiNodeRoutingTest {
             claimService,
             mapper,
             mock(AgentActionPayloadService.class),
+            mock(AgentExecutionWaitProjectionService.class),
             mock(SessionEvidenceGovernanceStore.class),
             routeAuthority,
             nodeRepository,
@@ -140,7 +144,14 @@ class NodeCommandMultiNodeRoutingTest {
                 1,
                 1,
                 "agent-human-priority",
-                new byte[0]));
+                AgentNavigateCommand.newBuilder()
+                    .setSessionId("ses_0000000000000004")
+                    .setTaskId("agt_1234567890abcdef")
+                    .setStepId("step_1")
+                    .setUrl("https://example.test")
+                    .setBaseStateVersion(1)
+                    .build()
+                    .toByteArray()));
     event.setRouteEpoch(2L);
     event.setCoordinatorShardId(3);
     event.setDispatchOwner("dispatcher-test");
@@ -158,12 +169,14 @@ class NodeCommandMultiNodeRoutingTest {
     var nodeRepository = mock(BrowserNodeJpaRepository.class);
     when(nodeRepository.findById("node_one"))
         .thenReturn(Optional.of(node("node_one", server.getPort())));
+    var waitProjection = mock(AgentExecutionWaitProjectionService.class);
     var dispatcher =
         new NodeCommandOutboxDispatcher(
             outboxRepository,
             claimService,
             mapper,
             mock(AgentActionPayloadService.class),
+            waitProjection,
             mock(SessionEvidenceGovernanceStore.class),
             routeAuthority,
             nodeRepository,
@@ -179,6 +192,12 @@ class NodeCommandMultiNodeRoutingTest {
     assertThat(event.getNextAttemptAt()).isAfter(Instant.now());
     assertThat(event.getDeadLetteredAt()).isNull();
     assertThat(event.getDispatchOwner()).isNull();
+    verify(waitProjection)
+        .waitForHumanInput(
+            org.mockito.ArgumentMatchers.eq("agt_1234567890abcdef"),
+            org.mockito.ArgumentMatchers.eq("tenant-a"),
+            org.mockito.ArgumentMatchers.eq("ses_0000000000000004"),
+            any());
   }
 
   @Test
@@ -218,6 +237,7 @@ class NodeCommandMultiNodeRoutingTest {
             claimService,
             mapper,
             mock(AgentActionPayloadService.class),
+            mock(AgentExecutionWaitProjectionService.class),
             mock(SessionEvidenceGovernanceStore.class),
             routeAuthority,
             mock(BrowserNodeJpaRepository.class),

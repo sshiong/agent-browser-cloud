@@ -617,21 +617,110 @@ try {
     page.getByText("PROMPT_INJECTION_DETECTED", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("NAVIGATE", { exact: true })).toBeVisible();
-  const [agentExecutionResponse] = await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.url().includes(`${agentTask.taskId}:execute`) &&
-        response.status() === 200,
-    ),
-    page.getByRole("button", { name: "执行并验证安全计划" }).click(),
-  ]);
-  const executedAgentTask = await agentExecutionResponse.json();
-  if (
-    executedAgentTask.state !== "RUNNING" ||
-    executedAgentTask.currentStep !== 0
-  ) {
-    throw new Error("Node navigation was not queued as an Agent operation");
+  const observerContext = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+  });
+  const observerPage = await observerContext.newPage();
+  await observerPage.goto(
+    `${baseUrl}/remote-desktop?session=${startSessionId}`,
+  );
+  await expect(
+    observerPage.getByText("RFB LIVE", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  const observerCanvas = observerPage
+    .getByLabel("实时远程桌面画面")
+    .locator("canvas");
+  await expect(observerCanvas).toBeVisible();
+  let keepHumanInputActive = true;
+  const humanInputPump = (async () => {
+    let offset = 0;
+    while (keepHumanInputActive) {
+      await observerCanvas.click({
+        position: { x: 80 + (offset % 20), y: 64 + (offset % 12) },
+      });
+      offset += 1;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  })();
+  let executedAgentTask;
+  try {
+    const [agentExecutionResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`${agentTask.taskId}:execute`) &&
+          response.status() === 200,
+      ),
+      page.getByRole("button", { name: "执行并验证安全计划" }).click(),
+    ]);
+    executedAgentTask = await agentExecutionResponse.json();
+    if (
+      executedAgentTask.state !== "RUNNING" ||
+      executedAgentTask.currentStep !== 0
+    ) {
+      throw new Error("Node navigation was not queued as an Agent operation");
+    }
+    let humanInputWaitObserved = false;
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const currentResponse = await page.request.get(
+        `${baseUrl}/api/v1/agent-tasks/${agentTask.taskId}`,
+        { headers: { "X-Tenant-Id": "tenant-local" } },
+      );
+      const current = await currentResponse.json();
+      if (
+        current.state === "RUNNING" &&
+        current.executionWait?.reason === "HUMAN_INPUT_PRIORITY"
+      ) {
+        humanInputWaitObserved = true;
+        break;
+      }
+      if (["FAILED", "BLOCKED", "COMPLETED"].includes(current.state)) {
+        throw new Error(
+          `Agent did not wait for active human input: ${current.state}`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (!humanInputWaitObserved) {
+      throw new Error("Agent human-input priority projection was not observed");
+    }
+    await expect(
+      page.getByText("真人输入优先，Agent 保持连接并等待", { exact: true }),
+    ).toBeVisible({ timeout: 6_000 });
+  } finally {
+    keepHumanInputActive = false;
+    await humanInputPump;
   }
+  let resumedAgentTask;
+  for (let attempt = 0; attempt < 160; attempt += 1) {
+    const currentResponse = await page.request.get(
+      `${baseUrl}/api/v1/agent-tasks/${agentTask.taskId}`,
+      { headers: { "X-Tenant-Id": "tenant-local" } },
+    );
+    const current = await currentResponse.json();
+    if (current.state === "COMPLETED") {
+      resumedAgentTask = current;
+      break;
+    }
+    if (["FAILED", "BLOCKED"].includes(current.state)) {
+      throw new Error(
+        `Agent did not resume after human input stopped: ${current.state}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  if (
+    !resumedAgentTask ||
+    resumedAgentTask.executionWait?.reason ||
+    resumedAgentTask.operationId !== executedAgentTask.operationId
+  ) {
+    throw new Error(
+      "Agent resume did not preserve and complete the original Operation",
+    );
+  }
+  await expect(
+    observerPage.getByText("RFB LIVE", { exact: true }),
+  ).toBeVisible();
+  await observerContext.close();
   await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
     {
       timeout: 20_000,

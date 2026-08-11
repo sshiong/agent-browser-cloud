@@ -5356,6 +5356,14 @@ components:
         securityEventCount:
           type: integer
           minimum: 0
+        executionWaitReason:
+          type: [string, "null"]
+          enum: [HUMAN_INPUT_PRIORITY, null]
+          description: Transient command arbitration projection. Older Control Planes may omit it during rolling upgrades.
+        executionWaitSince:
+          type: [string, "null"]
+          format: date-time
+          description: First instant of the current arbitration wait. Older Control Planes may omit it during rolling upgrades.
         createdAt:
           type: string
           format: date-time
@@ -5430,6 +5438,9 @@ components:
           minimum: 0
         stepExecution:
           $ref: "#/components/schemas/AgentStepExecution"
+        executionWait:
+          $ref: "#/components/schemas/AgentExecutionWait"
+          description: Transient command arbitration projection. Older Control Planes may omit it during rolling upgrades.
         confirmation:
           $ref: "#/components/schemas/AgentConfirmation"
         humanHandoff:
@@ -5934,6 +5945,17 @@ components:
           format: date-time
         replanReason:
           type: [string, "null"]
+    AgentExecutionWait:
+      type: object
+      additionalProperties: false
+      required: [reason, since]
+      properties:
+        reason:
+          type: [string, "null"]
+          enum: [HUMAN_INPUT_PRIORITY, null]
+        since:
+          type: [string, "null"]
+          format: date-time
     AgentConfirmation:
       type: object
       additionalProperties: false

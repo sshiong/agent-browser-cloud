@@ -3,11 +3,13 @@ package io.browsercloud.infrastructure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
+import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
+import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.CommandEnvelope;
 import io.browsercloud.proto.node.v1.DispatchRequest;
 import io.browsercloud.proto.node.v1.NodeControlServiceGrpc;
@@ -44,6 +46,7 @@ public class NodeCommandOutboxDispatcher {
   private final NodeCommandDispatchClaimService claimService;
   private final ObjectMapper objectMapper;
   private final AgentActionPayloadService actionPayloadService;
+  private final AgentExecutionWaitProjectionService executionWaitProjection;
   private final SessionEvidenceGovernanceStore evidenceGovernance;
   private final CoordinatorRouteAuthority routeAuthority;
   private final BrowserNodeJpaRepository browserNodeRepository;
@@ -56,6 +59,7 @@ public class NodeCommandOutboxDispatcher {
       NodeCommandDispatchClaimService claimService,
       ObjectMapper objectMapper,
       AgentActionPayloadService actionPayloadService,
+      AgentExecutionWaitProjectionService executionWaitProjection,
       SessionEvidenceGovernanceStore evidenceGovernance,
       CoordinatorRouteAuthority routeAuthority,
       BrowserNodeJpaRepository browserNodeRepository,
@@ -65,6 +69,7 @@ public class NodeCommandOutboxDispatcher {
     this.claimService = claimService;
     this.objectMapper = objectMapper;
     this.actionPayloadService = actionPayloadService;
+    this.executionWaitProjection = executionWaitProjection;
     this.evidenceGovernance = evidenceGovernance;
     this.routeAuthority = routeAuthority;
     this.browserNodeRepository = browserNodeRepository;
@@ -91,17 +96,22 @@ public class NodeCommandOutboxDispatcher {
                     DispatchRequest.newBuilder().setCommand(toEnvelope(event, command)).build());
         var acknowledgement = response.getAcknowledgement();
         if (acknowledgement.getAccepted()) {
+          clearHumanInputWait(command);
           event.setPublishedAt(Instant.now());
           event.releaseDispatchClaim();
           outboxRepository.save(event);
         } else {
           if (HUMAN_INPUT_PRIORITY.equals(acknowledgement.getErrorCode())) {
+            if (!HUMAN_INPUT_PRIORITY.equals(event.getLastError())) {
+              projectHumanInputWait(command);
+            }
             recordHumanInputDeferral(event);
             log.debug(
                 "Browser Node deferred Agent command {} while human input has priority",
                 command.messageId());
             continue;
           }
+          clearHumanInputWait(command);
           recordFailure(
               event,
               acknowledgement.getErrorCode(),
@@ -184,6 +194,47 @@ public class NodeCommandOutboxDispatcher {
     event.setNextAttemptAt(Instant.now().plusMillis(500));
     event.releaseDispatchClaim();
     outboxRepository.save(event);
+  }
+
+  private void projectHumanInputWait(NodeCommand command) {
+    var taskId = agentTaskId(command);
+    if (taskId == null) return;
+    try {
+      executionWaitProjection.waitForHumanInput(
+          taskId, command.tenantId(), command.sessionId(), Instant.now());
+    } catch (RuntimeException exception) {
+      log.warn(
+          "Failed to publish human-input wait state for Agent command {}",
+          command.messageId(),
+          exception);
+    }
+  }
+
+  private void clearHumanInputWait(NodeCommand command) {
+    var taskId = agentTaskId(command);
+    if (taskId == null) return;
+    try {
+      executionWaitProjection.resumeAfterHumanInput(
+          taskId, command.tenantId(), command.sessionId(), Instant.now());
+    } catch (RuntimeException exception) {
+      log.warn(
+          "Failed to clear human-input wait state for Agent command {}",
+          command.messageId(),
+          exception);
+    }
+  }
+
+  private String agentTaskId(NodeCommand command) {
+    try {
+      return switch (command.commandType()) {
+        case "AgentAction" -> AgentActionCommand.parseFrom(command.payload()).getTaskId();
+        case "AgentNavigate" -> AgentNavigateCommand.parseFrom(command.payload()).getTaskId();
+        default -> null;
+      };
+    } catch (com.google.protobuf.InvalidProtocolBufferException exception) {
+      log.warn("Agent command {} has an invalid payload", command.messageId());
+      return null;
+    }
   }
 
   private void assertCurrentRoute(

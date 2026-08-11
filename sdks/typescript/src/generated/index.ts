@@ -17,6 +17,7 @@ export type { AgentExecutionJob } from './models/AgentExecutionJob.js';
 export type { AgentExecutionJobClaim } from './models/AgentExecutionJobClaim.js';
 export type { AgentExecutionJobClaimRequest } from './models/AgentExecutionJobClaimRequest.js';
 export type { AgentExecutionJobId } from './models/AgentExecutionJobId.js';
+export type { AgentExecutionWait } from './models/AgentExecutionWait.js';
 export type { AgentHumanHandoff } from './models/AgentHumanHandoff.js';
 export type { AgentInstructionSource } from './models/AgentInstructionSource.js';
 export type { AgentPlan } from './models/AgentPlan.js';

@@ -9,6 +9,9 @@ export type RemoteDesktopConnection = {
     webSocketPath: string;
     expiresAt: string;
     protocol: 'rfb';
+    /**
+     * Compatibility field containing the Session Context Epoch for collaborative desktop tickets; for an already established explicit HumanTakeover it contains that Operation Epoch. Its presence alone does not imply an exclusive operation.
+     */
     operationEpoch: number;
     viewOnly: boolean;
 };

@@ -8,8 +8,9 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class RemoteDesktopService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
     /**
-     * Issue a short-lived, single-use noVNC connection ticket
-     * @returns RemoteDesktopConnection Connection ticket issued for the active HumanTakeover actor.
+     * Issue a collaborative noVNC ticket without preempting the Agent
+     * The ticket is bound to the current Session Context rather than an exclusive HumanTakeover Operation. Connecting keeps an active Agent task alive; Browser Node gives fresh human input priority and resumes deferred Agent input after the human input idle window. If the same actor already owns an explicit EXECUTING HumanTakeover, the endpoint preserves that exclusive operation and its release barrier.
+     * @returns RemoteDesktopConnection Session-bound collaborative connection ticket issued.
      * @throws ApiError
      */
     public createRemoteDesktopConnection({

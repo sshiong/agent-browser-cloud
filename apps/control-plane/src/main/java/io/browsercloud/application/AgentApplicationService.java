@@ -693,6 +693,8 @@ public class AgentApplicationService {
             entity.getStepDeadlineAt(),
             entity.getExecutorLeaseUntil(),
             entity.getReplanReason()),
+        new AgentTaskView.ExecutionWaitView(
+            entity.getExecutionWaitReason(), entity.getExecutionWaitSince()),
         new AgentTaskView.ConfirmationView(
             entity.getConfirmationId(),
             entity.getConfirmationStatus(),

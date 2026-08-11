@@ -65,9 +65,9 @@ public final class Models {
 
   public record AgentTaskSummaryMetrics(Long planned, Long completed, Long blocked) {}
 
-  public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, String createdAt, String updatedAt) {}
+  public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, Object executionWaitReason, Object executionWaitSince, String createdAt, String updatedAt) {}
 
-  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
+  public record AgentTask(String taskId, String sessionId, String goal, String state, AgentRiskClass riskClass, String intentDecision, Object blockedReason, AgentPolicy agentPolicy, Integer currentStep, Integer totalSteps, Integer replanCount, AgentStepExecution stepExecution, AgentExecutionWait executionWait, AgentConfirmation confirmation, AgentHumanHandoff humanHandoff, AgentReview review, List<String> allowedDomains, AgentPlan plan, Object operationId, List<AgentToolExecutionResult> executionResults, Object lastError, List<PromptSecurityEvent> securityEvents, String createdAt, String updatedAt) {}
 
   public record ClaimAgentExecutionJobRequest(String protocolVersion, Map<String, Boolean> capabilities) {}
 
@@ -100,6 +100,8 @@ public final class Models {
   public record AgentReview(Object reviewId, String status, Object decision, List<String> reasonCodes, Object planHash, Object deploymentId, Object modelName, Object modelRevision, Object inputTokens, Object outputTokens, Object costMicros, Object latencyMs, Object failureCode, Object completedAt) {}
 
   public record AgentStepExecution(Object pendingStepId, Object pendingToolId, Object baseStateVersion, Object baseContentHash, Object deadline, Object leaseUntil, Object replanReason) {}
+
+  public record AgentExecutionWait(Object reason, Object since) {}
 
   public record AgentConfirmation(Object confirmationId, Object status, Object expiresAt, Object decidedAt, Object actorId, Object evidenceHash) {}
 

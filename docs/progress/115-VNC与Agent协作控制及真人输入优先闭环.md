@@ -1,7 +1,7 @@
 # VNC 与 Agent 协作控制及真人输入优先闭环
 
-> 日期：2026-08-10
-> 状态：代码、全量单元/静态检查和完整托管 E2E 完成；目标 Linux 竞争长稳待执行。
+> 日期：2026-08-11
+> 状态：代码、公开等待投影、全量单元/静态检查和真实并发托管 E2E 完成；目标 Linux 竞争长稳待执行。
 
 ## 问题与目标
 
@@ -47,12 +47,27 @@ noVNC。Coordinator 的排他 Operation 语义会抢占正在执行的 Agent，�
 - 协作断线不会删除 `active_human_takeovers`、不会发布 `HumanTakeoverEnded`、不会终止
   Agent Operation；只有旧/显式 `EXCLUSIVE_TAKEOVER` 保留原结束事件语义。
 
+### 公开等待投影与实时失效
+
+- V081 为 Agent Task 增加独立 `executionWait.reason/since`，真人输入竞争时任务生命周期仍是
+  `RUNNING`，不会伪装成失败、人工交接或新 Operation；
+- Dispatcher 首次收到 `HUMAN_INPUT_PRIORITY` 时写入等待投影，Node 接受原命令后原子清除；
+  重复 500ms 延后不会反复改写 Task，也不会制造数据库/SSE 风暴；
+- `agent_tasks` 既有 `AGENT_TASK` Session Event Trigger 会把等待与恢复提交到可续传 SSE，
+  前端断线后仍能凭 Cursor 重取权威 Task；
+- Agent Task 详情和有界 Summary API、OpenAPI 及 TypeScript/Python/Go/Java SDK 均公开该投影，
+  当前仍保持 190 个 Operation，公开 Schema 增至 254 个；
+- 投影写入采用独立事务和悲观锁；即使投影暂时不可用，也不会把已经收到的 Node ACK 误判为
+  命令失败或阻断 Outbox 的幂等提交。
+
 ### Web / Tauri 共用 UI
 
 - Session 详情按钮改为“打开远程桌面”，直接导航，不再隐式调用 HumanTakeover Mutation；
 - 远程桌面按 Session Context Epoch 校验票据，移除“结束接管”按钮；
 - 页面显示 `AGENT + HUMAN READY` / `HUMAN READY`、两秒真人输入窗口、Agent Deferred
   和断线保留 Agent 的真实语义；
+- Automation Task 列表和详情会明确显示“真人输入优先，Agent 保持连接并等待”，并说明
+  VNC 可继续观察、停止键鼠输入后自动续行，状态表达不只依赖颜色；
 - 组件仍位于共享 React Web 代码，未来 Tauri 2 复用同一 API Client 与状态逻辑。
 
 ## 已通过验证
@@ -71,20 +86,23 @@ make contracts-check
 make test
 make lint
 make test-e2e
+python3 tools/sdk/verify_typescript_sdk.py \
+  packages/contracts/openapi/session-api.yaml sdks/typescript/src/generated \
+  sdks/typescript/generated-manifest.json
+python3 tools/sdk/verify_multilang_sdks.py \
+  build/sdk/session-api.json packages/contracts/openapi/session-api.yaml .
 ```
 
 结果：Gateway 8 项测试、Web 67 项测试、Java/Rust/Python 全量测试、Clippy `-D warnings`、
-Web Lint、OpenAPI/Proto 契约、生产构建与真实托管 noVNC E2E 全部通过；E2E 输出
+Web Lint、OpenAPI/Proto 契约、V081 全新库迁移、四语言 SDK 漂移校验、生产构建与真实
+托管 noVNC E2E 全部通过。E2E 在两个真实浏览器页面中保持 VNC 连续输入并并发执行 Agent，
+验证 Task 保持 `RUNNING`、公开 `HUMAN_INPUT_PRIORITY`、同一 Operation 自动续行和 VNC
+持续 `RFB LIVE`；输出
 `WEB_CONSOLE_E2E_OK`、`WEB_CONSOLE_VIEWER_RBAC_OK` 和 `health={"status":"UP"}`。
 
 ## 尚未完成
 
 1. 目标 Linux/正式 Chromium/x11vnc 下覆盖连续拖拽、组合键、输入法、剪贴板和长按；
-2. 托管 E2E 已证明普通 VNC 不创建/替换 Operation；仍需增加活跃 Agent 写命令与真人
-   输入真实并发、两秒后自动续行的跨进程时序用例；当前由 Agent Operation 应用服务测试、
-   RFB 解析测试和 Outbox 无损延后测试分别覆盖；
-3. 多分钟连续真人输入时的 Agent UI 等待原因/SSE 可视化目前仅有 Node/Outbox 状态，
-   尚未增加专用 `WAITING_FOR_HUMAN_INPUT` 公开投影；
-4. 单 Session 仍限制一个 VNC Client，多观察者广播不在本轮范围；
-5. 若未来支持需要 VNC Password Challenge 的 RFB 安全类型，需将客户端输入解析从当前
+2. 单 Session 仍限制一个 VNC Client，多观察者广播不在本轮范围；
+3. 若未来支持需要 VNC Password Challenge 的 RFB 安全类型，需将客户端输入解析从当前
    受控无认证 RFB 3.8 握手扩展为协商状态机。

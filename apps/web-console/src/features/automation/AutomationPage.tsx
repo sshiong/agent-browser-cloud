@@ -1038,6 +1038,7 @@ function TaskRow({
     task.state === 'WAITING_FOR_HUMAN' ||
     task.state === 'PAUSED_BY_RESOURCE_POLICY';
   const running = task.state === 'RUNNING' || task.state === 'QUEUED';
+  const humanInputWaiting = task.executionWaitReason === 'HUMAN_INPUT_PRIORITY';
   return (
     <button
       type="button"
@@ -1092,6 +1093,7 @@ function TaskRow({
             <span>{riskLabels[task.riskClass]}</span>
             <span>{task.totalSteps} steps</span>
             <span>{task.state}</span>
+            {humanInputWaiting && <span>真人输入优先</span>}
           </div>
           {blocked && (
             <p className="mt-2 truncate font-mono text-[9px] text-danger">
@@ -1134,6 +1136,8 @@ function TaskInspector({
   const waitingForHuman = task.state === 'WAITING_FOR_HUMAN';
   const queued = task.state === 'QUEUED';
   const resourcePaused = task.state === 'PAUSED_BY_RESOURCE_POLICY';
+  const humanInputWaiting =
+    task.executionWait?.reason === 'HUMAN_INPUT_PRIORITY';
   const review = task.review ?? { status: 'NOT_REQUIRED', reasonCodes: [] };
   const expiry = useMemo(
     () =>
@@ -1261,6 +1265,35 @@ function TaskInspector({
           <p className="text-[11px] font-semibold text-warning">
             Agent 已被资源策略暂停，浏览器会话仍保持运行
           </p>
+        </div>
+      )}
+
+      {humanInputWaiting && (
+        <div className="border-b border-warning/20 bg-warning/5 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <UserRoundCheck
+              className="mt-0.5 shrink-0 text-warning"
+              size={15}
+            />
+            <div>
+              <p className="text-[11px] font-semibold text-warning">
+                真人输入优先，Agent 保持连接并等待
+              </p>
+              <p className="mt-1 text-[9px] leading-4 text-text-secondary">
+                VNC 仍可查看和辅助当前浏览器。真人停止键鼠输入后，已延后的 Agent
+                命令会自动继续，不会断开任务或浏览器会话。
+              </p>
+              {task.executionWait?.since && (
+                <p className="mt-2 font-mono text-[8px] text-text-muted">
+                  WAITING SINCE{' '}
+                  {new Date(task.executionWait.since).toLocaleTimeString(
+                    'zh-CN',
+                    { hour12: false }
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

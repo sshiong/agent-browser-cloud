@@ -16,5 +16,7 @@ public record AgentTaskSummaryView(
     int currentStep,
     int totalSteps,
     int securityEventCount,
+    String executionWaitReason,
+    Instant executionWaitSince,
     Instant createdAt,
     Instant updatedAt) {}

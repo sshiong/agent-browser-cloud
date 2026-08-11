@@ -175,6 +175,12 @@ public class AgentTaskEntity {
   @Column(name = "execution_completed_at")
   private Instant executionCompletedAt;
 
+  @Column(name = "execution_wait_reason")
+  private String executionWaitReason;
+
+  @Column(name = "execution_wait_since")
+  private Instant executionWaitSince;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -422,6 +428,14 @@ public class AgentTaskEntity {
     return lastError;
   }
 
+  public String getExecutionWaitReason() {
+    return executionWaitReason;
+  }
+
+  public Instant getExecutionWaitSince() {
+    return executionWaitSince;
+  }
+
   public void startExecution(
       String operationId, String leaseOwner, Instant leaseUntil, Instant now) {
     this.operationId = operationId;
@@ -431,6 +445,7 @@ public class AgentTaskEntity {
     this.executionStartedAt = now;
     this.updatedAt = now;
     this.lastError = null;
+    clearExecutionWaitFields();
   }
 
   public void queueForExternalWorker(Instant now) {
@@ -589,6 +604,7 @@ public class AgentTaskEntity {
     this.executionResults = results;
     clearPendingStep();
     clearLease();
+    clearExecutionWaitFields();
     this.executionCompletedAt = now;
     this.updatedAt = now;
   }
@@ -599,6 +615,7 @@ public class AgentTaskEntity {
     this.executionResults = results;
     clearPendingStep();
     clearLease();
+    clearExecutionWaitFields();
     this.lastError = error;
     this.executionCompletedAt = now;
     this.updatedAt = now;
@@ -616,6 +633,7 @@ public class AgentTaskEntity {
     blockedReason = "RESOURCE_POLICY_MAXIMUM_REACHED";
     clearPendingStep();
     clearLease();
+    clearExecutionWaitFields();
     updatedAt = now;
   }
 
@@ -671,7 +689,23 @@ public class AgentTaskEntity {
     this.handoffExpiresAt = expiresAt;
     clearPendingStep();
     clearLease();
+    clearExecutionWaitFields();
     this.updatedAt = now;
+  }
+
+  public boolean deferForHumanInput(Instant now) {
+    if (!"RUNNING".equals(state) || executionWaitReason != null) return false;
+    this.executionWaitReason = "HUMAN_INPUT_PRIORITY";
+    this.executionWaitSince = now;
+    this.updatedAt = now;
+    return true;
+  }
+
+  public boolean resumeAfterHumanInput(Instant now) {
+    if (executionWaitReason == null) return false;
+    clearExecutionWaitFields();
+    this.updatedAt = now;
+    return true;
   }
 
   public void acceptHumanHandoff(String actorId, String results, Instant now) {
@@ -702,5 +736,10 @@ public class AgentTaskEntity {
   private void clearLease() {
     this.executorLeaseOwner = null;
     this.executorLeaseUntil = null;
+  }
+
+  private void clearExecutionWaitFields() {
+    this.executionWaitReason = null;
+    this.executionWaitSince = null;
   }
 }

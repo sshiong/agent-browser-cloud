@@ -14,6 +14,14 @@ export type AgentTaskSummary = {
     currentStep: number;
     totalSteps: number;
     securityEventCount: number;
+    /**
+     * Transient command arbitration projection. Older Control Planes may omit it during rolling upgrades.
+     */
+    executionWaitReason?: 'HUMAN_INPUT_PRIORITY';
+    /**
+     * First instant of the current arbitration wait. Older Control Planes may omit it during rolling upgrades.
+     */
+    executionWaitSince?: string | null;
     createdAt: string;
     updatedAt: string;
 };

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AgentConfirmation } from './AgentConfirmation.js';
+import type { AgentExecutionWait } from './AgentExecutionWait.js';
 import type { AgentHumanHandoff } from './AgentHumanHandoff.js';
 import type { AgentPlan } from './AgentPlan.js';
 import type { AgentPolicy } from './AgentPolicy.js';
@@ -30,6 +31,10 @@ export type AgentTask = {
     totalSteps: number;
     replanCount: number;
     stepExecution: AgentStepExecution;
+    /**
+     * Transient command arbitration projection. Older Control Planes may omit it during rolling upgrades.
+     */
+    executionWait?: AgentExecutionWait;
     confirmation: AgentConfirmation;
     humanHandoff: AgentHumanHandoff;
     /**

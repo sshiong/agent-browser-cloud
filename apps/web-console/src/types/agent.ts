@@ -90,6 +90,10 @@ export interface AgentTaskView {
     leaseUntil?: string;
     replanReason?: string;
   };
+  executionWait?: {
+    reason?: 'HUMAN_INPUT_PRIORITY';
+    since?: string;
+  };
   confirmation: {
     confirmationId?: string;
     status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
@@ -219,6 +223,8 @@ export type AgentTaskSummary = Pick<
   | 'updatedAt'
 > & {
   securityEventCount: number;
+  executionWaitReason?: 'HUMAN_INPUT_PRIORITY';
+  executionWaitSince?: string;
 };
 
 export interface AgentTaskSummaryListResponse {

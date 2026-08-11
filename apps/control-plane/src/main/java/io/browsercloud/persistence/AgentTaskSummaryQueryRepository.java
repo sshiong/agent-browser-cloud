@@ -57,6 +57,8 @@ public class AgentTaskSummaryQueryRepository {
                    task.current_step,
                    jsonb_array_length(COALESCE(task.plan->'steps', '[]'::jsonb)) AS total_steps,
                    jsonb_array_length(task.security_events) AS security_event_count,
+                   task.execution_wait_reason,
+                   task.execution_wait_since,
                    task.created_at,
                    task.updated_at
               FROM agent_tasks task
@@ -81,6 +83,10 @@ public class AgentTaskSummaryQueryRepository {
                     resultSet.getInt("current_step"),
                     resultSet.getInt("total_steps"),
                     resultSet.getInt("security_event_count"),
+                    resultSet.getString("execution_wait_reason"),
+                    resultSet.getTimestamp("execution_wait_since") == null
+                        ? null
+                        : resultSet.getTimestamp("execution_wait_since").toInstant(),
                     resultSet.getTimestamp("created_at").toInstant(),
                     resultSet.getTimestamp("updated_at").toInstant()));
 

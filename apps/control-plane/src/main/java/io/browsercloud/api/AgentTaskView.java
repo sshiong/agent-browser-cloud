@@ -27,6 +27,7 @@ public record AgentTaskView(
     int totalSteps,
     int replanCount,
     StepExecutionView stepExecution,
+    ExecutionWaitView executionWait,
     ConfirmationView confirmation,
     HumanHandoffView humanHandoff,
     AgentReviewView review,
@@ -47,6 +48,8 @@ public record AgentTaskView(
       Instant deadline,
       Instant leaseUntil,
       String replanReason) {}
+
+  public record ExecutionWaitView(String reason, Instant since) {}
 
   public record ConfirmationView(
       String confirmationId,

@@ -249,19 +249,21 @@ type AgentTaskSummaryMetrics struct {
 }
 
 type AgentTaskSummary struct {
-	TaskId             string `json:"taskId,omitempty"`
-	SessionId          string `json:"sessionId,omitempty"`
-	Goal               string `json:"goal,omitempty"`
-	State              string `json:"state,omitempty"`
-	RiskClass          string `json:"riskClass,omitempty"`
-	IntentDecision     string `json:"intentDecision,omitempty"`
-	BlockedReason      any    `json:"blockedReason,omitempty"`
-	AgentPolicy        string `json:"agentPolicy,omitempty"`
-	CurrentStep        int    `json:"currentStep,omitempty"`
-	TotalSteps         int    `json:"totalSteps,omitempty"`
-	SecurityEventCount int    `json:"securityEventCount,omitempty"`
-	CreatedAt          string `json:"createdAt,omitempty"`
-	UpdatedAt          string `json:"updatedAt,omitempty"`
+	TaskId              string `json:"taskId,omitempty"`
+	SessionId           string `json:"sessionId,omitempty"`
+	Goal                string `json:"goal,omitempty"`
+	State               string `json:"state,omitempty"`
+	RiskClass           string `json:"riskClass,omitempty"`
+	IntentDecision      string `json:"intentDecision,omitempty"`
+	BlockedReason       any    `json:"blockedReason,omitempty"`
+	AgentPolicy         string `json:"agentPolicy,omitempty"`
+	CurrentStep         int    `json:"currentStep,omitempty"`
+	TotalSteps          int    `json:"totalSteps,omitempty"`
+	SecurityEventCount  int    `json:"securityEventCount,omitempty"`
+	ExecutionWaitReason any    `json:"executionWaitReason,omitempty"`
+	ExecutionWaitSince  any    `json:"executionWaitSince,omitempty"`
+	CreatedAt           string `json:"createdAt,omitempty"`
+	UpdatedAt           string `json:"updatedAt,omitempty"`
 }
 
 type AgentTask struct {
@@ -277,6 +279,7 @@ type AgentTask struct {
 	TotalSteps       int                        `json:"totalSteps,omitempty"`
 	ReplanCount      int                        `json:"replanCount,omitempty"`
 	StepExecution    AgentStepExecution         `json:"stepExecution,omitempty"`
+	ExecutionWait    AgentExecutionWait         `json:"executionWait,omitempty"`
 	Confirmation     AgentConfirmation          `json:"confirmation,omitempty"`
 	HumanHandoff     AgentHumanHandoff          `json:"humanHandoff,omitempty"`
 	Review           AgentReview                `json:"review,omitempty"`
@@ -457,6 +460,11 @@ type AgentStepExecution struct {
 	Deadline         any `json:"deadline,omitempty"`
 	LeaseUntil       any `json:"leaseUntil,omitempty"`
 	ReplanReason     any `json:"replanReason,omitempty"`
+}
+
+type AgentExecutionWait struct {
+	Reason any `json:"reason,omitempty"`
+	Since  any `json:"since,omitempty"`
 }
 
 type AgentConfirmation struct {

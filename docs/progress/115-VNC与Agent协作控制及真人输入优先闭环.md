@@ -23,6 +23,8 @@ noVNC。Coordinator 的排他 Operation 语义会抢占正在执行的 Agent，�
   HumanTakeover Operation，只允许 `RUNNING/DEGRADED` Session；
 - 短期单次票据绑定 Tenant、Session、Actor、Coordinator Term、Context Epoch、Nonce
   和 `accessMode=COLLABORATIVE`；
+- 滚动升级期间缺少 `accessMode` 的旧票据也按 `COLLABORATIVE` 处理，不能因增量字段缺失
+  隐式获得排他接管；详见 [进度 121](121-VNC协作缺省与Agent不断线回归.md)；
 - 为保持旧 Web/Node 线协议兼容，响应和 Claim 中的 `operationEpoch` 暂时承载当前
   Context Epoch，并在 OpenAPI 中明确说明；
 - 普通连接不会调用 Coordinator acquire/preempt/abort，不改变现有 Agent Operation。

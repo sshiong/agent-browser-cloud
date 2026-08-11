@@ -54,7 +54,10 @@ pub struct RemoteDesktopTicketClaims {
 }
 
 fn default_access_mode() -> String {
-    "EXCLUSIVE_TAKEOVER".to_owned()
+    // Missing accessMode can only come from an older Control Plane during a rolling upgrade.
+    // Fail collaborative: opening VNC must never acquire exclusive control merely because an
+    // additive claim is absent. Exclusive takeover always requires an explicitly signed value.
+    "COLLABORATIVE".to_owned()
 }
 
 #[async_trait]
@@ -961,6 +964,25 @@ mod tests {
         assert!(detector.observe(&[4, 1, 0, 0, 0, 0, 0, 65]));
         assert!(!detector.observe(&[5, 1, 0]));
         assert!(detector.observe(&[10, 0, 20]));
+    }
+
+    #[test]
+    fn legacy_ticket_without_access_mode_defaults_to_collaboration() {
+        let claims = serde_json::json!({
+            "tenantId": "tenant-test",
+            "sessionId": "ses_legacy123456789",
+            "actorId": "user-test",
+            "coordinatorTerm": 3,
+            "contextEpoch": 4,
+            "operationEpoch": 4,
+            "expiresAtEpochSeconds": unix_seconds() + 60,
+            "nonce": "legacy-collaborative-ticket-123"
+        });
+
+        let parsed: RemoteDesktopTicketClaims = serde_json::from_value(claims).unwrap();
+
+        assert_eq!(parsed.access_mode, "COLLABORATIVE");
+        assert!(!parsed.view_only);
     }
 
     #[tokio::test]

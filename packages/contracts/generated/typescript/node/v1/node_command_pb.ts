@@ -1166,6 +1166,95 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
    */
   proxyProbeErrorCode = "";
 
+  /**
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   *
+   * @generated from field: optional string actual_resource_class = 40;
+   */
+  actualResourceClass?: string;
+
+  /**
+   * @generated from field: optional uint32 actual_cpu_millis = 41;
+   */
+  actualCpuMillis?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_memory_request_mib = 42;
+   */
+  actualMemoryRequestMib?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_memory_limit_mib = 43;
+   */
+  actualMemoryLimitMib?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_pid_limit = 44;
+   */
+  actualPidLimit?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_tab_budget = 45;
+   */
+  actualTabBudget?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_state_collector_budget_percent = 46;
+   */
+  actualStateCollectorBudgetPercent?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_remote_desktop_bitrate_kbps = 47;
+   */
+  actualRemoteDesktopBitrateKbps?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_extension_cpu_weight = 48;
+   */
+  actualExtensionCpuWeight?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_media_encoder_slots = 49;
+   */
+  actualMediaEncoderSlots?: number;
+
+  /**
+   * @generated from field: optional bool actual_freeze_background_tabs = 50;
+   */
+  actualFreezeBackgroundTabs?: boolean;
+
+  /**
+   * @generated from field: optional bool actual_block_new_tabs = 51;
+   */
+  actualBlockNewTabs?: boolean;
+
+  /**
+   * @generated from field: browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52;
+   */
+  actualExtensionBackgroundPolicy?: ExtensionBackgroundPolicy;
+
+  /**
+   * @generated from field: optional uint32 actual_success_trace_sample_percent = 53;
+   */
+  actualSuccessTraceSamplePercent?: number;
+
+  /**
+   * @generated from field: optional uint32 actual_observer_frame_rate_fps = 54;
+   */
+  actualObserverFrameRateFps?: number;
+
+  /**
+   * @generated from field: optional bool actual_video_recording_enabled = 55;
+   */
+  actualVideoRecordingEnabled?: boolean;
+
+  /**
+   * @generated from field: optional uint32 actual_success_screenshot_sample_percent = 56;
+   */
+  actualSuccessScreenshotSamplePercent?: number;
+
   constructor(data?: PartialMessage<ReportSessionResourcesRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1204,6 +1293,23 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
     { no: 32, name: "proxy_probe_latency_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 33, name: "proxy_observed_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 34, name: "proxy_probe_error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 40, name: "actual_resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 41, name: "actual_cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 42, name: "actual_memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 43, name: "actual_memory_limit_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 44, name: "actual_pid_limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 45, name: "actual_tab_budget", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 46, name: "actual_state_collector_budget_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 47, name: "actual_remote_desktop_bitrate_kbps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 48, name: "actual_extension_cpu_weight", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 49, name: "actual_media_encoder_slots", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 50, name: "actual_freeze_background_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 51, name: "actual_block_new_tabs", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 52, name: "actual_extension_background_policy", kind: "message", T: ExtensionBackgroundPolicy },
+    { no: 53, name: "actual_success_trace_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 54, name: "actual_observer_frame_rate_fps", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 55, name: "actual_video_recording_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 56, name: "actual_success_screenshot_sample_percent", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReportSessionResourcesRequest {

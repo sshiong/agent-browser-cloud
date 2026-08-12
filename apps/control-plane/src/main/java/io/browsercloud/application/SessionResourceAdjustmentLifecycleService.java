@@ -225,6 +225,24 @@ public class SessionResourceAdjustmentLifecycleService {
     return adjustments.findLatestBySessionId(sessionId).map(this::toView).orElse(null);
   }
 
+  /**
+   * Returns only the latest adjustment that can be recovered from an authoritative Node readback.
+   */
+  @Transactional(propagation = Propagation.MANDATORY)
+  public ReadbackReconciliationCandidate readbackCandidate(String tenantId, String sessionId) {
+    var adjustment = adjustments.findLatestBySessionId(sessionId).orElse(null);
+    if (adjustment == null
+        || !adjustment.getTenantId().equals(tenantId)
+        || !"FAILED".equals(adjustment.getState())
+        || !"NODE_ACK_TIMEOUT".equals(adjustment.getFailureCode())) {
+      return null;
+    }
+    return new ReadbackReconciliationCandidate(
+        adjustment.getOperationId(),
+        readMap(adjustment.getOldResources()),
+        readMap(adjustment.getRequestedResources()));
+  }
+
   private void failPolicy(SessionResourceAdjustmentEntity adjustment, String reason, Instant now) {
     policies
         .findById(adjustment.getSessionId())
@@ -358,4 +376,9 @@ public class SessionResourceAdjustmentLifecycleService {
       return new LateAcknowledgement(true, true, oldResources, requestedResources);
     }
   }
+
+  public record ReadbackReconciliationCandidate(
+      String operationId,
+      Map<String, Object> oldResources,
+      Map<String, Object> requestedResources) {}
 }

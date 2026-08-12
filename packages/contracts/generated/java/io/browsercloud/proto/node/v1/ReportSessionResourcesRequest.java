@@ -23,6 +23,7 @@ private static final long serialVersionUID = 0L;
     dangerEvent_ = "";
     proxyObservedExitIp_ = "";
     proxyProbeErrorCode_ = "";
+    actualResourceClass_ = "";
   }
 
   @java.lang.Override
@@ -46,6 +47,7 @@ private static final long serialVersionUID = 0L;
   }
 
   private int bitField0_;
+  private int bitField1_;
   public static final int NODE_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object nodeId_ = "";
@@ -750,6 +752,382 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ACTUAL_RESOURCE_CLASS_FIELD_NUMBER = 40;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object actualResourceClass_ = "";
+  /**
+   * <pre>
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   * </pre>
+   *
+   * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   * @return Whether the actualResourceClass field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualResourceClass() {
+    return ((bitField0_ & 0x00800000) != 0);
+  }
+  /**
+   * <pre>
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   * </pre>
+   *
+   * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   * @return The actualResourceClass.
+   */
+  @java.lang.Override
+  public java.lang.String getActualResourceClass() {
+    java.lang.Object ref = actualResourceClass_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      actualResourceClass_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   * </pre>
+   *
+   * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   * @return The bytes for actualResourceClass.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getActualResourceClassBytes() {
+    java.lang.Object ref = actualResourceClass_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      actualResourceClass_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ACTUAL_CPU_MILLIS_FIELD_NUMBER = 41;
+  private int actualCpuMillis_ = 0;
+  /**
+   * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   * @return Whether the actualCpuMillis field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualCpuMillis() {
+    return ((bitField0_ & 0x01000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   * @return The actualCpuMillis.
+   */
+  @java.lang.Override
+  public int getActualCpuMillis() {
+    return actualCpuMillis_;
+  }
+
+  public static final int ACTUAL_MEMORY_REQUEST_MIB_FIELD_NUMBER = 42;
+  private int actualMemoryRequestMib_ = 0;
+  /**
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * @return Whether the actualMemoryRequestMib field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualMemoryRequestMib() {
+    return ((bitField0_ & 0x02000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * @return The actualMemoryRequestMib.
+   */
+  @java.lang.Override
+  public int getActualMemoryRequestMib() {
+    return actualMemoryRequestMib_;
+  }
+
+  public static final int ACTUAL_MEMORY_LIMIT_MIB_FIELD_NUMBER = 43;
+  private int actualMemoryLimitMib_ = 0;
+  /**
+   * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   * @return Whether the actualMemoryLimitMib field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualMemoryLimitMib() {
+    return ((bitField0_ & 0x04000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   * @return The actualMemoryLimitMib.
+   */
+  @java.lang.Override
+  public int getActualMemoryLimitMib() {
+    return actualMemoryLimitMib_;
+  }
+
+  public static final int ACTUAL_PID_LIMIT_FIELD_NUMBER = 44;
+  private int actualPidLimit_ = 0;
+  /**
+   * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   * @return Whether the actualPidLimit field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualPidLimit() {
+    return ((bitField0_ & 0x08000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   * @return The actualPidLimit.
+   */
+  @java.lang.Override
+  public int getActualPidLimit() {
+    return actualPidLimit_;
+  }
+
+  public static final int ACTUAL_TAB_BUDGET_FIELD_NUMBER = 45;
+  private int actualTabBudget_ = 0;
+  /**
+   * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   * @return Whether the actualTabBudget field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualTabBudget() {
+    return ((bitField0_ & 0x10000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   * @return The actualTabBudget.
+   */
+  @java.lang.Override
+  public int getActualTabBudget() {
+    return actualTabBudget_;
+  }
+
+  public static final int ACTUAL_STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER = 46;
+  private int actualStateCollectorBudgetPercent_ = 0;
+  /**
+   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * @return Whether the actualStateCollectorBudgetPercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualStateCollectorBudgetPercent() {
+    return ((bitField0_ & 0x20000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * @return The actualStateCollectorBudgetPercent.
+   */
+  @java.lang.Override
+  public int getActualStateCollectorBudgetPercent() {
+    return actualStateCollectorBudgetPercent_;
+  }
+
+  public static final int ACTUAL_REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER = 47;
+  private int actualRemoteDesktopBitrateKbps_ = 0;
+  /**
+   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * @return Whether the actualRemoteDesktopBitrateKbps field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualRemoteDesktopBitrateKbps() {
+    return ((bitField0_ & 0x40000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * @return The actualRemoteDesktopBitrateKbps.
+   */
+  @java.lang.Override
+  public int getActualRemoteDesktopBitrateKbps() {
+    return actualRemoteDesktopBitrateKbps_;
+  }
+
+  public static final int ACTUAL_EXTENSION_CPU_WEIGHT_FIELD_NUMBER = 48;
+  private int actualExtensionCpuWeight_ = 0;
+  /**
+   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * @return Whether the actualExtensionCpuWeight field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualExtensionCpuWeight() {
+    return ((bitField0_ & 0x80000000) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * @return The actualExtensionCpuWeight.
+   */
+  @java.lang.Override
+  public int getActualExtensionCpuWeight() {
+    return actualExtensionCpuWeight_;
+  }
+
+  public static final int ACTUAL_MEDIA_ENCODER_SLOTS_FIELD_NUMBER = 49;
+  private int actualMediaEncoderSlots_ = 0;
+  /**
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * @return Whether the actualMediaEncoderSlots field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualMediaEncoderSlots() {
+    return ((bitField1_ & 0x00000001) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * @return The actualMediaEncoderSlots.
+   */
+  @java.lang.Override
+  public int getActualMediaEncoderSlots() {
+    return actualMediaEncoderSlots_;
+  }
+
+  public static final int ACTUAL_FREEZE_BACKGROUND_TABS_FIELD_NUMBER = 50;
+  private boolean actualFreezeBackgroundTabs_ = false;
+  /**
+   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * @return Whether the actualFreezeBackgroundTabs field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualFreezeBackgroundTabs() {
+    return ((bitField1_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * @return The actualFreezeBackgroundTabs.
+   */
+  @java.lang.Override
+  public boolean getActualFreezeBackgroundTabs() {
+    return actualFreezeBackgroundTabs_;
+  }
+
+  public static final int ACTUAL_BLOCK_NEW_TABS_FIELD_NUMBER = 51;
+  private boolean actualBlockNewTabs_ = false;
+  /**
+   * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   * @return Whether the actualBlockNewTabs field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualBlockNewTabs() {
+    return ((bitField1_ & 0x00000004) != 0);
+  }
+  /**
+   * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   * @return The actualBlockNewTabs.
+   */
+  @java.lang.Override
+  public boolean getActualBlockNewTabs() {
+    return actualBlockNewTabs_;
+  }
+
+  public static final int ACTUAL_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER = 52;
+  private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy actualExtensionBackgroundPolicy_;
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * @return Whether the actualExtensionBackgroundPolicy field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualExtensionBackgroundPolicy() {
+    return ((bitField1_ & 0x00000008) != 0);
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * @return The actualExtensionBackgroundPolicy.
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getActualExtensionBackgroundPolicy() {
+    return actualExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+  }
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   */
+  @java.lang.Override
+  public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getActualExtensionBackgroundPolicyOrBuilder() {
+    return actualExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+  }
+
+  public static final int ACTUAL_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER = 53;
+  private int actualSuccessTraceSamplePercent_ = 0;
+  /**
+   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * @return Whether the actualSuccessTraceSamplePercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualSuccessTraceSamplePercent() {
+    return ((bitField1_ & 0x00000010) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * @return The actualSuccessTraceSamplePercent.
+   */
+  @java.lang.Override
+  public int getActualSuccessTraceSamplePercent() {
+    return actualSuccessTraceSamplePercent_;
+  }
+
+  public static final int ACTUAL_OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER = 54;
+  private int actualObserverFrameRateFps_ = 0;
+  /**
+   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * @return Whether the actualObserverFrameRateFps field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualObserverFrameRateFps() {
+    return ((bitField1_ & 0x00000020) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * @return The actualObserverFrameRateFps.
+   */
+  @java.lang.Override
+  public int getActualObserverFrameRateFps() {
+    return actualObserverFrameRateFps_;
+  }
+
+  public static final int ACTUAL_VIDEO_RECORDING_ENABLED_FIELD_NUMBER = 55;
+  private boolean actualVideoRecordingEnabled_ = false;
+  /**
+   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * @return Whether the actualVideoRecordingEnabled field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualVideoRecordingEnabled() {
+    return ((bitField1_ & 0x00000040) != 0);
+  }
+  /**
+   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * @return The actualVideoRecordingEnabled.
+   */
+  @java.lang.Override
+  public boolean getActualVideoRecordingEnabled() {
+    return actualVideoRecordingEnabled_;
+  }
+
+  public static final int ACTUAL_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER = 56;
+  private int actualSuccessScreenshotSamplePercent_ = 0;
+  /**
+   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * @return Whether the actualSuccessScreenshotSamplePercent field is set.
+   */
+  @java.lang.Override
+  public boolean hasActualSuccessScreenshotSamplePercent() {
+    return ((bitField1_ & 0x00000080) != 0);
+  }
+  /**
+   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * @return The actualSuccessScreenshotSamplePercent.
+   */
+  @java.lang.Override
+  public int getActualSuccessScreenshotSamplePercent() {
+    return actualSuccessScreenshotSamplePercent_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -853,6 +1231,57 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyProbeErrorCode_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 34, proxyProbeErrorCode_);
+    }
+    if (((bitField0_ & 0x00800000) != 0)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 40, actualResourceClass_);
+    }
+    if (((bitField0_ & 0x01000000) != 0)) {
+      output.writeUInt32(41, actualCpuMillis_);
+    }
+    if (((bitField0_ & 0x02000000) != 0)) {
+      output.writeUInt32(42, actualMemoryRequestMib_);
+    }
+    if (((bitField0_ & 0x04000000) != 0)) {
+      output.writeUInt32(43, actualMemoryLimitMib_);
+    }
+    if (((bitField0_ & 0x08000000) != 0)) {
+      output.writeUInt32(44, actualPidLimit_);
+    }
+    if (((bitField0_ & 0x10000000) != 0)) {
+      output.writeUInt32(45, actualTabBudget_);
+    }
+    if (((bitField0_ & 0x20000000) != 0)) {
+      output.writeUInt32(46, actualStateCollectorBudgetPercent_);
+    }
+    if (((bitField0_ & 0x40000000) != 0)) {
+      output.writeUInt32(47, actualRemoteDesktopBitrateKbps_);
+    }
+    if (((bitField0_ & 0x80000000) != 0)) {
+      output.writeUInt32(48, actualExtensionCpuWeight_);
+    }
+    if (((bitField1_ & 0x00000001) != 0)) {
+      output.writeUInt32(49, actualMediaEncoderSlots_);
+    }
+    if (((bitField1_ & 0x00000002) != 0)) {
+      output.writeBool(50, actualFreezeBackgroundTabs_);
+    }
+    if (((bitField1_ & 0x00000004) != 0)) {
+      output.writeBool(51, actualBlockNewTabs_);
+    }
+    if (((bitField1_ & 0x00000008) != 0)) {
+      output.writeMessage(52, getActualExtensionBackgroundPolicy());
+    }
+    if (((bitField1_ & 0x00000010) != 0)) {
+      output.writeUInt32(53, actualSuccessTraceSamplePercent_);
+    }
+    if (((bitField1_ & 0x00000020) != 0)) {
+      output.writeUInt32(54, actualObserverFrameRateFps_);
+    }
+    if (((bitField1_ & 0x00000040) != 0)) {
+      output.writeBool(55, actualVideoRecordingEnabled_);
+    }
+    if (((bitField1_ & 0x00000080) != 0)) {
+      output.writeUInt32(56, actualSuccessScreenshotSamplePercent_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -976,6 +1405,73 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(proxyProbeErrorCode_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(34, proxyProbeErrorCode_);
+    }
+    if (((bitField0_ & 0x00800000) != 0)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, actualResourceClass_);
+    }
+    if (((bitField0_ & 0x01000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(41, actualCpuMillis_);
+    }
+    if (((bitField0_ & 0x02000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(42, actualMemoryRequestMib_);
+    }
+    if (((bitField0_ & 0x04000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(43, actualMemoryLimitMib_);
+    }
+    if (((bitField0_ & 0x08000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(44, actualPidLimit_);
+    }
+    if (((bitField0_ & 0x10000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(45, actualTabBudget_);
+    }
+    if (((bitField0_ & 0x20000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(46, actualStateCollectorBudgetPercent_);
+    }
+    if (((bitField0_ & 0x40000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(47, actualRemoteDesktopBitrateKbps_);
+    }
+    if (((bitField0_ & 0x80000000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(48, actualExtensionCpuWeight_);
+    }
+    if (((bitField1_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(49, actualMediaEncoderSlots_);
+    }
+    if (((bitField1_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(50, actualFreezeBackgroundTabs_);
+    }
+    if (((bitField1_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(51, actualBlockNewTabs_);
+    }
+    if (((bitField1_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(52, getActualExtensionBackgroundPolicy());
+    }
+    if (((bitField1_ & 0x00000010) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(53, actualSuccessTraceSamplePercent_);
+    }
+    if (((bitField1_ & 0x00000020) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(54, actualObserverFrameRateFps_);
+    }
+    if (((bitField1_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(55, actualVideoRecordingEnabled_);
+    }
+    if (((bitField1_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(56, actualSuccessScreenshotSamplePercent_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1125,6 +1621,91 @@ private static final long serialVersionUID = 0L;
     }
     if (!getProxyProbeErrorCode()
         .equals(other.getProxyProbeErrorCode())) return false;
+    if (hasActualResourceClass() != other.hasActualResourceClass()) return false;
+    if (hasActualResourceClass()) {
+      if (!getActualResourceClass()
+          .equals(other.getActualResourceClass())) return false;
+    }
+    if (hasActualCpuMillis() != other.hasActualCpuMillis()) return false;
+    if (hasActualCpuMillis()) {
+      if (getActualCpuMillis()
+          != other.getActualCpuMillis()) return false;
+    }
+    if (hasActualMemoryRequestMib() != other.hasActualMemoryRequestMib()) return false;
+    if (hasActualMemoryRequestMib()) {
+      if (getActualMemoryRequestMib()
+          != other.getActualMemoryRequestMib()) return false;
+    }
+    if (hasActualMemoryLimitMib() != other.hasActualMemoryLimitMib()) return false;
+    if (hasActualMemoryLimitMib()) {
+      if (getActualMemoryLimitMib()
+          != other.getActualMemoryLimitMib()) return false;
+    }
+    if (hasActualPidLimit() != other.hasActualPidLimit()) return false;
+    if (hasActualPidLimit()) {
+      if (getActualPidLimit()
+          != other.getActualPidLimit()) return false;
+    }
+    if (hasActualTabBudget() != other.hasActualTabBudget()) return false;
+    if (hasActualTabBudget()) {
+      if (getActualTabBudget()
+          != other.getActualTabBudget()) return false;
+    }
+    if (hasActualStateCollectorBudgetPercent() != other.hasActualStateCollectorBudgetPercent()) return false;
+    if (hasActualStateCollectorBudgetPercent()) {
+      if (getActualStateCollectorBudgetPercent()
+          != other.getActualStateCollectorBudgetPercent()) return false;
+    }
+    if (hasActualRemoteDesktopBitrateKbps() != other.hasActualRemoteDesktopBitrateKbps()) return false;
+    if (hasActualRemoteDesktopBitrateKbps()) {
+      if (getActualRemoteDesktopBitrateKbps()
+          != other.getActualRemoteDesktopBitrateKbps()) return false;
+    }
+    if (hasActualExtensionCpuWeight() != other.hasActualExtensionCpuWeight()) return false;
+    if (hasActualExtensionCpuWeight()) {
+      if (getActualExtensionCpuWeight()
+          != other.getActualExtensionCpuWeight()) return false;
+    }
+    if (hasActualMediaEncoderSlots() != other.hasActualMediaEncoderSlots()) return false;
+    if (hasActualMediaEncoderSlots()) {
+      if (getActualMediaEncoderSlots()
+          != other.getActualMediaEncoderSlots()) return false;
+    }
+    if (hasActualFreezeBackgroundTabs() != other.hasActualFreezeBackgroundTabs()) return false;
+    if (hasActualFreezeBackgroundTabs()) {
+      if (getActualFreezeBackgroundTabs()
+          != other.getActualFreezeBackgroundTabs()) return false;
+    }
+    if (hasActualBlockNewTabs() != other.hasActualBlockNewTabs()) return false;
+    if (hasActualBlockNewTabs()) {
+      if (getActualBlockNewTabs()
+          != other.getActualBlockNewTabs()) return false;
+    }
+    if (hasActualExtensionBackgroundPolicy() != other.hasActualExtensionBackgroundPolicy()) return false;
+    if (hasActualExtensionBackgroundPolicy()) {
+      if (!getActualExtensionBackgroundPolicy()
+          .equals(other.getActualExtensionBackgroundPolicy())) return false;
+    }
+    if (hasActualSuccessTraceSamplePercent() != other.hasActualSuccessTraceSamplePercent()) return false;
+    if (hasActualSuccessTraceSamplePercent()) {
+      if (getActualSuccessTraceSamplePercent()
+          != other.getActualSuccessTraceSamplePercent()) return false;
+    }
+    if (hasActualObserverFrameRateFps() != other.hasActualObserverFrameRateFps()) return false;
+    if (hasActualObserverFrameRateFps()) {
+      if (getActualObserverFrameRateFps()
+          != other.getActualObserverFrameRateFps()) return false;
+    }
+    if (hasActualVideoRecordingEnabled() != other.hasActualVideoRecordingEnabled()) return false;
+    if (hasActualVideoRecordingEnabled()) {
+      if (getActualVideoRecordingEnabled()
+          != other.getActualVideoRecordingEnabled()) return false;
+    }
+    if (hasActualSuccessScreenshotSamplePercent() != other.hasActualSuccessScreenshotSamplePercent()) return false;
+    if (hasActualSuccessScreenshotSamplePercent()) {
+      if (getActualSuccessScreenshotSamplePercent()
+          != other.getActualSuccessScreenshotSamplePercent()) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1254,6 +1835,77 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + PROXY_PROBE_ERROR_CODE_FIELD_NUMBER;
     hash = (53 * hash) + getProxyProbeErrorCode().hashCode();
+    if (hasActualResourceClass()) {
+      hash = (37 * hash) + ACTUAL_RESOURCE_CLASS_FIELD_NUMBER;
+      hash = (53 * hash) + getActualResourceClass().hashCode();
+    }
+    if (hasActualCpuMillis()) {
+      hash = (37 * hash) + ACTUAL_CPU_MILLIS_FIELD_NUMBER;
+      hash = (53 * hash) + getActualCpuMillis();
+    }
+    if (hasActualMemoryRequestMib()) {
+      hash = (37 * hash) + ACTUAL_MEMORY_REQUEST_MIB_FIELD_NUMBER;
+      hash = (53 * hash) + getActualMemoryRequestMib();
+    }
+    if (hasActualMemoryLimitMib()) {
+      hash = (37 * hash) + ACTUAL_MEMORY_LIMIT_MIB_FIELD_NUMBER;
+      hash = (53 * hash) + getActualMemoryLimitMib();
+    }
+    if (hasActualPidLimit()) {
+      hash = (37 * hash) + ACTUAL_PID_LIMIT_FIELD_NUMBER;
+      hash = (53 * hash) + getActualPidLimit();
+    }
+    if (hasActualTabBudget()) {
+      hash = (37 * hash) + ACTUAL_TAB_BUDGET_FIELD_NUMBER;
+      hash = (53 * hash) + getActualTabBudget();
+    }
+    if (hasActualStateCollectorBudgetPercent()) {
+      hash = (37 * hash) + ACTUAL_STATE_COLLECTOR_BUDGET_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getActualStateCollectorBudgetPercent();
+    }
+    if (hasActualRemoteDesktopBitrateKbps()) {
+      hash = (37 * hash) + ACTUAL_REMOTE_DESKTOP_BITRATE_KBPS_FIELD_NUMBER;
+      hash = (53 * hash) + getActualRemoteDesktopBitrateKbps();
+    }
+    if (hasActualExtensionCpuWeight()) {
+      hash = (37 * hash) + ACTUAL_EXTENSION_CPU_WEIGHT_FIELD_NUMBER;
+      hash = (53 * hash) + getActualExtensionCpuWeight();
+    }
+    if (hasActualMediaEncoderSlots()) {
+      hash = (37 * hash) + ACTUAL_MEDIA_ENCODER_SLOTS_FIELD_NUMBER;
+      hash = (53 * hash) + getActualMediaEncoderSlots();
+    }
+    if (hasActualFreezeBackgroundTabs()) {
+      hash = (37 * hash) + ACTUAL_FREEZE_BACKGROUND_TABS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getActualFreezeBackgroundTabs());
+    }
+    if (hasActualBlockNewTabs()) {
+      hash = (37 * hash) + ACTUAL_BLOCK_NEW_TABS_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getActualBlockNewTabs());
+    }
+    if (hasActualExtensionBackgroundPolicy()) {
+      hash = (37 * hash) + ACTUAL_EXTENSION_BACKGROUND_POLICY_FIELD_NUMBER;
+      hash = (53 * hash) + getActualExtensionBackgroundPolicy().hashCode();
+    }
+    if (hasActualSuccessTraceSamplePercent()) {
+      hash = (37 * hash) + ACTUAL_SUCCESS_TRACE_SAMPLE_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getActualSuccessTraceSamplePercent();
+    }
+    if (hasActualObserverFrameRateFps()) {
+      hash = (37 * hash) + ACTUAL_OBSERVER_FRAME_RATE_FPS_FIELD_NUMBER;
+      hash = (53 * hash) + getActualObserverFrameRateFps();
+    }
+    if (hasActualVideoRecordingEnabled()) {
+      hash = (37 * hash) + ACTUAL_VIDEO_RECORDING_ENABLED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getActualVideoRecordingEnabled());
+    }
+    if (hasActualSuccessScreenshotSamplePercent()) {
+      hash = (37 * hash) + ACTUAL_SUCCESS_SCREENSHOT_SAMPLE_PERCENT_FIELD_NUMBER;
+      hash = (53 * hash) + getActualSuccessScreenshotSamplePercent();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1373,18 +2025,25 @@ private static final long serialVersionUID = 0L;
 
     // Construct using io.browsercloud.proto.node.v1.ReportSessionResourcesRequest.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessageV3
+              .alwaysUseFieldBuilders) {
+        getActualExtensionBackgroundPolicyFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      bitField1_ = 0;
       nodeId_ = "";
       tenantId_ = "";
       sessionId_ = "";
@@ -1415,6 +2074,27 @@ private static final long serialVersionUID = 0L;
       proxyProbeLatencyMs_ = 0;
       proxyObservedExitIp_ = "";
       proxyProbeErrorCode_ = "";
+      actualResourceClass_ = "";
+      actualCpuMillis_ = 0;
+      actualMemoryRequestMib_ = 0;
+      actualMemoryLimitMib_ = 0;
+      actualPidLimit_ = 0;
+      actualTabBudget_ = 0;
+      actualStateCollectorBudgetPercent_ = 0;
+      actualRemoteDesktopBitrateKbps_ = 0;
+      actualExtensionCpuWeight_ = 0;
+      actualMediaEncoderSlots_ = 0;
+      actualFreezeBackgroundTabs_ = false;
+      actualBlockNewTabs_ = false;
+      actualExtensionBackgroundPolicy_ = null;
+      if (actualExtensionBackgroundPolicyBuilder_ != null) {
+        actualExtensionBackgroundPolicyBuilder_.dispose();
+        actualExtensionBackgroundPolicyBuilder_ = null;
+      }
+      actualSuccessTraceSamplePercent_ = 0;
+      actualObserverFrameRateFps_ = 0;
+      actualVideoRecordingEnabled_ = false;
+      actualSuccessScreenshotSamplePercent_ = 0;
       return this;
     }
 
@@ -1442,6 +2122,7 @@ private static final long serialVersionUID = 0L;
     public io.browsercloud.proto.node.v1.ReportSessionResourcesRequest buildPartial() {
       io.browsercloud.proto.node.v1.ReportSessionResourcesRequest result = new io.browsercloud.proto.node.v1.ReportSessionResourcesRequest(this);
       if (bitField0_ != 0) { buildPartial0(result); }
+      if (bitField1_ != 0) { buildPartial1(result); }
       onBuilt();
       return result;
     }
@@ -1562,7 +2243,85 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x20000000) != 0)) {
         result.proxyProbeErrorCode_ = proxyProbeErrorCode_;
       }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.actualResourceClass_ = actualResourceClass_;
+        to_bitField0_ |= 0x00800000;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.actualCpuMillis_ = actualCpuMillis_;
+        to_bitField0_ |= 0x01000000;
+      }
       result.bitField0_ |= to_bitField0_;
+    }
+
+    private void buildPartial1(io.browsercloud.proto.node.v1.ReportSessionResourcesRequest result) {
+      int from_bitField1_ = bitField1_;
+      int to_bitField0_ = 0;
+      if (((from_bitField1_ & 0x00000001) != 0)) {
+        result.actualMemoryRequestMib_ = actualMemoryRequestMib_;
+        to_bitField0_ |= 0x02000000;
+      }
+      if (((from_bitField1_ & 0x00000002) != 0)) {
+        result.actualMemoryLimitMib_ = actualMemoryLimitMib_;
+        to_bitField0_ |= 0x04000000;
+      }
+      if (((from_bitField1_ & 0x00000004) != 0)) {
+        result.actualPidLimit_ = actualPidLimit_;
+        to_bitField0_ |= 0x08000000;
+      }
+      if (((from_bitField1_ & 0x00000008) != 0)) {
+        result.actualTabBudget_ = actualTabBudget_;
+        to_bitField0_ |= 0x10000000;
+      }
+      if (((from_bitField1_ & 0x00000010) != 0)) {
+        result.actualStateCollectorBudgetPercent_ = actualStateCollectorBudgetPercent_;
+        to_bitField0_ |= 0x20000000;
+      }
+      if (((from_bitField1_ & 0x00000020) != 0)) {
+        result.actualRemoteDesktopBitrateKbps_ = actualRemoteDesktopBitrateKbps_;
+        to_bitField0_ |= 0x40000000;
+      }
+      if (((from_bitField1_ & 0x00000040) != 0)) {
+        result.actualExtensionCpuWeight_ = actualExtensionCpuWeight_;
+        to_bitField0_ |= 0x80000000;
+      }
+      int to_bitField1_ = 0;
+      if (((from_bitField1_ & 0x00000080) != 0)) {
+        result.actualMediaEncoderSlots_ = actualMediaEncoderSlots_;
+        to_bitField1_ |= 0x00000001;
+      }
+      if (((from_bitField1_ & 0x00000100) != 0)) {
+        result.actualFreezeBackgroundTabs_ = actualFreezeBackgroundTabs_;
+        to_bitField1_ |= 0x00000002;
+      }
+      if (((from_bitField1_ & 0x00000200) != 0)) {
+        result.actualBlockNewTabs_ = actualBlockNewTabs_;
+        to_bitField1_ |= 0x00000004;
+      }
+      if (((from_bitField1_ & 0x00000400) != 0)) {
+        result.actualExtensionBackgroundPolicy_ = actualExtensionBackgroundPolicyBuilder_ == null
+            ? actualExtensionBackgroundPolicy_
+            : actualExtensionBackgroundPolicyBuilder_.build();
+        to_bitField1_ |= 0x00000008;
+      }
+      if (((from_bitField1_ & 0x00000800) != 0)) {
+        result.actualSuccessTraceSamplePercent_ = actualSuccessTraceSamplePercent_;
+        to_bitField1_ |= 0x00000010;
+      }
+      if (((from_bitField1_ & 0x00001000) != 0)) {
+        result.actualObserverFrameRateFps_ = actualObserverFrameRateFps_;
+        to_bitField1_ |= 0x00000020;
+      }
+      if (((from_bitField1_ & 0x00002000) != 0)) {
+        result.actualVideoRecordingEnabled_ = actualVideoRecordingEnabled_;
+        to_bitField1_ |= 0x00000040;
+      }
+      if (((from_bitField1_ & 0x00004000) != 0)) {
+        result.actualSuccessScreenshotSamplePercent_ = actualSuccessScreenshotSamplePercent_;
+        to_bitField1_ |= 0x00000080;
+      }
+      result.bitField0_ |= to_bitField0_;
+      result.bitField1_ |= to_bitField1_;
     }
 
     @java.lang.Override
@@ -1710,6 +2469,59 @@ private static final long serialVersionUID = 0L;
         proxyProbeErrorCode_ = other.proxyProbeErrorCode_;
         bitField0_ |= 0x20000000;
         onChanged();
+      }
+      if (other.hasActualResourceClass()) {
+        actualResourceClass_ = other.actualResourceClass_;
+        bitField0_ |= 0x40000000;
+        onChanged();
+      }
+      if (other.hasActualCpuMillis()) {
+        setActualCpuMillis(other.getActualCpuMillis());
+      }
+      if (other.hasActualMemoryRequestMib()) {
+        setActualMemoryRequestMib(other.getActualMemoryRequestMib());
+      }
+      if (other.hasActualMemoryLimitMib()) {
+        setActualMemoryLimitMib(other.getActualMemoryLimitMib());
+      }
+      if (other.hasActualPidLimit()) {
+        setActualPidLimit(other.getActualPidLimit());
+      }
+      if (other.hasActualTabBudget()) {
+        setActualTabBudget(other.getActualTabBudget());
+      }
+      if (other.hasActualStateCollectorBudgetPercent()) {
+        setActualStateCollectorBudgetPercent(other.getActualStateCollectorBudgetPercent());
+      }
+      if (other.hasActualRemoteDesktopBitrateKbps()) {
+        setActualRemoteDesktopBitrateKbps(other.getActualRemoteDesktopBitrateKbps());
+      }
+      if (other.hasActualExtensionCpuWeight()) {
+        setActualExtensionCpuWeight(other.getActualExtensionCpuWeight());
+      }
+      if (other.hasActualMediaEncoderSlots()) {
+        setActualMediaEncoderSlots(other.getActualMediaEncoderSlots());
+      }
+      if (other.hasActualFreezeBackgroundTabs()) {
+        setActualFreezeBackgroundTabs(other.getActualFreezeBackgroundTabs());
+      }
+      if (other.hasActualBlockNewTabs()) {
+        setActualBlockNewTabs(other.getActualBlockNewTabs());
+      }
+      if (other.hasActualExtensionBackgroundPolicy()) {
+        mergeActualExtensionBackgroundPolicy(other.getActualExtensionBackgroundPolicy());
+      }
+      if (other.hasActualSuccessTraceSamplePercent()) {
+        setActualSuccessTraceSamplePercent(other.getActualSuccessTraceSamplePercent());
+      }
+      if (other.hasActualObserverFrameRateFps()) {
+        setActualObserverFrameRateFps(other.getActualObserverFrameRateFps());
+      }
+      if (other.hasActualVideoRecordingEnabled()) {
+        setActualVideoRecordingEnabled(other.getActualVideoRecordingEnabled());
+      }
+      if (other.hasActualSuccessScreenshotSamplePercent()) {
+        setActualSuccessScreenshotSamplePercent(other.getActualSuccessScreenshotSamplePercent());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1887,6 +2699,93 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x20000000;
               break;
             } // case 274
+            case 322: {
+              actualResourceClass_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 322
+            case 328: {
+              actualCpuMillis_ = input.readUInt32();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 328
+            case 336: {
+              actualMemoryRequestMib_ = input.readUInt32();
+              bitField1_ |= 0x00000001;
+              break;
+            } // case 336
+            case 344: {
+              actualMemoryLimitMib_ = input.readUInt32();
+              bitField1_ |= 0x00000002;
+              break;
+            } // case 344
+            case 352: {
+              actualPidLimit_ = input.readUInt32();
+              bitField1_ |= 0x00000004;
+              break;
+            } // case 352
+            case 360: {
+              actualTabBudget_ = input.readUInt32();
+              bitField1_ |= 0x00000008;
+              break;
+            } // case 360
+            case 368: {
+              actualStateCollectorBudgetPercent_ = input.readUInt32();
+              bitField1_ |= 0x00000010;
+              break;
+            } // case 368
+            case 376: {
+              actualRemoteDesktopBitrateKbps_ = input.readUInt32();
+              bitField1_ |= 0x00000020;
+              break;
+            } // case 376
+            case 384: {
+              actualExtensionCpuWeight_ = input.readUInt32();
+              bitField1_ |= 0x00000040;
+              break;
+            } // case 384
+            case 392: {
+              actualMediaEncoderSlots_ = input.readUInt32();
+              bitField1_ |= 0x00000080;
+              break;
+            } // case 392
+            case 400: {
+              actualFreezeBackgroundTabs_ = input.readBool();
+              bitField1_ |= 0x00000100;
+              break;
+            } // case 400
+            case 408: {
+              actualBlockNewTabs_ = input.readBool();
+              bitField1_ |= 0x00000200;
+              break;
+            } // case 408
+            case 418: {
+              input.readMessage(
+                  getActualExtensionBackgroundPolicyFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField1_ |= 0x00000400;
+              break;
+            } // case 418
+            case 424: {
+              actualSuccessTraceSamplePercent_ = input.readUInt32();
+              bitField1_ |= 0x00000800;
+              break;
+            } // case 424
+            case 432: {
+              actualObserverFrameRateFps_ = input.readUInt32();
+              bitField1_ |= 0x00001000;
+              break;
+            } // case 432
+            case 440: {
+              actualVideoRecordingEnabled_ = input.readBool();
+              bitField1_ |= 0x00002000;
+              break;
+            } // case 440
+            case 448: {
+              actualSuccessScreenshotSamplePercent_ = input.readUInt32();
+              bitField1_ |= 0x00004000;
+              break;
+            } // case 448
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1903,6 +2802,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     private int bitField0_;
+    private int bitField1_;
 
     private java.lang.Object nodeId_ = "";
     /**
@@ -3327,6 +4227,842 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       proxyProbeErrorCode_ = value;
       bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object actualResourceClass_ = "";
+    /**
+     * <pre>
+     * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+     * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+     * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+     * </pre>
+     *
+     * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     * @return Whether the actualResourceClass field is set.
+     */
+    public boolean hasActualResourceClass() {
+      return ((bitField0_ & 0x40000000) != 0);
+    }
+    /**
+     * <pre>
+     * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+     * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+     * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+     * </pre>
+     *
+     * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     * @return The actualResourceClass.
+     */
+    public java.lang.String getActualResourceClass() {
+      java.lang.Object ref = actualResourceClass_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        actualResourceClass_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+     * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+     * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+     * </pre>
+     *
+     * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     * @return The bytes for actualResourceClass.
+     */
+    public com.google.protobuf.ByteString
+        getActualResourceClassBytes() {
+      java.lang.Object ref = actualResourceClass_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        actualResourceClass_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+     * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+     * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+     * </pre>
+     *
+     * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     * @param value The actualResourceClass to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualResourceClass(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      actualResourceClass_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+     * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+     * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+     * </pre>
+     *
+     * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualResourceClass() {
+      actualResourceClass_ = getDefaultInstance().getActualResourceClass();
+      bitField0_ = (bitField0_ & ~0x40000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+     * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+     * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+     * </pre>
+     *
+     * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+     * @param value The bytes for actualResourceClass to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualResourceClassBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      actualResourceClass_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+
+    private int actualCpuMillis_ ;
+    /**
+     * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     * @return Whether the actualCpuMillis field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualCpuMillis() {
+      return ((bitField0_ & 0x80000000) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     * @return The actualCpuMillis.
+     */
+    @java.lang.Override
+    public int getActualCpuMillis() {
+      return actualCpuMillis_;
+    }
+    /**
+     * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     * @param value The actualCpuMillis to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualCpuMillis(int value) {
+
+      actualCpuMillis_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualCpuMillis() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      actualCpuMillis_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualMemoryRequestMib_ ;
+    /**
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * @return Whether the actualMemoryRequestMib field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualMemoryRequestMib() {
+      return ((bitField1_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * @return The actualMemoryRequestMib.
+     */
+    @java.lang.Override
+    public int getActualMemoryRequestMib() {
+      return actualMemoryRequestMib_;
+    }
+    /**
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * @param value The actualMemoryRequestMib to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualMemoryRequestMib(int value) {
+
+      actualMemoryRequestMib_ = value;
+      bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualMemoryRequestMib() {
+      bitField1_ = (bitField1_ & ~0x00000001);
+      actualMemoryRequestMib_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualMemoryLimitMib_ ;
+    /**
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * @return Whether the actualMemoryLimitMib field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualMemoryLimitMib() {
+      return ((bitField1_ & 0x00000002) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * @return The actualMemoryLimitMib.
+     */
+    @java.lang.Override
+    public int getActualMemoryLimitMib() {
+      return actualMemoryLimitMib_;
+    }
+    /**
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * @param value The actualMemoryLimitMib to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualMemoryLimitMib(int value) {
+
+      actualMemoryLimitMib_ = value;
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualMemoryLimitMib() {
+      bitField1_ = (bitField1_ & ~0x00000002);
+      actualMemoryLimitMib_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualPidLimit_ ;
+    /**
+     * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     * @return Whether the actualPidLimit field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualPidLimit() {
+      return ((bitField1_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     * @return The actualPidLimit.
+     */
+    @java.lang.Override
+    public int getActualPidLimit() {
+      return actualPidLimit_;
+    }
+    /**
+     * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     * @param value The actualPidLimit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualPidLimit(int value) {
+
+      actualPidLimit_ = value;
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualPidLimit() {
+      bitField1_ = (bitField1_ & ~0x00000004);
+      actualPidLimit_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualTabBudget_ ;
+    /**
+     * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     * @return Whether the actualTabBudget field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualTabBudget() {
+      return ((bitField1_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     * @return The actualTabBudget.
+     */
+    @java.lang.Override
+    public int getActualTabBudget() {
+      return actualTabBudget_;
+    }
+    /**
+     * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     * @param value The actualTabBudget to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualTabBudget(int value) {
+
+      actualTabBudget_ = value;
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualTabBudget() {
+      bitField1_ = (bitField1_ & ~0x00000008);
+      actualTabBudget_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualStateCollectorBudgetPercent_ ;
+    /**
+     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * @return Whether the actualStateCollectorBudgetPercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualStateCollectorBudgetPercent() {
+      return ((bitField1_ & 0x00000010) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * @return The actualStateCollectorBudgetPercent.
+     */
+    @java.lang.Override
+    public int getActualStateCollectorBudgetPercent() {
+      return actualStateCollectorBudgetPercent_;
+    }
+    /**
+     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * @param value The actualStateCollectorBudgetPercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualStateCollectorBudgetPercent(int value) {
+
+      actualStateCollectorBudgetPercent_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualStateCollectorBudgetPercent() {
+      bitField1_ = (bitField1_ & ~0x00000010);
+      actualStateCollectorBudgetPercent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualRemoteDesktopBitrateKbps_ ;
+    /**
+     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * @return Whether the actualRemoteDesktopBitrateKbps field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualRemoteDesktopBitrateKbps() {
+      return ((bitField1_ & 0x00000020) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * @return The actualRemoteDesktopBitrateKbps.
+     */
+    @java.lang.Override
+    public int getActualRemoteDesktopBitrateKbps() {
+      return actualRemoteDesktopBitrateKbps_;
+    }
+    /**
+     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * @param value The actualRemoteDesktopBitrateKbps to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualRemoteDesktopBitrateKbps(int value) {
+
+      actualRemoteDesktopBitrateKbps_ = value;
+      bitField1_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualRemoteDesktopBitrateKbps() {
+      bitField1_ = (bitField1_ & ~0x00000020);
+      actualRemoteDesktopBitrateKbps_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualExtensionCpuWeight_ ;
+    /**
+     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * @return Whether the actualExtensionCpuWeight field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualExtensionCpuWeight() {
+      return ((bitField1_ & 0x00000040) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * @return The actualExtensionCpuWeight.
+     */
+    @java.lang.Override
+    public int getActualExtensionCpuWeight() {
+      return actualExtensionCpuWeight_;
+    }
+    /**
+     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * @param value The actualExtensionCpuWeight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualExtensionCpuWeight(int value) {
+
+      actualExtensionCpuWeight_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualExtensionCpuWeight() {
+      bitField1_ = (bitField1_ & ~0x00000040);
+      actualExtensionCpuWeight_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualMediaEncoderSlots_ ;
+    /**
+     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * @return Whether the actualMediaEncoderSlots field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualMediaEncoderSlots() {
+      return ((bitField1_ & 0x00000080) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * @return The actualMediaEncoderSlots.
+     */
+    @java.lang.Override
+    public int getActualMediaEncoderSlots() {
+      return actualMediaEncoderSlots_;
+    }
+    /**
+     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * @param value The actualMediaEncoderSlots to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualMediaEncoderSlots(int value) {
+
+      actualMediaEncoderSlots_ = value;
+      bitField1_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualMediaEncoderSlots() {
+      bitField1_ = (bitField1_ & ~0x00000080);
+      actualMediaEncoderSlots_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean actualFreezeBackgroundTabs_ ;
+    /**
+     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * @return Whether the actualFreezeBackgroundTabs field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualFreezeBackgroundTabs() {
+      return ((bitField1_ & 0x00000100) != 0);
+    }
+    /**
+     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * @return The actualFreezeBackgroundTabs.
+     */
+    @java.lang.Override
+    public boolean getActualFreezeBackgroundTabs() {
+      return actualFreezeBackgroundTabs_;
+    }
+    /**
+     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * @param value The actualFreezeBackgroundTabs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualFreezeBackgroundTabs(boolean value) {
+
+      actualFreezeBackgroundTabs_ = value;
+      bitField1_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualFreezeBackgroundTabs() {
+      bitField1_ = (bitField1_ & ~0x00000100);
+      actualFreezeBackgroundTabs_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean actualBlockNewTabs_ ;
+    /**
+     * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     * @return Whether the actualBlockNewTabs field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualBlockNewTabs() {
+      return ((bitField1_ & 0x00000200) != 0);
+    }
+    /**
+     * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     * @return The actualBlockNewTabs.
+     */
+    @java.lang.Override
+    public boolean getActualBlockNewTabs() {
+      return actualBlockNewTabs_;
+    }
+    /**
+     * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     * @param value The actualBlockNewTabs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualBlockNewTabs(boolean value) {
+
+      actualBlockNewTabs_ = value;
+      bitField1_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualBlockNewTabs() {
+      bitField1_ = (bitField1_ & ~0x00000200);
+      actualBlockNewTabs_ = false;
+      onChanged();
+      return this;
+    }
+
+    private io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy actualExtensionBackgroundPolicy_;
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder> actualExtensionBackgroundPolicyBuilder_;
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * @return Whether the actualExtensionBackgroundPolicy field is set.
+     */
+    public boolean hasActualExtensionBackgroundPolicy() {
+      return ((bitField1_ & 0x00000400) != 0);
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     * @return The actualExtensionBackgroundPolicy.
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getActualExtensionBackgroundPolicy() {
+      if (actualExtensionBackgroundPolicyBuilder_ == null) {
+        return actualExtensionBackgroundPolicy_ == null ? io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+      } else {
+        return actualExtensionBackgroundPolicyBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    public Builder setActualExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (actualExtensionBackgroundPolicyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        actualExtensionBackgroundPolicy_ = value;
+      } else {
+        actualExtensionBackgroundPolicyBuilder_.setMessage(value);
+      }
+      bitField1_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    public Builder setActualExtensionBackgroundPolicy(
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder builderForValue) {
+      if (actualExtensionBackgroundPolicyBuilder_ == null) {
+        actualExtensionBackgroundPolicy_ = builderForValue.build();
+      } else {
+        actualExtensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
+      }
+      bitField1_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    public Builder mergeActualExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
+      if (actualExtensionBackgroundPolicyBuilder_ == null) {
+        if (((bitField1_ & 0x00000400) != 0) &&
+          actualExtensionBackgroundPolicy_ != null &&
+          actualExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
+          getActualExtensionBackgroundPolicyBuilder().mergeFrom(value);
+        } else {
+          actualExtensionBackgroundPolicy_ = value;
+        }
+      } else {
+        actualExtensionBackgroundPolicyBuilder_.mergeFrom(value);
+      }
+      if (actualExtensionBackgroundPolicy_ != null) {
+        bitField1_ |= 0x00000400;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    public Builder clearActualExtensionBackgroundPolicy() {
+      bitField1_ = (bitField1_ & ~0x00000400);
+      actualExtensionBackgroundPolicy_ = null;
+      if (actualExtensionBackgroundPolicyBuilder_ != null) {
+        actualExtensionBackgroundPolicyBuilder_.dispose();
+        actualExtensionBackgroundPolicyBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getActualExtensionBackgroundPolicyBuilder() {
+      bitField1_ |= 0x00000400;
+      onChanged();
+      return getActualExtensionBackgroundPolicyFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getActualExtensionBackgroundPolicyOrBuilder() {
+      if (actualExtensionBackgroundPolicyBuilder_ != null) {
+        return actualExtensionBackgroundPolicyBuilder_.getMessageOrBuilder();
+      } else {
+        return actualExtensionBackgroundPolicy_ == null ?
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance() : actualExtensionBackgroundPolicy_;
+      }
+    }
+    /**
+     * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilderV3<
+        io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>
+        getActualExtensionBackgroundPolicyFieldBuilder() {
+      if (actualExtensionBackgroundPolicyBuilder_ == null) {
+        actualExtensionBackgroundPolicyBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+            io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder, io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder>(
+                getActualExtensionBackgroundPolicy(),
+                getParentForChildren(),
+                isClean());
+        actualExtensionBackgroundPolicy_ = null;
+      }
+      return actualExtensionBackgroundPolicyBuilder_;
+    }
+
+    private int actualSuccessTraceSamplePercent_ ;
+    /**
+     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * @return Whether the actualSuccessTraceSamplePercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualSuccessTraceSamplePercent() {
+      return ((bitField1_ & 0x00000800) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * @return The actualSuccessTraceSamplePercent.
+     */
+    @java.lang.Override
+    public int getActualSuccessTraceSamplePercent() {
+      return actualSuccessTraceSamplePercent_;
+    }
+    /**
+     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * @param value The actualSuccessTraceSamplePercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualSuccessTraceSamplePercent(int value) {
+
+      actualSuccessTraceSamplePercent_ = value;
+      bitField1_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualSuccessTraceSamplePercent() {
+      bitField1_ = (bitField1_ & ~0x00000800);
+      actualSuccessTraceSamplePercent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int actualObserverFrameRateFps_ ;
+    /**
+     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * @return Whether the actualObserverFrameRateFps field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualObserverFrameRateFps() {
+      return ((bitField1_ & 0x00001000) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * @return The actualObserverFrameRateFps.
+     */
+    @java.lang.Override
+    public int getActualObserverFrameRateFps() {
+      return actualObserverFrameRateFps_;
+    }
+    /**
+     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * @param value The actualObserverFrameRateFps to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualObserverFrameRateFps(int value) {
+
+      actualObserverFrameRateFps_ = value;
+      bitField1_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualObserverFrameRateFps() {
+      bitField1_ = (bitField1_ & ~0x00001000);
+      actualObserverFrameRateFps_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean actualVideoRecordingEnabled_ ;
+    /**
+     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * @return Whether the actualVideoRecordingEnabled field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualVideoRecordingEnabled() {
+      return ((bitField1_ & 0x00002000) != 0);
+    }
+    /**
+     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * @return The actualVideoRecordingEnabled.
+     */
+    @java.lang.Override
+    public boolean getActualVideoRecordingEnabled() {
+      return actualVideoRecordingEnabled_;
+    }
+    /**
+     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * @param value The actualVideoRecordingEnabled to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualVideoRecordingEnabled(boolean value) {
+
+      actualVideoRecordingEnabled_ = value;
+      bitField1_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualVideoRecordingEnabled() {
+      bitField1_ = (bitField1_ & ~0x00002000);
+      actualVideoRecordingEnabled_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int actualSuccessScreenshotSamplePercent_ ;
+    /**
+     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * @return Whether the actualSuccessScreenshotSamplePercent field is set.
+     */
+    @java.lang.Override
+    public boolean hasActualSuccessScreenshotSamplePercent() {
+      return ((bitField1_ & 0x00004000) != 0);
+    }
+    /**
+     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * @return The actualSuccessScreenshotSamplePercent.
+     */
+    @java.lang.Override
+    public int getActualSuccessScreenshotSamplePercent() {
+      return actualSuccessScreenshotSamplePercent_;
+    }
+    /**
+     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * @param value The actualSuccessScreenshotSamplePercent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActualSuccessScreenshotSamplePercent(int value) {
+
+      actualSuccessScreenshotSamplePercent_ = value;
+      bitField1_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActualSuccessScreenshotSamplePercent() {
+      bitField1_ = (bitField1_ & ~0x00004000);
+      actualSuccessScreenshotSamplePercent_ = 0;
       onChanged();
       return this;
     }

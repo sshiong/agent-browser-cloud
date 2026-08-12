@@ -203,6 +203,30 @@ class SessionResourceAdjustmentLifecycleServiceTest {
     verify(adjustments).save(adjustment);
   }
 
+  @Test
+  void periodicReadbackCanRecoverOnlyTheLatestTimedOutAdjustment() {
+    var adjustment = adjustment();
+    adjustment.fail("NODE_ACK_TIMEOUT", Instant.now());
+    when(adjustments.findLatestBySessionId("ses_resource0000001"))
+        .thenReturn(Optional.of(adjustment));
+
+    var candidate = service.readbackCandidate("tenant-test", "ses_resource0000001");
+
+    assertThat(candidate.operationId()).isEqualTo("op_resource00000001");
+    assertThat(candidate.oldResources()).containsEntry("cpuMillis", 600);
+    assertThat(candidate.requestedResources()).containsEntry("cpuMillis", 900);
+  }
+
+  @Test
+  void periodicReadbackCannotRecoverANonTimeoutFailure() {
+    var adjustment = adjustment();
+    adjustment.fail("STALE_ROUTE_EPOCH", Instant.now());
+    when(adjustments.findLatestBySessionId("ses_resource0000001"))
+        .thenReturn(Optional.of(adjustment));
+
+    assertThat(service.readbackCandidate("tenant-test", "ses_resource0000001")).isNull();
+  }
+
   private static SessionResourceAdjustmentEntity adjustment() {
     return SessionResourceAdjustmentEntity.requested(
         "op_resource00000001",

@@ -360,4 +360,219 @@ public interface ReportSessionResourcesRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getProxyProbeErrorCodeBytes();
+
+  /**
+   * <pre>
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   * </pre>
+   *
+   * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   * @return Whether the actualResourceClass field is set.
+   */
+  boolean hasActualResourceClass();
+  /**
+   * <pre>
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   * </pre>
+   *
+   * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   * @return The actualResourceClass.
+   */
+  java.lang.String getActualResourceClass();
+  /**
+   * <pre>
+   * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+   * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+   * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+   * </pre>
+   *
+   * <code>optional string actual_resource_class = 40 [json_name = "actualResourceClass"];</code>
+   * @return The bytes for actualResourceClass.
+   */
+  com.google.protobuf.ByteString
+      getActualResourceClassBytes();
+
+  /**
+   * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   * @return Whether the actualCpuMillis field is set.
+   */
+  boolean hasActualCpuMillis();
+  /**
+   * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
+   * @return The actualCpuMillis.
+   */
+  int getActualCpuMillis();
+
+  /**
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * @return Whether the actualMemoryRequestMib field is set.
+   */
+  boolean hasActualMemoryRequestMib();
+  /**
+   * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
+   * @return The actualMemoryRequestMib.
+   */
+  int getActualMemoryRequestMib();
+
+  /**
+   * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   * @return Whether the actualMemoryLimitMib field is set.
+   */
+  boolean hasActualMemoryLimitMib();
+  /**
+   * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
+   * @return The actualMemoryLimitMib.
+   */
+  int getActualMemoryLimitMib();
+
+  /**
+   * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   * @return Whether the actualPidLimit field is set.
+   */
+  boolean hasActualPidLimit();
+  /**
+   * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
+   * @return The actualPidLimit.
+   */
+  int getActualPidLimit();
+
+  /**
+   * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   * @return Whether the actualTabBudget field is set.
+   */
+  boolean hasActualTabBudget();
+  /**
+   * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
+   * @return The actualTabBudget.
+   */
+  int getActualTabBudget();
+
+  /**
+   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * @return Whether the actualStateCollectorBudgetPercent field is set.
+   */
+  boolean hasActualStateCollectorBudgetPercent();
+  /**
+   * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
+   * @return The actualStateCollectorBudgetPercent.
+   */
+  int getActualStateCollectorBudgetPercent();
+
+  /**
+   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * @return Whether the actualRemoteDesktopBitrateKbps field is set.
+   */
+  boolean hasActualRemoteDesktopBitrateKbps();
+  /**
+   * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
+   * @return The actualRemoteDesktopBitrateKbps.
+   */
+  int getActualRemoteDesktopBitrateKbps();
+
+  /**
+   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * @return Whether the actualExtensionCpuWeight field is set.
+   */
+  boolean hasActualExtensionCpuWeight();
+  /**
+   * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
+   * @return The actualExtensionCpuWeight.
+   */
+  int getActualExtensionCpuWeight();
+
+  /**
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * @return Whether the actualMediaEncoderSlots field is set.
+   */
+  boolean hasActualMediaEncoderSlots();
+  /**
+   * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
+   * @return The actualMediaEncoderSlots.
+   */
+  int getActualMediaEncoderSlots();
+
+  /**
+   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * @return Whether the actualFreezeBackgroundTabs field is set.
+   */
+  boolean hasActualFreezeBackgroundTabs();
+  /**
+   * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
+   * @return The actualFreezeBackgroundTabs.
+   */
+  boolean getActualFreezeBackgroundTabs();
+
+  /**
+   * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   * @return Whether the actualBlockNewTabs field is set.
+   */
+  boolean hasActualBlockNewTabs();
+  /**
+   * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
+   * @return The actualBlockNewTabs.
+   */
+  boolean getActualBlockNewTabs();
+
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * @return Whether the actualExtensionBackgroundPolicy field is set.
+   */
+  boolean hasActualExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   * @return The actualExtensionBackgroundPolicy.
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy getActualExtensionBackgroundPolicy();
+  /**
+   * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
+   */
+  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicyOrBuilder getActualExtensionBackgroundPolicyOrBuilder();
+
+  /**
+   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * @return Whether the actualSuccessTraceSamplePercent field is set.
+   */
+  boolean hasActualSuccessTraceSamplePercent();
+  /**
+   * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
+   * @return The actualSuccessTraceSamplePercent.
+   */
+  int getActualSuccessTraceSamplePercent();
+
+  /**
+   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * @return Whether the actualObserverFrameRateFps field is set.
+   */
+  boolean hasActualObserverFrameRateFps();
+  /**
+   * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
+   * @return The actualObserverFrameRateFps.
+   */
+  int getActualObserverFrameRateFps();
+
+  /**
+   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * @return Whether the actualVideoRecordingEnabled field is set.
+   */
+  boolean hasActualVideoRecordingEnabled();
+  /**
+   * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
+   * @return The actualVideoRecordingEnabled.
+   */
+  boolean getActualVideoRecordingEnabled();
+
+  /**
+   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * @return Whether the actualSuccessScreenshotSamplePercent field is set.
+   */
+  boolean hasActualSuccessScreenshotSamplePercent();
+  /**
+   * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
+   * @return The actualSuccessScreenshotSamplePercent.
+   */
+  int getActualSuccessScreenshotSamplePercent();
 }

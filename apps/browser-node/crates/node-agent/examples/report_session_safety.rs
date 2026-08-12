@@ -74,6 +74,23 @@ async fn main() -> Result<()> {
             proxy_probe_latency_ms: None,
             proxy_observed_exit_ip: None,
             proxy_probe_error_code: String::new(),
+            actual_resource_class: None,
+            actual_cpu_millis: None,
+            actual_memory_request_mib: None,
+            actual_memory_limit_mib: None,
+            actual_pid_limit: None,
+            actual_tab_budget: None,
+            actual_state_collector_budget_percent: None,
+            actual_remote_desktop_bitrate_kbps: None,
+            actual_extension_cpu_weight: None,
+            actual_media_encoder_slots: None,
+            actual_freeze_background_tabs: None,
+            actual_block_new_tabs: None,
+            actual_extension_background_policy: None,
+            actual_success_trace_sample_percent: None,
+            actual_observer_frame_rate_fps: None,
+            actual_video_recording_enabled: None,
+            actual_success_screenshot_sample_percent: None,
         })
         .await?
         .into_inner();

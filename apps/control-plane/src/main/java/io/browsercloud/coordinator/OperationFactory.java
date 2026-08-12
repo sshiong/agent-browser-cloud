@@ -238,7 +238,7 @@ public final class OperationFactory {
         operationId,
         session.sessionId(),
         OwnerType.SYSTEM,
-        "resource-late-ack-reconciler",
+        "resource-authority-reconciler",
         OperationMode.RESOURCE_ADJUSTMENT,
         20,
         session.coordinatorTerm(),

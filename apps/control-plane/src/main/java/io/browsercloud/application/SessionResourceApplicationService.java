@@ -278,11 +278,135 @@ public class SessionResourceApplicationService {
   @Transactional
   public SessionResourceView recordSampleFromNode(
       String sessionId, String tenantId, long contextEpoch, RecordResourceSampleRequest request) {
+    return recordSampleFromNode(sessionId, tenantId, contextEpoch, request, null);
+  }
+
+  @Transactional
+  public SessionResourceView recordSampleFromNode(
+      String sessionId,
+      String tenantId,
+      long contextEpoch,
+      RecordResourceSampleRequest request,
+      NodeResourceAllocationReadback readback) {
     var session = requireTenant(sessionId, tenantId);
     if (session.contextEpoch() != contextEpoch) {
       throw new ResourceTelemetryRejectedException("STALE_RESOURCE_CONTEXT");
     }
-    return recordSample(sessionId, request);
+    var view = recordSample(sessionId, request);
+    if (readback != null) {
+      reconcileResourceReadback(session, readback);
+    }
+    return view;
+  }
+
+  private void reconcileResourceReadback(
+      SessionContext session, NodeResourceAllocationReadback readback) {
+    var now = Instant.now();
+    if (readback.observedAt().isBefore(now.minusSeconds(30))) {
+      throw new ResourceTelemetryRejectedException("STALE_RESOURCE_READBACK");
+    }
+    var placement =
+        placements
+            .findForUpdate(session.sessionId())
+            .orElseThrow(() -> new ResourceTelemetryRejectedException("PLACEMENT_NOT_FOUND"));
+    if (!"ACTIVE".equals(placement.getState())
+        || !placement.getNodeId().equals(readback.nodeId())) {
+      throw new ResourceTelemetryRejectedException("NODE_PLACEMENT_MISMATCH");
+    }
+    var expected = allocationMap(placement);
+    var actual = allocationMap(placement, readback);
+    if (expected.equals(actual)) return;
+
+    // An in-flight operation owns authority while its actuator and ACK are still converging.
+    if (operations.findActive(session.sessionId()).isPresent()) return;
+
+    if (session.state() != io.browsercloud.domain.session.SessionState.RUNNING
+        && session.state() != io.browsercloud.domain.session.SessionState.DEGRADED) {
+      recordResourceReadbackConflict(session, expected, actual, "SESSION_STATE_CHANGED", now);
+      return;
+    }
+
+    var candidate = adjustmentLifecycle.readbackCandidate(session.tenantId(), session.sessionId());
+    if (candidate == null) {
+      recordResourceReadbackConflict(session, expected, actual, "NODE_ALLOCATION_DRIFT", now);
+      return;
+    }
+    var originalOperation =
+        operations.findByIds(Set.of(candidate.operationId())).get(candidate.operationId());
+    if (originalOperation == null
+        || originalOperation.mode() != OperationMode.RESOURCE_ADJUSTMENT
+        || originalOperation.state() != OperationState.TIMED_OUT
+        || !candidate.oldResources().equals(expected)
+        || !candidate.requestedResources().equals(actual)) {
+      recordResourceReadbackConflict(
+          session, expected, actual, "RESOURCE_READBACK_LEDGER_MISMATCH", now);
+      return;
+    }
+
+    var policy = requirePolicy(session.sessionId(), session.tenantId());
+    try {
+      validateResourceReadback(placement, policy, readback);
+    } catch (ResourceTelemetryRejectedException rejected) {
+      recordResourceReadbackConflict(
+          session, expected, actual, "RESOURCE_READBACK_OUT_OF_POLICY", now);
+      return;
+    }
+    var reconciliationOperationId = newId("op_");
+    operations.insert(
+        OperationFactory.committedResourceReconciliation(
+            session,
+            operations.nextOperationEpoch(session.sessionId()),
+            reconciliationOperationId));
+    applyResourceReadback(placement, readback);
+    placements.save(placement);
+    policy.adjustmentCommitted(
+        ResourcePolicyStatus.STABLE,
+        "NODE_ACTUATOR_READBACK_RECONCILED",
+        templateFor(ResourceClass.valueOf(readback.resourceClass())),
+        now);
+    policies.save(policy);
+    adjustmentLifecycle.reconciled(
+        session.sessionId(), candidate.operationId(), reconciliationOperationId, now);
+    appendEvent(
+        session.sessionId(),
+        session.tenantId(),
+        "ALLOCATION_RECONCILED",
+        "NODE_ACK_TIMEOUT_READBACK_VERIFIED",
+        expected,
+        allocationMap(placement),
+        "NODE_RESOURCE_READBACK_RECONCILER",
+        reconciliationOperationId,
+        candidate.operationId(),
+        "RECONCILED",
+        now);
+  }
+
+  private void recordResourceReadbackConflict(
+      SessionContext session,
+      Map<String, Object> expected,
+      Map<String, Object> actual,
+      String reason,
+      Instant now) {
+    var policy = requirePolicy(session.sessionId(), session.tenantId());
+    var statusReason = "RESOURCE_AUTHORITY_RECONCILIATION_REQUIRED:" + reason;
+    if (policy.status() == ResourcePolicyStatus.CRITICAL
+        && statusReason.equals(policy.getStatusReason())) {
+      return;
+    }
+    policy.evaluate(ResourcePolicyStatus.CRITICAL, statusReason, now);
+    policies.save(policy);
+    appendEvent(
+        session.sessionId(),
+        session.tenantId(),
+        "RESOURCE_ALLOCATION_DRIFT_DETECTED",
+        reason,
+        expected,
+        actual,
+        "NODE_RESOURCE_READBACK_SCANNER",
+        null,
+        null,
+        "MANUAL_RECONCILIATION_REQUIRED",
+        now);
   }
 
   /**
@@ -1929,6 +2053,80 @@ public class SessionResourceApplicationService {
         placement.getSuccessScreenshotSamplePercent(),
         placement.getObserverFrameRateFps(),
         placement.isVideoRecordingEnabled());
+  }
+
+  private Map<String, Object> allocationMap(
+      BrowserPlacementEntity placement, NodeResourceAllocationReadback readback) {
+    ResourceClass resourceClass;
+    try {
+      resourceClass = ResourceClass.valueOf(readback.resourceClass());
+    } catch (IllegalArgumentException exception) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_READBACK_OUT_OF_POLICY");
+    }
+    return Map.ofEntries(
+        Map.entry("template", templateFor(resourceClass)),
+        Map.entry("cpuMillis", readback.cpuMillis()),
+        Map.entry("memoryRequestMib", readback.memoryRequestMib()),
+        Map.entry("memoryLimitMib", readback.memoryLimitMib()),
+        Map.entry("stateCollectorBudgetPercent", readback.stateCollectorBudgetPercent()),
+        Map.entry("remoteDesktopBitrateKbps", readback.remoteDesktopBitrateKbps()),
+        Map.entry("extensionCpuWeight", readback.extensionCpuWeight()),
+        Map.entry("mediaEncoderSlots", readback.mediaEncoderSlots()),
+        Map.entry("mediaEncoderSlotLimit", placement.getMediaSlots()),
+        Map.entry("backgroundTabsFrozen", readback.backgroundTabsFrozen()),
+        Map.entry("newTabsBlocked", readback.newTabsBlocked()),
+        Map.entry("pausedExtensionIds", readback.pausedExtensionIds()),
+        Map.entry("successTraceSamplePercent", readback.successTraceSamplePercent()),
+        Map.entry("successScreenshotSamplePercent", readback.successScreenshotSamplePercent()),
+        Map.entry("observerFrameRateFps", readback.observerFrameRateFps()),
+        Map.entry("videoRecordingRequested", placement.isVideoRecordingRequested()),
+        Map.entry("videoRecordingEnabled", readback.videoRecordingEnabled()),
+        Map.entry("nodeId", readback.nodeId()));
+  }
+
+  private void validateResourceReadback(
+      BrowserPlacementEntity placement,
+      SessionResourcePolicyEntity policy,
+      NodeResourceAllocationReadback readback) {
+    if (!placement.effectiveResourceClass().name().equals(readback.resourceClass())
+        || readback.cpuMillis() > policy.getMaximumCpuMillis()
+        || readback.memoryLimitMib() < readback.memoryRequestMib()
+        || readback.memoryLimitMib() > policy.getMaximumMemoryMib()
+        || readback.pidLimit() != placement.getPidLimit()
+        || readback.tabBudget() != placement.getTabBudget()
+        || (placement.isRequiresDesktop() && readback.remoteDesktopBitrateKbps() < 250)
+        || (!placement.isRequiresDesktop() && readback.remoteDesktopBitrateKbps() != 0)
+        || (placement.isRequiresDesktop() && readback.observerFrameRateFps() < 1)
+        || (!placement.isRequiresDesktop() && readback.observerFrameRateFps() != 0)
+        || (readback.videoRecordingEnabled() && !placement.isVideoRecordingRequested())
+        || !readExtensionIds(placement.getExtensionIds()).containsAll(readback.pausedExtensionIds())
+        || (!placement.isRequiresMedia() && readback.mediaEncoderSlots() != 0)
+        || (placement.isRequiresMedia()
+            && (readback.mediaEncoderSlots() < 1
+                || readback.mediaEncoderSlots() > placement.getMediaSlots()))) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_READBACK_OUT_OF_POLICY");
+    }
+  }
+
+  private void applyResourceReadback(
+      BrowserPlacementEntity placement, NodeResourceAllocationReadback readback) {
+    placement.applyResourceAdjustment(
+        readback.cpuMillis(),
+        readback.memoryRequestMib(),
+        readback.memoryLimitMib(),
+        readback.pidLimit(),
+        readback.tabBudget(),
+        readback.stateCollectorBudgetPercent(),
+        readback.remoteDesktopBitrateKbps(),
+        readback.extensionCpuWeight(),
+        readback.mediaEncoderSlots(),
+        readback.backgroundTabsFrozen(),
+        readback.newTabsBlocked(),
+        writeStringList(readback.pausedExtensionIds()),
+        readback.successTraceSamplePercent(),
+        readback.successScreenshotSamplePercent(),
+        readback.observerFrameRateFps(),
+        readback.videoRecordingEnabled());
   }
 
   private Map<String, Object> allocationMap(

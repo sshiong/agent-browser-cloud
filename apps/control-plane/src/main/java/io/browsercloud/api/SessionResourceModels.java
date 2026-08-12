@@ -6,6 +6,7 @@ import io.browsercloud.domain.resource.ResourcePolicyMode;
 import io.browsercloud.domain.resource.ResourcePolicyStatus;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PastOrPresent;
@@ -151,4 +152,30 @@ public final class SessionResourceModels {
       @Pattern(regexp = "^(OOM|CRASH|DISK_FULL|BROWSER_UNRESPONSIVE|SECURITY_ISOLATION_FAILURE)?$")
           String dangerEvent,
       @PastOrPresent Instant observedAt) {}
+
+  /** Complete Browser Node readback of the allocation that is actually active at the actuator. */
+  public record NodeResourceAllocationReadback(
+      @NotBlank @Pattern(regexp = "^node_[a-zA-Z0-9_-]{1,123}$") String nodeId,
+      @NotBlank @Pattern(regexp = "^L[1-5]$") String resourceClass,
+      @Min(1) int cpuMillis,
+      @Min(1) int memoryRequestMib,
+      @Min(1) int memoryLimitMib,
+      @Min(1) int pidLimit,
+      @Min(1) int tabBudget,
+      @Min(10) @Max(100) int stateCollectorBudgetPercent,
+      @Min(0) @Max(100_000) int remoteDesktopBitrateKbps,
+      @Min(1) @Max(10_000) int extensionCpuWeight,
+      @Min(0) int mediaEncoderSlots,
+      boolean backgroundTabsFrozen,
+      boolean newTabsBlocked,
+      List<String> pausedExtensionIds,
+      @Min(1) @Max(100) int successTraceSamplePercent,
+      @Min(0) @Max(60) int observerFrameRateFps,
+      boolean videoRecordingEnabled,
+      @Min(1) @Max(100) int successScreenshotSamplePercent,
+      @PastOrPresent Instant observedAt) {
+    public NodeResourceAllocationReadback {
+      pausedExtensionIds = pausedExtensionIds == null ? List.of() : List.copyOf(pausedExtensionIds);
+    }
+  }
 }

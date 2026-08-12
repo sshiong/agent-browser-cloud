@@ -222,6 +222,102 @@ class NodeCapacityGrpcEndpointTest {
   }
 
   @Test
+  void completeActualAllocationIsForwardedForAuthoritativeReadback() {
+    var resources = mock(SessionResourceApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
+              mock(SafePointApplicationService.class),
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setActualResourceClass("L2")
+              .setActualCpuMillis(600)
+              .setActualMemoryRequestMib(768)
+              .setActualMemoryLimitMib(1280)
+              .setActualPidLimit(192)
+              .setActualTabBudget(8)
+              .setActualStateCollectorBudgetPercent(100)
+              .setActualRemoteDesktopBitrateKbps(0)
+              .setActualExtensionCpuWeight(100)
+              .setActualMediaEncoderSlots(0)
+              .setActualFreezeBackgroundTabs(false)
+              .setActualBlockNewTabs(false)
+              .setActualExtensionBackgroundPolicy(
+                  io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.newBuilder().build())
+              .setActualSuccessTraceSamplePercent(100)
+              .setActualObserverFrameRateFps(0)
+              .setActualVideoRecordingEnabled(false)
+              .setActualSuccessScreenshotSamplePercent(100)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .extracting(ReportSessionResourcesResponse::getAccepted)
+          .isEqualTo(true);
+      var readback =
+          ArgumentCaptor.forClass(
+              io.browsercloud.api.SessionResourceModels.NodeResourceAllocationReadback.class);
+      verify(resources)
+          .recordSampleFromNode(
+              eq("ses_test_1"), eq("tenant-test"), eq(7L), any(), readback.capture());
+      assertThat(readback.getValue().resourceClass()).isEqualTo("L2");
+      assertThat(readback.getValue().memoryLimitMib()).isEqualTo(1280);
+    }
+  }
+
+  @Test
+  void partialActualAllocationIsRejectedBeforePersistence() {
+    var resources = mock(SessionResourceApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
+              mock(SafePointApplicationService.class),
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setActualCpuMillis(600)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .satisfies(
+              response -> {
+                assertThat(response.getAccepted()).isFalse();
+                assertThat(response.getErrorCode()).isEqualTo("INVALID_RESOURCE_SAMPLE");
+              });
+      verify(resources, never()).recordSampleFromNode(any(), any(), eq(7L), any());
+      verify(resources, never()).recordSampleFromNode(any(), any(), eq(7L), any(), any());
+    }
+  }
+
+  @Test
   void partialBrowserActivityObservationIsRejectedBeforePersistence() {
     var resources = mock(SessionResourceApplicationService.class);
     var safePoints = mock(SafePointApplicationService.class);

@@ -305,6 +305,43 @@ pub struct ReportSessionResourcesRequest {
     pub proxy_observed_exit_ip: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="34")]
     pub proxy_probe_error_code: ::prost::alloc::string::String,
+    /// Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+    /// Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+    /// 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+    #[prost(string, optional, tag="40")]
+    pub actual_resource_class: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag="41")]
+    pub actual_cpu_millis: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="42")]
+    pub actual_memory_request_mib: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="43")]
+    pub actual_memory_limit_mib: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="44")]
+    pub actual_pid_limit: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="45")]
+    pub actual_tab_budget: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="46")]
+    pub actual_state_collector_budget_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="47")]
+    pub actual_remote_desktop_bitrate_kbps: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="48")]
+    pub actual_extension_cpu_weight: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="49")]
+    pub actual_media_encoder_slots: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag="50")]
+    pub actual_freeze_background_tabs: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag="51")]
+    pub actual_block_new_tabs: ::core::option::Option<bool>,
+    #[prost(message, optional, tag="52")]
+    pub actual_extension_background_policy: ::core::option::Option<ExtensionBackgroundPolicy>,
+    #[prost(uint32, optional, tag="53")]
+    pub actual_success_trace_sample_percent: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="54")]
+    pub actual_observer_frame_rate_fps: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag="55")]
+    pub actual_video_recording_enabled: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag="56")]
+    pub actual_success_screenshot_sample_percent: ::core::option::Option<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

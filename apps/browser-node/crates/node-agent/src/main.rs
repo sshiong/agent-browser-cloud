@@ -139,6 +139,18 @@ struct ProxyProbeObservation {
     error_code: String,
 }
 
+#[derive(Debug, Clone)]
+struct ActualResourceAllocationReadback {
+    limits: RuntimeResourceLimits,
+    state_collector_budget_percent: u32,
+    remote_desktop_bitrate_kbps: u32,
+    tab_policy: TabResourcePolicy,
+    success_trace_sample_percent: u32,
+    observer_frame_rate_fps: u32,
+    video_recording_enabled: bool,
+    success_screenshot_sample_percent: u32,
+}
+
 fn classify_proxy_probe_error(error: &anyhow::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
     if message.contains("timed out") || message.contains("timeout") {
@@ -1584,6 +1596,7 @@ impl NodeControlService {
         danger_override: Option<&str>,
     ) -> anyhow::Result<()> {
         let metrics = self.runtime_supervisor.metrics(session_id).await?;
+        let actual_allocation = self.actual_resource_allocation(session_id).await;
         let browser_metrics = tokio::time::timeout(
             Duration::from_secs(2),
             self.state_collector.collect_resource_metrics(session_id),
@@ -1868,6 +1881,59 @@ impl NodeControlService {
                     .as_ref()
                     .map(|probe| probe.error_code.clone())
                     .unwrap_or_default(),
+                actual_resource_class: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.resource_class.clone()),
+                actual_cpu_millis: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.cpu_millis),
+                actual_memory_request_mib: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.memory_request_mib),
+                actual_memory_limit_mib: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.memory_limit_mib),
+                actual_pid_limit: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.pid_limit),
+                actual_tab_budget: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.tab_budget),
+                actual_state_collector_budget_percent: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.state_collector_budget_percent),
+                actual_remote_desktop_bitrate_kbps: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.remote_desktop_bitrate_kbps),
+                actual_extension_cpu_weight: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.extension_cpu_weight),
+                actual_media_encoder_slots: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.limits.media_encoder_slots),
+                actual_freeze_background_tabs: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.tab_policy.freeze_background_tabs),
+                actual_block_new_tabs: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.tab_policy.block_new_tabs),
+                actual_extension_background_policy: actual_allocation.as_ref().map(|allocation| {
+                    ExtensionBackgroundPolicy {
+                        paused_extension_ids: allocation.tab_policy.paused_extension_ids.clone(),
+                    }
+                }),
+                actual_success_trace_sample_percent: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.success_trace_sample_percent),
+                actual_observer_frame_rate_fps: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.observer_frame_rate_fps),
+                actual_video_recording_enabled: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.video_recording_enabled),
+                actual_success_screenshot_sample_percent: actual_allocation
+                    .as_ref()
+                    .map(|allocation| allocation.success_screenshot_sample_percent),
             })
             .await?
             .into_inner();
@@ -1883,6 +1949,47 @@ impl NodeControlService {
             }
         }
         Ok(())
+    }
+
+    /// Reads each actuator's current state. Missing one actuator suppresses the entire snapshot so
+    /// the Control Plane never reconciles from a partial or command-derived allocation.
+    async fn actual_resource_allocation(
+        &self,
+        session_id: &str,
+    ) -> Option<ActualResourceAllocationReadback> {
+        let limits = self
+            .runtime_supervisor
+            .current_resource_limits(session_id)
+            .await
+            .ok()?;
+        let tab_policy = self.state_collector.tab_resource_policy(session_id).await?;
+        let success_screenshot_sample_percent = self
+            .session_evidence
+            .success_sample_percent(session_id)
+            .await?;
+        let video_recording_enabled = self.session_recorders.enabled(session_id).await?;
+        let (remote_desktop_bitrate_kbps, observer_frame_rate_fps) = if limits.desktop_required {
+            let gateway = self.remote_desktop_gateway.as_ref()?;
+            (
+                gateway.bitrate_limit_kbps(session_id)?,
+                gateway.observer_frame_rate_fps(session_id)?,
+            )
+        } else {
+            (0, 0)
+        };
+        Some(ActualResourceAllocationReadback {
+            limits,
+            state_collector_budget_percent: self
+                .state_collector
+                .resource_budget_percent(session_id)
+                .await,
+            remote_desktop_bitrate_kbps,
+            tab_policy,
+            success_trace_sample_percent: self.success_trace_sampler.percentage(session_id).await,
+            observer_frame_rate_fps,
+            video_recording_enabled,
+            success_screenshot_sample_percent,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]

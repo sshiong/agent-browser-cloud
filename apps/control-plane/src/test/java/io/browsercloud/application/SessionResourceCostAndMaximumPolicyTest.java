@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.EnterpriseOperationsModels.SessionCostExplanationView;
 import io.browsercloud.api.ResourcePolicyRequest;
+import io.browsercloud.api.SessionResourceModels.NodeResourceAllocationReadback;
 import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.coordinator.NodeCommandGateway;
@@ -401,6 +402,70 @@ class SessionResourceCostAndMaximumPolicyTest {
     verify(operations, org.mockito.Mockito.never()).insert(any());
   }
 
+  @Test
+  void periodicReadbackReconcilesAResourceAdjustmentWhoseAckWasPermanentlyLost() {
+    var now = Instant.now();
+    var placement = placement(now);
+    var policy = policy(MaximumReachedPolicy.PAUSE_AGENT, null);
+    var oldResources = allocation(placement, 4_000, 3_500, 4_096, 50);
+    var requestedResources = allocation(placement, 4_000, 3_500, 4_096, 100);
+    var timedOut =
+        OperationFactory.resourceAdjustment(session(now), 2, "op-resource")
+            .withPhase(OperationPhase.EXECUTING)
+            .withState(OperationState.TIMED_OUT);
+    when(sessions.require("ses_cost")).thenReturn(session(now));
+    when(placements.findById("ses_cost")).thenReturn(Optional.of(placement));
+    when(placements.findForUpdate("ses_cost")).thenReturn(Optional.of(placement));
+    when(policies.findBySessionIdAndTenantId("ses_cost", "tenant-test"))
+        .thenReturn(Optional.of(policy));
+    when(samples.findBySessionIdOrderByObservedAtDesc(any(), any())).thenReturn(List.of());
+    when(costSnapshots.findBySessionIdOrderByObservedAtDesc(any(), any())).thenReturn(List.of());
+    when(operations.findActive("ses_cost")).thenReturn(Optional.empty());
+    when(operations.findByIds(java.util.Set.of("op-resource")))
+        .thenReturn(java.util.Map.of("op-resource", timedOut));
+    when(operations.nextOperationEpoch("ses_cost")).thenReturn(3L);
+    when(adjustmentLifecycle.readbackCandidate("tenant-test", "ses_cost"))
+        .thenReturn(
+            new SessionResourceAdjustmentLifecycleService.ReadbackReconciliationCandidate(
+                "op-resource", oldResources, requestedResources));
+
+    service.recordSampleFromNode(
+        "ses_cost", "tenant-test", 4, sampleRequest(now), readback(now, 100));
+
+    assertThat(placement.getStateCollectorBudgetPercent()).isEqualTo(100);
+    assertThat(policy.status()).isEqualTo(ResourcePolicyStatus.STABLE);
+    verify(placements).save(placement);
+    verify(adjustmentLifecycle).reconciled(eq("ses_cost"), eq("op-resource"), anyString(), any());
+    verify(operations)
+        .insert(
+            org.mockito.ArgumentMatchers.argThat(
+                operation -> operation.allowedCapabilities().contains("resource.reconcile")));
+  }
+
+  @Test
+  void unmatchedPeriodicReadbackMarksAuthorityDriftCriticalWithoutMutatingPlacement() {
+    var now = Instant.now();
+    var placement = placement(now);
+    var policy = policy(MaximumReachedPolicy.PAUSE_AGENT, null);
+    when(sessions.require("ses_cost")).thenReturn(session(now));
+    when(placements.findById("ses_cost")).thenReturn(Optional.of(placement));
+    when(placements.findForUpdate("ses_cost")).thenReturn(Optional.of(placement));
+    when(policies.findBySessionIdAndTenantId("ses_cost", "tenant-test"))
+        .thenReturn(Optional.of(policy));
+    when(samples.findBySessionIdOrderByObservedAtDesc(any(), any())).thenReturn(List.of());
+    when(costSnapshots.findBySessionIdOrderByObservedAtDesc(any(), any())).thenReturn(List.of());
+    when(operations.findActive("ses_cost")).thenReturn(Optional.empty());
+
+    service.recordSampleFromNode(
+        "ses_cost", "tenant-test", 4, sampleRequest(now), readback(now, 75));
+
+    assertThat(placement.getStateCollectorBudgetPercent()).isEqualTo(50);
+    assertThat(policy.status()).isEqualTo(ResourcePolicyStatus.CRITICAL);
+    assertThat(policy.getStatusReason()).contains("NODE_ALLOCATION_DRIFT");
+    verify(placements, org.mockito.Mockito.never()).save(any());
+    verify(operations, org.mockito.Mockito.never()).insert(any());
+  }
+
   private static NodeEvent.RuntimeResourcesAdjusted adjustment(
       int newStateCollectorBudgetPercent, String operationId) {
     return new NodeEvent.RuntimeResourcesAdjusted(
@@ -438,6 +503,49 @@ class SessionResourceCostAndMaximumPolicyTest {
         30,
         "SUSTAINED_CPU_PRESSURE",
         operationId);
+  }
+
+  private static NodeResourceAllocationReadback readback(Instant observedAt, int stateBudget) {
+    return new NodeResourceAllocationReadback(
+        "node_test",
+        "L4",
+        4_000,
+        3_500,
+        4_096,
+        256,
+        12,
+        stateBudget,
+        8_000,
+        100,
+        2,
+        false,
+        false,
+        List.of(),
+        100,
+        30,
+        true,
+        100,
+        observedAt);
+  }
+
+  private static RecordResourceSampleRequest sampleRequest(Instant observedAt) {
+    return new RecordResourceSampleRequest(
+        "node_test",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        "",
+        observedAt);
   }
 
   private static java.util.Map<String, Object> allocation(

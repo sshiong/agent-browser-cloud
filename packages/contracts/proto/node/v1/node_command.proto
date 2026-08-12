@@ -207,6 +207,27 @@ message ReportSessionResourcesRequest {
   optional uint32 proxy_probe_latency_ms = 32;
   optional string proxy_observed_exit_ip = 33;
   string proxy_probe_error_code = 34;
+
+  // Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
+  // Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
+  // 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
+  optional string actual_resource_class = 40;
+  optional uint32 actual_cpu_millis = 41;
+  optional uint32 actual_memory_request_mib = 42;
+  optional uint32 actual_memory_limit_mib = 43;
+  optional uint32 actual_pid_limit = 44;
+  optional uint32 actual_tab_budget = 45;
+  optional uint32 actual_state_collector_budget_percent = 46;
+  optional uint32 actual_remote_desktop_bitrate_kbps = 47;
+  optional uint32 actual_extension_cpu_weight = 48;
+  optional uint32 actual_media_encoder_slots = 49;
+  optional bool actual_freeze_background_tabs = 50;
+  optional bool actual_block_new_tabs = 51;
+  ExtensionBackgroundPolicy actual_extension_background_policy = 52;
+  optional uint32 actual_success_trace_sample_percent = 53;
+  optional uint32 actual_observer_frame_rate_fps = 54;
+  optional bool actual_video_recording_enabled = 55;
+  optional uint32 actual_success_screenshot_sample_percent = 56;
 }
 
 message ReportSessionResourcesResponse {

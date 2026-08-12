@@ -3,6 +3,7 @@ package io.browsercloud.infrastructure;
 import io.browsercloud.api.RecordNodePressureRequest;
 import io.browsercloud.api.RegisterBrowserNodeRequest;
 import io.browsercloud.api.SafePointModels.NodeSafetyObservation;
+import io.browsercloud.api.SessionResourceModels.NodeResourceAllocationReadback;
 import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.BrowserCapacityApplicationService;
 import io.browsercloud.application.NodeEventIngestionService;
@@ -255,6 +256,24 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 || request.hasProxyProbeLatencyMs()
                 || request.hasProxyObservedExitIp()
                 || !request.getProxyProbeErrorCode().isBlank();
+        var hasResourceReadback =
+            request.hasActualResourceClass()
+                || request.hasActualCpuMillis()
+                || request.hasActualMemoryRequestMib()
+                || request.hasActualMemoryLimitMib()
+                || request.hasActualPidLimit()
+                || request.hasActualTabBudget()
+                || request.hasActualStateCollectorBudgetPercent()
+                || request.hasActualRemoteDesktopBitrateKbps()
+                || request.hasActualExtensionCpuWeight()
+                || request.hasActualMediaEncoderSlots()
+                || request.hasActualFreezeBackgroundTabs()
+                || request.hasActualBlockNewTabs()
+                || request.hasActualExtensionBackgroundPolicy()
+                || request.hasActualSuccessTraceSamplePercent()
+                || request.hasActualObserverFrameRateFps()
+                || request.hasActualVideoRecordingEnabled()
+                || request.hasActualSuccessScreenshotSamplePercent();
         if (hasInputObservation
             && (!request.hasInputActive()
                 || !request.hasActiveDrag()
@@ -282,6 +301,51 @@ public class NodeEventGrpcServer implements SmartLifecycle {
             throw new IllegalArgumentException("failed Proxy probe result is invalid");
           }
         }
+        if (hasResourceReadback
+            && (!request.hasActualResourceClass()
+                || !request.hasActualCpuMillis()
+                || !request.hasActualMemoryRequestMib()
+                || !request.hasActualMemoryLimitMib()
+                || !request.hasActualPidLimit()
+                || !request.hasActualTabBudget()
+                || !request.hasActualStateCollectorBudgetPercent()
+                || !request.hasActualRemoteDesktopBitrateKbps()
+                || !request.hasActualExtensionCpuWeight()
+                || !request.hasActualMediaEncoderSlots()
+                || !request.hasActualFreezeBackgroundTabs()
+                || !request.hasActualBlockNewTabs()
+                || !request.hasActualExtensionBackgroundPolicy()
+                || !request.hasActualSuccessTraceSamplePercent()
+                || !request.hasActualObserverFrameRateFps()
+                || !request.hasActualVideoRecordingEnabled()
+                || !request.hasActualSuccessScreenshotSamplePercent())) {
+          throw new IllegalArgumentException("complete resource allocation readback is required");
+        }
+        NodeResourceAllocationReadback readback = null;
+        if (hasResourceReadback) {
+          readback =
+              new NodeResourceAllocationReadback(
+                  request.getNodeId(),
+                  request.getActualResourceClass(),
+                  request.getActualCpuMillis(),
+                  request.getActualMemoryRequestMib(),
+                  request.getActualMemoryLimitMib(),
+                  request.getActualPidLimit(),
+                  request.getActualTabBudget(),
+                  request.getActualStateCollectorBudgetPercent(),
+                  request.getActualRemoteDesktopBitrateKbps(),
+                  request.getActualExtensionCpuWeight(),
+                  request.getActualMediaEncoderSlots(),
+                  request.getActualFreezeBackgroundTabs(),
+                  request.getActualBlockNewTabs(),
+                  request.getActualExtensionBackgroundPolicy().getPausedExtensionIdsList(),
+                  request.getActualSuccessTraceSamplePercent(),
+                  request.getActualObserverFrameRateFps(),
+                  request.getActualVideoRecordingEnabled(),
+                  request.getActualSuccessScreenshotSamplePercent(),
+                  Instant.ofEpochMilli(request.getObservedAtMs()));
+          validate(readback);
+        }
         if (hasInputObservation || hasBrowserActivityObservation) {
           safePointService.recordNodeObservation(
               request.getSessionId(),
@@ -302,8 +366,17 @@ public class NodeEventGrpcServer implements SmartLifecycle {
         }
         // Persist the sample after the matching input ledger observation. Its durable stream
         // sequence becomes the notification barrier for both resource and Safe Point readers.
-        resourceService.recordSampleFromNode(
-            request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
+        if (readback == null) {
+          resourceService.recordSampleFromNode(
+              request.getSessionId(), request.getTenantId(), request.getContextEpoch(), sample);
+        } else {
+          resourceService.recordSampleFromNode(
+              request.getSessionId(),
+              request.getTenantId(),
+              request.getContextEpoch(),
+              sample,
+              readback);
+        }
         if (hasProxyProbeObservation) {
           proxyHealthService.recordNodeProbe(
               request.getSessionId(),

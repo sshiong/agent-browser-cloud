@@ -1,7 +1,7 @@
 # 单上游 RFB Fan-out 与慢消费者隔离闭环
 
 > 日期：2026-08-12
-> 状态：代码、定向测试和真实 noVNC 关键路径已完成；完整 E2E 的后续非 RFB Agent UI 时序仍有已知抖动。
+> 状态：代码、定向测试、GitHub CI 和真实 noVNC 关键路径已完成；完整 E2E 的后续非 RFB Agent UI 时序仍有已知抖动。
 
 ## 目标
 
@@ -40,7 +40,9 @@
   `node_command_published=51`、`audit_chain_valid=true`；
 - GitHub Linux 冷机构建首轮使黑洞/重连测试的 30 ms 客户端存活窗口在输入转发或 Pong 前
   到期；生产 10 秒/30 秒心跳参数未修改，仅把测试时钟扩为 20 ms Heartbeat、200 ms
-  Liveness 和 500 ms Grace。Gateway 18 项测试随后本地连续运行 10 轮全部通过；
+  Liveness 和 500 ms Grace。Gateway 18 项测试随后本地连续运行 10 轮全部通过；修复提交
+  `2144f74` 的 GitHub 主 CI `31578702250` 已完整通过 Linux Verify、集成冒烟、对象存储
+  GameDay 和 Kubernetes Operator E2E，Desktop `31578702285` 的 macOS/Windows 构建也已通过；
 - 真实 Web/Control Plane/PostgreSQL/Browser Node/noVNC E2E 已越过本轮全部关键断言：两个
   同时在线 noVNC 页面均为 `RFB LIVE`，Fake x11vnc 日志只有一个完成握手的上游连接；
   像素、鼠标、键盘和网络分区清键抵达真实数据面；VNC 在线时 Agent 可执行，真人连续输入

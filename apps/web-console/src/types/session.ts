@@ -20,13 +20,6 @@ export interface SessionContext {
   policyHash: string;
   createdAt: string;
   updatedAt: string;
-  forwardedBytes: number;
-  quotaWaitMillis: number;
-  throttledBatches: number;
-  egressCostUsd: number;
-  unpricedForwardedBytes: number;
-  lastCostPricingVersion?: string;
-  lastEgressGibUsd?: number;
 }
 
 /**
@@ -827,6 +820,13 @@ export interface RemoteDesktopParticipantView {
   revokeRequestedAt?: string;
   observedAt: string;
   updatedAt: string;
+  forwardedBytes: number;
+  quotaWaitMillis: number;
+  throttledBatches: number;
+  egressCostUsd: number;
+  unpricedForwardedBytes: number;
+  lastCostPricingVersion?: string;
+  lastEgressGibUsd?: number;
 }
 
 export interface RemoteDesktopParticipantListResponse {

@@ -42,6 +42,8 @@
 - GitHub 冷机的独立 Operator E2E 在业务代码运行前遇到 `cgr.dev` 固定 digest Blob 返回 500；
   测试脚本已为三个固定镜像 build 增加最多五次递增退避，digest 与供应链来源保持不变，重试
   耗尽仍失败，避免把外部 Registry 瞬断误当成产品回归或通过不安全 fallback 掩盖问题。
+- GitHub `make build` 发现 Web 手工共享类型的新增字段误落在 `SessionContext`；字段已移至
+  `RemoteDesktopParticipantView`，`tsc -b` 和 Vite 生产构建纳入最终验收。
 
 ## 仍未完成
 

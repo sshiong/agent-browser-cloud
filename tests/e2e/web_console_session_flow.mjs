@@ -546,6 +546,14 @@ try {
   if (!inputLoopClosed) {
     throw new Error("noVNC pixel/input loop did not reach the fake RFB server");
   }
+  const completedUpstreamConnections = (
+    readFileSync(vncEventLog, "utf8").match(/"type":"connected"/g) ?? []
+  ).length;
+  if (completedUpstreamConnections !== 1) {
+    throw new Error(
+      `two simultaneous noVNC clients opened ${completedUpstreamConnections} upstream RFB connections instead of one shared fan-out connection`,
+    );
+  }
   await page.getByRole("link", { name: "Session", exact: true }).click();
   await expect(page.getByRole("button", { name: "打开远程桌面" })).toBeEnabled({
     timeout: 15_000,

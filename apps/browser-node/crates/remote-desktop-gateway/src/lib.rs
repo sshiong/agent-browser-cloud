@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::watch;
+use tokio::sync::{broadcast, mpsc, watch};
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 use tokio_tungstenite::tungstenite::http::header::{ORIGIN, SEC_WEBSOCKET_PROTOCOL};
 use tokio_tungstenite::tungstenite::http::StatusCode;
@@ -33,8 +33,15 @@ const MAX_VNC_FRAME_BYTES: usize = 1024 * 1024;
 const DEFAULT_DISCONNECT_GRACE: Duration = Duration::from_secs(2);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 const CLIENT_LIVENESS_TIMEOUT: Duration = Duration::from_secs(30);
-const RFB_CLIENT_HANDSHAKE_BYTES: usize = 14;
 const MAX_ACTIVE_CONNECTIONS_PER_SESSION: usize = 8;
+const SHARED_FRAME_QUEUE_CAPACITY: usize = 4;
+const SHARED_INPUT_QUEUE_CAPACITY: usize = 32;
+const MAX_RFB_SERVER_MESSAGE_BYTES: usize = 32 * 1024 * 1024;
+const SLOW_CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const RFB_VERSION_3_8: &[u8; 12] = b"RFB 003.008\n";
+// noVNC 1.7 uses this full-colour little-endian format after ServerInit. The hub owns one
+// upstream pixel format, so every downstream sees this exact canonical representation.
+const SHARED_PIXEL_FORMAT: [u8; 16] = [32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 0, 8, 16, 0, 0, 0];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -87,6 +94,7 @@ struct GatewayState {
     ticket_secret: Vec<u8>,
     allowed_origins: HashSet<String>,
     vnc_endpoints: RwLock<HashMap<String, SocketAddr>>,
+    shared_hubs: Mutex<HashMap<String, Arc<SharedRfbHub>>>,
     active_connections: Mutex<HashMap<String, SessionConnectionState>>,
     last_server_frame_at: Mutex<HashMap<String, Instant>>,
     last_human_input_at: Mutex<HashMap<String, Instant>>,
@@ -110,6 +118,42 @@ struct ConnectionLease {
     claims: RemoteDesktopTicketClaims,
     access_mode: String,
     revoke: watch::Sender<bool>,
+}
+
+#[derive(Debug, Clone)]
+enum SharedRfbHubStatus {
+    Connecting,
+    Ready(Arc<RfbServerInit>),
+    Failed(Arc<str>),
+}
+
+#[derive(Debug)]
+struct RfbServerInit {
+    wire_bytes: Vec<u8>,
+    width: u16,
+    height: u16,
+    pixel_format: [u8; 16],
+    bytes_per_pixel: usize,
+}
+
+#[derive(Debug)]
+struct SharedRfbHub {
+    endpoint: SocketAddr,
+    input: mpsc::Sender<Vec<u8>>,
+    refresh: mpsc::Sender<()>,
+    frames: broadcast::Sender<Arc<Vec<u8>>>,
+    latest_frame: Mutex<Option<Arc<Vec<u8>>>>,
+    status: watch::Receiver<SharedRfbHubStatus>,
+    shutdown: watch::Sender<bool>,
+}
+
+struct SharedRfbHubTask {
+    input: mpsc::Receiver<Vec<u8>>,
+    refresh: mpsc::Receiver<()>,
+    frames: broadcast::Sender<Arc<Vec<u8>>>,
+    hub: Arc<SharedRfbHub>,
+    status: watch::Sender<SharedRfbHubStatus>,
+    shutdown: watch::Receiver<bool>,
 }
 
 #[derive(Clone)]
@@ -200,6 +244,7 @@ impl RemoteDesktopGateway {
                 ticket_secret,
                 allowed_origins: allowed_origins.into_iter().collect(),
                 vnc_endpoints: RwLock::new(HashMap::new()),
+                shared_hubs: Mutex::new(HashMap::new()),
                 active_connections: Mutex::new(HashMap::new()),
                 last_server_frame_at: Mutex::new(HashMap::new()),
                 last_human_input_at: Mutex::new(HashMap::new()),
@@ -224,11 +269,15 @@ impl RemoteDesktopGateway {
             vnc_endpoint.ip().is_loopback(),
             "VNC endpoint must use a loopback address"
         );
-        self.state
+        let previous = self
+            .state
             .vnc_endpoints
             .write()
             .expect("VNC endpoint lock poisoned")
             .insert(session_id.to_owned(), vnc_endpoint);
+        if previous.is_some_and(|previous| previous != vnc_endpoint) {
+            self.stop_shared_hub(session_id);
+        }
         self.state
             .bitrate_limits_kbps
             .lock()
@@ -250,6 +299,7 @@ impl RemoteDesktopGateway {
             .write()
             .expect("VNC endpoint lock poisoned")
             .remove(session_id);
+        self.stop_shared_hub(session_id);
         self.state
             .last_server_frame_at
             .lock()
@@ -288,6 +338,75 @@ impl RemoteDesktopGateway {
                 });
             }
         }
+    }
+
+    fn stop_shared_hub(&self, session_id: &str) {
+        if let Some(hub) = self
+            .state
+            .shared_hubs
+            .lock()
+            .expect("shared RFB hub lock poisoned")
+            .remove(session_id)
+        {
+            let _ = hub.shutdown.send(true);
+        }
+    }
+
+    fn shared_hub(&self, session_id: &str, endpoint: SocketAddr) -> Arc<SharedRfbHub> {
+        let mut hubs = self
+            .state
+            .shared_hubs
+            .lock()
+            .expect("shared RFB hub lock poisoned");
+        if let Some(existing) = hubs.get(session_id) {
+            if existing.endpoint == endpoint
+                && !matches!(&*existing.status.borrow(), SharedRfbHubStatus::Failed(_))
+            {
+                return existing.clone();
+            }
+            let _ = existing.shutdown.send(true);
+        }
+
+        let (input, input_receiver) = mpsc::channel(SHARED_INPUT_QUEUE_CAPACITY);
+        let (refresh, refresh_receiver) = mpsc::channel(SHARED_FRAME_QUEUE_CAPACITY);
+        let (frames, _) = broadcast::channel(SHARED_FRAME_QUEUE_CAPACITY);
+        let (status_sender, status) = watch::channel(SharedRfbHubStatus::Connecting);
+        let (shutdown, shutdown_receiver) = watch::channel(false);
+        let hub = Arc::new(SharedRfbHub {
+            endpoint,
+            input,
+            refresh,
+            frames: frames.clone(),
+            latest_frame: Mutex::new(None),
+            status,
+            shutdown,
+        });
+        hubs.insert(session_id.to_owned(), hub.clone());
+
+        let state = self.state.clone();
+        let session_id = session_id.to_owned();
+        let task_hub = hub.clone();
+        tokio::spawn(async move {
+            if let Err(error) = run_shared_rfb_hub(
+                state.clone(),
+                &session_id,
+                endpoint,
+                SharedRfbHubTask {
+                    input: input_receiver,
+                    refresh: refresh_receiver,
+                    frames,
+                    hub: task_hub,
+                    status: status_sender.clone(),
+                    shutdown: shutdown_receiver,
+                },
+            )
+            .await
+            {
+                let detail: Arc<str> = Arc::from(error.to_string());
+                let _ = status_sender.send(SharedRfbHubStatus::Failed(detail));
+            }
+        });
+        hub
     }
 
     /// 在线调整 VNC Server → WebSocket Client 的单 Session 速率边界。
@@ -568,6 +687,14 @@ impl RemoteDesktopGateway {
                             && connections.generation == disconnected_generation
                     });
                 if last_connection_still_gone {
+                    if let Some(hub) = state
+                        .shared_hubs
+                        .lock()
+                        .expect("shared RFB hub lock poisoned")
+                        .remove(&claims.session_id)
+                    {
+                        let _ = hub.shutdown.send(true);
+                    }
                     state.disconnect_handler.disconnected(&claims).await;
                 }
             });
@@ -580,20 +707,24 @@ impl RemoteDesktopGateway {
         mut websocket: WebSocketStream<TcpStream>,
         authorized: &AuthorizedConnection,
     ) -> anyhow::Result<()> {
-        let mut vnc = TcpStream::connect(authorized.vnc_endpoint)
-            .await
-            .context("registered VNC endpoint is unavailable")?;
+        let hub = self.shared_hub(&authorized.claims.session_id, authorized.vnc_endpoint);
+        let server_init = wait_for_shared_hub(&hub).await?;
+        let mut pending_client_bytes = Vec::new();
+        complete_downstream_rfb_handshake(
+            &mut websocket,
+            &mut pending_client_bytes,
+            &server_init.wire_bytes,
+        )
+        .await?;
         self.state
             .disconnect_handler
-            .connection_changed(&authorized.claims, "CONNECTED", "RFB_UPSTREAM_CONNECTED")
+            .connection_changed(&authorized.claims, "CONNECTED", "RFB_FANOUT_ATTACHED")
             .await;
         self.state
             .last_server_frame_at
             .lock()
             .expect("frame timestamp lock poisoned")
             .insert(authorized.claims.session_id.clone(), Instant::now());
-        // 有界分片避免最低码率下单次等待过长而妨碍心跳和客户端存活检查。
-        let mut buffer = vec![0_u8; 16 * 1024];
         let mut heartbeat = tokio::time::interval_at(
             tokio::time::Instant::now() + self.state.heartbeat_interval,
             self.state.heartbeat_interval,
@@ -601,15 +732,49 @@ impl RemoteDesktopGateway {
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_client_activity = tokio::time::Instant::now();
         let mut last_server_forwarded_at = None;
-        let mut pending_server_payload = None;
-        let mut pending_server_ready_at = tokio::time::Instant::now();
-        let mut input_detector = RfbClientInputDetector::default();
+        // Subscribe before reading the cached baseline. An update racing this read
+        // may be delivered twice, but it cannot be missed; subscribing afterwards
+        // could leave a late joiner on a stale baseline indefinitely.
+        let mut frames = hub.frames.subscribe();
+        let mut pending_server_payload = hub
+            .latest_frame
+            .lock()
+            .expect("shared RFB latest frame lock poisoned")
+            .clone();
+        let mut pending_server_ready_at = tokio::time::Instant::now()
+            + pending_server_payload
+                .as_ref()
+                .map(|payload| {
+                    self.server_forwarding_delay(
+                        &authorized.claims.session_id,
+                        payload.len(),
+                        last_server_forwarded_at,
+                    )
+                })
+                .unwrap_or_default();
+        let mut input_parser =
+            RfbClientMessageParser::new(pending_client_bytes, server_init.pixel_format);
+        match hub.refresh.try_send(()) {
+            Ok(()) | Err(mpsc::error::TrySendError::Full(())) => {}
+            Err(mpsc::error::TrySendError::Closed(())) => {
+                anyhow::bail!("shared RFB refresh queue closed");
+            }
+        }
+        let mut hub_status = hub.status.clone();
         let mut revocation = authorized.revocation.clone();
         loop {
             tokio::select! {
                 changed = revocation.changed() => {
                     if changed.is_err() || *revocation.borrow() {
                         break;
+                    }
+                }
+                changed = hub_status.changed() => {
+                    if changed.is_err() {
+                        anyhow::bail!("shared remote desktop upstream status closed");
+                    }
+                    if let SharedRfbHubStatus::Failed(detail) = &*hub_status.borrow() {
+                        anyhow::bail!("shared remote desktop upstream failed: {detail}");
                     }
                 }
                 _ = heartbeat.tick() => {
@@ -619,11 +784,16 @@ impl RemoteDesktopGateway {
                     );
                     websocket.send(Message::Ping(Vec::new())).await?;
                 }
-                read = vnc.read(&mut buffer), if pending_server_payload.is_none() => {
-                    let read = read?;
-                    if read == 0 {
-                        break;
-                    }
+                frame = frames.recv(), if pending_server_payload.is_none() => {
+                    let frame = match frame {
+                        Ok(frame) => frame,
+                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                            anyhow::bail!("remote desktop client is too slow for bounded fan-out");
+                        }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            anyhow::bail!("shared remote desktop upstream closed");
+                        }
+                    };
                     self.state
                         .last_server_frame_at
                         .lock()
@@ -631,19 +801,21 @@ impl RemoteDesktopGateway {
                         .insert(authorized.claims.session_id.clone(), Instant::now());
                     pending_server_ready_at = tokio::time::Instant::now() + self.server_forwarding_delay(
                         &authorized.claims.session_id,
-                        read,
+                        frame.len(),
                         last_server_forwarded_at,
                     );
-                    pending_server_payload = Some(buffer[..read].to_vec());
+                    pending_server_payload = Some(frame);
                 }
                 _ = tokio::time::sleep_until(pending_server_ready_at), if pending_server_payload.is_some() => {
-                    websocket
-                        .send(Message::Binary(
-                            pending_server_payload
-                                .take()
-                                .expect("guarded pending Observer payload"),
-                        ))
-                        .await?;
+                    let payload = pending_server_payload
+                        .take()
+                        .expect("guarded pending Observer payload");
+                    tokio::time::timeout(
+                        SLOW_CLIENT_WRITE_TIMEOUT,
+                        websocket.send(Message::Binary(payload.as_ref().clone())),
+                    )
+                    .await
+                    .context("remote desktop client write timed out")??;
                     last_server_forwarded_at = Some(Instant::now());
                 }
                 message = websocket.next() => {
@@ -654,15 +826,32 @@ impl RemoteDesktopGateway {
                                 payload.len() <= MAX_VNC_FRAME_BYTES,
                                 "VNC client frame exceeds 1 MiB"
                             );
-                            let human_input = input_detector.observe(&payload);
-                            anyhow::ensure!(
-                                !authorized.claims.view_only || !human_input,
-                                "view-only remote desktop attempted human input"
-                            );
-                            if human_input {
-                                self.mark_human_input(&authorized.claims.session_id);
+                            for message in input_parser.ingest(&payload)? {
+                                anyhow::ensure!(
+                                    !authorized.claims.view_only || !message.human_input,
+                                    "view-only remote desktop attempted human input"
+                                );
+                                if message.human_input {
+                                    self.mark_human_input(&authorized.claims.session_id);
+                                }
+                                if message.forward {
+                                    tokio::time::timeout(
+                                        Duration::from_millis(250),
+                                        hub.input.send(message.bytes),
+                                    )
+                                    .await
+                                    .context("shared RFB input queue timed out")?
+                                    .context("shared RFB input queue closed")?;
+                                }
+                                if message.refresh {
+                                    match hub.refresh.try_send(()) {
+                                        Ok(()) | Err(mpsc::error::TrySendError::Full(())) => {}
+                                        Err(mpsc::error::TrySendError::Closed(())) => {
+                                            anyhow::bail!("shared RFB refresh queue closed");
+                                        }
+                                    }
+                                }
                             }
-                            vnc.write_all(&payload).await?;
                         }
                         Some(Ok(Message::Ping(payload))) => {
                             last_client_activity = tokio::time::Instant::now();
@@ -687,44 +876,40 @@ impl RemoteDesktopGateway {
 }
 
 #[derive(Debug)]
-struct RfbClientInputDetector {
-    handshake_remaining: usize,
+struct RfbClientMessageParser {
     buffered: Vec<u8>,
+    canonical_pixel_format: [u8; 16],
 }
 
-impl Default for RfbClientInputDetector {
-    fn default() -> Self {
+#[derive(Debug)]
+struct ParsedRfbClientMessage {
+    bytes: Vec<u8>,
+    human_input: bool,
+    forward: bool,
+    refresh: bool,
+}
+
+impl RfbClientMessageParser {
+    fn new(buffered: Vec<u8>, canonical_pixel_format: [u8; 16]) -> Self {
         Self {
-            handshake_remaining: RFB_CLIENT_HANDSHAKE_BYTES,
-            buffered: Vec::new(),
+            buffered,
+            canonical_pixel_format,
         }
     }
-}
 
-impl RfbClientInputDetector {
     /// 识别 RFB Client → Server 的 KeyEvent、PointerEvent 与 ClientCutText。
-    /// 协议未知消息保守地按真人输入处理，确保真人优先而不丢失输入。
-    fn observe(&mut self, payload: &[u8]) -> bool {
-        let mut offset = 0;
-        if self.handshake_remaining > 0 {
-            let consumed = self.handshake_remaining.min(payload.len());
-            self.handshake_remaining -= consumed;
-            offset += consumed;
-            if offset == payload.len() {
-                return false;
-            }
-        }
-
-        self.buffered.extend_from_slice(&payload[offset..]);
+    /// 未知消息失败关闭，不把未解析字节混入共享上游会话。
+    fn ingest(&mut self, payload: &[u8]) -> anyhow::Result<Vec<ParsedRfbClientMessage>> {
+        self.buffered.extend_from_slice(payload);
         if self.buffered.len() > MAX_VNC_FRAME_BYTES {
             self.buffered.clear();
-            return true;
+            anyhow::bail!("buffered VNC client messages exceed 1 MiB");
         }
 
-        let mut human_input = false;
+        let mut parsed = Vec::new();
         while let Some(message_type) = self.buffered.first().copied() {
-            let (message_length, is_human) = match message_type {
-                0 => (20, false), // SetPixelFormat
+            let (message_length, human_input, forward, refresh) = match message_type {
+                0 => (20, false, false, false), // canonical pixel format is owned by the hub
                 2 => {
                     if self.buffered.len() < 4 {
                         break;
@@ -733,11 +918,13 @@ impl RfbClientInputDetector {
                     (
                         4usize.saturating_add(usize::from(encoding_count).saturating_mul(4)),
                         false,
+                        false,
+                        false,
                     )
                 }
-                3 => (10, false), // FramebufferUpdateRequest
-                4 => (8, true),   // KeyEvent
-                5 => (6, true),   // PointerEvent
+                3 => (10, false, false, true), // hub coalesces update requests
+                4 => (8, true, true, false),   // KeyEvent
+                5 => (6, true, true, false),   // PointerEvent
                 6 => {
                     if self.buffered.len() < 8 {
                         break;
@@ -748,26 +935,453 @@ impl RfbClientInputDetector {
                         self.buffered[6],
                         self.buffered[7],
                     ]) as usize;
-                    (8usize.saturating_add(text_length), true)
+                    (8usize.saturating_add(text_length), true, true, false)
                 }
-                150 => (10, false), // EnableContinuousUpdates
+                150 => (10, false, false, true), // hub owns continuous updates
                 _ => {
                     self.buffered.clear();
-                    return true;
+                    anyhow::bail!("unsupported RFB client message type {message_type}");
                 }
             };
             if message_length > MAX_VNC_FRAME_BYTES {
                 self.buffered.clear();
-                return true;
+                anyhow::bail!("VNC client message exceeds 1 MiB");
             }
             if self.buffered.len() < message_length {
                 break;
             }
-            human_input |= is_human;
-            self.buffered.drain(..message_length);
+            if message_type == 0 {
+                anyhow::ensure!(
+                    self.buffered[4..20] == self.canonical_pixel_format,
+                    "RFB client requested an incompatible shared pixel format"
+                );
+            }
+            if message_type == 2 {
+                let supports_raw = self.buffered[4..message_length]
+                    .chunks_exact(4)
+                    .any(|encoding| encoding == [0, 0, 0, 0]);
+                anyhow::ensure!(
+                    supports_raw,
+                    "RFB client must advertise Raw encoding for shared fan-out"
+                );
+            }
+            let bytes = self.buffered.drain(..message_length).collect();
+            parsed.push(ParsedRfbClientMessage {
+                bytes,
+                human_input,
+                forward,
+                refresh,
+            });
         }
-        human_input
+        Ok(parsed)
     }
+}
+
+async fn wait_for_shared_hub(hub: &SharedRfbHub) -> anyhow::Result<Arc<RfbServerInit>> {
+    let mut status = hub.status.clone();
+    loop {
+        let current = status.borrow().clone();
+        match current {
+            SharedRfbHubStatus::Ready(server_init) => return Ok(server_init),
+            SharedRfbHubStatus::Failed(detail) => {
+                anyhow::bail!("shared remote desktop upstream failed: {detail}")
+            }
+            SharedRfbHubStatus::Connecting => {}
+        }
+        tokio::time::timeout(Duration::from_secs(5), status.changed())
+            .await
+            .context("shared remote desktop upstream handshake timed out")?
+            .context("shared remote desktop upstream status closed")?;
+    }
+}
+
+async fn complete_downstream_rfb_handshake(
+    websocket: &mut WebSocketStream<TcpStream>,
+    pending: &mut Vec<u8>,
+    server_init: &[u8],
+) -> anyhow::Result<()> {
+    websocket
+        .send(Message::Binary(RFB_VERSION_3_8.to_vec()))
+        .await?;
+    let version = read_downstream_bytes(websocket, pending, 12).await?;
+    anyhow::ensure!(
+        version == RFB_VERSION_3_8,
+        "remote desktop client must use RFB 3.8"
+    );
+
+    websocket.send(Message::Binary(vec![1, 1])).await?;
+    let security = read_downstream_bytes(websocket, pending, 1).await?;
+    anyhow::ensure!(
+        security == [1],
+        "remote desktop client rejected None security"
+    );
+    websocket.send(Message::Binary(vec![0, 0, 0, 0])).await?;
+
+    let client_init = read_downstream_bytes(websocket, pending, 1).await?;
+    anyhow::ensure!(
+        matches!(client_init.as_slice(), [0] | [1]),
+        "invalid RFB ClientInit shared flag"
+    );
+    websocket
+        .send(Message::Binary(server_init.to_vec()))
+        .await?;
+    Ok(())
+}
+
+async fn read_downstream_bytes(
+    websocket: &mut WebSocketStream<TcpStream>,
+    pending: &mut Vec<u8>,
+    required: usize,
+) -> anyhow::Result<Vec<u8>> {
+    while pending.len() < required {
+        let message = tokio::time::timeout(Duration::from_secs(5), websocket.next())
+            .await
+            .context("RFB downstream handshake timed out")?
+            .context("RFB downstream closed during handshake")??;
+        match message {
+            Message::Binary(bytes) => {
+                anyhow::ensure!(
+                    bytes.len() <= MAX_VNC_FRAME_BYTES,
+                    "VNC frame exceeds 1 MiB"
+                );
+                pending.extend_from_slice(&bytes);
+            }
+            Message::Ping(payload) => websocket.send(Message::Pong(payload)).await?,
+            Message::Pong(_) => {}
+            Message::Close(_) => anyhow::bail!("RFB downstream closed during handshake"),
+            Message::Text(_) => anyhow::bail!("text WebSocket frames are not accepted"),
+            _ => {}
+        }
+    }
+    Ok(pending.drain(..required).collect())
+}
+
+async fn run_shared_rfb_hub(
+    state: Arc<GatewayState>,
+    session_id: &str,
+    endpoint: SocketAddr,
+    mut task: SharedRfbHubTask,
+) -> anyhow::Result<()> {
+    let mut vnc = TcpStream::connect(endpoint)
+        .await
+        .context("registered VNC endpoint is unavailable")?;
+    let server_init = Arc::new(perform_upstream_rfb_handshake(&mut vnc).await?);
+    let full_framebuffer_request = framebuffer_update_request(&server_init, false);
+    let incremental_framebuffer_request = framebuffer_update_request(&server_init, true);
+    let mut framebuffer = RfbFramebuffer::new(&server_init)?;
+    vnc.write_all(&full_framebuffer_request).await?;
+    let initial_frame = Arc::new(read_upstream_server_message(&mut vnc, &server_init).await?);
+    framebuffer.apply(&initial_frame)?;
+    *task
+        .hub
+        .latest_frame
+        .lock()
+        .expect("shared RFB latest frame lock poisoned") = Some(framebuffer.full_update());
+    let _ = task.frames.send(initial_frame);
+    task.status
+        .send_replace(SharedRfbHubStatus::Ready(server_init.clone()));
+    state
+        .last_server_frame_at
+        .lock()
+        .expect("frame timestamp lock poisoned")
+        .insert(session_id.to_owned(), Instant::now());
+    let mut update_request_in_flight = false;
+
+    loop {
+        tokio::select! {
+            changed = task.shutdown.changed() => {
+                if changed.is_err() || *task.shutdown.borrow() {
+                    break;
+                }
+            }
+            Some(bytes) = task.input.recv() => {
+                vnc.write_all(&bytes).await?;
+            }
+            Some(()) = task.refresh.recv() => {
+                // Every noVNC viewer asks for the next update after consuming the same
+                // broadcast frame. They all refer to one shared upstream generation, so
+                // collapse them into at most one in-flight request. Forwarding every
+                // viewer request would create a feedback multiplier and evict healthy
+                // viewers from the bounded broadcast queue.
+                if take_coalesced_refresh(&mut task.refresh, &mut update_request_in_flight) {
+                    vnc.write_all(&incremental_framebuffer_request).await?;
+                }
+            }
+            message = read_upstream_server_message(&mut vnc, &server_init) => {
+                let message = Arc::new(message?);
+                if message.first() == Some(&0) {
+                    update_request_in_flight = false;
+                    framebuffer.apply(&message)?;
+                    *task
+                        .hub
+                        .latest_frame
+                        .lock()
+                        .expect("shared RFB latest frame lock poisoned") = Some(framebuffer.full_update());
+                }
+                state
+                    .last_server_frame_at
+                    .lock()
+                    .expect("frame timestamp lock poisoned")
+                    .insert(session_id.to_owned(), Instant::now());
+                let _ = task.frames.send(message);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn take_coalesced_refresh(
+    refresh: &mut mpsc::Receiver<()>,
+    update_request_in_flight: &mut bool,
+) -> bool {
+    while refresh.try_recv().is_ok() {}
+    if *update_request_in_flight {
+        false
+    } else {
+        *update_request_in_flight = true;
+        true
+    }
+}
+
+#[derive(Debug)]
+struct RfbFramebuffer {
+    width: usize,
+    height: usize,
+    bytes_per_pixel: usize,
+    pixels: Vec<u8>,
+}
+
+impl RfbFramebuffer {
+    fn new(server_init: &RfbServerInit) -> anyhow::Result<Self> {
+        let width = usize::from(server_init.width);
+        let height = usize::from(server_init.height);
+        let bytes = width
+            .checked_mul(height)
+            .and_then(|pixels| pixels.checked_mul(server_init.bytes_per_pixel))
+            .context("RFB framebuffer byte size overflow")?;
+        anyhow::ensure!(
+            bytes <= MAX_RFB_SERVER_MESSAGE_BYTES,
+            "RFB framebuffer exceeds 32 MiB"
+        );
+        Ok(Self {
+            width,
+            height,
+            bytes_per_pixel: server_init.bytes_per_pixel,
+            pixels: vec![0; bytes],
+        })
+    }
+
+    fn apply(&mut self, message: &[u8]) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            message.len() >= 4 && message[0] == 0,
+            "not a framebuffer update"
+        );
+        let rectangles = u16::from_be_bytes([message[2], message[3]]);
+        let mut offset = 4;
+        for _ in 0..rectangles {
+            anyhow::ensure!(
+                message.len().saturating_sub(offset) >= 12,
+                "truncated RFB rectangle"
+            );
+            let rectangle = &message[offset..offset + 12];
+            offset += 12;
+            let x = usize::from(u16::from_be_bytes([rectangle[0], rectangle[1]]));
+            let y = usize::from(u16::from_be_bytes([rectangle[2], rectangle[3]]));
+            let width = usize::from(u16::from_be_bytes([rectangle[4], rectangle[5]]));
+            let height = usize::from(u16::from_be_bytes([rectangle[6], rectangle[7]]));
+            let encoding = i32::from_be_bytes(rectangle[8..12].try_into().expect("encoding"));
+            anyhow::ensure!(
+                encoding == 0,
+                "non-Raw rectangle cannot update shared baseline"
+            );
+            anyhow::ensure!(
+                x.checked_add(width)
+                    .is_some_and(|right| right <= self.width)
+                    && y.checked_add(height)
+                        .is_some_and(|bottom| bottom <= self.height),
+                "RFB rectangle exceeds framebuffer bounds"
+            );
+            let row_bytes = width
+                .checked_mul(self.bytes_per_pixel)
+                .context("RFB rectangle row overflow")?;
+            let rectangle_bytes = row_bytes
+                .checked_mul(height)
+                .context("RFB rectangle byte overflow")?;
+            anyhow::ensure!(
+                message.len().saturating_sub(offset) >= rectangle_bytes,
+                "truncated RFB rectangle pixels"
+            );
+            for row in 0..height {
+                let source = offset + row * row_bytes;
+                let target = ((y + row) * self.width + x) * self.bytes_per_pixel;
+                self.pixels[target..target + row_bytes]
+                    .copy_from_slice(&message[source..source + row_bytes]);
+            }
+            offset += rectangle_bytes;
+        }
+        anyhow::ensure!(
+            offset == message.len(),
+            "RFB framebuffer update has trailing bytes"
+        );
+        Ok(())
+    }
+
+    fn full_update(&self) -> Arc<Vec<u8>> {
+        let mut message = Vec::with_capacity(16 + self.pixels.len());
+        message.extend_from_slice(&[0, 0, 0, 1, 0, 0, 0, 0]);
+        message.extend_from_slice(&(self.width as u16).to_be_bytes());
+        message.extend_from_slice(&(self.height as u16).to_be_bytes());
+        message.extend_from_slice(&0_i32.to_be_bytes());
+        message.extend_from_slice(&self.pixels);
+        Arc::new(message)
+    }
+}
+
+async fn perform_upstream_rfb_handshake(vnc: &mut TcpStream) -> anyhow::Result<RfbServerInit> {
+    let mut version = [0_u8; 12];
+    vnc.read_exact(&mut version).await?;
+    anyhow::ensure!(
+        version.starts_with(b"RFB 003.") && version[11] == b'\n',
+        "x11vnc returned an invalid RFB version"
+    );
+    vnc.write_all(RFB_VERSION_3_8).await?;
+
+    let security_count = vnc.read_u8().await? as usize;
+    anyhow::ensure!(
+        security_count > 0,
+        "x11vnc rejected RFB security negotiation"
+    );
+    anyhow::ensure!(
+        security_count <= 32,
+        "x11vnc returned too many security types"
+    );
+    let mut security_types = vec![0_u8; security_count];
+    vnc.read_exact(&mut security_types).await?;
+    anyhow::ensure!(
+        security_types.contains(&1),
+        "x11vnc must expose None security behind the loopback gateway"
+    );
+    vnc.write_u8(1).await?;
+    anyhow::ensure!(
+        vnc.read_u32().await? == 0,
+        "x11vnc security handshake failed"
+    );
+    vnc.write_u8(1).await?;
+
+    let width = vnc.read_u16().await?;
+    let height = vnc.read_u16().await?;
+    anyhow::ensure!(
+        width > 0 && height > 0,
+        "x11vnc returned an empty framebuffer"
+    );
+    let mut upstream_pixel_format = [0_u8; 16];
+    vnc.read_exact(&mut upstream_pixel_format).await?;
+    let name_length = vnc.read_u32().await? as usize;
+    anyhow::ensure!(name_length <= 4096, "x11vnc desktop name is too large");
+    let mut name = vec![0_u8; name_length];
+    vnc.read_exact(&mut name).await?;
+
+    let mut set_pixel_format = [0_u8; 20];
+    set_pixel_format[4..].copy_from_slice(&SHARED_PIXEL_FORMAT);
+    vnc.write_all(&set_pixel_format).await?;
+    // Raw is deliberately chosen: it has complete, deterministic message boundaries, so a
+    // late subscriber never depends on compression state owned by an earlier viewer.
+    vnc.write_all(&[2, 0, 0, 1, 0, 0, 0, 0]).await?;
+
+    let mut wire_bytes = Vec::with_capacity(24 + name.len());
+    wire_bytes.extend_from_slice(&width.to_be_bytes());
+    wire_bytes.extend_from_slice(&height.to_be_bytes());
+    wire_bytes.extend_from_slice(&SHARED_PIXEL_FORMAT);
+    wire_bytes.extend_from_slice(&(name.len() as u32).to_be_bytes());
+    wire_bytes.extend_from_slice(&name);
+    Ok(RfbServerInit {
+        wire_bytes,
+        width,
+        height,
+        pixel_format: SHARED_PIXEL_FORMAT,
+        bytes_per_pixel: 4,
+    })
+}
+
+fn framebuffer_update_request(server_init: &RfbServerInit, incremental: bool) -> [u8; 10] {
+    let width = server_init.width.to_be_bytes();
+    let height = server_init.height.to_be_bytes();
+    [
+        3,
+        u8::from(incremental),
+        0,
+        0,
+        0,
+        0,
+        width[0],
+        width[1],
+        height[0],
+        height[1],
+    ]
+}
+
+async fn read_upstream_server_message(
+    vnc: &mut TcpStream,
+    server_init: &RfbServerInit,
+) -> anyhow::Result<Vec<u8>> {
+    let message_type = vnc.read_u8().await?;
+    let mut message = vec![message_type];
+    match message_type {
+        0 => read_framebuffer_update(vnc, server_init, &mut message).await?,
+        2 => {} // Bell
+        3 => {
+            let mut header = [0_u8; 7];
+            vnc.read_exact(&mut header).await?;
+            message.extend_from_slice(&header);
+            let length =
+                u32::from_be_bytes(header[3..7].try_into().expect("four-byte length")) as usize;
+            anyhow::ensure!(length <= MAX_VNC_FRAME_BYTES, "ServerCutText exceeds 1 MiB");
+            read_exact_bounded(vnc, &mut message, length).await?;
+        }
+        _ => anyhow::bail!("unsupported RFB server message type {message_type}"),
+    }
+    Ok(message)
+}
+
+async fn read_framebuffer_update(
+    vnc: &mut TcpStream,
+    server_init: &RfbServerInit,
+    message: &mut Vec<u8>,
+) -> anyhow::Result<()> {
+    let mut header = [0_u8; 3];
+    vnc.read_exact(&mut header).await?;
+    message.extend_from_slice(&header);
+    let rectangles = u16::from_be_bytes([header[1], header[2]]);
+    for _ in 0..rectangles {
+        let mut rectangle = [0_u8; 12];
+        vnc.read_exact(&mut rectangle).await?;
+        message.extend_from_slice(&rectangle);
+        let width = usize::from(u16::from_be_bytes([rectangle[4], rectangle[5]]));
+        let height = usize::from(u16::from_be_bytes([rectangle[6], rectangle[7]]));
+        let encoding = i32::from_be_bytes(rectangle[8..12].try_into().expect("four-byte encoding"));
+        anyhow::ensure!(encoding == 0, "x11vnc violated negotiated Raw encoding");
+        let bytes = width
+            .checked_mul(height)
+            .and_then(|pixels| pixels.checked_mul(server_init.bytes_per_pixel))
+            .context("RFB rectangle byte size overflow")?;
+        read_exact_bounded(vnc, message, bytes).await?;
+    }
+    Ok(())
+}
+
+async fn read_exact_bounded(
+    vnc: &mut TcpStream,
+    message: &mut Vec<u8>,
+    bytes: usize,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        message.len().saturating_add(bytes) <= MAX_RFB_SERVER_MESSAGE_BYTES,
+        "RFB server message exceeds 32 MiB"
+    );
+    let offset = message.len();
+    message.resize(offset + bytes, 0);
+    vnc.read_exact(&mut message[offset..]).await?;
+    Ok(())
 }
 
 fn authorize(
@@ -1024,15 +1638,217 @@ mod tests {
         format!("{payload}.{signature}")
     }
 
+    async fn accept_test_rfb_upstream(
+        listener: TcpListener,
+        accepted: Arc<AtomicUsize>,
+        input_sender: Option<oneshot::Sender<Vec<u8>>>,
+        mut release_second_frame: Option<oneshot::Receiver<()>>,
+    ) {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        accepted.fetch_add(1, Ordering::SeqCst);
+        stream.write_all(RFB_VERSION_3_8).await.unwrap();
+        let mut version = [0_u8; 12];
+        stream.read_exact(&mut version).await.unwrap();
+        assert_eq!(&version, RFB_VERSION_3_8);
+        stream.write_all(&[1, 1]).await.unwrap();
+        assert_eq!(stream.read_u8().await.unwrap(), 1);
+        stream.write_u32(0).await.unwrap();
+        assert_eq!(stream.read_u8().await.unwrap(), 1);
+        let pixel_format = [32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0];
+        stream.write_u16(1).await.unwrap();
+        stream.write_u16(1).await.unwrap();
+        stream.write_all(&pixel_format).await.unwrap();
+        stream.write_u32(4).await.unwrap();
+        stream.write_all(b"test").await.unwrap();
+
+        let mut set_pixel_format = [0_u8; 20];
+        stream.read_exact(&mut set_pixel_format).await.unwrap();
+        assert_eq!(set_pixel_format[0], 0);
+        assert_eq!(&set_pixel_format[4..], &SHARED_PIXEL_FORMAT);
+        let mut set_encodings = [0_u8; 8];
+        stream.read_exact(&mut set_encodings).await.unwrap();
+        assert_eq!(set_encodings, [2, 0, 0, 1, 0, 0, 0, 0]);
+        let mut update_request = [0_u8; 10];
+        stream.read_exact(&mut update_request).await.unwrap();
+        assert_eq!(update_request[0], 3);
+        assert_eq!(update_request[1], 0);
+        stream
+            .write_all(&test_raw_framebuffer_update([1, 2, 3, 4]))
+            .await
+            .unwrap();
+
+        let mut input_sender = input_sender;
+        while let Ok(message_type) = stream.read_u8().await {
+            match message_type {
+                3 => {
+                    let mut request = [0_u8; 9];
+                    stream.read_exact(&mut request).await.unwrap();
+                    if request[0] == 0 && release_second_frame.is_some() {
+                        let release = release_second_frame
+                            .as_mut()
+                            .expect("guarded second-frame release");
+                        if release.await.is_ok() {
+                            stream
+                                .write_all(&test_raw_framebuffer_update([5, 6, 7, 8]))
+                                .await
+                                .unwrap();
+                        }
+                        release_second_frame = None;
+                    } else if request[0] == 0 {
+                        stream
+                            .write_all(&test_raw_framebuffer_update([1, 2, 3, 4]))
+                            .await
+                            .unwrap();
+                    }
+                }
+                4 => {
+                    let mut message = vec![message_type; 8];
+                    stream.read_exact(&mut message[1..]).await.unwrap();
+                    if let Some(sender) = input_sender.take() {
+                        sender.send(message).unwrap();
+                    }
+                }
+                other => panic!("unexpected test RFB client message {other}"),
+            }
+        }
+    }
+
+    fn test_raw_framebuffer_update(pixel: [u8; 4]) -> Vec<u8> {
+        let mut message = vec![0, 0, 0, 1];
+        message.extend_from_slice(&[0, 0, 0, 0, 0, 1, 0, 1]);
+        message.extend_from_slice(&0_i32.to_be_bytes());
+        message.extend_from_slice(&pixel);
+        message
+    }
+
+    #[test]
+    fn merges_incremental_raw_rectangles_into_late_join_baseline() {
+        let server_init = RfbServerInit {
+            wire_bytes: Vec::new(),
+            width: 2,
+            height: 1,
+            pixel_format: SHARED_PIXEL_FORMAT,
+            bytes_per_pixel: 4,
+        };
+        let mut framebuffer = RfbFramebuffer::new(&server_init).unwrap();
+        let mut full = vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 1];
+        full.extend_from_slice(&0_i32.to_be_bytes());
+        full.extend_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        framebuffer.apply(&full).unwrap();
+
+        let mut incremental = vec![0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1];
+        incremental.extend_from_slice(&0_i32.to_be_bytes());
+        incremental.extend_from_slice(&[9, 10, 11, 12]);
+        framebuffer.apply(&incremental).unwrap();
+
+        assert_eq!(
+            &framebuffer.full_update()[16..],
+            &[1, 2, 3, 4, 9, 10, 11, 12]
+        );
+    }
+
+    #[test]
+    fn bounded_fanout_reports_lag_without_blocking_other_subscribers() {
+        let (frames, _) = broadcast::channel(2);
+        let mut slow = frames.subscribe();
+        let mut current = frames.subscribe();
+        for value in 0..3_u8 {
+            frames.send(Arc::new(vec![value])).unwrap();
+            assert_eq!(&**current.try_recv().unwrap(), &[value]);
+        }
+        assert!(matches!(
+            slow.try_recv(),
+            Err(broadcast::error::TryRecvError::Lagged(1))
+        ));
+        assert_eq!(&**slow.try_recv().unwrap(), &[1]);
+    }
+
+    #[test]
+    fn coalesces_viewer_refreshes_into_one_in_flight_upstream_request() {
+        let (sender, mut receiver) = mpsc::channel(4);
+        sender.try_send(()).unwrap();
+        sender.try_send(()).unwrap();
+        sender.try_send(()).unwrap();
+        let mut in_flight = false;
+
+        // The select branch consumed one signal; the helper drains all additional
+        // viewer requests and authorizes only one upstream update request.
+        receiver.try_recv().unwrap();
+        assert!(take_coalesced_refresh(&mut receiver, &mut in_flight));
+        assert!(receiver.try_recv().is_err());
+
+        sender.try_send(()).unwrap();
+        receiver.try_recv().unwrap();
+        assert!(!take_coalesced_refresh(&mut receiver, &mut in_flight));
+
+        in_flight = false;
+        sender.try_send(()).unwrap();
+        receiver.try_recv().unwrap();
+        assert!(take_coalesced_refresh(&mut receiver, &mut in_flight));
+    }
+
+    async fn complete_test_rfb_client(
+        websocket: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+    ) -> Vec<u8> {
+        assert_eq!(next_binary(websocket).await, RFB_VERSION_3_8);
+        websocket
+            .send(Message::Binary(RFB_VERSION_3_8.to_vec()))
+            .await
+            .unwrap();
+        assert_eq!(next_binary(websocket).await, [1, 1]);
+        websocket.send(Message::Binary(vec![1])).await.unwrap();
+        assert_eq!(next_binary(websocket).await, [0, 0, 0, 0]);
+        websocket.send(Message::Binary(vec![1])).await.unwrap();
+        next_binary(websocket).await
+    }
+
+    async fn next_binary(
+        websocket: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+    ) -> Vec<u8> {
+        loop {
+            match websocket.next().await.unwrap().unwrap() {
+                Message::Binary(payload) => return payload,
+                Message::Ping(payload) => websocket.send(Message::Pong(payload)).await.unwrap(),
+                other => panic!("unexpected WebSocket message: {other:?}"),
+            }
+        }
+    }
+
     #[test]
     fn detects_real_human_rfb_input_but_not_observer_protocol_messages() {
-        let mut detector = RfbClientInputDetector::default();
-        assert!(!detector.observe(b"RFB 003.008\n"));
-        assert!(!detector.observe(&[1, 1]));
-        assert!(!detector.observe(&[3, 0, 0, 0, 0, 0, 0, 100, 0, 100]));
-        assert!(detector.observe(&[4, 1, 0, 0, 0, 0, 0, 65]));
-        assert!(!detector.observe(&[5, 1, 0]));
-        assert!(detector.observe(&[10, 0, 20]));
+        let pixel_format = SHARED_PIXEL_FORMAT;
+        let mut parser = RfbClientMessageParser::new(Vec::new(), pixel_format);
+        let messages = parser.ingest(&[3, 0, 0, 0, 0, 0, 0, 100, 0, 100]).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(!messages[0].human_input);
+        assert!(!messages[0].forward);
+        assert!(messages[0].refresh);
+
+        let messages = parser.ingest(&[4, 1, 0, 0, 0, 0, 0, 65]).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].human_input);
+        assert!(messages[0].forward);
+        assert!(!messages[0].refresh);
+
+        assert!(parser.ingest(&[5, 1, 0]).unwrap().is_empty());
+        let messages = parser.ingest(&[10, 0, 20]).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].human_input);
+        assert!(messages[0].forward);
+    }
+
+    #[test]
+    fn shared_fanout_rejects_incompatible_pixel_format_and_encoding() {
+        let pixel_format = SHARED_PIXEL_FORMAT;
+        let mut parser = RfbClientMessageParser::new(Vec::new(), pixel_format);
+        let mut incompatible = vec![0, 0, 0, 0];
+        incompatible.extend_from_slice(&[16, 16, 0, 1, 0, 31, 0, 63, 0, 31, 11, 5, 0, 0, 0, 0]);
+        assert!(parser.ingest(&incompatible).is_err());
+
+        let mut parser = RfbClientMessageParser::new(Vec::new(), pixel_format);
+        assert!(parser.ingest(&[2, 0, 0, 1, 0, 0, 0, 6]).is_err());
+        let mut parser = RfbClientMessageParser::new(Vec::new(), pixel_format);
+        assert!(parser.ingest(&[2, 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 0]).is_ok());
     }
 
     #[test]
@@ -1058,13 +1874,13 @@ mod tests {
     async fn proxies_binary_vnc_stream_and_runs_disconnect_barrier() {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            let (mut stream, _) = vnc_listener.accept().await.unwrap();
-            let mut buffer = [0_u8; 64];
-            let read = stream.read(&mut buffer).await.unwrap();
-            stream.write_all(&buffer[..read]).await.unwrap();
-            while stream.read(&mut buffer).await.unwrap_or_default() != 0 {}
-        });
+        let upstream_connections = Arc::new(AtomicUsize::new(0));
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            upstream_connections.clone(),
+            None,
+            None,
+        ));
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
         let gateway = RemoteDesktopGateway::with_disconnect_grace(
@@ -1113,24 +1929,15 @@ mod tests {
             response.headers().get(SEC_WEBSOCKET_PROTOCOL).unwrap(),
             "binary"
         );
-        websocket
-            .send(Message::Binary(b"rfb".to_vec()))
-            .await
-            .unwrap();
-        let echo = tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                match websocket.next().await.unwrap().unwrap() {
-                    Message::Binary(payload) => break payload,
-                    Message::Ping(payload) => {
-                        websocket.send(Message::Pong(payload)).await.unwrap();
-                    }
-                    other => panic!("unexpected WebSocket message before RFB echo: {other:?}"),
-                }
-            }
-        })
-        .await
-        .unwrap();
-        assert_eq!(echo, b"rfb");
+        let server_init = complete_test_rfb_client(&mut websocket).await;
+        assert_eq!(&server_init[0..4], &[0, 1, 0, 1]);
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), next_binary(&mut websocket))
+                .await
+                .unwrap(),
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
+        assert_eq!(upstream_connections.load(Ordering::SeqCst), 1);
         assert!(
             gateway
                 .frame_age_ms("ses_test1234567890")
@@ -1155,20 +1962,14 @@ mod tests {
     async fn keeps_multiple_collaborators_connected_and_releases_after_the_last_disconnect() {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            for _ in 0..2 {
-                let (mut stream, _) = vnc_listener.accept().await.unwrap();
-                tokio::spawn(async move {
-                    let mut buffer = [0_u8; 64];
-                    while let Ok(read) = stream.read(&mut buffer).await {
-                        if read == 0 {
-                            break;
-                        }
-                        stream.write_all(&buffer[..read]).await.unwrap();
-                    }
-                });
-            }
-        });
+        let upstream_connections = Arc::new(AtomicUsize::new(0));
+        let (input_sender, input_receiver) = oneshot::channel();
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            upstream_connections.clone(),
+            Some(input_sender),
+            None,
+        ));
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
         let gateway = RemoteDesktopGateway::with_disconnect_grace(
@@ -1199,24 +2000,30 @@ mod tests {
             request
         };
         let (mut first, _) = connect_async(make_request()).await.unwrap();
+        complete_test_rfb_client(&mut first).await;
+        assert_eq!(
+            next_binary(&mut first).await,
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
         let (mut second, _) = connect_async(make_request()).await.unwrap();
+        complete_test_rfb_client(&mut second).await;
+        assert_eq!(
+            next_binary(&mut second).await,
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
         assert_eq!(gateway.active_connection_count("ses_multiviewer12345"), 2);
+        assert_eq!(upstream_connections.load(Ordering::SeqCst), 1);
 
         first
-            .send(Message::Binary(b"viewer-one".to_vec()))
-            .await
-            .unwrap();
-        second
-            .send(Message::Binary(b"viewer-two".to_vec()))
+            .send(Message::Binary(vec![4, 1, 0, 0, 0, 0, 0, 65]))
             .await
             .unwrap();
         assert_eq!(
-            first.next().await.unwrap().unwrap(),
-            Message::Binary(b"viewer-one".to_vec())
-        );
-        assert_eq!(
-            second.next().await.unwrap().unwrap(),
-            Message::Binary(b"viewer-two".to_vec())
+            tokio::time::timeout(Duration::from_secs(1), input_receiver)
+                .await
+                .unwrap()
+                .unwrap(),
+            vec![4, 1, 0, 0, 0, 0, 0, 65]
         );
 
         first.close(None).await.unwrap();
@@ -1241,14 +2048,13 @@ mod tests {
     async fn rejects_human_input_on_a_server_enforced_view_only_connection() {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
-        let (read_sender, read_receiver) = oneshot::channel();
-        tokio::spawn(async move {
-            let (mut stream, _) = vnc_listener.accept().await.unwrap();
-            let mut buffer = [0_u8; 64];
-            read_sender
-                .send(stream.read(&mut buffer).await.unwrap())
-                .unwrap();
-        });
+        let (input_sender, input_receiver) = oneshot::channel();
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            Some(input_sender),
+            None,
+        ));
 
         let gateway = RemoteDesktopGateway::new(
             SECRET.as_bytes(),
@@ -1274,20 +2080,19 @@ mod tests {
             .headers_mut()
             .insert(ORIGIN, "http://console.test".parse().unwrap());
         let (mut websocket, _) = connect_async(request).await.unwrap();
-        let mut handshake_and_key = vec![0_u8; RFB_CLIENT_HANDSHAKE_BYTES];
-        handshake_and_key.extend_from_slice(&[4, 1, 0, 0, 0, 0, 0, 65]);
+        complete_test_rfb_client(&mut websocket).await;
+        next_binary(&mut websocket).await;
+        let handshake_and_key = vec![4, 1, 0, 0, 0, 0, 0, 65];
         websocket
             .send(Message::Binary(handshake_and_key))
             .await
             .unwrap();
 
-        assert_eq!(
-            tokio::time::timeout(Duration::from_secs(1), read_receiver)
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), input_receiver)
                 .await
-                .unwrap()
-                .unwrap(),
-            0,
-            "view-only Human Input must never reach x11vnc"
+                .is_err(),
+            "view-only Human Input must never reach the shared x11vnc upstream"
         );
         tokio::time::timeout(Duration::from_secs(1), async {
             while gateway.active_connection_count("ses_viewonly1234567") != 0 {
@@ -1302,23 +2107,14 @@ mod tests {
     async fn revokes_only_the_selected_collaborator() {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            for _ in 0..2 {
-                let (mut stream, _) = vnc_listener.accept().await.unwrap();
-                tokio::spawn(async move {
-                    let mut buffer = [0_u8; 64];
-                    loop {
-                        let read = stream.read(&mut buffer).await.unwrap_or_default();
-                        if read == 0 {
-                            break;
-                        }
-                        if stream.write_all(&buffer[..read]).await.is_err() {
-                            break;
-                        }
-                    }
-                });
-            }
-        });
+        let upstream_connections = Arc::new(AtomicUsize::new(0));
+        let (input_sender, input_receiver) = oneshot::channel();
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            upstream_connections.clone(),
+            Some(input_sender),
+            None,
+        ));
 
         let gateway = RemoteDesktopGateway::new(
             SECRET.as_bytes(),
@@ -1347,7 +2143,12 @@ mod tests {
             request
         };
         let (mut first, _) = connect_async(connect(first_nonce)).await.unwrap();
+        complete_test_rfb_client(&mut first).await;
+        next_binary(&mut first).await;
         let (mut second, _) = connect_async(connect(second_nonce)).await.unwrap();
+        complete_test_rfb_client(&mut second).await;
+        next_binary(&mut second).await;
+        assert_eq!(upstream_connections.load(Ordering::SeqCst), 1);
         let first_hash = format!("{:x}", Sha256::digest(first_nonce.as_bytes()));
         let first_connection_id = format!("rdc_{}", &first_hash[..20]);
         assert!(gateway
@@ -1362,12 +2163,15 @@ mod tests {
         .unwrap();
 
         second
-            .send(Message::Binary(b"still-connected".to_vec()))
+            .send(Message::Binary(vec![4, 1, 0, 0, 0, 0, 0, 66]))
             .await
             .unwrap();
         assert_eq!(
-            second.next().await.unwrap().unwrap(),
-            Message::Binary(b"still-connected".to_vec())
+            tokio::time::timeout(Duration::from_secs(1), input_receiver)
+                .await
+                .unwrap()
+                .unwrap(),
+            vec![4, 1, 0, 0, 0, 0, 0, 66]
         );
         assert!(gateway
             .revoke_connection(session_id, "rdc_missing0000000000000")
@@ -1498,15 +2302,12 @@ mod tests {
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
         let (second_frame_sender, second_frame_receiver) = oneshot::channel();
         let (input_sender, input_receiver) = oneshot::channel();
-        tokio::spawn(async move {
-            let (mut stream, _) = vnc_listener.accept().await.unwrap();
-            stream.write_all(b"first-frame").await.unwrap();
-            second_frame_receiver.await.unwrap();
-            stream.write_all(b"second-frame").await.unwrap();
-            let mut input = [0_u8; 64];
-            let read = stream.read(&mut input).await.unwrap();
-            input_sender.send(input[..read].to_vec()).unwrap();
-        });
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            Some(input_sender),
+            Some(second_frame_receiver),
+        ));
 
         let gateway = RemoteDesktopGateway::new(
             SECRET.as_bytes(),
@@ -1535,21 +2336,20 @@ mod tests {
             .headers_mut()
             .insert(ORIGIN, "http://console.test".parse().unwrap());
         let (mut websocket, _) = connect_async(request).await.unwrap();
-        loop {
-            match websocket.next().await.unwrap().unwrap() {
-                Message::Binary(payload) => {
-                    assert_eq!(payload, b"first-frame");
-                    break;
-                }
-                Message::Ping(payload) => websocket.send(Message::Pong(payload)).await.unwrap(),
-                other => panic!("unexpected message before first Observer frame: {other:?}"),
-            }
-        }
+        complete_test_rfb_client(&mut websocket).await;
+        assert_eq!(
+            next_binary(&mut websocket).await,
+            test_raw_framebuffer_update([1, 2, 3, 4])
+        );
 
         second_frame_sender.send(()).unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
         websocket
-            .send(Message::Binary(b"human-input".to_vec()))
+            .send(Message::Binary(vec![3, 1, 0, 0, 0, 0, 0, 1, 0, 1]))
+            .await
+            .unwrap();
+        websocket
+            .send(Message::Binary(vec![4, 1, 0, 0, 0, 0, 0, 65]))
             .await
             .unwrap();
         assert_eq!(
@@ -1557,7 +2357,7 @@ mod tests {
                 .await
                 .expect("Human Input must not wait for the one-second Observer frame interval")
                 .unwrap(),
-            b"human-input"
+            vec![4, 1, 0, 0, 0, 0, 0, 65]
         );
         websocket.close(None).await.unwrap();
     }
@@ -1566,14 +2366,13 @@ mod tests {
     async fn blackholed_client_runs_disconnect_barrier_after_liveness_timeout() {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
-        let (frame_sender, frame_receiver) = oneshot::channel();
-        tokio::spawn(async move {
-            let (mut stream, _) = vnc_listener.accept().await.unwrap();
-            let mut buffer = [0_u8; 64];
-            let read = stream.read(&mut buffer).await.unwrap();
-            frame_sender.send(buffer[..read].to_vec()).unwrap();
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        });
+        let (input_sender, input_receiver) = oneshot::channel();
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            Some(input_sender),
+            None,
+        ));
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
         let gateway = RemoteDesktopGateway::new_with_timeouts(
@@ -1605,16 +2404,18 @@ mod tests {
             .headers_mut()
             .insert(ORIGIN, "http://console.test".parse().unwrap());
         let (mut blackholed_client, _) = connect_async(request).await.unwrap();
+        complete_test_rfb_client(&mut blackholed_client).await;
+        next_binary(&mut blackholed_client).await;
         blackholed_client
-            .send(Message::Binary(b"unpaired-input".to_vec()))
+            .send(Message::Binary(vec![4, 1, 0, 0, 0, 0, 0, 65]))
             .await
             .unwrap();
         assert_eq!(
-            tokio::time::timeout(Duration::from_secs(1), frame_receiver)
+            tokio::time::timeout(Duration::from_secs(1), input_receiver)
                 .await
                 .unwrap()
                 .unwrap(),
-            b"unpaired-input"
+            vec![4, 1, 0, 0, 0, 0, 0, 65]
         );
 
         tokio::time::timeout(Duration::from_secs(1), async {
@@ -1632,15 +2433,12 @@ mod tests {
     async fn reconnect_within_grace_suppresses_stale_disconnect_barrier() {
         let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let vnc_endpoint = vnc_listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            for _ in 0..2 {
-                let (mut stream, _) = vnc_listener.accept().await.unwrap();
-                tokio::spawn(async move {
-                    let mut buffer = [0_u8; 64];
-                    while stream.read(&mut buffer).await.unwrap_or_default() != 0 {}
-                });
-            }
-        });
+        tokio::spawn(accept_test_rfb_upstream(
+            vnc_listener,
+            Arc::new(AtomicUsize::new(0)),
+            None,
+            None,
+        ));
 
         let disconnects = Arc::new(CountDisconnects(AtomicUsize::new(0)));
         let gateway = RemoteDesktopGateway::new_with_timeouts(
@@ -1671,10 +2469,13 @@ mod tests {
                 .insert(ORIGIN, "http://console.test".parse().unwrap());
             request
         };
-        let (first_client, _) =
+        let (mut first_client, _) =
             connect_async(make_request(uuid::Uuid::new_v4().simple().to_string()))
                 .await
                 .unwrap();
+        complete_test_rfb_client(&mut first_client).await;
+        next_binary(&mut first_client).await;
+        first_client.close(None).await.unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             while gateway.active_connection_count("ses_reconnect123456") > 0 {
@@ -1683,12 +2484,12 @@ mod tests {
         })
         .await
         .unwrap();
-        drop(first_client);
-
         let (mut replacement, _) =
             connect_async(make_request(uuid::Uuid::new_v4().simple().to_string()))
                 .await
                 .unwrap();
+        complete_test_rfb_client(&mut replacement).await;
+        next_binary(&mut replacement).await;
         let (stop_sender, mut stop_receiver) = oneshot::channel();
         let replacement_task = tokio::spawn(async move {
             loop {

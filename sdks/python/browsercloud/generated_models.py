@@ -1696,12 +1696,20 @@ class WorkspaceSettingsRequest(TypedDict, total=False):
     defaultRuntimeBuildId: str
     defaultRegion: str
     defaultHumanTakeoverEnabled: bool
+    remoteDesktopControlBitrateLimitKbps: int
+    remoteDesktopControlFrameRateLimitFps: int
+    remoteDesktopViewerBitrateLimitKbps: int
+    remoteDesktopViewerFrameRateLimitFps: int
 
 class WorkspaceSettings(TypedDict, total=False):
     workspaceName: str
     defaultRuntimeBuildId: str
     defaultRegion: str
     defaultHumanTakeoverEnabled: bool
+    remoteDesktopControlBitrateLimitKbps: int
+    remoteDesktopControlFrameRateLimitFps: int
+    remoteDesktopViewerBitrateLimitKbps: int
+    remoteDesktopViewerFrameRateLimitFps: int
     resourcePolicyMode: str
     onMaximumReached: str
     source: Literal['SYSTEM_DEFAULT', 'WORKSPACE_OVERRIDE']

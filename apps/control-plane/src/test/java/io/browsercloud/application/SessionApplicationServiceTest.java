@@ -66,6 +66,11 @@ class SessionApplicationServiceTest {
     org.mockito.Mockito.lenient()
         .when(proxyApplicationService.ensureBinding(org.mockito.ArgumentMatchers.any()))
         .thenAnswer(invocation -> invocation.getArgument(0));
+    org.mockito.Mockito.lenient()
+        .when(workspaceSettingsService.resolve(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(
+            new WorkspaceSettingsApplicationService.EffectiveWorkspaceSettings(
+                "runtime-stable", "local", true));
     service =
         new SessionApplicationService(
             coordinator,
@@ -227,7 +232,13 @@ class SessionApplicationServiceTest {
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(activeAgentOperation));
     when(remoteDesktopTicketService.issueCollaborative(
-            eq("tenant-test"), eq("ses_test"), eq("operator-test"), eq(context)))
+            eq("tenant-test"),
+            eq("ses_test"),
+            eq("operator-test"),
+            eq(context),
+            eq(false),
+            eq(8_000),
+            eq(30)))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
@@ -271,7 +282,7 @@ class SessionApplicationServiceTest {
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(takeover));
     when(remoteDesktopTicketService.issueExclusive(
-            "tenant-test", "ses_test", "operator-test", takeover))
+            "tenant-test", "ses_test", "operator-test", takeover, 8_000, 30))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
@@ -293,7 +304,7 @@ class SessionApplicationServiceTest {
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
     when(remoteDesktopTicketService.issueCollaborative(
-            "tenant-test", "ses_test", "viewer-test", context, true))
+            "tenant-test", "ses_test", "viewer-test", context, true, 4_000, 15))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "viewer-test", true))

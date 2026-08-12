@@ -7,4 +7,8 @@ export type WorkspaceSettingsRequest = {
     defaultRuntimeBuildId: string;
     defaultRegion: string;
     defaultHumanTakeoverEnabled: boolean;
+    remoteDesktopControlBitrateLimitKbps?: number;
+    remoteDesktopControlFrameRateLimitFps?: number;
+    remoteDesktopViewerBitrateLimitKbps?: number;
+    remoteDesktopViewerFrameRateLimitFps?: number;
 };

@@ -377,9 +377,9 @@ public final class Models {
 
   public record WorkspaceMetadataBatchOperationListResponse(List<WorkspaceMetadataBatchOperation> items, Integer total) {}
 
-  public record WorkspaceSettingsRequest(String workspaceName, String defaultRuntimeBuildId, String defaultRegion, Boolean defaultHumanTakeoverEnabled) {}
+  public record WorkspaceSettingsRequest(String workspaceName, String defaultRuntimeBuildId, String defaultRegion, Boolean defaultHumanTakeoverEnabled, Integer remoteDesktopControlBitrateLimitKbps, Integer remoteDesktopControlFrameRateLimitFps, Integer remoteDesktopViewerBitrateLimitKbps, Integer remoteDesktopViewerFrameRateLimitFps) {}
 
-  public record WorkspaceSettings(String workspaceName, String defaultRuntimeBuildId, String defaultRegion, Boolean defaultHumanTakeoverEnabled, String resourcePolicyMode, String onMaximumReached, String source, Object updatedBy, Object updatedAt, Long version) {}
+  public record WorkspaceSettings(String workspaceName, String defaultRuntimeBuildId, String defaultRegion, Boolean defaultHumanTakeoverEnabled, Integer remoteDesktopControlBitrateLimitKbps, Integer remoteDesktopControlFrameRateLimitFps, Integer remoteDesktopViewerBitrateLimitKbps, Integer remoteDesktopViewerFrameRateLimitFps, String resourcePolicyMode, String onMaximumReached, String source, Object updatedBy, Object updatedAt, Long version) {}
 
   public record SessionListResponse(List<SessionView> items, Integer total, Integer limit, Integer offset) {}
 

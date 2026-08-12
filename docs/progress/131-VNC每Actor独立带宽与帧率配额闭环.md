@@ -1,7 +1,7 @@
 # VNC 每 Actor 独立带宽与帧率配额闭环
 
 > 日期：2026-08-12
-> 状态：代码、合同、四语言 SDK 与本地定向验证已完成；目标 Linux 8 Client 长稳仍是生产 Gate。
+> 状态：代码、Workspace 治理、合同、四语言 SDK 与本地定向验证已完成；目标 Linux 8 Client 长稳仍是生产 Gate。
 
 ## 目标
 
@@ -12,7 +12,12 @@
 ## 已完成
 
 - Control Plane 为控制连接和只读连接分别解析受管配置，默认分别为 `8000 Kbps / 30 FPS`
-  与 `4000 Kbps / 15 FPS`；四个值均支持生产环境变量覆盖，并在启动时验证范围；
+  与 `4000 Kbps / 15 FPS`；平台缺省均支持生产环境变量覆盖，并在启动时验证范围；
+- V093 以 additive、带默认值的方式向 PostgreSQL `workspace_settings` 增加四个权威配额字段，
+  Check 约束先 `NOT VALID` 再独立验证，旧 Control Plane/旧请求在滚动升级时继续使用默认值；
+- Settings API 和 Web/Tauri 共用设置页允许管理员配置控制/只读 Actor 的带宽与 FPS；服务端
+  执行 `250—100000 Kbps / 1—60 FPS` 双层校验，更新使用 Idempotency Key 并把四个值写入
+  `WORKSPACE_SETTINGS_UPDATED` 哈希审计；
 - 每次连接把 `actorBitrateLimitKbps` 和 `actorFrameRateLimitFps` 写入短期、单次 HMAC
   签名票据。前端只能展示服务端返回值，不能自行提高配额；
 - Browser Node 严格校验票据中的带宽 `250—100000 Kbps` 和帧率 `1—60 FPS`。滚动升级时，
@@ -38,13 +43,12 @@
 - Web 70 项测试通过；OpenAPI 和四语言 SDK 已重新生成并通过结构/哈希验证；
 - `make lint`、`make test`、`make contracts-check` 和 `make test-upgrade-compatibility` 通过，
   包含 Java 全量 Check、Rust Workspace Clippy `-D warnings`、Web ESLint/Prettier 和 Go Vet；
-- `make test-integration` 通过：空库 92 个迁移后 `health=UP`、`public_tables=107`，双 Node
+- `make test-integration` 通过：空库 93 个迁移后 `health=UP`、`public_tables=107`，双 Node
   迁移、资源调整/晚到 ACK 对账和 Audit Chain 全部为真。
 
 ## 仍未完成
 
-1. 配额目前是 Control Plane 生产配置，不是 Workspace PostgreSQL 可编辑策略；租户级覆盖、
-   管理员 UI、变更审计与超额计量事件尚未实现；
+1. Workspace PostgreSQL 覆盖、管理员 UI 和变更审计已完成；仍缺实时超额计量事件与成本归因；
 2. 目标 Linux 正式 Chromium/x11vnc 的 8 Client 长稳、弱网、输入法/剪贴板竞争和告警到达；
 3. 跨 Region Desktop Relay/Workflow；
 4. 生产压缩编码的无状态 Fan-out/转码成本验证。

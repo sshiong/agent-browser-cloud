@@ -27,6 +27,18 @@ public class WorkspaceSettingsEntity {
   @Column(name = "default_human_takeover_enabled", nullable = false)
   private boolean defaultHumanTakeoverEnabled;
 
+  @Column(name = "remote_desktop_control_bitrate_limit_kbps", nullable = false)
+  private int remoteDesktopControlBitrateLimitKbps;
+
+  @Column(name = "remote_desktop_control_frame_rate_limit_fps", nullable = false)
+  private int remoteDesktopControlFrameRateLimitFps;
+
+  @Column(name = "remote_desktop_viewer_bitrate_limit_kbps", nullable = false)
+  private int remoteDesktopViewerBitrateLimitKbps;
+
+  @Column(name = "remote_desktop_viewer_frame_rate_limit_fps", nullable = false)
+  private int remoteDesktopViewerFrameRateLimitFps;
+
   @Column(name = "updated_by", nullable = false)
   private String updatedBy;
 
@@ -60,6 +72,22 @@ public class WorkspaceSettingsEntity {
 
   public boolean isDefaultHumanTakeoverEnabled() {
     return defaultHumanTakeoverEnabled;
+  }
+
+  public int getRemoteDesktopControlBitrateLimitKbps() {
+    return remoteDesktopControlBitrateLimitKbps;
+  }
+
+  public int getRemoteDesktopControlFrameRateLimitFps() {
+    return remoteDesktopControlFrameRateLimitFps;
+  }
+
+  public int getRemoteDesktopViewerBitrateLimitKbps() {
+    return remoteDesktopViewerBitrateLimitKbps;
+  }
+
+  public int getRemoteDesktopViewerFrameRateLimitFps() {
+    return remoteDesktopViewerFrameRateLimitFps;
   }
 
   public String getUpdatedBy() {

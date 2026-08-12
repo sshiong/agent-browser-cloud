@@ -784,8 +784,8 @@ system_workspace_settings="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/workspace-settings" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$system_workspace_settings" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["source"] == "SYSTEM_DEFAULT"; assert item["workspaceName"] == "Default Workspace"; assert item["defaultRuntimeBuildId"] == "runtime_local_chromium"; assert item["resourcePolicyMode"] == "AUTO"; assert item["onMaximumReached"] == "PAUSE_AGENT"'
-workspace_settings_body='{"workspaceName":"Integration Workspace","defaultRuntimeBuildId":"runtime_local_chromium","defaultRegion":"local","defaultHumanTakeoverEnabled":true}'
+  'import json,sys; item=json.load(sys.stdin); assert item["source"] == "SYSTEM_DEFAULT"; assert item["workspaceName"] == "Default Workspace"; assert item["defaultRuntimeBuildId"] == "runtime_local_chromium"; assert item["resourcePolicyMode"] == "AUTO"; assert item["onMaximumReached"] == "PAUSE_AGENT"; assert item["remoteDesktopControlBitrateLimitKbps"] == 8000; assert item["remoteDesktopControlFrameRateLimitFps"] == 30; assert item["remoteDesktopViewerBitrateLimitKbps"] == 4000; assert item["remoteDesktopViewerFrameRateLimitFps"] == 15'
+workspace_settings_body='{"workspaceName":"Integration Workspace","defaultRuntimeBuildId":"runtime_local_chromium","defaultRegion":"local","defaultHumanTakeoverEnabled":true,"remoteDesktopControlBitrateLimitKbps":12000,"remoteDesktopControlFrameRateLimitFps":45,"remoteDesktopViewerBitrateLimitKbps":3000,"remoteDesktopViewerFrameRateLimitFps":12}'
 workspace_settings="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/workspace-settings" \
   -H 'Content-Type: application/json' \
@@ -795,7 +795,7 @@ workspace_settings="$(curl -fsS -X PUT \
   -H 'Idempotency-Key: smoke-settings-update-001' \
   -d "$workspace_settings_body")"
 printf '%s' "$workspace_settings" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["source"] == "WORKSPACE_OVERRIDE"; assert item["workspaceName"] == "Integration Workspace"; assert item["defaultHumanTakeoverEnabled"] is True; assert item["version"] == 0'
+  'import json,sys; item=json.load(sys.stdin); assert item["source"] == "WORKSPACE_OVERRIDE"; assert item["workspaceName"] == "Integration Workspace"; assert item["defaultHumanTakeoverEnabled"] is True; assert item["remoteDesktopControlBitrateLimitKbps"] == 12000; assert item["remoteDesktopControlFrameRateLimitFps"] == 45; assert item["remoteDesktopViewerBitrateLimitKbps"] == 3000; assert item["remoteDesktopViewerFrameRateLimitFps"] == 12; assert item["version"] == 0'
 workspace_settings_replay="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/workspace-settings" \
   -H 'Content-Type: application/json' \
@@ -815,6 +815,15 @@ settings_viewer_write_status="$(curl -sS \
   -H 'Idempotency-Key: smoke-settings-viewer-001' \
   -d "$workspace_settings_body")"
 test "$settings_viewer_write_status" = "403"
+workspace_desktop_quota_audit="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select ((details::jsonb)->>'remoteDesktopControlBitrateLimitKbps') || ':' ||
+          ((details::jsonb)->>'remoteDesktopViewerFrameRateLimitFps')
+     from audit_events
+    where tenant_id='tenant-integration'
+      and event_type='WORKSPACE_SETTINGS'
+      and action='WORKSPACE_SETTINGS_UPDATED'
+    order by created_at desc limit 1")"
+test "$workspace_desktop_quota_audit" = "12000:12"
 
 environment_import_body='{"schemaVersion":1,"name":"Integration import","environments":[{"displayName":"Imported CRM Singapore","profileId":"profile-import-sg","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO","onMaximumReached":"PAUSE_AGENT","allowMigration":true,"allowHibernate":true}}]}'
 environment_import_preview="$(curl -fsS -X POST \

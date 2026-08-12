@@ -41,6 +41,14 @@ export function SettingsPage() {
       defaultRuntimeBuildId: query.data.defaultRuntimeBuildId,
       defaultRegion: query.data.defaultRegion,
       defaultHumanTakeoverEnabled: query.data.defaultHumanTakeoverEnabled,
+      remoteDesktopControlBitrateLimitKbps:
+        query.data.remoteDesktopControlBitrateLimitKbps,
+      remoteDesktopControlFrameRateLimitFps:
+        query.data.remoteDesktopControlFrameRateLimitFps,
+      remoteDesktopViewerBitrateLimitKbps:
+        query.data.remoteDesktopViewerBitrateLimitKbps,
+      remoteDesktopViewerFrameRateLimitFps:
+        query.data.remoteDesktopViewerFrameRateLimitFps,
     });
   }, [query.data]);
 
@@ -51,7 +59,15 @@ export function SettingsPage() {
       draft.defaultRuntimeBuildId !== query.data.defaultRuntimeBuildId ||
       draft.defaultRegion !== query.data.defaultRegion ||
       draft.defaultHumanTakeoverEnabled !==
-        query.data.defaultHumanTakeoverEnabled);
+        query.data.defaultHumanTakeoverEnabled ||
+      draft.remoteDesktopControlBitrateLimitKbps !==
+        query.data.remoteDesktopControlBitrateLimitKbps ||
+      draft.remoteDesktopControlFrameRateLimitFps !==
+        query.data.remoteDesktopControlFrameRateLimitFps ||
+      draft.remoteDesktopViewerBitrateLimitKbps !==
+        query.data.remoteDesktopViewerBitrateLimitKbps ||
+      draft.remoteDesktopViewerFrameRateLimitFps !==
+        query.data.remoteDesktopViewerFrameRateLimitFps);
   const requestId = isSessionApiError(update.error)
     ? update.error.body.requestId
     : undefined;
@@ -251,6 +267,70 @@ export function SettingsPage() {
                   </div>
                 </SettingGroup>
 
+                <SettingGroup
+                  label="远程桌面 Actor 配额"
+                  description="每个 Actor 的所有 VNC 窗口共享此画面输出上限；只限制画面，不会切断 Agent 或延迟真人输入。"
+                >
+                  <div className="grid w-full max-w-[720px] gap-3 border border-border-subtle bg-surface-2 p-3 sm:grid-cols-2">
+                    <QuotaInput
+                      id="desktop-control-bitrate"
+                      label="协作控制带宽"
+                      unit="Kbps"
+                      min={250}
+                      max={100000}
+                      value={draft.remoteDesktopControlBitrateLimitKbps ?? 8000}
+                      onChange={(value) =>
+                        setDraft({
+                          ...draft,
+                          remoteDesktopControlBitrateLimitKbps: value,
+                        })
+                      }
+                    />
+                    <QuotaInput
+                      id="desktop-control-fps"
+                      label="协作控制帧率"
+                      unit="FPS"
+                      min={1}
+                      max={60}
+                      value={draft.remoteDesktopControlFrameRateLimitFps ?? 30}
+                      onChange={(value) =>
+                        setDraft({
+                          ...draft,
+                          remoteDesktopControlFrameRateLimitFps: value,
+                        })
+                      }
+                    />
+                    <QuotaInput
+                      id="desktop-viewer-bitrate"
+                      label="只读观察带宽"
+                      unit="Kbps"
+                      min={250}
+                      max={100000}
+                      value={draft.remoteDesktopViewerBitrateLimitKbps ?? 4000}
+                      onChange={(value) =>
+                        setDraft({
+                          ...draft,
+                          remoteDesktopViewerBitrateLimitKbps: value,
+                        })
+                      }
+                    />
+                    <QuotaInput
+                      id="desktop-viewer-fps"
+                      label="只读观察帧率"
+                      unit="FPS"
+                      min={1}
+                      max={60}
+                      value={draft.remoteDesktopViewerFrameRateLimitFps ?? 15}
+                      onChange={(value) =>
+                        setDraft({
+                          ...draft,
+                          remoteDesktopViewerFrameRateLimitFps: value,
+                        })
+                      }
+                    />
+                  </div>
+                </SettingGroup>
+
                 {update.error && (
                   <p role="alert" className="text-[11px] text-danger">
                     {update.error.message}
@@ -307,6 +387,45 @@ export function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function QuotaInput({
+  id,
+  label,
+  unit,
+  min,
+  max,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label htmlFor={id} className="block">
+      <span className="mb-1 block text-[10px] text-text-muted">{label}</span>
+      <span className="flex items-center border border-border-default bg-canvas focus-within:border-accent/60">
+        <input
+          id={id}
+          type="number"
+          required
+          min={min}
+          max={max}
+          value={value}
+          onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
+          className="h-9 min-w-0 flex-1 bg-transparent px-2 font-mono text-[11px] text-text-primary outline-none"
+        />
+        <span className="border-l border-border-subtle px-2 font-mono text-[9px] text-text-muted">
+          {unit}
+        </span>
+      </span>
+    </label>
   );
 }
 

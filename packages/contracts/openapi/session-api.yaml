@@ -10664,6 +10664,22 @@ components:
           pattern: "^[a-z0-9-]{1,32}$"
         defaultHumanTakeoverEnabled:
           type: boolean
+        remoteDesktopControlBitrateLimitKbps:
+          type: integer
+          minimum: 250
+          maximum: 100000
+        remoteDesktopControlFrameRateLimitFps:
+          type: integer
+          minimum: 1
+          maximum: 60
+        remoteDesktopViewerBitrateLimitKbps:
+          type: integer
+          minimum: 250
+          maximum: 100000
+        remoteDesktopViewerFrameRateLimitFps:
+          type: integer
+          minimum: 1
+          maximum: 60
     WorkspaceSettings:
       type: object
       additionalProperties: false
@@ -10672,6 +10688,10 @@ components:
         - defaultRuntimeBuildId
         - defaultRegion
         - defaultHumanTakeoverEnabled
+        - remoteDesktopControlBitrateLimitKbps
+        - remoteDesktopControlFrameRateLimitFps
+        - remoteDesktopViewerBitrateLimitKbps
+        - remoteDesktopViewerFrameRateLimitFps
         - resourcePolicyMode
         - onMaximumReached
         - source
@@ -10687,6 +10707,22 @@ components:
           type: string
         defaultHumanTakeoverEnabled:
           type: boolean
+        remoteDesktopControlBitrateLimitKbps:
+          type: integer
+          minimum: 250
+          maximum: 100000
+        remoteDesktopControlFrameRateLimitFps:
+          type: integer
+          minimum: 1
+          maximum: 60
+        remoteDesktopViewerBitrateLimitKbps:
+          type: integer
+          minimum: 250
+          maximum: 100000
+        remoteDesktopViewerFrameRateLimitFps:
+          type: integer
+          minimum: 1
+          maximum: 60
         resourcePolicyMode:
           type: string
           const: AUTO

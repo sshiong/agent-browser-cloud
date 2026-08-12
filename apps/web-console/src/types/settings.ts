@@ -3,6 +3,10 @@ export interface WorkspaceSettingsView {
   defaultRuntimeBuildId: string;
   defaultRegion: string;
   defaultHumanTakeoverEnabled: boolean;
+  remoteDesktopControlBitrateLimitKbps: number;
+  remoteDesktopControlFrameRateLimitFps: number;
+  remoteDesktopViewerBitrateLimitKbps: number;
+  remoteDesktopViewerFrameRateLimitFps: number;
   resourcePolicyMode: 'AUTO';
   onMaximumReached: 'PAUSE_AGENT';
   source: 'SYSTEM_DEFAULT' | 'WORKSPACE_OVERRIDE';
@@ -16,4 +20,8 @@ export interface WorkspaceSettingsRequest {
   defaultRuntimeBuildId: string;
   defaultRegion: string;
   defaultHumanTakeoverEnabled: boolean;
+  remoteDesktopControlBitrateLimitKbps?: number;
+  remoteDesktopControlFrameRateLimitFps?: number;
+  remoteDesktopViewerBitrateLimitKbps?: number;
+  remoteDesktopViewerFrameRateLimitFps?: number;
 }

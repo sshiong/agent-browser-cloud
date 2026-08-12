@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "a113f481301107f1c5ab3930c9e5f959b1ef689cf7b383501aa2035b29ff08c7",
+  "contractSha256": "0cd7ca9d0da87d4f1305c924926847952d31d98aa399c6c88ac90c994675f3c9",
   "files": {
     "BrowserCloudGeneratedClient.ts": "eed5280848e608a7f52f53d877b7bda2b0c49cac18cf6adbe305e2f1b1c7cb90",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -289,8 +289,8 @@
     "models/WorkspaceProxySummary.ts": "95f340ca7cba08a525dca1ba6bc906fb68feba8fd3b1074b184a651744901f99",
     "models/WorkspaceSecuritySummary.ts": "9746b7d390b8522287ba0c39f3ce2d25626b93d41084e7a7e49399867718779d",
     "models/WorkspaceSessionSummary.ts": "9783bb8c63cd366f1609dbd3623c5326078e052ebe06bff49edc01860915e04f",
-    "models/WorkspaceSettings.ts": "0aec293cf974d4ca3529c1fe1e06ccc04f2f58941a9ce16cde7f633beac37eae",
-    "models/WorkspaceSettingsRequest.ts": "3b66d73d1c7eea607b2ef3414c5f3a3b5209fa0199a3148c705d2fca28ce8fa6",
+    "models/WorkspaceSettings.ts": "a7e3655a9b65daf3d6f1aa84f439d1c09be828c59ff0595cc150a50ee26ffd8d",
+    "models/WorkspaceSettingsRequest.ts": "588c32a021924f68d1cece8b330c26125f84700e34a674f079767709608a7558",
     "models/WorkspaceTag.ts": "40b48d7fb164c1fcb50effb2d385e664c929be59f913733aab3d2780ac5417ba",
     "models/WorkspaceTagListResponse.ts": "1f2448f8025e173f2599818f891dead7baafe3dbc30bc5f457d9983451f56233",
     "models/WorkspaceTagRequest.ts": "a666f897f8ed3a66b1649481452604235e265059bb7b92bd30d62806b38bcc2d",

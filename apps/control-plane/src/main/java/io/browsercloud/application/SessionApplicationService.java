@@ -511,6 +511,7 @@ public class SessionApplicationService {
   public RemoteDesktopConnectionResponse createDesktopConnection(
       String sessionId, String tenantId, String userId, boolean viewOnly) {
     var session = requireTenant(sessionId, tenantId);
+    var desktopPolicy = workspaceSettingsService.resolve(tenantId);
     if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
       throw new InvalidSessionStateException(sessionId, session.state(), "remote-desktop");
     }
@@ -525,15 +526,30 @@ public class SessionApplicationService {
       if (!userId.equals(takeover.actorId())) {
         throw new TenantAccessDeniedException(sessionId);
       }
-      return remoteDesktopTicketService.issueExclusive(tenantId, sessionId, userId, takeover);
+      return remoteDesktopTicketService.issueExclusive(
+          tenantId,
+          sessionId,
+          userId,
+          takeover,
+          desktopPolicy.remoteDesktopControlBitrateLimitKbps(),
+          desktopPolicy.remoteDesktopControlFrameRateLimitFps());
     }
     if (activeOperation.isPresent() && activeOperation.get().ownerType() != OwnerType.AGENT) {
       throw new StaleOperationException(
           sessionId, "NONE_OR_AGENT_OPERATION", activeOperation.get().mode().name());
     }
-    return viewOnly
-        ? remoteDesktopTicketService.issueCollaborative(tenantId, sessionId, userId, session, true)
-        : remoteDesktopTicketService.issueCollaborative(tenantId, sessionId, userId, session);
+    return remoteDesktopTicketService.issueCollaborative(
+        tenantId,
+        sessionId,
+        userId,
+        session,
+        viewOnly,
+        viewOnly
+            ? desktopPolicy.remoteDesktopViewerBitrateLimitKbps()
+            : desktopPolicy.remoteDesktopControlBitrateLimitKbps(),
+        viewOnly
+            ? desktopPolicy.remoteDesktopViewerFrameRateLimitFps()
+            : desktopPolicy.remoteDesktopControlFrameRateLimitFps());
   }
 
   /** 获取 Session。 */

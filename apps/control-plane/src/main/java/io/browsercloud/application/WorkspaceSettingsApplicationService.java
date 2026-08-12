@@ -7,6 +7,7 @@ import io.browsercloud.persistence.WorkspaceSettingsJpaRepository;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,19 +23,53 @@ public class WorkspaceSettingsApplicationService {
   private final IdempotencyService idempotency;
   private final AuditApplicationService audit;
   private final String systemDefaultRuntimeBuildId;
+  private final int systemControlBitrateKbps;
+  private final int systemControlFrameRateFps;
+  private final int systemViewerBitrateKbps;
+  private final int systemViewerFrameRateFps;
 
+  @Autowired
   public WorkspaceSettingsApplicationService(
       WorkspaceSettingsJpaRepository settings,
       RuntimeBuildPolicy runtimeBuildPolicy,
       IdempotencyService idempotency,
       AuditApplicationService audit,
       @Value("${browser-node.default-runtime-build-id:runtime_local_chromium}")
-          String systemDefaultRuntimeBuildId) {
+          String systemDefaultRuntimeBuildId,
+      @Value("${remote-desktop.control-actor-bitrate-limit-kbps:8000}")
+          int systemControlBitrateKbps,
+      @Value("${remote-desktop.control-actor-frame-rate-limit-fps:30}")
+          int systemControlFrameRateFps,
+      @Value("${remote-desktop.viewer-actor-bitrate-limit-kbps:4000}") int systemViewerBitrateKbps,
+      @Value("${remote-desktop.viewer-actor-frame-rate-limit-fps:15}")
+          int systemViewerFrameRateFps) {
     this.settings = settings;
     this.runtimeBuildPolicy = runtimeBuildPolicy;
     this.idempotency = idempotency;
     this.audit = audit;
     this.systemDefaultRuntimeBuildId = systemDefaultRuntimeBuildId;
+    this.systemControlBitrateKbps = systemControlBitrateKbps;
+    this.systemControlFrameRateFps = systemControlFrameRateFps;
+    this.systemViewerBitrateKbps = systemViewerBitrateKbps;
+    this.systemViewerFrameRateFps = systemViewerFrameRateFps;
+  }
+
+  WorkspaceSettingsApplicationService(
+      WorkspaceSettingsJpaRepository settings,
+      RuntimeBuildPolicy runtimeBuildPolicy,
+      IdempotencyService idempotency,
+      AuditApplicationService audit,
+      String systemDefaultRuntimeBuildId) {
+    this(
+        settings,
+        runtimeBuildPolicy,
+        idempotency,
+        audit,
+        systemDefaultRuntimeBuildId,
+        8_000,
+        30,
+        4_000,
+        15);
   }
 
   @Transactional(readOnly = true)
@@ -49,6 +84,10 @@ public class WorkspaceSettingsApplicationService {
                     systemDefaultRuntimeBuildId,
                     DEFAULT_REGION,
                     true,
+                    systemControlBitrateKbps,
+                    systemControlFrameRateFps,
+                    systemViewerBitrateKbps,
+                    systemViewerFrameRateFps,
                     "AUTO",
                     "PAUSE_AGENT",
                     "SYSTEM_DEFAULT",
@@ -66,10 +105,21 @@ public class WorkspaceSettingsApplicationService {
                 new EffectiveWorkspaceSettings(
                     entity.getDefaultRuntimeBuildId(),
                     entity.getDefaultRegion(),
-                    entity.isDefaultHumanTakeoverEnabled()))
+                    entity.isDefaultHumanTakeoverEnabled(),
+                    entity.getRemoteDesktopControlBitrateLimitKbps(),
+                    entity.getRemoteDesktopControlFrameRateLimitFps(),
+                    entity.getRemoteDesktopViewerBitrateLimitKbps(),
+                    entity.getRemoteDesktopViewerFrameRateLimitFps()))
         .orElseGet(
             () ->
-                new EffectiveWorkspaceSettings(systemDefaultRuntimeBuildId, DEFAULT_REGION, true));
+                new EffectiveWorkspaceSettings(
+                    systemDefaultRuntimeBuildId,
+                    DEFAULT_REGION,
+                    true,
+                    systemControlBitrateKbps,
+                    systemControlFrameRateFps,
+                    systemViewerBitrateKbps,
+                    systemViewerFrameRateFps));
   }
 
   @Transactional
@@ -88,12 +138,33 @@ public class WorkspaceSettingsApplicationService {
       return get(tenantId);
     }
     var now = Instant.now();
+    var current = resolve(tenantId);
+    var controlBitrate =
+        valueOrDefault(
+            request.remoteDesktopControlBitrateLimitKbps(),
+            current.remoteDesktopControlBitrateLimitKbps());
+    var controlFrameRate =
+        valueOrDefault(
+            request.remoteDesktopControlFrameRateLimitFps(),
+            current.remoteDesktopControlFrameRateLimitFps());
+    var viewerBitrate =
+        valueOrDefault(
+            request.remoteDesktopViewerBitrateLimitKbps(),
+            current.remoteDesktopViewerBitrateLimitKbps());
+    var viewerFrameRate =
+        valueOrDefault(
+            request.remoteDesktopViewerFrameRateLimitFps(),
+            current.remoteDesktopViewerFrameRateLimitFps());
     settings.upsert(
         tenantId,
         request.workspaceName().strip(),
         request.defaultRuntimeBuildId(),
         request.defaultRegion(),
         request.defaultHumanTakeoverEnabled(),
+        controlBitrate,
+        controlFrameRate,
+        viewerBitrate,
+        viewerFrameRate,
         actorId,
         now);
     settings.flush();
@@ -120,7 +191,15 @@ public class WorkspaceSettingsApplicationService {
                 "defaultRegion",
                 persisted.getDefaultRegion(),
                 "defaultHumanTakeoverEnabled",
-                persisted.isDefaultHumanTakeoverEnabled()),
+                persisted.isDefaultHumanTakeoverEnabled(),
+                "remoteDesktopControlBitrateLimitKbps",
+                persisted.getRemoteDesktopControlBitrateLimitKbps(),
+                "remoteDesktopControlFrameRateLimitFps",
+                persisted.getRemoteDesktopControlFrameRateLimitFps(),
+                "remoteDesktopViewerBitrateLimitKbps",
+                persisted.getRemoteDesktopViewerBitrateLimitKbps(),
+                "remoteDesktopViewerFrameRateLimitFps",
+                persisted.getRemoteDesktopViewerFrameRateLimitFps()),
             requestId));
     return toView(persisted);
   }
@@ -131,6 +210,10 @@ public class WorkspaceSettingsApplicationService {
         entity.getDefaultRuntimeBuildId(),
         entity.getDefaultRegion(),
         entity.isDefaultHumanTakeoverEnabled(),
+        entity.getRemoteDesktopControlBitrateLimitKbps(),
+        entity.getRemoteDesktopControlFrameRateLimitFps(),
+        entity.getRemoteDesktopViewerBitrateLimitKbps(),
+        entity.getRemoteDesktopViewerFrameRateLimitFps(),
         "AUTO",
         "PAUSE_AGENT",
         "WORKSPACE_OVERRIDE",
@@ -143,6 +226,22 @@ public class WorkspaceSettingsApplicationService {
     return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
   }
 
+  private static int valueOrDefault(Integer value, int defaultValue) {
+    return value == null ? defaultValue : value;
+  }
+
   public record EffectiveWorkspaceSettings(
-      String defaultRuntimeBuildId, String defaultRegion, boolean defaultHumanTakeoverEnabled) {}
+      String defaultRuntimeBuildId,
+      String defaultRegion,
+      boolean defaultHumanTakeoverEnabled,
+      int remoteDesktopControlBitrateLimitKbps,
+      int remoteDesktopControlFrameRateLimitFps,
+      int remoteDesktopViewerBitrateLimitKbps,
+      int remoteDesktopViewerFrameRateLimitFps) {
+
+    public EffectiveWorkspaceSettings(
+        String defaultRuntimeBuildId, String defaultRegion, boolean defaultHumanTakeoverEnabled) {
+      this(defaultRuntimeBuildId, defaultRegion, defaultHumanTakeoverEnabled, 8_000, 30, 4_000, 15);
+    }
+  }
 }

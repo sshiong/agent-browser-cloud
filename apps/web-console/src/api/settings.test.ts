@@ -22,6 +22,10 @@ describe('workspace settings api', () => {
             defaultRuntimeBuildId: 'runtime_local_chromium',
             defaultRegion: 'local',
             defaultHumanTakeoverEnabled: true,
+            remoteDesktopControlBitrateLimitKbps: 8000,
+            remoteDesktopControlFrameRateLimitFps: 30,
+            remoteDesktopViewerBitrateLimitKbps: 4000,
+            remoteDesktopViewerFrameRateLimitFps: 15,
             resourcePolicyMode: 'AUTO',
             onMaximumReached: 'PAUSE_AGENT',
             source: 'WORKSPACE_OVERRIDE',
@@ -40,6 +44,10 @@ describe('workspace settings api', () => {
         defaultRuntimeBuildId: 'runtime_local_chromium',
         defaultRegion: 'local',
         defaultHumanTakeoverEnabled: false,
+        remoteDesktopControlBitrateLimitKbps: 10000,
+        remoteDesktopControlFrameRateLimitFps: 40,
+        remoteDesktopViewerBitrateLimitKbps: 3000,
+        remoteDesktopViewerFrameRateLimitFps: 12,
       },
       'settings-update-1'
     );

@@ -59,6 +59,10 @@ class WorkspaceSettingsApplicationServiceTest {
     when(entity.getDefaultRuntimeBuildId()).thenReturn("runtime-stable");
     when(entity.getDefaultRegion()).thenReturn("singapore");
     when(entity.isDefaultHumanTakeoverEnabled()).thenReturn(false);
+    when(entity.getRemoteDesktopControlBitrateLimitKbps()).thenReturn(12_000);
+    when(entity.getRemoteDesktopControlFrameRateLimitFps()).thenReturn(45);
+    when(entity.getRemoteDesktopViewerBitrateLimitKbps()).thenReturn(3_000);
+    when(entity.getRemoteDesktopViewerFrameRateLimitFps()).thenReturn(12);
     when(entity.getUpdatedBy()).thenReturn("admin-a");
     when(entity.getUpdatedAt()).thenReturn(Instant.parse("2026-07-28T00:00:00Z"));
     when(entity.getVersion()).thenReturn(0L);
@@ -73,10 +77,52 @@ class WorkspaceSettingsApplicationServiceTest {
             eq("runtime-stable"),
             eq("singapore"),
             eq(false),
+            eq(12_000),
+            eq(45),
+            eq(3_000),
+            eq(12),
             eq("admin-a"),
             any(Instant.class));
     verify(audit).append(any());
     assertThat(result.source()).isEqualTo("WORKSPACE_OVERRIDE");
     assertThat(result.defaultHumanTakeoverEnabled()).isFalse();
+  }
+
+  @Test
+  void persistsExplicitRemoteDesktopActorQuotasAndResolvesThemAuthoritatively() {
+    var request =
+        new WorkspaceSettingsRequest(
+            "Operations", "runtime-stable", "singapore", true, 12_000, 45, 3_000, 12);
+    when(idempotency.claimWorkspaceSettingsUpdate(anyString(), anyString(), any(), anyString()))
+        .thenAnswer(invocation -> invocation.getArgument(3));
+    when(repository.findById("tenant-a")).thenReturn(Optional.empty(), Optional.of(entity));
+    when(entity.getWorkspaceName()).thenReturn("Operations");
+    when(entity.getDefaultRuntimeBuildId()).thenReturn("runtime-stable");
+    when(entity.getDefaultRegion()).thenReturn("singapore");
+    when(entity.isDefaultHumanTakeoverEnabled()).thenReturn(true);
+    when(entity.getRemoteDesktopControlBitrateLimitKbps()).thenReturn(12_000);
+    when(entity.getRemoteDesktopControlFrameRateLimitFps()).thenReturn(45);
+    when(entity.getRemoteDesktopViewerBitrateLimitKbps()).thenReturn(3_000);
+    when(entity.getRemoteDesktopViewerFrameRateLimitFps()).thenReturn(12);
+    when(entity.getUpdatedBy()).thenReturn("admin-a");
+    when(entity.getUpdatedAt()).thenReturn(Instant.parse("2026-08-12T00:00:00Z"));
+
+    var result = service.update("tenant-a", "admin-a", "idem-b", "request-b", request);
+
+    verify(repository)
+        .upsert(
+            eq("tenant-a"),
+            eq("Operations"),
+            eq("runtime-stable"),
+            eq("singapore"),
+            eq(true),
+            eq(12_000),
+            eq(45),
+            eq(3_000),
+            eq(12),
+            eq("admin-a"),
+            any(Instant.class));
+    assertThat(result.remoteDesktopControlBitrateLimitKbps()).isEqualTo(12_000);
+    assertThat(result.remoteDesktopViewerFrameRateLimitFps()).isEqualTo(12);
   }
 }

@@ -2025,23 +2025,31 @@ type WorkspaceMetadataBatchOperationListResponse struct {
 }
 
 type WorkspaceSettingsRequest struct {
-	WorkspaceName               string `json:"workspaceName,omitempty"`
-	DefaultRuntimeBuildId       string `json:"defaultRuntimeBuildId,omitempty"`
-	DefaultRegion               string `json:"defaultRegion,omitempty"`
-	DefaultHumanTakeoverEnabled bool   `json:"defaultHumanTakeoverEnabled,omitempty"`
+	WorkspaceName                         string `json:"workspaceName,omitempty"`
+	DefaultRuntimeBuildId                 string `json:"defaultRuntimeBuildId,omitempty"`
+	DefaultRegion                         string `json:"defaultRegion,omitempty"`
+	DefaultHumanTakeoverEnabled           bool   `json:"defaultHumanTakeoverEnabled,omitempty"`
+	RemoteDesktopControlBitrateLimitKbps  int    `json:"remoteDesktopControlBitrateLimitKbps,omitempty"`
+	RemoteDesktopControlFrameRateLimitFps int    `json:"remoteDesktopControlFrameRateLimitFps,omitempty"`
+	RemoteDesktopViewerBitrateLimitKbps   int    `json:"remoteDesktopViewerBitrateLimitKbps,omitempty"`
+	RemoteDesktopViewerFrameRateLimitFps  int    `json:"remoteDesktopViewerFrameRateLimitFps,omitempty"`
 }
 
 type WorkspaceSettings struct {
-	WorkspaceName               string `json:"workspaceName,omitempty"`
-	DefaultRuntimeBuildId       string `json:"defaultRuntimeBuildId,omitempty"`
-	DefaultRegion               string `json:"defaultRegion,omitempty"`
-	DefaultHumanTakeoverEnabled bool   `json:"defaultHumanTakeoverEnabled,omitempty"`
-	ResourcePolicyMode          string `json:"resourcePolicyMode,omitempty"`
-	OnMaximumReached            string `json:"onMaximumReached,omitempty"`
-	Source                      string `json:"source,omitempty"`
-	UpdatedBy                   any    `json:"updatedBy,omitempty"`
-	UpdatedAt                   any    `json:"updatedAt,omitempty"`
-	Version                     int64  `json:"version,omitempty"`
+	WorkspaceName                         string `json:"workspaceName,omitempty"`
+	DefaultRuntimeBuildId                 string `json:"defaultRuntimeBuildId,omitempty"`
+	DefaultRegion                         string `json:"defaultRegion,omitempty"`
+	DefaultHumanTakeoverEnabled           bool   `json:"defaultHumanTakeoverEnabled,omitempty"`
+	RemoteDesktopControlBitrateLimitKbps  int    `json:"remoteDesktopControlBitrateLimitKbps,omitempty"`
+	RemoteDesktopControlFrameRateLimitFps int    `json:"remoteDesktopControlFrameRateLimitFps,omitempty"`
+	RemoteDesktopViewerBitrateLimitKbps   int    `json:"remoteDesktopViewerBitrateLimitKbps,omitempty"`
+	RemoteDesktopViewerFrameRateLimitFps  int    `json:"remoteDesktopViewerFrameRateLimitFps,omitempty"`
+	ResourcePolicyMode                    string `json:"resourcePolicyMode,omitempty"`
+	OnMaximumReached                      string `json:"onMaximumReached,omitempty"`
+	Source                                string `json:"source,omitempty"`
+	UpdatedBy                             any    `json:"updatedBy,omitempty"`
+	UpdatedAt                             any    `json:"updatedAt,omitempty"`
+	Version                               int64  `json:"version,omitempty"`
 }
 
 type SessionListResponse struct {

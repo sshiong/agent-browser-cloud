@@ -123,6 +123,19 @@ public class RemoteDesktopTicketService {
 
   public RemoteDesktopConnectionResponse issueCollaborative(
       String tenantId, String sessionId, String actorId, SessionContext session, boolean viewOnly) {
+    var bitrate = viewOnly ? viewerActorBitrateLimitKbps : controlActorBitrateLimitKbps;
+    var frameRate = viewOnly ? viewerActorFrameRateLimitFps : controlActorFrameRateLimitFps;
+    return issueCollaborative(tenantId, sessionId, actorId, session, viewOnly, bitrate, frameRate);
+  }
+
+  public RemoteDesktopConnectionResponse issueCollaborative(
+      String tenantId,
+      String sessionId,
+      String actorId,
+      SessionContext session,
+      boolean viewOnly,
+      int actorBitrateLimitKbps,
+      int actorFrameRateLimitFps) {
     return issue(
         tenantId,
         sessionId,
@@ -131,12 +144,30 @@ public class RemoteDesktopTicketService {
         session.contextEpoch(),
         session.contextEpoch(),
         "COLLABORATIVE",
-        viewOnly);
+        viewOnly,
+        actorBitrateLimitKbps,
+        actorFrameRateLimitFps);
   }
 
   /** Issues a ticket for an already established explicit HumanTakeover barrier. */
   public RemoteDesktopConnectionResponse issueExclusive(
       String tenantId, String sessionId, String actorId, ExclusiveOperation operation) {
+    return issueExclusive(
+        tenantId,
+        sessionId,
+        actorId,
+        operation,
+        controlActorBitrateLimitKbps,
+        controlActorFrameRateLimitFps);
+  }
+
+  public RemoteDesktopConnectionResponse issueExclusive(
+      String tenantId,
+      String sessionId,
+      String actorId,
+      ExclusiveOperation operation,
+      int actorBitrateLimitKbps,
+      int actorFrameRateLimitFps) {
     return issue(
         tenantId,
         sessionId,
@@ -145,7 +176,9 @@ public class RemoteDesktopTicketService {
         operation.contextEpoch(),
         operation.operationEpoch(),
         "EXCLUSIVE_TAKEOVER",
-        false);
+        false,
+        actorBitrateLimitKbps,
+        actorFrameRateLimitFps);
   }
 
   private RemoteDesktopConnectionResponse issue(
@@ -156,13 +189,12 @@ public class RemoteDesktopTicketService {
       long contextEpoch,
       long bindingEpoch,
       String accessMode,
-      boolean viewOnly) {
+      boolean viewOnly,
+      int actorBitrateLimitKbps,
+      int actorFrameRateLimitFps) {
+    validateActorQuota("issued", actorBitrateLimitKbps, actorFrameRateLimitFps);
     var expiresAt = Instant.now(clock).plusSeconds(ttlSeconds);
     var connectionId = "rdc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
-    var actorBitrateLimitKbps =
-        viewOnly ? viewerActorBitrateLimitKbps : controlActorBitrateLimitKbps;
-    var actorFrameRateLimitFps =
-        viewOnly ? viewerActorFrameRateLimitFps : controlActorFrameRateLimitFps;
     var claims = new LinkedHashMap<String, Object>();
     claims.put("tenantId", tenantId);
     claims.put("sessionId", sessionId);

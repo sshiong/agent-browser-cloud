@@ -2379,9 +2379,9 @@ mod tests {
             SECRET.as_bytes(),
             ["http://console.test".to_owned()],
             disconnects.clone(),
-            Duration::from_millis(10),
-            Duration::from_millis(10),
-            Duration::from_millis(30),
+            Duration::from_millis(20),
+            Duration::from_millis(20),
+            Duration::from_millis(200),
         )
         .unwrap();
         gateway
@@ -2445,9 +2445,9 @@ mod tests {
             SECRET.as_bytes(),
             ["http://console.test".to_owned()],
             disconnects.clone(),
-            Duration::from_millis(150),
-            Duration::from_millis(10),
-            Duration::from_millis(30),
+            Duration::from_millis(500),
+            Duration::from_millis(20),
+            Duration::from_millis(200),
         )
         .unwrap();
         gateway
@@ -2512,7 +2512,7 @@ mod tests {
             }
         });
 
-        tokio::time::sleep(Duration::from_millis(220)).await;
+        tokio::time::sleep(Duration::from_millis(650)).await;
         assert_eq!(disconnects.0.load(Ordering::SeqCst), 0);
 
         stop_sender.send(()).unwrap();

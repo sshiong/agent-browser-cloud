@@ -38,6 +38,9 @@
 - 完整 `make test`、`make lint` 和 `make test-integration` 通过；Integration 从空库顺序执行
   90 个迁移，最终 `health=UP`、`public_tables=106`、`node_events_inbox=70`、
   `node_command_published=51`、`audit_chain_valid=true`；
+- GitHub Linux 冷机构建首轮使黑洞/重连测试的 30 ms 客户端存活窗口在输入转发或 Pong 前
+  到期；生产 10 秒/30 秒心跳参数未修改，仅把测试时钟扩为 20 ms Heartbeat、200 ms
+  Liveness 和 500 ms Grace。Gateway 18 项测试随后本地连续运行 10 轮全部通过；
 - 真实 Web/Control Plane/PostgreSQL/Browser Node/noVNC E2E 已越过本轮全部关键断言：两个
   同时在线 noVNC 页面均为 `RFB LIVE`，Fake x11vnc 日志只有一个完成握手的上游连接；
   像素、鼠标、键盘和网络分区清键抵达真实数据面；VNC 在线时 Agent 可执行，真人连续输入

@@ -133,8 +133,16 @@ public class NodeEventIngestionService {
     }
 
     var result = coordinator.handle(command);
+    var lateFailedResourceAcknowledgement = false;
     if (result.status() == CoordinatorResult.Status.REJECTED) {
-      throw new NodeEventRejectedException(result.reason());
+      if (command.event() instanceof NodeEvent.RuntimeResourcesAdjusted adjusted) {
+        lateFailedResourceAcknowledgement =
+            resourceService.recordLateAdjustmentAcknowledgementIgnored(
+                command.tenantId(), adjusted, result.reason());
+      }
+      if (!lateFailedResourceAcknowledgement) {
+        throw new NodeEventRejectedException(result.reason());
+      }
     }
     switch (command.event()) {
       case NodeEvent.StateUpdated state -> {
@@ -191,11 +199,13 @@ public class NodeEventIngestionService {
         humanAssistService.humanTakeoverEnded(command, ended, challenge);
       }
       case NodeEvent.RuntimeResourcesAdjusted adjusted -> {
-        try {
-          resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
-        } catch (SessionResourceApplicationService.ResourceTelemetryRejectedException rejected) {
-          resourceService.recordAdjustmentRejected(
-              command.tenantId(), adjusted, rejected.getMessage());
+        if (!lateFailedResourceAcknowledgement) {
+          try {
+            resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
+          } catch (SessionResourceApplicationService.ResourceTelemetryRejectedException rejected) {
+            resourceService.recordAdjustmentRejected(
+                command.tenantId(), adjusted, rejected.getMessage());
+          }
         }
       }
       case NodeEvent.RuntimeCrashed crashed ->

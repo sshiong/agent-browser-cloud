@@ -66,6 +66,9 @@
 - 非 Durable Workflow 的 Active Operation 增加 1 秒 Deadline Scanner；Node 不可用或
   命令长期失败时 Operation 会进入 `TIMED_OUT`，资源 Ledger 同步记录
   `NODE_ACK_TIMEOUT`，不会永久占用 Session。命令进入 Dead Letter 时也会立即失败 Ledger。
+- 已失败调整的迟到 ACK 由精确 Tenant/Session/Operation/FAILED Ledger 证明后终止消费，
+  只记录 `LATE_ADJUSTMENT_ACK_IGNORED`，绝不回写资源；Node 身份等安全拒绝仍失败关闭，
+  详见[进度 128](128-AUTO资源失败后迟到ACK终态消费闭环.md)。
 
 ### GitHub 工作流稳定性
 

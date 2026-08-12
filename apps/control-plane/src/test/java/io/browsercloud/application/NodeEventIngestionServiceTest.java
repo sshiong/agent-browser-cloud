@@ -280,6 +280,54 @@ class NodeEventIngestionServiceTest {
     verify(inboxRepository).save(any());
   }
 
+  @Test
+  void shouldConsumeLateAcknowledgementOnlyWhenItsDurableAdjustmentAlreadyFailed() {
+    var adjusted = resourceAdjustedEvent();
+    var command =
+        new NodeEventReceived("evt-resource-late", "tenant-test", "ses-test", 1, 2, 3, 5, adjusted);
+    when(coordinator.handle(command))
+        .thenReturn(CoordinatorResult.rejected("STALE_RESOURCE_OPERATION"));
+    when(resourceService.recordLateAdjustmentAcknowledgementIgnored(
+            "tenant-test", adjusted, "STALE_RESOURCE_OPERATION"))
+        .thenReturn(true);
+
+    var receipt = service.receive(command);
+
+    assertThat(receipt.duplicate()).isFalse();
+    verify(resourceService, never()).recordAdjustmentAcknowledged(any(), any());
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldStillRejectAStaleResourceAcknowledgementWithoutFailedLedgerEvidence() {
+    var adjusted = resourceAdjustedEvent();
+    var command =
+        new NodeEventReceived(
+            "evt-resource-stale", "tenant-test", "ses-test", 1, 2, 3, 5, adjusted);
+    when(coordinator.handle(command))
+        .thenReturn(CoordinatorResult.rejected("STALE_RESOURCE_OPERATION"));
+
+    assertThatThrownBy(() -> service.receive(command))
+        .isInstanceOf(NodeEventIngestionService.NodeEventRejectedException.class)
+        .hasMessageContaining("STALE_RESOURCE_OPERATION");
+    verify(inboxRepository, never()).save(any());
+  }
+
+  @Test
+  void shouldNeverConsumeAResourceNodeMismatchAsALateAcknowledgement() {
+    var adjusted = resourceAdjustedEvent();
+    var command =
+        new NodeEventReceived(
+            "evt-resource-wrong-node", "tenant-test", "ses-test", 1, 2, 3, 5, adjusted);
+    when(coordinator.handle(command))
+        .thenReturn(CoordinatorResult.rejected("RESOURCE_NODE_MISMATCH"));
+
+    assertThatThrownBy(() -> service.receive(command))
+        .isInstanceOf(NodeEventIngestionService.NodeEventRejectedException.class)
+        .hasMessageContaining("RESOURCE_NODE_MISMATCH");
+    verify(inboxRepository, never()).save(any());
+  }
+
   private static NodeEvent.RuntimeResourcesAdjusted resourceAdjustedEvent() {
     return new NodeEvent.RuntimeResourcesAdjusted(
         "ses-test",

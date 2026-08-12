@@ -1237,6 +1237,14 @@ public class SessionResourceApplicationService {
         adjusted.sessionId(), adjusted.operationId(), errorCode);
   }
 
+  @Transactional
+  public boolean recordLateAdjustmentAcknowledgementIgnored(
+      String tenantId, NodeEvent.RuntimeResourcesAdjusted adjusted, String coordinatorRejection) {
+    requireTenant(adjusted.sessionId(), tenantId);
+    return adjustmentLifecycle.lateAcknowledgementIgnored(
+        tenantId, adjusted.sessionId(), adjusted.operationId(), coordinatorRejection);
+  }
+
   private io.browsercloud.domain.operation.ExclusiveOperation requireResourceOperation(
       String sessionId, String operationId) {
     return operations

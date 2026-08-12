@@ -14,6 +14,7 @@ import io.browsercloud.persistence.SessionResourceEventJpaRepository;
 import io.browsercloud.persistence.SessionResourcePolicyJpaRepository;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 /** Owns the durable REQUESTED/EXECUTING/ACKNOWLEDGED/COMMITTED/FAILED resource protocol. */
 @Service
 public class SessionResourceAdjustmentLifecycleService {
+  private static final Set<String> TERMINAL_LATE_ACK_REJECTIONS =
+      Set.of(
+          "STALE_RESOURCE_OPERATION", "INVALID_RESOURCE_OPERATION_PHASE", "INVALID_SESSION_STATE");
+
   private final SessionResourceAdjustmentJpaRepository adjustments;
   private final SessionResourcePolicyJpaRepository policies;
   private final SessionResourceEventJpaRepository events;
@@ -135,6 +140,32 @@ public class SessionResourceAdjustmentLifecycleService {
     abortMatchingResourceOperation(sessionId, operationId);
     failPolicy(adjustment, "RESOURCE_ADJUSTMENT_ACK_REJECTED:" + normalized, now);
     append(adjustment, "ADJUSTMENT_FAILED", normalized, "FAILED");
+  }
+
+  /**
+   * Consumes an actuator ACK that arrived after this exact adjustment already failed. The failed
+   * authority projection is never reopened; the event is retained only as terminal evidence so a
+   * Browser Node can clear its durable journal.
+   */
+  @Transactional(propagation = Propagation.MANDATORY)
+  public boolean lateAcknowledgementIgnored(
+      String tenantId, String sessionId, String operationId, String coordinatorRejection) {
+    if (!TERMINAL_LATE_ACK_REJECTIONS.contains(coordinatorRejection)) {
+      return false;
+    }
+    var adjustment = adjustments.findForUpdate(operationId).orElse(null);
+    if (adjustment == null
+        || !adjustment.getSessionId().equals(sessionId)
+        || !adjustment.getTenantId().equals(tenantId)
+        || !"FAILED".equals(adjustment.getState())) {
+      return false;
+    }
+    append(
+        adjustment,
+        "LATE_ADJUSTMENT_ACK_IGNORED",
+        "FAILED_ADJUSTMENT_TERMINAL:" + normalizeError(coordinatorRejection),
+        "IGNORED_AFTER_FAILED");
+    return true;
   }
 
   /** Deadline scanner callback for commands that never produced an authoritative ACK. */

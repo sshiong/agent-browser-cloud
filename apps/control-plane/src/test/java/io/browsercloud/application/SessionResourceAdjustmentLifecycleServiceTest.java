@@ -110,6 +110,57 @@ class SessionResourceAdjustmentLifecycleServiceTest {
     verify(events).save(any());
   }
 
+  @Test
+  void lateAcknowledgementIsConsumedOnlyForTheExactFailedLedger() {
+    var adjustment = adjustment();
+    adjustment.markExecuting(Instant.now());
+    adjustment.fail("NODE_ACK_TIMEOUT", Instant.now());
+    when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment));
+
+    var consumed =
+        service.lateAcknowledgementIgnored(
+            "tenant-test",
+            "ses_resource0000001",
+            "op_resource00000001",
+            "STALE_RESOURCE_OPERATION");
+
+    assertThat(consumed).isTrue();
+    var event =
+        org.mockito.ArgumentCaptor.forClass(
+            io.browsercloud.persistence.SessionResourceEventEntity.class);
+    verify(events).save(event.capture());
+    assertThat(event.getValue().getEventType()).isEqualTo("LATE_ADJUSTMENT_ACK_IGNORED");
+    assertThat(event.getValue().getResult()).isEqualTo("IGNORED_AFTER_FAILED");
+  }
+
+  @Test
+  void lateAcknowledgementDoesNotConsumeAnUnfailedLedger() {
+    when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment()));
+
+    assertThat(
+            service.lateAcknowledgementIgnored(
+                "tenant-test",
+                "ses_resource0000001",
+                "op_resource00000001",
+                "STALE_RESOURCE_OPERATION"))
+        .isFalse();
+  }
+
+  @Test
+  void lateAcknowledgementNeverMasksANodeIdentityMismatch() {
+    var adjustment = adjustment();
+    adjustment.fail("NODE_ACK_TIMEOUT", Instant.now());
+    when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment));
+
+    assertThat(
+            service.lateAcknowledgementIgnored(
+                "tenant-test",
+                "ses_resource0000001",
+                "op_resource00000001",
+                "RESOURCE_NODE_MISMATCH"))
+        .isFalse();
+  }
+
   private static SessionResourceAdjustmentEntity adjustment() {
     return SessionResourceAdjustmentEntity.requested(
         "op_resource00000001",

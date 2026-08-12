@@ -33,6 +33,12 @@ Remote Desktop、Extension、Media 和降载执行器，只是 ACK 晚于 Contro
    Placement；写入 `LATE_ADJUSTMENT_ACK_CONFLICT / MANUAL_RECONCILIATION_REQUIRED`，并将
    Resource Policy 标为 `CRITICAL`。Dead Letter、非法 ACK 等非超时失败仍按进度 128 的
    终态忽略语义处理。
+6. GitHub Linux 冷机集成进一步暴露了 Coordinator 换主后的 Node Journal 毒消息问题：
+   失效 Lease 原先被入口折叠成可重试 `EVENT_PROCESSING_FAILED`，旧世代事件会持续占用
+   重投队列，令当前世代 Cleanup ACK 超时。入口现返回明确的
+   `STALE_COORDINATOR_LEASE` fencing 响应，Node 仅将该错误与旧 Term/HumanTakeover 一样
+   终态消费；真实处理异常继续重试。换主冒烟已再次证明旧 Operation 为 `ABORTED`、新
+   Cleanup Operation 为 `COMMITTED`，没有把 Deadline 超时当作成功。
 
 ## 公开契约
 
@@ -47,7 +53,8 @@ Remote Desktop、Extension、Media 和降载执行器，只是 ACK 晚于 Contro
 - OpenAPI/Buf、TypeScript SDK 和 Python/Go/Java SDK 结构及哈希验证通过；
 - Web Console 70 项测试与生产构建通过；
 - `make test-integration` 从空库顺序执行 92 个迁移，通过真实 PostgreSQL、Control Plane、
-  Browser Node、恢复、迁移、资源执行与审计链主流程，并验证 V092 对账列存在。
+  Browser Node、恢复、迁移、资源执行与审计链主流程，并验证 V092 对账列存在；修复
+  `STALE_COORDINATOR_LEASE` 后完整冒烟再次通过。
 
 ## 尚未完成
 

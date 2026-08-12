@@ -2009,10 +2009,7 @@ impl NodeControlService {
             let acknowledgement = self.publish_event_receipt(event).await?;
             anyhow::ensure!(
                 acknowledgement.accepted
-                    || matches!(
-                        acknowledgement.error_code.as_str(),
-                        "STALE_HUMAN_TAKEOVER" | "STALE_COORDINATOR_TERM"
-                    ),
+                    || Self::is_terminal_event_rejection(&acknowledgement.error_code),
                 "Control Plane rejected Node Event: {}",
                 acknowledgement.error_code
             );
@@ -2027,6 +2024,13 @@ impl NodeControlService {
         self.release_event_delivery_lock(&event_id, &delivery_lock)
             .await;
         result
+    }
+
+    fn is_terminal_event_rejection(error_code: &str) -> bool {
+        matches!(
+            error_code,
+            "STALE_HUMAN_TAKEOVER" | "STALE_COORDINATOR_TERM" | "STALE_COORDINATOR_LEASE"
+        )
     }
 
     async fn release_event_delivery_lock(&self, event_id: &str, delivery_lock: &Arc<Mutex<()>>) {
@@ -6563,6 +6567,22 @@ mod tests {
         ));
         assert!(!NodeControlService::is_state_backlog_event_type(
             "SessionEvidenceCaptured"
+        ));
+    }
+
+    #[test]
+    fn stale_coordinator_fences_are_terminal_for_durable_event_delivery() {
+        assert!(NodeControlService::is_terminal_event_rejection(
+            "STALE_COORDINATOR_TERM"
+        ));
+        assert!(NodeControlService::is_terminal_event_rejection(
+            "STALE_COORDINATOR_LEASE"
+        ));
+        assert!(NodeControlService::is_terminal_event_rejection(
+            "STALE_HUMAN_TAKEOVER"
+        ));
+        assert!(!NodeControlService::is_terminal_event_rejection(
+            "EVENT_PROCESSING_FAILED"
         ));
     }
 

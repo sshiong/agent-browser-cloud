@@ -15,6 +15,7 @@ import io.browsercloud.application.SafePointApplicationService.SafetySignalRejec
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService.ResourceTelemetryRejectedException;
 import io.browsercloud.application.SessionResourceDecisionExecutor;
+import io.browsercloud.coordinator.exceptions.CoordinatorNotOwnerException;
 import io.browsercloud.coordinator.exceptions.StaleCoordinatorTermException;
 import io.browsercloud.proto.node.v1.NodeEventServiceGrpc;
 import io.browsercloud.proto.node.v1.PublishRequest;
@@ -418,6 +419,12 @@ public class NodeEventGrpcServer implements SmartLifecycle {
       } catch (StaleCoordinatorTermException exception) {
         respond(
             responseObserver, rejected(eventId, "STALE_COORDINATOR_TERM", exception.getMessage()));
+      } catch (CoordinatorNotOwnerException exception) {
+        // An expired or replaced Coordinator lease is a fencing boundary. Retrying the same
+        // generation cannot make the event authoritative and can starve fresh acknowledgements
+        // behind a durable Node journal backlog after failover.
+        respond(
+            responseObserver, rejected(eventId, "STALE_COORDINATOR_LEASE", exception.getMessage()));
       } catch (IllegalArgumentException exception) {
         respond(responseObserver, rejected(eventId, "INVALID_EVENT", exception.getMessage()));
       } catch (RuntimeException exception) {

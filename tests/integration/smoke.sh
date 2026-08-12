@@ -3328,7 +3328,7 @@ for _ in $(seq 1 60); do
   sleep 0.25
 done
 test "$barrier_completing_phase" = "EXECUTING"
-recovering_runtime_pid="$(sqlite3 "$temp_dir/runtime/node-journal.sqlite3" \
+recovering_runtime_pid="$(sqlite3 -cmd '.timeout 5000' "$temp_dir/runtime/node-journal.sqlite3" \
   "select pid from runtime_leases where session_id='${recovering_failover_session}' and active=1")"
 test -n "$recovering_runtime_pid"
 kill -9 "$recovering_runtime_pid"
@@ -3676,7 +3676,7 @@ kill -STOP "$control_pid"
 kill -CONT "$node_pid"
 side_effect_event_delivered=""
 for _ in $(seq 1 200); do
-  side_effect_event_delivered="$(sqlite3 "$temp_dir/runtime/node-journal.sqlite3" \
+  side_effect_event_delivered="$(sqlite3 -cmd '.timeout 5000' "$temp_dir/runtime/node-journal.sqlite3" \
     "select event_delivered from command_results where message_id='${side_effect_command_id}'" \
     2>/dev/null || true)"
   if [[ "$side_effect_event_delivered" = "0" ]]; then break; fi

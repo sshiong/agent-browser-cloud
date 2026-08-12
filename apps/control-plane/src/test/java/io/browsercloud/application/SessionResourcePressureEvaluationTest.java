@@ -42,6 +42,7 @@ class SessionResourcePressureEvaluationTest {
           mock(NodeCommandGateway.class),
           mock(SafePointApplicationService.class),
           mock(EnterpriseOperationsApplicationService.class),
+          mock(SessionResourceAdjustmentLifecycleService.class),
           new ObjectMapper());
 
   @Test

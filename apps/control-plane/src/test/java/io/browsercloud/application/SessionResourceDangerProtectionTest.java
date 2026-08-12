@@ -73,6 +73,7 @@ class SessionResourceDangerProtectionTest {
             nodeCommands,
             mock(SafePointApplicationService.class),
             mock(EnterpriseOperationsApplicationService.class),
+            mock(SessionResourceAdjustmentLifecycleService.class),
             new ObjectMapper());
   }
 

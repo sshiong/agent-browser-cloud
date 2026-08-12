@@ -272,7 +272,7 @@ public final class OperationFactory {
         null,
         false,
         false,
-        OperationPhase.EXECUTING,
+        OperationPhase.PREPARING,
         OperationState.ACTIVE,
         Set.of("resource.adjust"),
         now.plusSeconds(90),

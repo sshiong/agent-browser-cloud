@@ -320,10 +320,53 @@ export function SessionResourcePanel({
             safePointError={safePointError}
             migration={migration}
           />
+          <ResourceAdjustmentStatus adjustment={resource.currentAdjustment} />
           <ResourceAdjustmentTimeline events={events} />
         </div>
       </div>
     </section>
+  );
+}
+
+function ResourceAdjustmentStatus({
+  adjustment,
+}: {
+  adjustment?: SessionResourceView['currentAdjustment'];
+}) {
+  if (!adjustment) return null;
+  const labels = {
+    REQUESTED: '等待投递',
+    EXECUTING: 'Node 执行中',
+    ACKNOWLEDGED: 'ACK 已确认',
+    COMMITTED: '已提交',
+    FAILED: '执行失败',
+  } as const;
+  return (
+    <div
+      className={cn(
+        'mt-4 border p-3',
+        adjustment.state === 'FAILED'
+          ? 'border-danger/30 bg-danger/8'
+          : 'border-border-subtle bg-surface-2/50'
+      )}
+      role="status"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-medium text-text-secondary">
+          资源调整 · {labels[adjustment.state]}
+        </p>
+        <span className="font-mono text-[9px] text-text-muted">
+          {formatDate(adjustment.updatedAt)}
+        </span>
+      </div>
+      <p className="mt-1 text-[10px] text-text-muted">
+        {translateReason(adjustment.reason)}
+      </p>
+      <p className="mt-1 truncate font-mono text-[9px] text-text-muted">
+        {adjustment.operationId}
+        {adjustment.failureCode ? ` · ${adjustment.failureCode}` : ''}
+      </p>
+    </div>
   );
 }
 

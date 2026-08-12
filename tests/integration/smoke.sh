@@ -4656,6 +4656,13 @@ non_cgroup_resource_limits="$(docker exec "$postgres_name" psql -U browsercloud 
   "select state_collector_budget_percent || ':' || remote_desktop_bitrate_kbps || ':' || extension_cpu_weight || ':' || media_encoder_slots || ':' || background_tabs_frozen || ':' || new_tabs_blocked || ':' || success_trace_sample_percent || ':' || success_screenshot_sample_percent || ':' || observer_frame_rate_fps || ':' || video_recording_requested || ':' || video_recording_enabled
    from browser_placements where session_id='${session_one}'")"
 test "$non_cgroup_resource_limits" = "50:0:100:0:true:true:10:10:0:false:false"
+resource_adjustment_lifecycle="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' || bool_and(state='COMMITTED')::text || ':' ||
+          bool_and(executing_at is not null and acknowledged_at is not null and completed_at is not null)::text
+     from session_resource_adjustments where session_id='${session_one}'")"
+resource_adjustment_count="${resource_adjustment_lifecycle%%:*}"
+test "$resource_adjustment_count" -ge "1"
+test "${resource_adjustment_lifecycle#*:}" = "true:true"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"
@@ -4676,6 +4683,7 @@ browser_states="$(docker exec "$postgres_name" psql -U browsercloud -d browsercl
 test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
+printf 'resource_adjustment_lifecycle=true\n'
 
 profile_after_terminate="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \

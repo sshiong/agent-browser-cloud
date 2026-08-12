@@ -440,6 +440,60 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void resourceAdjustmentAckOnlyPassesTheCoordinatorFenceBeforeApplicationCommit() {
+    var session =
+        createSession("ses-1", SessionState.RUNNING).withPlacement("node-1", ResourceClass.L2, 1);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1"))
+        .thenReturn(
+            Optional.of(
+                OperationFactory.resourceAdjustment(session, 1, "op-1")
+                    .withPhase(OperationPhase.EXECUTING)));
+    var adjusted =
+        new NodeEvent.RuntimeResourcesAdjusted(
+            "ses-1",
+            "node-1",
+            "L2",
+            600,
+            768,
+            1280,
+            256,
+            8,
+            "L2",
+            900,
+            1024,
+            1792,
+            256,
+            8,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "SUSTAINED_CPU_PRESSURE",
+            "op-1");
+
+    var result = coordinator.handle(nodeEvent(adjusted, 1, 1));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+    verify(operationRepository, never()).transitionPhase(anyString(), any(), any());
+    verify(operationRepository, never()).transition(anyString(), any(), any());
+  }
+
+  @Test
   void shouldCheckpointAndHibernateRunningSession() {
     var running = createSession("ses-1", SessionState.RUNNING);
     var hibernating = createSession("ses-1", SessionState.HIBERNATING);

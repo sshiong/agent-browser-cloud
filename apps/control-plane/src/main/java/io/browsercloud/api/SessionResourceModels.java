@@ -91,11 +91,25 @@ public final class SessionResourceModels {
       UsageView usage,
       List<UsagePoint> usageSamples,
       CostView cost,
+      ResourceAdjustmentView currentAdjustment,
       ResourcePolicyStatus status,
       String statusReason,
       String dataFreshness,
       Instant lastEvaluatedAt,
       Instant lastAdjustedAt) {}
+
+  public record ResourceAdjustmentView(
+      String operationId,
+      String state,
+      String reason,
+      String failureCode,
+      Map<String, Object> oldResources,
+      Map<String, Object> requestedResources,
+      Instant requestedAt,
+      Instant executingAt,
+      Instant acknowledgedAt,
+      Instant completedAt,
+      Instant updatedAt) {}
 
   public record ResourceEventView(
       String eventId,

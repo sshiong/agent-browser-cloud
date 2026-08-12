@@ -261,6 +261,64 @@ class NodeEventIngestionServiceTest {
   }
 
   @Test
+  void shouldTerminallyRecordInvalidResourceAcknowledgementBeforeAcknowledgingInbox() {
+    var adjusted = resourceAdjustedEvent();
+    var command =
+        new NodeEventReceived(
+            "evt-resource-invalid", "tenant-test", "ses-test", 1, 2, 3, 5, adjusted);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+    org.mockito.Mockito.doThrow(
+            new SessionResourceApplicationService.ResourceTelemetryRejectedException(
+                "RESOURCE_ADJUSTMENT_ACK_MISMATCH"))
+        .when(resourceService)
+        .recordAdjustmentAcknowledged("tenant-test", adjusted);
+
+    service.receive(command);
+
+    verify(resourceService)
+        .recordAdjustmentRejected("tenant-test", adjusted, "RESOURCE_ADJUSTMENT_ACK_MISMATCH");
+    verify(inboxRepository).save(any());
+  }
+
+  private static NodeEvent.RuntimeResourcesAdjusted resourceAdjustedEvent() {
+    return new NodeEvent.RuntimeResourcesAdjusted(
+        "ses-test",
+        "node-test",
+        "L2",
+        600,
+        768,
+        1280,
+        256,
+        8,
+        "L2",
+        900,
+        1024,
+        1792,
+        256,
+        8,
+        100,
+        8000,
+        75,
+        6000,
+        100,
+        150,
+        0,
+        0,
+        false,
+        true,
+        false,
+        true,
+        java.util.List.of(),
+        java.util.List.of("automation.extension"),
+        100,
+        10,
+        30,
+        5,
+        "SUSTAINED_MEMORY_PRESSURE",
+        "op-resource");
+  }
+
+  @Test
   void shouldProtectAgentWhenRuntimeCrashWasCausedByCgroupOom() {
     var crashed = new NodeEvent.RuntimeCrashed("ses-test", "OOM", "OOM: Chromium exited");
     var command = new NodeEventReceived("evt-oom", "tenant-test", "ses-test", 1, 2, 0, 5, crashed);

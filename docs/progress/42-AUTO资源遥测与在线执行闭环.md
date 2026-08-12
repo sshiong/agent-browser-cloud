@@ -49,7 +49,9 @@
   - 扩容步长快于缩容步长；
   - 任一次级指标仍高于缩容迟滞阈值时保持 `OBSERVING`，不因 CPU/内存短时低位缩容；
   - 已有 Active Operation 时等待，不重复提交调整。
-- 调整请求先创建真实 `RESOURCE_ADJUSTMENT` Active Operation 并写入 Outbox。
+- 调整请求先创建真实 `RESOURCE_ADJUSTMENT` Active Operation、V091 资源专用 Ledger 并
+  写入 Outbox。Ledger 持久记录 `REQUESTED → EXECUTING → ACKNOWLEDGED →
+  COMMITTED/FAILED`；首次真实派发才进入 `EXECUTING`。
 - Runtime Supervisor 在委派 Cgroup v2 可用时执行 `cpu.max`、`memory.high`、
   `memory.max` 和 `pids.max` 更新；无 Cgroup 的非生产节点保持原 CPU/内存并在 ACK
   中回报实际值，不把未执行的 Cgroup 请求伪装成成功。
@@ -59,9 +61,11 @@
 - Browser Node 只有所有适用执行器成功后才发送 ACK Event；后续执行器或 Event Sequence
   失败时会回滚已应用的 Cgroup、State Collector 和 Remote Desktop 值。
 - Control Plane 收到且验证 Node、Context、Operation、旧资源快照均匹配后，才更新
-  `browser_placements`、Policy 当前模板和资源时间线。
+  `browser_placements`、Policy 当前模板、通用 Operation 和资源时间线。非法 ACK 被持久化
+  为 `FAILED` 并释放写围栏，不会无限重投；详见[进度 127](127-AUTO资源调整持久ACK状态机闭环.md)。
 - 非 Durable Workflow 的 Active Operation 增加 1 秒 Deadline Scanner；Node 不可用或
-  命令长期失败时 Operation 会进入 `TIMED_OUT`，不会永久占用 Session。
+  命令长期失败时 Operation 会进入 `TIMED_OUT`，资源 Ledger 同步记录
+  `NODE_ACK_TIMEOUT`，不会永久占用 Session。命令进入 Dead Letter 时也会立即失败 Ledger。
 
 ### GitHub 工作流稳定性
 

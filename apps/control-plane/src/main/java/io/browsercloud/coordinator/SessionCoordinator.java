@@ -556,8 +556,15 @@ public final class SessionCoordinator {
         if (!session.nodeId().equals(adjusted.nodeId())) {
           yield CoordinatorResult.rejected("RESOURCE_NODE_MISMATCH");
         }
-        operationRepository.transition(
-            operation.orElseThrow().operationId(), OperationState.ACTIVE, OperationState.COMMITTED);
+        var resourceOperation = operation.orElseThrow();
+        if (resourceOperation.phase() != OperationPhase.PREPARING
+            && resourceOperation.phase() != OperationPhase.EXECUTING
+            && resourceOperation.phase() != OperationPhase.VERIFYING
+            && resourceOperation.phase() != OperationPhase.COMPLETING) {
+          yield CoordinatorResult.rejected("INVALID_RESOURCE_OPERATION_PHASE");
+        }
+        // Resource Application Service validates the old/new allocation and commits Placement,
+        // Policy, lifecycle ledger and this Operation atomically after this fencing check.
         yield CoordinatorResult.completed();
       }
 

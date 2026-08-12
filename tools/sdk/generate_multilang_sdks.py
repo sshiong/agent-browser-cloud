@@ -38,6 +38,23 @@ def ref_name(schema: dict[str, Any] | None) -> str | None:
     return None
 
 
+def nullable_ref_name(schema: dict[str, Any] | None) -> str | None:
+    """Return the named member of an exact `Reference | null` union."""
+    if not schema:
+        return None
+    members = schema.get("oneOf") or schema.get("anyOf")
+    if not isinstance(members, list) or len(members) != 2:
+        return None
+    references = [ref_name(member) for member in members if isinstance(member, dict)]
+    nulls = [
+        member
+        for member in members
+        if isinstance(member, dict) and member.get("type") == "null"
+    ]
+    names = [name for name in references if name]
+    return names[0] if len(names) == 1 and len(nulls) == 1 else None
+
+
 def schema_label(schema: dict[str, Any] | None) -> str:
     name = ref_name(schema)
     if name:
@@ -169,6 +186,9 @@ def py_type(schema: dict[str, Any] | None) -> str:
     name = ref_name(schema)
     if name:
         return name
+    nullable_name = nullable_ref_name(schema)
+    if nullable_name:
+        return f"{nullable_name} | None"
     if schema.get("enum"):
         values = ", ".join(repr(value) for value in schema["enum"])
         return f"Literal[{values}]"
@@ -379,6 +399,9 @@ def go_type(schema: dict[str, Any] | None) -> str:
     name = ref_name(schema)
     if name:
         return name
+    nullable_name = nullable_ref_name(schema)
+    if nullable_name:
+        return "*" + nullable_name
     kind = schema.get("type")
     if kind == "string":
         return "string"
@@ -540,6 +563,9 @@ def java_type(schema: dict[str, Any] | None) -> str:
     name = ref_name(schema)
     if name:
         return name
+    nullable_name = nullable_ref_name(schema)
+    if nullable_name:
+        return nullable_name
     kind = schema.get("type")
     if kind == "string":
         return "String"

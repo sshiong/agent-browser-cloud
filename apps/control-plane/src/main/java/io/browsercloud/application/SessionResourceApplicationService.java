@@ -13,6 +13,8 @@ import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.capacity.ResourceTemplate;
 import io.browsercloud.domain.capacity.RuntimeResourceLimits;
+import io.browsercloud.domain.operation.OperationMode;
+import io.browsercloud.domain.operation.OperationPhase;
 import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.resource.*;
 import io.browsercloud.domain.session.ResourceClass;
@@ -52,6 +54,7 @@ public class SessionResourceApplicationService {
   private final NodeCommandGateway nodeCommandGateway;
   private final SafePointApplicationService safePointService;
   private final EnterpriseOperationsApplicationService enterpriseOperations;
+  private final SessionResourceAdjustmentLifecycleService adjustmentLifecycle;
   private final ObjectMapper mapper;
 
   public SessionResourceApplicationService(
@@ -68,6 +71,7 @@ public class SessionResourceApplicationService {
       NodeCommandGateway nodeCommandGateway,
       SafePointApplicationService safePointService,
       EnterpriseOperationsApplicationService enterpriseOperations,
+      SessionResourceAdjustmentLifecycleService adjustmentLifecycle,
       ObjectMapper mapper) {
     this.policies = policies;
     this.samples = samples;
@@ -82,6 +86,7 @@ public class SessionResourceApplicationService {
     this.nodeCommandGateway = nodeCommandGateway;
     this.safePointService = safePointService;
     this.enterpriseOperations = enterpriseOperations;
+    this.adjustmentLifecycle = adjustmentLifecycle;
     this.mapper = mapper;
   }
 
@@ -213,6 +218,7 @@ public class SessionResourceApplicationService {
         latest == null ? null : toUsage(latest, limit),
         recent.reversed().stream().map(sample -> toPoint(sample, limit)).toList(),
         toCost(policy, recentCosts),
+        adjustmentLifecycle.latest(sessionId),
         policy.status(),
         policy.getStatusReason(),
         freshness,
@@ -1005,17 +1011,8 @@ public class SessionResourceApplicationService {
             placement.isRequiresNativeOs(),
             placement.isRequiresIsolation());
     operations.insert(operation);
-    nodeCommandGateway.send(
-        NodeCommands.adjustRuntimeResources(
-            session, operation, limits, reason, maximumMitigation, maximumMitigation));
-    policy.evaluate(status, reason + "_COMMAND_DISPATCHED", now);
-    policies.save(policy);
-    appendEvent(
-        session.sessionId(),
-        session.tenantId(),
-        "ADJUSTMENT_REQUESTED",
-        reason,
-        allocationMap(placement),
+    var oldAllocation = allocationMap(placement);
+    var requestedAllocation =
         allocationMap(
             placement,
             cpuMillis,
@@ -1031,7 +1028,27 @@ public class SessionResourceApplicationService {
             successTraceSamplePercent,
             successScreenshotSamplePercent,
             observerFrameRateFps,
-            videoRecordingEnabled),
+            videoRecordingEnabled);
+    adjustmentLifecycle.requested(
+        operationId,
+        session.sessionId(),
+        session.tenantId(),
+        reason,
+        oldAllocation,
+        requestedAllocation,
+        now);
+    nodeCommandGateway.send(
+        NodeCommands.adjustRuntimeResources(
+            session, operation, limits, reason, maximumMitigation, maximumMitigation));
+    policy.evaluate(status, reason + "_COMMAND_DISPATCHED", now);
+    policies.save(policy);
+    appendEvent(
+        session.sessionId(),
+        session.tenantId(),
+        "ADJUSTMENT_REQUESTED",
+        reason,
+        oldAllocation,
+        requestedAllocation,
         "RESOURCE_DECISION_ENGINE",
         operationId,
         null,
@@ -1040,7 +1057,7 @@ public class SessionResourceApplicationService {
     return operationId;
   }
 
-  @Transactional
+  @Transactional(noRollbackFor = ResourceTelemetryRejectedException.class)
   public void recordAdjustmentAcknowledged(
       String tenantId, NodeEvent.RuntimeResourcesAdjusted adjusted) {
     var session = requireTenant(adjusted.sessionId(), tenantId);
@@ -1165,6 +1182,9 @@ public class SessionResourceApplicationService {
             && (nextMediaEncoderSlots < 1 || nextMediaEncoderSlots > placement.getMediaSlots()))) {
       throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
     }
+    var resourceOperation = requireResourceOperation(adjusted.sessionId(), adjusted.operationId());
+    var now = Instant.now();
+    adjustmentLifecycle.acknowledged(adjusted.sessionId(), adjusted.operationId(), now);
     var old = allocationMap(placement);
     placement.applyResourceAdjustment(
         adjusted.newCpuMillis(),
@@ -1184,7 +1204,6 @@ public class SessionResourceApplicationService {
         nextObserverFrameRateFps,
         nextVideoRecordingEnabled);
     placements.save(placement);
-    var now = Instant.now();
     var template =
         adjusted.newMemoryLimitMib() > 2048 || adjusted.newCpuMillis() > 2000
             ? "heavy-v1"
@@ -1194,6 +1213,8 @@ public class SessionResourceApplicationService {
     policy.adjustmentCommitted(
         ResourcePolicyStatus.STABLE, "NODE_ACTUATOR_ACKNOWLEDGED", template, now);
     policies.save(policy);
+    commitResourceOperation(resourceOperation);
+    adjustmentLifecycle.committed(adjusted.sessionId(), adjusted.operationId(), now);
     appendEvent(
         session.sessionId(),
         tenantId,
@@ -1206,6 +1227,42 @@ public class SessionResourceApplicationService {
         null,
         "COMMITTED",
         now);
+  }
+
+  @Transactional
+  public void recordAdjustmentRejected(
+      String tenantId, NodeEvent.RuntimeResourcesAdjusted adjusted, String errorCode) {
+    requireTenant(adjusted.sessionId(), tenantId);
+    adjustmentLifecycle.acknowledgementFailed(
+        adjusted.sessionId(), adjusted.operationId(), errorCode);
+  }
+
+  private io.browsercloud.domain.operation.ExclusiveOperation requireResourceOperation(
+      String sessionId, String operationId) {
+    return operations
+        .findActive(sessionId)
+        .filter(active -> active.operationId().equals(operationId))
+        .filter(active -> active.mode() == OperationMode.RESOURCE_ADJUSTMENT)
+        .orElseThrow(
+            () -> new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_OPERATION_MISSING"));
+  }
+
+  private void commitResourceOperation(
+      io.browsercloud.domain.operation.ExclusiveOperation operation) {
+    var operationId = operation.operationId();
+    if (operation.phase() == OperationPhase.PREPARING) {
+      operations.transitionPhase(operationId, OperationPhase.PREPARING, OperationPhase.EXECUTING);
+      operations.transitionPhase(operationId, OperationPhase.EXECUTING, OperationPhase.VERIFYING);
+      operations.transitionPhase(operationId, OperationPhase.VERIFYING, OperationPhase.COMPLETING);
+    } else if (operation.phase() == OperationPhase.EXECUTING) {
+      operations.transitionPhase(operationId, OperationPhase.EXECUTING, OperationPhase.VERIFYING);
+      operations.transitionPhase(operationId, OperationPhase.VERIFYING, OperationPhase.COMPLETING);
+    } else if (operation.phase() == OperationPhase.VERIFYING) {
+      operations.transitionPhase(operationId, OperationPhase.VERIFYING, OperationPhase.COMPLETING);
+    } else if (operation.phase() != OperationPhase.COMPLETING) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_OPERATION_PHASE_INVALID");
+    }
+    operations.transition(operationId, OperationState.ACTIVE, OperationState.COMMITTED);
   }
 
   @Transactional

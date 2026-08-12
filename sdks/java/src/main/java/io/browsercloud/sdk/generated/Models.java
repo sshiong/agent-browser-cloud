@@ -73,7 +73,7 @@ public final class Models {
 
   public record ChallengeEventListResponse(List<ChallengeEvent> items) {}
 
-  public record ChallengePreview(ChallengeEvent challenge, String previewHash, Object highlight, Boolean fresh, Boolean canAuthorize, Object blockingReason, String previewedAt) {}
+  public record ChallengePreview(ChallengeEvent challenge, String previewHash, ChallengeRegion highlight, Boolean fresh, Boolean canAuthorize, Object blockingReason, String previewedAt) {}
 
   public record AuthorizeHumanAssistRequest(String previewHash, Long expectedStateVersion, Long expectedTargetRevision) {}
 
@@ -121,7 +121,7 @@ public final class Models {
 
   public record AgentPlan(String intentId, List<AgentPlanStep> steps, Integer maxActions, Integer replanBudget, String expiresAt) {}
 
-  public record AgentPlanStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetUrl, Object input, String rationale, List<String> supportingSources, String trustFloor, List<String> taintLabels, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification, String capabilityTokenId) {}
+  public record AgentPlanStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetUrl, AgentStepInput input, String rationale, List<String> supportingSources, String trustFloor, List<String> taintLabels, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification, String capabilityTokenId) {}
 
   public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs) {}
 
@@ -195,7 +195,7 @@ public final class Models {
 
   public record StateResyncResponse(String requestId, String mode, String state) {}
 
-  public record InteractiveTarget(String targetRef, String role, Object name, Object bounds, Boolean enabled, Boolean visible) {}
+  public record InteractiveTarget(String targetRef, String role, Object name, TargetBounds bounds, Boolean enabled, Boolean visible) {}
 
   public record TargetBounds(Double x, Double y, Double width, Double height) {}
 
@@ -249,7 +249,9 @@ public final class Models {
 
   public enum ResourcePolicyStatus { STABLE, OBSERVING, SCALINGUP, SCALINGDOWN, ATMAXIMUM, WAITINGSAFEPOINT, MIGRATING, AGENTPAUSED, HIBERNATING, CRITICAL }
 
-  public record SessionResource(String sessionId, ResourcePolicy policy, Object allocation, Object usage, List<Map<String, Object>> usageSamples, Object cost, ResourcePolicyStatus status, Object statusReason, String dataFreshness, Object lastEvaluatedAt, Object lastAdjustedAt) {}
+  public record ResourceAdjustment(String operationId, String state, String reason, Object failureCode, Map<String, Object> oldResources, Map<String, Object> requestedResources, String requestedAt, Object executingAt, Object acknowledgedAt, Object completedAt, String updatedAt) {}
+
+  public record SessionResource(String sessionId, ResourcePolicy policy, Object allocation, Object usage, List<Map<String, Object>> usageSamples, Object cost, ResourceAdjustment currentAdjustment, ResourcePolicyStatus status, Object statusReason, String dataFreshness, Object lastEvaluatedAt, Object lastAdjustedAt) {}
 
   public record ResourceEventList(List<Map<String, Object>> items, Integer limit, Integer offset) {}
 
@@ -281,7 +283,7 @@ public final class Models {
 
   public record SafetyLeaseList(List<SafetyLease> items, Integer total) {}
 
-  public record SessionMigration(String migrationId, String sessionId, String sourceNodeId, Object targetNodeId, Long sourceContextEpoch, Object targetContextEpoch, Object checkpointId, Object hibernateOperationId, Object restoreOperationId, Object targetCleanupOperationId, Integer targetAttempt, Integer maximumTargetAttempts, List<String> failedTargetNodeIds, Object lastTargetFailureReason, Object resyncRequestId, String phase, Object recoveryResult, Object failureReason, Integer autoRecoveryAttempts, Integer autoRecoveryMaximum, Object latestRecoveryAction, String createdAt, String updatedAt, Object completedAt) {}
+  public record SessionMigration(String migrationId, String sessionId, String sourceNodeId, Object targetNodeId, Long sourceContextEpoch, Object targetContextEpoch, Object checkpointId, Object hibernateOperationId, Object restoreOperationId, Object targetCleanupOperationId, Integer targetAttempt, Integer maximumTargetAttempts, List<String> failedTargetNodeIds, Object lastTargetFailureReason, Object resyncRequestId, String phase, Object recoveryResult, Object failureReason, Integer autoRecoveryAttempts, Integer autoRecoveryMaximum, BusinessRecoveryAction latestRecoveryAction, String createdAt, String updatedAt, Object completedAt) {}
 
   public record BusinessRecoveryAction(String actionId, String migrationId, Integer attemptNumber, String action, Object targetUrl, Object targetExtensionId, Long baseStateVersion, Object resultingStateVersion, String state, Object errorCode, String createdAt, Object completedAt) {}
 
@@ -289,7 +291,7 @@ public final class Models {
 
   public record SessionContext(String sessionId, String tenantId, String profileId, Object nodeId, Object runtimeBuildId, Object isolationProfileId, Object proxyBindingId, Long coordinatorTerm, Long contextEpoch, Long browserGeneration, Long networkRevision, ResourceTemplate resourceTemplate, SessionState state, String policyHash, String createdAt, String updatedAt) {}
 
-  public record SessionView(String sessionId, String displayName, String tenantId, String profileId, Object groupId, List<WorkspaceTagSummary> tags, Boolean humanTakeoverEnabled, AgentPolicy agentPolicy, List<String> extensionIds, String region, ResourceTemplate resourceTemplate, SessionState state, Object nodeId, Object runtimeBuildId, Object proxyBindingId, Object proxyBindingProfileId, Object proxyRoutingDecision, Long contextEpoch, Long browserGeneration, Object currentOperation, String createdAt, String updatedAt) {}
+  public record SessionView(String sessionId, String displayName, String tenantId, String profileId, Object groupId, List<WorkspaceTagSummary> tags, Boolean humanTakeoverEnabled, AgentPolicy agentPolicy, List<String> extensionIds, String region, ResourceTemplate resourceTemplate, SessionState state, Object nodeId, Object runtimeBuildId, Object proxyBindingId, Object proxyBindingProfileId, ProxyRoutingDecision proxyRoutingDecision, Long contextEpoch, Long browserGeneration, OperationView currentOperation, String createdAt, String updatedAt) {}
 
   public enum EnvironmentSavedViewScope { PERSONAL, WORKSPACE }
 
@@ -297,11 +299,11 @@ public final class Models {
 
   public enum EnvironmentSavedViewTagMatch { ANY, ALL }
 
-  public record CreateEnvironmentSavedViewRequest(String name, EnvironmentSavedViewScope scope, EnvironmentPrimaryView primaryView, Object sessionState, String searchQuery, Object groupId, List<String> tagIds, Object tagMatch, Boolean showRuntimeColumn, Boolean showContextColumn, Boolean showOperationColumn) {}
+  public record CreateEnvironmentSavedViewRequest(String name, EnvironmentSavedViewScope scope, EnvironmentPrimaryView primaryView, SessionState sessionState, String searchQuery, Object groupId, List<String> tagIds, Object tagMatch, Boolean showRuntimeColumn, Boolean showContextColumn, Boolean showOperationColumn) {}
 
-  public record UpdateEnvironmentSavedViewRequest(Long expectedVersion, String name, EnvironmentPrimaryView primaryView, Object sessionState, String searchQuery, Object groupId, List<String> tagIds, Object tagMatch, Boolean showRuntimeColumn, Boolean showContextColumn, Boolean showOperationColumn) {}
+  public record UpdateEnvironmentSavedViewRequest(Long expectedVersion, String name, EnvironmentPrimaryView primaryView, SessionState sessionState, String searchQuery, Object groupId, List<String> tagIds, Object tagMatch, Boolean showRuntimeColumn, Boolean showContextColumn, Boolean showOperationColumn) {}
 
-  public record EnvironmentSavedView(String savedViewId, String name, EnvironmentSavedViewScope scope, String ownerActorId, EnvironmentPrimaryView primaryView, Object sessionState, String searchQuery, Object groupId, List<String> tagIds, EnvironmentSavedViewTagMatch tagMatch, Boolean showRuntimeColumn, Boolean showContextColumn, Boolean showOperationColumn, String createdAt, String updatedAt, Long version) {}
+  public record EnvironmentSavedView(String savedViewId, String name, EnvironmentSavedViewScope scope, String ownerActorId, EnvironmentPrimaryView primaryView, SessionState sessionState, String searchQuery, Object groupId, List<String> tagIds, EnvironmentSavedViewTagMatch tagMatch, Boolean showRuntimeColumn, Boolean showContextColumn, Boolean showOperationColumn, String createdAt, String updatedAt, Long version) {}
 
   public record EnvironmentSavedViewListResponse(List<EnvironmentSavedView> items, Integer total) {}
 
@@ -311,7 +313,7 @@ public final class Models {
 
   public enum EnvironmentImportExecutionState { PENDING, SUCCEEDED }
 
-  public record EnvironmentImportSpec(String displayName, Object description, String profileId, Object runtimeBuildId, Object applicationId, Object groupId, Object tagIds, Object region, Object resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Object humanTakeoverEnabled, Object agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, Object extensionIds) {}
+  public record EnvironmentImportSpec(String displayName, Object description, String profileId, Object runtimeBuildId, Object applicationId, Object groupId, Object tagIds, Object region, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Object humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, Object extensionIds) {}
 
   public record PreviewEnvironmentImportRequest(Integer schemaVersion, String name, List<EnvironmentImportSpec> environments) {}
 
@@ -437,7 +439,7 @@ public final class Models {
 
   public record CompleteRuntimeValidationRequest(Integer requiredTests, Integer requiredFailures, Integer optionalTests, Integer optionalFailures, BooleanMap declaredCapabilities, BooleanMap observedCapabilities, List<String> optionalFailureCodes, Boolean personaConsistent) {}
 
-  public record RuntimeValidation(String validationId, String buildId, String suiteVersion, String environmentDigest, String replayDatasetId, String persona, String state, Integer requiredTests, Integer requiredFailures, Integer optionalTests, Integer optionalFailures, BooleanMap declaredCapabilities, BooleanMap observedCapabilities, List<String> optionalFailureCodes, Object evidenceHash, String requestedBy, String startedAt, Object completedAt, Object job) {}
+  public record RuntimeValidation(String validationId, String buildId, String suiteVersion, String environmentDigest, String replayDatasetId, String persona, String state, Integer requiredTests, Integer requiredFailures, Integer optionalTests, Integer optionalFailures, BooleanMap declaredCapabilities, BooleanMap observedCapabilities, List<String> optionalFailureCodes, Object evidenceHash, String requestedBy, String startedAt, Object completedAt, RuntimeValidationJob job) {}
 
   public record RuntimeValidationJob(String validationId, String browserEngine, String browserVersion, String operatingSystem, String architecture, BooleanMap requiredWorkerCapabilities, String state, Integer attempt, Integer maximumAttempts, Object workerId, Long claimEpoch, String availableAt, Object leaseExpiresAt, Object lastHeartbeatAt, Object failureCode, Object resultHash, String updatedAt) {}
 
@@ -511,7 +513,7 @@ public final class Models {
 
   public record RecoveryGameDayJobClaim(String claimToken, RecoveryGameDay gameDay, String leaseExpiresAt, Long claimEpoch, Boolean recoveryOnly) {}
 
-  public record RecoveryGameDay(String gameDayId, String scenario, String sourceRegion, String targetRegion, String state, Integer rtoTargetSeconds, Integer rpoTargetSeconds, Object observedRtoSeconds, Object observedRpoSeconds, Object dataLossRecords, Object evidenceHash, String startedBy, String startedAt, Object completedAt, String executionMode, String environment, Object blastRadius, Integer maximumDurationSeconds, Object approvalRequestId, String currentStage, Boolean abortRequested, Object recoveryConfirmed, Object failureCode, Object job) {}
+  public record RecoveryGameDay(String gameDayId, String scenario, String sourceRegion, String targetRegion, String state, Integer rtoTargetSeconds, Integer rpoTargetSeconds, Object observedRtoSeconds, Object observedRpoSeconds, Object dataLossRecords, Object evidenceHash, String startedBy, String startedAt, Object completedAt, String executionMode, String environment, RecoveryGameDayBlastRadius blastRadius, Integer maximumDurationSeconds, Object approvalRequestId, String currentStage, Boolean abortRequested, Object recoveryConfirmed, Object failureCode, RecoveryGameDayJob job) {}
 
   public record RecoveryGameDayEvent(String eventId, String gameDayId, String eventType, Object fromState, String toState, String stage, Object workerId, Long claimEpoch, Integer attempt, Object reasonCode, String occurredAt) {}
 
@@ -527,7 +529,7 @@ public final class Models {
 
   public record ComplianceSnapshot(String snapshotId, String tenantId, String framework, Integer controlCount, Integer passingControls, String evidenceHash, BooleanMap evidence, String generatedBy, String generatedAt) {}
 
-  public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, Object mediaQuota, Object errorBudget, Object releaseFreeze, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, List<RecoveryGameDayTrend> recoveryGameDayTrends, List<RecoveryGameDayRemediation> recoveryGameDayRemediations, Object latestCompliance, String generatedAt) {}
+  public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, MediaQuota mediaQuota, ErrorBudget errorBudget, ReleaseFreeze releaseFreeze, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, List<RecoveryGameDayTrend> recoveryGameDayTrends, List<RecoveryGameDayRemediation> recoveryGameDayRemediations, ComplianceSnapshot latestCompliance, String generatedAt) {}
 
   public record BooleanMap(Map<String, Object> values) {}
 

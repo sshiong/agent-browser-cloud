@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.application.AgentActionPayloadService;
 import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
+import io.browsercloud.application.SessionResourceAdjustmentLifecycleService;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeEntity;
@@ -111,6 +112,7 @@ class NodeCommandMultiNodeRoutingTest {
             mock(AgentActionPayloadService.class),
             mock(AgentExecutionWaitProjectionService.class),
             mock(SessionEvidenceGovernanceStore.class),
+            mock(SessionResourceAdjustmentLifecycleService.class),
             routeAuthority,
             nodeRepository,
             new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
@@ -178,6 +180,7 @@ class NodeCommandMultiNodeRoutingTest {
             mock(AgentActionPayloadService.class),
             waitProjection,
             mock(SessionEvidenceGovernanceStore.class),
+            mock(SessionResourceAdjustmentLifecycleService.class),
             routeAuthority,
             nodeRepository,
             new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),
@@ -239,6 +242,7 @@ class NodeCommandMultiNodeRoutingTest {
             mock(AgentActionPayloadService.class),
             mock(AgentExecutionWaitProjectionService.class),
             mock(SessionEvidenceGovernanceStore.class),
+            mock(SessionResourceAdjustmentLifecycleService.class),
             routeAuthority,
             mock(BrowserNodeJpaRepository.class),
             new GrpcTransportFactory("local", false, "", "", "", "browser-node.internal"),

@@ -8867,6 +8867,42 @@ components:
       enum:
         [STABLE, OBSERVING, SCALING_UP, SCALING_DOWN, AT_MAXIMUM,
          WAITING_SAFE_POINT, MIGRATING, AGENT_PAUSED, HIBERNATING, CRITICAL]
+    ResourceAdjustment:
+      type: object
+      additionalProperties: false
+      required:
+        [operationId, state, reason, oldResources, requestedResources, requestedAt, updatedAt]
+      properties:
+        operationId:
+          type: string
+        state:
+          type: string
+          enum: [REQUESTED, EXECUTING, ACKNOWLEDGED, COMMITTED, FAILED]
+        reason:
+          type: string
+        failureCode:
+          type: [string, "null"]
+        oldResources:
+          type: object
+          additionalProperties: true
+        requestedResources:
+          type: object
+          additionalProperties: true
+        requestedAt:
+          type: string
+          format: date-time
+        executingAt:
+          type: [string, "null"]
+          format: date-time
+        acknowledgedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     SessionResource:
       type: object
       required: [sessionId, policy, usageSamples, status, dataFreshness]
@@ -9004,6 +9040,10 @@ components:
                     minimum: 0
                   pricingVersion:
                     type: string
+        currentAdjustment:
+          oneOf:
+            - $ref: "#/components/schemas/ResourceAdjustment"
+            - type: "null"
         status:
           $ref: "#/components/schemas/ResourcePolicyStatus"
         statusReason:

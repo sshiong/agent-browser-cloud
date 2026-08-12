@@ -22,13 +22,15 @@ class CoordinatorDeadlineCommandExecutorTest {
       mock(DurableWorkflowApplicationService.class);
   private final SessionCoordinator coordinator = mock(SessionCoordinator.class);
   private final StaticProxyApplicationService proxies = mock(StaticProxyApplicationService.class);
+  private final SessionResourceAdjustmentLifecycleService resourceAdjustments =
+      mock(SessionResourceAdjustmentLifecycleService.class);
   private CoordinatorDeadlineCommandExecutor executor;
 
   @BeforeEach
   void setUp() {
     executor =
         new CoordinatorDeadlineCommandExecutor(
-            operations, workflows, workflowService, coordinator, proxies);
+            operations, workflows, workflowService, coordinator, proxies, resourceAdjustments);
   }
 
   @Test

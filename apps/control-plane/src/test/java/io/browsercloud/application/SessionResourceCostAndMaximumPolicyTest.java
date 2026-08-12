@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,8 +17,11 @@ import io.browsercloud.api.SessionResourceModels.RecordResourceSampleRequest;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.coordinator.NodeCommandGateway;
 import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.coordinator.OperationFactory;
 import io.browsercloud.coordinator.OperationRepository;
 import io.browsercloud.coordinator.SessionRepository;
+import io.browsercloud.domain.operation.OperationPhase;
+import io.browsercloud.domain.operation.OperationState;
 import io.browsercloud.domain.resource.MaximumReachedPolicy;
 import io.browsercloud.domain.resource.ResourcePolicyMode;
 import io.browsercloud.domain.resource.ResourcePolicyStatus;
@@ -62,6 +67,8 @@ class SessionResourceCostAndMaximumPolicyTest {
   private final NodeCommandGateway nodeCommands = mock(NodeCommandGateway.class);
   private final EnterpriseOperationsApplicationService enterprise =
       mock(EnterpriseOperationsApplicationService.class);
+  private final SessionResourceAdjustmentLifecycleService adjustmentLifecycle =
+      mock(SessionResourceAdjustmentLifecycleService.class);
   private SessionResourceApplicationService service;
 
   @BeforeEach
@@ -81,6 +88,7 @@ class SessionResourceCostAndMaximumPolicyTest {
             nodeCommands,
             mock(SafePointApplicationService.class),
             enterprise,
+            adjustmentLifecycle,
             new ObjectMapper());
   }
 
@@ -248,6 +256,74 @@ class SessionResourceCostAndMaximumPolicyTest {
     assertThatThrownBy(() -> service.recordAdjustmentAcknowledged("tenant-test", adjusted))
         .isInstanceOf(SessionResourceApplicationService.ResourceTelemetryRejectedException.class)
         .hasMessageContaining("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
+  }
+
+  @Test
+  void validAcknowledgementCommitsProjectionAndOperationBeforeLifecycleLedger() {
+    var now = Instant.now();
+    var placement = placement(now);
+    var policy = policy(MaximumReachedPolicy.PAUSE_AGENT, null);
+    var operation =
+        OperationFactory.resourceAdjustment(session(now), 2, "op-resource")
+            .withPhase(OperationPhase.EXECUTING);
+    when(sessions.require("ses_cost")).thenReturn(session(now));
+    when(placements.findById("ses_cost")).thenReturn(Optional.of(placement));
+    when(policies.findBySessionIdAndTenantId("ses_cost", "tenant-test"))
+        .thenReturn(Optional.of(policy));
+    when(operations.findActive("ses_cost")).thenReturn(Optional.of(operation));
+    var adjusted =
+        new NodeEvent.RuntimeResourcesAdjusted(
+            "ses_cost",
+            "node_test",
+            "L4",
+            4_000,
+            3_500,
+            4_096,
+            256,
+            12,
+            "L4",
+            4_000,
+            3_500,
+            4_096,
+            256,
+            12,
+            50,
+            8_000,
+            100,
+            8_000,
+            100,
+            100,
+            2,
+            2,
+            false,
+            false,
+            false,
+            false,
+            List.of(),
+            List.of(),
+            100,
+            100,
+            30,
+            30,
+            "SUSTAINED_CPU_PRESSURE",
+            "op-resource");
+
+    service.recordAdjustmentAcknowledged("tenant-test", adjusted);
+
+    var ordered = inOrder(adjustmentLifecycle, placements, policies, operations);
+    ordered.verify(adjustmentLifecycle).acknowledged(eq("ses_cost"), eq("op-resource"), any());
+    ordered.verify(placements).save(placement);
+    ordered.verify(policies).save(policy);
+    ordered
+        .verify(operations)
+        .transitionPhase("op-resource", OperationPhase.EXECUTING, OperationPhase.VERIFYING);
+    ordered
+        .verify(operations)
+        .transitionPhase("op-resource", OperationPhase.VERIFYING, OperationPhase.COMPLETING);
+    ordered
+        .verify(operations)
+        .transition("op-resource", OperationState.ACTIVE, OperationState.COMMITTED);
+    ordered.verify(adjustmentLifecycle).committed(eq("ses_cost"), eq("op-resource"), any());
   }
 
   private static SessionResourcePolicyEntity policy(

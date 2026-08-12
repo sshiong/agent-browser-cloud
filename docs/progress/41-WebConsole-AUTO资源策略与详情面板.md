@@ -117,7 +117,9 @@
    码率、Extension Weight、后台 Tab、新建 Tab 阻断和非特权 Extension 后台暂停均已
    进入 Node ACK 链。
 3. 30 秒决策引擎已通过真实 Operation、Outbox、Node ACK Event 和 PostgreSQL 提交完成
-   同节点快扩慢缩；Node ACK 前不会写入新分配。
+   同节点快扩慢缩；Node ACK 前不会写入新分配。V091/进度 127 已新增独立持久化
+   `REQUESTED/EXECUTING/ACKNOWLEDGED/COMMITTED/FAILED` 状态机，非法 ACK、Dead Letter
+   与 Deadline 会失败关闭并释放 Operation 写围栏；详情面板显示当前调整和失败原因。
 4. Safe Point 已覆盖真实 Input Ledger/Drag、HumanTakeover、Agent Task、Snapshot/Profile
    Durable Workflow；上传下载、表单、支付、安全和应用关键事务仍缺对应业务 Producer。
 5. Checkpoint → 排除源 Node Placement → S3 Restore → State Resync → 默认 Business

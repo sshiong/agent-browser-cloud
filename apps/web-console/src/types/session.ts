@@ -444,6 +444,19 @@ export interface SessionResourceView {
       pricingVersion: string;
     }[];
   };
+  currentAdjustment?: {
+    operationId: string;
+    state: 'REQUESTED' | 'EXECUTING' | 'ACKNOWLEDGED' | 'COMMITTED' | 'FAILED';
+    reason: string;
+    failureCode?: string;
+    oldResources: Record<string, unknown>;
+    requestedResources: Record<string, unknown>;
+    requestedAt: string;
+    executingAt?: string;
+    acknowledgedAt?: string;
+    completedAt?: string;
+    updatedAt: string;
+  };
   status: ResourcePolicyStatus;
   statusReason?: string;
   dataFreshness: 'LIVE' | 'STALE' | 'AWAITING_TELEMETRY';

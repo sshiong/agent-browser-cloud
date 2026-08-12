@@ -5,6 +5,7 @@ import com.google.protobuf.ByteString;
 import io.browsercloud.application.AgentActionPayloadService;
 import io.browsercloud.application.AgentExecutionWaitProjectionService;
 import io.browsercloud.application.SessionEvidenceGovernanceStore;
+import io.browsercloud.application.SessionResourceAdjustmentLifecycleService;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
 import io.browsercloud.coordinator.NodeCommand;
 import io.browsercloud.persistence.BrowserNodeJpaRepository;
@@ -48,6 +49,7 @@ public class NodeCommandOutboxDispatcher {
   private final AgentActionPayloadService actionPayloadService;
   private final AgentExecutionWaitProjectionService executionWaitProjection;
   private final SessionEvidenceGovernanceStore evidenceGovernance;
+  private final SessionResourceAdjustmentLifecycleService resourceAdjustments;
   private final CoordinatorRouteAuthority routeAuthority;
   private final BrowserNodeJpaRepository browserNodeRepository;
   private final GrpcTransportFactory transportFactory;
@@ -61,6 +63,7 @@ public class NodeCommandOutboxDispatcher {
       AgentActionPayloadService actionPayloadService,
       AgentExecutionWaitProjectionService executionWaitProjection,
       SessionEvidenceGovernanceStore evidenceGovernance,
+      SessionResourceAdjustmentLifecycleService resourceAdjustments,
       CoordinatorRouteAuthority routeAuthority,
       BrowserNodeJpaRepository browserNodeRepository,
       GrpcTransportFactory transportFactory,
@@ -71,6 +74,7 @@ public class NodeCommandOutboxDispatcher {
     this.actionPayloadService = actionPayloadService;
     this.executionWaitProjection = executionWaitProjection;
     this.evidenceGovernance = evidenceGovernance;
+    this.resourceAdjustments = resourceAdjustments;
     this.routeAuthority = routeAuthority;
     this.browserNodeRepository = browserNodeRepository;
     this.transportFactory = transportFactory;
@@ -89,6 +93,7 @@ public class NodeCommandOutboxDispatcher {
         var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
         assertCurrentRoute(event, command);
         var channel = channelFor(command);
+        markResourceAdjustmentExecuting(command);
         var response =
             NodeControlServiceGrpc.newBlockingStub(channel)
                 .withDeadlineAfter(5, TimeUnit.SECONDS)
@@ -116,6 +121,7 @@ public class NodeCommandOutboxDispatcher {
               event,
               acknowledgement.getErrorCode(),
               TERMINAL_REJECTIONS.contains(acknowledgement.getErrorCode()));
+          failResourceAdjustmentIfDeadLettered(event, command, acknowledgement.getErrorCode());
           failEvidenceCaptureIfDeadLettered(event, acknowledgement.getErrorCode());
           log.warn(
               "Browser Node rejected command {} with code {}",
@@ -124,6 +130,7 @@ public class NodeCommandOutboxDispatcher {
         }
       } catch (StaleRouteException exception) {
         recordFailure(event, exception.errorCode(), true);
+        failResourceAdjustmentIfDeadLettered(event, exception.errorCode());
         failEvidenceCaptureIfDeadLettered(event, exception.errorCode());
         log.warn(
             "Rejected stale routed Node Command event {} with code {}",
@@ -131,6 +138,7 @@ public class NodeCommandOutboxDispatcher {
             exception.errorCode());
       } catch (Exception exception) {
         recordFailure(event, "NODE_UNAVAILABLE", false);
+        failResourceAdjustmentIfDeadLettered(event, "NODE_UNAVAILABLE");
         failEvidenceCaptureIfDeadLettered(event, "NODE_UNAVAILABLE");
         log.debug(
             "Browser Node command dispatch deferred for event {}: {}",
@@ -184,6 +192,36 @@ public class NodeCommandOutboxDispatcher {
     }
     event.releaseDispatchClaim();
     outboxRepository.save(event);
+  }
+
+  private void markResourceAdjustmentExecuting(NodeCommand command) {
+    if (!"AdjustRuntimeResources".equals(command.commandType())) return;
+    resourceAdjustments.executing(command.sessionId(), command.idempotencyKey());
+  }
+
+  private void failResourceAdjustmentIfDeadLettered(
+      io.browsercloud.persistence.OutboxEventEntity event, String errorCode) {
+    if (event.getDeadLetteredAt() == null) return;
+    try {
+      var command = objectMapper.readValue(event.getPayload(), NodeCommand.class);
+      failResourceAdjustmentIfDeadLettered(event, command, errorCode);
+    } catch (Exception exception) {
+      log.warn("Failed to decode dead-lettered Node command {}", event.getEventId(), exception);
+    }
+  }
+
+  private void failResourceAdjustmentIfDeadLettered(
+      io.browsercloud.persistence.OutboxEventEntity event, NodeCommand command, String errorCode) {
+    if (event.getDeadLetteredAt() == null
+        || !"AdjustRuntimeResources".equals(command.commandType())) return;
+    try {
+      resourceAdjustments.dispatchFailed(command.sessionId(), command.idempotencyKey(), errorCode);
+    } catch (RuntimeException exception) {
+      log.warn(
+          "Failed to finalize resource adjustment {} after Node command dead letter",
+          command.idempotencyKey(),
+          exception);
+    }
   }
 
   /**

@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ResourceAdjustment } from './ResourceAdjustment.js';
 import type { ResourcePolicy } from './ResourcePolicy.js';
 import type { ResourcePolicyStatus } from './ResourcePolicyStatus.js';
 export type SessionResource = {
@@ -11,6 +12,7 @@ export type SessionResource = {
     usage?: any | null;
     usageSamples: Array<Record<string, any>>;
     cost?: any | null;
+    currentAdjustment?: (ResourceAdjustment | null);
     status: ResourcePolicyStatus;
     statusReason?: string | null;
     dataFreshness: 'LIVE' | 'STALE' | 'AWAITING_TELEMETRY';

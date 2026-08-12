@@ -16,18 +16,21 @@ public class CoordinatorDeadlineCommandExecutor {
   private final DurableWorkflowApplicationService workflowService;
   private final SessionCoordinator coordinator;
   private final StaticProxyApplicationService proxyService;
+  private final SessionResourceAdjustmentLifecycleService resourceAdjustments;
 
   public CoordinatorDeadlineCommandExecutor(
       ExclusiveOperationJpaRepository operations,
       DurableWorkflowJpaRepository workflows,
       DurableWorkflowApplicationService workflowService,
       SessionCoordinator coordinator,
-      StaticProxyApplicationService proxyService) {
+      StaticProxyApplicationService proxyService,
+      SessionResourceAdjustmentLifecycleService resourceAdjustments) {
     this.operations = operations;
     this.workflows = workflows;
     this.workflowService = workflowService;
     this.coordinator = coordinator;
     this.proxyService = proxyService;
+    this.resourceAdjustments = resourceAdjustments;
   }
 
   @Transactional
@@ -39,6 +42,7 @@ public class CoordinatorDeadlineCommandExecutor {
       return;
     }
     coordinator.handle(new OperationTimedOut(sessionId, operationId));
+    resourceAdjustments.timedOut(sessionId, operationId);
   }
 
   @Transactional

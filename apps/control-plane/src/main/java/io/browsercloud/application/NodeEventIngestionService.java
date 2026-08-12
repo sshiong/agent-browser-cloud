@@ -190,8 +190,14 @@ public class NodeEventIngestionService {
         var challenge = challengeDetectionService.observe(command, ended.state()).orElse(null);
         humanAssistService.humanTakeoverEnded(command, ended, challenge);
       }
-      case NodeEvent.RuntimeResourcesAdjusted adjusted ->
+      case NodeEvent.RuntimeResourcesAdjusted adjusted -> {
+        try {
           resourceService.recordAdjustmentAcknowledged(command.tenantId(), adjusted);
+        } catch (SessionResourceApplicationService.ResourceTelemetryRejectedException rejected) {
+          resourceService.recordAdjustmentRejected(
+              command.tenantId(), adjusted, rejected.getMessage());
+        }
+      }
       case NodeEvent.RuntimeCrashed crashed ->
           resourceService.protectRuntimeCrash(
               command.sessionId(),

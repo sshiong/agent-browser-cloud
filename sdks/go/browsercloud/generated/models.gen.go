@@ -298,13 +298,13 @@ type ChallengeEventListResponse struct {
 }
 
 type ChallengePreview struct {
-	Challenge      ChallengeEvent `json:"challenge,omitempty"`
-	PreviewHash    string         `json:"previewHash,omitempty"`
-	Highlight      any            `json:"highlight,omitempty"`
-	Fresh          bool           `json:"fresh,omitempty"`
-	CanAuthorize   bool           `json:"canAuthorize,omitempty"`
-	BlockingReason any            `json:"blockingReason,omitempty"`
-	PreviewedAt    string         `json:"previewedAt,omitempty"`
+	Challenge      ChallengeEvent   `json:"challenge,omitempty"`
+	PreviewHash    string           `json:"previewHash,omitempty"`
+	Highlight      *ChallengeRegion `json:"highlight,omitempty"`
+	Fresh          bool             `json:"fresh,omitempty"`
+	CanAuthorize   bool             `json:"canAuthorize,omitempty"`
+	BlockingReason any              `json:"blockingReason,omitempty"`
+	PreviewedAt    string           `json:"previewedAt,omitempty"`
 }
 
 type AuthorizeHumanAssistRequest struct {
@@ -562,20 +562,20 @@ type AgentPlan struct {
 }
 
 type AgentPlanStep struct {
-	StepId               string         `json:"stepId,omitempty"`
-	ToolId               string         `json:"toolId,omitempty"`
-	RiskClass            AgentRiskClass `json:"riskClass,omitempty"`
-	TargetUrl            any            `json:"targetUrl,omitempty"`
-	Input                any            `json:"input,omitempty"`
-	Rationale            string         `json:"rationale,omitempty"`
-	SupportingSources    []string       `json:"supportingSources,omitempty"`
-	TrustFloor           string         `json:"trustFloor,omitempty"`
-	TaintLabels          []string       `json:"taintLabels,omitempty"`
-	RequiredConfirmation bool           `json:"requiredConfirmation,omitempty"`
-	Strategy             string         `json:"strategy,omitempty"`
-	RequiredStateQuality string         `json:"requiredStateQuality,omitempty"`
-	Verification         string         `json:"verification,omitempty"`
-	CapabilityTokenId    string         `json:"capabilityTokenId,omitempty"`
+	StepId               string          `json:"stepId,omitempty"`
+	ToolId               string          `json:"toolId,omitempty"`
+	RiskClass            AgentRiskClass  `json:"riskClass,omitempty"`
+	TargetUrl            any             `json:"targetUrl,omitempty"`
+	Input                *AgentStepInput `json:"input,omitempty"`
+	Rationale            string          `json:"rationale,omitempty"`
+	SupportingSources    []string        `json:"supportingSources,omitempty"`
+	TrustFloor           string          `json:"trustFloor,omitempty"`
+	TaintLabels          []string        `json:"taintLabels,omitempty"`
+	RequiredConfirmation bool            `json:"requiredConfirmation,omitempty"`
+	Strategy             string          `json:"strategy,omitempty"`
+	RequiredStateQuality string          `json:"requiredStateQuality,omitempty"`
+	Verification         string          `json:"verification,omitempty"`
+	CapabilityTokenId    string          `json:"capabilityTokenId,omitempty"`
 }
 
 type AgentStepInput struct {
@@ -1055,12 +1055,12 @@ type StateResyncResponse struct {
 }
 
 type InteractiveTarget struct {
-	TargetRef string `json:"targetRef,omitempty"`
-	Role      string `json:"role,omitempty"`
-	Name      any    `json:"name,omitempty"`
-	Bounds    any    `json:"bounds,omitempty"`
-	Enabled   bool   `json:"enabled,omitempty"`
-	Visible   bool   `json:"visible,omitempty"`
+	TargetRef string        `json:"targetRef,omitempty"`
+	Role      string        `json:"role,omitempty"`
+	Name      any           `json:"name,omitempty"`
+	Bounds    *TargetBounds `json:"bounds,omitempty"`
+	Enabled   bool          `json:"enabled,omitempty"`
+	Visible   bool          `json:"visible,omitempty"`
 }
 
 type TargetBounds struct {
@@ -1369,18 +1369,33 @@ const (
 	ResourcePolicyStatusCRITICAL         ResourcePolicyStatus = "CRITICAL"
 )
 
+type ResourceAdjustment struct {
+	OperationId        string         `json:"operationId,omitempty"`
+	State              string         `json:"state,omitempty"`
+	Reason             string         `json:"reason,omitempty"`
+	FailureCode        any            `json:"failureCode,omitempty"`
+	OldResources       map[string]any `json:"oldResources,omitempty"`
+	RequestedResources map[string]any `json:"requestedResources,omitempty"`
+	RequestedAt        string         `json:"requestedAt,omitempty"`
+	ExecutingAt        any            `json:"executingAt,omitempty"`
+	AcknowledgedAt     any            `json:"acknowledgedAt,omitempty"`
+	CompletedAt        any            `json:"completedAt,omitempty"`
+	UpdatedAt          string         `json:"updatedAt,omitempty"`
+}
+
 type SessionResource struct {
-	SessionId       string               `json:"sessionId,omitempty"`
-	Policy          ResourcePolicy       `json:"policy,omitempty"`
-	Allocation      any                  `json:"allocation,omitempty"`
-	Usage           any                  `json:"usage,omitempty"`
-	UsageSamples    []map[string]any     `json:"usageSamples,omitempty"`
-	Cost            any                  `json:"cost,omitempty"`
-	Status          ResourcePolicyStatus `json:"status,omitempty"`
-	StatusReason    any                  `json:"statusReason,omitempty"`
-	DataFreshness   string               `json:"dataFreshness,omitempty"`
-	LastEvaluatedAt any                  `json:"lastEvaluatedAt,omitempty"`
-	LastAdjustedAt  any                  `json:"lastAdjustedAt,omitempty"`
+	SessionId         string               `json:"sessionId,omitempty"`
+	Policy            ResourcePolicy       `json:"policy,omitempty"`
+	Allocation        any                  `json:"allocation,omitempty"`
+	Usage             any                  `json:"usage,omitempty"`
+	UsageSamples      []map[string]any     `json:"usageSamples,omitempty"`
+	Cost              any                  `json:"cost,omitempty"`
+	CurrentAdjustment *ResourceAdjustment  `json:"currentAdjustment,omitempty"`
+	Status            ResourcePolicyStatus `json:"status,omitempty"`
+	StatusReason      any                  `json:"statusReason,omitempty"`
+	DataFreshness     string               `json:"dataFreshness,omitempty"`
+	LastEvaluatedAt   any                  `json:"lastEvaluatedAt,omitempty"`
+	LastAdjustedAt    any                  `json:"lastAdjustedAt,omitempty"`
 }
 
 type ResourceEventList struct {
@@ -1511,30 +1526,30 @@ type SafetyLeaseList struct {
 }
 
 type SessionMigration struct {
-	MigrationId              string   `json:"migrationId,omitempty"`
-	SessionId                string   `json:"sessionId,omitempty"`
-	SourceNodeId             string   `json:"sourceNodeId,omitempty"`
-	TargetNodeId             any      `json:"targetNodeId,omitempty"`
-	SourceContextEpoch       int64    `json:"sourceContextEpoch,omitempty"`
-	TargetContextEpoch       any      `json:"targetContextEpoch,omitempty"`
-	CheckpointId             any      `json:"checkpointId,omitempty"`
-	HibernateOperationId     any      `json:"hibernateOperationId,omitempty"`
-	RestoreOperationId       any      `json:"restoreOperationId,omitempty"`
-	TargetCleanupOperationId any      `json:"targetCleanupOperationId,omitempty"`
-	TargetAttempt            int      `json:"targetAttempt,omitempty"`
-	MaximumTargetAttempts    int      `json:"maximumTargetAttempts,omitempty"`
-	FailedTargetNodeIds      []string `json:"failedTargetNodeIds,omitempty"`
-	LastTargetFailureReason  any      `json:"lastTargetFailureReason,omitempty"`
-	ResyncRequestId          any      `json:"resyncRequestId,omitempty"`
-	Phase                    string   `json:"phase,omitempty"`
-	RecoveryResult           any      `json:"recoveryResult,omitempty"`
-	FailureReason            any      `json:"failureReason,omitempty"`
-	AutoRecoveryAttempts     int      `json:"autoRecoveryAttempts,omitempty"`
-	AutoRecoveryMaximum      int      `json:"autoRecoveryMaximum,omitempty"`
-	LatestRecoveryAction     any      `json:"latestRecoveryAction,omitempty"`
-	CreatedAt                string   `json:"createdAt,omitempty"`
-	UpdatedAt                string   `json:"updatedAt,omitempty"`
-	CompletedAt              any      `json:"completedAt,omitempty"`
+	MigrationId              string                  `json:"migrationId,omitempty"`
+	SessionId                string                  `json:"sessionId,omitempty"`
+	SourceNodeId             string                  `json:"sourceNodeId,omitempty"`
+	TargetNodeId             any                     `json:"targetNodeId,omitempty"`
+	SourceContextEpoch       int64                   `json:"sourceContextEpoch,omitempty"`
+	TargetContextEpoch       any                     `json:"targetContextEpoch,omitempty"`
+	CheckpointId             any                     `json:"checkpointId,omitempty"`
+	HibernateOperationId     any                     `json:"hibernateOperationId,omitempty"`
+	RestoreOperationId       any                     `json:"restoreOperationId,omitempty"`
+	TargetCleanupOperationId any                     `json:"targetCleanupOperationId,omitempty"`
+	TargetAttempt            int                     `json:"targetAttempt,omitempty"`
+	MaximumTargetAttempts    int                     `json:"maximumTargetAttempts,omitempty"`
+	FailedTargetNodeIds      []string                `json:"failedTargetNodeIds,omitempty"`
+	LastTargetFailureReason  any                     `json:"lastTargetFailureReason,omitempty"`
+	ResyncRequestId          any                     `json:"resyncRequestId,omitempty"`
+	Phase                    string                  `json:"phase,omitempty"`
+	RecoveryResult           any                     `json:"recoveryResult,omitempty"`
+	FailureReason            any                     `json:"failureReason,omitempty"`
+	AutoRecoveryAttempts     int                     `json:"autoRecoveryAttempts,omitempty"`
+	AutoRecoveryMaximum      int                     `json:"autoRecoveryMaximum,omitempty"`
+	LatestRecoveryAction     *BusinessRecoveryAction `json:"latestRecoveryAction,omitempty"`
+	CreatedAt                string                  `json:"createdAt,omitempty"`
+	UpdatedAt                string                  `json:"updatedAt,omitempty"`
+	CompletedAt              any                     `json:"completedAt,omitempty"`
 }
 
 type BusinessRecoveryAction struct {
@@ -1594,10 +1609,10 @@ type SessionView struct {
 	RuntimeBuildId        any                   `json:"runtimeBuildId,omitempty"`
 	ProxyBindingId        any                   `json:"proxyBindingId,omitempty"`
 	ProxyBindingProfileId any                   `json:"proxyBindingProfileId,omitempty"`
-	ProxyRoutingDecision  any                   `json:"proxyRoutingDecision,omitempty"`
+	ProxyRoutingDecision  *ProxyRoutingDecision `json:"proxyRoutingDecision,omitempty"`
 	ContextEpoch          int64                 `json:"contextEpoch,omitempty"`
 	BrowserGeneration     int64                 `json:"browserGeneration,omitempty"`
-	CurrentOperation      any                   `json:"currentOperation,omitempty"`
+	CurrentOperation      *OperationView        `json:"currentOperation,omitempty"`
 	CreatedAt             string                `json:"createdAt,omitempty"`
 	UpdatedAt             string                `json:"updatedAt,omitempty"`
 }
@@ -1629,7 +1644,7 @@ type CreateEnvironmentSavedViewRequest struct {
 	Name                string                    `json:"name,omitempty"`
 	Scope               EnvironmentSavedViewScope `json:"scope,omitempty"`
 	PrimaryView         EnvironmentPrimaryView    `json:"primaryView,omitempty"`
-	SessionState        any                       `json:"sessionState,omitempty"`
+	SessionState        *SessionState             `json:"sessionState,omitempty"`
 	SearchQuery         string                    `json:"searchQuery,omitempty"`
 	GroupId             any                       `json:"groupId,omitempty"`
 	TagIds              []string                  `json:"tagIds,omitempty"`
@@ -1643,7 +1658,7 @@ type UpdateEnvironmentSavedViewRequest struct {
 	ExpectedVersion     int64                  `json:"expectedVersion,omitempty"`
 	Name                string                 `json:"name,omitempty"`
 	PrimaryView         EnvironmentPrimaryView `json:"primaryView,omitempty"`
-	SessionState        any                    `json:"sessionState,omitempty"`
+	SessionState        *SessionState          `json:"sessionState,omitempty"`
 	SearchQuery         string                 `json:"searchQuery,omitempty"`
 	GroupId             any                    `json:"groupId,omitempty"`
 	TagIds              []string               `json:"tagIds,omitempty"`
@@ -1659,7 +1674,7 @@ type EnvironmentSavedView struct {
 	Scope               EnvironmentSavedViewScope    `json:"scope,omitempty"`
 	OwnerActorId        string                       `json:"ownerActorId,omitempty"`
 	PrimaryView         EnvironmentPrimaryView       `json:"primaryView,omitempty"`
-	SessionState        any                          `json:"sessionState,omitempty"`
+	SessionState        *SessionState                `json:"sessionState,omitempty"`
 	SearchQuery         string                       `json:"searchQuery,omitempty"`
 	GroupId             any                          `json:"groupId,omitempty"`
 	TagIds              []string                     `json:"tagIds,omitempty"`
@@ -1701,26 +1716,26 @@ const (
 )
 
 type EnvironmentImportSpec struct {
-	DisplayName           string `json:"displayName,omitempty"`
-	Description           any    `json:"description,omitempty"`
-	ProfileId             string `json:"profileId,omitempty"`
-	RuntimeBuildId        any    `json:"runtimeBuildId,omitempty"`
-	ApplicationId         any    `json:"applicationId,omitempty"`
-	GroupId               any    `json:"groupId,omitempty"`
-	TagIds                any    `json:"tagIds,omitempty"`
-	Region                any    `json:"region,omitempty"`
-	ResourcePolicy        any    `json:"resourcePolicy,omitempty"`
-	RequestedTabs         int    `json:"requestedTabs,omitempty"`
-	AgentActionsPerMinute int    `json:"agentActionsPerMinute,omitempty"`
-	RemoteDesktop         bool   `json:"remoteDesktop,omitempty"`
-	HumanTakeoverEnabled  any    `json:"humanTakeoverEnabled,omitempty"`
-	AgentPolicy           any    `json:"agentPolicy,omitempty"`
-	Web3Workload          bool   `json:"web3Workload,omitempty"`
-	MediaWorkload         bool   `json:"mediaWorkload,omitempty"`
-	RequestedMediaStreams int    `json:"requestedMediaStreams,omitempty"`
-	MediaBitrateKbps      int    `json:"mediaBitrateKbps,omitempty"`
-	VideoRecording        bool   `json:"videoRecording,omitempty"`
-	ExtensionIds          any    `json:"extensionIds,omitempty"`
+	DisplayName           string                 `json:"displayName,omitempty"`
+	Description           any                    `json:"description,omitempty"`
+	ProfileId             string                 `json:"profileId,omitempty"`
+	RuntimeBuildId        any                    `json:"runtimeBuildId,omitempty"`
+	ApplicationId         any                    `json:"applicationId,omitempty"`
+	GroupId               any                    `json:"groupId,omitempty"`
+	TagIds                any                    `json:"tagIds,omitempty"`
+	Region                any                    `json:"region,omitempty"`
+	ResourcePolicy        *ResourcePolicyRequest `json:"resourcePolicy,omitempty"`
+	RequestedTabs         int                    `json:"requestedTabs,omitempty"`
+	AgentActionsPerMinute int                    `json:"agentActionsPerMinute,omitempty"`
+	RemoteDesktop         bool                   `json:"remoteDesktop,omitempty"`
+	HumanTakeoverEnabled  any                    `json:"humanTakeoverEnabled,omitempty"`
+	AgentPolicy           *AgentPolicy           `json:"agentPolicy,omitempty"`
+	Web3Workload          bool                   `json:"web3Workload,omitempty"`
+	MediaWorkload         bool                   `json:"mediaWorkload,omitempty"`
+	RequestedMediaStreams int                    `json:"requestedMediaStreams,omitempty"`
+	MediaBitrateKbps      int                    `json:"mediaBitrateKbps,omitempty"`
+	VideoRecording        bool                   `json:"videoRecording,omitempty"`
+	ExtensionIds          any                    `json:"extensionIds,omitempty"`
 }
 
 type PreviewEnvironmentImportRequest struct {
@@ -2349,25 +2364,25 @@ type CompleteRuntimeValidationRequest struct {
 }
 
 type RuntimeValidation struct {
-	ValidationId         string     `json:"validationId,omitempty"`
-	BuildId              string     `json:"buildId,omitempty"`
-	SuiteVersion         string     `json:"suiteVersion,omitempty"`
-	EnvironmentDigest    string     `json:"environmentDigest,omitempty"`
-	ReplayDatasetId      string     `json:"replayDatasetId,omitempty"`
-	Persona              string     `json:"persona,omitempty"`
-	State                string     `json:"state,omitempty"`
-	RequiredTests        int        `json:"requiredTests,omitempty"`
-	RequiredFailures     int        `json:"requiredFailures,omitempty"`
-	OptionalTests        int        `json:"optionalTests,omitempty"`
-	OptionalFailures     int        `json:"optionalFailures,omitempty"`
-	DeclaredCapabilities BooleanMap `json:"declaredCapabilities,omitempty"`
-	ObservedCapabilities BooleanMap `json:"observedCapabilities,omitempty"`
-	OptionalFailureCodes []string   `json:"optionalFailureCodes,omitempty"`
-	EvidenceHash         any        `json:"evidenceHash,omitempty"`
-	RequestedBy          string     `json:"requestedBy,omitempty"`
-	StartedAt            string     `json:"startedAt,omitempty"`
-	CompletedAt          any        `json:"completedAt,omitempty"`
-	Job                  any        `json:"job,omitempty"`
+	ValidationId         string                `json:"validationId,omitempty"`
+	BuildId              string                `json:"buildId,omitempty"`
+	SuiteVersion         string                `json:"suiteVersion,omitempty"`
+	EnvironmentDigest    string                `json:"environmentDigest,omitempty"`
+	ReplayDatasetId      string                `json:"replayDatasetId,omitempty"`
+	Persona              string                `json:"persona,omitempty"`
+	State                string                `json:"state,omitempty"`
+	RequiredTests        int                   `json:"requiredTests,omitempty"`
+	RequiredFailures     int                   `json:"requiredFailures,omitempty"`
+	OptionalTests        int                   `json:"optionalTests,omitempty"`
+	OptionalFailures     int                   `json:"optionalFailures,omitempty"`
+	DeclaredCapabilities BooleanMap            `json:"declaredCapabilities,omitempty"`
+	ObservedCapabilities BooleanMap            `json:"observedCapabilities,omitempty"`
+	OptionalFailureCodes []string              `json:"optionalFailureCodes,omitempty"`
+	EvidenceHash         any                   `json:"evidenceHash,omitempty"`
+	RequestedBy          string                `json:"requestedBy,omitempty"`
+	StartedAt            string                `json:"startedAt,omitempty"`
+	CompletedAt          any                   `json:"completedAt,omitempty"`
+	Job                  *RuntimeValidationJob `json:"job,omitempty"`
 }
 
 type RuntimeValidationJob struct {
@@ -2733,30 +2748,30 @@ type RecoveryGameDayJobClaim struct {
 }
 
 type RecoveryGameDay struct {
-	GameDayId              string `json:"gameDayId,omitempty"`
-	Scenario               string `json:"scenario,omitempty"`
-	SourceRegion           string `json:"sourceRegion,omitempty"`
-	TargetRegion           string `json:"targetRegion,omitempty"`
-	State                  string `json:"state,omitempty"`
-	RtoTargetSeconds       int    `json:"rtoTargetSeconds,omitempty"`
-	RpoTargetSeconds       int    `json:"rpoTargetSeconds,omitempty"`
-	ObservedRtoSeconds     any    `json:"observedRtoSeconds,omitempty"`
-	ObservedRpoSeconds     any    `json:"observedRpoSeconds,omitempty"`
-	DataLossRecords        any    `json:"dataLossRecords,omitempty"`
-	EvidenceHash           any    `json:"evidenceHash,omitempty"`
-	StartedBy              string `json:"startedBy,omitempty"`
-	StartedAt              string `json:"startedAt,omitempty"`
-	CompletedAt            any    `json:"completedAt,omitempty"`
-	ExecutionMode          string `json:"executionMode,omitempty"`
-	Environment            string `json:"environment,omitempty"`
-	BlastRadius            any    `json:"blastRadius,omitempty"`
-	MaximumDurationSeconds int    `json:"maximumDurationSeconds,omitempty"`
-	ApprovalRequestId      any    `json:"approvalRequestId,omitempty"`
-	CurrentStage           string `json:"currentStage,omitempty"`
-	AbortRequested         bool   `json:"abortRequested,omitempty"`
-	RecoveryConfirmed      any    `json:"recoveryConfirmed,omitempty"`
-	FailureCode            any    `json:"failureCode,omitempty"`
-	Job                    any    `json:"job,omitempty"`
+	GameDayId              string                      `json:"gameDayId,omitempty"`
+	Scenario               string                      `json:"scenario,omitempty"`
+	SourceRegion           string                      `json:"sourceRegion,omitempty"`
+	TargetRegion           string                      `json:"targetRegion,omitempty"`
+	State                  string                      `json:"state,omitempty"`
+	RtoTargetSeconds       int                         `json:"rtoTargetSeconds,omitempty"`
+	RpoTargetSeconds       int                         `json:"rpoTargetSeconds,omitempty"`
+	ObservedRtoSeconds     any                         `json:"observedRtoSeconds,omitempty"`
+	ObservedRpoSeconds     any                         `json:"observedRpoSeconds,omitempty"`
+	DataLossRecords        any                         `json:"dataLossRecords,omitempty"`
+	EvidenceHash           any                         `json:"evidenceHash,omitempty"`
+	StartedBy              string                      `json:"startedBy,omitempty"`
+	StartedAt              string                      `json:"startedAt,omitempty"`
+	CompletedAt            any                         `json:"completedAt,omitempty"`
+	ExecutionMode          string                      `json:"executionMode,omitempty"`
+	Environment            string                      `json:"environment,omitempty"`
+	BlastRadius            *RecoveryGameDayBlastRadius `json:"blastRadius,omitempty"`
+	MaximumDurationSeconds int                         `json:"maximumDurationSeconds,omitempty"`
+	ApprovalRequestId      any                         `json:"approvalRequestId,omitempty"`
+	CurrentStage           string                      `json:"currentStage,omitempty"`
+	AbortRequested         bool                        `json:"abortRequested,omitempty"`
+	RecoveryConfirmed      any                         `json:"recoveryConfirmed,omitempty"`
+	FailureCode            any                         `json:"failureCode,omitempty"`
+	Job                    *RecoveryGameDayJob         `json:"job,omitempty"`
 }
 
 type RecoveryGameDayEvent struct {
@@ -2847,9 +2862,9 @@ type ComplianceSnapshot struct {
 type EnterpriseOverview struct {
 	Validations                 []RuntimeValidation          `json:"validations,omitempty"`
 	CostRates                   []CostRate                   `json:"costRates,omitempty"`
-	MediaQuota                  any                          `json:"mediaQuota,omitempty"`
-	ErrorBudget                 any                          `json:"errorBudget,omitempty"`
-	ReleaseFreeze               any                          `json:"releaseFreeze,omitempty"`
+	MediaQuota                  *MediaQuota                  `json:"mediaQuota,omitempty"`
+	ErrorBudget                 *ErrorBudget                 `json:"errorBudget,omitempty"`
+	ReleaseFreeze               *ReleaseFreeze               `json:"releaseFreeze,omitempty"`
 	SlaExclusions               []SlaExclusion               `json:"slaExclusions,omitempty"`
 	RetentionPolicies           []RetentionPolicy            `json:"retentionPolicies,omitempty"`
 	LicenseInventory            []LicenseInventory           `json:"licenseInventory,omitempty"`
@@ -2857,7 +2872,7 @@ type EnterpriseOverview struct {
 	RecoveryGameDays            []RecoveryGameDay            `json:"recoveryGameDays,omitempty"`
 	RecoveryGameDayTrends       []RecoveryGameDayTrend       `json:"recoveryGameDayTrends,omitempty"`
 	RecoveryGameDayRemediations []RecoveryGameDayRemediation `json:"recoveryGameDayRemediations,omitempty"`
-	LatestCompliance            any                          `json:"latestCompliance,omitempty"`
+	LatestCompliance            *ComplianceSnapshot          `json:"latestCompliance,omitempty"`
 	GeneratedAt                 string                       `json:"generatedAt,omitempty"`
 }
 

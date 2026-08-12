@@ -192,6 +192,7 @@ export type { RemoteDesktopParticipantList } from './models/RemoteDesktopPartici
 export type { RenewSafetyLeaseRequest } from './models/RenewSafetyLeaseRequest.js';
 export type { RequestRecoveryContractApprovalRequest } from './models/RequestRecoveryContractApprovalRequest.js';
 export type { RequestTenantRouteMigration } from './models/RequestTenantRouteMigration.js';
+export type { ResourceAdjustment } from './models/ResourceAdjustment.js';
 export type { ResourceEventList } from './models/ResourceEventList.js';
 export type { ResourcePolicy } from './models/ResourcePolicy.js';
 export type { ResourcePolicyOperation } from './models/ResourcePolicyOperation.js';

@@ -105,6 +105,10 @@ public class SafePointApplicationService {
       throw new SafetySignalRejectedException("SAFETY_TIMESTAMP_IN_FUTURE");
     }
     validateCompleteObservation(observation);
+    // A resource report and a VNC input report can update the same five signal rows concurrently.
+    // Serialize the whole per-Session observation batch so optimistic versions and first inserts
+    // remain coherent without dropping otherwise valid Browser Node telemetry.
+    signals.lockSessionObservations(sessionId);
     var expiresAt = observation.observedAt().plus(NODE_SIGNAL_TTL);
     if (observation.hasInputObservation()) {
       var details =

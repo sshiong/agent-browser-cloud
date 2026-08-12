@@ -12,7 +12,7 @@ use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, RwLock};
@@ -42,6 +42,8 @@ pub struct RemoteDesktopTicketClaims {
     pub tenant_id: String,
     pub session_id: String,
     pub actor_id: String,
+    #[serde(default)]
+    pub connection_id: String,
     pub coordinator_term: i64,
     pub context_epoch: i64,
     pub operation_epoch: u64,
@@ -63,6 +65,14 @@ fn default_access_mode() -> String {
 #[async_trait]
 pub trait DisconnectHandler: Send + Sync {
     async fn disconnected(&self, claims: &RemoteDesktopTicketClaims);
+
+    async fn connection_changed(
+        &self,
+        _claims: &RemoteDesktopTicketClaims,
+        _state: &str,
+        _reason: &str,
+    ) {
+    }
 }
 
 #[derive(Default)]
@@ -92,11 +102,12 @@ struct GatewayState {
 #[derive(Debug, Default)]
 struct SessionConnectionState {
     generation: u64,
-    leases_by_nonce: HashMap<String, ConnectionLease>,
+    leases_by_connection_id: HashMap<String, ConnectionLease>,
 }
 
 #[derive(Debug)]
 struct ConnectionLease {
+    claims: RemoteDesktopTicketClaims,
     access_mode: String,
     revoke: watch::Sender<bool>,
 }
@@ -266,8 +277,15 @@ impl RemoteDesktopGateway {
             .expect("active connection lock poisoned")
             .remove(session_id)
         {
-            for lease in connections.leases_by_nonce.into_values() {
+            for lease in connections.leases_by_connection_id.into_values() {
                 let _ = lease.revoke.send(true);
+                let handler = self.state.disconnect_handler.clone();
+                let claims = lease.claims;
+                tokio::spawn(async move {
+                    handler
+                        .connection_changed(&claims, "DISCONNECTED", "SESSION_UNREGISTERED")
+                        .await;
+                });
             }
         }
     }
@@ -410,8 +428,26 @@ impl RemoteDesktopGateway {
             .lock()
             .expect("active connection lock poisoned")
             .get(session_id)
-            .map(|connections| connections.leases_by_nonce.len())
+            .map(|connections| connections.leases_by_connection_id.len())
             .unwrap_or_default()
+    }
+
+    /// Revokes one exact connection without affecting Agent execution or other participants.
+    pub fn revoke_connection(
+        &self,
+        session_id: &str,
+        connection_id: &str,
+    ) -> Option<RemoteDesktopTicketClaims> {
+        self.state
+            .active_connections
+            .lock()
+            .expect("active connection lock poisoned")
+            .get(session_id)
+            .and_then(|connections| connections.leases_by_connection_id.get(connection_id))
+            .map(|lease| {
+                let _ = lease.revoke.send(true);
+                lease.claims.clone()
+            })
     }
 
     /// 真人最近产生键鼠或剪贴板输入时返回 `true`。
@@ -492,6 +528,11 @@ impl RemoteDesktopGateway {
             Ok(websocket) => self.proxy(websocket, &authorized).await,
             Err(error) => Err(error.into()),
         };
+        let disconnect_reason = if *authorized.revocation.borrow() {
+            "ADMIN_REVOKED"
+        } else {
+            "CLIENT_DISCONNECTED"
+        };
         let disconnected_generation = {
             let mut sessions = self
                 .state
@@ -502,13 +543,17 @@ impl RemoteDesktopGateway {
                 .get_mut(&authorized.claims.session_id)
                 .and_then(|connections| {
                     connections
-                        .leases_by_nonce
-                        .remove(&authorized.claims.nonce)?;
+                        .leases_by_connection_id
+                        .remove(&authorized.claims.connection_id)?;
                     connections.generation = connections.generation.saturating_add(1);
                     Some(connections.generation)
                 })
         };
         if let Some(disconnected_generation) = disconnected_generation {
+            self.state
+                .disconnect_handler
+                .connection_changed(&authorized.claims, "DISCONNECTED", disconnect_reason)
+                .await;
             let state = self.state.clone();
             let claims = authorized.claims.clone();
             tokio::spawn(async move {
@@ -519,7 +564,7 @@ impl RemoteDesktopGateway {
                     .expect("active connection lock poisoned")
                     .get(&claims.session_id)
                     .is_some_and(|connections| {
-                        connections.leases_by_nonce.is_empty()
+                        connections.leases_by_connection_id.is_empty()
                             && connections.generation == disconnected_generation
                     });
                 if last_connection_still_gone {
@@ -538,6 +583,10 @@ impl RemoteDesktopGateway {
         let mut vnc = TcpStream::connect(authorized.vnc_endpoint)
             .await
             .context("registered VNC endpoint is unavailable")?;
+        self.state
+            .disconnect_handler
+            .connection_changed(&authorized.claims, "CONNECTED", "RFB_UPSTREAM_CONNECTED")
+            .await;
         self.state
             .last_server_frame_at
             .lock()
@@ -744,8 +793,12 @@ fn authorize(
             })
         })
         .ok_or_else(|| rejection(StatusCode::UNAUTHORIZED, "connection ticket is required"))?;
-    let claims = verify_ticket(&state.ticket_secret, ticket)
+    let mut claims = verify_ticket(&state.ticket_secret, ticket)
         .map_err(|_| rejection(StatusCode::UNAUTHORIZED, "connection ticket is invalid"))?;
+    if claims.connection_id.is_empty() {
+        let nonce_hash = format!("{:x}", Sha256::digest(claims.nonce.as_bytes()));
+        claims.connection_id = format!("rdc_{}", &nonce_hash[..20]);
+    }
     if claims.session_id != session_id {
         return Err(rejection(
             StatusCode::FORBIDDEN,
@@ -763,6 +816,12 @@ fn authorize(
     }
     if claims.tenant_id.is_empty()
         || claims.actor_id.is_empty()
+        || !claims.connection_id.starts_with("rdc_")
+        || claims.connection_id.len() != 24
+        || !claims
+            .connection_id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '_')
         || claims.coordinator_term < 0
         || claims.context_epoch <= 0
         || claims.operation_epoch == 0
@@ -810,7 +869,7 @@ fn authorize(
             .expect("active connection lock poisoned");
         let connections = sessions.entry(session_id.to_owned()).or_default();
         let has_exclusive = connections
-            .leases_by_nonce
+            .leases_by_connection_id
             .values()
             .any(|lease| lease.access_mode == "EXCLUSIVE_TAKEOVER");
         let requests_exclusive = claims.access_mode == "EXCLUSIVE_TAKEOVER";
@@ -821,21 +880,29 @@ fn authorize(
             ));
         }
         if requests_exclusive {
-            for lease in connections.leases_by_nonce.values() {
+            for lease in connections.leases_by_connection_id.values() {
                 let _ = lease.revoke.send(true);
+                let handler = state.disconnect_handler.clone();
+                let claims = lease.claims.clone();
+                tokio::spawn(async move {
+                    handler
+                        .connection_changed(&claims, "DISCONNECTED", "EXCLUSIVE_TAKEOVER_REVOKED")
+                        .await;
+                });
             }
-            connections.leases_by_nonce.clear();
+            connections.leases_by_connection_id.clear();
         }
-        if connections.leases_by_nonce.len() >= MAX_ACTIVE_CONNECTIONS_PER_SESSION {
+        if connections.leases_by_connection_id.len() >= MAX_ACTIVE_CONNECTIONS_PER_SESSION {
             return Err(rejection(
                 StatusCode::TOO_MANY_REQUESTS,
                 "remote desktop collaborator limit reached",
             ));
         }
         let (revoke, revocation) = watch::channel(false);
-        connections.leases_by_nonce.insert(
-            claims.nonce.clone(),
+        connections.leases_by_connection_id.insert(
+            claims.connection_id.clone(),
             ConnectionLease {
+                claims: claims.clone(),
                 access_mode: claims.access_mode.clone(),
                 revoke,
             },
@@ -936,10 +1003,12 @@ mod tests {
         access_mode: &str,
         view_only: bool,
     ) -> String {
+        let connection_hash = format!("{:x}", Sha256::digest(nonce.as_bytes()));
         let claims = RemoteDesktopTicketClaims {
             tenant_id: "tenant-test".to_owned(),
             session_id: session_id.to_owned(),
             actor_id: "user-test".to_owned(),
+            connection_id: format!("rdc_{}", &connection_hash[..20]),
             coordinator_term: 3,
             context_epoch: 4,
             operation_epoch: 7,
@@ -1227,6 +1296,84 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn revokes_only_the_selected_collaborator() {
+        let vnc_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let vnc_endpoint = vnc_listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut stream, _) = vnc_listener.accept().await.unwrap();
+                tokio::spawn(async move {
+                    let mut buffer = [0_u8; 64];
+                    loop {
+                        let read = stream.read(&mut buffer).await.unwrap_or_default();
+                        if read == 0 {
+                            break;
+                        }
+                        if stream.write_all(&buffer[..read]).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+            }
+        });
+
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let session_id = "ses_exactrevoke12345";
+        gateway.register_session(session_id, vnc_endpoint).unwrap();
+        let gateway_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway_endpoint = gateway_listener.local_addr().unwrap();
+        tokio::spawn(gateway.clone().serve(gateway_listener));
+
+        let first_nonce = "first-participant-1234567890";
+        let second_nonce = "second-participant-123456789";
+        let connect = |nonce: &str| {
+            let mut request = format!(
+                "ws://{gateway_endpoint}/desktop/v1/sessions/{session_id}?ticket={}",
+                ticket(session_id, nonce)
+            )
+            .into_client_request()
+            .unwrap();
+            request
+                .headers_mut()
+                .insert(ORIGIN, "http://console.test".parse().unwrap());
+            request
+        };
+        let (mut first, _) = connect_async(connect(first_nonce)).await.unwrap();
+        let (mut second, _) = connect_async(connect(second_nonce)).await.unwrap();
+        let first_hash = format!("{:x}", Sha256::digest(first_nonce.as_bytes()));
+        let first_connection_id = format!("rdc_{}", &first_hash[..20]);
+        assert!(gateway
+            .revoke_connection(session_id, &first_connection_id)
+            .is_some());
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while gateway.active_connection_count(session_id) != 1 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+
+        second
+            .send(Message::Binary(b"still-connected".to_vec()))
+            .await
+            .unwrap();
+        assert_eq!(
+            second.next().await.unwrap().unwrap(),
+            Message::Binary(b"still-connected".to_vec())
+        );
+        assert!(gateway
+            .revoke_connection(session_id, "rdc_missing0000000000000")
+            .is_none());
+        let _ = first.next().await;
+        second.close(None).await.unwrap();
     }
 
     #[tokio::test]
@@ -1602,8 +1749,8 @@ mod tests {
         assert_eq!(second.unwrap_err().status, StatusCode::CONFLICT);
     }
 
-    #[test]
-    fn bounds_collaborators_and_explicit_takeover_revokes_them_exclusively() {
+    #[tokio::test]
+    async fn bounds_collaborators_and_explicit_takeover_revokes_them_exclusively() {
         let gateway = RemoteDesktopGateway::new(
             SECRET.as_bytes(),
             std::iter::empty(),

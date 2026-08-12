@@ -129,6 +129,7 @@ export function AutomationPage() {
   const [sourceType, setSourceType] =
     useState<InstructionSourceType>('WEB_CONTENT');
   const [actions, setActions] = useState<DraftAction[]>([]);
+  const [bindingError, setBindingError] = useState('');
   const browserState = useBrowserState(sessionId, Boolean(sessionId));
   useSessionResourceStream(sessionId, Boolean(sessionId));
 
@@ -207,9 +208,52 @@ export function AutomationPage() {
           : requiredActionBudget > policyBudget.maximumMaxActions
             ? `计划需要 ${requiredActionBudget} 个动作，超过 ${agentPolicy} 上限 ${policyBudget.maximumMaxActions}。`
             : '';
+  const submitDisabledReason = createTask.isPending
+    ? '计划正在创建'
+    : !sessionId
+      ? '请选择运行中的 Session'
+      : !goal.trim()
+        ? '请填写用户目标'
+        : !allowedDomains.trim()
+          ? '请填写授权域名'
+          : navigationConflict
+            ? '起始 URL 与结构化动作不能同时提交'
+            : policyConflict
+              ? policyConflict
+              : !actionsValid
+                ? '结构化动作尚未完整绑定'
+                : '';
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setBindingError('');
+    let submittedActions = actions;
+    if (
+      actions.some(
+        (action) =>
+          action.toolId === 'CLICK_TARGET' || action.toolId === 'TYPE_TEXT'
+      )
+    ) {
+      const previousState = browserState.data;
+      const latestState = (await browserState.refetch()).data;
+      if (!previousState || !latestState) {
+        setBindingError('无法读取最新 Browser State，未提交任何动作。');
+        return;
+      }
+      const reboundActions = rebindActionsToState(
+        actions,
+        previousState,
+        latestState
+      );
+      if (!reboundActions) {
+        setBindingError(
+          '目标已变化、不可交互或已被标记为敏感；请重新选择目标后再提交。'
+        );
+        return;
+      }
+      submittedActions = reboundActions;
+      setActions(reboundActions);
+    }
     const domains = allowedDomains
       .split(/[\s,]+/)
       .map((domain) => domain.trim())
@@ -235,7 +279,7 @@ export function AutomationPage() {
               },
             ]
           : [],
-        actions: actions.map(toActionRequest),
+        actions: submittedActions.map(toActionRequest),
       },
     });
     setSelectedTaskId(task.taskId);
@@ -281,7 +325,10 @@ export function AutomationPage() {
             </div>
             <button
               type="button"
-              onClick={() => tasksQuery.refetch()}
+              onClick={() => {
+                void tasksQuery.refetch();
+                if (selectedTaskId) void selectedTaskQuery.refetch();
+              }}
               className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-border-default px-2 text-[10px] text-text-secondary transition-colors hover:text-text-primary"
             >
               <RefreshCw size={11} />
@@ -606,17 +653,20 @@ export function AutomationPage() {
               </div>
             )}
 
+            {bindingError && (
+              <div
+                role="alert"
+                className="flex gap-2 border border-warning/30 bg-warning/8 p-3 text-[11px] leading-4 text-warning"
+              >
+                <AlertTriangle className="mt-0.5 shrink-0" size={13} />
+                {bindingError}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={
-                createTask.isPending ||
-                !sessionId ||
-                !goal.trim() ||
-                !allowedDomains.trim() ||
-                navigationConflict ||
-                Boolean(policyConflict) ||
-                !actionsValid
-              }
+              disabled={Boolean(submitDisabledReason)}
+              title={submitDisabledReason || undefined}
               className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[7px] bg-accent px-4 text-[12px] font-semibold text-canvas transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
             >
               {createTask.isPending ? (
@@ -973,6 +1023,67 @@ function toActionRequest(action: DraftAction): CreateAgentActionRequest {
     waitCondition: action.waitCondition,
     timeoutMs: action.timeoutMs,
   };
+}
+
+function rebindActionsToState(
+  actions: DraftAction[],
+  previousState: BrowserStateView,
+  latestState: BrowserStateView
+): DraftAction[] | null {
+  const previousTargets = new Map(
+    previousState.targets.map((target) => [target.targetRef, target])
+  );
+  const latestTargets = new Map(
+    latestState.targets.map((target) => [target.targetRef, target])
+  );
+  const rebound: DraftAction[] = [];
+  for (const action of actions) {
+    if (action.toolId !== 'CLICK_TARGET' && action.toolId !== 'TYPE_TEXT') {
+      rebound.push(action);
+      continue;
+    }
+    const previousTarget = action.targetRef
+      ? previousTargets.get(action.targetRef)
+      : undefined;
+    let target = action.targetRef
+      ? latestTargets.get(action.targetRef)
+      : undefined;
+    if (!target && previousTarget) {
+      const stableIdentity = targetStableIdentity(previousTarget.targetRef);
+      const stableMatches = latestState.targets.filter(
+        (candidate) =>
+          stableIdentity &&
+          targetStableIdentity(candidate.targetRef) === stableIdentity &&
+          candidate.role === previousTarget.role &&
+          candidate.name === previousTarget.name
+      );
+      target = stableMatches.length === 1 ? stableMatches[0] : undefined;
+    }
+    const invalidTextTarget =
+      action.toolId === 'TYPE_TEXT' &&
+      (target?.sensitive ||
+        !['textbox', 'combobox'].includes(target?.role ?? ''));
+    if (
+      !target ||
+      !target.visible ||
+      !target.enabled ||
+      !target.bounds ||
+      invalidTextTarget
+    ) {
+      return null;
+    }
+    rebound.push({
+      ...action,
+      targetRef: target.targetRef,
+      targetRevision: latestState.targetRevision,
+    });
+  }
+  return rebound;
+}
+
+function targetStableIdentity(targetRef: string): string | undefined {
+  const match = /^target:\d+:(.+)$/.exec(targetRef);
+  return match?.[1];
 }
 
 function Signal({

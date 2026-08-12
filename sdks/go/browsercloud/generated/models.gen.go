@@ -2058,11 +2058,34 @@ type OperationView struct {
 }
 
 type RemoteDesktopConnection struct {
+	ConnectionId   string `json:"connectionId,omitempty"`
 	WebSocketPath  string `json:"webSocketPath,omitempty"`
 	ExpiresAt      string `json:"expiresAt,omitempty"`
 	Protocol       string `json:"protocol,omitempty"`
 	OperationEpoch int64  `json:"operationEpoch,omitempty"`
 	ViewOnly       bool   `json:"viewOnly,omitempty"`
+}
+
+type RemoteDesktopParticipantList struct {
+	Items       []RemoteDesktopParticipant `json:"items,omitempty"`
+	OnlineCount int                        `json:"onlineCount,omitempty"`
+}
+
+type RemoteDesktopParticipant struct {
+	ConnectionId      string `json:"connectionId,omitempty"`
+	SessionId         string `json:"sessionId,omitempty"`
+	ContextEpoch      int64  `json:"contextEpoch,omitempty"`
+	ActorId           any    `json:"actorId,omitempty"`
+	AccessMode        any    `json:"accessMode,omitempty"`
+	ViewOnly          any    `json:"viewOnly,omitempty"`
+	State             string `json:"state,omitempty"`
+	Reason            string `json:"reason,omitempty"`
+	ConnectedAt       any    `json:"connectedAt,omitempty"`
+	DisconnectedAt    any    `json:"disconnectedAt,omitempty"`
+	RevokedBy         any    `json:"revokedBy,omitempty"`
+	RevokeRequestedAt any    `json:"revokeRequestedAt,omitempty"`
+	ObservedAt        string `json:"observedAt,omitempty"`
+	UpdatedAt         string `json:"updatedAt,omitempty"`
 }
 
 type AuditEvent struct {

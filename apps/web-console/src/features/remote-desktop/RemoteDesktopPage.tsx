@@ -7,6 +7,8 @@ import {
   LoaderCircle,
   Monitor,
   ShieldCheck,
+  UserRoundX,
+  Users,
   Unplug,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -15,11 +17,14 @@ import { Link, useSearchParams } from 'react-router';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { currentActorId } from '@/api/session';
+import { getRuntimeIdentity, hasAnyRole } from '@/auth/runtimeIdentity';
 import {
   useBrowserState,
   useReleaseHumanTakeover,
   useSession,
   useSessionResourceStream,
+  useRemoteDesktopParticipants,
+  useRevokeRemoteDesktopParticipant,
 } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
 import { NoVncViewport, type DesktopConnectionState } from './NoVncViewport';
@@ -34,6 +39,11 @@ export function RemoteDesktopPage() {
     ['RUNNING', 'DEGRADED'].includes(sessionQuery.data?.state ?? '')
   );
   const releaseMutation = useReleaseHumanTakeover(sessionId);
+  const participantsQuery = useRemoteDesktopParticipants(
+    sessionId,
+    Boolean(sessionId)
+  );
+  const revokeParticipant = useRevokeRemoteDesktopParticipant(sessionId);
   const [desktopState, setDesktopState] =
     useState<DesktopConnectionState>('DISCONNECTED');
   const [viewOnly, setViewOnly] = useState(false);
@@ -47,6 +57,11 @@ export function RemoteDesktopPage() {
     ? takeoverOwned && session.currentOperation?.phase === 'EXECUTING'
     : runtimeReady;
   const agentActive = session?.currentOperation?.ownerType === 'AGENT';
+  const canRevokeParticipants = hasAnyRole(getRuntimeIdentity()?.roles ?? [], [
+    'TENANT_ADMIN',
+    'SECURITY_ADMIN',
+    'PLATFORM_ADMIN',
+  ]);
   const bindingEpoch = takeover
     ? (session?.currentOperation?.operationEpoch ?? 0)
     : (session?.contextEpoch ?? 0);
@@ -268,6 +283,87 @@ export function RemoteDesktopPage() {
                   <RailMetric label="Collaborators" value="Bounded to 8" />
                   <RailMetric label="View-only input" value="Node rejected" />
                 </dl>
+              </RailSection>
+
+              <RailSection
+                title={`在线参与者 · ${participantsQuery.data?.onlineCount ?? 0}`}
+              >
+                {participantsQuery.isLoading ? (
+                  <p className="font-mono text-[9px] text-text-muted">
+                    读取 Node 连接状态…
+                  </p>
+                ) : participantsQuery.error ? (
+                  <button
+                    type="button"
+                    onClick={() => void participantsQuery.refetch()}
+                    className="text-left text-[9px] text-danger hover:underline"
+                  >
+                    参与者状态不可用，点击重试
+                  </button>
+                ) : participantsQuery.data?.items.length ? (
+                  <div className="space-y-2">
+                    {participantsQuery.data.items.map((participant) => (
+                      <div
+                        key={participant.connectionId}
+                        className="border border-border-subtle bg-surface-2/55 p-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-[10px] text-text-secondary">
+                              {participant.actorId || 'Actor unavailable'}
+                            </p>
+                            <p className="mt-1 truncate font-mono text-[8px] text-text-muted">
+                              {participant.connectionId}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 font-mono text-[8px] text-success">
+                            <Users size={9} /> {participant.state}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="font-mono text-[8px] text-text-muted">
+                            {participant.viewOnly ? 'VIEW ONLY' : 'CONTROL'} ·{' '}
+                            {participant.accessMode === 'EXCLUSIVE_TAKEOVER'
+                              ? 'EXCLUSIVE'
+                              : 'SHARED'}
+                          </span>
+                          {canRevokeParticipants && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void revokeParticipant.mutateAsync(
+                                  participant.connectionId
+                                )
+                              }
+                              disabled={
+                                participant.state === 'REVOKE_REQUESTED' ||
+                                revokeParticipant.isPending
+                              }
+                              aria-label={`撤销 ${participant.actorId || participant.connectionId} 的远程桌面连接`}
+                              className="inline-flex items-center gap-1 text-[8px] text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <UserRoundX size={9} />
+                              {participant.state === 'REVOKE_REQUESTED'
+                                ? '撤销中'
+                                : '管理员撤销'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-mono text-[9px] text-text-muted">
+                    暂无已确认在线连接
+                  </p>
+                )}
+                {revokeParticipant.error && (
+                  <p className="mt-2 text-[9px] leading-4 text-danger">
+                    {revokeParticipant.error instanceof Error
+                      ? revokeParticipant.error.message
+                      : '撤销请求失败'}
+                  </p>
+                )}
               </RailSection>
             </aside>
           </div>

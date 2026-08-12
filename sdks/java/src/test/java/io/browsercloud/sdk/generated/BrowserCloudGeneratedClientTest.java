@@ -26,7 +26,7 @@ public final class BrowserCloudGeneratedClientTest {
         client.getSession(
             new BrowserCloudGeneratedClient.Request(
                 Map.of("sessionId", "ses_1"), Map.of(), Map.of(), null));
-    require(BrowserCloudGeneratedClient.OPERATIONS.size() == 194, "operation coverage drifted");
+    require(BrowserCloudGeneratedClient.OPERATIONS.size() == 196, "operation coverage drifted");
     require(response.body().contains("ses_1"), "response missing");
     Models.SessionView session = null;
     Models.ProxyRoutingDecision routing = null;

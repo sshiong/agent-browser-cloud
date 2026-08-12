@@ -107,10 +107,12 @@ public class RemoteDesktopTicketService {
       String accessMode,
       boolean viewOnly) {
     var expiresAt = Instant.now(clock).plusSeconds(ttlSeconds);
+    var connectionId = "rdc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
     var claims = new LinkedHashMap<String, Object>();
     claims.put("tenantId", tenantId);
     claims.put("sessionId", sessionId);
     claims.put("actorId", actorId);
+    claims.put("connectionId", connectionId);
     claims.put("coordinatorTerm", coordinatorTerm);
     claims.put("contextEpoch", contextEpoch);
     claims.put("operationEpoch", bindingEpoch);
@@ -125,6 +127,7 @@ public class RemoteDesktopTicketService {
       var signature =
           BASE64_URL.encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.US_ASCII)));
       return new RemoteDesktopConnectionResponse(
+          connectionId,
           "/desktop/v1/sessions/" + sessionId + "?ticket=" + payload + "." + signature,
           expiresAt,
           "rfb",

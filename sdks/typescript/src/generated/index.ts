@@ -186,6 +186,8 @@ export type { RegionId } from './models/RegionId.js';
 export type { RegisterBrowserNodeRequest } from './models/RegisterBrowserNodeRequest.js';
 export type { ReleaseFreeze } from './models/ReleaseFreeze.js';
 export type { RemoteDesktopConnection } from './models/RemoteDesktopConnection.js';
+export type { RemoteDesktopParticipant } from './models/RemoteDesktopParticipant.js';
+export type { RemoteDesktopParticipantList } from './models/RemoteDesktopParticipantList.js';
 export type { RenewSafetyLeaseRequest } from './models/RenewSafetyLeaseRequest.js';
 export type { RequestRecoveryContractApprovalRequest } from './models/RequestRecoveryContractApprovalRequest.js';
 export type { RequestTenantRouteMigration } from './models/RequestTenantRouteMigration.js';

@@ -20,10 +20,11 @@ use node_contracts::proto::{
     HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
     PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
     ProbeProxyBindingRequest, ProbeProxyBindingResponse, PublishRequest, PublishResponse,
-    ReleaseAllInputCommand, ReportCapacityRequest, ReportSessionResourcesRequest,
-    RequestStateResyncCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
-    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand,
-    TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
+    ReleaseAllInputCommand, RemoteDesktopParticipantEvent, ReportCapacityRequest,
+    ReportSessionResourcesRequest, RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand,
+    RuntimeResourcesAdjustedEvent, RuntimeStartedEvent, RuntimeStoppedEvent,
+    SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -740,16 +741,57 @@ struct ActiveProfileWorkspace {
 }
 
 struct DesktopDisconnectPublisher {
-    sender: mpsc::Sender<RemoteDesktopTicketClaims>,
+    sender: mpsc::Sender<DesktopGatewayEvent>,
+}
+
+#[derive(Clone)]
+enum DesktopGatewayEvent {
+    LastConnectionDisconnected(RemoteDesktopTicketClaims),
+    ConnectionChanged {
+        claims: RemoteDesktopTicketClaims,
+        state: String,
+        reason: String,
+    },
 }
 
 #[tonic::async_trait]
 impl DisconnectHandler for DesktopDisconnectPublisher {
     async fn disconnected(&self, claims: &RemoteDesktopTicketClaims) {
-        if self.sender.send(claims.clone()).await.is_err() {
+        if self
+            .sender
+            .send(DesktopGatewayEvent::LastConnectionDisconnected(
+                claims.clone(),
+            ))
+            .await
+            .is_err()
+        {
             tracing::warn!(
                 session_id = claims.session_id,
                 "Remote desktop disconnect processor is unavailable"
+            );
+        }
+    }
+
+    async fn connection_changed(
+        &self,
+        claims: &RemoteDesktopTicketClaims,
+        state: &str,
+        reason: &str,
+    ) {
+        if self
+            .sender
+            .send(DesktopGatewayEvent::ConnectionChanged {
+                claims: claims.clone(),
+                state: state.to_owned(),
+                reason: reason.to_owned(),
+            })
+            .await
+            .is_err()
+        {
+            tracing::warn!(
+                session_id = claims.session_id,
+                connection_id = claims.connection_id,
+                "Remote desktop lifecycle processor is unavailable"
             );
         }
     }
@@ -2303,6 +2345,33 @@ impl NodeControlService {
             );
         }
         Ok(())
+    }
+
+    async fn record_desktop_connection_change(
+        &self,
+        claims: RemoteDesktopTicketClaims,
+        state: String,
+        reason: String,
+    ) -> anyhow::Result<()> {
+        self.record_and_publish_background_event(
+            &claims.tenant_id,
+            &claims.session_id,
+            claims.coordinator_term,
+            claims.context_epoch,
+            "RemoteDesktopParticipantChanged",
+            RemoteDesktopParticipantEvent {
+                session_id: claims.session_id.clone(),
+                connection_id: claims.connection_id.clone(),
+                actor_id: claims.actor_id.clone(),
+                access_mode: claims.access_mode.clone(),
+                view_only: claims.view_only,
+                state,
+                reason,
+                observed_at_ms: wall_clock_millis() as i64,
+                revoked_by: String::new(),
+            },
+        )
+        .await
     }
 
     async fn execute_agent_action(
@@ -4390,6 +4459,54 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "RevokeRemoteDesktopConnection" => {
+                match RevokeRemoteDesktopConnectionCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id
+                            || !payload.connection_id.starts_with("rdc_")
+                            || payload.connection_id.len() != 24
+                            || payload.reason.is_empty()
+                            || payload.revoked_by.is_empty()
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("remote desktop revoke payload is invalid"),
+                            );
+                        }
+                        let revoked = self.remote_desktop_gateway.as_ref().and_then(|gateway| {
+                            gateway.revoke_connection(&command.session_id, &payload.connection_id)
+                        });
+                        let sequence = match self.next_event_sequence(&command.session_id).await {
+                            Ok(sequence) => sequence,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let event = Self::event(
+                            command,
+                            "RemoteDesktopParticipantChanged",
+                            sequence,
+                            RemoteDesktopParticipantEvent {
+                                session_id: command.session_id.clone(),
+                                connection_id: payload.connection_id,
+                                actor_id: revoked
+                                    .as_ref()
+                                    .map(|claims| claims.actor_id.clone())
+                                    .unwrap_or_default(),
+                                access_mode: revoked
+                                    .as_ref()
+                                    .map(|claims| claims.access_mode.clone())
+                                    .unwrap_or_default(),
+                                view_only: revoked.as_ref().is_some_and(|claims| claims.view_only),
+                                state: "REVOKED".to_owned(),
+                                reason: payload.reason,
+                                observed_at_ms: wall_clock_millis() as i64,
+                                revoked_by: payload.revoked_by,
+                            },
+                        );
+                        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             _ => Self::result(
                 Self::ack(
                     &command.message_id,
@@ -5967,7 +6084,7 @@ async fn main() -> Result<()> {
     }
     let runtime_supervisor = Arc::new(runtime_supervisor);
     let (desktop_disconnect_sender, mut desktop_disconnect_receiver) =
-        mpsc::channel::<RemoteDesktopTicketClaims>(128);
+        mpsc::channel::<DesktopGatewayEvent>(128);
     let disconnect_handler = Arc::new(DesktopDisconnectPublisher {
         sender: desktop_disconnect_sender,
     });
@@ -6214,16 +6331,37 @@ async fn main() -> Result<()> {
     };
     let desktop_disconnect_service = service.clone();
     tokio::spawn(async move {
-        while let Some(claims) = desktop_disconnect_receiver.recv().await {
-            if let Err(error) = desktop_disconnect_service
-                .handle_desktop_disconnect(claims.clone())
-                .await
-            {
-                tracing::error!(
-                    session_id = claims.session_id,
-                    error = %error,
-                    "Remote desktop disconnect barrier failed"
-                );
+        while let Some(event) = desktop_disconnect_receiver.recv().await {
+            match event {
+                DesktopGatewayEvent::LastConnectionDisconnected(claims) => {
+                    if let Err(error) = desktop_disconnect_service
+                        .handle_desktop_disconnect(claims.clone())
+                        .await
+                    {
+                        tracing::error!(
+                            session_id = claims.session_id,
+                            error = %error,
+                            "Remote desktop disconnect barrier failed"
+                        );
+                    }
+                }
+                DesktopGatewayEvent::ConnectionChanged {
+                    claims,
+                    state,
+                    reason,
+                } => {
+                    if let Err(error) = desktop_disconnect_service
+                        .record_desktop_connection_change(claims.clone(), state, reason)
+                        .await
+                    {
+                        tracing::error!(
+                            session_id = claims.session_id,
+                            connection_id = claims.connection_id,
+                            error = %error,
+                            "Remote desktop lifecycle event persistence failed"
+                        );
+                    }
+                }
             }
         }
     });

@@ -16,6 +16,7 @@ import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
+import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
@@ -42,6 +43,7 @@ public class NodeEventMapper {
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String AGENT_ACTION_FAILED = "AgentActionFailed";
   static final String HUMAN_ASSIST_FAILED = "HumanAssistFailed";
+  static final String REMOTE_DESKTOP_PARTICIPANT_CHANGED = "RemoteDesktopParticipantChanged";
   static final String SESSION_EVIDENCE_CAPTURED = "SessionEvidenceCaptured";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
@@ -501,6 +503,32 @@ public class NodeEventMapper {
               payload.getIntentId(),
               payload.getErrorCode());
         }
+        case REMOTE_DESKTOP_PARTICIPANT_CHANGED -> {
+          var payload = RemoteDesktopParticipantEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getConnectionId(), "connection_id");
+          requireText(payload.getState(), "state");
+          requireText(payload.getReason(), "reason");
+          if (!payload.getConnectionId().matches("^rdc_[A-Za-z0-9]{20}$")
+              || !java.util.Set.of("CONNECTED", "DISCONNECTED", "REVOKED")
+                  .contains(payload.getState())
+              || payload.getObservedAtMs() <= 0
+              || (!payload.getActorId().isBlank()
+                  && (!java.util.Set.of("COLLABORATIVE", "EXCLUSIVE_TAKEOVER")
+                      .contains(payload.getAccessMode())))
+              || (payload.getState().equals("CONNECTED") && payload.getActorId().isBlank())) {
+            throw new IllegalArgumentException("remote desktop participant metadata is invalid");
+          }
+          yield new NodeEvent.RemoteDesktopParticipantChanged(
+              payload.getSessionId(),
+              payload.getConnectionId(),
+              payload.getActorId(),
+              payload.getAccessMode(),
+              payload.getViewOnly(),
+              payload.getState(),
+              payload.getReason(),
+              payload.getObservedAtMs(),
+              payload.getRevokedBy());
+        }
         case SESSION_EVIDENCE_CAPTURED -> {
           var payload = SessionEvidenceCapturedEvent.parseFrom(envelope.getPayload());
           requireText(payload.getEvidenceId(), "evidence_id");
@@ -637,6 +665,7 @@ public class NodeEventMapper {
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
+      case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();

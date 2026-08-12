@@ -88,6 +88,9 @@ export function useAgentTask(taskId: string) {
       ].includes(query.state.data.state)
         ? 2_000
         : false,
+    // The operator may keep a separate VNC window in front while inspecting this task.
+    // Continue refreshing only the selected authoritative detail; lists remain SSE-driven.
+    refetchIntervalInBackground: true,
   });
 }
 

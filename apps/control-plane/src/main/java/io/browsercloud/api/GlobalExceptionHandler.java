@@ -43,6 +43,8 @@ import io.browsercloud.application.ProfileImportJobStore.ProfileImportConflictEx
 import io.browsercloud.application.ProfileImportJobStore.ProfileImportNotFoundException;
 import io.browsercloud.application.RecoveryGameDayQueueApplicationService.RecoveryGameDayJobNotFoundException;
 import io.browsercloud.application.RecoveryGameDayQueueApplicationService.RecoveryGameDayJobRejectedException;
+import io.browsercloud.application.RemoteDesktopParticipantApplicationService.RemoteDesktopParticipantNotFoundException;
+import io.browsercloud.application.RemoteDesktopParticipantApplicationService.RemoteDesktopParticipantRejectedException;
 import io.browsercloud.application.RuntimeBuildPolicy.RuntimeBuildRejectedException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseNotFoundException;
 import io.browsercloud.application.RuntimeReleaseApplicationService.RuntimeReleaseRejectedException;
@@ -116,6 +118,28 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(RemoteDesktopParticipantNotFoundException.class)
+  ResponseEntity<ApiError> remoteDesktopParticipantNotFound(
+      RemoteDesktopParticipantNotFoundException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.NOT_FOUND,
+        "REMOTE_DESKTOP_PARTICIPANT_NOT_FOUND",
+        "Remote desktop participant was not found",
+        Map.of(),
+        request);
+  }
+
+  @ExceptionHandler(RemoteDesktopParticipantRejectedException.class)
+  ResponseEntity<ApiError> remoteDesktopParticipantRejected(
+      RemoteDesktopParticipantRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "REMOTE_DESKTOP_PARTICIPANT_REJECTED",
+        "Remote desktop participant operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(ChallengeEventNotFoundException.class)
   ResponseEntity<ApiError> challengeNotFound(

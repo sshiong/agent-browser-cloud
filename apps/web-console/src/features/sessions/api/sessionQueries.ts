@@ -38,6 +38,8 @@ import {
   getSessionChallenges,
   getChallengePreview,
   authorizeHumanAssist,
+  getRemoteDesktopParticipants,
+  revokeRemoteDesktopParticipant,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -93,6 +95,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'application-binding'] as const,
   challenges: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'challenges'] as const,
+  desktopParticipants: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'desktop-participants'] as const,
   challengePreview: (sessionId: string, eventId: string) =>
     [...sessionKeys.challenges(sessionId), eventId, 'preview'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
@@ -615,6 +619,9 @@ export function useSessionResourceStream(
         queryClient.invalidateQueries({
           queryKey: sessionKeys.applicationBinding(sessionId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.desktopParticipants(sessionId),
+        }),
       ]);
 
     const run = async () => {
@@ -697,6 +704,35 @@ export function useSessionResourceStream(
   }, [enabled, queryClient, sessionId]);
 
   return connectionState;
+}
+
+export function useRemoteDesktopParticipants(
+  sessionId: string,
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: sessionKeys.desktopParticipants(sessionId),
+    queryFn: ({ signal }) =>
+      getRemoteDesktopParticipants(sessionId, undefined, signal),
+    enabled: enabled && Boolean(sessionId),
+  });
+}
+
+export function useRevokeRemoteDesktopParticipant(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) =>
+      revokeRemoteDesktopParticipant(
+        sessionId,
+        connectionId,
+        `desktop-revoke-${crypto.randomUUID()}`
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.desktopParticipants(sessionId),
+      });
+    },
+  });
 }
 
 async function waitForReconnect(milliseconds: number, signal: AbortSignal) {

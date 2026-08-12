@@ -218,7 +218,12 @@ class SessionApplicationServiceTest {
             null);
     var response =
         new RemoteDesktopConnectionResponse(
-            "/desktop/v1/sessions/ses_test?ticket=test", now.plusSeconds(45), "rfb", 4, false);
+            "rdc_1234567890abcdefghij",
+            "/desktop/v1/sessions/ses_test?ticket=test",
+            now.plusSeconds(45),
+            "rfb",
+            4,
+            false);
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(activeAgentOperation));
     when(remoteDesktopTicketService.issueCollaborative(
@@ -257,7 +262,12 @@ class SessionApplicationServiceTest {
             null);
     var response =
         new RemoteDesktopConnectionResponse(
-            "/desktop/v1/sessions/ses_test?ticket=exclusive", now.plusSeconds(45), "rfb", 7, false);
+            "rdc_1234567890abcdefghij",
+            "/desktop/v1/sessions/ses_test?ticket=exclusive",
+            now.plusSeconds(45),
+            "rfb",
+            7,
+            false);
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(takeover));
     when(remoteDesktopTicketService.issueExclusive(
@@ -274,7 +284,12 @@ class SessionApplicationServiceTest {
     var context = runningContext(now);
     var response =
         new RemoteDesktopConnectionResponse(
-            "/desktop/v1/sessions/ses_test?ticket=view-only", now.plusSeconds(45), "rfb", 4, true);
+            "rdc_1234567890abcdefghij",
+            "/desktop/v1/sessions/ses_test?ticket=view-only",
+            now.plusSeconds(45),
+            "rfb",
+            4,
+            true);
     when(sessionRepository.require("ses_test")).thenReturn(context);
     when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
     when(remoteDesktopTicketService.issueCollaborative(

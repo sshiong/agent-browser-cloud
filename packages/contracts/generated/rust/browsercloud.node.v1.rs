@@ -729,6 +729,45 @@ pub struct HumanTakeoverEndedEvent {
     #[prost(string, tag="4")]
     pub reason: ::prost::alloc::string::String,
 }
+/// Revoke exactly one remote desktop participant. This command is independent from Agent and
+/// HumanTakeover operations; it must never release another participant or stop the Browser.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RevokeRemoteDesktopConnectionCommand {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub connection_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub revoked_by: ::prost::alloc::string::String,
+}
+/// Authoritative remote desktop connection lifecycle emitted by the Browser Node. CONNECTED and
+/// DISCONNECTED originate from the WebSocket gateway; REVOKED is the acknowledgement of an exact
+/// administrator command. Actor/access fields may be empty only for an already-gone revocation.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteDesktopParticipantEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub connection_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub actor_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub access_mode: ::prost::alloc::string::String,
+    #[prost(bool, tag="5")]
+    pub view_only: bool,
+    #[prost(string, tag="6")]
+    pub state: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(int64, tag="8")]
+    pub observed_at_ms: i64,
+    #[prost(string, tag="9")]
+    pub revoked_by: ::prost::alloc::string::String,
+}
 /// 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

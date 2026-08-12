@@ -668,6 +668,14 @@ public final class SessionCoordinator {
         }
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.RemoteDesktopParticipantChanged ignored -> {
+        if (command.operationEpoch() != 0
+            || (session.state() != SessionState.RUNNING
+                && session.state() != SessionState.DEGRADED)) {
+          yield CoordinatorResult.rejected("INVALID_REMOTE_DESKTOP_EVENT");
+        }
+        yield CoordinatorResult.completed();
+      }
       case NodeEvent.EvidenceCaptured ignored -> {
         if (session.state() != SessionState.RUNNING && session.state() != SessionState.DEGRADED) {
           yield CoordinatorResult.rejected("INVALID_SESSION_STATE");
@@ -735,6 +743,7 @@ public final class SessionCoordinator {
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
+      case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();

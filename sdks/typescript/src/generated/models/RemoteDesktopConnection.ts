@@ -4,6 +4,10 @@
 /* eslint-disable */
 export type RemoteDesktopConnection = {
     /**
+     * Non-secret connection identity used for participant governance.
+     */
+    connectionId: string;
+    /**
      * Same-origin WebSocket path. The embedded ticket is single-use and expires quickly.
      */
     webSocketPath: string;

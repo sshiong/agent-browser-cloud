@@ -774,11 +774,34 @@ export interface TargetBoundsView {
 }
 
 export interface RemoteDesktopConnection {
+  connectionId: string;
   webSocketPath: string;
   expiresAt: string;
   protocol: 'rfb';
   operationEpoch: number;
   viewOnly: boolean;
+}
+
+export interface RemoteDesktopParticipantView {
+  connectionId: string;
+  sessionId: string;
+  contextEpoch: number;
+  actorId?: string;
+  accessMode?: 'COLLABORATIVE' | 'EXCLUSIVE_TAKEOVER';
+  viewOnly?: boolean;
+  state: 'CONNECTED' | 'REVOKE_REQUESTED' | 'REVOKED' | 'DISCONNECTED';
+  reason: string;
+  connectedAt?: string;
+  disconnectedAt?: string;
+  revokedBy?: string;
+  revokeRequestedAt?: string;
+  observedAt: string;
+  updatedAt: string;
+}
+
+export interface RemoteDesktopParticipantListResponse {
+  items: RemoteDesktopParticipantView[];
+  onlineCount: number;
 }
 
 export type ChallengeType =

@@ -94,6 +94,8 @@ OPERATIONS: dict[str, Operation] = {
     'requestHumanTakeover': Operation('requestHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
     'releaseHumanTakeover': Operation('releaseHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:release-takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
     'createRemoteDesktopConnection': Operation('createRemoteDesktopConnection', 'POST', '/api/v1/sessions/{sessionId}:desktop-connection', ('sessionId',), ('viewOnly',), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'RemoteDesktopConnection'),
+    'listRemoteDesktopParticipants': Operation('listRemoteDesktopParticipants', 'GET', '/api/v1/sessions/{sessionId}/desktop-participants', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'RemoteDesktopParticipantList'),
+    'revokeRemoteDesktopParticipant': Operation('revokeRemoteDesktopParticipant', 'POST', '/api/v1/sessions/{sessionId}/desktop-participants/{connectionId}:revoke', ('connectionId', 'sessionId'), (), ('Idempotency-Key', 'X-Actor-Id', 'X-Tenant-Id'), '', False, 'RemoteDesktopParticipant'),
     'listProfiles': Operation('listProfiles', 'GET', '/api/v1/profiles', (), (), ('X-Tenant-Id',), '', False, 'ProfileListResponse'),
     'createProfile': Operation('createProfile', 'POST', '/api/v1/profiles', (), (), ('X-Tenant-Id',), 'CreateProfileRequest', True, 'Profile'),
     'getProfile': Operation('getProfile', 'GET', '/api/v1/profiles/{profileId}', ('profileId',), (), ('X-Tenant-Id',), '', False, 'Profile'),
@@ -463,6 +465,12 @@ class BrowserCloudGeneratedClient:
 
     def createRemoteDesktopConnection(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('createRemoteDesktopConnection', path=path, query=query, body=body, headers=headers)
+
+    def listRemoteDesktopParticipants(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listRemoteDesktopParticipants', path=path, query=query, body=body, headers=headers)
+
+    def revokeRemoteDesktopParticipant(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('revokeRemoteDesktopParticipant', path=path, query=query, body=body, headers=headers)
 
     def listProfiles(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listProfiles', path=path, query=query, body=body, headers=headers)

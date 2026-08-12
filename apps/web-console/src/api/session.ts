@@ -7,6 +7,8 @@ import type {
   SessionListResponse,
   BrowserStateView,
   RemoteDesktopConnection,
+  RemoteDesktopParticipantListResponse,
+  RemoteDesktopParticipantView,
   StateResyncRequest,
   StateResyncResponse,
   SessionResourceView,
@@ -855,6 +857,36 @@ export async function createRemoteDesktopConnection(
     {
       method: 'POST',
       signal,
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export async function getRemoteDesktopParticipants(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<RemoteDesktopParticipantListResponse> {
+  return request<RemoteDesktopParticipantListResponse>(
+    `/sessions/${sessionId}/desktop-participants`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function revokeRemoteDesktopParticipant(
+  sessionId: string,
+  connectionId: string,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId()
+): Promise<RemoteDesktopParticipantView> {
+  return request<RemoteDesktopParticipantView>(
+    `/sessions/${sessionId}/desktop-participants/${connectionId}:revoke`,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
     },
     tenantId,
     actorId

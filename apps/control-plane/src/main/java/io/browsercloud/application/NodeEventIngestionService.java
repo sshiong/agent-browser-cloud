@@ -13,6 +13,7 @@ import io.browsercloud.persistence.InboxEventJpaRepository;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +41,7 @@ public class NodeEventIngestionService {
   private final BrowserStateSnapshotAssembler stateSnapshotAssembler;
   private final ChallengeDetectionService challengeDetectionService;
   private final HumanAssistApplicationService humanAssistService;
+  private final RemoteDesktopParticipantApplicationService remoteDesktopParticipants;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -60,6 +62,49 @@ public class NodeEventIngestionService {
       BrowserStateSnapshotAssembler stateSnapshotAssembler,
       ChallengeDetectionService challengeDetectionService,
       HumanAssistApplicationService humanAssistService) {
+    this(
+        inboxRepository,
+        coordinator,
+        browserStateRepository,
+        profileApplicationService,
+        proxyApplicationService,
+        sessionRepository,
+        nodeCommandGateway,
+        agentNavigationCompletionService,
+        auditService,
+        workflowService,
+        browserCapacityService,
+        resourceService,
+        recoveryActionService,
+        evidenceService,
+        stateResyncAdmissionService,
+        stateSnapshotAssembler,
+        challengeDetectionService,
+        humanAssistService,
+        null);
+  }
+
+  @Autowired
+  public NodeEventIngestionService(
+      InboxEventJpaRepository inboxRepository,
+      SessionCoordinator coordinator,
+      BrowserStateRepository browserStateRepository,
+      ProfileApplicationService profileApplicationService,
+      StaticProxyApplicationService proxyApplicationService,
+      SessionRepository sessionRepository,
+      NodeCommandGateway nodeCommandGateway,
+      AgentNavigationCompletionService agentNavigationCompletionService,
+      AuditApplicationService auditService,
+      DurableWorkflowApplicationService workflowService,
+      BrowserCapacityApplicationService browserCapacityService,
+      SessionResourceApplicationService resourceService,
+      BusinessRecoveryActionApplicationService recoveryActionService,
+      SessionEvidenceApplicationService evidenceService,
+      StateResyncAdmissionService stateResyncAdmissionService,
+      BrowserStateSnapshotAssembler stateSnapshotAssembler,
+      ChallengeDetectionService challengeDetectionService,
+      HumanAssistApplicationService humanAssistService,
+      RemoteDesktopParticipantApplicationService remoteDesktopParticipants) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -78,6 +123,7 @@ public class NodeEventIngestionService {
     this.stateSnapshotAssembler = stateSnapshotAssembler;
     this.challengeDetectionService = challengeDetectionService;
     this.humanAssistService = humanAssistService;
+    this.remoteDesktopParticipants = remoteDesktopParticipants;
   }
 
   @Transactional
@@ -132,6 +178,11 @@ public class NodeEventIngestionService {
       case NodeEvent.AgentActionFailed failed ->
           agentNavigationCompletionService.actionFailed(command, failed);
       case NodeEvent.HumanAssistFailed failed -> humanAssistService.failed(command, failed);
+      case NodeEvent.RemoteDesktopParticipantChanged changed -> {
+        if (remoteDesktopParticipants != null) {
+          remoteDesktopParticipants.record(command, changed);
+        }
+      }
       case NodeEvent.HumanTakeoverReady ready ->
           browserStateRepository.save(command.tenantId(), command.contextEpoch(), ready.state());
       case NodeEvent.HumanTakeoverEnded ended -> {

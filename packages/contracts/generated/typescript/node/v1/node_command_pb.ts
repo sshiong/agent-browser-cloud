@@ -2753,6 +2753,153 @@ export class HumanTakeoverEndedEvent extends Message<HumanTakeoverEndedEvent> {
 }
 
 /**
+ * Revoke exactly one remote desktop participant. This command is independent from Agent and
+ * HumanTakeover operations; it must never release another participant or stop the Browser.
+ *
+ * @generated from message browsercloud.node.v1.RevokeRemoteDesktopConnectionCommand
+ */
+export class RevokeRemoteDesktopConnectionCommand extends Message<RevokeRemoteDesktopConnectionCommand> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string connection_id = 2;
+   */
+  connectionId = "";
+
+  /**
+   * @generated from field: string reason = 3;
+   */
+  reason = "";
+
+  /**
+   * @generated from field: string revoked_by = 4;
+   */
+  revokedBy = "";
+
+  constructor(data?: PartialMessage<RevokeRemoteDesktopConnectionCommand>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.RevokeRemoteDesktopConnectionCommand";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "connection_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "revoked_by", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RevokeRemoteDesktopConnectionCommand {
+    return new RevokeRemoteDesktopConnectionCommand().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RevokeRemoteDesktopConnectionCommand {
+    return new RevokeRemoteDesktopConnectionCommand().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RevokeRemoteDesktopConnectionCommand {
+    return new RevokeRemoteDesktopConnectionCommand().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RevokeRemoteDesktopConnectionCommand | PlainMessage<RevokeRemoteDesktopConnectionCommand> | undefined, b: RevokeRemoteDesktopConnectionCommand | PlainMessage<RevokeRemoteDesktopConnectionCommand> | undefined): boolean {
+    return proto3.util.equals(RevokeRemoteDesktopConnectionCommand, a, b);
+  }
+}
+
+/**
+ * Authoritative remote desktop connection lifecycle emitted by the Browser Node. CONNECTED and
+ * DISCONNECTED originate from the WebSocket gateway; REVOKED is the acknowledgement of an exact
+ * administrator command. Actor/access fields may be empty only for an already-gone revocation.
+ *
+ * @generated from message browsercloud.node.v1.RemoteDesktopParticipantEvent
+ */
+export class RemoteDesktopParticipantEvent extends Message<RemoteDesktopParticipantEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string connection_id = 2;
+   */
+  connectionId = "";
+
+  /**
+   * @generated from field: string actor_id = 3;
+   */
+  actorId = "";
+
+  /**
+   * @generated from field: string access_mode = 4;
+   */
+  accessMode = "";
+
+  /**
+   * @generated from field: bool view_only = 5;
+   */
+  viewOnly = false;
+
+  /**
+   * @generated from field: string state = 6;
+   */
+  state = "";
+
+  /**
+   * @generated from field: string reason = 7;
+   */
+  reason = "";
+
+  /**
+   * @generated from field: int64 observed_at_ms = 8;
+   */
+  observedAtMs = protoInt64.zero;
+
+  /**
+   * @generated from field: string revoked_by = 9;
+   */
+  revokedBy = "";
+
+  constructor(data?: PartialMessage<RemoteDesktopParticipantEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.RemoteDesktopParticipantEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "connection_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "actor_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "access_mode", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "view_only", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 6, name: "state", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "observed_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 9, name: "revoked_by", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RemoteDesktopParticipantEvent {
+    return new RemoteDesktopParticipantEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RemoteDesktopParticipantEvent {
+    return new RemoteDesktopParticipantEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RemoteDesktopParticipantEvent {
+    return new RemoteDesktopParticipantEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RemoteDesktopParticipantEvent | PlainMessage<RemoteDesktopParticipantEvent> | undefined, b: RemoteDesktopParticipantEvent | PlainMessage<RemoteDesktopParticipantEvent> | undefined): boolean {
+    return proto3.util.equals(RemoteDesktopParticipantEvent, a, b);
+  }
+}
+
+/**
  * 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
  *
  * @generated from message browsercloud.node.v1.ExecuteInputCommand

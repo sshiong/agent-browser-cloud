@@ -18,6 +18,7 @@ import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
+import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
@@ -30,6 +31,43 @@ import org.junit.jupiter.api.Test;
 class NodeEventMapperTest {
 
   private final NodeEventMapper mapper = new NodeEventMapper();
+
+  @Test
+  void shouldMapAuthoritativeRemoteDesktopParticipantLifecycle() {
+    var payload =
+        RemoteDesktopParticipantEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setConnectionId("rdc_1234567890abcdefghij")
+            .setActorId("viewer-test")
+            .setAccessMode("COLLABORATIVE")
+            .setViewOnly(true)
+            .setState("CONNECTED")
+            .setReason("RFB_UPSTREAM_CONNECTED")
+            .setObservedAtMs(1_786_400_000_000L)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-desktop-connected")
+            .setEventType(NodeEventMapper.REMOTE_DESKTOP_PARTICIPANT_CHANGED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setCoordinatorTerm(2)
+            .setContextEpoch(3)
+            .setOperationEpoch(0)
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.RemoteDesktopParticipantChanged.class,
+            changed -> {
+              assertThat(changed.connectionId()).isEqualTo("rdc_1234567890abcdefghij");
+              assertThat(changed.actorId()).isEqualTo("viewer-test");
+              assertThat(changed.viewOnly()).isTrue();
+              assertThat(changed.state()).isEqualTo("CONNECTED");
+            });
+  }
 
   @Test
   void shouldMapHumanAssistFailureWithoutExposingRetryableInput() {

@@ -29,6 +29,8 @@ import type { ProxyRebindRequest } from '../models/ProxyRebindRequest.js';
 import type { RebindSessionApplicationRequest } from '../models/RebindSessionApplicationRequest.js';
 import type { RedeemEvidenceAccessResponse } from '../models/RedeemEvidenceAccessResponse.js';
 import type { RemoteDesktopConnection } from '../models/RemoteDesktopConnection.js';
+import type { RemoteDesktopParticipant } from '../models/RemoteDesktopParticipant.js';
+import type { RemoteDesktopParticipantList } from '../models/RemoteDesktopParticipantList.js';
 import type { RenewSafetyLeaseRequest } from '../models/RenewSafetyLeaseRequest.js';
 import type { ResourceEventList } from '../models/ResourceEventList.js';
 import type { ResourcePolicyOperation } from '../models/ResourcePolicyOperation.js';
@@ -1271,6 +1273,79 @@ export class SessionService {
             },
             query: {
                 'viewOnly': viewOnly,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * List Browser Node-confirmed online remote desktop participants
+     * @returns RemoteDesktopParticipantList Current participant projection sourced from real gateway lifecycle events.
+     * @throws ApiError
+     */
+    public listRemoteDesktopParticipants({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<RemoteDesktopParticipantList> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/desktop-participants',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Revoke exactly one remote desktop connection without stopping Agent or Browser
+     * @returns RemoteDesktopParticipant Exact connection revocation was durably queued for its Browser Node.
+     * @throws ApiError
+     */
+    public revokeRemoteDesktopParticipant({
+        sessionId,
+        idempotencyKey,
+        connectionId,
+        xTenantId,
+        xActorId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        connectionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        /**
+         * Optional Local/Test actor identity. Ignored in Production, where actor identity is the JWT subject.
+         */
+        xActorId?: string,
+    }): CancelablePromise<RemoteDesktopParticipant> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/desktop-participants/{connectionId}:revoke',
+            path: {
+                'sessionId': sessionId,
+                'connectionId': connectionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'X-Actor-Id': xActorId,
+                'Idempotency-Key': idempotencyKey,
             },
             errors: {
                 403: `Resource is outside the caller tenant scope.`,

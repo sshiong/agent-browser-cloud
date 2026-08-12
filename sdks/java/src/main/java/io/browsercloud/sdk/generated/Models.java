@@ -385,7 +385,11 @@ public final class Models {
 
   public record OperationView(String operationId, String ownerType, Object actorId, String mode, Integer priority, Long coordinatorTerm, Long contextEpoch, Long operationEpoch, Object workflowId, Boolean cancellable, Boolean preemptible, String phase, String state, List<String> allowedCapabilities, String deadline) {}
 
-  public record RemoteDesktopConnection(String webSocketPath, String expiresAt, String protocol, Long operationEpoch, Boolean viewOnly) {}
+  public record RemoteDesktopConnection(String connectionId, String webSocketPath, String expiresAt, String protocol, Long operationEpoch, Boolean viewOnly) {}
+
+  public record RemoteDesktopParticipantList(List<RemoteDesktopParticipant> items, Integer onlineCount) {}
+
+  public record RemoteDesktopParticipant(String connectionId, String sessionId, Long contextEpoch, Object actorId, Object accessMode, Object viewOnly, String state, String reason, Object connectedAt, Object disconnectedAt, Object revokedBy, Object revokeRequestedAt, String observedAt, String updatedAt) {}
 
   public record AuditEvent(String eventId, Long sequenceNo, Object sessionId, String eventType, String actorType, Object actorId, Object resourceType, Object resourceId, String action, String result, Map<String, Object> details, Object previousEventHash, String eventHash, Object requestId, String retentionUntil, Boolean legalHold, String createdAt) {}
 

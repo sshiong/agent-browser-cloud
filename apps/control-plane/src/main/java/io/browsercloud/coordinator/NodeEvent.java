@@ -21,6 +21,7 @@ public sealed interface NodeEvent
         NodeEvent.AgentNavigationFailed,
         NodeEvent.AgentActionFailed,
         NodeEvent.HumanAssistFailed,
+        NodeEvent.RemoteDesktopParticipantChanged,
         NodeEvent.EvidenceCaptured,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
@@ -37,6 +38,18 @@ public sealed interface NodeEvent
       String exitIp,
       String exitCountry,
       String exitAsn)
+      implements NodeEvent {}
+
+  record RemoteDesktopParticipantChanged(
+      String sessionId,
+      String connectionId,
+      String actorId,
+      String accessMode,
+      boolean viewOnly,
+      String state,
+      String reason,
+      long observedAtMs,
+      String revokedBy)
       implements NodeEvent {}
 
   /** Runtime 停止事件。 */

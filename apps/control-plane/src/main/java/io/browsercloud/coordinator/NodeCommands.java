@@ -16,6 +16,7 @@ import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
 import io.browsercloud.proto.node.v1.HumanAssistClickCommand;
 import io.browsercloud.proto.node.v1.ReleaseAllInputCommand;
 import io.browsercloud.proto.node.v1.RequestStateResyncCommand;
+import io.browsercloud.proto.node.v1.RevokeRemoteDesktopConnectionCommand;
 import io.browsercloud.proto.node.v1.StartRuntimeCommand;
 import io.browsercloud.proto.node.v1.StopRuntimeCommand;
 import java.util.UUID;
@@ -289,6 +290,34 @@ public final class NodeCommands {
         session.contextEpoch(),
         0,
         "failover-fence:" + staleOperation.operationId(),
+        payload);
+  }
+
+  /** Revokes one exact VNC participant without acquiring an exclusive Session operation. */
+  public static NodeCommand revokeRemoteDesktopConnection(
+      SessionContext session,
+      String connectionId,
+      String reason,
+      String revokedBy,
+      String idempotencyKey) {
+    var payload =
+        RevokeRemoteDesktopConnectionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setConnectionId(connectionId)
+            .setReason(reason)
+            .setRevokedBy(revokedBy)
+            .build()
+            .toByteArray();
+    return new NodeCommand(
+        newId("cmd_"),
+        "RevokeRemoteDesktopConnection",
+        session.nodeId(),
+        session.sessionId(),
+        session.tenantId(),
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        0,
+        idempotencyKey,
         payload);
   }
 

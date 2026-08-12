@@ -461,6 +461,30 @@ message HumanTakeoverEndedEvent {
   string reason = 4;
 }
 
+// Revoke exactly one remote desktop participant. This command is independent from Agent and
+// HumanTakeover operations; it must never release another participant or stop the Browser.
+message RevokeRemoteDesktopConnectionCommand {
+  string session_id = 1;
+  string connection_id = 2;
+  string reason = 3;
+  string revoked_by = 4;
+}
+
+// Authoritative remote desktop connection lifecycle emitted by the Browser Node. CONNECTED and
+// DISCONNECTED originate from the WebSocket gateway; REVOKED is the acknowledgement of an exact
+// administrator command. Actor/access fields may be empty only for an already-gone revocation.
+message RemoteDesktopParticipantEvent {
+  string session_id = 1;
+  string connection_id = 2;
+  string actor_id = 3;
+  string access_mode = 4;
+  bool view_only = 5;
+  string state = 6;
+  string reason = 7;
+  int64 observed_at_ms = 8;
+  string revoked_by = 9;
+}
+
 // 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
 message ExecuteInputCommand {
   string session_id = 1;

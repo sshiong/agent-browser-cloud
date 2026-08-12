@@ -10,6 +10,7 @@ import {
   getBusinessRecovery,
   getChallengePreview,
   getRecoveryContractDiff,
+  getRemoteDesktopParticipants,
   getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
@@ -19,6 +20,7 @@ import {
   listRecoveryContractRevisions,
   listSessions,
   requestHumanTakeover,
+  revokeRemoteDesktopParticipant,
   requestRecoveryContractApproval,
   decideRecoveryContractApproval,
   releaseSessionSafetyLease,
@@ -91,6 +93,7 @@ describe('session API', () => {
 
   it('requests a server-enforced view-only remote desktop ticket', async () => {
     const connection = {
+      connectionId: 'rdc_1234567890abcdefghij',
       webSocketPath: '/desktop/v1/sessions/ses_1234567890abcdef?ticket=opaque',
       expiresAt: new Date(Date.now() + 45_000).toISOString(),
       protocol: 'rfb',
@@ -120,6 +123,64 @@ describe('session API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
           'X-Actor-Id': 'viewer-test',
+        }),
+      })
+    );
+  });
+
+  it('lists and precisely revokes one remote desktop participant', async () => {
+    const participant = {
+      connectionId: 'rdc_1234567890abcdefghij',
+      sessionId: 'ses_1234567890abcdef',
+      contextEpoch: 3,
+      actorId: 'viewer-test',
+      accessMode: 'COLLABORATIVE',
+      viewOnly: true,
+      state: 'CONNECTED',
+      reason: 'RFB_UPSTREAM_CONNECTED',
+      observedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ items: [participant], onlineCount: 1 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ...participant, state: 'REVOKE_REQUESTED' }),
+          { status: 202, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getRemoteDesktopParticipants(participant.sessionId, 'tenant-test');
+    await revokeRemoteDesktopParticipant(
+      participant.sessionId,
+      participant.connectionId,
+      'desktop-revoke-request-1',
+      'tenant-test',
+      'admin-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `/api/v1/sessions/${participant.sessionId}/desktop-participants`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/sessions/${participant.sessionId}/desktop-participants/${participant.connectionId}:revoke`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'desktop-revoke-request-1',
+          'X-Actor-Id': 'admin-test',
         }),
       })
     );

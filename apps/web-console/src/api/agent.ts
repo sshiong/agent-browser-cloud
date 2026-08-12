@@ -23,6 +23,7 @@ async function request<T>(
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
+    cache: options?.cache ?? (options?.method ? undefined : 'no-store'),
     headers: {
       'Content-Type': 'application/json',
       ...identityHeaders(tenantId, actorId),

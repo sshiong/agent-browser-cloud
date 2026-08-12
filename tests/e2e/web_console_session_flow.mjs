@@ -756,6 +756,8 @@ try {
     observerPage.getByText("RFB LIVE", { exact: true }),
   ).toBeVisible();
   await observerContext.close();
+  await page.bringToFront();
+  await page.getByRole("button", { name: "刷新" }).click();
   await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
     {
       timeout: 20_000,
@@ -771,14 +773,7 @@ try {
   await page.getByLabel("起始 URL").fill("");
   await page.getByRole("button", { name: "添加" }).click();
   const clickTargetSelect = page.getByLabel("动作 1 目标");
-  const clickTargetValue = await clickTargetSelect
-    .locator("option")
-    .filter({ hasText: "integration" })
-    .getAttribute("value");
-  if (!clickTargetValue) {
-    throw new Error("current Browser State has no integration click target");
-  }
-  await clickTargetSelect.selectOption(clickTargetValue);
+  await clickTargetSelect.selectOption({ label: "button · Run integration" });
   await page.getByRole("button", { name: "添加" }).click();
   await page.getByLabel("动作 2 类型").selectOption("TYPE_TEXT");
   await page
@@ -789,13 +784,23 @@ try {
   await page.getByLabel("动作 3 类型").selectOption("SCROLL");
   await page.getByRole("button", { name: "添加" }).click();
   await page.getByLabel("动作 4 类型").selectOption("WAIT_FOR");
+  // State collection can advance the target revision while the action editor is open.
+  // Reconfirm exact targets; submit also performs an authoritative just-in-time rebind.
+  await clickTargetSelect.selectOption({ label: "button · Run integration" });
+  await page
+    .getByLabel("动作 2 目标")
+    .selectOption({ label: "textbox · Public note" });
+  const actionSubmit = page.getByRole("button", {
+    name: "运行安全校验并生成计划",
+  });
+  await expect(actionSubmit).toBeEnabled({ timeout: 10_000 });
   const [actionTaskResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
         response.url().includes(`${startSessionId}/agent-tasks`) &&
         response.status() === 201,
     ),
-    page.getByRole("button", { name: "运行安全校验并生成计划" }).click(),
+    actionSubmit.click(),
   ]);
   const actionTask = await actionTaskResponse.json();
   if (
@@ -806,6 +811,7 @@ try {
     throw new Error("structured action plan was not safely created");
   }
   await executeSelectedTaskAndWait(actionTask.taskId, "COMPLETED");
+  await page.getByRole("button", { name: "刷新" }).click();
   await expect(page.getByText("COMPLETED", { exact: true }).last()).toBeVisible(
     {
       timeout: 10_000,
@@ -816,13 +822,17 @@ try {
   }
 
   await page.getByLabel("用户目标").fill("查看付款页面并总结当前状态");
+  const confirmationSubmit = page.getByRole("button", {
+    name: "运行安全校验并生成计划",
+  });
+  await expect(confirmationSubmit).toBeEnabled({ timeout: 10_000 });
   const [confirmationTaskResponse] = await Promise.all([
     page.waitForResponse(
       (response) =>
         response.url().includes(`${startSessionId}/agent-tasks`) &&
         response.status() === 201,
     ),
-    page.getByRole("button", { name: "运行安全校验并生成计划" }).click(),
+    confirmationSubmit.click(),
   ]);
   const confirmationTask = await confirmationTaskResponse.json();
   if (confirmationTask.state !== "AWAITING_CONFIRMATION") {

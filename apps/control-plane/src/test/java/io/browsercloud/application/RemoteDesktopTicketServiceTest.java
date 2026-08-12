@@ -31,6 +31,7 @@ class RemoteDesktopTicketServiceTest {
 
     assertThat(response.expiresAt()).isEqualTo(Instant.parse("2026-07-26T00:00:45Z"));
     assertThat(response.operationEpoch()).isEqualTo(3);
+    assertThat(response.connectionId()).matches("^rdc_[A-Za-z0-9]{20}$");
     assertThat(response.webSocketPath())
         .startsWith("/desktop/v1/sessions/ses_1234567890abcdef?ticket=");
     var ticket = response.webSocketPath().substring(response.webSocketPath().indexOf('=') + 1);
@@ -41,6 +42,7 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"tenantId\":\"tenant-test\"")
         .contains("\"sessionId\":\"ses_1234567890abcdef\"")
         .contains("\"actorId\":\"user-test\"")
+        .contains("\"connectionId\":\"" + response.connectionId() + "\"")
         .contains("\"coordinatorTerm\":1")
         .contains("\"contextEpoch\":3")
         .contains("\"operationEpoch\":3")

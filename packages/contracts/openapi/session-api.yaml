@@ -1446,6 +1446,54 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/desktop-participants:
+    get:
+      operationId: listRemoteDesktopParticipants
+      summary: List Browser Node-confirmed online remote desktop participants
+      tags: [Session, RemoteDesktop]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current participant projection sourced from real gateway lifecycle events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteDesktopParticipantList"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/desktop-participants/{connectionId}:revoke:
+    post:
+      operationId: revokeRemoteDesktopParticipant
+      summary: Revoke exactly one remote desktop connection without stopping Agent or Browser
+      tags: [Session, RemoteDesktop]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: connectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rdc_[a-zA-Z0-9]{20}$"
+      responses:
+        "202":
+          description: Exact connection revocation was durably queued for its Browser Node.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteDesktopParticipant"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/profiles:
     get:
       operationId: listProfiles
@@ -10655,12 +10703,17 @@ components:
       type: object
       additionalProperties: false
       required:
+        - connectionId
         - webSocketPath
         - expiresAt
         - protocol
         - operationEpoch
         - viewOnly
       properties:
+        connectionId:
+          type: string
+          pattern: "^rdc_[a-zA-Z0-9]{20}$"
+          description: Non-secret connection identity used for participant governance.
         webSocketPath:
           type: string
           pattern: "^/desktop/v1/sessions/ses_[a-zA-Z0-9]{16,}\\?ticket="
@@ -10681,6 +10734,71 @@ components:
             that Operation Epoch. Its presence alone does not imply an exclusive operation.
         viewOnly:
           type: boolean
+    RemoteDesktopParticipantList:
+      type: object
+      additionalProperties: false
+      required: [items, onlineCount]
+      properties:
+        items:
+          type: array
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/RemoteDesktopParticipant"
+        onlineCount:
+          type: integer
+          minimum: 0
+          maximum: 8
+    RemoteDesktopParticipant:
+      type: object
+      additionalProperties: false
+      required:
+        - connectionId
+        - sessionId
+        - contextEpoch
+        - state
+        - reason
+        - observedAt
+        - updatedAt
+      properties:
+        connectionId:
+          type: string
+          pattern: "^rdc_[a-zA-Z0-9]{20}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        contextEpoch:
+          type: integer
+          format: int64
+          minimum: 1
+        actorId:
+          type: [string, "null"]
+        accessMode:
+          type: [string, "null"]
+          enum: [COLLABORATIVE, EXCLUSIVE_TAKEOVER, null]
+        viewOnly:
+          type: [boolean, "null"]
+        state:
+          type: string
+          enum: [CONNECTED, REVOKE_REQUESTED, REVOKED, DISCONNECTED]
+        reason:
+          type: string
+        connectedAt:
+          type: [string, "null"]
+          format: date-time
+        disconnectedAt:
+          type: [string, "null"]
+          format: date-time
+        revokedBy:
+          type: [string, "null"]
+        revokeRequestedAt:
+          type: [string, "null"]
+          format: date-time
+        observedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     AuditEvent:
       type: object
       additionalProperties: false

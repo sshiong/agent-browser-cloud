@@ -39,6 +39,9 @@
 - 四语言 SDK 已从同一 OpenAPI 重新生成，最终漂移 Gate 纳入提交前全量验证。
 - `make test-integration` 通过：空库 94 个迁移后 `health=UP`、`public_tables=108`，双 Node
   迁移、资源调整生命周期、晚到 ACK 对账和 `audit_chain_valid=true` 均保持通过。
+- GitHub 冷机的独立 Operator E2E 在业务代码运行前遇到 `cgr.dev` 固定 digest Blob 返回 500；
+  测试脚本已为三个固定镜像 build 增加最多五次递增退避，digest 与供应链来源保持不变，重试
+  耗尽仍失败，避免把外部 Registry 瞬断误当成产品回归或通过不安全 fallback 掩盖问题。
 
 ## 仍未完成
 

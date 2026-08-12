@@ -61,19 +61,35 @@ wait_for_jsonpath() {
   return 1
 }
 
+docker_build_with_retry() {
+  local image=$1
+  local context=$2
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
+      -t "${image}" "${context}"; then
+      return 0
+    fi
+    if ((attempt == 5)); then
+      printf 'Docker build failed after %s attempts: %s\n' "${attempt}" "${image}" >&2
+      return 1
+    fi
+    printf 'Docker build attempt %s failed; retrying pinned base image in %ss\n' \
+      "${attempt}" "$((attempt * 3))" >&2
+    sleep "$((attempt * 3))"
+  done
+}
+
 command -v docker >/dev/null
 command -v "${KUBECTL_BIN}" >/dev/null
 command -v "${KIND_BIN}" >/dev/null
 
-docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
-  -t "${OPERATOR_IMAGE}" "${ROOT_DIR}/tools/browser-session-operator"
+docker_build_with_retry "${OPERATOR_IMAGE}" "${ROOT_DIR}/tools/browser-session-operator"
 git -C "${ROOT_DIR}" archive "${N_MINUS_ONE_COMMIT}" tools/browser-session-operator |
   tar -x -C "${N_MINUS_ONE_CONTEXT}"
-docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
-  -t "${N_MINUS_ONE_OPERATOR_IMAGE}" \
+docker_build_with_retry "${N_MINUS_ONE_OPERATOR_IMAGE}" \
   "${N_MINUS_ONE_CONTEXT}/tools/browser-session-operator"
-docker build --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
-  -t "${MOCK_IMAGE}" "${ROOT_DIR}/tests/kubernetes/fixtures"
+docker_build_with_retry "${MOCK_IMAGE}" "${ROOT_DIR}/tests/kubernetes/fixtures"
 
 "${KIND_BIN}" create cluster --name "${CLUSTER_NAME}" --wait 90s
 CLUSTER_CREATED=true

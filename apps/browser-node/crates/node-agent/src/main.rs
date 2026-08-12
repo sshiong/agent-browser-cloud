@@ -31,7 +31,9 @@ use node_journal::{
     SqliteNodeJournal,
 };
 use prost::Message;
-use remote_desktop_gateway::{DisconnectHandler, RemoteDesktopGateway, RemoteDesktopTicketClaims};
+use remote_desktop_gateway::{
+    DisconnectHandler, RemoteDesktopGateway, RemoteDesktopTicketClaims, RemoteDesktopUsageCounters,
+};
 use runtime_supervisor::{
     CgroupV2Config, ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeResourceLimits,
     RuntimeSpec, RuntimeSupervisor,
@@ -763,6 +765,7 @@ enum DesktopGatewayEvent {
         claims: RemoteDesktopTicketClaims,
         state: String,
         reason: String,
+        usage: RemoteDesktopUsageCounters,
     },
 }
 
@@ -789,6 +792,7 @@ impl DisconnectHandler for DesktopDisconnectPublisher {
         claims: &RemoteDesktopTicketClaims,
         state: &str,
         reason: &str,
+        usage: RemoteDesktopUsageCounters,
     ) {
         if self
             .sender
@@ -796,6 +800,7 @@ impl DisconnectHandler for DesktopDisconnectPublisher {
                 claims: claims.clone(),
                 state: state.to_owned(),
                 reason: reason.to_owned(),
+                usage,
             })
             .await
             .is_err()
@@ -2463,6 +2468,7 @@ impl NodeControlService {
         claims: RemoteDesktopTicketClaims,
         state: String,
         reason: String,
+        usage: RemoteDesktopUsageCounters,
     ) -> anyhow::Result<()> {
         self.record_and_publish_background_event(
             &claims.tenant_id,
@@ -2480,6 +2486,9 @@ impl NodeControlService {
                 reason,
                 observed_at_ms: wall_clock_millis() as i64,
                 revoked_by: String::new(),
+                forwarded_bytes: usage.forwarded_bytes,
+                quota_wait_millis: usage.quota_wait_millis,
+                throttled_batches: usage.throttled_batches,
             },
         )
         .await
@@ -4611,6 +4620,11 @@ impl NodeControlService {
                                 reason: payload.reason,
                                 observed_at_ms: wall_clock_millis() as i64,
                                 revoked_by: payload.revoked_by,
+                                // The gateway emits the final monotonic counters when the revoked
+                                // socket closes. This acknowledgement must not invent usage.
+                                forwarded_bytes: 0,
+                                quota_wait_millis: 0,
+                                throttled_batches: 0,
                             },
                         );
                         Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
@@ -6460,9 +6474,10 @@ async fn main() -> Result<()> {
                     claims,
                     state,
                     reason,
+                    usage,
                 } => {
                     if let Err(error) = desktop_disconnect_service
-                        .record_desktop_connection_change(claims.clone(), state, reason)
+                        .record_desktop_connection_change(claims.clone(), state, reason, usage)
                         .await
                     {
                         tracing::error!(

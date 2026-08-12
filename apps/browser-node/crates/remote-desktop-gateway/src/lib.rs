@@ -92,8 +92,18 @@ pub trait DisconnectHandler: Send + Sync {
         _claims: &RemoteDesktopTicketClaims,
         _state: &str,
         _reason: &str,
+        _usage: RemoteDesktopUsageCounters,
     ) {
     }
+}
+
+/// Monotonic, connection-scoped counters produced by the real RFB forwarding path. They are
+/// reported cumulatively so the Control Plane can merge retries without double billing.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RemoteDesktopUsageCounters {
+    pub forwarded_bytes: u64,
+    pub quota_wait_millis: u64,
+    pub throttled_batches: u64,
 }
 
 #[derive(Default)]
@@ -115,6 +125,7 @@ struct GatewayState {
     bitrate_limits_kbps: Mutex<HashMap<String, u32>>,
     observer_frame_rates_fps: Mutex<HashMap<String, u32>>,
     actor_forwarding: Mutex<HashMap<ActorQuotaKey, ActorForwardingState>>,
+    connection_usage: Mutex<HashMap<String, RemoteDesktopUsageCounters>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
@@ -289,6 +300,7 @@ impl RemoteDesktopGateway {
                 bitrate_limits_kbps: Mutex::new(HashMap::new()),
                 observer_frame_rates_fps: Mutex::new(HashMap::new()),
                 actor_forwarding: Mutex::new(HashMap::new()),
+                connection_usage: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -373,13 +385,6 @@ impl RemoteDesktopGateway {
         {
             for lease in connections.leases_by_connection_id.into_values() {
                 let _ = lease.revoke.send(true);
-                let handler = self.state.disconnect_handler.clone();
-                let claims = lease.claims;
-                tokio::spawn(async move {
-                    handler
-                        .connection_changed(&claims, "DISCONNECTED", "SESSION_UNREGISTERED")
-                        .await;
-                });
             }
         }
     }
@@ -592,6 +597,41 @@ impl RemoteDesktopGateway {
             .saturating_duration_since(now)
     }
 
+    fn record_server_forwarded(&self, connection_id: &str, bytes: usize, quota_wait: Duration) {
+        let mut usage = self
+            .state
+            .connection_usage
+            .lock()
+            .expect("remote desktop usage lock poisoned");
+        let counters = usage.entry(connection_id.to_owned()).or_default();
+        counters.forwarded_bytes = counters.forwarded_bytes.saturating_add(bytes as u64);
+        counters.quota_wait_millis = counters
+            .quota_wait_millis
+            .saturating_add(quota_wait.as_millis().try_into().unwrap_or(u64::MAX));
+        if !quota_wait.is_zero() {
+            counters.throttled_batches = counters.throttled_batches.saturating_add(1);
+        }
+    }
+
+    fn connection_usage(&self, connection_id: &str) -> RemoteDesktopUsageCounters {
+        self.state
+            .connection_usage
+            .lock()
+            .expect("remote desktop usage lock poisoned")
+            .get(connection_id)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    fn take_connection_usage(&self, connection_id: &str) -> RemoteDesktopUsageCounters {
+        self.state
+            .connection_usage
+            .lock()
+            .expect("remote desktop usage lock poisoned")
+            .remove(connection_id)
+            .unwrap_or_default()
+    }
+
     /// 返回当前活跃远程桌面连接距离最近一批 VNC Server 数据的年龄。
     ///
     /// 没有活跃客户端时返回 `None`，避免把未使用远程桌面的 Session 误判为帧阻塞。
@@ -761,11 +801,12 @@ impl RemoteDesktopGateway {
                 .expect("actor forwarding lock poisoned")
                 .remove(&ActorQuotaKey::from(&authorized.claims));
         }
+        let usage = self.take_connection_usage(&authorized.claims.connection_id);
+        self.state
+            .disconnect_handler
+            .connection_changed(&authorized.claims, "DISCONNECTED", disconnect_reason, usage)
+            .await;
         if let Some(disconnected_generation) = disconnected_generation {
-            self.state
-                .disconnect_handler
-                .connection_changed(&authorized.claims, "DISCONNECTED", disconnect_reason)
-                .await;
             let state = self.state.clone();
             let claims = authorized.claims.clone();
             tokio::spawn(async move {
@@ -811,7 +852,12 @@ impl RemoteDesktopGateway {
         .await?;
         self.state
             .disconnect_handler
-            .connection_changed(&authorized.claims, "CONNECTED", "RFB_FANOUT_ATTACHED")
+            .connection_changed(
+                &authorized.claims,
+                "CONNECTED",
+                "RFB_FANOUT_ATTACHED",
+                RemoteDesktopUsageCounters::default(),
+            )
             .await;
         self.state
             .last_server_frame_at
@@ -823,6 +869,11 @@ impl RemoteDesktopGateway {
             self.state.heartbeat_interval,
         );
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut usage_report = tokio::time::interval_at(
+            tokio::time::Instant::now() + Duration::from_secs(5),
+            Duration::from_secs(5),
+        );
+        usage_report.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_client_activity = tokio::time::Instant::now();
         // Subscribe before reading the cached baseline. An update racing this read
         // may be delivered twice, but it cannot be missed; subscribing afterwards
@@ -838,6 +889,9 @@ impl RemoteDesktopGateway {
                 .as_ref()
                 .map(|payload| self.reserve_server_forwarding(&authorized.claims, payload.len()))
                 .unwrap_or_default();
+        let mut pending_server_quota_wait =
+            pending_server_ready_at.saturating_duration_since(tokio::time::Instant::now());
+        let mut last_reported_usage = RemoteDesktopUsageCounters::default();
         let mut input_parser =
             RfbClientMessageParser::new(pending_client_bytes, server_init.pixel_format);
         match hub.refresh.try_send(()) {
@@ -870,6 +924,20 @@ impl RemoteDesktopGateway {
                     );
                     websocket.send(Message::Ping(Vec::new())).await?;
                 }
+                _ = usage_report.tick() => {
+                    let usage = self.connection_usage(&authorized.claims.connection_id);
+                    if usage != last_reported_usage {
+                        self.state.disconnect_handler
+                            .connection_changed(
+                                &authorized.claims,
+                                "CONNECTED",
+                                "USAGE_HEARTBEAT",
+                                usage,
+                            )
+                            .await;
+                        last_reported_usage = usage;
+                    }
+                }
                 frame = frames.recv(), if pending_server_payload.is_none() => {
                     let frame = match frame {
                         Ok(frame) => frame,
@@ -885,8 +953,10 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
-                    pending_server_ready_at = tokio::time::Instant::now()
-                        + self.reserve_server_forwarding(&authorized.claims, frame.len());
+                    pending_server_quota_wait =
+                        self.reserve_server_forwarding(&authorized.claims, frame.len());
+                    pending_server_ready_at =
+                        tokio::time::Instant::now() + pending_server_quota_wait;
                     pending_server_payload = Some(frame);
                 }
                 _ = tokio::time::sleep_until(pending_server_ready_at), if pending_server_payload.is_some() => {
@@ -899,6 +969,12 @@ impl RemoteDesktopGateway {
                     )
                     .await
                     .context("remote desktop client write timed out")??;
+                    self.record_server_forwarded(
+                        &authorized.claims.connection_id,
+                        payload.len(),
+                        pending_server_quota_wait,
+                    );
+                    pending_server_quota_wait = Duration::ZERO;
                 }
                 message = websocket.next() => {
                     match message {
@@ -1580,13 +1656,6 @@ fn authorize(
         if requests_exclusive {
             for lease in connections.leases_by_connection_id.values() {
                 let _ = lease.revoke.send(true);
-                let handler = state.disconnect_handler.clone();
-                let claims = lease.claims.clone();
-                tokio::spawn(async move {
-                    handler
-                        .connection_changed(&claims, "DISCONNECTED", "EXCLUSIVE_TAKEOVER_REVOKED")
-                        .await;
-                });
             }
             connections.leases_by_connection_id.clear();
         }
@@ -1999,6 +2068,37 @@ mod tests {
         assert!(first_delay >= Duration::from_millis(30));
         assert!(same_actor_delay >= Duration::from_millis(60));
         assert!(other_actor_delay < same_actor_delay);
+    }
+
+    #[test]
+    fn usage_counters_are_monotonic_and_removed_only_after_final_reporting() {
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        let connection_id = "rdc_1234567890abcdefghij";
+
+        gateway.record_server_forwarded(connection_id, 1_024, Duration::from_millis(25));
+        gateway.record_server_forwarded(connection_id, 2_048, Duration::ZERO);
+
+        assert_eq!(
+            gateway.connection_usage(connection_id),
+            RemoteDesktopUsageCounters {
+                forwarded_bytes: 3_072,
+                quota_wait_millis: 25,
+                throttled_batches: 1,
+            }
+        );
+        assert_eq!(
+            gateway.take_connection_usage(connection_id).forwarded_bytes,
+            3_072
+        );
+        assert_eq!(
+            gateway.connection_usage(connection_id),
+            RemoteDesktopUsageCounters::default()
+        );
     }
 
     #[tokio::test]

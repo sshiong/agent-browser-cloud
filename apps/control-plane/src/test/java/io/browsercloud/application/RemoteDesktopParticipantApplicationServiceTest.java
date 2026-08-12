@@ -7,12 +7,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.browsercloud.coordinator.NodeCommandGateway;
+import io.browsercloud.coordinator.NodeEvent;
+import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.RemoteDesktopParticipantEntity;
 import io.browsercloud.persistence.RemoteDesktopParticipantJpaRepository;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -26,8 +29,11 @@ class RemoteDesktopParticipantApplicationServiceTest {
   private final SessionRepository sessions = Mockito.mock(SessionRepository.class);
   private final NodeCommandGateway nodeCommands = Mockito.mock(NodeCommandGateway.class);
   private final AuditApplicationService audit = Mockito.mock(AuditApplicationService.class);
+  private final RemoteDesktopUsageCostAttributionService usageCosts =
+      Mockito.mock(RemoteDesktopUsageCostAttributionService.class);
   private final RemoteDesktopParticipantApplicationService service =
-      new RemoteDesktopParticipantApplicationService(participants, sessions, nodeCommands, audit);
+      new RemoteDesktopParticipantApplicationService(
+          participants, sessions, nodeCommands, audit, usageCosts);
 
   @Test
   void shouldListOnlyCurrentEpochOnlineParticipants() {
@@ -99,6 +105,57 @@ class RemoteDesktopParticipantApplicationServiceTest {
     assertThat(result.state()).isEqualTo("REVOKE_REQUESTED");
     verify(nodeCommands, never()).send(any());
     verify(audit, never()).append(any());
+  }
+
+  @Test
+  void shouldMergeMonotonicUsageAndPriceOnlyThePositiveDelta() {
+    var participant = participant("rdc_1234567890abcdefghij");
+    when(participants.findByIdForUpdate(participant.getConnectionId()))
+        .thenReturn(Optional.of(participant));
+    var rate =
+        new RemoteDesktopUsageCostAttributionService.ResolvedEgressRate(
+            "price-test", new BigDecimal("1.500000"));
+    when(usageCosts.resolve(
+            "tenant-test", "ses_1234567890abcdef", Instant.parse("2026-08-12T00:00:05Z")))
+        .thenReturn(Optional.of(rate));
+    when(usageCosts.price(4096, rate)).thenReturn(new BigDecimal("0.000005722"));
+    var envelope =
+        new NodeEventReceived(
+            "evt-usage-test", "tenant-test", "ses_1234567890abcdef", 1, 3, 0, 9, null);
+    var event =
+        new NodeEvent.RemoteDesktopParticipantChanged(
+            "ses_1234567890abcdef",
+            participant.getConnectionId(),
+            "user-test",
+            "COLLABORATIVE",
+            false,
+            "CONNECTED",
+            "USAGE_HEARTBEAT",
+            Instant.parse("2026-08-12T00:00:05Z").toEpochMilli(),
+            "",
+            4096,
+            250,
+            2);
+
+    service.record(envelope, event);
+    service.record(envelope, event);
+
+    assertThat(participant.getForwardedBytes()).isEqualTo(4096);
+    assertThat(participant.getQuotaWaitMillis()).isEqualTo(250);
+    assertThat(participant.getEgressCostUsd()).isEqualByComparingTo("0.000005722");
+    verify(usageCosts)
+        .appendLedger(
+            "evt-usage-test",
+            participant.getConnectionId(),
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "user-test",
+            4096,
+            250,
+            2,
+            rate,
+            new BigDecimal("0.000005722"),
+            Instant.parse("2026-08-12T00:00:05Z"));
   }
 
   private RemoteDesktopParticipantEntity participant(String connectionId) {

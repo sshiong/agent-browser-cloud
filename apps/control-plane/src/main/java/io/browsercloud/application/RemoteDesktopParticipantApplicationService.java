@@ -11,6 +11,7 @@ import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.RemoteDesktopParticipantEntity;
 import io.browsercloud.persistence.RemoteDesktopParticipantJpaRepository;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -25,16 +26,19 @@ public class RemoteDesktopParticipantApplicationService {
   private final SessionRepository sessions;
   private final NodeCommandGateway nodeCommands;
   private final AuditApplicationService audit;
+  private final RemoteDesktopUsageCostAttributionService usageCosts;
 
   public RemoteDesktopParticipantApplicationService(
       RemoteDesktopParticipantJpaRepository participants,
       SessionRepository sessions,
       NodeCommandGateway nodeCommands,
-      AuditApplicationService audit) {
+      AuditApplicationService audit,
+      RemoteDesktopUsageCostAttributionService usageCosts) {
     this.participants = participants;
     this.sessions = sessions;
     this.nodeCommands = nodeCommands;
     this.audit = audit;
+    this.usageCosts = usageCosts;
   }
 
   @Transactional(readOnly = true)
@@ -103,7 +107,7 @@ public class RemoteDesktopParticipantApplicationService {
     var observedAt = Instant.ofEpochMilli(event.observedAtMs());
     var participant =
         participants
-            .findById(event.connectionId())
+            .findByIdForUpdate(event.connectionId())
             .orElseGet(
                 () ->
                     new RemoteDesktopParticipantEntity(
@@ -125,7 +129,38 @@ public class RemoteDesktopParticipantApplicationService {
         event.reason(),
         event.revokedBy(),
         observedAt);
+    var previousBytes = participant.getForwardedBytes();
+    long billableBytes = Math.max(0, event.forwardedBytes() - previousBytes);
+    var rate =
+        billableBytes == 0
+            ? null
+            : usageCosts
+                .resolve(envelope.tenantId(), envelope.sessionId(), observedAt)
+                .orElse(null);
+    var attributedCost = rate == null ? null : usageCosts.price(billableBytes, rate);
+    var delta =
+        participant.applyUsage(
+            event.forwardedBytes(),
+            event.quotaWaitMillis(),
+            event.throttledBatches(),
+            attributedCost,
+            rate == null ? null : rate.pricingVersion(),
+            rate == null ? null : rate.egressGibUsd());
     participants.save(participant);
+    if (delta.forwardedBytes() > 0 || delta.quotaWaitMillis() > 0 || delta.throttledBatches() > 0) {
+      usageCosts.appendLedger(
+          envelope.eventId(),
+          participant.getConnectionId(),
+          envelope.tenantId(),
+          envelope.sessionId(),
+          participant.getActorId(),
+          delta.forwardedBytes(),
+          delta.quotaWaitMillis(),
+          delta.throttledBatches(),
+          rate,
+          attributedCost == null ? BigDecimal.ZERO.setScale(9) : attributedCost,
+          observedAt);
+    }
   }
 
   private void requireTenant(String sessionId, String tenantId) {
@@ -154,7 +189,14 @@ public class RemoteDesktopParticipantApplicationService {
         value.getRevokedBy(),
         value.getRevokeRequestedAt(),
         value.getObservedAt(),
-        value.getUpdatedAt());
+        value.getUpdatedAt(),
+        value.getForwardedBytes(),
+        value.getQuotaWaitMillis(),
+        value.getThrottledBatches(),
+        value.getEgressCostUsd(),
+        value.getUnpricedForwardedBytes(),
+        value.getLastCostPricingVersion(),
+        value.getLastEgressGibUsd());
   }
 
   public static final class RemoteDesktopParticipantNotFoundException extends RuntimeException {

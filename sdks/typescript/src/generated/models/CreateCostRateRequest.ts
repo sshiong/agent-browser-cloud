@@ -10,6 +10,7 @@ export type CreateCostRateRequest = {
     cpuCoreHourlyUsd: number;
     memoryGibHourlyUsd: number;
     desktopHourlyUsd: number;
+    remoteDesktopEgressGibUsd?: number;
     gpuHourlyUsd: number;
     mediaHourlyUsd: number;
     effectiveAt: string;

@@ -2107,20 +2107,27 @@ type RemoteDesktopParticipantHistoryPage struct {
 }
 
 type RemoteDesktopParticipant struct {
-	ConnectionId      string `json:"connectionId,omitempty"`
-	SessionId         string `json:"sessionId,omitempty"`
-	ContextEpoch      int64  `json:"contextEpoch,omitempty"`
-	ActorId           any    `json:"actorId,omitempty"`
-	AccessMode        any    `json:"accessMode,omitempty"`
-	ViewOnly          any    `json:"viewOnly,omitempty"`
-	State             string `json:"state,omitempty"`
-	Reason            string `json:"reason,omitempty"`
-	ConnectedAt       any    `json:"connectedAt,omitempty"`
-	DisconnectedAt    any    `json:"disconnectedAt,omitempty"`
-	RevokedBy         any    `json:"revokedBy,omitempty"`
-	RevokeRequestedAt any    `json:"revokeRequestedAt,omitempty"`
-	ObservedAt        string `json:"observedAt,omitempty"`
-	UpdatedAt         string `json:"updatedAt,omitempty"`
+	ConnectionId           string  `json:"connectionId,omitempty"`
+	SessionId              string  `json:"sessionId,omitempty"`
+	ContextEpoch           int64   `json:"contextEpoch,omitempty"`
+	ActorId                any     `json:"actorId,omitempty"`
+	AccessMode             any     `json:"accessMode,omitempty"`
+	ViewOnly               any     `json:"viewOnly,omitempty"`
+	State                  string  `json:"state,omitempty"`
+	Reason                 string  `json:"reason,omitempty"`
+	ConnectedAt            any     `json:"connectedAt,omitempty"`
+	DisconnectedAt         any     `json:"disconnectedAt,omitempty"`
+	RevokedBy              any     `json:"revokedBy,omitempty"`
+	RevokeRequestedAt      any     `json:"revokeRequestedAt,omitempty"`
+	ObservedAt             string  `json:"observedAt,omitempty"`
+	UpdatedAt              string  `json:"updatedAt,omitempty"`
+	ForwardedBytes         int64   `json:"forwardedBytes,omitempty"`
+	QuotaWaitMillis        int64   `json:"quotaWaitMillis,omitempty"`
+	ThrottledBatches       int64   `json:"throttledBatches,omitempty"`
+	EgressCostUsd          float64 `json:"egressCostUsd,omitempty"`
+	UnpricedForwardedBytes int64   `json:"unpricedForwardedBytes,omitempty"`
+	LastCostPricingVersion any     `json:"lastCostPricingVersion,omitempty"`
+	LastEgressGibUsd       any     `json:"lastEgressGibUsd,omitempty"`
 }
 
 type AuditEvent struct {
@@ -2448,30 +2455,32 @@ type FailRuntimeValidationJobRequest struct {
 }
 
 type CreateCostRateRequest struct {
-	Region             string           `json:"region,omitempty"`
-	ResourceTemplate   ResourceTemplate `json:"resourceTemplate,omitempty"`
-	BaseHourlyUsd      float64          `json:"baseHourlyUsd,omitempty"`
-	CpuCoreHourlyUsd   float64          `json:"cpuCoreHourlyUsd,omitempty"`
-	MemoryGibHourlyUsd float64          `json:"memoryGibHourlyUsd,omitempty"`
-	DesktopHourlyUsd   float64          `json:"desktopHourlyUsd,omitempty"`
-	GpuHourlyUsd       float64          `json:"gpuHourlyUsd,omitempty"`
-	MediaHourlyUsd     float64          `json:"mediaHourlyUsd,omitempty"`
-	EffectiveAt        string           `json:"effectiveAt,omitempty"`
+	Region                    string           `json:"region,omitempty"`
+	ResourceTemplate          ResourceTemplate `json:"resourceTemplate,omitempty"`
+	BaseHourlyUsd             float64          `json:"baseHourlyUsd,omitempty"`
+	CpuCoreHourlyUsd          float64          `json:"cpuCoreHourlyUsd,omitempty"`
+	MemoryGibHourlyUsd        float64          `json:"memoryGibHourlyUsd,omitempty"`
+	DesktopHourlyUsd          float64          `json:"desktopHourlyUsd,omitempty"`
+	RemoteDesktopEgressGibUsd float64          `json:"remoteDesktopEgressGibUsd,omitempty"`
+	GpuHourlyUsd              float64          `json:"gpuHourlyUsd,omitempty"`
+	MediaHourlyUsd            float64          `json:"mediaHourlyUsd,omitempty"`
+	EffectiveAt               string           `json:"effectiveAt,omitempty"`
 }
 
 type CostRate struct {
-	PricingVersion     string           `json:"pricingVersion,omitempty"`
-	Region             string           `json:"region,omitempty"`
-	ResourceTemplate   ResourceTemplate `json:"resourceTemplate,omitempty"`
-	BaseHourlyUsd      float64          `json:"baseHourlyUsd,omitempty"`
-	CpuCoreHourlyUsd   float64          `json:"cpuCoreHourlyUsd,omitempty"`
-	MemoryGibHourlyUsd float64          `json:"memoryGibHourlyUsd,omitempty"`
-	DesktopHourlyUsd   float64          `json:"desktopHourlyUsd,omitempty"`
-	GpuHourlyUsd       float64          `json:"gpuHourlyUsd,omitempty"`
-	MediaHourlyUsd     float64          `json:"mediaHourlyUsd,omitempty"`
-	EffectiveAt        string           `json:"effectiveAt,omitempty"`
-	CreatedBy          string           `json:"createdBy,omitempty"`
-	CreatedAt          string           `json:"createdAt,omitempty"`
+	PricingVersion            string           `json:"pricingVersion,omitempty"`
+	Region                    string           `json:"region,omitempty"`
+	ResourceTemplate          ResourceTemplate `json:"resourceTemplate,omitempty"`
+	BaseHourlyUsd             float64          `json:"baseHourlyUsd,omitempty"`
+	CpuCoreHourlyUsd          float64          `json:"cpuCoreHourlyUsd,omitempty"`
+	MemoryGibHourlyUsd        float64          `json:"memoryGibHourlyUsd,omitempty"`
+	DesktopHourlyUsd          float64          `json:"desktopHourlyUsd,omitempty"`
+	RemoteDesktopEgressGibUsd float64          `json:"remoteDesktopEgressGibUsd,omitempty"`
+	GpuHourlyUsd              float64          `json:"gpuHourlyUsd,omitempty"`
+	MediaHourlyUsd            float64          `json:"mediaHourlyUsd,omitempty"`
+	EffectiveAt               string           `json:"effectiveAt,omitempty"`
+	CreatedBy                 string           `json:"createdBy,omitempty"`
+	CreatedAt                 string           `json:"createdAt,omitempty"`
 }
 
 type SessionCostExplanation struct {

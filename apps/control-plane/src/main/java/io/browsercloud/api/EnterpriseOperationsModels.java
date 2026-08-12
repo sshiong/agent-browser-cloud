@@ -139,6 +139,7 @@ public final class EnterpriseOperationsModels {
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal cpuCoreHourlyUsd,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal memoryGibHourlyUsd,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal desktopHourlyUsd,
+      @DecimalMin("0") @DecimalMax("10000") BigDecimal remoteDesktopEgressGibUsd,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal gpuHourlyUsd,
       @NotNull @DecimalMin("0") @DecimalMax("10000") BigDecimal mediaHourlyUsd,
       @NotNull Instant effectiveAt) {}
@@ -151,6 +152,7 @@ public final class EnterpriseOperationsModels {
       BigDecimal cpuCoreHourlyUsd,
       BigDecimal memoryGibHourlyUsd,
       BigDecimal desktopHourlyUsd,
+      BigDecimal remoteDesktopEgressGibUsd,
       BigDecimal gpuHourlyUsd,
       BigDecimal mediaHourlyUsd,
       Instant effectiveAt,

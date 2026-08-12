@@ -48,6 +48,7 @@ export interface CostRateView {
   cpuCoreHourlyUsd: number;
   memoryGibHourlyUsd: number;
   desktopHourlyUsd: number;
+  remoteDesktopEgressGibUsd: number;
   gpuHourlyUsd: number;
   mediaHourlyUsd: number;
   effectiveAt: string;

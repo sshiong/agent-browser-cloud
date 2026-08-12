@@ -10916,6 +10916,11 @@ components:
         - reason
         - observedAt
         - updatedAt
+        - forwardedBytes
+        - quotaWaitMillis
+        - throttledBatches
+        - egressCostUsd
+        - unpricedForwardedBytes
       properties:
         connectionId:
           type: string
@@ -10956,6 +10961,32 @@ components:
         updatedAt:
           type: string
           format: date-time
+        forwardedBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Monotonic bytes successfully forwarded by the real RFB data path.
+        quotaWaitMillis:
+          type: integer
+          format: int64
+          minimum: 0
+        throttledBatches:
+          type: integer
+          format: int64
+          minimum: 0
+        egressCostUsd:
+          type: number
+          minimum: 0
+        unpricedForwardedBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Bytes retained for reconciliation because no effective enterprise rate existed.
+        lastCostPricingVersion:
+          type: [string, "null"]
+        lastEgressGibUsd:
+          type: [number, "null"]
+          minimum: 0
     AuditEvent:
       type: object
       additionalProperties: false
@@ -11956,6 +11987,10 @@ components:
         desktopHourlyUsd:
           type: number
           minimum: 0
+        remoteDesktopEgressGibUsd:
+          type: number
+          minimum: 0
+          default: 0
         gpuHourlyUsd:
           type: number
           minimum: 0
@@ -11976,6 +12011,7 @@ components:
         - cpuCoreHourlyUsd
         - memoryGibHourlyUsd
         - desktopHourlyUsd
+        - remoteDesktopEgressGibUsd
         - gpuHourlyUsd
         - mediaHourlyUsd
         - effectiveAt
@@ -11995,6 +12031,8 @@ components:
         memoryGibHourlyUsd:
           type: number
         desktopHourlyUsd:
+          type: number
+        remoteDesktopEgressGibUsd:
           type: number
         gpuHourlyUsd:
           type: number

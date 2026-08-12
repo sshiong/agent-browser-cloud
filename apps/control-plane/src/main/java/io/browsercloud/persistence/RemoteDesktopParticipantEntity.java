@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
@@ -56,6 +57,27 @@ public class RemoteDesktopParticipantEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @Column(name = "forwarded_bytes", nullable = false)
+  private long forwardedBytes;
+
+  @Column(name = "quota_wait_millis", nullable = false)
+  private long quotaWaitMillis;
+
+  @Column(name = "throttled_batches", nullable = false)
+  private long throttledBatches;
+
+  @Column(name = "egress_cost_usd", nullable = false, precision = 18, scale = 9)
+  private BigDecimal egressCostUsd = BigDecimal.ZERO;
+
+  @Column(name = "unpriced_forwarded_bytes", nullable = false)
+  private long unpricedForwardedBytes;
+
+  @Column(name = "last_cost_pricing_version")
+  private String lastCostPricingVersion;
+
+  @Column(name = "last_egress_gib_usd", precision = 12, scale = 6)
+  private BigDecimal lastEgressGibUsd;
+
   @Version private long version;
 
   protected RemoteDesktopParticipantEntity() {}
@@ -98,12 +120,35 @@ public class RemoteDesktopParticipantEntity {
     observedAt = eventObservedAt;
     updatedAt = eventObservedAt;
     if ("CONNECTED".equals(eventState)) {
-      connectedAt = eventObservedAt;
+      if (connectedAt == null) connectedAt = eventObservedAt;
       disconnectedAt = null;
     } else if ("DISCONNECTED".equals(eventState) || "REVOKED".equals(eventState)) {
       disconnectedAt = eventObservedAt;
     }
     if (eventRevokedBy != null && !eventRevokedBy.isBlank()) revokedBy = eventRevokedBy;
+  }
+
+  public UsageDelta applyUsage(
+      long eventForwardedBytes,
+      long eventQuotaWaitMillis,
+      long eventThrottledBatches,
+      BigDecimal attributedCostUsd,
+      String pricingVersion,
+      BigDecimal egressGibUsd) {
+    long bytesDelta = Math.max(0, eventForwardedBytes - forwardedBytes);
+    long waitDelta = Math.max(0, eventQuotaWaitMillis - quotaWaitMillis);
+    long batchesDelta = Math.max(0, eventThrottledBatches - throttledBatches);
+    forwardedBytes = Math.max(forwardedBytes, eventForwardedBytes);
+    quotaWaitMillis = Math.max(quotaWaitMillis, eventQuotaWaitMillis);
+    throttledBatches = Math.max(throttledBatches, eventThrottledBatches);
+    if (bytesDelta > 0 && attributedCostUsd != null) {
+      egressCostUsd = egressCostUsd.add(attributedCostUsd);
+      lastCostPricingVersion = pricingVersion;
+      lastEgressGibUsd = egressGibUsd;
+    } else if (bytesDelta > 0) {
+      unpricedForwardedBytes = Math.addExact(unpricedForwardedBytes, bytesDelta);
+    }
+    return new UsageDelta(bytesDelta, waitDelta, batchesDelta);
   }
 
   public void requestRevoke(String actorId, Instant now) {
@@ -174,4 +219,34 @@ public class RemoteDesktopParticipantEntity {
   public Instant getUpdatedAt() {
     return updatedAt;
   }
+
+  public long getForwardedBytes() {
+    return forwardedBytes;
+  }
+
+  public long getQuotaWaitMillis() {
+    return quotaWaitMillis;
+  }
+
+  public long getThrottledBatches() {
+    return throttledBatches;
+  }
+
+  public BigDecimal getEgressCostUsd() {
+    return egressCostUsd;
+  }
+
+  public long getUnpricedForwardedBytes() {
+    return unpricedForwardedBytes;
+  }
+
+  public String getLastCostPricingVersion() {
+    return lastCostPricingVersion;
+  }
+
+  public BigDecimal getLastEgressGibUsd() {
+    return lastEgressGibUsd;
+  }
+
+  public record UsageDelta(long forwardedBytes, long quotaWaitMillis, long throttledBatches) {}
 }

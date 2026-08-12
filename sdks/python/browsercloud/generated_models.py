@@ -1780,6 +1780,13 @@ class RemoteDesktopParticipant(TypedDict, total=False):
     revokeRequestedAt: Any
     observedAt: str
     updatedAt: str
+    forwardedBytes: int
+    quotaWaitMillis: int
+    throttledBatches: int
+    egressCostUsd: float
+    unpricedForwardedBytes: int
+    lastCostPricingVersion: Any
+    lastEgressGibUsd: Any
 
 class AuditEvent(TypedDict, total=False):
     eventId: str
@@ -2083,6 +2090,7 @@ class CreateCostRateRequest(TypedDict, total=False):
     cpuCoreHourlyUsd: float
     memoryGibHourlyUsd: float
     desktopHourlyUsd: float
+    remoteDesktopEgressGibUsd: float
     gpuHourlyUsd: float
     mediaHourlyUsd: float
     effectiveAt: str
@@ -2095,6 +2103,7 @@ class CostRate(TypedDict, total=False):
     cpuCoreHourlyUsd: float
     memoryGibHourlyUsd: float
     desktopHourlyUsd: float
+    remoteDesktopEgressGibUsd: float
     gpuHourlyUsd: float
     mediaHourlyUsd: float
     effectiveAt: str

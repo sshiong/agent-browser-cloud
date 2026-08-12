@@ -61,7 +61,14 @@ public class RemoteDesktopParticipantHistoryQueryRepository {
                    participant.revoked_by,
                    participant.revoke_requested_at,
                    participant.observed_at,
-                   participant.updated_at
+                   participant.updated_at,
+                   participant.forwarded_bytes,
+                   participant.quota_wait_millis,
+                   participant.throttled_batches,
+                   participant.egress_cost_usd,
+                   participant.unpriced_forwarded_bytes,
+                   participant.last_cost_pricing_version,
+                   participant.last_egress_gib_usd
               FROM remote_desktop_participants participant
              WHERE participant.tenant_id = :tenantId
                AND participant.session_id = :sessionId
@@ -88,7 +95,14 @@ public class RemoteDesktopParticipantHistoryQueryRepository {
                     resultSet.getString("revoked_by"),
                     instant(resultSet.getTimestamp("revoke_requested_at")),
                     resultSet.getTimestamp("observed_at").toInstant(),
-                    resultSet.getTimestamp("updated_at").toInstant()));
+                    resultSet.getTimestamp("updated_at").toInstant(),
+                    resultSet.getLong("forwarded_bytes"),
+                    resultSet.getLong("quota_wait_millis"),
+                    resultSet.getLong("throttled_batches"),
+                    resultSet.getBigDecimal("egress_cost_usd"),
+                    resultSet.getLong("unpriced_forwarded_bytes"),
+                    resultSet.getString("last_cost_pricing_version"),
+                    resultSet.getBigDecimal("last_egress_gib_usd")));
     long total =
         jdbc.queryForObject(
             """

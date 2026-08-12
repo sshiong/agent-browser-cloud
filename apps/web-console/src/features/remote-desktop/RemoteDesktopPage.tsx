@@ -354,6 +354,36 @@ export function RemoteDesktopPage() {
                             </button>
                           )}
                         </div>
+                        <dl className="mt-2 grid grid-cols-3 gap-1 border-t border-border-subtle pt-2 font-mono text-[8px] text-text-muted">
+                          <div>
+                            <dt>FORWARDED</dt>
+                            <dd className="mt-0.5 text-text-secondary">
+                              {(
+                                (participant.forwardedBytes ?? 0) /
+                                (1024 * 1024)
+                              ).toFixed(2)}{' '}
+                              MiB
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>QUOTA WAIT</dt>
+                            <dd className="mt-0.5 text-text-secondary">
+                              {(
+                                participant.quotaWaitMillis ?? 0
+                              ).toLocaleString()}{' '}
+                              ms
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>EGRESS COST</dt>
+                            <dd className="mt-0.5 text-text-secondary">
+                              ${(participant.egressCostUsd ?? 0).toFixed(6)}
+                              {(participant.unpricedForwardedBytes ?? 0) > 0
+                                ? ' · RATE MISSING'
+                                : ''}
+                            </dd>
+                          </div>
+                        </dl>
                       </div>
                     ))}
                   </div>

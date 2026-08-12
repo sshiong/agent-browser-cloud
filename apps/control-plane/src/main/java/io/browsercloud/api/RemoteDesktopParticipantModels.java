@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -20,7 +21,14 @@ public final class RemoteDesktopParticipantModels {
       String revokedBy,
       Instant revokeRequestedAt,
       Instant observedAt,
-      Instant updatedAt) {}
+      Instant updatedAt,
+      long forwardedBytes,
+      long quotaWaitMillis,
+      long throttledBatches,
+      BigDecimal egressCostUsd,
+      long unpricedForwardedBytes,
+      String lastCostPricingVersion,
+      BigDecimal lastEgressGibUsd) {}
 
   public record RemoteDesktopParticipantListResponse(
       List<RemoteDesktopParticipantView> items, int onlineCount) {}

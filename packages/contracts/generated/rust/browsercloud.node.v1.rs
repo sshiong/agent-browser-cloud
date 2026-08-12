@@ -804,6 +804,14 @@ pub struct RemoteDesktopParticipantEvent {
     pub observed_at_ms: i64,
     #[prost(string, tag="9")]
     pub revoked_by: ::prost::alloc::string::String,
+    /// Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+    /// by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+    #[prost(uint64, tag="10")]
+    pub forwarded_bytes: u64,
+    #[prost(uint64, tag="11")]
+    pub quota_wait_millis: u64,
+    #[prost(uint64, tag="12")]
+    pub throttled_batches: u64,
 }
 /// 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。
 #[allow(clippy::derive_partial_eq_without_eq)]

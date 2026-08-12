@@ -504,6 +504,11 @@ message RemoteDesktopParticipantEvent {
   string reason = 7;
   int64 observed_at_ms = 8;
   string revoked_by = 9;
+  // Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+  // by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+  uint64 forwarded_bytes = 10;
+  uint64 quota_wait_millis = 11;
+  uint64 throttled_batches = 12;
 }
 
 // 单个有序输入命令。每个 CommandEnvelope 只承载一个动作，便于幂等重放。

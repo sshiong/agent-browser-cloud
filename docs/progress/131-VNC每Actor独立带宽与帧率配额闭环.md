@@ -48,7 +48,8 @@
 
 ## 仍未完成
 
-1. Workspace PostgreSQL 覆盖、管理员 UI 和变更审计已完成；仍缺实时超额计量事件与成本归因；
+1. Workspace PostgreSQL 覆盖、管理员 UI 和变更审计已完成；实时超额计量与成本归因已由
+   [进度 132](132-VNC实时计量与每Actor成本归因闭环.md)关闭；
 2. 目标 Linux 正式 Chromium/x11vnc 的 8 Client 长稳、弱网、输入法/剪贴板竞争和告警到达；
 3. 跨 Region Desktop Relay/Workflow；
 4. 生产压缩编码的无状态 Fan-out/转码成本验证。

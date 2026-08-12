@@ -509,7 +509,7 @@ function EnterpriseOverview({
                 key={rate.pricingVersion}
                 title={`${rate.region} / ${rate.resourceTemplate}`}
                 subtitle={rate.pricingVersion}
-                value={`$${rate.baseHourlyUsd.toFixed(3)}/h`}
+                value={`$${rate.baseHourlyUsd.toFixed(3)}/h · $${(rate.remoteDesktopEgressGibUsd ?? 0).toFixed(3)}/GiB RFB`}
                 detail={relativeTime(rate.effectiveAt)}
                 tone="neutral"
               />

@@ -17,4 +17,17 @@ export type RemoteDesktopParticipant = {
     revokeRequestedAt?: string | null;
     observedAt: string;
     updatedAt: string;
+    /**
+     * Monotonic bytes successfully forwarded by the real RFB data path.
+     */
+    forwardedBytes: number;
+    quotaWaitMillis: number;
+    throttledBatches: number;
+    egressCostUsd: number;
+    /**
+     * Bytes retained for reconciliation because no effective enterprise rate existed.
+     */
+    unpricedForwardedBytes: number;
+    lastCostPricingVersion?: string | null;
+    lastEgressGibUsd?: number | null;
 };

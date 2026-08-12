@@ -347,6 +347,44 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int FORWARDED_BYTES_FIELD_NUMBER = 10;
+  private long forwardedBytes_ = 0L;
+  /**
+   * <pre>
+   * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+   * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+   * </pre>
+   *
+   * <code>uint64 forwarded_bytes = 10 [json_name = "forwardedBytes"];</code>
+   * @return The forwardedBytes.
+   */
+  @java.lang.Override
+  public long getForwardedBytes() {
+    return forwardedBytes_;
+  }
+
+  public static final int QUOTA_WAIT_MILLIS_FIELD_NUMBER = 11;
+  private long quotaWaitMillis_ = 0L;
+  /**
+   * <code>uint64 quota_wait_millis = 11 [json_name = "quotaWaitMillis"];</code>
+   * @return The quotaWaitMillis.
+   */
+  @java.lang.Override
+  public long getQuotaWaitMillis() {
+    return quotaWaitMillis_;
+  }
+
+  public static final int THROTTLED_BATCHES_FIELD_NUMBER = 12;
+  private long throttledBatches_ = 0L;
+  /**
+   * <code>uint64 throttled_batches = 12 [json_name = "throttledBatches"];</code>
+   * @return The throttledBatches.
+   */
+  @java.lang.Override
+  public long getThrottledBatches() {
+    return throttledBatches_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -388,6 +426,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(revokedBy_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 9, revokedBy_);
     }
+    if (forwardedBytes_ != 0L) {
+      output.writeUInt64(10, forwardedBytes_);
+    }
+    if (quotaWaitMillis_ != 0L) {
+      output.writeUInt64(11, quotaWaitMillis_);
+    }
+    if (throttledBatches_ != 0L) {
+      output.writeUInt64(12, throttledBatches_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -426,6 +473,18 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(revokedBy_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, revokedBy_);
     }
+    if (forwardedBytes_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(10, forwardedBytes_);
+    }
+    if (quotaWaitMillis_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(11, quotaWaitMillis_);
+    }
+    if (throttledBatches_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(12, throttledBatches_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -459,6 +518,12 @@ private static final long serialVersionUID = 0L;
         != other.getObservedAtMs()) return false;
     if (!getRevokedBy()
         .equals(other.getRevokedBy())) return false;
+    if (getForwardedBytes()
+        != other.getForwardedBytes()) return false;
+    if (getQuotaWaitMillis()
+        != other.getQuotaWaitMillis()) return false;
+    if (getThrottledBatches()
+        != other.getThrottledBatches()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -490,6 +555,15 @@ private static final long serialVersionUID = 0L;
         getObservedAtMs());
     hash = (37 * hash) + REVOKED_BY_FIELD_NUMBER;
     hash = (53 * hash) + getRevokedBy().hashCode();
+    hash = (37 * hash) + FORWARDED_BYTES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getForwardedBytes());
+    hash = (37 * hash) + QUOTA_WAIT_MILLIS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getQuotaWaitMillis());
+    hash = (37 * hash) + THROTTLED_BATCHES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getThrottledBatches());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -636,6 +710,9 @@ private static final long serialVersionUID = 0L;
       reason_ = "";
       observedAtMs_ = 0L;
       revokedBy_ = "";
+      forwardedBytes_ = 0L;
+      quotaWaitMillis_ = 0L;
+      throttledBatches_ = 0L;
       return this;
     }
 
@@ -695,6 +772,15 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000100) != 0)) {
         result.revokedBy_ = revokedBy_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.forwardedBytes_ = forwardedBytes_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.quotaWaitMillis_ = quotaWaitMillis_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.throttledBatches_ = throttledBatches_;
       }
     }
 
@@ -783,6 +869,15 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000100;
         onChanged();
       }
+      if (other.getForwardedBytes() != 0L) {
+        setForwardedBytes(other.getForwardedBytes());
+      }
+      if (other.getQuotaWaitMillis() != 0L) {
+        setQuotaWaitMillis(other.getQuotaWaitMillis());
+      }
+      if (other.getThrottledBatches() != 0L) {
+        setThrottledBatches(other.getThrottledBatches());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -854,6 +949,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000100;
               break;
             } // case 74
+            case 80: {
+              forwardedBytes_ = input.readUInt64();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
+            case 88: {
+              quotaWaitMillis_ = input.readUInt64();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 88
+            case 96: {
+              throttledBatches_ = input.readUInt64();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 96
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1435,6 +1545,117 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       revokedBy_ = value;
       bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private long forwardedBytes_ ;
+    /**
+     * <pre>
+     * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+     * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+     * </pre>
+     *
+     * <code>uint64 forwarded_bytes = 10 [json_name = "forwardedBytes"];</code>
+     * @return The forwardedBytes.
+     */
+    @java.lang.Override
+    public long getForwardedBytes() {
+      return forwardedBytes_;
+    }
+    /**
+     * <pre>
+     * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+     * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+     * </pre>
+     *
+     * <code>uint64 forwarded_bytes = 10 [json_name = "forwardedBytes"];</code>
+     * @param value The forwardedBytes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setForwardedBytes(long value) {
+
+      forwardedBytes_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+     * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+     * </pre>
+     *
+     * <code>uint64 forwarded_bytes = 10 [json_name = "forwardedBytes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearForwardedBytes() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      forwardedBytes_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long quotaWaitMillis_ ;
+    /**
+     * <code>uint64 quota_wait_millis = 11 [json_name = "quotaWaitMillis"];</code>
+     * @return The quotaWaitMillis.
+     */
+    @java.lang.Override
+    public long getQuotaWaitMillis() {
+      return quotaWaitMillis_;
+    }
+    /**
+     * <code>uint64 quota_wait_millis = 11 [json_name = "quotaWaitMillis"];</code>
+     * @param value The quotaWaitMillis to set.
+     * @return This builder for chaining.
+     */
+    public Builder setQuotaWaitMillis(long value) {
+
+      quotaWaitMillis_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 quota_wait_millis = 11 [json_name = "quotaWaitMillis"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearQuotaWaitMillis() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      quotaWaitMillis_ = 0L;
+      onChanged();
+      return this;
+    }
+
+    private long throttledBatches_ ;
+    /**
+     * <code>uint64 throttled_batches = 12 [json_name = "throttledBatches"];</code>
+     * @return The throttledBatches.
+     */
+    @java.lang.Override
+    public long getThrottledBatches() {
+      return throttledBatches_;
+    }
+    /**
+     * <code>uint64 throttled_batches = 12 [json_name = "throttledBatches"];</code>
+     * @param value The throttledBatches to set.
+     * @return This builder for chaining.
+     */
+    public Builder setThrottledBatches(long value) {
+
+      throttledBatches_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 throttled_batches = 12 [json_name = "throttledBatches"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearThrottledBatches() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      throttledBatches_ = 0L;
       onChanged();
       return this;
     }

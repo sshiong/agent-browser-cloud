@@ -21,4 +21,10 @@ public interface RemoteDesktopParticipantJpaRepository
       @Param("connectionId") String connectionId,
       @Param("tenantId") String tenantId,
       @Param("sessionId") String sessionId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      "select participant from RemoteDesktopParticipantEntity participant where participant.connectionId = :connectionId")
+  Optional<RemoteDesktopParticipantEntity> findByIdForUpdate(
+      @Param("connectionId") String connectionId);
 }

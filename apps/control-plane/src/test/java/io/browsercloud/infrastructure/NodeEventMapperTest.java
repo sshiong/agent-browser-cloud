@@ -44,6 +44,9 @@ class NodeEventMapperTest {
             .setState("CONNECTED")
             .setReason("RFB_UPSTREAM_CONNECTED")
             .setObservedAtMs(1_786_400_000_000L)
+            .setForwardedBytes(8192)
+            .setQuotaWaitMillis(240)
+            .setThrottledBatches(3)
             .build();
     var envelope =
         EventEnvelope.newBuilder()
@@ -66,6 +69,9 @@ class NodeEventMapperTest {
               assertThat(changed.actorId()).isEqualTo("viewer-test");
               assertThat(changed.viewOnly()).isTrue();
               assertThat(changed.state()).isEqualTo("CONNECTED");
+              assertThat(changed.forwardedBytes()).isEqualTo(8192);
+              assertThat(changed.quotaWaitMillis()).isEqualTo(240);
+              assertThat(changed.throttledBatches()).isEqualTo(3);
             });
   }
 

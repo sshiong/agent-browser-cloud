@@ -1592,7 +1592,7 @@ participant_history_first="$(curl -fsS --get \
   -H 'X-Tenant-Id: tenant-integration' \
   --data-urlencode 'limit=20')"
 participant_history_cursor="$(printf '%s' "$participant_history_first" | python3 -c \
-  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 21; assert page["limit"] == 20; assert page["hasMore"] is True; assert len(page["items"]) == 20; assert all(item["state"] == "DISCONNECTED" for item in page["items"]); print(page["nextCursor"])')"
+  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 21; assert page["limit"] == 20; assert page["hasMore"] is True; assert len(page["items"]) == 20; assert all(item["state"] == "DISCONNECTED" for item in page["items"]); assert all(item["forwardedBytes"] == 0 and item["egressCostUsd"] == 0 for item in page["items"]); print(page["nextCursor"])')"
 participant_history_second="$(curl -fsS --get \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/desktop-participants/history" \
   -H 'X-Tenant-Id: tenant-integration' \

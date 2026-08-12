@@ -49,7 +49,10 @@ public sealed interface NodeEvent
       String state,
       String reason,
       long observedAtMs,
-      String revokedBy)
+      String revokedBy,
+      long forwardedBytes,
+      long quotaWaitMillis,
+      long throttledBatches)
       implements NodeEvent {}
 
   /** Runtime 停止事件。 */

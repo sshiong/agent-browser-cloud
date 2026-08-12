@@ -393,7 +393,7 @@ public final class Models {
 
   public record RemoteDesktopParticipantHistoryPage(List<RemoteDesktopParticipant> items, Long total, Integer limit, Object nextCursor, Boolean hasMore) {}
 
-  public record RemoteDesktopParticipant(String connectionId, String sessionId, Long contextEpoch, Object actorId, Object accessMode, Object viewOnly, String state, String reason, Object connectedAt, Object disconnectedAt, Object revokedBy, Object revokeRequestedAt, String observedAt, String updatedAt) {}
+  public record RemoteDesktopParticipant(String connectionId, String sessionId, Long contextEpoch, Object actorId, Object accessMode, Object viewOnly, String state, String reason, Object connectedAt, Object disconnectedAt, Object revokedBy, Object revokeRequestedAt, String observedAt, String updatedAt, Long forwardedBytes, Long quotaWaitMillis, Long throttledBatches, Double egressCostUsd, Long unpricedForwardedBytes, Object lastCostPricingVersion, Object lastEgressGibUsd) {}
 
   public record AuditEvent(String eventId, Long sequenceNo, Object sessionId, String eventType, String actorType, Object actorId, Object resourceType, Object resourceId, String action, String result, Map<String, Object> details, Object previousEventHash, String eventHash, Object requestId, String retentionUntil, Boolean legalHold, String createdAt) {}
 
@@ -453,9 +453,9 @@ public final class Models {
 
   public record FailRuntimeValidationJobRequest(String claimToken, String failureCode, Boolean retryable) {}
 
-  public record CreateCostRateRequest(String region, ResourceTemplate resourceTemplate, Double baseHourlyUsd, Double cpuCoreHourlyUsd, Double memoryGibHourlyUsd, Double desktopHourlyUsd, Double gpuHourlyUsd, Double mediaHourlyUsd, String effectiveAt) {}
+  public record CreateCostRateRequest(String region, ResourceTemplate resourceTemplate, Double baseHourlyUsd, Double cpuCoreHourlyUsd, Double memoryGibHourlyUsd, Double desktopHourlyUsd, Double remoteDesktopEgressGibUsd, Double gpuHourlyUsd, Double mediaHourlyUsd, String effectiveAt) {}
 
-  public record CostRate(String pricingVersion, String region, ResourceTemplate resourceTemplate, Double baseHourlyUsd, Double cpuCoreHourlyUsd, Double memoryGibHourlyUsd, Double desktopHourlyUsd, Double gpuHourlyUsd, Double mediaHourlyUsd, String effectiveAt, String createdBy, String createdAt) {}
+  public record CostRate(String pricingVersion, String region, ResourceTemplate resourceTemplate, Double baseHourlyUsd, Double cpuCoreHourlyUsd, Double memoryGibHourlyUsd, Double desktopHourlyUsd, Double remoteDesktopEgressGibUsd, Double gpuHourlyUsd, Double mediaHourlyUsd, String effectiveAt, String createdBy, String createdAt) {}
 
   public record SessionCostExplanation(String sessionId, String nodeId, String region, ResourceTemplate resourceTemplate, String pricingVersion, Integer cpuMillis, Integer memoryRequestMib, Boolean desktop, Boolean gpu, Boolean media, Double baseHourlyUsd, Double cpuHourlyUsd, Double memoryHourlyUsd, Double desktopHourlyUsd, Double gpuHourlyUsd, Double mediaHourlyUsd, Double totalHourlyUsd, String pricedAt) {}
 

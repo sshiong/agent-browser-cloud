@@ -512,6 +512,9 @@ public class NodeEventMapper {
               || !java.util.Set.of("CONNECTED", "DISCONNECTED", "REVOKED")
                   .contains(payload.getState())
               || payload.getObservedAtMs() <= 0
+              || payload.getForwardedBytes() < 0
+              || payload.getQuotaWaitMillis() < 0
+              || payload.getThrottledBatches() < 0
               || (!payload.getActorId().isBlank()
                   && (!java.util.Set.of("COLLABORATIVE", "EXCLUSIVE_TAKEOVER")
                       .contains(payload.getAccessMode())))
@@ -527,7 +530,10 @@ public class NodeEventMapper {
               payload.getState(),
               payload.getReason(),
               payload.getObservedAtMs(),
-              payload.getRevokedBy());
+              payload.getRevokedBy(),
+              payload.getForwardedBytes(),
+              payload.getQuotaWaitMillis(),
+              payload.getThrottledBatches());
         }
         case SESSION_EVIDENCE_CAPTURED -> {
           var payload = SessionEvidenceCapturedEvent.parseFrom(envelope.getPayload());

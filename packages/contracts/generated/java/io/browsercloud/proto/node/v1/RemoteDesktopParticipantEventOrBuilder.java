@@ -103,4 +103,27 @@ public interface RemoteDesktopParticipantEventOrBuilder extends
    */
   com.google.protobuf.ByteString
       getRevokedByBytes();
+
+  /**
+   * <pre>
+   * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+   * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+   * </pre>
+   *
+   * <code>uint64 forwarded_bytes = 10 [json_name = "forwardedBytes"];</code>
+   * @return The forwardedBytes.
+   */
+  long getForwardedBytes();
+
+  /**
+   * <code>uint64 quota_wait_millis = 11 [json_name = "quotaWaitMillis"];</code>
+   * @return The quotaWaitMillis.
+   */
+  long getQuotaWaitMillis();
+
+  /**
+   * <code>uint64 throttled_batches = 12 [json_name = "throttledBatches"];</code>
+   * @return The throttledBatches.
+   */
+  long getThrottledBatches();
 }

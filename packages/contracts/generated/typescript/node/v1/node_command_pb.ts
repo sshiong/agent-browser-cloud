@@ -2969,6 +2969,24 @@ export class RemoteDesktopParticipantEvent extends Message<RemoteDesktopParticip
    */
   revokedBy = "";
 
+  /**
+   * Monotonic counters for this exact connection. Replayed or duplicated events must be merged
+   * by maximum value, never summed blindly. N-1 Control Planes safely ignore these fields.
+   *
+   * @generated from field: uint64 forwarded_bytes = 10;
+   */
+  forwardedBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 quota_wait_millis = 11;
+   */
+  quotaWaitMillis = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 throttled_batches = 12;
+   */
+  throttledBatches = protoInt64.zero;
+
   constructor(data?: PartialMessage<RemoteDesktopParticipantEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -2986,6 +3004,9 @@ export class RemoteDesktopParticipantEvent extends Message<RemoteDesktopParticip
     { no: 7, name: "reason", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 8, name: "observed_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 9, name: "revoked_by", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "forwarded_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 11, name: "quota_wait_millis", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 12, name: "throttled_batches", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RemoteDesktopParticipantEvent {

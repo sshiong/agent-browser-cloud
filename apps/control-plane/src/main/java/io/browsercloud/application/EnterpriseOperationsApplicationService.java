@@ -354,8 +354,9 @@ public class EnterpriseOperationsApplicationService {
         INSERT INTO enterprise_cost_rates(
           pricing_version, region, resource_class, resource_template, base_hourly_usd,
           cpu_core_hourly_usd, memory_gib_hourly_usd, desktop_hourly_usd,
-          gpu_hourly_usd, media_hourly_usd, effective_at, created_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          remote_desktop_egress_gib_usd, gpu_hourly_usd, media_hourly_usd,
+          effective_at, created_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         version,
         request.region(),
@@ -365,6 +366,9 @@ public class EnterpriseOperationsApplicationService {
         request.cpuCoreHourlyUsd(),
         request.memoryGibHourlyUsd(),
         request.desktopHourlyUsd(),
+        request.remoteDesktopEgressGibUsd() == null
+            ? BigDecimal.ZERO
+            : request.remoteDesktopEgressGibUsd(),
         request.gpuHourlyUsd(),
         request.mediaHourlyUsd(),
         sqlTime(request.effectiveAt()),
@@ -1632,6 +1636,7 @@ public class EnterpriseOperationsApplicationService {
         result.getBigDecimal("cpu_core_hourly_usd"),
         result.getBigDecimal("memory_gib_hourly_usd"),
         result.getBigDecimal("desktop_hourly_usd"),
+        result.getBigDecimal("remote_desktop_egress_gib_usd"),
         result.getBigDecimal("gpu_hourly_usd"),
         result.getBigDecimal("media_hourly_usd"),
         result.getTimestamp("effective_at").toInstant(),

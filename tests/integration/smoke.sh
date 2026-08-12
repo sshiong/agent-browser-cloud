@@ -1552,6 +1552,58 @@ session_two="$(printf '%s' "$created_two" | python3 -c 'import json,sys; print(j
 test "$session_one" = "$session_two"
 printf '%s' "$created_one" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["resourcePolicy"]["minimumTemplate"] == "standard-v1"; assert item["resourcePolicy"]["resolvedTemplate"] == "standard-v1"'
+
+# Terminal VNC participant history is a distinct, bounded keyset projection. Non-terminal rows
+# never enter the history page or terminal retention cleanup.
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "insert into remote_desktop_participants (
+     connection_id, tenant_id, session_id, context_epoch, actor_id, access_mode, view_only,
+     state, reason, connected_at, disconnected_at, observed_at, updated_at, version
+   )
+   select 'rdc_' || lpad(sequence::text, 20, '0'), 'tenant-integration', '${session_one}',
+          greatest(context.context_epoch, 1), 'history-actor-' || sequence, 'COLLABORATIVE', false,
+          'DISCONNECTED', 'CLIENT_DISCONNECTED', now() - (sequence + 1) * interval '1 minute',
+          now() - sequence * interval '1 minute', now() - sequence * interval '1 minute',
+          now() - sequence * interval '1 minute', 0
+     from generate_series(1, 21) sequence
+     cross join lateral (
+       select context_epoch from session_contexts
+        where session_id='${session_one}' order by context_epoch desc limit 1
+     ) context
+   union all
+   select 'rdc_99999999999999999999', 'tenant-integration', '${session_one}',
+          greatest(context.context_epoch, 1), 'online-actor', 'COLLABORATIVE', true,
+          'CONNECTED', 'RFB_UPSTREAM_CONNECTED', now(), null, now(), now(), 0
+     from (
+       select context_epoch from session_contexts
+        where session_id='${session_one}' order by context_epoch desc limit 1
+     ) context" >/dev/null
+participant_history_first="$(curl -fsS --get \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/desktop-participants/history" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  --data-urlencode 'limit=20')"
+participant_history_cursor="$(printf '%s' "$participant_history_first" | python3 -c \
+  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 21; assert page["limit"] == 20; assert page["hasMore"] is True; assert len(page["items"]) == 20; assert all(item["state"] == "DISCONNECTED" for item in page["items"]); print(page["nextCursor"])')"
+participant_history_second="$(curl -fsS --get \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/desktop-participants/history" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  --data-urlencode 'limit=20' \
+  --data-urlencode "cursor=${participant_history_cursor}")"
+printf '%s' "$participant_history_second" | python3 -c \
+  'import json,sys; page=json.load(sys.stdin); assert page["total"] == 21; assert page["hasMore"] is False; assert page["nextCursor"] is None; assert len(page["items"]) == 1'
+participant_wrong_session_cursor="$(python3 -c \
+  'import base64; print(base64.urlsafe_b64encode(b"ses_0000000000000000:0:0:rdc_00000000000000000000").decode().rstrip("="))')"
+participant_wrong_cursor_status="$(curl -sS -o "$temp_dir/participant-history-cursor.json" -w '%{http_code}' --get \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/desktop-participants/history" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  --data-urlencode "cursor=${participant_wrong_session_cursor}")"
+test "$participant_wrong_cursor_status" = "400"
+participant_retention_index="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from pg_indexes where schemaname='public' and indexname='idx_remote_desktop_participants_terminal_retention'")"
+test "$participant_retention_index" = "1"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "delete from remote_desktop_participants where tenant_id='tenant-integration' and session_id='${session_one}'" >/dev/null
+
 workspace_overview="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/workspace-overview" \
   -H 'X-Tenant-Id: tenant-integration' \

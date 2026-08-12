@@ -67,6 +67,9 @@ browser-node:
 remote-desktop:
   ticket-secret: ${REMOTE_DESKTOP_TICKET_SECRET:browsercloud-local-remote-desktop-ticket-secret-v1}
   ticket-ttl-seconds: ${REMOTE_DESKTOP_TICKET_TTL_SECONDS:45}
+  participant-history-retention-days: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_RETENTION_DAYS:30}
+  participant-history-purge-batch-size: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_PURGE_BATCH_SIZE:10000}
+  participant-history-retention-cron: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_RETENTION_CRON:0 29 * * * *}
 
 agent:
   capability-token-secret: ${AGENT_CAPABILITY_TOKEN_SECRET:browsercloud-local-agent-capability-token-secret-v1}

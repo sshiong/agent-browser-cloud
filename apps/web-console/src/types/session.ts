@@ -804,6 +804,14 @@ export interface RemoteDesktopParticipantListResponse {
   onlineCount: number;
 }
 
+export interface RemoteDesktopParticipantHistoryPage {
+  items: RemoteDesktopParticipantView[];
+  total: number;
+  limit: number;
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
 export type ChallengeType =
   | 'SINGLE_CLICK'
   | 'IMAGE_SELECTION'

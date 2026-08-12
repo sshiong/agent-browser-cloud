@@ -11,6 +11,7 @@ import {
   getChallengePreview,
   getRecoveryContractDiff,
   getRemoteDesktopParticipants,
+  getRemoteDesktopParticipantHistory,
   getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
@@ -151,6 +152,18 @@ describe('session API', () => {
       )
       .mockResolvedValueOnce(
         new Response(
+          JSON.stringify({
+            items: [{ ...participant, state: 'DISCONNECTED' }],
+            total: 1,
+            limit: 20,
+            nextCursor: null,
+            hasMore: false,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
           JSON.stringify({ ...participant, state: 'REVOKE_REQUESTED' }),
           { status: 202, headers: { 'Content-Type': 'application/json' } }
         )
@@ -158,6 +171,12 @@ describe('session API', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await getRemoteDesktopParticipants(participant.sessionId, 'tenant-test');
+    await getRemoteDesktopParticipantHistory(
+      participant.sessionId,
+      20,
+      'cursor-test',
+      'tenant-test'
+    );
     await revokeRemoteDesktopParticipant(
       participant.sessionId,
       participant.connectionId,
@@ -175,6 +194,13 @@ describe('session API', () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      `/api/v1/sessions/${participant.sessionId}/desktop-participants/history?limit=20&cursor=cursor-test`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       `/api/v1/sessions/${participant.sessionId}/desktop-participants/${participant.connectionId}:revoke`,
       expect.objectContaining({
         method: 'POST',

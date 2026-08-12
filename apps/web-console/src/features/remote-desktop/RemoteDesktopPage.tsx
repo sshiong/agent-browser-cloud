@@ -24,6 +24,7 @@ import {
   useSession,
   useSessionResourceStream,
   useRemoteDesktopParticipants,
+  useRemoteDesktopParticipantHistory,
   useRevokeRemoteDesktopParticipant,
 } from '@/features/sessions/api/sessionQueries';
 import { cn } from '@/shared/lib/utils';
@@ -40,6 +41,10 @@ export function RemoteDesktopPage() {
   );
   const releaseMutation = useReleaseHumanTakeover(sessionId);
   const participantsQuery = useRemoteDesktopParticipants(
+    sessionId,
+    Boolean(sessionId)
+  );
+  const participantHistoryQuery = useRemoteDesktopParticipantHistory(
     sessionId,
     Boolean(sessionId)
   );
@@ -362,6 +367,65 @@ export function RemoteDesktopPage() {
                     {revokeParticipant.error instanceof Error
                       ? revokeParticipant.error.message
                       : '撤销请求失败'}
+                  </p>
+                )}
+              </RailSection>
+              <RailSection title="最近连接历史">
+                {participantHistoryQuery.isLoading ? (
+                  <p className="font-mono text-[9px] text-text-muted">
+                    读取终态连接记录…
+                  </p>
+                ) : participantHistoryQuery.error ? (
+                  <button
+                    type="button"
+                    onClick={() => void participantHistoryQuery.refetch()}
+                    className="text-left text-[9px] text-danger hover:underline"
+                  >
+                    历史记录不可用，点击重试
+                  </button>
+                ) : participantHistoryQuery.data?.pages.some(
+                    (page) => page.items.length > 0
+                  ) ? (
+                  <div className="space-y-2">
+                    {participantHistoryQuery.data.pages
+                      .flatMap((page) => page.items)
+                      .map((participant) => (
+                        <div
+                          key={participant.connectionId}
+                          className="border-l border-border-default pl-2.5"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-[9px] text-text-secondary">
+                              {participant.actorId || participant.connectionId}
+                            </span>
+                            <span className="font-mono text-[8px] text-text-muted">
+                              {participant.state}
+                            </span>
+                          </div>
+                          <p className="mt-1 font-mono text-[8px] text-text-muted">
+                            {new Date(participant.observedAt).toLocaleString()}{' '}
+                            · {participant.reason}
+                          </p>
+                        </div>
+                      ))}
+                    {participantHistoryQuery.hasNextPage && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void participantHistoryQuery.fetchNextPage()
+                        }
+                        disabled={participantHistoryQuery.isFetchingNextPage}
+                        className="text-[9px] text-accent hover:underline disabled:opacity-40"
+                      >
+                        {participantHistoryQuery.isFetchingNextPage
+                          ? '加载中…'
+                          : '加载更早记录'}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="font-mono text-[9px] text-text-muted">
+                    暂无已结束连接
                   </p>
                 )}
               </RailSection>

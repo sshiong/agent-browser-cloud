@@ -2071,6 +2071,14 @@ type RemoteDesktopParticipantList struct {
 	OnlineCount int                        `json:"onlineCount,omitempty"`
 }
 
+type RemoteDesktopParticipantHistoryPage struct {
+	Items      []RemoteDesktopParticipant `json:"items,omitempty"`
+	Total      int64                      `json:"total,omitempty"`
+	Limit      int                        `json:"limit,omitempty"`
+	NextCursor any                        `json:"nextCursor,omitempty"`
+	HasMore    bool                       `json:"hasMore,omitempty"`
+}
+
 type RemoteDesktopParticipant struct {
 	ConnectionId      string `json:"connectionId,omitempty"`
 	SessionId         string `json:"sessionId,omitempty"`

@@ -109,6 +109,7 @@ var Operations = map[string]Operation{
 	"releaseHumanTakeover":                       {OperationID: "releaseHumanTakeover", Method: "POST", Path: "/api/v1/sessions/{sessionId}:release-takeover", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "OperationResponse"},
 	"createRemoteDesktopConnection":              {OperationID: "createRemoteDesktopConnection", Method: "POST", Path: "/api/v1/sessions/{sessionId}:desktop-connection", PathParameters: []string{"sessionId"}, QueryParameters: []string{"viewOnly"}, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RemoteDesktopConnection"},
 	"listRemoteDesktopParticipants":              {OperationID: "listRemoteDesktopParticipants", Method: "GET", Path: "/api/v1/sessions/{sessionId}/desktop-participants", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RemoteDesktopParticipantList"},
+	"listRemoteDesktopParticipantHistory":        {OperationID: "listRemoteDesktopParticipantHistory", Method: "GET", Path: "/api/v1/sessions/{sessionId}/desktop-participants/history", PathParameters: []string{"sessionId"}, QueryParameters: []string{"cursor", "limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RemoteDesktopParticipantHistoryPage"},
 	"revokeRemoteDesktopParticipant":             {OperationID: "revokeRemoteDesktopParticipant", Method: "POST", Path: "/api/v1/sessions/{sessionId}/desktop-participants/{connectionId}:revoke", PathParameters: []string{"connectionId", "sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RemoteDesktopParticipant"},
 	"listProfiles":                               {OperationID: "listProfiles", Method: "GET", Path: "/api/v1/profiles", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileListResponse"},
 	"createProfile":                              {OperationID: "createProfile", Method: "POST", Path: "/api/v1/profiles", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "CreateProfileRequest", RequestRequired: true, ResponseSchema: "Profile"},
@@ -527,6 +528,9 @@ func (c *Client) CreateRemoteDesktopConnection(ctx context.Context, request Requ
 }
 func (c *Client) ListRemoteDesktopParticipants(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listRemoteDesktopParticipants", request)
+}
+func (c *Client) ListRemoteDesktopParticipantHistory(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "listRemoteDesktopParticipantHistory", request)
 }
 func (c *Client) RevokeRemoteDesktopParticipant(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "revokeRemoteDesktopParticipant", request)

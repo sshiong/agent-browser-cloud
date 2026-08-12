@@ -8,6 +8,7 @@ import type {
   BrowserStateView,
   RemoteDesktopConnection,
   RemoteDesktopParticipantListResponse,
+  RemoteDesktopParticipantHistoryPage,
   RemoteDesktopParticipantView,
   StateResyncRequest,
   StateResyncResponse,
@@ -870,6 +871,22 @@ export async function getRemoteDesktopParticipants(
 ): Promise<RemoteDesktopParticipantListResponse> {
   return request<RemoteDesktopParticipantListResponse>(
     `/sessions/${sessionId}/desktop-participants`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getRemoteDesktopParticipantHistory(
+  sessionId: string,
+  limit = 20,
+  cursor?: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<RemoteDesktopParticipantHistoryPage> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set('cursor', cursor);
+  return request<RemoteDesktopParticipantHistoryPage>(
+    `/sessions/${sessionId}/desktop-participants/history?${params.toString()}`,
     { signal },
     tenantId
   );

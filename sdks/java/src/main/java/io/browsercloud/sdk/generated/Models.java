@@ -389,6 +389,8 @@ public final class Models {
 
   public record RemoteDesktopParticipantList(List<RemoteDesktopParticipant> items, Integer onlineCount) {}
 
+  public record RemoteDesktopParticipantHistoryPage(List<RemoteDesktopParticipant> items, Long total, Integer limit, Object nextCursor, Boolean hasMore) {}
+
   public record RemoteDesktopParticipant(String connectionId, String sessionId, Long contextEpoch, Object actorId, Object accessMode, Object viewOnly, String state, String reason, Object connectedAt, Object disconnectedAt, Object revokedBy, Object revokeRequestedAt, String observedAt, String updatedAt) {}
 
   public record AuditEvent(String eventId, Long sequenceNo, Object sessionId, String eventType, String actorType, Object actorId, Object resourceType, Object resourceId, String action, String result, Map<String, Object> details, Object previousEventHash, String eventHash, Object requestId, String retentionUntil, Boolean legalHold, String createdAt) {}

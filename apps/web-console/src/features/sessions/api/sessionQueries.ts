@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
   createSession,
@@ -39,6 +44,7 @@ import {
   getChallengePreview,
   authorizeHumanAssist,
   getRemoteDesktopParticipants,
+  getRemoteDesktopParticipantHistory,
   revokeRemoteDesktopParticipant,
 } from '@/api/session';
 import type {
@@ -97,6 +103,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'challenges'] as const,
   desktopParticipants: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'desktop-participants'] as const,
+  desktopParticipantHistory: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'desktop-participant-history'] as const,
   challengePreview: (sessionId: string, eventId: string) =>
     [...sessionKeys.challenges(sessionId), eventId, 'preview'] as const,
   recoveryContracts: ['application-recovery-contracts'] as const,
@@ -622,6 +630,9 @@ export function useSessionResourceStream(
         queryClient.invalidateQueries({
           queryKey: sessionKeys.desktopParticipants(sessionId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.desktopParticipantHistory(sessionId),
+        }),
       ]);
 
     const run = async () => {
@@ -714,6 +725,27 @@ export function useRemoteDesktopParticipants(
     queryKey: sessionKeys.desktopParticipants(sessionId),
     queryFn: ({ signal }) =>
       getRemoteDesktopParticipants(sessionId, undefined, signal),
+    enabled: enabled && Boolean(sessionId),
+  });
+}
+
+export function useRemoteDesktopParticipantHistory(
+  sessionId: string,
+  enabled: boolean
+) {
+  return useInfiniteQuery({
+    queryKey: sessionKeys.desktopParticipantHistory(sessionId),
+    queryFn: ({ pageParam, signal }) =>
+      getRemoteDesktopParticipantHistory(
+        sessionId,
+        20,
+        pageParam || undefined,
+        undefined,
+        signal
+      ),
+    initialPageParam: '',
+    getNextPageParam: (page) =>
+      page.hasMore ? page.nextCursor || undefined : undefined,
     enabled: enabled && Boolean(sessionId),
   });
 }

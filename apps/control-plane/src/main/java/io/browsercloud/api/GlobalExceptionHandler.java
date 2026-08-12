@@ -92,6 +92,7 @@ import io.browsercloud.coordinator.exceptions.StaleContextEpochException;
 import io.browsercloud.coordinator.exceptions.StaleOperationException;
 import io.browsercloud.coordinator.exceptions.TenantAccessDeniedException;
 import io.browsercloud.persistence.AgentTaskSummaryQueryRepository.InvalidAgentTaskSummaryCursorException;
+import io.browsercloud.persistence.RemoteDesktopParticipantHistoryQueryRepository.InvalidRemoteDesktopParticipantCursorException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.sql.SQLException;
@@ -138,6 +139,17 @@ public class GlobalExceptionHandler {
         "REMOTE_DESKTOP_PARTICIPANT_REJECTED",
         "Remote desktop participant operation was rejected",
         Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(InvalidRemoteDesktopParticipantCursorException.class)
+  ResponseEntity<ApiError> invalidRemoteDesktopParticipantCursor(
+      InvalidRemoteDesktopParticipantCursorException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.BAD_REQUEST,
+        "INVALID_REMOTE_DESKTOP_PARTICIPANT_CURSOR",
+        "Remote desktop participant history cursor is invalid",
+        Map.of(),
         request);
   }
 

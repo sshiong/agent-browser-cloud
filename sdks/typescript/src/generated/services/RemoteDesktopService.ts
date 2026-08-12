@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { RemoteDesktopConnection } from '../models/RemoteDesktopConnection.js';
 import type { RemoteDesktopParticipant } from '../models/RemoteDesktopParticipant.js';
+import type { RemoteDesktopParticipantHistoryPage } from '../models/RemoteDesktopParticipantHistoryPage.js';
 import type { RemoteDesktopParticipantList } from '../models/RemoteDesktopParticipantList.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
@@ -80,6 +81,46 @@ export class RemoteDesktopService {
                 'X-Tenant-Id': xTenantId,
             },
             errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * List retained terminal remote desktop participant history
+     * Returns a stable keyset page of revoked and disconnected connections. Online and revoke-requested participants remain available from the online endpoint and are never removed by terminal-history retention cleanup.
+     * @returns RemoteDesktopParticipantHistoryPage Session-bound retained participant history page.
+     * @throws ApiError
+     */
+    public listRemoteDesktopParticipantHistory({
+        sessionId,
+        xTenantId,
+        limit = 20,
+        cursor,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        limit?: number,
+        cursor?: string,
+    }): CancelablePromise<RemoteDesktopParticipantHistoryPage> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/desktop-participants/history',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'limit': limit,
+                'cursor': cursor,
+            },
+            errors: {
+                400: `Invalid request.`,
                 403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
             },

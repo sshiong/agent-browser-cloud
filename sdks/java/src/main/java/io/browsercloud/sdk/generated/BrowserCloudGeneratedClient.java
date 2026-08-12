@@ -85,6 +85,7 @@ public final class BrowserCloudGeneratedClient {
     operation("releaseHumanTakeover", "POST", "/api/v1/sessions/{sessionId}:release-takeover", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "OperationResponse"),
     operation("createRemoteDesktopConnection", "POST", "/api/v1/sessions/{sessionId}:desktop-connection", List.of("sessionId"), List.of("viewOnly"), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "RemoteDesktopConnection"),
     operation("listRemoteDesktopParticipants", "GET", "/api/v1/sessions/{sessionId}/desktop-participants", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "RemoteDesktopParticipantList"),
+    operation("listRemoteDesktopParticipantHistory", "GET", "/api/v1/sessions/{sessionId}/desktop-participants/history", List.of("sessionId"), List.of("cursor", "limit"), List.of("X-Tenant-Id"), "", false, "RemoteDesktopParticipantHistoryPage"),
     operation("revokeRemoteDesktopParticipant", "POST", "/api/v1/sessions/{sessionId}/desktop-participants/{connectionId}:revoke", List.of("connectionId", "sessionId"), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "", false, "RemoteDesktopParticipant"),
     operation("listProfiles", "GET", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "ProfileListResponse"),
     operation("createProfile", "POST", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "CreateProfileRequest", true, "Profile"),
@@ -313,6 +314,7 @@ public final class BrowserCloudGeneratedClient {
   public Response releaseHumanTakeover(Request request) { return call("releaseHumanTakeover", request); }
   public Response createRemoteDesktopConnection(Request request) { return call("createRemoteDesktopConnection", request); }
   public Response listRemoteDesktopParticipants(Request request) { return call("listRemoteDesktopParticipants", request); }
+  public Response listRemoteDesktopParticipantHistory(Request request) { return call("listRemoteDesktopParticipantHistory", request); }
   public Response revokeRemoteDesktopParticipant(Request request) { return call("revokeRemoteDesktopParticipant", request); }
   public Response listProfiles(Request request) { return call("listProfiles", request); }
   public Response createProfile(Request request) { return call("createProfile", request); }

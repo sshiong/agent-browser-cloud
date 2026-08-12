@@ -187,6 +187,7 @@ export type { RegisterBrowserNodeRequest } from './models/RegisterBrowserNodeReq
 export type { ReleaseFreeze } from './models/ReleaseFreeze.js';
 export type { RemoteDesktopConnection } from './models/RemoteDesktopConnection.js';
 export type { RemoteDesktopParticipant } from './models/RemoteDesktopParticipant.js';
+export type { RemoteDesktopParticipantHistoryPage } from './models/RemoteDesktopParticipantHistoryPage.js';
 export type { RemoteDesktopParticipantList } from './models/RemoteDesktopParticipantList.js';
 export type { RenewSafetyLeaseRequest } from './models/RenewSafetyLeaseRequest.js';
 export type { RequestRecoveryContractApprovalRequest } from './models/RequestRecoveryContractApprovalRequest.js';

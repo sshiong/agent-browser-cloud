@@ -95,6 +95,7 @@ OPERATIONS: dict[str, Operation] = {
     'releaseHumanTakeover': Operation('releaseHumanTakeover', 'POST', '/api/v1/sessions/{sessionId}:release-takeover', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'OperationResponse'),
     'createRemoteDesktopConnection': Operation('createRemoteDesktopConnection', 'POST', '/api/v1/sessions/{sessionId}:desktop-connection', ('sessionId',), ('viewOnly',), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'RemoteDesktopConnection'),
     'listRemoteDesktopParticipants': Operation('listRemoteDesktopParticipants', 'GET', '/api/v1/sessions/{sessionId}/desktop-participants', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'RemoteDesktopParticipantList'),
+    'listRemoteDesktopParticipantHistory': Operation('listRemoteDesktopParticipantHistory', 'GET', '/api/v1/sessions/{sessionId}/desktop-participants/history', ('sessionId',), ('cursor', 'limit'), ('X-Tenant-Id',), '', False, 'RemoteDesktopParticipantHistoryPage'),
     'revokeRemoteDesktopParticipant': Operation('revokeRemoteDesktopParticipant', 'POST', '/api/v1/sessions/{sessionId}/desktop-participants/{connectionId}:revoke', ('connectionId', 'sessionId'), (), ('Idempotency-Key', 'X-Actor-Id', 'X-Tenant-Id'), '', False, 'RemoteDesktopParticipant'),
     'listProfiles': Operation('listProfiles', 'GET', '/api/v1/profiles', (), (), ('X-Tenant-Id',), '', False, 'ProfileListResponse'),
     'createProfile': Operation('createProfile', 'POST', '/api/v1/profiles', (), (), ('X-Tenant-Id',), 'CreateProfileRequest', True, 'Profile'),
@@ -468,6 +469,9 @@ class BrowserCloudGeneratedClient:
 
     def listRemoteDesktopParticipants(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listRemoteDesktopParticipants', path=path, query=query, body=body, headers=headers)
+
+    def listRemoteDesktopParticipantHistory(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listRemoteDesktopParticipantHistory', path=path, query=query, body=body, headers=headers)
 
     def revokeRemoteDesktopParticipant(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('revokeRemoteDesktopParticipant', path=path, query=query, body=body, headers=headers)

@@ -801,6 +801,8 @@ export interface RemoteDesktopConnection {
   protocol: 'rfb';
   operationEpoch: number;
   viewOnly: boolean;
+  actorBitrateLimitKbps?: number;
+  actorFrameRateLimitFps?: number;
 }
 
 export interface RemoteDesktopParticipantView {

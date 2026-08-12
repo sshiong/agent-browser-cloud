@@ -55,8 +55,8 @@
 
 ## 仍未完成
 
-1. 带宽和帧率当前仍是 Session 级资源 Actuator；每 Actor/connection 独立配额、租户策略
-   解析和超额审计尚未实现；
+1. 每 Actor 独立配额已由[进度 131](131-VNC每Actor独立带宽与帧率配额闭环.md)关闭；
+   Workspace PostgreSQL 覆盖、变更/超额审计尚未实现；
 2. 共享上游当前为有界 Raw Encoding；生产压缩编码的无状态 Fan-out/转码成本验证仍需在
    目标 Linux x11vnc 上完成；
 3. 跨 Region Desktop Relay/Workflow；

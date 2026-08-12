@@ -66,6 +66,14 @@ spec:
                   key: output-price-micros-per-million-tokens
             - name: GRPC_TLS_ENABLED
               value: "true"
+            - name: REMOTE_DESKTOP_CONTROL_ACTOR_BITRATE_LIMIT_KBPS
+              value: "8000"
+            - name: REMOTE_DESKTOP_CONTROL_ACTOR_FRAME_RATE_LIMIT_FPS
+              value: "30"
+            - name: REMOTE_DESKTOP_VIEWER_ACTOR_BITRATE_LIMIT_KBPS
+              value: "4000"
+            - name: REMOTE_DESKTOP_VIEWER_ACTOR_FRAME_RATE_LIMIT_FPS
+              value: "15"
             - name: COORDINATOR_INSTANCE_ID
               valueFrom:
                 fieldRef:

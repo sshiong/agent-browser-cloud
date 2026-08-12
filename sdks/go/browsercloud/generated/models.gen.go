@@ -2075,12 +2075,14 @@ type OperationView struct {
 }
 
 type RemoteDesktopConnection struct {
-	ConnectionId   string `json:"connectionId,omitempty"`
-	WebSocketPath  string `json:"webSocketPath,omitempty"`
-	ExpiresAt      string `json:"expiresAt,omitempty"`
-	Protocol       string `json:"protocol,omitempty"`
-	OperationEpoch int64  `json:"operationEpoch,omitempty"`
-	ViewOnly       bool   `json:"viewOnly,omitempty"`
+	ConnectionId           string `json:"connectionId,omitempty"`
+	WebSocketPath          string `json:"webSocketPath,omitempty"`
+	ExpiresAt              string `json:"expiresAt,omitempty"`
+	Protocol               string `json:"protocol,omitempty"`
+	OperationEpoch         int64  `json:"operationEpoch,omitempty"`
+	ViewOnly               bool   `json:"viewOnly,omitempty"`
+	ActorBitrateLimitKbps  int    `json:"actorBitrateLimitKbps,omitempty"`
+	ActorFrameRateLimitFps int    `json:"actorFrameRateLimitFps,omitempty"`
 }
 
 type RemoteDesktopParticipantList struct {

@@ -387,7 +387,7 @@ public final class Models {
 
   public record OperationView(String operationId, String ownerType, Object actorId, String mode, Integer priority, Long coordinatorTerm, Long contextEpoch, Long operationEpoch, Object workflowId, Boolean cancellable, Boolean preemptible, String phase, String state, List<String> allowedCapabilities, String deadline) {}
 
-  public record RemoteDesktopConnection(String connectionId, String webSocketPath, String expiresAt, String protocol, Long operationEpoch, Boolean viewOnly) {}
+  public record RemoteDesktopConnection(String connectionId, String webSocketPath, String expiresAt, String protocol, Long operationEpoch, Boolean viewOnly, Integer actorBitrateLimitKbps, Integer actorFrameRateLimitFps) {}
 
   public record RemoteDesktopParticipantList(List<RemoteDesktopParticipant> items, Integer onlineCount) {}
 

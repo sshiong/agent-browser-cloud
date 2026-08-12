@@ -28,6 +28,10 @@ public class RemoteDesktopTicketService {
   private final ObjectMapper objectMapper;
   private final byte[] secret;
   private final long ttlSeconds;
+  private final int controlActorBitrateLimitKbps;
+  private final int controlActorFrameRateLimitFps;
+  private final int viewerActorBitrateLimitKbps;
+  private final int viewerActorFrameRateLimitFps;
   private final Clock clock;
 
   @Autowired
@@ -35,12 +39,42 @@ public class RemoteDesktopTicketService {
       ObjectMapper objectMapper,
       @Value("${remote-desktop.ticket-secret:" + LOCAL_SECRET + "}") String secret,
       @Value("${remote-desktop.ticket-ttl-seconds:45}") long ttlSeconds,
+      @Value("${remote-desktop.control-actor-bitrate-limit-kbps:8000}")
+          int controlActorBitrateLimitKbps,
+      @Value("${remote-desktop.control-actor-frame-rate-limit-fps:30}")
+          int controlActorFrameRateLimitFps,
+      @Value("${remote-desktop.viewer-actor-bitrate-limit-kbps:4000}")
+          int viewerActorBitrateLimitKbps,
+      @Value("${remote-desktop.viewer-actor-frame-rate-limit-fps:15}")
+          int viewerActorFrameRateLimitFps,
       @Value("${app.environment:local}") String environment) {
-    this(objectMapper, secret, ttlSeconds, environment, Clock.systemUTC());
+    this(
+        objectMapper,
+        secret,
+        ttlSeconds,
+        controlActorBitrateLimitKbps,
+        controlActorFrameRateLimitFps,
+        viewerActorBitrateLimitKbps,
+        viewerActorFrameRateLimitFps,
+        environment,
+        Clock.systemUTC());
   }
 
   RemoteDesktopTicketService(
       ObjectMapper objectMapper, String secret, long ttlSeconds, String environment, Clock clock) {
+    this(objectMapper, secret, ttlSeconds, 8_000, 30, 4_000, 15, environment, clock);
+  }
+
+  RemoteDesktopTicketService(
+      ObjectMapper objectMapper,
+      String secret,
+      long ttlSeconds,
+      int controlActorBitrateLimitKbps,
+      int controlActorFrameRateLimitFps,
+      int viewerActorBitrateLimitKbps,
+      int viewerActorFrameRateLimitFps,
+      String environment,
+      Clock clock) {
     if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
       throw new IllegalArgumentException(
           "remote desktop ticket secret must contain at least 32 bytes");
@@ -52,10 +86,27 @@ public class RemoteDesktopTicketService {
     if (ttlSeconds < 10 || ttlSeconds > 120) {
       throw new IllegalArgumentException("remote desktop ticket TTL must be between 10 and 120");
     }
+    validateActorQuota("control", controlActorBitrateLimitKbps, controlActorFrameRateLimitFps);
+    validateActorQuota("viewer", viewerActorBitrateLimitKbps, viewerActorFrameRateLimitFps);
     this.objectMapper = objectMapper;
     this.secret = secret.getBytes(StandardCharsets.UTF_8);
     this.ttlSeconds = ttlSeconds;
+    this.controlActorBitrateLimitKbps = controlActorBitrateLimitKbps;
+    this.controlActorFrameRateLimitFps = controlActorFrameRateLimitFps;
+    this.viewerActorBitrateLimitKbps = viewerActorBitrateLimitKbps;
+    this.viewerActorFrameRateLimitFps = viewerActorFrameRateLimitFps;
     this.clock = clock;
+  }
+
+  private static void validateActorQuota(String kind, int bitrateLimitKbps, int frameRateLimitFps) {
+    if (bitrateLimitKbps < 250 || bitrateLimitKbps > 100_000) {
+      throw new IllegalArgumentException(
+          kind + " remote desktop actor bitrate must be between 250 and 100000 Kbps");
+    }
+    if (frameRateLimitFps < 1 || frameRateLimitFps > 60) {
+      throw new IllegalArgumentException(
+          kind + " remote desktop actor frame rate must be between 1 and 60 FPS");
+    }
   }
 
   /**
@@ -108,6 +159,10 @@ public class RemoteDesktopTicketService {
       boolean viewOnly) {
     var expiresAt = Instant.now(clock).plusSeconds(ttlSeconds);
     var connectionId = "rdc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
+    var actorBitrateLimitKbps =
+        viewOnly ? viewerActorBitrateLimitKbps : controlActorBitrateLimitKbps;
+    var actorFrameRateLimitFps =
+        viewOnly ? viewerActorFrameRateLimitFps : controlActorFrameRateLimitFps;
     var claims = new LinkedHashMap<String, Object>();
     claims.put("tenantId", tenantId);
     claims.put("sessionId", sessionId);
@@ -118,6 +173,8 @@ public class RemoteDesktopTicketService {
     claims.put("operationEpoch", bindingEpoch);
     claims.put("accessMode", accessMode);
     claims.put("viewOnly", viewOnly);
+    claims.put("actorBitrateLimitKbps", actorBitrateLimitKbps);
+    claims.put("actorFrameRateLimitFps", actorFrameRateLimitFps);
     claims.put("expiresAtEpochSeconds", expiresAt.getEpochSecond());
     claims.put("nonce", UUID.randomUUID().toString().replace("-", ""));
     try {
@@ -132,7 +189,9 @@ public class RemoteDesktopTicketService {
           expiresAt,
           "rfb",
           bindingEpoch,
-          viewOnly);
+          viewOnly,
+          actorBitrateLimitKbps,
+          actorFrameRateLimitFps);
     } catch (JsonProcessingException | GeneralSecurityException exception) {
       throw new IllegalStateException("remote desktop ticket signing failed", exception);
     }

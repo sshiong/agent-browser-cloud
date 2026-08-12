@@ -38,6 +38,8 @@ const SHARED_FRAME_QUEUE_CAPACITY: usize = 4;
 const SHARED_INPUT_QUEUE_CAPACITY: usize = 32;
 const MAX_RFB_SERVER_MESSAGE_BYTES: usize = 32 * 1024 * 1024;
 const SLOW_CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const DEFAULT_ACTOR_BITRATE_LIMIT_KBPS: u32 = 8_000;
+const DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS: u32 = 30;
 const RFB_VERSION_3_8: &[u8; 12] = b"RFB 003.008\n";
 // noVNC 1.7 uses this full-colour little-endian format after ServerInit. The hub owns one
 // upstream pixel format, so every downstream sees this exact canonical representation.
@@ -58,6 +60,10 @@ pub struct RemoteDesktopTicketClaims {
     pub access_mode: String,
     #[serde(default)]
     pub view_only: bool,
+    #[serde(default = "default_actor_bitrate_limit_kbps")]
+    pub actor_bitrate_limit_kbps: u32,
+    #[serde(default = "default_actor_frame_rate_limit_fps")]
+    pub actor_frame_rate_limit_fps: u32,
     pub expires_at_epoch_seconds: u64,
     pub nonce: String,
 }
@@ -67,6 +73,14 @@ fn default_access_mode() -> String {
     // Fail collaborative: opening VNC must never acquire exclusive control merely because an
     // additive claim is absent. Exclusive takeover always requires an explicitly signed value.
     "COLLABORATIVE".to_owned()
+}
+
+fn default_actor_bitrate_limit_kbps() -> u32 {
+    DEFAULT_ACTOR_BITRATE_LIMIT_KBPS
+}
+
+fn default_actor_frame_rate_limit_fps() -> u32 {
+    DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS
 }
 
 #[async_trait]
@@ -100,11 +114,35 @@ struct GatewayState {
     last_human_input_at: Mutex<HashMap<String, Instant>>,
     bitrate_limits_kbps: Mutex<HashMap<String, u32>>,
     observer_frame_rates_fps: Mutex<HashMap<String, u32>>,
+    actor_forwarding: Mutex<HashMap<ActorQuotaKey, ActorForwardingState>>,
     used_nonces: Mutex<HashMap<String, u64>>,
     disconnect_grace: Duration,
     heartbeat_interval: Duration,
     client_liveness_timeout: Duration,
     disconnect_handler: Arc<dyn DisconnectHandler>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ActorQuotaKey {
+    tenant_id: String,
+    session_id: String,
+    actor_id: String,
+}
+
+impl From<&RemoteDesktopTicketClaims> for ActorQuotaKey {
+    fn from(claims: &RemoteDesktopTicketClaims) -> Self {
+        Self {
+            tenant_id: claims.tenant_id.clone(),
+            session_id: claims.session_id.clone(),
+            actor_id: claims.actor_id.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct ActorForwardingState {
+    bitrate_ready_at: Option<Instant>,
+    frame_ready_at: Option<Instant>,
 }
 
 #[derive(Debug, Default)]
@@ -250,6 +288,7 @@ impl RemoteDesktopGateway {
                 last_human_input_at: Mutex::new(HashMap::new()),
                 bitrate_limits_kbps: Mutex::new(HashMap::new()),
                 observer_frame_rates_fps: Mutex::new(HashMap::new()),
+                actor_forwarding: Mutex::new(HashMap::new()),
                 used_nonces: Mutex::new(HashMap::new()),
                 disconnect_grace,
                 heartbeat_interval,
@@ -299,6 +338,11 @@ impl RemoteDesktopGateway {
             .write()
             .expect("VNC endpoint lock poisoned")
             .remove(session_id);
+        self.state
+            .actor_forwarding
+            .lock()
+            .expect("actor forwarding lock poisoned")
+            .retain(|key, _| key.session_id != session_id);
         self.stop_shared_hub(session_id);
         self.state
             .last_server_frame_at
@@ -482,6 +526,7 @@ impl RemoteDesktopGateway {
             .copied()
     }
 
+    #[cfg(test)]
     fn server_bitrate_delay(&self, session_id: &str, bytes: usize) -> Duration {
         let bitrate_kbps = self.bitrate_limit_kbps(session_id).unwrap_or_default();
         if bitrate_kbps == 0 || bytes == 0 {
@@ -491,6 +536,7 @@ impl RemoteDesktopGateway {
         Duration::from_secs_f64(seconds)
     }
 
+    #[cfg(test)]
     fn observer_frame_rate_delay(
         &self,
         session_id: &str,
@@ -507,14 +553,43 @@ impl RemoteDesktopGateway {
         Duration::ZERO
     }
 
-    fn server_forwarding_delay(
+    fn reserve_server_forwarding(
         &self,
-        session_id: &str,
+        claims: &RemoteDesktopTicketClaims,
         bytes: usize,
-        last_forwarded_at: Option<Instant>,
     ) -> Duration {
-        self.server_bitrate_delay(session_id, bytes)
-            .max(self.observer_frame_rate_delay(session_id, last_forwarded_at))
+        let session_bitrate = self
+            .bitrate_limit_kbps(&claims.session_id)
+            .unwrap_or_default();
+        let bitrate_kbps = if session_bitrate == 0 {
+            claims.actor_bitrate_limit_kbps
+        } else {
+            session_bitrate.min(claims.actor_bitrate_limit_kbps)
+        };
+        let frame_rate_fps = self
+            .observer_frame_rate_fps(&claims.session_id)
+            .unwrap_or(30)
+            .min(claims.actor_frame_rate_limit_fps);
+        let now = Instant::now();
+        let bitrate_duration = if bytes == 0 {
+            Duration::ZERO
+        } else {
+            Duration::from_secs_f64(bytes as f64 * 8.0 / (f64::from(bitrate_kbps) * 1_000.0))
+        };
+        let frame_interval = Duration::from_secs_f64(1.0 / f64::from(frame_rate_fps));
+        let mut actors = self
+            .state
+            .actor_forwarding
+            .lock()
+            .expect("actor forwarding lock poisoned");
+        let actor = actors.entry(claims.into()).or_default();
+        let bitrate_ready_at = actor.bitrate_ready_at.unwrap_or(now).max(now) + bitrate_duration;
+        let frame_ready_at = actor.frame_ready_at.unwrap_or(now).max(now);
+        actor.bitrate_ready_at = Some(bitrate_ready_at);
+        actor.frame_ready_at = Some(frame_ready_at + frame_interval);
+        bitrate_ready_at
+            .max(frame_ready_at)
+            .saturating_duration_since(now)
     }
 
     /// 返回当前活跃远程桌面连接距离最近一批 VNC Server 数据的年龄。
@@ -652,22 +727,40 @@ impl RemoteDesktopGateway {
         } else {
             "CLIENT_DISCONNECTED"
         };
-        let disconnected_generation = {
+        let (disconnected_generation, actor_still_connected) = {
             let mut sessions = self
                 .state
                 .active_connections
                 .lock()
                 .expect("active connection lock poisoned");
-            sessions
-                .get_mut(&authorized.claims.session_id)
-                .and_then(|connections| {
-                    connections
-                        .leases_by_connection_id
-                        .remove(&authorized.claims.connection_id)?;
-                    connections.generation = connections.generation.saturating_add(1);
-                    Some(connections.generation)
-                })
+            let generation =
+                sessions
+                    .get_mut(&authorized.claims.session_id)
+                    .and_then(|connections| {
+                        connections
+                            .leases_by_connection_id
+                            .remove(&authorized.claims.connection_id)?;
+                        connections.generation = connections.generation.saturating_add(1);
+                        Some(connections.generation)
+                    });
+            let actor_still_connected =
+                sessions
+                    .get(&authorized.claims.session_id)
+                    .is_some_and(|connections| {
+                        connections.leases_by_connection_id.values().any(|lease| {
+                            lease.claims.tenant_id == authorized.claims.tenant_id
+                                && lease.claims.actor_id == authorized.claims.actor_id
+                        })
+                    });
+            (generation, actor_still_connected)
         };
+        if !actor_still_connected {
+            self.state
+                .actor_forwarding
+                .lock()
+                .expect("actor forwarding lock poisoned")
+                .remove(&ActorQuotaKey::from(&authorized.claims));
+        }
         if let Some(disconnected_generation) = disconnected_generation {
             self.state
                 .disconnect_handler
@@ -731,7 +824,6 @@ impl RemoteDesktopGateway {
         );
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut last_client_activity = tokio::time::Instant::now();
-        let mut last_server_forwarded_at = None;
         // Subscribe before reading the cached baseline. An update racing this read
         // may be delivered twice, but it cannot be missed; subscribing afterwards
         // could leave a late joiner on a stale baseline indefinitely.
@@ -744,13 +836,7 @@ impl RemoteDesktopGateway {
         let mut pending_server_ready_at = tokio::time::Instant::now()
             + pending_server_payload
                 .as_ref()
-                .map(|payload| {
-                    self.server_forwarding_delay(
-                        &authorized.claims.session_id,
-                        payload.len(),
-                        last_server_forwarded_at,
-                    )
-                })
+                .map(|payload| self.reserve_server_forwarding(&authorized.claims, payload.len()))
                 .unwrap_or_default();
         let mut input_parser =
             RfbClientMessageParser::new(pending_client_bytes, server_init.pixel_format);
@@ -799,11 +885,8 @@ impl RemoteDesktopGateway {
                         .lock()
                         .expect("frame timestamp lock poisoned")
                         .insert(authorized.claims.session_id.clone(), Instant::now());
-                    pending_server_ready_at = tokio::time::Instant::now() + self.server_forwarding_delay(
-                        &authorized.claims.session_id,
-                        frame.len(),
-                        last_server_forwarded_at,
-                    );
+                    pending_server_ready_at = tokio::time::Instant::now()
+                        + self.reserve_server_forwarding(&authorized.claims, frame.len());
                     pending_server_payload = Some(frame);
                 }
                 _ = tokio::time::sleep_until(pending_server_ready_at), if pending_server_payload.is_some() => {
@@ -816,7 +899,6 @@ impl RemoteDesktopGateway {
                     )
                     .await
                     .context("remote desktop client write timed out")??;
-                    last_server_forwarded_at = Some(Instant::now());
                 }
                 message = websocket.next() => {
                     match message {
@@ -1444,6 +1526,8 @@ fn authorize(
             claims.access_mode.as_str(),
             "COLLABORATIVE" | "EXCLUSIVE_TAKEOVER"
         )
+        || !(250..=100_000).contains(&claims.actor_bitrate_limit_kbps)
+        || !(1..=60).contains(&claims.actor_frame_rate_limit_fps)
         || claims.nonce.len() < 16
         || claims.nonce.len() > 128
     {
@@ -1628,6 +1712,8 @@ mod tests {
             operation_epoch: 7,
             access_mode: access_mode.to_owned(),
             view_only,
+            actor_bitrate_limit_kbps: DEFAULT_ACTOR_BITRATE_LIMIT_KBPS,
+            actor_frame_rate_limit_fps: DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS,
             expires_at_epoch_seconds: unix_seconds() + 60,
             nonce: nonce.to_owned(),
         };
@@ -1868,6 +1954,51 @@ mod tests {
 
         assert_eq!(parsed.access_mode, "COLLABORATIVE");
         assert!(!parsed.view_only);
+        assert_eq!(
+            parsed.actor_bitrate_limit_kbps,
+            DEFAULT_ACTOR_BITRATE_LIMIT_KBPS
+        );
+        assert_eq!(
+            parsed.actor_frame_rate_limit_fps,
+            DEFAULT_ACTOR_FRAME_RATE_LIMIT_FPS
+        );
+    }
+
+    #[test]
+    fn actor_forwarding_quota_is_shared_per_actor_but_isolated_between_actors() {
+        let gateway = RemoteDesktopGateway::new(
+            SECRET.as_bytes(),
+            ["http://console.test".to_owned()],
+            Arc::new(NoopDisconnectHandler),
+        )
+        .unwrap();
+        gateway
+            .register_session("ses_actorquota123456", "127.0.0.1:5901".parse().unwrap())
+            .unwrap();
+        let mut first = RemoteDesktopTicketClaims {
+            tenant_id: "tenant-test".to_owned(),
+            session_id: "ses_actorquota123456".to_owned(),
+            actor_id: "actor-one".to_owned(),
+            connection_id: "rdc_1234567890abcdefghij".to_owned(),
+            coordinator_term: 1,
+            context_epoch: 1,
+            operation_epoch: 1,
+            access_mode: "COLLABORATIVE".to_owned(),
+            view_only: true,
+            actor_bitrate_limit_kbps: 250,
+            actor_frame_rate_limit_fps: 60,
+            expires_at_epoch_seconds: unix_seconds() + 60,
+            nonce: "actor-quota-first-ticket".to_owned(),
+        };
+        let first_delay = gateway.reserve_server_forwarding(&first, 1_000);
+        let same_actor_delay = gateway.reserve_server_forwarding(&first, 1_000);
+        first.actor_id = "actor-two".to_owned();
+        first.connection_id = "rdc_abcdefghij1234567890".to_owned();
+        let other_actor_delay = gateway.reserve_server_forwarding(&first, 1_000);
+
+        assert!(first_delay >= Duration::from_millis(30));
+        assert!(same_actor_delay >= Duration::from_millis(60));
+        assert!(other_actor_delay < same_actor_delay);
     }
 
     #[tokio::test]

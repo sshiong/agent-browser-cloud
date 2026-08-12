@@ -67,6 +67,10 @@ browser-node:
 remote-desktop:
   ticket-secret: ${REMOTE_DESKTOP_TICKET_SECRET:browsercloud-local-remote-desktop-ticket-secret-v1}
   ticket-ttl-seconds: ${REMOTE_DESKTOP_TICKET_TTL_SECONDS:45}
+  control-actor-bitrate-limit-kbps: ${REMOTE_DESKTOP_CONTROL_ACTOR_BITRATE_LIMIT_KBPS:8000}
+  control-actor-frame-rate-limit-fps: ${REMOTE_DESKTOP_CONTROL_ACTOR_FRAME_RATE_LIMIT_FPS:30}
+  viewer-actor-bitrate-limit-kbps: ${REMOTE_DESKTOP_VIEWER_ACTOR_BITRATE_LIMIT_KBPS:4000}
+  viewer-actor-frame-rate-limit-fps: ${REMOTE_DESKTOP_VIEWER_ACTOR_FRAME_RATE_LIMIT_FPS:15}
   participant-history-retention-days: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_RETENTION_DAYS:30}
   participant-history-purge-batch-size: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_PURGE_BATCH_SIZE:10000}
   participant-history-retention-cron: ${REMOTE_DESKTOP_PARTICIPANT_HISTORY_RETENTION_CRON:0 29 * * * *}

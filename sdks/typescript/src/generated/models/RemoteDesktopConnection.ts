@@ -18,4 +18,12 @@ export type RemoteDesktopConnection = {
      */
     operationEpoch: number;
     viewOnly: boolean;
+    /**
+     * Server-signed outbound bandwidth ceiling shared by this actor's connections.
+     */
+    actorBitrateLimitKbps?: number;
+    /**
+     * Server-signed forwarding frequency ceiling shared by this actor's connections.
+     */
+    actorFrameRateLimitFps?: number;
 };

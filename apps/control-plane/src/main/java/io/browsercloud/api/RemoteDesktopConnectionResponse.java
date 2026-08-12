@@ -9,4 +9,25 @@ public record RemoteDesktopConnectionResponse(
     Instant expiresAt,
     String protocol,
     long operationEpoch,
-    boolean viewOnly) {}
+    boolean viewOnly,
+    int actorBitrateLimitKbps,
+    int actorFrameRateLimitFps) {
+
+  public RemoteDesktopConnectionResponse(
+      String connectionId,
+      String webSocketPath,
+      Instant expiresAt,
+      String protocol,
+      long operationEpoch,
+      boolean viewOnly) {
+    this(
+        connectionId,
+        webSocketPath,
+        expiresAt,
+        protocol,
+        operationEpoch,
+        viewOnly,
+        viewOnly ? 4_000 : 8_000,
+        viewOnly ? 15 : 30);
+  }
+}

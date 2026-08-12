@@ -47,7 +47,11 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"contextEpoch\":3")
         .contains("\"operationEpoch\":3")
         .contains("\"accessMode\":\"COLLABORATIVE\"")
-        .contains("\"viewOnly\":false");
+        .contains("\"viewOnly\":false")
+        .contains("\"actorBitrateLimitKbps\":8000")
+        .contains("\"actorFrameRateLimitFps\":30");
+    assertThat(response.actorBitrateLimitKbps()).isEqualTo(8_000);
+    assertThat(response.actorFrameRateLimitFps()).isEqualTo(30);
 
     var mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
@@ -71,7 +75,11 @@ class RemoteDesktopTicketServiceTest {
     assertThat(payload)
         .contains("\"actorId\":\"viewer-test\"")
         .contains("\"accessMode\":\"COLLABORATIVE\"")
-        .contains("\"viewOnly\":true");
+        .contains("\"viewOnly\":true")
+        .contains("\"actorBitrateLimitKbps\":4000")
+        .contains("\"actorFrameRateLimitFps\":15");
+    assertThat(response.actorBitrateLimitKbps()).isEqualTo(4_000);
+    assertThat(response.actorFrameRateLimitFps()).isEqualTo(15);
   }
 
   @Test

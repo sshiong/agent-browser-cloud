@@ -27,6 +27,10 @@ export function NoVncViewport({
   const onUnexpectedDisconnectRef = useRef(onUnexpectedDisconnect);
   const [state, setState] = useState<DesktopConnectionState>('CONNECTING');
   const [error, setError] = useState<string>();
+  const [actorQuota, setActorQuota] = useState<{
+    bitrateKbps: number;
+    frameRateFps: number;
+  }>();
   onConnectionStateRef.current = onConnectionState;
   onUnexpectedDisconnectRef.current = onUnexpectedDisconnect;
 
@@ -44,6 +48,7 @@ export function NoVncViewport({
     const connect = async () => {
       transition('CONNECTING');
       setError(undefined);
+      setActorQuota(undefined);
       try {
         const connection = await createRemoteDesktopConnection(
           sessionId,
@@ -57,6 +62,15 @@ export function NoVncViewport({
           throw new Error(
             '远程桌面票据属于过期 Session Context，请刷新后重试。'
           );
+        }
+        if (
+          connection.actorBitrateLimitKbps &&
+          connection.actorFrameRateLimitFps
+        ) {
+          setActorQuota({
+            bitrateKbps: connection.actorBitrateLimitKbps,
+            frameRateFps: connection.actorFrameRateLimitFps,
+          });
         }
         const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const websocketUrl = new URL(
@@ -155,6 +169,12 @@ export function NoVncViewport({
           <Radio size={9} className="animate-pulse" />
           <span>RFB LIVE</span>
           <span>· {viewOnly ? 'VIEW ONLY' : 'SHARED CONTROL'}</span>
+          {actorQuota && (
+            <span>
+              · ACTOR {actorQuota.bitrateKbps} Kbps / {actorQuota.frameRateFps}{' '}
+              FPS
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -1743,6 +1743,8 @@ class RemoteDesktopConnection(TypedDict, total=False):
     protocol: Literal['rfb']
     operationEpoch: int
     viewOnly: bool
+    actorBitrateLimitKbps: int
+    actorFrameRateLimitFps: int
 
 class RemoteDesktopParticipantList(TypedDict, total=False):
     items: list[RemoteDesktopParticipant]

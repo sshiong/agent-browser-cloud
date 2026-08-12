@@ -1420,7 +1420,10 @@ paths:
         shared RFB mode. A view-only ticket is enforced by both noVNC and Browser Node; attempted
         Key, Pointer or Clipboard input is rejected before x11vnc. If the same actor already owns
         an explicit EXECUTING HumanTakeover, the endpoint preserves that exclusive operation and
-        its release barrier; the Gateway revokes collaborative clients before admitting it.
+        its release barrier; the Gateway revokes collaborative clients before admitting it. The
+        Control Plane also signs an actor-specific bandwidth and forwarding-frequency ceiling into
+        every ticket. Browser Node shares that budget across the same actor's concurrent windows,
+        isolates different actors, and never throttles the independent human/Agent input path.
       tags: [Session, RemoteDesktop]
       parameters:
         - $ref: "#/components/parameters/SessionId"
@@ -10819,6 +10822,16 @@ components:
             that Operation Epoch. Its presence alone does not imply an exclusive operation.
         viewOnly:
           type: boolean
+        actorBitrateLimitKbps:
+          type: integer
+          minimum: 250
+          maximum: 100000
+          description: Server-signed outbound bandwidth ceiling shared by this actor's connections.
+        actorFrameRateLimitFps:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Server-signed forwarding frequency ceiling shared by this actor's connections.
     RemoteDesktopParticipantList:
       type: object
       additionalProperties: false

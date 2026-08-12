@@ -100,6 +100,8 @@ describe('session API', () => {
       protocol: 'rfb',
       operationEpoch: 3,
       viewOnly: true,
+      actorBitrateLimitKbps: 4000,
+      actorFrameRateLimitFps: 15,
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(connection), {

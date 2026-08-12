@@ -1370,17 +1370,19 @@ const (
 )
 
 type ResourceAdjustment struct {
-	OperationId        string         `json:"operationId,omitempty"`
-	State              string         `json:"state,omitempty"`
-	Reason             string         `json:"reason,omitempty"`
-	FailureCode        any            `json:"failureCode,omitempty"`
-	OldResources       map[string]any `json:"oldResources,omitempty"`
-	RequestedResources map[string]any `json:"requestedResources,omitempty"`
-	RequestedAt        string         `json:"requestedAt,omitempty"`
-	ExecutingAt        any            `json:"executingAt,omitempty"`
-	AcknowledgedAt     any            `json:"acknowledgedAt,omitempty"`
-	CompletedAt        any            `json:"completedAt,omitempty"`
-	UpdatedAt          string         `json:"updatedAt,omitempty"`
+	OperationId               string         `json:"operationId,omitempty"`
+	State                     string         `json:"state,omitempty"`
+	Reason                    string         `json:"reason,omitempty"`
+	FailureCode               any            `json:"failureCode,omitempty"`
+	OldResources              map[string]any `json:"oldResources,omitempty"`
+	RequestedResources        map[string]any `json:"requestedResources,omitempty"`
+	RequestedAt               string         `json:"requestedAt,omitempty"`
+	ExecutingAt               any            `json:"executingAt,omitempty"`
+	AcknowledgedAt            any            `json:"acknowledgedAt,omitempty"`
+	CompletedAt               any            `json:"completedAt,omitempty"`
+	ReconciliationOperationId any            `json:"reconciliationOperationId,omitempty"`
+	ReconciledAt              any            `json:"reconciledAt,omitempty"`
+	UpdatedAt                 string         `json:"updatedAt,omitempty"`
 }
 
 type SessionResource struct {

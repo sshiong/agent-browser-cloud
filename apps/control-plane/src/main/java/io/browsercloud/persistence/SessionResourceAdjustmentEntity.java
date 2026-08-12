@@ -43,6 +43,9 @@ public class SessionResourceAdjustmentEntity {
   private Instant executingAt;
   private Instant acknowledgedAt;
   private Instant completedAt;
+  private Instant reconciledAt;
+
+  private String reconciliationOperationId;
 
   @Column(nullable = false)
   private Instant updatedAt;
@@ -104,11 +107,33 @@ public class SessionResourceAdjustmentEntity {
   }
 
   public boolean fail(String errorCode, Instant now) {
-    if ("COMMITTED".equals(state) || "FAILED".equals(state)) return false;
+    if ("COMMITTED".equals(state) || "FAILED".equals(state) || "RECONCILED".equals(state)) {
+      return false;
+    }
     state = "FAILED";
     failureCode = requireText(errorCode, "failure code");
     completedAt = now;
     updatedAt = now;
+    return true;
+  }
+
+  /**
+   * Records a compensating authority reconciliation after a timed-out Node ACK arrives late.
+   *
+   * <p>The original generic Operation remains TIMED_OUT. Its failure code is retained as history,
+   * while {@code reconciliationOperationId} points to the new committed reconciliation Operation.
+   */
+  public boolean reconcile(String reconciliationOperationId, Instant now) {
+    if ("RECONCILED".equals(state)) return false;
+    if (!"FAILED".equals(state) || !"NODE_ACK_TIMEOUT".equals(failureCode)) {
+      throw new IllegalStateException("RESOURCE_ADJUSTMENT_NOT_RECONCILABLE:" + state);
+    }
+    this.state = "RECONCILED";
+    this.reconciliationOperationId =
+        requireText(reconciliationOperationId, "reconciliation operation ID");
+    this.acknowledgedAt = now;
+    this.reconciledAt = now;
+    this.updatedAt = now;
     return true;
   }
 
@@ -168,5 +193,13 @@ public class SessionResourceAdjustmentEntity {
 
   public Instant getUpdatedAt() {
     return updatedAt;
+  }
+
+  public Instant getReconciledAt() {
+    return reconciledAt;
+  }
+
+  public String getReconciliationOperationId() {
+    return reconciliationOperationId;
   }
 }

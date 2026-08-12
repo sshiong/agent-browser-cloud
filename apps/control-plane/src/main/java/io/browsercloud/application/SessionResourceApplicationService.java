@@ -923,6 +923,9 @@ public class SessionResourceApplicationService {
       ResourcePolicyStatus status,
       String reason,
       Instant now) {
+    // Serialize new decisions with Node Event ingestion and late-ACK reconciliation. The latter
+    // locks this same Session row through SessionCoordinator for the lifetime of the Inbox tx.
+    sessions.lockForUpdate(session.sessionId());
     if (operations.findActive(session.sessionId()).isPresent()) {
       policy.evaluate(ResourcePolicyStatus.OBSERVING, "RESOURCE_ADJUSTMENT_OPERATION_BUSY", now);
       policies.save(policy);
@@ -1204,12 +1207,7 @@ public class SessionResourceApplicationService {
         nextObserverFrameRateFps,
         nextVideoRecordingEnabled);
     placements.save(placement);
-    var template =
-        adjusted.newMemoryLimitMib() > 2048 || adjusted.newCpuMillis() > 2000
-            ? "heavy-v1"
-            : adjusted.newMemoryLimitMib() > 1280 || adjusted.newCpuMillis() > 600
-                ? "interactive-v1"
-                : "standard-v1";
+    var template = templateForAcknowledged(adjusted);
     policy.adjustmentCommitted(
         ResourcePolicyStatus.STABLE, "NODE_ACTUATOR_ACKNOWLEDGED", template, now);
     policies.save(policy);
@@ -1238,11 +1236,256 @@ public class SessionResourceApplicationService {
   }
 
   @Transactional
-  public boolean recordLateAdjustmentAcknowledgementIgnored(
+  public boolean recordLateAdjustmentAcknowledgement(
       String tenantId, NodeEvent.RuntimeResourcesAdjusted adjusted, String coordinatorRejection) {
-    requireTenant(adjusted.sessionId(), tenantId);
-    return adjustmentLifecycle.lateAcknowledgementIgnored(
-        tenantId, adjusted.sessionId(), adjusted.operationId(), coordinatorRejection);
+    var session = requireTenant(adjusted.sessionId(), tenantId);
+    var late =
+        adjustmentLifecycle.lateAcknowledgement(
+            tenantId, adjusted.sessionId(), adjusted.operationId(), coordinatorRejection);
+    if (!late.consumed() || !late.reconciliationRequired()) {
+      return late.consumed();
+    }
+    try {
+      reconcileLateTimedOutAdjustment(session, adjusted, late);
+    } catch (ResourceTelemetryRejectedException rejected) {
+      adjustmentLifecycle.reconciliationConflict(
+          adjusted.sessionId(), adjusted.operationId(), rejected.getMessage());
+    }
+    return true;
+  }
+
+  private void reconcileLateTimedOutAdjustment(
+      SessionContext session,
+      NodeEvent.RuntimeResourcesAdjusted adjusted,
+      SessionResourceAdjustmentLifecycleService.LateAcknowledgement late) {
+    if (session.state() != io.browsercloud.domain.session.SessionState.RUNNING
+        && session.state() != io.browsercloud.domain.session.SessionState.DEGRADED) {
+      throw new ResourceTelemetryRejectedException("SESSION_STATE_CHANGED");
+    }
+    var originalOperation =
+        operations.findByIds(Set.of(adjusted.operationId())).get(adjusted.operationId());
+    if (originalOperation == null
+        || originalOperation.mode() != OperationMode.RESOURCE_ADJUSTMENT
+        || originalOperation.state() != OperationState.TIMED_OUT) {
+      throw new ResourceTelemetryRejectedException("ORIGINAL_OPERATION_NOT_TIMED_OUT");
+    }
+    if (operations.findActive(adjusted.sessionId()).isPresent()) {
+      throw new ResourceTelemetryRejectedException("SESSION_OPERATION_ACTIVE");
+    }
+    var placement =
+        placements
+            .findForUpdate(adjusted.sessionId())
+            .orElseThrow(() -> new ResourceTelemetryRejectedException("PLACEMENT_NOT_FOUND"));
+    if (!"ACTIVE".equals(placement.getState())
+        || !placement.getNodeId().equals(adjusted.nodeId())
+        || !placement.effectiveResourceClass().name().equals(adjusted.oldResourceClass())
+        || !placement.effectiveResourceClass().name().equals(adjusted.newResourceClass())) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_MISMATCH");
+    }
+
+    var nextStateCollectorBudgetPercent =
+        valueOr(
+            adjusted.newStateCollectorBudgetPercent(), placement.getStateCollectorBudgetPercent());
+    var nextRemoteDesktopBitrateKbps =
+        valueOr(adjusted.newRemoteDesktopBitrateKbps(), placement.getRemoteDesktopBitrateKbps());
+    var nextExtensionCpuWeight =
+        valueOr(adjusted.newExtensionCpuWeight(), placement.getExtensionCpuWeight());
+    var nextMediaEncoderSlots =
+        valueOr(adjusted.newMediaEncoderSlots(), placement.getMediaEncoderSlots());
+    var nextBackgroundTabsFrozen =
+        valueOr(adjusted.newFreezeBackgroundTabs(), placement.isBackgroundTabsFrozen());
+    var nextNewTabsBlocked = valueOr(adjusted.newBlockNewTabs(), placement.isNewTabsBlocked());
+    var nextPausedExtensionIds =
+        adjusted.newPausedExtensionIds() == null
+            ? readExtensionIds(placement.getPausedExtensionIds())
+            : adjusted.newPausedExtensionIds();
+    var nextSuccessTraceSamplePercent =
+        valueOr(adjusted.newSuccessTraceSamplePercent(), placement.getSuccessTraceSamplePercent());
+    var nextSuccessScreenshotSamplePercent =
+        valueOr(
+            adjusted.newSuccessScreenshotSamplePercent(),
+            placement.getSuccessScreenshotSamplePercent());
+    var nextObserverFrameRateFps =
+        valueOr(adjusted.newObserverFrameRateFps(), placement.getObserverFrameRateFps());
+    var nextVideoRecordingEnabled =
+        valueOr(adjusted.newVideoRecordingEnabled(), placement.isVideoRecordingEnabled());
+
+    var acknowledgedOld = allocationMap(placement);
+    var acknowledgedNew =
+        allocationMap(
+            placement,
+            adjusted.newCpuMillis(),
+            adjusted.newMemoryRequestMib(),
+            adjusted.newMemoryLimitMib(),
+            nextStateCollectorBudgetPercent,
+            nextRemoteDesktopBitrateKbps,
+            nextExtensionCpuWeight,
+            nextMediaEncoderSlots,
+            nextBackgroundTabsFrozen,
+            nextNewTabsBlocked,
+            nextPausedExtensionIds,
+            nextSuccessTraceSamplePercent,
+            nextSuccessScreenshotSamplePercent,
+            nextObserverFrameRateFps,
+            nextVideoRecordingEnabled);
+    if (!acknowledgementMatchesPlacement(placement, adjusted)
+        || !late.oldResources().equals(acknowledgedOld)
+        || !late.requestedResources().equals(acknowledgedNew)) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_LEDGER_MISMATCH");
+    }
+
+    var policy = requirePolicy(adjusted.sessionId(), session.tenantId());
+    validateAcknowledgedAllocation(
+        placement,
+        policy,
+        adjusted,
+        nextStateCollectorBudgetPercent,
+        nextRemoteDesktopBitrateKbps,
+        nextExtensionCpuWeight,
+        nextMediaEncoderSlots,
+        nextPausedExtensionIds,
+        nextSuccessTraceSamplePercent,
+        nextSuccessScreenshotSamplePercent,
+        nextObserverFrameRateFps,
+        nextVideoRecordingEnabled);
+    var now = Instant.now();
+    var reconciliationOperationId = newId("op_");
+    operations.insert(
+        OperationFactory.committedResourceReconciliation(
+            session,
+            operations.nextOperationEpoch(session.sessionId()),
+            reconciliationOperationId));
+    placement.applyResourceAdjustment(
+        adjusted.newCpuMillis(),
+        adjusted.newMemoryRequestMib(),
+        adjusted.newMemoryLimitMib(),
+        adjusted.newPidLimit(),
+        adjusted.newTabBudget(),
+        nextStateCollectorBudgetPercent,
+        nextRemoteDesktopBitrateKbps,
+        nextExtensionCpuWeight,
+        nextMediaEncoderSlots,
+        nextBackgroundTabsFrozen,
+        nextNewTabsBlocked,
+        writeStringList(nextPausedExtensionIds),
+        nextSuccessTraceSamplePercent,
+        nextSuccessScreenshotSamplePercent,
+        nextObserverFrameRateFps,
+        nextVideoRecordingEnabled);
+    placements.save(placement);
+    var template = templateForAcknowledged(adjusted);
+    policy.adjustmentCommitted(
+        ResourcePolicyStatus.STABLE, "NODE_ACTUATOR_LATE_ACK_RECONCILED", template, now);
+    policies.save(policy);
+    adjustmentLifecycle.reconciled(
+        adjusted.sessionId(), adjusted.operationId(), reconciliationOperationId, now);
+    appendEvent(
+        adjusted.sessionId(),
+        session.tenantId(),
+        "ALLOCATION_RECONCILED",
+        "NODE_ACK_TIMEOUT_LATE_ACK_VERIFIED",
+        acknowledgedOld,
+        allocationMap(placement),
+        "NODE_RESOURCE_RECONCILER",
+        reconciliationOperationId,
+        adjusted.operationId(),
+        "RECONCILED",
+        now);
+  }
+
+  private boolean acknowledgementMatchesPlacement(
+      BrowserPlacementEntity placement, NodeEvent.RuntimeResourcesAdjusted adjusted) {
+    return placement.getCpuMillis() == adjusted.oldCpuMillis()
+        && placement.getMemoryRequestMib() == adjusted.oldMemoryRequestMib()
+        && placement.getMemoryLimitMib() == adjusted.oldMemoryLimitMib()
+        && placement.getPidLimit() == adjusted.oldPidLimit()
+        && placement.getTabBudget() == adjusted.oldTabBudget()
+        && placement.getPidLimit() == adjusted.newPidLimit()
+        && placement.getTabBudget() == adjusted.newTabBudget()
+        && (adjusted.oldStateCollectorBudgetPercent() == null
+            || placement.getStateCollectorBudgetPercent()
+                == adjusted.oldStateCollectorBudgetPercent())
+        && (adjusted.oldRemoteDesktopBitrateKbps() == null
+            || placement.getRemoteDesktopBitrateKbps() == adjusted.oldRemoteDesktopBitrateKbps())
+        && (adjusted.oldExtensionCpuWeight() == null
+            || placement.getExtensionCpuWeight() == adjusted.oldExtensionCpuWeight())
+        && (adjusted.oldMediaEncoderSlots() == null
+            || placement.getMediaEncoderSlots() == adjusted.oldMediaEncoderSlots())
+        && (adjusted.oldFreezeBackgroundTabs() == null
+            || placement.isBackgroundTabsFrozen() == adjusted.oldFreezeBackgroundTabs())
+        && (adjusted.oldBlockNewTabs() == null
+            || placement.isNewTabsBlocked() == adjusted.oldBlockNewTabs())
+        && (adjusted.oldPausedExtensionIds() == null
+            || readExtensionIds(placement.getPausedExtensionIds())
+                .equals(adjusted.oldPausedExtensionIds()))
+        && (adjusted.oldSuccessTraceSamplePercent() == null
+            || placement.getSuccessTraceSamplePercent() == adjusted.oldSuccessTraceSamplePercent())
+        && (adjusted.oldSuccessScreenshotSamplePercent() == null
+            || placement.getSuccessScreenshotSamplePercent()
+                == adjusted.oldSuccessScreenshotSamplePercent())
+        && (adjusted.oldObserverFrameRateFps() == null
+            || placement.getObserverFrameRateFps() == adjusted.oldObserverFrameRateFps())
+        && (adjusted.oldVideoRecordingEnabled() == null
+            || placement.isVideoRecordingEnabled() == adjusted.oldVideoRecordingEnabled());
+  }
+
+  private void validateAcknowledgedAllocation(
+      BrowserPlacementEntity placement,
+      SessionResourcePolicyEntity policy,
+      NodeEvent.RuntimeResourcesAdjusted adjusted,
+      int stateCollectorBudgetPercent,
+      int remoteDesktopBitrateKbps,
+      int extensionCpuWeight,
+      int mediaEncoderSlots,
+      List<String> pausedExtensionIds,
+      int successTraceSamplePercent,
+      int successScreenshotSamplePercent,
+      int observerFrameRateFps,
+      boolean videoRecordingEnabled) {
+    if (adjusted.newCpuMillis() <= 0
+        || adjusted.newCpuMillis() > policy.getMaximumCpuMillis()
+        || adjusted.newMemoryRequestMib() <= 0
+        || adjusted.newMemoryLimitMib() < adjusted.newMemoryRequestMib()
+        || adjusted.newMemoryLimitMib() > policy.getMaximumMemoryMib()
+        || stateCollectorBudgetPercent < 10
+        || stateCollectorBudgetPercent > 100
+        || remoteDesktopBitrateKbps < 0
+        || remoteDesktopBitrateKbps > 100_000
+        || extensionCpuWeight < 1
+        || extensionCpuWeight > 10_000
+        || successTraceSamplePercent < 1
+        || successTraceSamplePercent > 100
+        || successScreenshotSamplePercent < 1
+        || successScreenshotSamplePercent > 100
+        || observerFrameRateFps < 0
+        || observerFrameRateFps > 60
+        || (placement.isRequiresDesktop() && remoteDesktopBitrateKbps < 250)
+        || (!placement.isRequiresDesktop() && remoteDesktopBitrateKbps != 0)
+        || (placement.isRequiresDesktop() && observerFrameRateFps < 1)
+        || (!placement.isRequiresDesktop() && observerFrameRateFps != 0)
+        || (videoRecordingEnabled && !placement.isVideoRecordingRequested())
+        || !readExtensionIds(placement.getExtensionIds()).containsAll(pausedExtensionIds)
+        || (!placement.isRequiresMedia() && mediaEncoderSlots != 0)
+        || (placement.isRequiresMedia()
+            && (mediaEncoderSlots < 1 || mediaEncoderSlots > placement.getMediaSlots()))) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
+  }
+
+  private static int valueOr(Integer value, int fallback) {
+    return value == null ? fallback : value;
+  }
+
+  private static boolean valueOr(Boolean value, boolean fallback) {
+    return value == null ? fallback : value;
+  }
+
+  private static String templateForAcknowledged(NodeEvent.RuntimeResourcesAdjusted adjusted) {
+    try {
+      return ResourceTemplate.from(ResourceClass.valueOf(adjusted.newResourceClass())).id();
+    } catch (IllegalArgumentException exception) {
+      throw new ResourceTelemetryRejectedException("RESOURCE_ADJUSTMENT_ACK_OUT_OF_POLICY");
+    }
   }
 
   private io.browsercloud.domain.operation.ExclusiveOperation requireResourceOperation(

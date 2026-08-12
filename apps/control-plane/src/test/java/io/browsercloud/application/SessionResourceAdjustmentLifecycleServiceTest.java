@@ -111,20 +111,42 @@ class SessionResourceAdjustmentLifecycleServiceTest {
   }
 
   @Test
-  void lateAcknowledgementIsConsumedOnlyForTheExactFailedLedger() {
+  void timedOutLatestAcknowledgementRequiresReconciliation() {
     var adjustment = adjustment();
     adjustment.markExecuting(Instant.now());
     adjustment.fail("NODE_ACK_TIMEOUT", Instant.now());
     when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment));
+    when(adjustments.findLatestBySessionId("ses_resource0000001"))
+        .thenReturn(Optional.of(adjustment));
 
-    var consumed =
-        service.lateAcknowledgementIgnored(
+    var late =
+        service.lateAcknowledgement(
             "tenant-test",
             "ses_resource0000001",
             "op_resource00000001",
             "STALE_RESOURCE_OPERATION");
 
-    assertThat(consumed).isTrue();
+    assertThat(late.consumed()).isTrue();
+    assertThat(late.reconciliationRequired()).isTrue();
+    assertThat(late.oldResources()).containsEntry("cpuMillis", 600);
+    assertThat(late.requestedResources()).containsEntry("cpuMillis", 900);
+  }
+
+  @Test
+  void nonTimeoutFailedAcknowledgementRemainsTerminallyIgnored() {
+    var adjustment = adjustment();
+    adjustment.fail("STALE_ROUTE_EPOCH", Instant.now());
+    when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment));
+
+    var late =
+        service.lateAcknowledgement(
+            "tenant-test",
+            "ses_resource0000001",
+            "op_resource00000001",
+            "STALE_RESOURCE_OPERATION");
+
+    assertThat(late.consumed()).isTrue();
+    assertThat(late.reconciliationRequired()).isFalse();
     var event =
         org.mockito.ArgumentCaptor.forClass(
             io.browsercloud.persistence.SessionResourceEventEntity.class);
@@ -138,11 +160,13 @@ class SessionResourceAdjustmentLifecycleServiceTest {
     when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment()));
 
     assertThat(
-            service.lateAcknowledgementIgnored(
-                "tenant-test",
-                "ses_resource0000001",
-                "op_resource00000001",
-                "STALE_RESOURCE_OPERATION"))
+            service
+                .lateAcknowledgement(
+                    "tenant-test",
+                    "ses_resource0000001",
+                    "op_resource00000001",
+                    "STALE_RESOURCE_OPERATION")
+                .consumed())
         .isFalse();
   }
 
@@ -153,12 +177,30 @@ class SessionResourceAdjustmentLifecycleServiceTest {
     when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment));
 
     assertThat(
-            service.lateAcknowledgementIgnored(
-                "tenant-test",
-                "ses_resource0000001",
-                "op_resource00000001",
-                "RESOURCE_NODE_MISMATCH"))
+            service
+                .lateAcknowledgement(
+                    "tenant-test",
+                    "ses_resource0000001",
+                    "op_resource00000001",
+                    "RESOURCE_NODE_MISMATCH")
+                .consumed())
         .isFalse();
+  }
+
+  @Test
+  void reconciliationTransitionsOnlyTheLatestTimedOutLedger() {
+    var adjustment = adjustment();
+    adjustment.fail("NODE_ACK_TIMEOUT", Instant.now());
+    when(adjustments.findForUpdate("op_resource00000001")).thenReturn(Optional.of(adjustment));
+    when(adjustments.findLatestBySessionId("ses_resource0000001"))
+        .thenReturn(Optional.of(adjustment));
+
+    service.reconciled(
+        "ses_resource0000001", "op_resource00000001", "op_reconcile0000001", Instant.now());
+
+    assertThat(adjustment.getState()).isEqualTo("RECONCILED");
+    assertThat(adjustment.getReconciliationOperationId()).isEqualTo("op_reconcile0000001");
+    verify(adjustments).save(adjustment);
   }
 
   private static SessionResourceAdjustmentEntity adjustment() {

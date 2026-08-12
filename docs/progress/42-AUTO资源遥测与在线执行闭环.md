@@ -66,9 +66,12 @@
 - 非 Durable Workflow 的 Active Operation 增加 1 秒 Deadline Scanner；Node 不可用或
   命令长期失败时 Operation 会进入 `TIMED_OUT`，资源 Ledger 同步记录
   `NODE_ACK_TIMEOUT`，不会永久占用 Session。命令进入 Dead Letter 时也会立即失败 Ledger。
-- 已失败调整的迟到 ACK 由精确 Tenant/Session/Operation/FAILED Ledger 证明后终止消费，
-  只记录 `LATE_ADJUSTMENT_ACK_IGNORED`，绝不回写资源；Node 身份等安全拒绝仍失败关闭，
-  详见[进度 128](128-AUTO资源失败后迟到ACK终态消费闭环.md)。
+- 已失败调整的迟到 ACK 由精确 Tenant/Session/Operation/FAILED Ledger 证明后终止消费；
+  非超时失败只记录 `LATE_ADJUSTMENT_ACK_IGNORED`。`NODE_ACK_TIMEOUT` 后晚到的、可逐字段
+  验证且未被后续调整取代的 ACK 会通过独立 `resource.reconcile` Operation 对账 Placement，
+  避免 Node 与 PostgreSQL 权威资源漂移；冲突时进入 `CRITICAL` 且不覆盖当前值。详见
+  [进度 128](128-AUTO资源失败后迟到ACK终态消费闭环.md)和
+  [进度 129](129-AUTO资源晚到ACK权威对账闭环.md)。
 
 ### GitHub 工作流稳定性
 
@@ -116,3 +119,4 @@
 6. Resource Event SSE、断线游标与 Web 资源轮询替换已完成；State/Audit 通用事件层
    与跨 Region Event Bus 尚未完成。
 7. 目标 Linux 多 Session 长稳、缩容抖动、OOM/磁盘满即时保护和多 Node 容量验收。
+8. Node 已执行但 ACK 永久丢失时的周期 Resource Readback/Drift Scanner 仍待目标环境闭环。

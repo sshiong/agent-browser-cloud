@@ -43,6 +43,30 @@ class SessionResourceAdjustmentEntityTest {
     assertThat(entity.getCompletedAt()).isNotNull();
   }
 
+  @Test
+  void timedOutAdjustmentCanBeLinkedToACompensatingReconciliation() {
+    var now = Instant.now();
+    var entity = adjustment(now);
+    entity.markExecuting(now.plusSeconds(1));
+    entity.fail("NODE_ACK_TIMEOUT", now.plusSeconds(90));
+
+    assertThat(entity.reconcile("op_reconcile0000001", now.plusSeconds(95))).isTrue();
+    assertThat(entity.getState()).isEqualTo("RECONCILED");
+    assertThat(entity.getFailureCode()).isEqualTo("NODE_ACK_TIMEOUT");
+    assertThat(entity.getReconciliationOperationId()).isEqualTo("op_reconcile0000001");
+    assertThat(entity.getReconciledAt()).isEqualTo(now.plusSeconds(95));
+  }
+
+  @Test
+  void nonTimeoutFailureCannotBeReconciled() {
+    var entity = adjustment(Instant.now());
+    entity.fail("RESOURCE_ADJUSTMENT_ACK_MISMATCH", Instant.now());
+
+    assertThatThrownBy(() -> entity.reconcile("op_reconcile0000001", Instant.now()))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("NOT_RECONCILABLE");
+  }
+
   private static SessionResourceAdjustmentEntity adjustment(Instant now) {
     return SessionResourceAdjustmentEntity.requested(
         "op_resource00000001",

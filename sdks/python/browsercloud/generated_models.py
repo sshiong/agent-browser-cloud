@@ -1164,7 +1164,7 @@ ResourcePolicyStatus = Literal['STABLE', 'OBSERVING', 'SCALING_UP', 'SCALING_DOW
 
 class ResourceAdjustment(TypedDict, total=False):
     operationId: str
-    state: Literal['REQUESTED', 'EXECUTING', 'ACKNOWLEDGED', 'COMMITTED', 'FAILED']
+    state: Literal['REQUESTED', 'EXECUTING', 'ACKNOWLEDGED', 'COMMITTED', 'FAILED', 'RECONCILED']
     reason: str
     failureCode: Any
     oldResources: dict[str, Any]
@@ -1173,6 +1173,8 @@ class ResourceAdjustment(TypedDict, total=False):
     executingAt: Any
     acknowledgedAt: Any
     completedAt: Any
+    reconciliationOperationId: Any
+    reconciledAt: Any
     updatedAt: str
 
 class SessionResource(TypedDict, total=False):

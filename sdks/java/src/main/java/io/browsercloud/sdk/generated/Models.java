@@ -249,7 +249,7 @@ public final class Models {
 
   public enum ResourcePolicyStatus { STABLE, OBSERVING, SCALINGUP, SCALINGDOWN, ATMAXIMUM, WAITINGSAFEPOINT, MIGRATING, AGENTPAUSED, HIBERNATING, CRITICAL }
 
-  public record ResourceAdjustment(String operationId, String state, String reason, Object failureCode, Map<String, Object> oldResources, Map<String, Object> requestedResources, String requestedAt, Object executingAt, Object acknowledgedAt, Object completedAt, String updatedAt) {}
+  public record ResourceAdjustment(String operationId, String state, String reason, Object failureCode, Map<String, Object> oldResources, Map<String, Object> requestedResources, String requestedAt, Object executingAt, Object acknowledgedAt, Object completedAt, Object reconciliationOperationId, Object reconciledAt, String updatedAt) {}
 
   public record SessionResource(String sessionId, ResourcePolicy policy, Object allocation, Object usage, List<Map<String, Object>> usageSamples, Object cost, ResourceAdjustment currentAdjustment, ResourcePolicyStatus status, Object statusReason, String dataFreshness, Object lastEvaluatedAt, Object lastAdjustedAt) {}
 

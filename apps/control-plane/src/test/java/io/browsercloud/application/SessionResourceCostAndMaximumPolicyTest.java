@@ -326,6 +326,147 @@ class SessionResourceCostAndMaximumPolicyTest {
     ordered.verify(adjustmentLifecycle).committed(eq("ses_cost"), eq("op-resource"), any());
   }
 
+  @Test
+  void lateTimedOutAcknowledgementReconcilesPlacementWithASeparateCommittedOperation() {
+    var now = Instant.now();
+    var placement = placement(now);
+    var policy = policy(MaximumReachedPolicy.PAUSE_AGENT, null);
+    var timedOut =
+        OperationFactory.resourceAdjustment(session(now), 2, "op-resource")
+            .withPhase(OperationPhase.EXECUTING)
+            .withState(OperationState.TIMED_OUT);
+    var oldResources = allocation(placement, 4_000, 3_500, 4_096, 50);
+    var requestedResources = allocation(placement, 4_000, 3_500, 4_096, 100);
+    var late =
+        new SessionResourceAdjustmentLifecycleService.LateAcknowledgement(
+            true, true, oldResources, requestedResources);
+    var adjusted = adjustment(100, "op-resource");
+    when(sessions.require("ses_cost")).thenReturn(session(now));
+    when(adjustmentLifecycle.lateAcknowledgement(
+            "tenant-test", "ses_cost", "op-resource", "STALE_RESOURCE_OPERATION"))
+        .thenReturn(late);
+    when(operations.findByIds(java.util.Set.of("op-resource")))
+        .thenReturn(java.util.Map.of("op-resource", timedOut));
+    when(operations.findActive("ses_cost")).thenReturn(Optional.empty());
+    when(operations.nextOperationEpoch("ses_cost")).thenReturn(3L);
+    when(placements.findForUpdate("ses_cost")).thenReturn(Optional.of(placement));
+    when(policies.findBySessionIdAndTenantId("ses_cost", "tenant-test"))
+        .thenReturn(Optional.of(policy));
+
+    assertThat(
+            service.recordLateAdjustmentAcknowledgement(
+                "tenant-test", adjusted, "STALE_RESOURCE_OPERATION"))
+        .isTrue();
+
+    assertThat(placement.getStateCollectorBudgetPercent()).isEqualTo(100);
+    verify(placements).save(placement);
+    verify(operations)
+        .insert(
+            org.mockito.ArgumentMatchers.argThat(
+                operation ->
+                    operation.state() == OperationState.COMMITTED
+                        && operation.allowedCapabilities().contains("resource.reconcile")));
+    verify(adjustmentLifecycle).reconciled(eq("ses_cost"), eq("op-resource"), anyString(), any());
+  }
+
+  @Test
+  void lateAcknowledgementWithLedgerMismatchRecordsConflictWithoutChangingPlacement() {
+    var now = Instant.now();
+    var placement = placement(now);
+    var timedOut =
+        OperationFactory.resourceAdjustment(session(now), 2, "op-resource")
+            .withState(OperationState.TIMED_OUT);
+    var adjusted = adjustment(100, "op-resource");
+    var late =
+        new SessionResourceAdjustmentLifecycleService.LateAcknowledgement(
+            true, true, java.util.Map.of("cpuMillis", 999), java.util.Map.of("cpuMillis", 4_000));
+    when(sessions.require("ses_cost")).thenReturn(session(now));
+    when(adjustmentLifecycle.lateAcknowledgement(
+            "tenant-test", "ses_cost", "op-resource", "STALE_RESOURCE_OPERATION"))
+        .thenReturn(late);
+    when(operations.findByIds(java.util.Set.of("op-resource")))
+        .thenReturn(java.util.Map.of("op-resource", timedOut));
+    when(operations.findActive("ses_cost")).thenReturn(Optional.empty());
+    when(placements.findForUpdate("ses_cost")).thenReturn(Optional.of(placement));
+
+    assertThat(
+            service.recordLateAdjustmentAcknowledgement(
+                "tenant-test", adjusted, "STALE_RESOURCE_OPERATION"))
+        .isTrue();
+
+    assertThat(placement.getStateCollectorBudgetPercent()).isEqualTo(50);
+    verify(adjustmentLifecycle)
+        .reconciliationConflict("ses_cost", "op-resource", "RESOURCE_ADJUSTMENT_LEDGER_MISMATCH");
+    verify(placements, org.mockito.Mockito.never()).save(any());
+    verify(operations, org.mockito.Mockito.never()).insert(any());
+  }
+
+  private static NodeEvent.RuntimeResourcesAdjusted adjustment(
+      int newStateCollectorBudgetPercent, String operationId) {
+    return new NodeEvent.RuntimeResourcesAdjusted(
+        "ses_cost",
+        "node_test",
+        "L4",
+        4_000,
+        3_500,
+        4_096,
+        256,
+        12,
+        "L4",
+        4_000,
+        3_500,
+        4_096,
+        256,
+        12,
+        50,
+        8_000,
+        newStateCollectorBudgetPercent,
+        8_000,
+        100,
+        100,
+        2,
+        2,
+        false,
+        false,
+        false,
+        false,
+        List.of(),
+        List.of(),
+        100,
+        100,
+        30,
+        30,
+        "SUSTAINED_CPU_PRESSURE",
+        operationId);
+  }
+
+  private static java.util.Map<String, Object> allocation(
+      BrowserPlacementEntity placement,
+      int cpuMillis,
+      int memoryRequestMib,
+      int memoryLimitMib,
+      int stateCollectorBudgetPercent) {
+    return java.util.Map.ofEntries(
+        java.util.Map.entry("template", "heavy-v1"),
+        java.util.Map.entry("cpuMillis", cpuMillis),
+        java.util.Map.entry("memoryRequestMib", memoryRequestMib),
+        java.util.Map.entry("memoryLimitMib", memoryLimitMib),
+        java.util.Map.entry("stateCollectorBudgetPercent", stateCollectorBudgetPercent),
+        java.util.Map.entry("remoteDesktopBitrateKbps", 8_000),
+        java.util.Map.entry("extensionCpuWeight", 100),
+        java.util.Map.entry("mediaEncoderSlots", 2),
+        java.util.Map.entry("mediaEncoderSlotLimit", 2),
+        java.util.Map.entry("backgroundTabsFrozen", false),
+        java.util.Map.entry("newTabsBlocked", false),
+        java.util.Map.entry("pausedExtensionIds", List.of()),
+        java.util.Map.entry("successTraceSamplePercent", 100),
+        java.util.Map.entry("successScreenshotSamplePercent", 100),
+        java.util.Map.entry("observerFrameRateFps", 30),
+        java.util.Map.entry("videoRecordingRequested", true),
+        java.util.Map.entry("videoRecordingEnabled", true),
+        java.util.Map.entry("nodeId", "node_test"));
+  }
+
   private static SessionResourcePolicyEntity policy(
       MaximumReachedPolicy maximumReached, Double maximumCost) {
     return SessionResourcePolicyEntity.create(

@@ -137,7 +137,7 @@ public class NodeEventIngestionService {
     if (result.status() == CoordinatorResult.Status.REJECTED) {
       if (command.event() instanceof NodeEvent.RuntimeResourcesAdjusted adjusted) {
         lateFailedResourceAcknowledgement =
-            resourceService.recordLateAdjustmentAcknowledgementIgnored(
+            resourceService.recordLateAdjustmentAcknowledgement(
                 command.tenantId(), adjusted, result.reason());
       }
       if (!lateFailedResourceAcknowledgement) {

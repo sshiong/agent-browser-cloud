@@ -20,8 +20,10 @@
 2. 只有 Ledger 已为 `FAILED`，且拒绝码属于 `STALE_RESOURCE_OPERATION`、
    `INVALID_RESOURCE_OPERATION_PHASE` 或 `INVALID_SESSION_STATE` 时，才接受该 Event 并写入
    Inbox，允许 Browser Node 清理持久 Journal。
-3. 迟到 ACK 只追加 `LATE_ADJUSTMENT_ACK_IGNORED / IGNORED_AFTER_FAILED` 资源事件；不会
-   重开 Ledger、提交 Operation、更新 Placement、Policy 或当前资源模板。
+3. 非 `NODE_ACK_TIMEOUT` 的迟到 ACK 只追加
+   `LATE_ADJUSTMENT_ACK_IGNORED / IGNORED_AFTER_FAILED` 资源事件；不会重开 Ledger、提交
+   Operation、更新 Placement、Policy 或当前资源模板。超时后 Node 实际已执行的权威漂移
+   已由[进度 129](129-AUTO资源晚到ACK权威对账闭环.md)补充闭环。
 4. `RESOURCE_NODE_MISMATCH`、Tenant/Session/Operation 不匹配、没有失败 Ledger，以及仍处于
    `REQUESTED/EXECUTING/ACKNOWLEDGED` 的调整继续 fail-closed，不会被迟到语义吞掉。
 5. 重复 Event 仍由既有 Inbox Event ID 幂等去重。
@@ -33,7 +35,8 @@
   返回原 Coordinator 拒绝。
 - `./gradlew -p apps/control-plane check` 通过。
 - Web Console 70 项测试、Lint 与生产构建通过。
-- OpenAPI、TypeScript SDK 和 Python/Go/Java SDK 漂移验证通过；本轮没有公开协议变更。
+- 当时 OpenAPI、TypeScript SDK 和 Python/Go/Java SDK 漂移验证通过；后续进度 129 增加
+  `RECONCILED` 公开状态和对账 Operation 投影。
 
 ## 仍待目标环境验证
 

@@ -446,7 +446,13 @@ export interface SessionResourceView {
   };
   currentAdjustment?: {
     operationId: string;
-    state: 'REQUESTED' | 'EXECUTING' | 'ACKNOWLEDGED' | 'COMMITTED' | 'FAILED';
+    state:
+      | 'REQUESTED'
+      | 'EXECUTING'
+      | 'ACKNOWLEDGED'
+      | 'COMMITTED'
+      | 'FAILED'
+      | 'RECONCILED';
     reason: string;
     failureCode?: string;
     oldResources: Record<string, unknown>;
@@ -455,6 +461,8 @@ export interface SessionResourceView {
     executingAt?: string;
     acknowledgedAt?: string;
     completedAt?: string;
+    reconciliationOperationId?: string;
+    reconciledAt?: string;
     updatedAt: string;
   };
   status: ResourcePolicyStatus;

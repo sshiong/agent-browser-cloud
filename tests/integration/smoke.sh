@@ -4663,6 +4663,13 @@ resource_adjustment_lifecycle="$(docker exec "$postgres_name" psql -U browserclo
 resource_adjustment_count="${resource_adjustment_lifecycle%%:*}"
 test "$resource_adjustment_count" -ge "1"
 test "${resource_adjustment_lifecycle#*:}" = "true:true"
+resource_reconciliation_schema="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) || ':' ||
+          bool_and(column_name in ('reconciliation_operation_id','reconciled_at'))::text
+     from information_schema.columns
+    where table_schema='public' and table_name='session_resource_adjustments'
+      and column_name in ('reconciliation_operation_id','reconciled_at')")"
+test "$resource_reconciliation_schema" = "2:true"
 recovery_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RECOVERY' and state='COMMITTED'")"
 test "$recovery_operations" = "2"
@@ -4684,6 +4691,7 @@ test "$browser_states" = "1"
 public_tables="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from information_schema.tables where table_schema='public'")"
 printf 'resource_adjustment_lifecycle=true\n'
+printf 'resource_adjustment_late_ack_reconciliation=true\n'
 
 profile_after_terminate="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \

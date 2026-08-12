@@ -8877,7 +8877,7 @@ components:
           type: string
         state:
           type: string
-          enum: [REQUESTED, EXECUTING, ACKNOWLEDGED, COMMITTED, FAILED]
+          enum: [REQUESTED, EXECUTING, ACKNOWLEDGED, COMMITTED, FAILED, RECONCILED]
         reason:
           type: string
         failureCode:
@@ -8898,6 +8898,12 @@ components:
           type: [string, "null"]
           format: date-time
         completedAt:
+          type: [string, "null"]
+          format: date-time
+        reconciliationOperationId:
+          type: [string, "null"]
+          description: Separate committed Operation that reconciled a verified late ACK.
+        reconciledAt:
           type: [string, "null"]
           format: date-time
         updatedAt:

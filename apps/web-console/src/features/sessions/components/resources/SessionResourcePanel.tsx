@@ -340,6 +340,7 @@ function ResourceAdjustmentStatus({
     ACKNOWLEDGED: 'ACK 已确认',
     COMMITTED: '已提交',
     FAILED: '执行失败',
+    RECONCILED: '晚到 ACK 已对账',
   } as const;
   return (
     <div
@@ -366,6 +367,11 @@ function ResourceAdjustmentStatus({
         {adjustment.operationId}
         {adjustment.failureCode ? ` · ${adjustment.failureCode}` : ''}
       </p>
+      {adjustment.reconciliationOperationId ? (
+        <p className="mt-1 truncate font-mono text-[9px] text-text-muted">
+          对账 Operation · {adjustment.reconciliationOperationId}
+        </p>
+      ) : null}
     </div>
   );
 }

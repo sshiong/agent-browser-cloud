@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "ba24cae1e9f6bd6439f661008e1b4ee5578b0965ee0967b03d2ae08ee564a21e",
+  "contractSha256": "9b24d235764e3bb5606a64d861c99e3eea43462b24e1f76f67ce694cb467db07",
   "files": {
     "BrowserCloudGeneratedClient.ts": "eed5280848e608a7f52f53d877b7bda2b0c49cac18cf6adbe305e2f1b1c7cb90",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -194,7 +194,7 @@
     "models/RenewSafetyLeaseRequest.ts": "850df6262fb07669f9d03c4d9c2fc631546fd4c99aeaad3af8facb196d778e29",
     "models/RequestRecoveryContractApprovalRequest.ts": "eababecf782665ef0bdc2f521cfa298699f9e12dc1d58782dd2fba4fec4352c9",
     "models/RequestTenantRouteMigration.ts": "74d1181450f1d57ec780779834ee4002c592252767c0488a2404e64553631ee4",
-    "models/ResourceAdjustment.ts": "0fc97409111da015c1f39f2b6f3ff2a081042962e639adeea19df075635c560c",
+    "models/ResourceAdjustment.ts": "e85b4c8c0db122715ba73038bad6225c90c1c717d5e86d7a4077f6061b12c6e3",
     "models/ResourceEventList.ts": "a86c6b63d71c2ecf0d0d109f7bd6e6c6fb62ffee639db0187f1a359c84a261ef",
     "models/ResourcePolicy.ts": "a0c0bd3a8d5496dbad0eaa4024a1c59741bf8249c2576ca0d18ded12d606e28b",
     "models/ResourcePolicyOperation.ts": "03f27ff3f9b35cdd33a4e0956072a4c88f2eca75dbc4d26f52e32cfe2e428a7e",

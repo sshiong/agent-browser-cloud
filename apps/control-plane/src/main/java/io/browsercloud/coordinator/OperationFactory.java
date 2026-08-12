@@ -230,6 +230,31 @@ public final class OperationFactory {
         now);
   }
 
+  /** Creates an audit-distinct committed Operation for a verified late resource ACK. */
+  public static ExclusiveOperation committedResourceReconciliation(
+      SessionContext session, long operationEpoch, String operationId) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        operationId,
+        session.sessionId(),
+        OwnerType.SYSTEM,
+        "resource-late-ack-reconciler",
+        OperationMode.RESOURCE_ADJUSTMENT,
+        20,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.COMPLETING,
+        OperationState.COMMITTED,
+        Set.of("resource.reconcile"),
+        now.plusSeconds(60),
+        now,
+        now);
+  }
+
   /** 创建已同步提交的 Session Application Contract Rebind Operation。 */
   public static ExclusiveOperation committedApplicationBinding(
       SessionContext session, String actorId, long operationEpoch, String operationId) {

@@ -142,30 +142,70 @@ public class SessionResourceAdjustmentLifecycleService {
     append(adjustment, "ADJUSTMENT_FAILED", normalized, "FAILED");
   }
 
-  /**
-   * Consumes an actuator ACK that arrived after this exact adjustment already failed. The failed
-   * authority projection is never reopened; the event is retained only as terminal evidence so a
-   * Browser Node can clear its durable journal.
-   */
+  /** Classifies an actuator ACK that arrived after this exact adjustment already failed. */
   @Transactional(propagation = Propagation.MANDATORY)
-  public boolean lateAcknowledgementIgnored(
+  public LateAcknowledgement lateAcknowledgement(
       String tenantId, String sessionId, String operationId, String coordinatorRejection) {
     if (!TERMINAL_LATE_ACK_REJECTIONS.contains(coordinatorRejection)) {
-      return false;
+      return LateAcknowledgement.notConsumed();
     }
     var adjustment = adjustments.findForUpdate(operationId).orElse(null);
     if (adjustment == null
         || !adjustment.getSessionId().equals(sessionId)
         || !adjustment.getTenantId().equals(tenantId)
         || !"FAILED".equals(adjustment.getState())) {
-      return false;
+      return LateAcknowledgement.notConsumed();
     }
+    if (!"NODE_ACK_TIMEOUT".equals(adjustment.getFailureCode())) {
+      append(
+          adjustment,
+          "LATE_ADJUSTMENT_ACK_IGNORED",
+          "FAILED_ADJUSTMENT_TERMINAL:" + normalizeError(coordinatorRejection),
+          "IGNORED_AFTER_FAILED");
+      return LateAcknowledgement.ignored();
+    }
+    if (!"STALE_RESOURCE_OPERATION".equals(coordinatorRejection)) {
+      append(
+          adjustment,
+          "LATE_ADJUSTMENT_ACK_IGNORED",
+          "SESSION_OR_OPERATION_STATE_CHANGED:" + normalizeError(coordinatorRejection),
+          "IGNORED_AFTER_STATE_CHANGE");
+      return LateAcknowledgement.ignored();
+    }
+    var latest = adjustments.findLatestBySessionId(sessionId).orElse(null);
+    if (latest == null || !latest.getOperationId().equals(operationId)) {
+      reconciliationConflict(adjustment, "SUPERSEDED_BY_NEWER_ADJUSTMENT");
+      return LateAcknowledgement.ignored();
+    }
+    return LateAcknowledgement.reconcile(
+        readMap(adjustment.getOldResources()), readMap(adjustment.getRequestedResources()));
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void reconciled(
+      String sessionId, String operationId, String reconciliationOperationId, Instant now) {
+    var adjustment = matchingForUpdate(operationId, sessionId);
+    if (adjustment == null) {
+      throw new ResourceAdjustmentLifecycleRejectedException("LEDGER_MISSING");
+    }
+    var latest = adjustments.findLatestBySessionId(sessionId).orElse(null);
+    if (latest == null || !latest.getOperationId().equals(operationId)) {
+      throw new ResourceAdjustmentLifecycleRejectedException("RECONCILIATION_SUPERSEDED");
+    }
+    if (!adjustment.reconcile(reconciliationOperationId, now)) return;
+    adjustments.save(adjustment);
     append(
         adjustment,
-        "LATE_ADJUSTMENT_ACK_IGNORED",
-        "FAILED_ADJUSTMENT_TERMINAL:" + normalizeError(coordinatorRejection),
-        "IGNORED_AFTER_FAILED");
-    return true;
+        "LATE_ADJUSTMENT_ACK_RECONCILED",
+        "NODE_ACK_TIMEOUT_AUTHORITY_RECONCILED:" + reconciliationOperationId,
+        "RECONCILED");
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void reconciliationConflict(String sessionId, String operationId, String reason) {
+    var adjustment = adjustments.findForUpdate(operationId).orElse(null);
+    if (adjustment == null || !adjustment.getSessionId().equals(sessionId)) return;
+    reconciliationConflict(adjustment, reason);
   }
 
   /** Deadline scanner callback for commands that never produced an authoritative ACK. */
@@ -182,10 +222,7 @@ public class SessionResourceAdjustmentLifecycleService {
 
   @Transactional(readOnly = true)
   public ResourceAdjustmentView latest(String sessionId) {
-    return adjustments
-        .findFirstBySessionIdOrderByRequestedAtDesc(sessionId)
-        .map(this::toView)
-        .orElse(null);
+    return adjustments.findLatestBySessionId(sessionId).map(this::toView).orElse(null);
   }
 
   private void failPolicy(SessionResourceAdjustmentEntity adjustment, String reason, Instant now) {
@@ -250,7 +287,29 @@ public class SessionResourceAdjustmentLifecycleService {
         adjustment.getExecutingAt(),
         adjustment.getAcknowledgedAt(),
         adjustment.getCompletedAt(),
+        adjustment.getReconciliationOperationId(),
+        adjustment.getReconciledAt(),
         adjustment.getUpdatedAt());
+  }
+
+  private void reconciliationConflict(SessionResourceAdjustmentEntity adjustment, String reason) {
+    var now = Instant.now();
+    policies
+        .findById(adjustment.getSessionId())
+        .filter(policy -> policy.getTenantId().equals(adjustment.getTenantId()))
+        .ifPresent(
+            policy -> {
+              policy.evaluate(
+                  io.browsercloud.domain.resource.ResourcePolicyStatus.CRITICAL,
+                  "RESOURCE_AUTHORITY_RECONCILIATION_REQUIRED:" + normalizeError(reason),
+                  now);
+              policies.save(policy);
+            });
+    append(
+        adjustment,
+        "LATE_ADJUSTMENT_ACK_CONFLICT",
+        normalizeError(reason),
+        "MANUAL_RECONCILIATION_REQUIRED");
   }
 
   private String writeMap(Map<String, Object> value) {
@@ -278,6 +337,25 @@ public class SessionResourceAdjustmentLifecycleService {
   public static class ResourceAdjustmentLifecycleRejectedException extends RuntimeException {
     public ResourceAdjustmentLifecycleRejectedException(String reason) {
       super("RESOURCE_ADJUSTMENT_LIFECYCLE_" + reason);
+    }
+  }
+
+  public record LateAcknowledgement(
+      boolean consumed,
+      boolean reconciliationRequired,
+      Map<String, Object> oldResources,
+      Map<String, Object> requestedResources) {
+    static LateAcknowledgement notConsumed() {
+      return new LateAcknowledgement(false, false, Map.of(), Map.of());
+    }
+
+    static LateAcknowledgement ignored() {
+      return new LateAcknowledgement(true, false, Map.of(), Map.of());
+    }
+
+    static LateAcknowledgement reconcile(
+        Map<String, Object> oldResources, Map<String, Object> requestedResources) {
+      return new LateAcknowledgement(true, true, oldResources, requestedResources);
     }
   }
 }

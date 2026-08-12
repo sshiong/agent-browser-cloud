@@ -109,6 +109,8 @@ public final class SessionResourceModels {
       Instant executingAt,
       Instant acknowledgedAt,
       Instant completedAt,
+      String reconciliationOperationId,
+      Instant reconciledAt,
       Instant updatedAt) {}
 
   public record ResourceEventView(

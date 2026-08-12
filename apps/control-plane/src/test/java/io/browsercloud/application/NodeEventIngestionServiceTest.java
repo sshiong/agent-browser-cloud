@@ -287,7 +287,7 @@ class NodeEventIngestionServiceTest {
         new NodeEventReceived("evt-resource-late", "tenant-test", "ses-test", 1, 2, 3, 5, adjusted);
     when(coordinator.handle(command))
         .thenReturn(CoordinatorResult.rejected("STALE_RESOURCE_OPERATION"));
-    when(resourceService.recordLateAdjustmentAcknowledgementIgnored(
+    when(resourceService.recordLateAdjustmentAcknowledgement(
             "tenant-test", adjusted, "STALE_RESOURCE_OPERATION"))
         .thenReturn(true);
 

@@ -37,17 +37,24 @@ public class SafePointApplicationService {
   static final String NODE_BROWSER_ACTIVITY_SOURCE = "BROWSER_NODE_CDP_ACTIVITY";
   static final String BROWSER_ACTIVITY_CAPABILITY_LABEL = "safePointBrowserActivity";
   static final String BROWSER_ACTIVITY_CAPABILITY_V1 = "cdp-network-v1";
+  static final String BROWSER_TRANSACTION_CAPABILITY_LABEL = "safePointBrowserTransactions";
+  static final String BROWSER_TRANSACTION_CAPABILITY_V1 = "cdp-transaction-v1";
   static final Duration NODE_SIGNAL_TTL = Duration.ofSeconds(15);
   private static final Set<String> INPUT_SIGNALS = Set.of("ACTIVE_INPUT", "ACTIVE_DRAG");
   private static final Set<String> BROWSER_ACTIVITY_SIGNALS =
       Set.of("FILE_UPLOAD_ACTIVE", "FILE_DOWNLOAD_ACTIVE", "FORM_SUBMISSION_ACTIVE");
+  private static final Set<String> BROWSER_TRANSACTION_SIGNALS =
+      Set.of("SPA_MUTATION_ACTIVE", "PAYMENT_OR_SECURITY_ACTIVE", "CRITICAL_TRANSACTION_ACTIVE");
   private static final Set<String> NODE_SIGNALS =
       Set.of(
           "ACTIVE_INPUT",
           "ACTIVE_DRAG",
           "FILE_UPLOAD_ACTIVE",
           "FILE_DOWNLOAD_ACTIVE",
-          "FORM_SUBMISSION_ACTIVE");
+          "FORM_SUBMISSION_ACTIVE",
+          "SPA_MUTATION_ACTIVE",
+          "PAYMENT_OR_SECURITY_ACTIVE",
+          "CRITICAL_TRANSACTION_ACTIVE");
   private static final Set<String> BLOCKING_TASK_STATES = Set.of("RUNNING", "WAITING_FOR_HUMAN");
   private static final Set<String> ACTIVE_WORKFLOW_STATES =
       Set.of("PENDING", "DISPATCHED", "RUNNING", "COMPLETING", "COMPENSATING");
@@ -184,6 +191,51 @@ public class SafePointApplicationService {
           expiresAt,
           now);
     }
+    if (observation.hasBrowserTransactionObservation()) {
+      var details =
+          ("{\"activeSpaMutationCount\":%d,\"activePaymentOrSecurityCount\":%d,"
+                  + "\"activeCriticalTransactionCount\":%d}")
+              .formatted(
+                  observation.activeSpaMutationCount(),
+                  observation.activePaymentOrSecurityCount(),
+                  observation.activeCriticalTransactionCount());
+      observe(
+          sessionId,
+          tenantId,
+          nodeId,
+          contextEpoch,
+          "SPA_MUTATION_ACTIVE",
+          observation.activeSpaMutationCount() > 0,
+          NODE_BROWSER_ACTIVITY_SOURCE,
+          details,
+          observation.observedAt(),
+          expiresAt,
+          now);
+      observe(
+          sessionId,
+          tenantId,
+          nodeId,
+          contextEpoch,
+          "PAYMENT_OR_SECURITY_ACTIVE",
+          observation.activePaymentOrSecurityCount() > 0,
+          NODE_BROWSER_ACTIVITY_SOURCE,
+          details,
+          observation.observedAt(),
+          expiresAt,
+          now);
+      observe(
+          sessionId,
+          tenantId,
+          nodeId,
+          contextEpoch,
+          "CRITICAL_TRANSACTION_ACTIVE",
+          observation.activeCriticalTransactionCount() > 0,
+          NODE_BROWSER_ACTIVITY_SOURCE,
+          details,
+          observation.observedAt(),
+          expiresAt,
+          now);
+    }
   }
 
   @Transactional(readOnly = true)
@@ -194,6 +246,9 @@ public class SafePointApplicationService {
     var expectedNodeSignals = new HashSet<>(INPUT_SIGNALS);
     if (supportsBrowserActivityObservation(session.nodeId())) {
       expectedNodeSignals.addAll(BROWSER_ACTIVITY_SIGNALS);
+    }
+    if (supportsBrowserTransactionObservation(session.nodeId())) {
+      expectedNodeSignals.addAll(BROWSER_TRANSACTION_SIGNALS);
     }
     var nodeSignals =
         signals.findAllBySessionId(sessionId).stream()
@@ -365,7 +420,9 @@ public class SafePointApplicationService {
 
   private static void validateCompleteObservation(NodeSafetyObservation observation) {
     if (!observation.hasInputObservation() && !observation.hasBrowserActivityObservation()) {
-      throw new SafetySignalRejectedException("EMPTY_SAFETY_OBSERVATION");
+      if (!observation.hasBrowserTransactionObservation()) {
+        throw new SafetySignalRejectedException("EMPTY_SAFETY_OBSERVATION");
+      }
     }
     if (observation.hasInputObservation()
         && (observation.inputActive() == null
@@ -380,17 +437,39 @@ public class SafePointApplicationService {
             || observation.activeFormSubmissionCount() == null)) {
       throw new SafetySignalRejectedException("INCOMPLETE_BROWSER_ACTIVITY_OBSERVATION");
     }
+    if (observation.hasBrowserTransactionObservation()
+        && (observation.activeSpaMutationCount() == null
+            || observation.activePaymentOrSecurityCount() == null
+            || observation.activeCriticalTransactionCount() == null)) {
+      throw new SafetySignalRejectedException("INCOMPLETE_BROWSER_TRANSACTION_OBSERVATION");
+    }
     if ((observation.pressedKeyCount() != null && observation.pressedKeyCount() < 0)
         || (observation.pressedButtonCount() != null && observation.pressedButtonCount() < 0)
         || (observation.activeUploadCount() != null && observation.activeUploadCount() < 0)
         || (observation.activeDownloadCount() != null && observation.activeDownloadCount() < 0)
         || (observation.activeFormSubmissionCount() != null
-            && observation.activeFormSubmissionCount() < 0)) {
+            && observation.activeFormSubmissionCount() < 0)
+        || (observation.activeSpaMutationCount() != null
+            && observation.activeSpaMutationCount() < 0)
+        || (observation.activePaymentOrSecurityCount() != null
+            && observation.activePaymentOrSecurityCount() < 0)
+        || (observation.activeCriticalTransactionCount() != null
+            && observation.activeCriticalTransactionCount() < 0)) {
       throw new SafetySignalRejectedException("NEGATIVE_SAFETY_COUNT");
     }
   }
 
   private boolean supportsBrowserActivityObservation(String nodeId) {
+    return nodeHasCapability(
+        nodeId, BROWSER_ACTIVITY_CAPABILITY_LABEL, BROWSER_ACTIVITY_CAPABILITY_V1);
+  }
+
+  private boolean supportsBrowserTransactionObservation(String nodeId) {
+    return nodeHasCapability(
+        nodeId, BROWSER_TRANSACTION_CAPABILITY_LABEL, BROWSER_TRANSACTION_CAPABILITY_V1);
+  }
+
+  private boolean nodeHasCapability(String nodeId, String label, String version) {
     if (nodeId == null) {
       return false;
     }
@@ -402,8 +481,7 @@ public class SafePointApplicationService {
                 Map<String, String> labels =
                     objectMapper.readValue(
                         node.getLabels(), new TypeReference<Map<String, String>>() {});
-                return BROWSER_ACTIVITY_CAPABILITY_V1.equals(
-                    labels.get(BROWSER_ACTIVITY_CAPABILITY_LABEL));
+                return version.equals(labels.get(label));
               } catch (JsonProcessingException exception) {
                 throw new IllegalStateException(
                     "persisted Browser Node labels are invalid", exception);
@@ -416,6 +494,8 @@ public class SafePointApplicationService {
     return switch (signal.getSignalType()) {
       case "ACTIVE_INPUT", "ACTIVE_DRAG" -> NODE_INPUT_SOURCE.equals(signal.getSource());
       case "FILE_UPLOAD_ACTIVE", "FILE_DOWNLOAD_ACTIVE", "FORM_SUBMISSION_ACTIVE" ->
+          NODE_BROWSER_ACTIVITY_SOURCE.equals(signal.getSource());
+      case "SPA_MUTATION_ACTIVE", "PAYMENT_OR_SECURITY_ACTIVE", "CRITICAL_TRANSACTION_ACTIVE" ->
           NODE_BROWSER_ACTIVITY_SOURCE.equals(signal.getSource());
       default -> false;
     };

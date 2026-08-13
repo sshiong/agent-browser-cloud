@@ -363,6 +363,51 @@ public interface ReportSessionResourcesRequestOrBuilder extends
 
   /**
    * <pre>
+   * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+   * form an additive capability group and must appear together. URLs and request bodies are never
+   * transmitted; the Control Plane persists only bounded active counters.
+   * </pre>
+   *
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * @return Whether the activeSpaMutationCount field is set.
+   */
+  boolean hasActiveSpaMutationCount();
+  /**
+   * <pre>
+   * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+   * form an additive capability group and must appear together. URLs and request bodies are never
+   * transmitted; the Control Plane persists only bounded active counters.
+   * </pre>
+   *
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * @return The activeSpaMutationCount.
+   */
+  int getActiveSpaMutationCount();
+
+  /**
+   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * @return Whether the activePaymentOrSecurityCount field is set.
+   */
+  boolean hasActivePaymentOrSecurityCount();
+  /**
+   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * @return The activePaymentOrSecurityCount.
+   */
+  int getActivePaymentOrSecurityCount();
+
+  /**
+   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * @return Whether the activeCriticalTransactionCount field is set.
+   */
+  boolean hasActiveCriticalTransactionCount();
+  /**
+   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * @return The activeCriticalTransactionCount.
+   */
+  int getActiveCriticalTransactionCount();
+
+  /**
+   * <pre>
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
    * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。

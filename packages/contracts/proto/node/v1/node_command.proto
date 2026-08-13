@@ -230,6 +230,12 @@ message ReportSessionResourcesRequest {
   optional uint32 proxy_probe_latency_ms = 32;
   optional string proxy_observed_exit_ip = 33;
   string proxy_probe_error_code = 34;
+  // Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+  // form an additive capability group and must appear together. URLs and request bodies are never
+  // transmitted; the Control Plane persists only bounded active counters.
+  optional uint32 active_spa_mutation_count = 35;
+  optional uint32 active_payment_or_security_count = 36;
+  optional uint32 active_critical_transaction_count = 37;
 
   // Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
   // Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。

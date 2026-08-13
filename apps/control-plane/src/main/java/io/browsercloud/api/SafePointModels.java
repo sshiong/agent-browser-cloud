@@ -20,6 +20,9 @@ public final class SafePointModels {
       Integer activeUploadCount,
       Integer activeDownloadCount,
       Integer activeFormSubmissionCount,
+      Integer activeSpaMutationCount,
+      Integer activePaymentOrSecurityCount,
+      Integer activeCriticalTransactionCount,
       Instant observedAt) {
 
     public boolean hasInputObservation() {
@@ -33,6 +36,12 @@ public final class SafePointModels {
       return activeUploadCount != null
           || activeDownloadCount != null
           || activeFormSubmissionCount != null;
+    }
+
+    public boolean hasBrowserTransactionObservation() {
+      return activeSpaMutationCount != null
+          || activePaymentOrSecurityCount != null
+          || activeCriticalTransactionCount != null;
     }
   }
 

@@ -709,7 +709,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -2332,7 +2332,8 @@ safety_signal_summary="$(docker exec "$postgres_name" psql -U browsercloud -d br
    from session_safety_signals
    where session_id='${session_one}'
      and context_epoch=3")"
-test "$safety_signal_summary" = "5:3:true"
+test "$safety_signal_summary" = "8:6:true"
+printf 'safe_point_browser_transactions=true\n'
 
 adapter_general_operation_status="$(curl -sS \
   -o "$temp_dir/application-adapter-general-operation.json" -w '%{http_code}' \

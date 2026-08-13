@@ -9,6 +9,7 @@ use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
 const MAX_NETWORK_QUIET_MILLIS: u64 = 300_000;
+const TRANSACTION_SETTLE_WINDOW: Duration = Duration::from_secs(10);
 
 /// Browser Node 从持续 CDP 事件流读取的安全点活动快照。
 ///
@@ -20,6 +21,9 @@ pub struct BrowserSafetyObservation {
     pub active_upload_count: u32,
     pub active_download_count: u32,
     pub active_form_submission_count: u32,
+    pub active_spa_mutation_count: u32,
+    pub active_payment_or_security_count: u32,
+    pub active_critical_transaction_count: u32,
     pub active_network_request_count: u32,
     pub last_network_activity: Option<Instant>,
 }
@@ -55,6 +59,9 @@ struct RequestActivity {
     upload: bool,
     download: bool,
     form_submission: bool,
+    spa_mutation: bool,
+    payment_or_security: bool,
+    critical_transaction: bool,
 }
 
 #[derive(Debug, Default)]
@@ -66,6 +73,9 @@ struct ActivityTracker {
     fresh_allowed: bool,
     was_fresh: bool,
     last_network_activity: Option<Instant>,
+    spa_mutation_settle_until: Option<Instant>,
+    payment_or_security_settle_until: Option<Instant>,
+    critical_transaction_settle_until: Option<Instant>,
 }
 
 impl ActivityTracker {
@@ -100,6 +110,27 @@ impl ActivityTracker {
                 .count()
                 .try_into()
                 .unwrap_or(u32::MAX),
+            active_spa_mutation_count: active_or_settling_count(
+                self.requests
+                    .values()
+                    .filter(|activity| activity.spa_mutation)
+                    .count(),
+                self.spa_mutation_settle_until,
+            ),
+            active_payment_or_security_count: active_or_settling_count(
+                self.requests
+                    .values()
+                    .filter(|activity| activity.payment_or_security)
+                    .count(),
+                self.payment_or_security_settle_until,
+            ),
+            active_critical_transaction_count: active_or_settling_count(
+                self.requests
+                    .values()
+                    .filter(|activity| activity.critical_transaction)
+                    .count(),
+                self.critical_transaction_settle_until,
+            ),
             active_network_request_count: self.requests.len().try_into().unwrap_or(u32::MAX),
             last_network_activity: self.last_network_activity,
         }
@@ -111,8 +142,17 @@ impl ActivityTracker {
 
     fn remove_session(&mut self, session_id: &str) {
         self.network_sessions.remove(session_id);
-        self.requests
-            .retain(|(request_session, _), _| request_session != session_id);
+        let request_ids = self
+            .requests
+            .keys()
+            .filter(|(request_session, _)| request_session == session_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let completed = request_ids
+            .into_iter()
+            .filter_map(|request_id| self.requests.remove(&request_id))
+            .collect::<Vec<_>>();
+        self.hold_completed_transactions(completed);
     }
 
     fn next_observation(&mut self) -> BrowserSafetyObservation {
@@ -120,6 +160,45 @@ impl ActivityTracker {
         self.was_fresh |= observation.fresh;
         observation
     }
+
+    fn complete_request(&mut self, session_id: &str, request_id: &str) {
+        if let Some(activity) = self
+            .requests
+            .remove(&(session_id.to_owned(), request_id.to_owned()))
+        {
+            self.hold_completed_transactions([activity]);
+        }
+    }
+
+    fn hold_completed_transactions(
+        &mut self,
+        completed: impl IntoIterator<Item = RequestActivity>,
+    ) {
+        let until = Instant::now() + TRANSACTION_SETTLE_WINDOW;
+        for activity in completed {
+            if activity.spa_mutation {
+                extend_deadline(&mut self.spa_mutation_settle_until, until);
+            }
+            if activity.payment_or_security {
+                extend_deadline(&mut self.payment_or_security_settle_until, until);
+            }
+            if activity.critical_transaction {
+                extend_deadline(&mut self.critical_transaction_settle_until, until);
+            }
+        }
+    }
+}
+
+fn active_or_settling_count(active: usize, settle_until: Option<Instant>) -> u32 {
+    let settling = usize::from(settle_until.is_some_and(|until| until > Instant::now()));
+    active
+        .saturating_add(settling)
+        .try_into()
+        .unwrap_or(u32::MAX)
+}
+
+fn extend_deadline(deadline: &mut Option<Instant>, next: Instant) {
+    *deadline = Some(deadline.map_or(next, |current| current.max(next)));
 }
 
 pub(crate) fn spawn(
@@ -233,7 +312,19 @@ async fn observe_browser(
 
     let mut next_command_id = 8_100_i64;
     let mut network_enable_commands = HashMap::<i64, String>::new();
-    while let Some(message) = socket.next().await {
+    loop {
+        let message = match timeout(Duration::from_secs(1), socket.next()).await {
+            Ok(Some(message)) => message,
+            Ok(None) => break,
+            Err(_) => {
+                // Recompute local settle deadlines even when the page is otherwise silent. This
+                // does not generate Control Plane traffic; the normal 5-second reporter reads the
+                // refreshed bounded snapshot.
+                let observation = tracker.next_observation();
+                publish(observations, session_id, observation).await;
+                continue;
+            }
+        };
         let Message::Text(text) = message? else {
             continue;
         };
@@ -329,11 +420,51 @@ async fn observe_browser(
                         || content_disposition.contains("attachment");
                     let form_submission = resource_type == "Document"
                         && !matches!(method.as_str(), "GET" | "HEAD" | "OPTIONS");
+                    let mutation = !matches!(method.as_str(), "GET" | "HEAD" | "OPTIONS");
+                    let spa_mutation = mutation && matches!(resource_type, "Fetch" | "XHR");
+                    // Inspect only the route while the CDP event is in memory. Neither the URL,
+                    // query string, headers nor body cross the Node boundary.
+                    let route = request
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .map(request_route)
+                        .filter(|route| route.len() <= 2_048)
+                        .unwrap_or_default()
+                        .to_ascii_lowercase();
+                    let payment_or_security = mutation
+                        && route_matches(
+                            &route,
+                            &[
+                                "checkout", "payment", "billing", "purchase", "transfer", "wallet",
+                                "account", "password", "security", "mfa", "2fa", "otp", "webauthn",
+                                "login", "signin",
+                            ],
+                        );
+                    let critical_transaction = mutation
+                        && route_matches(
+                            &route,
+                            &[
+                                "commit",
+                                "confirm",
+                                "submit",
+                                "order",
+                                "booking",
+                                "reservation",
+                                "transfer",
+                                "purchase",
+                                "checkout",
+                                "payment",
+                                "execute",
+                            ],
+                        );
                     tracker.requests.insert(
                         (cdp_session.to_owned(), request_id.to_owned()),
                         RequestActivity {
                             upload,
                             form_submission,
+                            spa_mutation,
+                            payment_or_security,
+                            critical_transaction,
                             ..RequestActivity::default()
                         },
                     );
@@ -366,9 +497,7 @@ async fn observe_browser(
                     .pointer("/params/requestId")
                     .and_then(serde_json::Value::as_str)
                 {
-                    tracker
-                        .requests
-                        .remove(&(cdp_session.to_owned(), request_id.to_owned()));
+                    tracker.complete_request(cdp_session, request_id);
                 }
             }
             "Browser.downloadWillBegin" => {
@@ -432,6 +561,25 @@ fn header(headers: &serde_json::Value, expected: &str) -> String {
         })
         .unwrap_or_default()
         .to_ascii_lowercase()
+}
+
+fn request_route(url: &str) -> &str {
+    let without_origin = if let Some(scheme) = url.find("://") {
+        let authority_start = scheme + 3;
+        url[authority_start..]
+            .find('/')
+            .map(|path| &url[authority_start + path..])
+            .unwrap_or_default()
+    } else {
+        url
+    };
+    without_origin.split(['?', '#']).next().unwrap_or_default()
+}
+
+fn route_matches(route: &str, terms: &[&str]) -> bool {
+    route
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|segment| !segment.is_empty() && terms.contains(&segment))
 }
 
 async fn publish(
@@ -501,6 +649,51 @@ mod tests {
         assert!(tracker.was_fresh);
     }
 
+    #[test]
+    fn classifies_only_route_segments_without_query_values() {
+        assert_eq!(
+            request_route("https://example.test/api/checkout?password=secret"),
+            "/api/checkout"
+        );
+        assert!(route_matches("/api/checkout", &["checkout"]));
+        assert!(!route_matches("/api/checkoutline", &["checkout"]));
+        assert!(!route_matches(
+            request_route("https://example.test/search?q=payment"),
+            &["payment"]
+        ));
+        assert_eq!(request_route("https://payment.example.test"), "");
+    }
+
+    #[test]
+    fn completed_transaction_remains_visible_during_settle_window() {
+        let mut tracker = ActivityTracker::default();
+        tracker.requests.insert(
+            ("page-1".to_owned(), "request-1".to_owned()),
+            RequestActivity {
+                spa_mutation: true,
+                payment_or_security: true,
+                critical_transaction: true,
+                ..RequestActivity::default()
+            },
+        );
+
+        tracker.complete_request("page-1", "request-1");
+
+        assert!(tracker.requests.is_empty());
+        let observation = tracker.observation();
+        assert_eq!(observation.active_spa_mutation_count, 1);
+        assert_eq!(observation.active_payment_or_security_count, 1);
+        assert_eq!(observation.active_critical_transaction_count, 1);
+
+        tracker.spa_mutation_settle_until = Some(Instant::now() - Duration::from_millis(1));
+        tracker.payment_or_security_settle_until = Some(Instant::now() - Duration::from_millis(1));
+        tracker.critical_transaction_settle_until = Some(Instant::now() - Duration::from_millis(1));
+        let expired = tracker.observation();
+        assert_eq!(expired.active_spa_mutation_count, 0);
+        assert_eq!(expired.active_payment_or_security_count, 0);
+        assert_eq!(expired.active_critical_transaction_count, 0);
+    }
+
     #[tokio::test]
     async fn tracks_upload_submission_and_download_lifecycle() {
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -550,6 +743,38 @@ mod tests {
                 ))
                 .await
                 .unwrap();
+            for (request_id, resource_type, url) in [
+                (
+                    "spa-confirm-1",
+                    "XHR",
+                    "https://example.test/api/cart/confirm",
+                ),
+                (
+                    "account-security-1",
+                    "Fetch",
+                    "https://example.test/api/account/password",
+                ),
+            ] {
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({
+                            "sessionId": "page-session-1",
+                            "method": "Network.requestWillBeSent",
+                            "params": {
+                                "requestId": request_id,
+                                "type": resource_type,
+                                "request": {
+                                    "method": "POST",
+                                    "url": url,
+                                    "headers": {"Content-Type": "application/json"}
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
             socket
                 .send(Message::Text(
                     serde_json::json!({
@@ -568,6 +793,19 @@ mod tests {
                 ))
                 .await
                 .unwrap();
+            for request_id in ["spa-confirm-1", "account-security-1"] {
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({
+                            "sessionId": "page-session-1",
+                            "method": "Network.loadingFinished",
+                            "params": {"requestId": request_id}
+                        })
+                        .to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
             socket
                 .send(Message::Text(
                     serde_json::json!({
@@ -640,6 +878,9 @@ mod tests {
                 && observation.active_upload_count == 1
                 && observation.active_download_count == 1
                 && observation.active_form_submission_count == 1
+                && observation.active_spa_mutation_count == 1
+                && observation.active_payment_or_security_count == 1
+                && observation.active_critical_transaction_count == 1
             {
                 active = Some(observation);
                 break;
@@ -650,6 +891,8 @@ mod tests {
             active.is_some(),
             "active browser operations were not observed"
         );
+        // Finish the transaction requests only after an active snapshot has been observed. They
+        // remain protected by the settle window; aborting the monitor below avoids a slow test.
         let mut completed = None;
         for _ in 0..100 {
             let observation = observations

@@ -752,6 +752,75 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ACTIVE_SPA_MUTATION_COUNT_FIELD_NUMBER = 35;
+  private int activeSpaMutationCount_ = 0;
+  /**
+   * <pre>
+   * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+   * form an additive capability group and must appear together. URLs and request bodies are never
+   * transmitted; the Control Plane persists only bounded active counters.
+   * </pre>
+   *
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * @return Whether the activeSpaMutationCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasActiveSpaMutationCount() {
+    return ((bitField0_ & 0x00800000) != 0);
+  }
+  /**
+   * <pre>
+   * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+   * form an additive capability group and must appear together. URLs and request bodies are never
+   * transmitted; the Control Plane persists only bounded active counters.
+   * </pre>
+   *
+   * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+   * @return The activeSpaMutationCount.
+   */
+  @java.lang.Override
+  public int getActiveSpaMutationCount() {
+    return activeSpaMutationCount_;
+  }
+
+  public static final int ACTIVE_PAYMENT_OR_SECURITY_COUNT_FIELD_NUMBER = 36;
+  private int activePaymentOrSecurityCount_ = 0;
+  /**
+   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * @return Whether the activePaymentOrSecurityCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasActivePaymentOrSecurityCount() {
+    return ((bitField0_ & 0x01000000) != 0);
+  }
+  /**
+   * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+   * @return The activePaymentOrSecurityCount.
+   */
+  @java.lang.Override
+  public int getActivePaymentOrSecurityCount() {
+    return activePaymentOrSecurityCount_;
+  }
+
+  public static final int ACTIVE_CRITICAL_TRANSACTION_COUNT_FIELD_NUMBER = 37;
+  private int activeCriticalTransactionCount_ = 0;
+  /**
+   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * @return Whether the activeCriticalTransactionCount field is set.
+   */
+  @java.lang.Override
+  public boolean hasActiveCriticalTransactionCount() {
+    return ((bitField0_ & 0x02000000) != 0);
+  }
+  /**
+   * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+   * @return The activeCriticalTransactionCount.
+   */
+  @java.lang.Override
+  public int getActiveCriticalTransactionCount() {
+    return activeCriticalTransactionCount_;
+  }
+
   public static final int ACTUAL_RESOURCE_CLASS_FIELD_NUMBER = 40;
   @SuppressWarnings("serial")
   private volatile java.lang.Object actualResourceClass_ = "";
@@ -767,7 +836,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualResourceClass() {
-    return ((bitField0_ & 0x00800000) != 0);
+    return ((bitField0_ & 0x04000000) != 0);
   }
   /**
    * <pre>
@@ -825,7 +894,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualCpuMillis() {
-    return ((bitField0_ & 0x01000000) != 0);
+    return ((bitField0_ & 0x08000000) != 0);
   }
   /**
    * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
@@ -844,7 +913,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualMemoryRequestMib() {
-    return ((bitField0_ & 0x02000000) != 0);
+    return ((bitField0_ & 0x10000000) != 0);
   }
   /**
    * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
@@ -863,7 +932,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualMemoryLimitMib() {
-    return ((bitField0_ & 0x04000000) != 0);
+    return ((bitField0_ & 0x20000000) != 0);
   }
   /**
    * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
@@ -882,7 +951,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualPidLimit() {
-    return ((bitField0_ & 0x08000000) != 0);
+    return ((bitField0_ & 0x40000000) != 0);
   }
   /**
    * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
@@ -901,7 +970,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualTabBudget() {
-    return ((bitField0_ & 0x10000000) != 0);
+    return ((bitField0_ & 0x80000000) != 0);
   }
   /**
    * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
@@ -920,7 +989,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualStateCollectorBudgetPercent() {
-    return ((bitField0_ & 0x20000000) != 0);
+    return ((bitField1_ & 0x00000001) != 0);
   }
   /**
    * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
@@ -939,7 +1008,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualRemoteDesktopBitrateKbps() {
-    return ((bitField0_ & 0x40000000) != 0);
+    return ((bitField1_ & 0x00000002) != 0);
   }
   /**
    * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
@@ -958,7 +1027,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualExtensionCpuWeight() {
-    return ((bitField0_ & 0x80000000) != 0);
+    return ((bitField1_ & 0x00000004) != 0);
   }
   /**
    * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
@@ -977,7 +1046,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualMediaEncoderSlots() {
-    return ((bitField1_ & 0x00000001) != 0);
+    return ((bitField1_ & 0x00000008) != 0);
   }
   /**
    * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
@@ -996,7 +1065,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualFreezeBackgroundTabs() {
-    return ((bitField1_ & 0x00000002) != 0);
+    return ((bitField1_ & 0x00000010) != 0);
   }
   /**
    * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
@@ -1015,7 +1084,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualBlockNewTabs() {
-    return ((bitField1_ & 0x00000004) != 0);
+    return ((bitField1_ & 0x00000020) != 0);
   }
   /**
    * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
@@ -1034,7 +1103,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualExtensionBackgroundPolicy() {
-    return ((bitField1_ & 0x00000008) != 0);
+    return ((bitField1_ & 0x00000040) != 0);
   }
   /**
    * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
@@ -1060,7 +1129,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualSuccessTraceSamplePercent() {
-    return ((bitField1_ & 0x00000010) != 0);
+    return ((bitField1_ & 0x00000080) != 0);
   }
   /**
    * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
@@ -1079,7 +1148,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualObserverFrameRateFps() {
-    return ((bitField1_ & 0x00000020) != 0);
+    return ((bitField1_ & 0x00000100) != 0);
   }
   /**
    * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
@@ -1098,7 +1167,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualVideoRecordingEnabled() {
-    return ((bitField1_ & 0x00000040) != 0);
+    return ((bitField1_ & 0x00000200) != 0);
   }
   /**
    * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
@@ -1117,7 +1186,7 @@ private static final long serialVersionUID = 0L;
    */
   @java.lang.Override
   public boolean hasActualSuccessScreenshotSamplePercent() {
-    return ((bitField1_ & 0x00000080) != 0);
+    return ((bitField1_ & 0x00000400) != 0);
   }
   /**
    * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
@@ -1233,54 +1302,63 @@ private static final long serialVersionUID = 0L;
       com.google.protobuf.GeneratedMessageV3.writeString(output, 34, proxyProbeErrorCode_);
     }
     if (((bitField0_ & 0x00800000) != 0)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 40, actualResourceClass_);
+      output.writeUInt32(35, activeSpaMutationCount_);
     }
     if (((bitField0_ & 0x01000000) != 0)) {
-      output.writeUInt32(41, actualCpuMillis_);
+      output.writeUInt32(36, activePaymentOrSecurityCount_);
     }
     if (((bitField0_ & 0x02000000) != 0)) {
-      output.writeUInt32(42, actualMemoryRequestMib_);
+      output.writeUInt32(37, activeCriticalTransactionCount_);
     }
     if (((bitField0_ & 0x04000000) != 0)) {
-      output.writeUInt32(43, actualMemoryLimitMib_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 40, actualResourceClass_);
     }
     if (((bitField0_ & 0x08000000) != 0)) {
-      output.writeUInt32(44, actualPidLimit_);
+      output.writeUInt32(41, actualCpuMillis_);
     }
     if (((bitField0_ & 0x10000000) != 0)) {
-      output.writeUInt32(45, actualTabBudget_);
+      output.writeUInt32(42, actualMemoryRequestMib_);
     }
     if (((bitField0_ & 0x20000000) != 0)) {
-      output.writeUInt32(46, actualStateCollectorBudgetPercent_);
+      output.writeUInt32(43, actualMemoryLimitMib_);
     }
     if (((bitField0_ & 0x40000000) != 0)) {
-      output.writeUInt32(47, actualRemoteDesktopBitrateKbps_);
+      output.writeUInt32(44, actualPidLimit_);
     }
     if (((bitField0_ & 0x80000000) != 0)) {
-      output.writeUInt32(48, actualExtensionCpuWeight_);
+      output.writeUInt32(45, actualTabBudget_);
     }
     if (((bitField1_ & 0x00000001) != 0)) {
-      output.writeUInt32(49, actualMediaEncoderSlots_);
+      output.writeUInt32(46, actualStateCollectorBudgetPercent_);
     }
     if (((bitField1_ & 0x00000002) != 0)) {
-      output.writeBool(50, actualFreezeBackgroundTabs_);
+      output.writeUInt32(47, actualRemoteDesktopBitrateKbps_);
     }
     if (((bitField1_ & 0x00000004) != 0)) {
-      output.writeBool(51, actualBlockNewTabs_);
+      output.writeUInt32(48, actualExtensionCpuWeight_);
     }
     if (((bitField1_ & 0x00000008) != 0)) {
-      output.writeMessage(52, getActualExtensionBackgroundPolicy());
+      output.writeUInt32(49, actualMediaEncoderSlots_);
     }
     if (((bitField1_ & 0x00000010) != 0)) {
-      output.writeUInt32(53, actualSuccessTraceSamplePercent_);
+      output.writeBool(50, actualFreezeBackgroundTabs_);
     }
     if (((bitField1_ & 0x00000020) != 0)) {
-      output.writeUInt32(54, actualObserverFrameRateFps_);
+      output.writeBool(51, actualBlockNewTabs_);
     }
     if (((bitField1_ & 0x00000040) != 0)) {
-      output.writeBool(55, actualVideoRecordingEnabled_);
+      output.writeMessage(52, getActualExtensionBackgroundPolicy());
     }
     if (((bitField1_ & 0x00000080) != 0)) {
+      output.writeUInt32(53, actualSuccessTraceSamplePercent_);
+    }
+    if (((bitField1_ & 0x00000100) != 0)) {
+      output.writeUInt32(54, actualObserverFrameRateFps_);
+    }
+    if (((bitField1_ & 0x00000200) != 0)) {
+      output.writeBool(55, actualVideoRecordingEnabled_);
+    }
+    if (((bitField1_ & 0x00000400) != 0)) {
       output.writeUInt32(56, actualSuccessScreenshotSamplePercent_);
     }
     getUnknownFields().writeTo(output);
@@ -1407,69 +1485,81 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(34, proxyProbeErrorCode_);
     }
     if (((bitField0_ & 0x00800000) != 0)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, actualResourceClass_);
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(35, activeSpaMutationCount_);
     }
     if (((bitField0_ & 0x01000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(41, actualCpuMillis_);
+        .computeUInt32Size(36, activePaymentOrSecurityCount_);
     }
     if (((bitField0_ & 0x02000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(42, actualMemoryRequestMib_);
+        .computeUInt32Size(37, activeCriticalTransactionCount_);
     }
     if (((bitField0_ & 0x04000000) != 0)) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(43, actualMemoryLimitMib_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(40, actualResourceClass_);
     }
     if (((bitField0_ & 0x08000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(44, actualPidLimit_);
+        .computeUInt32Size(41, actualCpuMillis_);
     }
     if (((bitField0_ & 0x10000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(45, actualTabBudget_);
+        .computeUInt32Size(42, actualMemoryRequestMib_);
     }
     if (((bitField0_ & 0x20000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(46, actualStateCollectorBudgetPercent_);
+        .computeUInt32Size(43, actualMemoryLimitMib_);
     }
     if (((bitField0_ & 0x40000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(47, actualRemoteDesktopBitrateKbps_);
+        .computeUInt32Size(44, actualPidLimit_);
     }
     if (((bitField0_ & 0x80000000) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(48, actualExtensionCpuWeight_);
+        .computeUInt32Size(45, actualTabBudget_);
     }
     if (((bitField1_ & 0x00000001) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(49, actualMediaEncoderSlots_);
+        .computeUInt32Size(46, actualStateCollectorBudgetPercent_);
     }
     if (((bitField1_ & 0x00000002) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(50, actualFreezeBackgroundTabs_);
+        .computeUInt32Size(47, actualRemoteDesktopBitrateKbps_);
     }
     if (((bitField1_ & 0x00000004) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(51, actualBlockNewTabs_);
+        .computeUInt32Size(48, actualExtensionCpuWeight_);
     }
     if (((bitField1_ & 0x00000008) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(52, getActualExtensionBackgroundPolicy());
+        .computeUInt32Size(49, actualMediaEncoderSlots_);
     }
     if (((bitField1_ & 0x00000010) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(53, actualSuccessTraceSamplePercent_);
+        .computeBoolSize(50, actualFreezeBackgroundTabs_);
     }
     if (((bitField1_ & 0x00000020) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeUInt32Size(54, actualObserverFrameRateFps_);
+        .computeBoolSize(51, actualBlockNewTabs_);
     }
     if (((bitField1_ & 0x00000040) != 0)) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(55, actualVideoRecordingEnabled_);
+        .computeMessageSize(52, getActualExtensionBackgroundPolicy());
     }
     if (((bitField1_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(53, actualSuccessTraceSamplePercent_);
+    }
+    if (((bitField1_ & 0x00000100) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt32Size(54, actualObserverFrameRateFps_);
+    }
+    if (((bitField1_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(55, actualVideoRecordingEnabled_);
+    }
+    if (((bitField1_ & 0x00000400) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeUInt32Size(56, actualSuccessScreenshotSamplePercent_);
     }
@@ -1621,6 +1711,21 @@ private static final long serialVersionUID = 0L;
     }
     if (!getProxyProbeErrorCode()
         .equals(other.getProxyProbeErrorCode())) return false;
+    if (hasActiveSpaMutationCount() != other.hasActiveSpaMutationCount()) return false;
+    if (hasActiveSpaMutationCount()) {
+      if (getActiveSpaMutationCount()
+          != other.getActiveSpaMutationCount()) return false;
+    }
+    if (hasActivePaymentOrSecurityCount() != other.hasActivePaymentOrSecurityCount()) return false;
+    if (hasActivePaymentOrSecurityCount()) {
+      if (getActivePaymentOrSecurityCount()
+          != other.getActivePaymentOrSecurityCount()) return false;
+    }
+    if (hasActiveCriticalTransactionCount() != other.hasActiveCriticalTransactionCount()) return false;
+    if (hasActiveCriticalTransactionCount()) {
+      if (getActiveCriticalTransactionCount()
+          != other.getActiveCriticalTransactionCount()) return false;
+    }
     if (hasActualResourceClass() != other.hasActualResourceClass()) return false;
     if (hasActualResourceClass()) {
       if (!getActualResourceClass()
@@ -1835,6 +1940,18 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + PROXY_PROBE_ERROR_CODE_FIELD_NUMBER;
     hash = (53 * hash) + getProxyProbeErrorCode().hashCode();
+    if (hasActiveSpaMutationCount()) {
+      hash = (37 * hash) + ACTIVE_SPA_MUTATION_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getActiveSpaMutationCount();
+    }
+    if (hasActivePaymentOrSecurityCount()) {
+      hash = (37 * hash) + ACTIVE_PAYMENT_OR_SECURITY_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getActivePaymentOrSecurityCount();
+    }
+    if (hasActiveCriticalTransactionCount()) {
+      hash = (37 * hash) + ACTIVE_CRITICAL_TRANSACTION_COUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getActiveCriticalTransactionCount();
+    }
     if (hasActualResourceClass()) {
       hash = (37 * hash) + ACTUAL_RESOURCE_CLASS_FIELD_NUMBER;
       hash = (53 * hash) + getActualResourceClass().hashCode();
@@ -2074,6 +2191,9 @@ private static final long serialVersionUID = 0L;
       proxyProbeLatencyMs_ = 0;
       proxyObservedExitIp_ = "";
       proxyProbeErrorCode_ = "";
+      activeSpaMutationCount_ = 0;
+      activePaymentOrSecurityCount_ = 0;
+      activeCriticalTransactionCount_ = 0;
       actualResourceClass_ = "";
       actualCpuMillis_ = 0;
       actualMemoryRequestMib_ = 0;
@@ -2244,11 +2364,11 @@ private static final long serialVersionUID = 0L;
         result.proxyProbeErrorCode_ = proxyProbeErrorCode_;
       }
       if (((from_bitField0_ & 0x40000000) != 0)) {
-        result.actualResourceClass_ = actualResourceClass_;
+        result.activeSpaMutationCount_ = activeSpaMutationCount_;
         to_bitField0_ |= 0x00800000;
       }
       if (((from_bitField0_ & 0x80000000) != 0)) {
-        result.actualCpuMillis_ = actualCpuMillis_;
+        result.activePaymentOrSecurityCount_ = activePaymentOrSecurityCount_;
         to_bitField0_ |= 0x01000000;
       }
       result.bitField0_ |= to_bitField0_;
@@ -2258,67 +2378,79 @@ private static final long serialVersionUID = 0L;
       int from_bitField1_ = bitField1_;
       int to_bitField0_ = 0;
       if (((from_bitField1_ & 0x00000001) != 0)) {
-        result.actualMemoryRequestMib_ = actualMemoryRequestMib_;
+        result.activeCriticalTransactionCount_ = activeCriticalTransactionCount_;
         to_bitField0_ |= 0x02000000;
       }
       if (((from_bitField1_ & 0x00000002) != 0)) {
-        result.actualMemoryLimitMib_ = actualMemoryLimitMib_;
+        result.actualResourceClass_ = actualResourceClass_;
         to_bitField0_ |= 0x04000000;
       }
       if (((from_bitField1_ & 0x00000004) != 0)) {
-        result.actualPidLimit_ = actualPidLimit_;
+        result.actualCpuMillis_ = actualCpuMillis_;
         to_bitField0_ |= 0x08000000;
       }
       if (((from_bitField1_ & 0x00000008) != 0)) {
-        result.actualTabBudget_ = actualTabBudget_;
+        result.actualMemoryRequestMib_ = actualMemoryRequestMib_;
         to_bitField0_ |= 0x10000000;
       }
       if (((from_bitField1_ & 0x00000010) != 0)) {
-        result.actualStateCollectorBudgetPercent_ = actualStateCollectorBudgetPercent_;
+        result.actualMemoryLimitMib_ = actualMemoryLimitMib_;
         to_bitField0_ |= 0x20000000;
       }
       if (((from_bitField1_ & 0x00000020) != 0)) {
-        result.actualRemoteDesktopBitrateKbps_ = actualRemoteDesktopBitrateKbps_;
+        result.actualPidLimit_ = actualPidLimit_;
         to_bitField0_ |= 0x40000000;
       }
       if (((from_bitField1_ & 0x00000040) != 0)) {
-        result.actualExtensionCpuWeight_ = actualExtensionCpuWeight_;
+        result.actualTabBudget_ = actualTabBudget_;
         to_bitField0_ |= 0x80000000;
       }
       int to_bitField1_ = 0;
       if (((from_bitField1_ & 0x00000080) != 0)) {
-        result.actualMediaEncoderSlots_ = actualMediaEncoderSlots_;
+        result.actualStateCollectorBudgetPercent_ = actualStateCollectorBudgetPercent_;
         to_bitField1_ |= 0x00000001;
       }
       if (((from_bitField1_ & 0x00000100) != 0)) {
-        result.actualFreezeBackgroundTabs_ = actualFreezeBackgroundTabs_;
+        result.actualRemoteDesktopBitrateKbps_ = actualRemoteDesktopBitrateKbps_;
         to_bitField1_ |= 0x00000002;
       }
       if (((from_bitField1_ & 0x00000200) != 0)) {
-        result.actualBlockNewTabs_ = actualBlockNewTabs_;
+        result.actualExtensionCpuWeight_ = actualExtensionCpuWeight_;
         to_bitField1_ |= 0x00000004;
       }
       if (((from_bitField1_ & 0x00000400) != 0)) {
-        result.actualExtensionBackgroundPolicy_ = actualExtensionBackgroundPolicyBuilder_ == null
-            ? actualExtensionBackgroundPolicy_
-            : actualExtensionBackgroundPolicyBuilder_.build();
+        result.actualMediaEncoderSlots_ = actualMediaEncoderSlots_;
         to_bitField1_ |= 0x00000008;
       }
       if (((from_bitField1_ & 0x00000800) != 0)) {
-        result.actualSuccessTraceSamplePercent_ = actualSuccessTraceSamplePercent_;
+        result.actualFreezeBackgroundTabs_ = actualFreezeBackgroundTabs_;
         to_bitField1_ |= 0x00000010;
       }
       if (((from_bitField1_ & 0x00001000) != 0)) {
-        result.actualObserverFrameRateFps_ = actualObserverFrameRateFps_;
+        result.actualBlockNewTabs_ = actualBlockNewTabs_;
         to_bitField1_ |= 0x00000020;
       }
       if (((from_bitField1_ & 0x00002000) != 0)) {
-        result.actualVideoRecordingEnabled_ = actualVideoRecordingEnabled_;
+        result.actualExtensionBackgroundPolicy_ = actualExtensionBackgroundPolicyBuilder_ == null
+            ? actualExtensionBackgroundPolicy_
+            : actualExtensionBackgroundPolicyBuilder_.build();
         to_bitField1_ |= 0x00000040;
       }
       if (((from_bitField1_ & 0x00004000) != 0)) {
-        result.actualSuccessScreenshotSamplePercent_ = actualSuccessScreenshotSamplePercent_;
+        result.actualSuccessTraceSamplePercent_ = actualSuccessTraceSamplePercent_;
         to_bitField1_ |= 0x00000080;
+      }
+      if (((from_bitField1_ & 0x00008000) != 0)) {
+        result.actualObserverFrameRateFps_ = actualObserverFrameRateFps_;
+        to_bitField1_ |= 0x00000100;
+      }
+      if (((from_bitField1_ & 0x00010000) != 0)) {
+        result.actualVideoRecordingEnabled_ = actualVideoRecordingEnabled_;
+        to_bitField1_ |= 0x00000200;
+      }
+      if (((from_bitField1_ & 0x00020000) != 0)) {
+        result.actualSuccessScreenshotSamplePercent_ = actualSuccessScreenshotSamplePercent_;
+        to_bitField1_ |= 0x00000400;
       }
       result.bitField0_ |= to_bitField0_;
       result.bitField1_ |= to_bitField1_;
@@ -2470,9 +2602,18 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x20000000;
         onChanged();
       }
+      if (other.hasActiveSpaMutationCount()) {
+        setActiveSpaMutationCount(other.getActiveSpaMutationCount());
+      }
+      if (other.hasActivePaymentOrSecurityCount()) {
+        setActivePaymentOrSecurityCount(other.getActivePaymentOrSecurityCount());
+      }
+      if (other.hasActiveCriticalTransactionCount()) {
+        setActiveCriticalTransactionCount(other.getActiveCriticalTransactionCount());
+      }
       if (other.hasActualResourceClass()) {
         actualResourceClass_ = other.actualResourceClass_;
-        bitField0_ |= 0x40000000;
+        bitField1_ |= 0x00000002;
         onChanged();
       }
       if (other.hasActualCpuMillis()) {
@@ -2699,91 +2840,106 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x20000000;
               break;
             } // case 274
+            case 280: {
+              activeSpaMutationCount_ = input.readUInt32();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 280
+            case 288: {
+              activePaymentOrSecurityCount_ = input.readUInt32();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 288
+            case 296: {
+              activeCriticalTransactionCount_ = input.readUInt32();
+              bitField1_ |= 0x00000001;
+              break;
+            } // case 296
             case 322: {
               actualResourceClass_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x40000000;
+              bitField1_ |= 0x00000002;
               break;
             } // case 322
             case 328: {
               actualCpuMillis_ = input.readUInt32();
-              bitField0_ |= 0x80000000;
+              bitField1_ |= 0x00000004;
               break;
             } // case 328
             case 336: {
               actualMemoryRequestMib_ = input.readUInt32();
-              bitField1_ |= 0x00000001;
+              bitField1_ |= 0x00000008;
               break;
             } // case 336
             case 344: {
               actualMemoryLimitMib_ = input.readUInt32();
-              bitField1_ |= 0x00000002;
+              bitField1_ |= 0x00000010;
               break;
             } // case 344
             case 352: {
               actualPidLimit_ = input.readUInt32();
-              bitField1_ |= 0x00000004;
+              bitField1_ |= 0x00000020;
               break;
             } // case 352
             case 360: {
               actualTabBudget_ = input.readUInt32();
-              bitField1_ |= 0x00000008;
+              bitField1_ |= 0x00000040;
               break;
             } // case 360
             case 368: {
               actualStateCollectorBudgetPercent_ = input.readUInt32();
-              bitField1_ |= 0x00000010;
+              bitField1_ |= 0x00000080;
               break;
             } // case 368
             case 376: {
               actualRemoteDesktopBitrateKbps_ = input.readUInt32();
-              bitField1_ |= 0x00000020;
+              bitField1_ |= 0x00000100;
               break;
             } // case 376
             case 384: {
               actualExtensionCpuWeight_ = input.readUInt32();
-              bitField1_ |= 0x00000040;
+              bitField1_ |= 0x00000200;
               break;
             } // case 384
             case 392: {
               actualMediaEncoderSlots_ = input.readUInt32();
-              bitField1_ |= 0x00000080;
+              bitField1_ |= 0x00000400;
               break;
             } // case 392
             case 400: {
               actualFreezeBackgroundTabs_ = input.readBool();
-              bitField1_ |= 0x00000100;
+              bitField1_ |= 0x00000800;
               break;
             } // case 400
             case 408: {
               actualBlockNewTabs_ = input.readBool();
-              bitField1_ |= 0x00000200;
+              bitField1_ |= 0x00001000;
               break;
             } // case 408
             case 418: {
               input.readMessage(
                   getActualExtensionBackgroundPolicyFieldBuilder().getBuilder(),
                   extensionRegistry);
-              bitField1_ |= 0x00000400;
+              bitField1_ |= 0x00002000;
               break;
             } // case 418
             case 424: {
               actualSuccessTraceSamplePercent_ = input.readUInt32();
-              bitField1_ |= 0x00000800;
+              bitField1_ |= 0x00004000;
               break;
             } // case 424
             case 432: {
               actualObserverFrameRateFps_ = input.readUInt32();
-              bitField1_ |= 0x00001000;
+              bitField1_ |= 0x00008000;
               break;
             } // case 432
             case 440: {
               actualVideoRecordingEnabled_ = input.readBool();
-              bitField1_ |= 0x00002000;
+              bitField1_ |= 0x00010000;
               break;
             } // case 440
             case 448: {
               actualSuccessScreenshotSamplePercent_ = input.readUInt32();
-              bitField1_ |= 0x00004000;
+              bitField1_ |= 0x00020000;
               break;
             } // case 448
             default: {
@@ -4231,6 +4387,150 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private int activeSpaMutationCount_ ;
+    /**
+     * <pre>
+     * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+     * form an additive capability group and must appear together. URLs and request bodies are never
+     * transmitted; the Control Plane persists only bounded active counters.
+     * </pre>
+     *
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * @return Whether the activeSpaMutationCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasActiveSpaMutationCount() {
+      return ((bitField0_ & 0x40000000) != 0);
+    }
+    /**
+     * <pre>
+     * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+     * form an additive capability group and must appear together. URLs and request bodies are never
+     * transmitted; the Control Plane persists only bounded active counters.
+     * </pre>
+     *
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * @return The activeSpaMutationCount.
+     */
+    @java.lang.Override
+    public int getActiveSpaMutationCount() {
+      return activeSpaMutationCount_;
+    }
+    /**
+     * <pre>
+     * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+     * form an additive capability group and must appear together. URLs and request bodies are never
+     * transmitted; the Control Plane persists only bounded active counters.
+     * </pre>
+     *
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * @param value The activeSpaMutationCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveSpaMutationCount(int value) {
+
+      activeSpaMutationCount_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+     * form an additive capability group and must appear together. URLs and request bodies are never
+     * transmitted; the Control Plane persists only bounded active counters.
+     * </pre>
+     *
+     * <code>optional uint32 active_spa_mutation_count = 35 [json_name = "activeSpaMutationCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveSpaMutationCount() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      activeSpaMutationCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int activePaymentOrSecurityCount_ ;
+    /**
+     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * @return Whether the activePaymentOrSecurityCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasActivePaymentOrSecurityCount() {
+      return ((bitField0_ & 0x80000000) != 0);
+    }
+    /**
+     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * @return The activePaymentOrSecurityCount.
+     */
+    @java.lang.Override
+    public int getActivePaymentOrSecurityCount() {
+      return activePaymentOrSecurityCount_;
+    }
+    /**
+     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * @param value The activePaymentOrSecurityCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActivePaymentOrSecurityCount(int value) {
+
+      activePaymentOrSecurityCount_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 active_payment_or_security_count = 36 [json_name = "activePaymentOrSecurityCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActivePaymentOrSecurityCount() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      activePaymentOrSecurityCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int activeCriticalTransactionCount_ ;
+    /**
+     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * @return Whether the activeCriticalTransactionCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasActiveCriticalTransactionCount() {
+      return ((bitField1_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * @return The activeCriticalTransactionCount.
+     */
+    @java.lang.Override
+    public int getActiveCriticalTransactionCount() {
+      return activeCriticalTransactionCount_;
+    }
+    /**
+     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * @param value The activeCriticalTransactionCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setActiveCriticalTransactionCount(int value) {
+
+      activeCriticalTransactionCount_ = value;
+      bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional uint32 active_critical_transaction_count = 37 [json_name = "activeCriticalTransactionCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearActiveCriticalTransactionCount() {
+      bitField1_ = (bitField1_ & ~0x00000001);
+      activeCriticalTransactionCount_ = 0;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object actualResourceClass_ = "";
     /**
      * <pre>
@@ -4243,7 +4543,7 @@ private static final long serialVersionUID = 0L;
      * @return Whether the actualResourceClass field is set.
      */
     public boolean hasActualResourceClass() {
-      return ((bitField0_ & 0x40000000) != 0);
+      return ((bitField1_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -4305,7 +4605,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       actualResourceClass_ = value;
-      bitField0_ |= 0x40000000;
+      bitField1_ |= 0x00000002;
       onChanged();
       return this;
     }
@@ -4321,7 +4621,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearActualResourceClass() {
       actualResourceClass_ = getDefaultInstance().getActualResourceClass();
-      bitField0_ = (bitField0_ & ~0x40000000);
+      bitField1_ = (bitField1_ & ~0x00000002);
       onChanged();
       return this;
     }
@@ -4341,7 +4641,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       actualResourceClass_ = value;
-      bitField0_ |= 0x40000000;
+      bitField1_ |= 0x00000002;
       onChanged();
       return this;
     }
@@ -4353,7 +4653,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualCpuMillis() {
-      return ((bitField0_ & 0x80000000) != 0);
+      return ((bitField1_ & 0x00000004) != 0);
     }
     /**
      * <code>optional uint32 actual_cpu_millis = 41 [json_name = "actualCpuMillis"];</code>
@@ -4371,7 +4671,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualCpuMillis(int value) {
 
       actualCpuMillis_ = value;
-      bitField0_ |= 0x80000000;
+      bitField1_ |= 0x00000004;
       onChanged();
       return this;
     }
@@ -4380,7 +4680,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualCpuMillis() {
-      bitField0_ = (bitField0_ & ~0x80000000);
+      bitField1_ = (bitField1_ & ~0x00000004);
       actualCpuMillis_ = 0;
       onChanged();
       return this;
@@ -4393,7 +4693,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualMemoryRequestMib() {
-      return ((bitField1_ & 0x00000001) != 0);
+      return ((bitField1_ & 0x00000008) != 0);
     }
     /**
      * <code>optional uint32 actual_memory_request_mib = 42 [json_name = "actualMemoryRequestMib"];</code>
@@ -4411,7 +4711,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualMemoryRequestMib(int value) {
 
       actualMemoryRequestMib_ = value;
-      bitField1_ |= 0x00000001;
+      bitField1_ |= 0x00000008;
       onChanged();
       return this;
     }
@@ -4420,7 +4720,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualMemoryRequestMib() {
-      bitField1_ = (bitField1_ & ~0x00000001);
+      bitField1_ = (bitField1_ & ~0x00000008);
       actualMemoryRequestMib_ = 0;
       onChanged();
       return this;
@@ -4433,7 +4733,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualMemoryLimitMib() {
-      return ((bitField1_ & 0x00000002) != 0);
+      return ((bitField1_ & 0x00000010) != 0);
     }
     /**
      * <code>optional uint32 actual_memory_limit_mib = 43 [json_name = "actualMemoryLimitMib"];</code>
@@ -4451,7 +4751,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualMemoryLimitMib(int value) {
 
       actualMemoryLimitMib_ = value;
-      bitField1_ |= 0x00000002;
+      bitField1_ |= 0x00000010;
       onChanged();
       return this;
     }
@@ -4460,7 +4760,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualMemoryLimitMib() {
-      bitField1_ = (bitField1_ & ~0x00000002);
+      bitField1_ = (bitField1_ & ~0x00000010);
       actualMemoryLimitMib_ = 0;
       onChanged();
       return this;
@@ -4473,7 +4773,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualPidLimit() {
-      return ((bitField1_ & 0x00000004) != 0);
+      return ((bitField1_ & 0x00000020) != 0);
     }
     /**
      * <code>optional uint32 actual_pid_limit = 44 [json_name = "actualPidLimit"];</code>
@@ -4491,7 +4791,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualPidLimit(int value) {
 
       actualPidLimit_ = value;
-      bitField1_ |= 0x00000004;
+      bitField1_ |= 0x00000020;
       onChanged();
       return this;
     }
@@ -4500,7 +4800,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualPidLimit() {
-      bitField1_ = (bitField1_ & ~0x00000004);
+      bitField1_ = (bitField1_ & ~0x00000020);
       actualPidLimit_ = 0;
       onChanged();
       return this;
@@ -4513,7 +4813,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualTabBudget() {
-      return ((bitField1_ & 0x00000008) != 0);
+      return ((bitField1_ & 0x00000040) != 0);
     }
     /**
      * <code>optional uint32 actual_tab_budget = 45 [json_name = "actualTabBudget"];</code>
@@ -4531,7 +4831,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualTabBudget(int value) {
 
       actualTabBudget_ = value;
-      bitField1_ |= 0x00000008;
+      bitField1_ |= 0x00000040;
       onChanged();
       return this;
     }
@@ -4540,7 +4840,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualTabBudget() {
-      bitField1_ = (bitField1_ & ~0x00000008);
+      bitField1_ = (bitField1_ & ~0x00000040);
       actualTabBudget_ = 0;
       onChanged();
       return this;
@@ -4553,7 +4853,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualStateCollectorBudgetPercent() {
-      return ((bitField1_ & 0x00000010) != 0);
+      return ((bitField1_ & 0x00000080) != 0);
     }
     /**
      * <code>optional uint32 actual_state_collector_budget_percent = 46 [json_name = "actualStateCollectorBudgetPercent"];</code>
@@ -4571,7 +4871,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualStateCollectorBudgetPercent(int value) {
 
       actualStateCollectorBudgetPercent_ = value;
-      bitField1_ |= 0x00000010;
+      bitField1_ |= 0x00000080;
       onChanged();
       return this;
     }
@@ -4580,7 +4880,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualStateCollectorBudgetPercent() {
-      bitField1_ = (bitField1_ & ~0x00000010);
+      bitField1_ = (bitField1_ & ~0x00000080);
       actualStateCollectorBudgetPercent_ = 0;
       onChanged();
       return this;
@@ -4593,7 +4893,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualRemoteDesktopBitrateKbps() {
-      return ((bitField1_ & 0x00000020) != 0);
+      return ((bitField1_ & 0x00000100) != 0);
     }
     /**
      * <code>optional uint32 actual_remote_desktop_bitrate_kbps = 47 [json_name = "actualRemoteDesktopBitrateKbps"];</code>
@@ -4611,7 +4911,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualRemoteDesktopBitrateKbps(int value) {
 
       actualRemoteDesktopBitrateKbps_ = value;
-      bitField1_ |= 0x00000020;
+      bitField1_ |= 0x00000100;
       onChanged();
       return this;
     }
@@ -4620,7 +4920,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualRemoteDesktopBitrateKbps() {
-      bitField1_ = (bitField1_ & ~0x00000020);
+      bitField1_ = (bitField1_ & ~0x00000100);
       actualRemoteDesktopBitrateKbps_ = 0;
       onChanged();
       return this;
@@ -4633,7 +4933,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualExtensionCpuWeight() {
-      return ((bitField1_ & 0x00000040) != 0);
+      return ((bitField1_ & 0x00000200) != 0);
     }
     /**
      * <code>optional uint32 actual_extension_cpu_weight = 48 [json_name = "actualExtensionCpuWeight"];</code>
@@ -4651,7 +4951,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualExtensionCpuWeight(int value) {
 
       actualExtensionCpuWeight_ = value;
-      bitField1_ |= 0x00000040;
+      bitField1_ |= 0x00000200;
       onChanged();
       return this;
     }
@@ -4660,7 +4960,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualExtensionCpuWeight() {
-      bitField1_ = (bitField1_ & ~0x00000040);
+      bitField1_ = (bitField1_ & ~0x00000200);
       actualExtensionCpuWeight_ = 0;
       onChanged();
       return this;
@@ -4673,7 +4973,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualMediaEncoderSlots() {
-      return ((bitField1_ & 0x00000080) != 0);
+      return ((bitField1_ & 0x00000400) != 0);
     }
     /**
      * <code>optional uint32 actual_media_encoder_slots = 49 [json_name = "actualMediaEncoderSlots"];</code>
@@ -4691,7 +4991,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualMediaEncoderSlots(int value) {
 
       actualMediaEncoderSlots_ = value;
-      bitField1_ |= 0x00000080;
+      bitField1_ |= 0x00000400;
       onChanged();
       return this;
     }
@@ -4700,7 +5000,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualMediaEncoderSlots() {
-      bitField1_ = (bitField1_ & ~0x00000080);
+      bitField1_ = (bitField1_ & ~0x00000400);
       actualMediaEncoderSlots_ = 0;
       onChanged();
       return this;
@@ -4713,7 +5013,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualFreezeBackgroundTabs() {
-      return ((bitField1_ & 0x00000100) != 0);
+      return ((bitField1_ & 0x00000800) != 0);
     }
     /**
      * <code>optional bool actual_freeze_background_tabs = 50 [json_name = "actualFreezeBackgroundTabs"];</code>
@@ -4731,7 +5031,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualFreezeBackgroundTabs(boolean value) {
 
       actualFreezeBackgroundTabs_ = value;
-      bitField1_ |= 0x00000100;
+      bitField1_ |= 0x00000800;
       onChanged();
       return this;
     }
@@ -4740,7 +5040,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualFreezeBackgroundTabs() {
-      bitField1_ = (bitField1_ & ~0x00000100);
+      bitField1_ = (bitField1_ & ~0x00000800);
       actualFreezeBackgroundTabs_ = false;
       onChanged();
       return this;
@@ -4753,7 +5053,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualBlockNewTabs() {
-      return ((bitField1_ & 0x00000200) != 0);
+      return ((bitField1_ & 0x00001000) != 0);
     }
     /**
      * <code>optional bool actual_block_new_tabs = 51 [json_name = "actualBlockNewTabs"];</code>
@@ -4771,7 +5071,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualBlockNewTabs(boolean value) {
 
       actualBlockNewTabs_ = value;
-      bitField1_ |= 0x00000200;
+      bitField1_ |= 0x00001000;
       onChanged();
       return this;
     }
@@ -4780,7 +5080,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualBlockNewTabs() {
-      bitField1_ = (bitField1_ & ~0x00000200);
+      bitField1_ = (bitField1_ & ~0x00001000);
       actualBlockNewTabs_ = false;
       onChanged();
       return this;
@@ -4794,7 +5094,7 @@ private static final long serialVersionUID = 0L;
      * @return Whether the actualExtensionBackgroundPolicy field is set.
      */
     public boolean hasActualExtensionBackgroundPolicy() {
-      return ((bitField1_ & 0x00000400) != 0);
+      return ((bitField1_ & 0x00002000) != 0);
     }
     /**
      * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
@@ -4819,7 +5119,7 @@ private static final long serialVersionUID = 0L;
       } else {
         actualExtensionBackgroundPolicyBuilder_.setMessage(value);
       }
-      bitField1_ |= 0x00000400;
+      bitField1_ |= 0x00002000;
       onChanged();
       return this;
     }
@@ -4833,7 +5133,7 @@ private static final long serialVersionUID = 0L;
       } else {
         actualExtensionBackgroundPolicyBuilder_.setMessage(builderForValue.build());
       }
-      bitField1_ |= 0x00000400;
+      bitField1_ |= 0x00002000;
       onChanged();
       return this;
     }
@@ -4842,7 +5142,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder mergeActualExtensionBackgroundPolicy(io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy value) {
       if (actualExtensionBackgroundPolicyBuilder_ == null) {
-        if (((bitField1_ & 0x00000400) != 0) &&
+        if (((bitField1_ & 0x00002000) != 0) &&
           actualExtensionBackgroundPolicy_ != null &&
           actualExtensionBackgroundPolicy_ != io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.getDefaultInstance()) {
           getActualExtensionBackgroundPolicyBuilder().mergeFrom(value);
@@ -4853,7 +5153,7 @@ private static final long serialVersionUID = 0L;
         actualExtensionBackgroundPolicyBuilder_.mergeFrom(value);
       }
       if (actualExtensionBackgroundPolicy_ != null) {
-        bitField1_ |= 0x00000400;
+        bitField1_ |= 0x00002000;
         onChanged();
       }
       return this;
@@ -4862,7 +5162,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
      */
     public Builder clearActualExtensionBackgroundPolicy() {
-      bitField1_ = (bitField1_ & ~0x00000400);
+      bitField1_ = (bitField1_ & ~0x00002000);
       actualExtensionBackgroundPolicy_ = null;
       if (actualExtensionBackgroundPolicyBuilder_ != null) {
         actualExtensionBackgroundPolicyBuilder_.dispose();
@@ -4875,7 +5175,7 @@ private static final long serialVersionUID = 0L;
      * <code>.browsercloud.node.v1.ExtensionBackgroundPolicy actual_extension_background_policy = 52 [json_name = "actualExtensionBackgroundPolicy"];</code>
      */
     public io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy.Builder getActualExtensionBackgroundPolicyBuilder() {
-      bitField1_ |= 0x00000400;
+      bitField1_ |= 0x00002000;
       onChanged();
       return getActualExtensionBackgroundPolicyFieldBuilder().getBuilder();
     }
@@ -4914,7 +5214,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualSuccessTraceSamplePercent() {
-      return ((bitField1_ & 0x00000800) != 0);
+      return ((bitField1_ & 0x00004000) != 0);
     }
     /**
      * <code>optional uint32 actual_success_trace_sample_percent = 53 [json_name = "actualSuccessTraceSamplePercent"];</code>
@@ -4932,7 +5232,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualSuccessTraceSamplePercent(int value) {
 
       actualSuccessTraceSamplePercent_ = value;
-      bitField1_ |= 0x00000800;
+      bitField1_ |= 0x00004000;
       onChanged();
       return this;
     }
@@ -4941,7 +5241,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualSuccessTraceSamplePercent() {
-      bitField1_ = (bitField1_ & ~0x00000800);
+      bitField1_ = (bitField1_ & ~0x00004000);
       actualSuccessTraceSamplePercent_ = 0;
       onChanged();
       return this;
@@ -4954,7 +5254,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualObserverFrameRateFps() {
-      return ((bitField1_ & 0x00001000) != 0);
+      return ((bitField1_ & 0x00008000) != 0);
     }
     /**
      * <code>optional uint32 actual_observer_frame_rate_fps = 54 [json_name = "actualObserverFrameRateFps"];</code>
@@ -4972,7 +5272,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualObserverFrameRateFps(int value) {
 
       actualObserverFrameRateFps_ = value;
-      bitField1_ |= 0x00001000;
+      bitField1_ |= 0x00008000;
       onChanged();
       return this;
     }
@@ -4981,7 +5281,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualObserverFrameRateFps() {
-      bitField1_ = (bitField1_ & ~0x00001000);
+      bitField1_ = (bitField1_ & ~0x00008000);
       actualObserverFrameRateFps_ = 0;
       onChanged();
       return this;
@@ -4994,7 +5294,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualVideoRecordingEnabled() {
-      return ((bitField1_ & 0x00002000) != 0);
+      return ((bitField1_ & 0x00010000) != 0);
     }
     /**
      * <code>optional bool actual_video_recording_enabled = 55 [json_name = "actualVideoRecordingEnabled"];</code>
@@ -5012,7 +5312,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualVideoRecordingEnabled(boolean value) {
 
       actualVideoRecordingEnabled_ = value;
-      bitField1_ |= 0x00002000;
+      bitField1_ |= 0x00010000;
       onChanged();
       return this;
     }
@@ -5021,7 +5321,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualVideoRecordingEnabled() {
-      bitField1_ = (bitField1_ & ~0x00002000);
+      bitField1_ = (bitField1_ & ~0x00010000);
       actualVideoRecordingEnabled_ = false;
       onChanged();
       return this;
@@ -5034,7 +5334,7 @@ private static final long serialVersionUID = 0L;
      */
     @java.lang.Override
     public boolean hasActualSuccessScreenshotSamplePercent() {
-      return ((bitField1_ & 0x00004000) != 0);
+      return ((bitField1_ & 0x00020000) != 0);
     }
     /**
      * <code>optional uint32 actual_success_screenshot_sample_percent = 56 [json_name = "actualSuccessScreenshotSamplePercent"];</code>
@@ -5052,7 +5352,7 @@ private static final long serialVersionUID = 0L;
     public Builder setActualSuccessScreenshotSamplePercent(int value) {
 
       actualSuccessScreenshotSamplePercent_ = value;
-      bitField1_ |= 0x00004000;
+      bitField1_ |= 0x00020000;
       onChanged();
       return this;
     }
@@ -5061,7 +5361,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearActualSuccessScreenshotSamplePercent() {
-      bitField1_ = (bitField1_ & ~0x00004000);
+      bitField1_ = (bitField1_ & ~0x00020000);
       actualSuccessScreenshotSamplePercent_ = 0;
       onChanged();
       return this;

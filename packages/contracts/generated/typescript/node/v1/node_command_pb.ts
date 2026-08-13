@@ -1307,6 +1307,25 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
   proxyProbeErrorCode = "";
 
   /**
+   * Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+   * form an additive capability group and must appear together. URLs and request bodies are never
+   * transmitted; the Control Plane persists only bounded active counters.
+   *
+   * @generated from field: optional uint32 active_spa_mutation_count = 35;
+   */
+  activeSpaMutationCount?: number;
+
+  /**
+   * @generated from field: optional uint32 active_payment_or_security_count = 36;
+   */
+  activePaymentOrSecurityCount?: number;
+
+  /**
+   * @generated from field: optional uint32 active_critical_transaction_count = 37;
+   */
+  activeCriticalTransactionCount?: number;
+
+  /**
    * Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
    * Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
    * 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。
@@ -1433,6 +1452,9 @@ export class ReportSessionResourcesRequest extends Message<ReportSessionResource
     { no: 32, name: "proxy_probe_latency_ms", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 33, name: "proxy_observed_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 34, name: "proxy_probe_error_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 35, name: "active_spa_mutation_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 36, name: "active_payment_or_security_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 37, name: "active_critical_transaction_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 40, name: "actual_resource_class", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 41, name: "actual_cpu_millis", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
     { no: 42, name: "actual_memory_request_mib", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },

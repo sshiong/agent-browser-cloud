@@ -123,7 +123,7 @@ class SafePointApplicationServiceTest {
         "tenant-a",
         "node-a",
         7,
-        new NodeSafetyObservation(true, true, 2, 1, null, null, null, now));
+        new NodeSafetyObservation(true, true, 2, 1, null, null, null, null, null, null, now));
 
     verify(signals, org.mockito.Mockito.times(2)).save(any(SessionSafetySignalEntity.class));
   }
@@ -165,6 +165,55 @@ class SafePointApplicationServiceTest {
     assertThat(result.blockers())
         .extracting(blocker -> blocker.code())
         .containsExactly("FILE_UPLOAD_ACTIVE");
+  }
+
+  @Test
+  void transactionCapableNodeFailsClosedUntilAllTransactionSignalsArrive() {
+    advertiseBrowserTransactionCapability();
+    var now = Instant.now();
+    when(signals.findAllBySessionId("ses_1234567890abcdef"))
+        .thenReturn(
+            List.of(
+                signal("ACTIVE_INPUT", false, now),
+                signal("ACTIVE_DRAG", false, now),
+                browserActivitySignal("FILE_UPLOAD_ACTIVE", false, now),
+                browserActivitySignal("FILE_DOWNLOAD_ACTIVE", false, now),
+                browserActivitySignal("FORM_SUBMISSION_ACTIVE", false, now)));
+
+    var result = service.assess("ses_1234567890abcdef", "tenant-a");
+
+    assertThat(result.safe()).isFalse();
+    assertThat(result.state()).isEqualTo("UNKNOWN");
+    assertThat(result.blockers().getFirst().detail())
+        .contains(
+            "SPA_MUTATION_ACTIVE", "PAYMENT_OR_SECURITY_ACTIVE", "CRITICAL_TRANSACTION_ACTIVE");
+  }
+
+  @Test
+  void browserDetectedPaymentBlocksMigrationWithoutApplicationLease() {
+    advertiseBrowserTransactionCapability();
+    var now = Instant.now();
+    when(signals.findAllBySessionId("ses_1234567890abcdef"))
+        .thenReturn(
+            List.of(
+                signal("ACTIVE_INPUT", false, now),
+                signal("ACTIVE_DRAG", false, now),
+                browserActivitySignal("FILE_UPLOAD_ACTIVE", false, now),
+                browserActivitySignal("FILE_DOWNLOAD_ACTIVE", false, now),
+                browserActivitySignal("FORM_SUBMISSION_ACTIVE", false, now),
+                browserActivitySignal("SPA_MUTATION_ACTIVE", true, now),
+                browserActivitySignal("PAYMENT_OR_SECURITY_ACTIVE", true, now),
+                browserActivitySignal("CRITICAL_TRANSACTION_ACTIVE", true, now)));
+
+    var result = service.assess("ses_1234567890abcdef", "tenant-a");
+
+    assertThat(result.safe()).isFalse();
+    assertThat(result.state()).isEqualTo("BLOCKED");
+    assertThat(result.dataFreshness()).isEqualTo("LIVE");
+    assertThat(result.blockers())
+        .extracting(blocker -> blocker.code())
+        .containsExactly(
+            "CRITICAL_TRANSACTION_ACTIVE", "PAYMENT_OR_SECURITY_ACTIVE", "SPA_MUTATION_ACTIVE");
   }
 
   @Test
@@ -211,7 +260,7 @@ class SafePointApplicationServiceTest {
         "tenant-a",
         "node-a",
         7,
-        new NodeSafetyObservation(null, null, null, null, 1, 2, 1, now));
+        new NodeSafetyObservation(null, null, null, null, 1, 2, 1, null, null, null, now));
 
     var captor = ArgumentCaptor.forClass(SessionSafetySignalEntity.class);
     verify(signals, org.mockito.Mockito.times(3)).save(captor.capture());
@@ -229,11 +278,49 @@ class SafePointApplicationServiceTest {
             });
   }
 
+  @Test
+  void browserTransactionObservationPersistsThreePrivacyBoundedSignals() {
+    var now = Instant.now();
+    when(signals.findBySessionIdAndSignalTypeAndSource(any(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    service.recordNodeObservation(
+        "ses_1234567890abcdef",
+        "tenant-a",
+        "node-a",
+        7,
+        new NodeSafetyObservation(null, null, null, null, null, null, null, 2, 1, 1, now));
+
+    var captor = ArgumentCaptor.forClass(SessionSafetySignalEntity.class);
+    verify(signals, org.mockito.Mockito.times(3)).save(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(SessionSafetySignalEntity::getSignalType)
+        .containsExactlyInAnyOrder(
+            "SPA_MUTATION_ACTIVE", "PAYMENT_OR_SECURITY_ACTIVE", "CRITICAL_TRANSACTION_ACTIVE");
+    assertThat(captor.getAllValues())
+        .allSatisfy(
+            signal -> {
+              assertThat(signal.getDetails()).doesNotContain("http", "checkout", "password");
+              assertThat(signal.getSource())
+                  .isEqualTo(SafePointApplicationService.NODE_BROWSER_ACTIVITY_SOURCE);
+            });
+  }
+
   private void advertiseBrowserActivityCapability() {
     var node = mock(BrowserNodeEntity.class);
     when(node.getLabels())
         .thenReturn(
             "{\"safePointBrowserActivity\":\"cdp-network-v1\","
+                + "\"resourceEnforcement\":\"cgroup-v2\"}");
+    when(browserNodes.findById("node-a")).thenReturn(Optional.of(node));
+  }
+
+  private void advertiseBrowserTransactionCapability() {
+    var node = mock(BrowserNodeEntity.class);
+    when(node.getLabels())
+        .thenReturn(
+            "{\"safePointBrowserActivity\":\"cdp-network-v1\","
+                + "\"safePointBrowserTransactions\":\"cdp-transaction-v1\","
                 + "\"resourceEnforcement\":\"cgroup-v2\"}");
     when(browserNodes.findById("node-a")).thenReturn(Optional.of(node));
   }

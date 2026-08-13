@@ -200,6 +200,9 @@ class NodeCapacityGrpcEndpointTest {
               .setActiveUploadCount(1)
               .setActiveDownloadCount(2)
               .setActiveFormSubmissionCount(3)
+              .setActiveSpaMutationCount(4)
+              .setActivePaymentOrSecurityCount(5)
+              .setActiveCriticalTransactionCount(6)
               .build(),
           observer(responses));
 
@@ -218,6 +221,9 @@ class NodeCapacityGrpcEndpointTest {
       assertThat(observation.getValue().activeUploadCount()).isEqualTo(1);
       assertThat(observation.getValue().activeDownloadCount()).isEqualTo(2);
       assertThat(observation.getValue().activeFormSubmissionCount()).isEqualTo(3);
+      assertThat(observation.getValue().activeSpaMutationCount()).isEqualTo(4);
+      assertThat(observation.getValue().activePaymentOrSecurityCount()).isEqualTo(5);
+      assertThat(observation.getValue().activeCriticalTransactionCount()).isEqualTo(6);
     }
   }
 
@@ -341,6 +347,45 @@ class NodeCapacityGrpcEndpointTest {
               .setContextEpoch(7)
               .setObservedAtMs(Instant.now().toEpochMilli())
               .setActiveUploadCount(1)
+              .build(),
+          observer(responses));
+
+      assertThat(responses)
+          .singleElement()
+          .satisfies(
+              response -> {
+                assertThat(response.getAccepted()).isFalse();
+                assertThat(response.getErrorCode()).isEqualTo("INVALID_RESOURCE_SAMPLE");
+              });
+      verify(resources, never()).recordSampleFromNode(any(), any(), eq(7L), any());
+      verify(safePoints, never()).recordNodeObservation(any(), any(), any(), eq(7L), any());
+    }
+  }
+
+  @Test
+  void partialBrowserTransactionObservationIsRejectedBeforePersistence() {
+    var resources = mock(SessionResourceApplicationService.class);
+    var safePoints = mock(SafePointApplicationService.class);
+    try (var factory = Validation.buildDefaultValidatorFactory()) {
+      var endpoint =
+          new NodeEventGrpcServer.Endpoint(
+              mock(NodeEventIngestionService.class),
+              mock(BrowserCapacityApplicationService.class),
+              resources,
+              mock(io.browsercloud.application.SessionResourceDecisionExecutor.class),
+              safePoints,
+              mock(io.browsercloud.application.ProxyBindingHealthApplicationService.class),
+              mock(NodeEventMapper.class),
+              factory.getValidator());
+      var responses = new ArrayList<ReportSessionResourcesResponse>();
+      endpoint.reportSessionResources(
+          ReportSessionResourcesRequest.newBuilder()
+              .setNodeId("node_test_1")
+              .setTenantId("tenant-test")
+              .setSessionId("ses_test_1")
+              .setContextEpoch(7)
+              .setObservedAtMs(Instant.now().toEpochMilli())
+              .setActivePaymentOrSecurityCount(1)
               .build(),
           observer(responses));
 

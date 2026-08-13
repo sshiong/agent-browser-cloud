@@ -514,6 +514,10 @@ impl NodeCapacityReporter {
             "cdp-network-v1".to_owned(),
         );
         labels.insert(
+            "safePointBrowserTransactions".to_owned(),
+            "cdp-transaction-v1".to_owned(),
+        );
+        labels.insert(
             "businessRecoveryActions".to_owned(),
             "cdp-low-risk-v1".to_owned(),
         );
@@ -1905,6 +1909,15 @@ impl NodeControlService {
                 active_form_submission_count: browser_safety
                     .fresh
                     .then_some(browser_safety.active_form_submission_count),
+                active_spa_mutation_count: browser_safety
+                    .fresh
+                    .then_some(browser_safety.active_spa_mutation_count),
+                active_payment_or_security_count: browser_safety
+                    .fresh
+                    .then_some(browser_safety.active_payment_or_security_count),
+                active_critical_transaction_count: browser_safety
+                    .fresh
+                    .then_some(browser_safety.active_critical_transaction_count),
                 proxy_probe_succeeded: proxy_probe.as_ref().map(|probe| probe.succeeded),
                 proxy_probe_latency_ms: proxy_probe.as_ref().map(|probe| probe.latency_ms),
                 proxy_observed_exit_ip: proxy_probe

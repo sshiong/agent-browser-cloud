@@ -251,6 +251,10 @@ public class NodeEventGrpcServer implements SmartLifecycle {
             request.hasActiveUploadCount()
                 || request.hasActiveDownloadCount()
                 || request.hasActiveFormSubmissionCount();
+        var hasBrowserTransactionObservation =
+            request.hasActiveSpaMutationCount()
+                || request.hasActivePaymentOrSecurityCount()
+                || request.hasActiveCriticalTransactionCount();
         var hasProxyProbeObservation =
             request.hasProxyProbeSucceeded()
                 || request.hasProxyProbeLatencyMs()
@@ -286,6 +290,13 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                 || !request.hasActiveDownloadCount()
                 || !request.hasActiveFormSubmissionCount())) {
           throw new IllegalArgumentException("complete Browser activity observation is required");
+        }
+        if (hasBrowserTransactionObservation
+            && (!request.hasActiveSpaMutationCount()
+                || !request.hasActivePaymentOrSecurityCount()
+                || !request.hasActiveCriticalTransactionCount())) {
+          throw new IllegalArgumentException(
+              "complete Browser transaction observation is required");
         }
         if (hasProxyProbeObservation) {
           if (!request.hasProxyProbeSucceeded() || !request.hasProxyProbeLatencyMs()) {
@@ -346,7 +357,9 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                   Instant.ofEpochMilli(request.getObservedAtMs()));
           validate(readback);
         }
-        if (hasInputObservation || hasBrowserActivityObservation) {
+        if (hasInputObservation
+            || hasBrowserActivityObservation
+            || hasBrowserTransactionObservation) {
           safePointService.recordNodeObservation(
               request.getSessionId(),
               request.getTenantId(),
@@ -361,6 +374,13 @@ public class NodeEventGrpcServer implements SmartLifecycle {
                   request.hasActiveDownloadCount() ? request.getActiveDownloadCount() : null,
                   request.hasActiveFormSubmissionCount()
                       ? request.getActiveFormSubmissionCount()
+                      : null,
+                  request.hasActiveSpaMutationCount() ? request.getActiveSpaMutationCount() : null,
+                  request.hasActivePaymentOrSecurityCount()
+                      ? request.getActivePaymentOrSecurityCount()
+                      : null,
+                  request.hasActiveCriticalTransactionCount()
+                      ? request.getActiveCriticalTransactionCount()
                       : null,
                   Instant.ofEpochMilli(request.getObservedAtMs())));
         }

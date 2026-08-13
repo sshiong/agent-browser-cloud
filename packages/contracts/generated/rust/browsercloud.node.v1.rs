@@ -339,6 +339,15 @@ pub struct ReportSessionResourcesRequest {
     pub proxy_observed_exit_ip: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="34")]
     pub proxy_probe_error_code: ::prost::alloc::string::String,
+    /// Browser-side transaction heuristics derived only from CDP request metadata. The three fields
+    /// form an additive capability group and must appear together. URLs and request bodies are never
+    /// transmitted; the Control Plane persists only bounded active counters.
+    #[prost(uint32, optional, tag="35")]
+    pub active_spa_mutation_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="36")]
+    pub active_payment_or_security_count: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag="37")]
+    pub active_critical_transaction_count: ::core::option::Option<u32>,
     /// Node 读取运行时实际已生效配置，而不是回显最后一条命令。整组字段必须同时出现；
     /// Control Plane 用该快照恢复永久丢失的资源调整 ACK，并检测 PostgreSQL/Node 漂移。
     /// 字段保持 additive，N-1 Node 缺失整组时 Control Plane 仅跳过 Readback 对账。

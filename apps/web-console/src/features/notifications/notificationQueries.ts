@@ -9,6 +9,7 @@ import {
   streamWorkspaceNotificationChanges,
   updateWorkspaceNotificationReadCursor,
 } from '@/api/notification';
+import { NOTIFICATION_DRIVEN_PLATFORM_KEYS } from '@/features/security/platformQueries';
 import type { WorkspaceNotificationConnectionState } from '@/types/notification';
 
 export const notificationKeys = {
@@ -46,8 +47,15 @@ export function useWorkspaceNotificationStream(
     let lastEventId: string | undefined;
     let reconnectAttempt = 0;
 
-    const refreshFeed = () =>
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    // The cursor is the tenant audit sequence, so it also covers the governance ledgers that
+    // replaced their own polling. Invalidation is lazy: pages that are not mounted are only
+    // marked stale and issue no request.
+    const refreshFeed = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      for (const queryKey of NOTIFICATION_DRIVEN_PLATFORM_KEYS) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+    };
 
     const run = async () => {
       while (!controller.signal.aborted) {

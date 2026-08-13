@@ -20,11 +20,33 @@ import type {
   CreateKeyRotationRequest,
 } from '@/types/platform';
 
+export const platformKeys = {
+  auditEvents: ['audit-events'] as const,
+  breakGlassRequests: ['break-glass-requests'] as const,
+  keyRotationRequests: ['key-rotation-requests'] as const,
+  secureDebugSessions: ['secure-debug-sessions'] as const,
+};
+
+/**
+ * Governance ledgers whose every state transition is admitted into the workspace notification
+ * projection by whole prefix (BREAK_GLASS_%, KEY_ROTATION_%, SECURE_DEBUG_%). The notification
+ * cursor therefore covers them without loss and replaces their fixed polling.
+ *
+ * `audit-events` is deliberately excluded: it lists the full audit ledger, while the projection
+ * only carries high-signal rows. Driving it purely by notifications would trade "stale for at
+ * most one interval" for "never refreshes when an event is not projected".
+ */
+export const NOTIFICATION_DRIVEN_PLATFORM_KEYS = [
+  platformKeys.breakGlassRequests,
+  platformKeys.keyRotationRequests,
+  platformKeys.secureDebugSessions,
+] as const;
+
 export function useAuditEvents(eventType?: string) {
   return useQuery({
-    queryKey: ['audit-events', eventType ?? 'all'],
+    queryKey: [...platformKeys.auditEvents, eventType ?? 'all'],
     queryFn: ({ signal }) => listAuditEvents(eventType, signal),
-    refetchInterval: 5000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -37,9 +59,8 @@ export function useRuntimeBuilds() {
 
 export function useBreakGlassRequests() {
   return useQuery({
-    queryKey: ['break-glass-requests'],
+    queryKey: platformKeys.breakGlassRequests,
     queryFn: ({ signal }) => listBreakGlassRequests(signal),
-    refetchInterval: 5000,
   });
 }
 
@@ -50,8 +71,10 @@ export function useCreateBreakGlassRequest() {
       createBreakGlassRequest(input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['break-glass-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.breakGlassRequests,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -69,8 +92,10 @@ export function useTransitionBreakGlassRequest() {
     }) => transitionBreakGlassRequest(requestId, transition),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['break-glass-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.breakGlassRequests,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -78,9 +103,8 @@ export function useTransitionBreakGlassRequest() {
 
 export function useSecureDebugSessions() {
   return useQuery({
-    queryKey: ['secure-debug-sessions'],
+    queryKey: platformKeys.secureDebugSessions,
     queryFn: ({ signal }) => listSecureDebugSessions(signal),
-    refetchInterval: 3000,
   });
 }
 
@@ -90,9 +114,13 @@ export function useStartSecureDebugSession() {
     mutationFn: (requestId: string) => startSecureDebugSession(requestId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['secure-debug-sessions'] }),
-        queryClient.invalidateQueries({ queryKey: ['break-glass-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.secureDebugSessions,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.breakGlassRequests,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -105,8 +133,10 @@ export function useReadSecureDebugSnapshot() {
       readSecureDebugSnapshot(debugSessionId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['secure-debug-sessions'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.secureDebugSessions,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -119,8 +149,10 @@ export function useEndSecureDebugSession() {
       endSecureDebugSession(debugSessionId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['secure-debug-sessions'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.secureDebugSessions,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -128,9 +160,8 @@ export function useEndSecureDebugSession() {
 
 export function useKeyRotationRequests() {
   return useQuery({
-    queryKey: ['key-rotation-requests'],
+    queryKey: platformKeys.keyRotationRequests,
     queryFn: ({ signal }) => listKeyRotationRequests(signal),
-    refetchInterval: 5000,
   });
 }
 
@@ -141,8 +172,10 @@ export function useCreateKeyRotationRequest() {
       createKeyRotationRequest(input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['key-rotation-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.keyRotationRequests,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -160,8 +193,10 @@ export function useTransitionKeyRotationRequest() {
     }) => transitionKeyRotationRequest(rotationId, transition),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['key-rotation-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.keyRotationRequests,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });
@@ -179,8 +214,10 @@ export function useCompleteKeyRotationRequest() {
     }) => completeKeyRotationRequest(rotationId, completion),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['key-rotation-requests'] }),
-        queryClient.invalidateQueries({ queryKey: ['audit-events'] }),
+        queryClient.invalidateQueries({
+          queryKey: platformKeys.keyRotationRequests,
+        }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents }),
       ]);
     },
   });

@@ -128,6 +128,9 @@ public class ApplicationBusinessRecoveryService {
               normalized.maximumAutoRecovery(),
               normalized.enabled(),
               now);
+      entity.updateBrowserTransactionRoutes(
+          write(normalized.paymentSecurityRoutePrefixes()),
+          write(normalized.criticalTransactionRoutePrefixes()));
       var saved = contracts.saveAndFlush(entity);
       appendContractAudit(saved, actorId, requestId, "RECOVERY_CONTRACT_CREATED");
       return toView(saved, Optional.empty());
@@ -159,6 +162,9 @@ public class ApplicationBusinessRecoveryService {
         normalized.maximumAutoRecovery(),
         normalized.enabled(),
         now);
+    entity.updateBrowserTransactionRoutes(
+        write(normalized.paymentSecurityRoutePrefixes()),
+        write(normalized.criticalTransactionRoutePrefixes()));
     var saved = contracts.saveAndFlush(entity);
     appendContractAudit(saved, actorId, requestId, "RECOVERY_CONTRACT_VERSION_PUBLISHED");
     return toView(saved, currentApproval(saved));
@@ -309,6 +315,8 @@ public class ApplicationBusinessRecoveryService {
         source.getMaximumAutoRecovery(),
         source.isEnabled(),
         now.truncatedTo(ChronoUnit.MICROS));
+    contract.updateBrowserTransactionRoutes(
+        source.getPaymentSecurityRoutePrefixes(), source.getCriticalTransactionRoutePrefixes());
     var restored = contracts.saveAndFlush(contract);
     if (restored.getVersion() != request.expectedCurrentVersion() + 1) {
       throw new RecoveryContractVersionConflictException();
@@ -1120,6 +1128,8 @@ public class ApplicationBusinessRecoveryService {
         request.requireDocumentComplete(),
         request.minimumNetworkQuietMillis(),
         targetList(request.transientBlockerTargets()),
+        lowerRouteList(request.paymentSecurityRoutePrefixes()),
+        lowerRouteList(request.criticalTransactionRoutePrefixes()),
         request.allowDepthLimited(),
         recoveryAction,
         recoveryExtensionId,
@@ -1142,6 +1152,10 @@ public class ApplicationBusinessRecoveryService {
         && entity.isRequireDocumentComplete() == value.requireDocumentComplete()
         && entity.getMinimumNetworkQuietMillis() == value.minimumNetworkQuietMillis()
         && readTargets(entity.getTransientBlockerTargets()).equals(value.transientBlockerTargets())
+        && readStrings(entity.getPaymentSecurityRoutePrefixes())
+            .equals(value.paymentSecurityRoutePrefixes())
+        && readStrings(entity.getCriticalTransactionRoutePrefixes())
+            .equals(value.criticalTransactionRoutePrefixes())
         && entity.isAllowDepthLimited() == value.allowDepthLimited()
         && entity.getRecoveryAction().equals(value.recoveryAction().name())
         && java.util.Objects.equals(entity.getRecoveryExtensionId(), value.recoveryExtensionId())
@@ -1169,6 +1183,8 @@ public class ApplicationBusinessRecoveryService {
         entity.isRequireDocumentComplete(),
         entity.getMinimumNetworkQuietMillis(),
         readTargets(entity.getTransientBlockerTargets()),
+        readStrings(entity.getPaymentSecurityRoutePrefixes()),
+        readStrings(entity.getCriticalTransactionRoutePrefixes()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getRecoveryExtensionId(),
@@ -1206,6 +1222,8 @@ public class ApplicationBusinessRecoveryService {
         entity.isRequireDocumentComplete(),
         entity.getMinimumNetworkQuietMillis(),
         readTargets(entity.getTransientBlockerTargets()),
+        readStrings(entity.getPaymentSecurityRoutePrefixes()),
+        readStrings(entity.getCriticalTransactionRoutePrefixes()),
         entity.isAllowDepthLimited(),
         RecoveryAction.valueOf(entity.getRecoveryAction()),
         entity.getRecoveryExtensionId(),
@@ -1302,6 +1320,16 @@ public class ApplicationBusinessRecoveryService {
         "transientBlockerTargets",
         from.getTransientBlockerTargets(),
         to.getTransientBlockerTargets());
+    addChange(
+        changes,
+        "paymentSecurityRoutePrefixes",
+        from.getPaymentSecurityRoutePrefixes(),
+        to.getPaymentSecurityRoutePrefixes());
+    addChange(
+        changes,
+        "criticalTransactionRoutePrefixes",
+        from.getCriticalTransactionRoutePrefixes(),
+        to.getCriticalTransactionRoutePrefixes());
     addChange(
         changes,
         "allowDepthLimited",
@@ -1566,6 +1594,7 @@ public class ApplicationBusinessRecoveryService {
   }
 
   private List<String> readStrings(String value) {
+    if (value == null || value.isBlank()) return List.of();
     try {
       return objectMapper.readValue(value, STRING_LIST);
     } catch (JsonProcessingException exception) {
@@ -1652,6 +1681,14 @@ public class ApplicationBusinessRecoveryService {
               }
               return route;
             })
+        .distinct()
+        .sorted()
+        .toList();
+  }
+
+  private static List<String> lowerRouteList(List<String> values) {
+    return routeList(values).stream()
+        .map(value -> value.toLowerCase(Locale.ROOT))
         .distinct()
         .sorted()
         .toList();
@@ -1769,6 +1806,8 @@ public class ApplicationBusinessRecoveryService {
       boolean requireDocumentComplete,
       int minimumNetworkQuietMillis,
       List<TargetIndicator> transientBlockerTargets,
+      List<String> paymentSecurityRoutePrefixes,
+      List<String> criticalTransactionRoutePrefixes,
       boolean allowDepthLimited,
       RecoveryAction recoveryAction,
       String recoveryExtensionId,

@@ -1,5 +1,6 @@
 package io.browsercloud.bootstrap;
 
+import io.browsercloud.coordinator.BrowserTransactionPolicyRepository;
 import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.CoordinatorReconciliationMetrics;
 import io.browsercloud.coordinator.CoordinatorRouteAuthority;
@@ -29,6 +30,7 @@ public class CoordinatorConfiguration {
       CoordinatorReconciliationMetrics reconciliationMetrics,
       RuntimeResourceLimitsRepository resourceLimitsRepository,
       ProxyRuntimeBindingRepository proxyBindingRepository,
+      BrowserTransactionPolicyRepository browserTransactionPolicyRepository,
       CoordinatorRouteAuthority routeAuthority,
       CoordinatorShardLocality shardLocality) {
     return new SessionCoordinator(
@@ -40,6 +42,7 @@ public class CoordinatorConfiguration {
         reconciliationMetrics,
         resourceLimitsRepository,
         proxyBindingRepository,
+        browserTransactionPolicyRepository,
         routeAuthority,
         shardLocality);
   }

@@ -20,6 +20,8 @@ export interface RecoveryContractFormValues {
   requireDocumentComplete: boolean;
   minimumNetworkQuietMillis: number;
   transientBlockerTargets: RecoveryTargetIndicator[];
+  paymentSecurityRoutePrefixes: string;
+  criticalTransactionRoutePrefixes: string;
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId: string;
@@ -41,6 +43,8 @@ export const emptyRecoveryContractForm: RecoveryContractFormValues = {
   requireDocumentComplete: true,
   minimumNetworkQuietMillis: 1_000,
   transientBlockerTargets: [],
+  paymentSecurityRoutePrefixes: '',
+  criticalTransactionRoutePrefixes: '',
   allowDepthLimited: false,
   recoveryAction: 'NONE',
   recoveryExtensionId: '',
@@ -158,6 +162,10 @@ export function recoveryContractToForm(
     requireDocumentComplete: contract.requireDocumentComplete,
     minimumNetworkQuietMillis: contract.minimumNetworkQuietMillis,
     transientBlockerTargets: contract.transientBlockerTargets,
+    paymentSecurityRoutePrefixes:
+      contract.paymentSecurityRoutePrefixes.join('\n'),
+    criticalTransactionRoutePrefixes:
+      contract.criticalTransactionRoutePrefixes.join('\n'),
     allowDepthLimited: contract.allowDepthLimited,
     recoveryAction: contract.recoveryAction,
     recoveryExtensionId: contract.recoveryExtensionId ?? '',
@@ -186,6 +194,12 @@ export function recoveryContractRequest(
     requireDocumentComplete: values.requireDocumentComplete,
     minimumNetworkQuietMillis: values.minimumNetworkQuietMillis,
     transientBlockerTargets: normalizeTargets(values.transientBlockerTargets),
+    paymentSecurityRoutePrefixes: normalizeRouteLines(
+      values.paymentSecurityRoutePrefixes
+    ),
+    criticalTransactionRoutePrefixes: normalizeRouteLines(
+      values.criticalTransactionRoutePrefixes
+    ),
     allowDepthLimited: values.allowDepthLimited,
     recoveryAction: values.recoveryAction,
     recoveryExtensionId:
@@ -195,6 +209,12 @@ export function recoveryContractRequest(
     maximumAutoRecovery: values.maximumAutoRecovery,
     enabled: values.enabled,
   };
+}
+
+function normalizeRouteLines(value: string): string[] {
+  return [
+    ...new Set(parseContractLines(value).map((route) => route.toLowerCase())),
+  ].sort();
 }
 
 function normalizeTargets(

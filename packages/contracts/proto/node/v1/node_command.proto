@@ -350,6 +350,14 @@ message StartRuntimeCommand {
   optional string proxy_provider_id = 31;
   optional string proxy_expected_exit_ip = 32;
   optional string proxy_credential_ref = 33;
+  // Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+  // prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+  // observing CDP request metadata; full URLs and request content never leave the Node.
+  repeated string browser_transaction_expected_origins = 34;
+  repeated string payment_security_route_prefixes = 35;
+  repeated string critical_transaction_route_prefixes = 36;
+  string browser_transaction_policy_hash = 37;
+  uint64 browser_transaction_policy_version = 38;
 }
 
 // Runtime 启动事件

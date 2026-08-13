@@ -31,6 +31,8 @@ describe('recovery contract form', () => {
         transientBlockerTargets: [
           { role: ' Dialog ', name: ' Confirm payment ' },
         ],
+        paymentSecurityRoutePrefixes: '/API/V2/Authorize\n/api/v2/authorize',
+        criticalTransactionRoutePrefixes: '/Cases/Finalize',
         recoveryAction: 'RESTART_EXTENSION',
         recoveryExtensionId: 'jdgnleokimdbblcflcfcohbinohmmmlb',
         maximumAutoRecovery: 1,
@@ -56,6 +58,8 @@ describe('recovery contract form', () => {
       requireDocumentComplete: true,
       minimumNetworkQuietMillis: 1_500,
       transientBlockerTargets: [{ role: 'dialog', name: 'Confirm payment' }],
+      paymentSecurityRoutePrefixes: ['/api/v2/authorize'],
+      criticalTransactionRoutePrefixes: ['/cases/finalize'],
       recoveryAction: 'RESTART_EXTENSION',
       recoveryExtensionId: 'jdgnleokimdbblcflcfcohbinohmmmlb',
       maximumAutoRecovery: 1,

@@ -56,6 +56,24 @@ public final class NodeCommands {
       RuntimeResourceLimits requestedLimits,
       String profileCheckpointId,
       ProxyRuntimeBinding proxyBinding) {
+    return startRuntime(
+        session,
+        operation,
+        requestedRuntimeBuildId,
+        requestedLimits,
+        profileCheckpointId,
+        proxyBinding,
+        BrowserTransactionPolicy.empty());
+  }
+
+  public static NodeCommand startRuntime(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String requestedRuntimeBuildId,
+      RuntimeResourceLimits requestedLimits,
+      String profileCheckpointId,
+      ProxyRuntimeBinding proxyBinding,
+      BrowserTransactionPolicy browserTransactionPolicy) {
     var limits = requestedLimits == null ? defaultLimits(session) : requestedLimits;
     if (limits.resourceClass() != session.resourceClass()) {
       throw new IllegalArgumentException("Runtime limits do not match committed Resource Class");
@@ -89,6 +107,13 @@ public final class NodeCommands {
             .setVideoRecordingEnabled(limits.videoRecordingEnabled())
             .setSuccessScreenshotSamplePercent(limits.successScreenshotSamplePercent())
             .setMinimumBrowserGeneration(session.browserGeneration())
+            .addAllBrowserTransactionExpectedOrigins(browserTransactionPolicy.expectedOrigins())
+            .addAllPaymentSecurityRoutePrefixes(
+                browserTransactionPolicy.paymentSecurityRoutePrefixes())
+            .addAllCriticalTransactionRoutePrefixes(
+                browserTransactionPolicy.criticalTransactionRoutePrefixes())
+            .setBrowserTransactionPolicyHash(browserTransactionPolicy.policyHash())
+            .setBrowserTransactionPolicyVersion(browserTransactionPolicy.version())
             .setDesktopRequired(limits.desktop())
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())

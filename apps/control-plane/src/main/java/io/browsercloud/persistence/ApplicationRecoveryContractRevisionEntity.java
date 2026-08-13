@@ -72,6 +72,17 @@ public class ApplicationRecoveryContractRevisionEntity {
   @Column(name = "transient_blocker_targets", nullable = false, columnDefinition = "jsonb")
   private String transientBlockerTargets;
 
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "payment_security_route_prefixes", nullable = false, columnDefinition = "jsonb")
+  private String paymentSecurityRoutePrefixes;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(
+      name = "critical_transaction_route_prefixes",
+      nullable = false,
+      columnDefinition = "jsonb")
+  private String criticalTransactionRoutePrefixes;
+
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
@@ -157,6 +168,14 @@ public class ApplicationRecoveryContractRevisionEntity {
 
   public String getTransientBlockerTargets() {
     return transientBlockerTargets;
+  }
+
+  public String getPaymentSecurityRoutePrefixes() {
+    return paymentSecurityRoutePrefixes;
+  }
+
+  public String getCriticalTransactionRoutePrefixes() {
+    return criticalTransactionRoutePrefixes;
   }
 
   public boolean isAllowDepthLimited() {

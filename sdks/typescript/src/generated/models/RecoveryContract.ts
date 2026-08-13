@@ -20,6 +20,8 @@ export type RecoveryContract = {
     requireDocumentComplete: boolean;
     minimumNetworkQuietMillis: number;
     transientBlockerTargets: Array<RecoveryTargetIndicator>;
+    paymentSecurityRoutePrefixes: Array<string>;
+    criticalTransactionRoutePrefixes: Array<string>;
     allowDepthLimited: boolean;
     recoveryAction: 'NONE' | 'RELOAD' | 'NAVIGATE_HOME' | 'REOPEN_KNOWN_ROUTE' | 'REFRESH_SESSION' | 'RESTART_EXTENSION';
     recoveryExtensionId?: string | null;

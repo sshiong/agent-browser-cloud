@@ -5,6 +5,7 @@ import static io.browsercloud.api.SafePointModels.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.coordinator.BrowserTransactionPolicyRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.infrastructure.ExclusiveOperationJpaRepository;
 import io.browsercloud.persistence.AgentTaskJpaRepository;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,9 @@ public class SafePointApplicationService {
   static final String BROWSER_ACTIVITY_CAPABILITY_V1 = "cdp-network-v1";
   static final String BROWSER_TRANSACTION_CAPABILITY_LABEL = "safePointBrowserTransactions";
   static final String BROWSER_TRANSACTION_CAPABILITY_V1 = "cdp-transaction-v1";
+  static final String BROWSER_TRANSACTION_POLICY_CAPABILITY_LABEL =
+      "safePointBrowserTransactionPolicy";
+  static final String BROWSER_TRANSACTION_POLICY_CAPABILITY_V1 = "approved-route-v1";
   static final Duration NODE_SIGNAL_TTL = Duration.ofSeconds(15);
   private static final Set<String> INPUT_SIGNALS = Set.of("ACTIVE_INPUT", "ACTIVE_DRAG");
   private static final Set<String> BROWSER_ACTIVITY_SIGNALS =
@@ -68,7 +73,33 @@ public class SafePointApplicationService {
   private final DurableWorkflowJpaRepository workflows;
   private final SessionSafetyLeaseJpaRepository applicationLeases;
   private final ObjectMapper objectMapper;
+  private final BrowserTransactionPolicyRepository browserTransactionPolicies;
 
+  @Autowired
+  public SafePointApplicationService(
+      SessionRepository sessions,
+      BrowserPlacementJpaRepository placements,
+      BrowserNodeJpaRepository browserNodes,
+      SessionSafetySignalJpaRepository signals,
+      ExclusiveOperationJpaRepository operations,
+      AgentTaskJpaRepository tasks,
+      DurableWorkflowJpaRepository workflows,
+      SessionSafetyLeaseJpaRepository applicationLeases,
+      BrowserTransactionPolicyRepository browserTransactionPolicies,
+      ObjectMapper objectMapper) {
+    this.sessions = sessions;
+    this.placements = placements;
+    this.browserNodes = browserNodes;
+    this.signals = signals;
+    this.operations = operations;
+    this.tasks = tasks;
+    this.workflows = workflows;
+    this.applicationLeases = applicationLeases;
+    this.browserTransactionPolicies = browserTransactionPolicies;
+    this.objectMapper = objectMapper;
+  }
+
+  /** N-1 source compatibility for isolated tests and embedders without Site Policy. */
   public SafePointApplicationService(
       SessionRepository sessions,
       BrowserPlacementJpaRepository placements,
@@ -79,15 +110,17 @@ public class SafePointApplicationService {
       DurableWorkflowJpaRepository workflows,
       SessionSafetyLeaseJpaRepository applicationLeases,
       ObjectMapper objectMapper) {
-    this.sessions = sessions;
-    this.placements = placements;
-    this.browserNodes = browserNodes;
-    this.signals = signals;
-    this.operations = operations;
-    this.tasks = tasks;
-    this.workflows = workflows;
-    this.applicationLeases = applicationLeases;
-    this.objectMapper = objectMapper;
+    this(
+        sessions,
+        placements,
+        browserNodes,
+        signals,
+        operations,
+        tasks,
+        workflows,
+        applicationLeases,
+        (sessionId, tenantId) -> io.browsercloud.coordinator.BrowserTransactionPolicy.empty(),
+        objectMapper);
   }
 
   @Transactional
@@ -250,17 +283,25 @@ public class SafePointApplicationService {
     if (supportsBrowserTransactionObservation(session.nodeId())) {
       expectedNodeSignals.addAll(BROWSER_TRANSACTION_SIGNALS);
     }
+    var requiresNodeObservation =
+        placements
+            .findById(sessionId)
+            .filter(placement -> !"RELEASED".equals(placement.getState()))
+            .isPresent();
+    var transactionPolicy = browserTransactionPolicies.find(sessionId, tenantId);
+    var requiresTransactionPolicy =
+        !transactionPolicy.paymentSecurityRoutePrefixes().isEmpty()
+            || !transactionPolicy.criticalTransactionRoutePrefixes().isEmpty();
+    var transactionPolicyUnsupported =
+        requiresNodeObservation
+            && requiresTransactionPolicy
+            && !supportsBrowserTransactionPolicy(session.nodeId());
     var nodeSignals =
         signals.findAllBySessionId(sessionId).stream()
             .filter(signal -> NODE_SIGNALS.contains(signal.getSignalType()))
             .filter(this::hasExpectedNodeSource)
             .toList();
 
-    var requiresNodeObservation =
-        placements
-            .findById(sessionId)
-            .filter(placement -> !"RELEASED".equals(placement.getState()))
-            .isPresent();
     var currentNodeSignals =
         nodeSignals.stream()
             .filter(signal -> signal.getContextEpoch() == session.contextEpoch())
@@ -305,6 +346,15 @@ public class SafePointApplicationService {
                   .map(SessionSafetySignalEntity::getExpiresAt)
                   .min(Comparator.naturalOrder())
                   .orElse(null)));
+    }
+    if (transactionPolicyUnsupported) {
+      blockers.add(
+          blocker(
+              "BROWSER_TRANSACTION_POLICY_UNSUPPORTED",
+              "BROWSER_NODE_SAFETY_OBSERVER",
+              "Bound transaction policy requires approved-route-v1 Node capability",
+              null,
+              null));
     }
 
     currentNodeSignals.stream()
@@ -400,7 +450,9 @@ public class SafePointApplicationService {
     var freshness =
         !requiresNodeObservation
             ? "NOT_REQUIRED"
-            : !missingSignalTypes.isEmpty() ? "MISSING" : hasExpiredNodeSignal ? "STALE" : "LIVE";
+            : !missingSignalTypes.isEmpty() || transactionPolicyUnsupported
+                ? "MISSING"
+                : hasExpiredNodeSignal ? "STALE" : "LIVE";
     var safe = blockers.isEmpty();
     return new SessionSafePointView(
         sessionId,
@@ -467,6 +519,13 @@ public class SafePointApplicationService {
   private boolean supportsBrowserTransactionObservation(String nodeId) {
     return nodeHasCapability(
         nodeId, BROWSER_TRANSACTION_CAPABILITY_LABEL, BROWSER_TRANSACTION_CAPABILITY_V1);
+  }
+
+  private boolean supportsBrowserTransactionPolicy(String nodeId) {
+    return nodeHasCapability(
+        nodeId,
+        BROWSER_TRANSACTION_POLICY_CAPABILITY_LABEL,
+        BROWSER_TRANSACTION_POLICY_CAPABILITY_V1);
   }
 
   private boolean nodeHasCapability(String nodeId, String label, String version) {

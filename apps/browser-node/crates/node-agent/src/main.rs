@@ -44,8 +44,8 @@ use session_recorder::{
 };
 use sha2::{Digest, Sha256};
 use state_collector::{
-    diff_states, BrowserStateCollector, CdpStateCollector, CurrentState, DiffOutcome, StateDiff,
-    StateQuality, TabResourcePolicy,
+    diff_states, BrowserStateCollector, BrowserTransactionPolicy, CdpStateCollector, CurrentState,
+    DiffOutcome, StateDiff, StateQuality, TabResourcePolicy,
 };
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -516,6 +516,10 @@ impl NodeCapacityReporter {
         labels.insert(
             "safePointBrowserTransactions".to_owned(),
             "cdp-transaction-v1".to_owned(),
+        );
+        labels.insert(
+            "safePointBrowserTransactionPolicy".to_owned(),
+            "approved-route-v1".to_owned(),
         );
         labels.insert(
             "businessRecoveryActions".to_owned(),
@@ -3057,7 +3061,24 @@ impl NodeControlService {
                                 }
                                 if let Err(error) = self
                                     .state_collector
-                                    .start_safety_monitor(&command.session_id)
+                                    .start_safety_monitor(
+                                        &command.session_id,
+                                        BrowserTransactionPolicy {
+                                            version: payload.browser_transaction_policy_version,
+                                            expected_origins: payload
+                                                .browser_transaction_expected_origins
+                                                .clone(),
+                                            payment_security_route_prefixes: payload
+                                                .payment_security_route_prefixes
+                                                .clone(),
+                                            critical_transaction_route_prefixes: payload
+                                                .critical_transaction_route_prefixes
+                                                .clone(),
+                                            policy_hash: payload
+                                                .browser_transaction_policy_hash
+                                                .clone(),
+                                        },
+                                    )
                                     .await
                                 {
                                     if let Some(gateway) = self.remote_desktop_gateway.as_ref() {

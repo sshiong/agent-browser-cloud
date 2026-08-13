@@ -32,4 +32,6 @@
 1. 启发式不是业务提交成功证明；客户 CRM/支付/IAM 必须接入已有 Application Lease SDK、
    Provider Evidence 和版本化 Recovery Contract。
 2. 仍缺目标 Linux 正式 Chromium 的网络分区、快速短事务、多 Tab、高并发与跨 Node 长稳。
-3. 站点可配置词表、签名 Site Policy 和无语义像素/OCR 事务识别尚未实现。
+3. 站点可配置事务 Path Prefix、版本审批、精确 Session 绑定与 Node 哈希校验已由
+   [进度 137](137-版本化Site-Policy浏览器事务规则闭环.md)完成；无语义像素/OCR
+   事务识别仍未实现。

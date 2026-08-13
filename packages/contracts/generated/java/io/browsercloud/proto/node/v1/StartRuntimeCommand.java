@@ -33,6 +33,13 @@ private static final long serialVersionUID = 0L;
     proxyProviderId_ = "";
     proxyExpectedExitIp_ = "";
     proxyCredentialRef_ = "";
+    browserTransactionExpectedOrigins_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    paymentSecurityRoutePrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    criticalTransactionRoutePrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    browserTransactionPolicyHash_ = "";
   }
 
   @java.lang.Override
@@ -948,6 +955,191 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int BROWSER_TRANSACTION_EXPECTED_ORIGINS_FIELD_NUMBER = 34;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList browserTransactionExpectedOrigins_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @return A list containing the browserTransactionExpectedOrigins.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getBrowserTransactionExpectedOriginsList() {
+    return browserTransactionExpectedOrigins_;
+  }
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @return The count of browserTransactionExpectedOrigins.
+   */
+  public int getBrowserTransactionExpectedOriginsCount() {
+    return browserTransactionExpectedOrigins_.size();
+  }
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @param index The index of the element to return.
+   * @return The browserTransactionExpectedOrigins at the given index.
+   */
+  public java.lang.String getBrowserTransactionExpectedOrigins(int index) {
+    return browserTransactionExpectedOrigins_.get(index);
+  }
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the browserTransactionExpectedOrigins at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getBrowserTransactionExpectedOriginsBytes(int index) {
+    return browserTransactionExpectedOrigins_.getByteString(index);
+  }
+
+  public static final int PAYMENT_SECURITY_ROUTE_PREFIXES_FIELD_NUMBER = 35;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList paymentSecurityRoutePrefixes_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @return A list containing the paymentSecurityRoutePrefixes.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getPaymentSecurityRoutePrefixesList() {
+    return paymentSecurityRoutePrefixes_;
+  }
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @return The count of paymentSecurityRoutePrefixes.
+   */
+  public int getPaymentSecurityRoutePrefixesCount() {
+    return paymentSecurityRoutePrefixes_.size();
+  }
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The paymentSecurityRoutePrefixes at the given index.
+   */
+  public java.lang.String getPaymentSecurityRoutePrefixes(int index) {
+    return paymentSecurityRoutePrefixes_.get(index);
+  }
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the paymentSecurityRoutePrefixes at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getPaymentSecurityRoutePrefixesBytes(int index) {
+    return paymentSecurityRoutePrefixes_.getByteString(index);
+  }
+
+  public static final int CRITICAL_TRANSACTION_ROUTE_PREFIXES_FIELD_NUMBER = 36;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList criticalTransactionRoutePrefixes_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @return A list containing the criticalTransactionRoutePrefixes.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getCriticalTransactionRoutePrefixesList() {
+    return criticalTransactionRoutePrefixes_;
+  }
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @return The count of criticalTransactionRoutePrefixes.
+   */
+  public int getCriticalTransactionRoutePrefixesCount() {
+    return criticalTransactionRoutePrefixes_.size();
+  }
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The criticalTransactionRoutePrefixes at the given index.
+   */
+  public java.lang.String getCriticalTransactionRoutePrefixes(int index) {
+    return criticalTransactionRoutePrefixes_.get(index);
+  }
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the criticalTransactionRoutePrefixes at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getCriticalTransactionRoutePrefixesBytes(int index) {
+    return criticalTransactionRoutePrefixes_.getByteString(index);
+  }
+
+  public static final int BROWSER_TRANSACTION_POLICY_HASH_FIELD_NUMBER = 37;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object browserTransactionPolicyHash_ = "";
+  /**
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * @return The browserTransactionPolicyHash.
+   */
+  @java.lang.Override
+  public java.lang.String getBrowserTransactionPolicyHash() {
+    java.lang.Object ref = browserTransactionPolicyHash_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      browserTransactionPolicyHash_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * @return The bytes for browserTransactionPolicyHash.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getBrowserTransactionPolicyHashBytes() {
+    java.lang.Object ref = browserTransactionPolicyHash_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      browserTransactionPolicyHash_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BROWSER_TRANSACTION_POLICY_VERSION_FIELD_NUMBER = 38;
+  private long browserTransactionPolicyVersion_ = 0L;
+  /**
+   * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+   * @return The browserTransactionPolicyVersion.
+   */
+  @java.lang.Override
+  public long getBrowserTransactionPolicyVersion() {
+    return browserTransactionPolicyVersion_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1060,6 +1252,21 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00002000) != 0)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 33, proxyCredentialRef_);
+    }
+    for (int i = 0; i < browserTransactionExpectedOrigins_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 34, browserTransactionExpectedOrigins_.getRaw(i));
+    }
+    for (int i = 0; i < paymentSecurityRoutePrefixes_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 35, paymentSecurityRoutePrefixes_.getRaw(i));
+    }
+    for (int i = 0; i < criticalTransactionRoutePrefixes_.size(); i++) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 36, criticalTransactionRoutePrefixes_.getRaw(i));
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(browserTransactionPolicyHash_)) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 37, browserTransactionPolicyHash_);
+    }
+    if (browserTransactionPolicyVersion_ != 0L) {
+      output.writeUInt64(38, browserTransactionPolicyVersion_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1196,6 +1403,37 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00002000) != 0)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(33, proxyCredentialRef_);
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < browserTransactionExpectedOrigins_.size(); i++) {
+        dataSize += computeStringSizeNoTag(browserTransactionExpectedOrigins_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getBrowserTransactionExpectedOriginsList().size();
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < paymentSecurityRoutePrefixes_.size(); i++) {
+        dataSize += computeStringSizeNoTag(paymentSecurityRoutePrefixes_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getPaymentSecurityRoutePrefixesList().size();
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < criticalTransactionRoutePrefixes_.size(); i++) {
+        dataSize += computeStringSizeNoTag(criticalTransactionRoutePrefixes_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getCriticalTransactionRoutePrefixesList().size();
+    }
+    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(browserTransactionPolicyHash_)) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(37, browserTransactionPolicyHash_);
+    }
+    if (browserTransactionPolicyVersion_ != 0L) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeUInt64Size(38, browserTransactionPolicyVersion_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1319,6 +1557,16 @@ private static final long serialVersionUID = 0L;
       if (!getProxyCredentialRef()
           .equals(other.getProxyCredentialRef())) return false;
     }
+    if (!getBrowserTransactionExpectedOriginsList()
+        .equals(other.getBrowserTransactionExpectedOriginsList())) return false;
+    if (!getPaymentSecurityRoutePrefixesList()
+        .equals(other.getPaymentSecurityRoutePrefixesList())) return false;
+    if (!getCriticalTransactionRoutePrefixesList()
+        .equals(other.getCriticalTransactionRoutePrefixesList())) return false;
+    if (!getBrowserTransactionPolicyHash()
+        .equals(other.getBrowserTransactionPolicyHash())) return false;
+    if (getBrowserTransactionPolicyVersion()
+        != other.getBrowserTransactionPolicyVersion()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1434,6 +1682,23 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + PROXY_CREDENTIAL_REF_FIELD_NUMBER;
       hash = (53 * hash) + getProxyCredentialRef().hashCode();
     }
+    if (getBrowserTransactionExpectedOriginsCount() > 0) {
+      hash = (37 * hash) + BROWSER_TRANSACTION_EXPECTED_ORIGINS_FIELD_NUMBER;
+      hash = (53 * hash) + getBrowserTransactionExpectedOriginsList().hashCode();
+    }
+    if (getPaymentSecurityRoutePrefixesCount() > 0) {
+      hash = (37 * hash) + PAYMENT_SECURITY_ROUTE_PREFIXES_FIELD_NUMBER;
+      hash = (53 * hash) + getPaymentSecurityRoutePrefixesList().hashCode();
+    }
+    if (getCriticalTransactionRoutePrefixesCount() > 0) {
+      hash = (37 * hash) + CRITICAL_TRANSACTION_ROUTE_PREFIXES_FIELD_NUMBER;
+      hash = (53 * hash) + getCriticalTransactionRoutePrefixesList().hashCode();
+    }
+    hash = (37 * hash) + BROWSER_TRANSACTION_POLICY_HASH_FIELD_NUMBER;
+    hash = (53 * hash) + getBrowserTransactionPolicyHash().hashCode();
+    hash = (37 * hash) + BROWSER_TRANSACTION_POLICY_VERSION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        getBrowserTransactionPolicyVersion());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1614,6 +1879,14 @@ private static final long serialVersionUID = 0L;
       proxyProviderId_ = "";
       proxyExpectedExitIp_ = "";
       proxyCredentialRef_ = "";
+      browserTransactionExpectedOrigins_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      paymentSecurityRoutePrefixes_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      criticalTransactionRoutePrefixes_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      browserTransactionPolicyHash_ = "";
+      browserTransactionPolicyVersion_ = 0L;
       return this;
     }
 
@@ -1770,6 +2043,24 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField1_ & 0x00000001) != 0)) {
         result.proxyCredentialRef_ = proxyCredentialRef_;
         to_bitField0_ |= 0x00002000;
+      }
+      if (((from_bitField1_ & 0x00000002) != 0)) {
+        browserTransactionExpectedOrigins_.makeImmutable();
+        result.browserTransactionExpectedOrigins_ = browserTransactionExpectedOrigins_;
+      }
+      if (((from_bitField1_ & 0x00000004) != 0)) {
+        paymentSecurityRoutePrefixes_.makeImmutable();
+        result.paymentSecurityRoutePrefixes_ = paymentSecurityRoutePrefixes_;
+      }
+      if (((from_bitField1_ & 0x00000008) != 0)) {
+        criticalTransactionRoutePrefixes_.makeImmutable();
+        result.criticalTransactionRoutePrefixes_ = criticalTransactionRoutePrefixes_;
+      }
+      if (((from_bitField1_ & 0x00000010) != 0)) {
+        result.browserTransactionPolicyHash_ = browserTransactionPolicyHash_;
+      }
+      if (((from_bitField1_ & 0x00000020) != 0)) {
+        result.browserTransactionPolicyVersion_ = browserTransactionPolicyVersion_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1943,6 +2234,44 @@ private static final long serialVersionUID = 0L;
         proxyCredentialRef_ = other.proxyCredentialRef_;
         bitField1_ |= 0x00000001;
         onChanged();
+      }
+      if (!other.browserTransactionExpectedOrigins_.isEmpty()) {
+        if (browserTransactionExpectedOrigins_.isEmpty()) {
+          browserTransactionExpectedOrigins_ = other.browserTransactionExpectedOrigins_;
+          bitField1_ |= 0x00000002;
+        } else {
+          ensureBrowserTransactionExpectedOriginsIsMutable();
+          browserTransactionExpectedOrigins_.addAll(other.browserTransactionExpectedOrigins_);
+        }
+        onChanged();
+      }
+      if (!other.paymentSecurityRoutePrefixes_.isEmpty()) {
+        if (paymentSecurityRoutePrefixes_.isEmpty()) {
+          paymentSecurityRoutePrefixes_ = other.paymentSecurityRoutePrefixes_;
+          bitField1_ |= 0x00000004;
+        } else {
+          ensurePaymentSecurityRoutePrefixesIsMutable();
+          paymentSecurityRoutePrefixes_.addAll(other.paymentSecurityRoutePrefixes_);
+        }
+        onChanged();
+      }
+      if (!other.criticalTransactionRoutePrefixes_.isEmpty()) {
+        if (criticalTransactionRoutePrefixes_.isEmpty()) {
+          criticalTransactionRoutePrefixes_ = other.criticalTransactionRoutePrefixes_;
+          bitField1_ |= 0x00000008;
+        } else {
+          ensureCriticalTransactionRoutePrefixesIsMutable();
+          criticalTransactionRoutePrefixes_.addAll(other.criticalTransactionRoutePrefixes_);
+        }
+        onChanged();
+      }
+      if (!other.getBrowserTransactionPolicyHash().isEmpty()) {
+        browserTransactionPolicyHash_ = other.browserTransactionPolicyHash_;
+        bitField1_ |= 0x00000010;
+        onChanged();
+      }
+      if (other.getBrowserTransactionPolicyVersion() != 0L) {
+        setBrowserTransactionPolicyVersion(other.getBrowserTransactionPolicyVersion());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -2138,6 +2467,34 @@ private static final long serialVersionUID = 0L;
               bitField1_ |= 0x00000001;
               break;
             } // case 266
+            case 274: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureBrowserTransactionExpectedOriginsIsMutable();
+              browserTransactionExpectedOrigins_.add(s);
+              break;
+            } // case 274
+            case 282: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensurePaymentSecurityRoutePrefixesIsMutable();
+              paymentSecurityRoutePrefixes_.add(s);
+              break;
+            } // case 282
+            case 290: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureCriticalTransactionRoutePrefixesIsMutable();
+              criticalTransactionRoutePrefixes_.add(s);
+              break;
+            } // case 290
+            case 298: {
+              browserTransactionPolicyHash_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000010;
+              break;
+            } // case 298
+            case 304: {
+              browserTransactionPolicyVersion_ = input.readUInt64();
+              bitField1_ |= 0x00000020;
+              break;
+            } // case 304
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4106,6 +4463,497 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       proxyCredentialRef_ = value;
       bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList browserTransactionExpectedOrigins_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureBrowserTransactionExpectedOriginsIsMutable() {
+      if (!browserTransactionExpectedOrigins_.isModifiable()) {
+        browserTransactionExpectedOrigins_ = new com.google.protobuf.LazyStringArrayList(browserTransactionExpectedOrigins_);
+      }
+      bitField1_ |= 0x00000002;
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @return A list containing the browserTransactionExpectedOrigins.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getBrowserTransactionExpectedOriginsList() {
+      browserTransactionExpectedOrigins_.makeImmutable();
+      return browserTransactionExpectedOrigins_;
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @return The count of browserTransactionExpectedOrigins.
+     */
+    public int getBrowserTransactionExpectedOriginsCount() {
+      return browserTransactionExpectedOrigins_.size();
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @param index The index of the element to return.
+     * @return The browserTransactionExpectedOrigins at the given index.
+     */
+    public java.lang.String getBrowserTransactionExpectedOrigins(int index) {
+      return browserTransactionExpectedOrigins_.get(index);
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the browserTransactionExpectedOrigins at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getBrowserTransactionExpectedOriginsBytes(int index) {
+      return browserTransactionExpectedOrigins_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @param index The index to set the value at.
+     * @param value The browserTransactionExpectedOrigins to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBrowserTransactionExpectedOrigins(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureBrowserTransactionExpectedOriginsIsMutable();
+      browserTransactionExpectedOrigins_.set(index, value);
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @param value The browserTransactionExpectedOrigins to add.
+     * @return This builder for chaining.
+     */
+    public Builder addBrowserTransactionExpectedOrigins(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureBrowserTransactionExpectedOriginsIsMutable();
+      browserTransactionExpectedOrigins_.add(value);
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @param values The browserTransactionExpectedOrigins to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllBrowserTransactionExpectedOrigins(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureBrowserTransactionExpectedOriginsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, browserTransactionExpectedOrigins_);
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBrowserTransactionExpectedOrigins() {
+      browserTransactionExpectedOrigins_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000002);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+     * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+     * observing CDP request metadata; full URLs and request content never leave the Node.
+     * </pre>
+     *
+     * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+     * @param value The bytes of the browserTransactionExpectedOrigins to add.
+     * @return This builder for chaining.
+     */
+    public Builder addBrowserTransactionExpectedOriginsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureBrowserTransactionExpectedOriginsIsMutable();
+      browserTransactionExpectedOrigins_.add(value);
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList paymentSecurityRoutePrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensurePaymentSecurityRoutePrefixesIsMutable() {
+      if (!paymentSecurityRoutePrefixes_.isModifiable()) {
+        paymentSecurityRoutePrefixes_ = new com.google.protobuf.LazyStringArrayList(paymentSecurityRoutePrefixes_);
+      }
+      bitField1_ |= 0x00000004;
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @return A list containing the paymentSecurityRoutePrefixes.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getPaymentSecurityRoutePrefixesList() {
+      paymentSecurityRoutePrefixes_.makeImmutable();
+      return paymentSecurityRoutePrefixes_;
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @return The count of paymentSecurityRoutePrefixes.
+     */
+    public int getPaymentSecurityRoutePrefixesCount() {
+      return paymentSecurityRoutePrefixes_.size();
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @param index The index of the element to return.
+     * @return The paymentSecurityRoutePrefixes at the given index.
+     */
+    public java.lang.String getPaymentSecurityRoutePrefixes(int index) {
+      return paymentSecurityRoutePrefixes_.get(index);
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the paymentSecurityRoutePrefixes at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getPaymentSecurityRoutePrefixesBytes(int index) {
+      return paymentSecurityRoutePrefixes_.getByteString(index);
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @param index The index to set the value at.
+     * @param value The paymentSecurityRoutePrefixes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPaymentSecurityRoutePrefixes(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensurePaymentSecurityRoutePrefixesIsMutable();
+      paymentSecurityRoutePrefixes_.set(index, value);
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @param value The paymentSecurityRoutePrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addPaymentSecurityRoutePrefixes(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensurePaymentSecurityRoutePrefixesIsMutable();
+      paymentSecurityRoutePrefixes_.add(value);
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @param values The paymentSecurityRoutePrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllPaymentSecurityRoutePrefixes(
+        java.lang.Iterable<java.lang.String> values) {
+      ensurePaymentSecurityRoutePrefixesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, paymentSecurityRoutePrefixes_);
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPaymentSecurityRoutePrefixes() {
+      paymentSecurityRoutePrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000004);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+     * @param value The bytes of the paymentSecurityRoutePrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addPaymentSecurityRoutePrefixesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensurePaymentSecurityRoutePrefixesIsMutable();
+      paymentSecurityRoutePrefixes_.add(value);
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList criticalTransactionRoutePrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureCriticalTransactionRoutePrefixesIsMutable() {
+      if (!criticalTransactionRoutePrefixes_.isModifiable()) {
+        criticalTransactionRoutePrefixes_ = new com.google.protobuf.LazyStringArrayList(criticalTransactionRoutePrefixes_);
+      }
+      bitField1_ |= 0x00000008;
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @return A list containing the criticalTransactionRoutePrefixes.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getCriticalTransactionRoutePrefixesList() {
+      criticalTransactionRoutePrefixes_.makeImmutable();
+      return criticalTransactionRoutePrefixes_;
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @return The count of criticalTransactionRoutePrefixes.
+     */
+    public int getCriticalTransactionRoutePrefixesCount() {
+      return criticalTransactionRoutePrefixes_.size();
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @param index The index of the element to return.
+     * @return The criticalTransactionRoutePrefixes at the given index.
+     */
+    public java.lang.String getCriticalTransactionRoutePrefixes(int index) {
+      return criticalTransactionRoutePrefixes_.get(index);
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the criticalTransactionRoutePrefixes at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getCriticalTransactionRoutePrefixesBytes(int index) {
+      return criticalTransactionRoutePrefixes_.getByteString(index);
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @param index The index to set the value at.
+     * @param value The criticalTransactionRoutePrefixes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCriticalTransactionRoutePrefixes(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureCriticalTransactionRoutePrefixesIsMutable();
+      criticalTransactionRoutePrefixes_.set(index, value);
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @param value The criticalTransactionRoutePrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addCriticalTransactionRoutePrefixes(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureCriticalTransactionRoutePrefixesIsMutable();
+      criticalTransactionRoutePrefixes_.add(value);
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @param values The criticalTransactionRoutePrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllCriticalTransactionRoutePrefixes(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureCriticalTransactionRoutePrefixesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, criticalTransactionRoutePrefixes_);
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCriticalTransactionRoutePrefixes() {
+      criticalTransactionRoutePrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField1_ = (bitField1_ & ~0x00000008);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+     * @param value The bytes of the criticalTransactionRoutePrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addCriticalTransactionRoutePrefixesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureCriticalTransactionRoutePrefixesIsMutable();
+      criticalTransactionRoutePrefixes_.add(value);
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object browserTransactionPolicyHash_ = "";
+    /**
+     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * @return The browserTransactionPolicyHash.
+     */
+    public java.lang.String getBrowserTransactionPolicyHash() {
+      java.lang.Object ref = browserTransactionPolicyHash_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        browserTransactionPolicyHash_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * @return The bytes for browserTransactionPolicyHash.
+     */
+    public com.google.protobuf.ByteString
+        getBrowserTransactionPolicyHashBytes() {
+      java.lang.Object ref = browserTransactionPolicyHash_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        browserTransactionPolicyHash_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * @param value The browserTransactionPolicyHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBrowserTransactionPolicyHash(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      browserTransactionPolicyHash_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBrowserTransactionPolicyHash() {
+      browserTransactionPolicyHash_ = getDefaultInstance().getBrowserTransactionPolicyHash();
+      bitField1_ = (bitField1_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+     * @param value The bytes for browserTransactionPolicyHash to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBrowserTransactionPolicyHashBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      browserTransactionPolicyHash_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private long browserTransactionPolicyVersion_ ;
+    /**
+     * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+     * @return The browserTransactionPolicyVersion.
+     */
+    @java.lang.Override
+    public long getBrowserTransactionPolicyVersion() {
+      return browserTransactionPolicyVersion_;
+    }
+    /**
+     * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+     * @param value The browserTransactionPolicyVersion to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBrowserTransactionPolicyVersion(long value) {
+
+      browserTransactionPolicyVersion_ = value;
+      bitField1_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBrowserTransactionPolicyVersion() {
+      bitField1_ = (bitField1_ & ~0x00000020);
+      browserTransactionPolicyVersion_ = 0L;
       onChanged();
       return this;
     }

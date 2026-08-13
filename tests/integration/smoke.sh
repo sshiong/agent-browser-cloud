@@ -709,7 +709,8 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["safePointBrowserTransactions"] == "cdp-transaction-v1"; assert node["labels"]["safePointBrowserTransactionPolicy"] == "approved-route-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+printf 'safe_point_browser_transaction_policy=true\n'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -1178,7 +1179,7 @@ unknown_field_status="$(curl -sS -o "$temp_dir/unknown-field.json" -w '%{http_co
   -d '{"tenantId":"tenant-integration","profileId":"profile-integration","unexpected":true}')"
 test "$unknown_field_status" = "400"
 
-recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"requireDocumentComplete":true,"minimumNetworkQuietMillis":0,"transientBlockerTargets":[{"role":"dialog","name":"Blocking integration dialog"}],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
+recovery_contract_body='{"expectedVersion":0,"expectedOrigins":["HTTPS://EXAMPLE.TEST:443"],"readyRoutePrefixes":["/runtime"],"loginRoutePrefixes":["/sign-in"],"requiredTargets":[{"role":"button","name":"Continue integration"}],"loginTargets":[{"role":"textbox","name":"Email"}],"permissionDeniedTargets":[],"accountMismatchTargets":[],"requiredExtensionIds":[],"requireDocumentComplete":true,"minimumNetworkQuietMillis":0,"transientBlockerTargets":[{"role":"dialog","name":"Blocking integration dialog"}],"paymentSecurityRoutePrefixes":["/API/AUTHORIZE-PAYMENT"],"criticalTransactionRoutePrefixes":["/CRM/CASE/FINALIZE"],"allowDepthLimited":false,"recoveryAction":"RELOAD","maximumAutoRecovery":1,"enabled":true}'
 recovery_contract="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -1186,7 +1187,7 @@ recovery_contract="$(curl -fsS -X PUT \
   -H 'X-Roles: TENANT_ADMIN' \
   -d "$recovery_contract_body")"
 printf '%s' "$recovery_contract" | python3 -c \
-  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["requireDocumentComplete"] is True; assert item["minimumNetworkQuietMillis"] == 0; assert item["transientBlockerTargets"] == [{"role":"dialog","name":"Blocking integration dialog"}]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["approvalState"] == "DRAFT"'
+  'import json,sys; item=json.load(sys.stdin); assert item["applicationId"] == "crm.integration"; assert item["version"] == 1; assert item["expectedOrigins"] == ["https://example.test"]; assert item["readyRoutePrefixes"] == ["/runtime"]; assert item["requiredTargets"] == [{"role":"button","name":"Continue integration"}]; assert item["requireDocumentComplete"] is True; assert item["minimumNetworkQuietMillis"] == 0; assert item["transientBlockerTargets"] == [{"role":"dialog","name":"Blocking integration dialog"}]; assert item["paymentSecurityRoutePrefixes"] == ["/api/authorize-payment"]; assert item["criticalTransactionRoutePrefixes"] == ["/crm/case/finalize"]; assert item["recoveryAction"] == "RELOAD"; assert item["maximumAutoRecovery"] == 1; assert item["approvalState"] == "DRAFT"'
 recovery_contract_replay="$(curl -fsS -X PUT \
   "http://localhost:${control_port}/api/v1/applications/crm.integration/recovery-contract" \
   -H 'Content-Type: application/json' \
@@ -2068,7 +2069,7 @@ tenant_route_replay="$(curl -fsS -X POST \
 printf '%s' "$tenant_route_replay" | python3 -c \
   "import json,sys; assert json.load(sys.stdin)['migrationId'] == '${tenant_route_migration_id}'"
 tenant_route_state=""
-for _ in $(seq 1 40); do
+for _ in $(seq 1 80); do
   tenant_route_state="$(curl -fsS \
     "http://localhost:${control_port}/api/v1/coordinator/tenant-route/migration" \
     -H 'X-Tenant-Id: tenant-integration' \

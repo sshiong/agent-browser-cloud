@@ -37,6 +37,7 @@ class SessionCoordinatorTest {
 
   @Mock private RuntimeResourceLimitsRepository resourceLimitsRepository;
   @Mock private ProxyRuntimeBindingRepository proxyBindingRepository;
+  @Mock private BrowserTransactionPolicyRepository browserTransactionPolicyRepository;
   @Mock private CoordinatorRouteAuthority routeAuthority;
   @Mock private CoordinatorShardLocality shardLocality;
 
@@ -56,9 +57,13 @@ class SessionCoordinatorTest {
             new CoordinatorReconciliationMetrics(meterRegistry),
             resourceLimitsRepository,
             proxyBindingRepository,
+            browserTransactionPolicyRepository,
             routeAuthority,
             shardLocality);
     lenient().when(shardLocality.owns(anyInt())).thenReturn(true);
+    lenient()
+        .when(browserTransactionPolicyRepository.find(anyString(), anyString()))
+        .thenReturn(BrowserTransactionPolicy.empty());
     lenient()
         .when(routeAuthority.resolve(anyString()))
         .thenAnswer(
@@ -151,6 +156,34 @@ class SessionCoordinatorTest {
     ordered.verify(routeAuthority).resolve("ses-1");
     ordered.verify(sessionRepository).lockForUpdate("ses-1");
     ordered.verify(ownershipService).acquireSession("ses-1", 1);
+  }
+
+  @Test
+  void sendsExactVersionBrowserTransactionPolicyOnRuntimeStart() throws Exception {
+    var session = createSession("ses-1", SessionState.CREATED);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(1L);
+    when(browserTransactionPolicyRepository.find("ses-1", "tenant-1"))
+        .thenReturn(
+            new BrowserTransactionPolicy(
+                7,
+                java.util.List.of("https://crm.example.test"),
+                java.util.List.of("/api/authorize"),
+                java.util.List.of("/cases/finalize"),
+                "a".repeat(64)));
+
+    coordinator.handle(new StartSession("ses-1", "runtime-1", "idem-policy"));
+
+    var command = org.mockito.ArgumentCaptor.forClass(NodeCommand.class);
+    verify(nodeCommandGateway).send(command.capture());
+    var payload = StartRuntimeCommand.parseFrom(command.getValue().payload());
+    assertThat(payload.getBrowserTransactionPolicyVersion()).isEqualTo(7);
+    assertThat(payload.getBrowserTransactionExpectedOriginsList())
+        .containsExactly("https://crm.example.test");
+    assertThat(payload.getPaymentSecurityRoutePrefixesList()).containsExactly("/api/authorize");
+    assertThat(payload.getCriticalTransactionRoutePrefixesList())
+        .containsExactly("/cases/finalize");
+    assertThat(payload.getBrowserTransactionPolicyHash()).isEqualTo("a".repeat(64));
   }
 
   @Test

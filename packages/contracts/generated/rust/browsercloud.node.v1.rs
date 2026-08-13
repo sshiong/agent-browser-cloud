@@ -535,6 +535,19 @@ pub struct StartRuntimeCommand {
     pub proxy_expected_exit_ip: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="33")]
     pub proxy_credential_ref: ::core::option::Option<::prost::alloc::string::String>,
+    /// Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+    /// prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+    /// observing CDP request metadata; full URLs and request content never leave the Node.
+    #[prost(string, repeated, tag="34")]
+    pub browser_transaction_expected_origins: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="35")]
+    pub payment_security_route_prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="36")]
+    pub critical_transaction_route_prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="37")]
+    pub browser_transaction_policy_hash: ::prost::alloc::string::String,
+    #[prost(uint64, tag="38")]
+    pub browser_transaction_policy_version: u64,
 }
 /// Runtime 启动事件
 #[allow(clippy::derive_partial_eq_without_eq)]

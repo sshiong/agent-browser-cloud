@@ -69,6 +69,17 @@ public class ApplicationRecoveryContractEntity {
   @Column(name = "transient_blocker_targets", nullable = false, columnDefinition = "jsonb")
   private String transientBlockerTargets;
 
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "payment_security_route_prefixes", nullable = false, columnDefinition = "jsonb")
+  private String paymentSecurityRoutePrefixes = "[]";
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(
+      name = "critical_transaction_route_prefixes",
+      nullable = false,
+      columnDefinition = "jsonb")
+  private String criticalTransactionRoutePrefixes = "[]";
+
   @Column(name = "allow_depth_limited", nullable = false)
   private boolean allowDepthLimited;
 
@@ -300,6 +311,12 @@ public class ApplicationRecoveryContractEntity {
         now);
   }
 
+  public void updateBrowserTransactionRoutes(
+      String paymentSecurityRoutePrefixes, String criticalTransactionRoutePrefixes) {
+    this.paymentSecurityRoutePrefixes = paymentSecurityRoutePrefixes;
+    this.criticalTransactionRoutePrefixes = criticalTransactionRoutePrefixes;
+  }
+
   /** N-1 update retained so old writers produce an empty additive Provider requirement list. */
   public void update(
       String expectedOrigins,
@@ -435,6 +452,14 @@ public class ApplicationRecoveryContractEntity {
 
   public String getTransientBlockerTargets() {
     return transientBlockerTargets;
+  }
+
+  public String getPaymentSecurityRoutePrefixes() {
+    return paymentSecurityRoutePrefixes;
+  }
+
+  public String getCriticalTransactionRoutePrefixes() {
+    return criticalTransactionRoutePrefixes;
   }
 
   public boolean isAllowDepthLimited() {

@@ -462,4 +462,121 @@ public interface StartRuntimeCommandOrBuilder extends
    */
   com.google.protobuf.ByteString
       getProxyCredentialRefBytes();
+
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @return A list containing the browserTransactionExpectedOrigins.
+   */
+  java.util.List<java.lang.String>
+      getBrowserTransactionExpectedOriginsList();
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @return The count of browserTransactionExpectedOrigins.
+   */
+  int getBrowserTransactionExpectedOriginsCount();
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @param index The index of the element to return.
+   * @return The browserTransactionExpectedOrigins at the given index.
+   */
+  java.lang.String getBrowserTransactionExpectedOrigins(int index);
+  /**
+   * <pre>
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   * </pre>
+   *
+   * <code>repeated string browser_transaction_expected_origins = 34 [json_name = "browserTransactionExpectedOrigins"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the browserTransactionExpectedOrigins at the given index.
+   */
+  com.google.protobuf.ByteString
+      getBrowserTransactionExpectedOriginsBytes(int index);
+
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @return A list containing the paymentSecurityRoutePrefixes.
+   */
+  java.util.List<java.lang.String>
+      getPaymentSecurityRoutePrefixesList();
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @return The count of paymentSecurityRoutePrefixes.
+   */
+  int getPaymentSecurityRoutePrefixesCount();
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The paymentSecurityRoutePrefixes at the given index.
+   */
+  java.lang.String getPaymentSecurityRoutePrefixes(int index);
+  /**
+   * <code>repeated string payment_security_route_prefixes = 35 [json_name = "paymentSecurityRoutePrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the paymentSecurityRoutePrefixes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getPaymentSecurityRoutePrefixesBytes(int index);
+
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @return A list containing the criticalTransactionRoutePrefixes.
+   */
+  java.util.List<java.lang.String>
+      getCriticalTransactionRoutePrefixesList();
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @return The count of criticalTransactionRoutePrefixes.
+   */
+  int getCriticalTransactionRoutePrefixesCount();
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The criticalTransactionRoutePrefixes at the given index.
+   */
+  java.lang.String getCriticalTransactionRoutePrefixes(int index);
+  /**
+   * <code>repeated string critical_transaction_route_prefixes = 36 [json_name = "criticalTransactionRoutePrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the criticalTransactionRoutePrefixes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getCriticalTransactionRoutePrefixesBytes(int index);
+
+  /**
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * @return The browserTransactionPolicyHash.
+   */
+  java.lang.String getBrowserTransactionPolicyHash();
+  /**
+   * <code>string browser_transaction_policy_hash = 37 [json_name = "browserTransactionPolicyHash"];</code>
+   * @return The bytes for browserTransactionPolicyHash.
+   */
+  com.google.protobuf.ByteString
+      getBrowserTransactionPolicyHashBytes();
+
+  /**
+   * <code>uint64 browser_transaction_policy_version = 38 [json_name = "browserTransactionPolicyVersion"];</code>
+   * @return The browserTransactionPolicyVersion.
+   */
+  long getBrowserTransactionPolicyVersion();
 }

@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.api.SafePointModels.NodeSafetyObservation;
+import io.browsercloud.coordinator.BrowserTransactionPolicy;
+import io.browsercloud.coordinator.BrowserTransactionPolicyRepository;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
@@ -45,6 +47,8 @@ class SafePointApplicationServiceTest {
   private final DurableWorkflowJpaRepository workflows = mock(DurableWorkflowJpaRepository.class);
   private final SessionSafetyLeaseJpaRepository applicationLeases =
       mock(SessionSafetyLeaseJpaRepository.class);
+  private final BrowserTransactionPolicyRepository browserTransactionPolicies =
+      mock(BrowserTransactionPolicyRepository.class);
   private final SafePointApplicationService service =
       new SafePointApplicationService(
           sessions,
@@ -55,6 +59,7 @@ class SafePointApplicationServiceTest {
           tasks,
           workflows,
           applicationLeases,
+          browserTransactionPolicies,
           new ObjectMapper());
 
   @BeforeEach
@@ -69,6 +74,8 @@ class SafePointApplicationServiceTest {
     when(workflows.findAllBySessionIdAndStateIn(any(), any())).thenReturn(List.of());
     when(applicationLeases.findAllBySessionIdAndContextEpochAndState(any(), anyLong(), any()))
         .thenReturn(List.of());
+    when(browserTransactionPolicies.find(any(), any()))
+        .thenReturn(BrowserTransactionPolicy.empty());
   }
 
   @Test
@@ -217,6 +224,91 @@ class SafePointApplicationServiceTest {
   }
 
   @Test
+  void configuredTransactionPolicyFailsClosedOnNMinusOneNode() {
+    advertiseBrowserTransactionCapability();
+    when(browserTransactionPolicies.find("ses_1234567890abcdef", "tenant-a"))
+        .thenReturn(
+            new BrowserTransactionPolicy(
+                7,
+                List.of("https://crm.example.test"),
+                List.of("/api/authorize"),
+                List.of("/cases/finalize"),
+                "a".repeat(64)));
+    var now = Instant.now();
+    when(signals.findAllBySessionId("ses_1234567890abcdef"))
+        .thenReturn(
+            List.of(
+                signal("ACTIVE_INPUT", false, now),
+                signal("ACTIVE_DRAG", false, now),
+                browserActivitySignal("FILE_UPLOAD_ACTIVE", false, now),
+                browserActivitySignal("FILE_DOWNLOAD_ACTIVE", false, now),
+                browserActivitySignal("FORM_SUBMISSION_ACTIVE", false, now),
+                browserActivitySignal("SPA_MUTATION_ACTIVE", false, now),
+                browserActivitySignal("PAYMENT_OR_SECURITY_ACTIVE", false, now),
+                browserActivitySignal("CRITICAL_TRANSACTION_ACTIVE", false, now)));
+
+    var result = service.assess("ses_1234567890abcdef", "tenant-a");
+
+    assertThat(result.safe()).isFalse();
+    assertThat(result.state()).isEqualTo("UNKNOWN");
+    assertThat(result.dataFreshness()).isEqualTo("MISSING");
+    assertThat(result.blockers())
+        .extracting(blocker -> blocker.code())
+        .containsExactly("BROWSER_TRANSACTION_POLICY_UNSUPPORTED");
+  }
+
+  @Test
+  void configuredTransactionPolicyDoesNotRequireNodeCapabilityBeforeRuntimePlacement() {
+    when(placements.findById("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(browserTransactionPolicies.find("ses_1234567890abcdef", "tenant-a"))
+        .thenReturn(
+            new BrowserTransactionPolicy(
+                7,
+                List.of("https://crm.example.test"),
+                List.of("/api/authorize"),
+                List.of("/cases/finalize"),
+                "a".repeat(64)));
+    when(signals.findAllBySessionId("ses_1234567890abcdef")).thenReturn(List.of());
+
+    var result = service.assess("ses_1234567890abcdef", "tenant-a");
+
+    assertThat(result.safe()).isTrue();
+    assertThat(result.state()).isEqualTo("SAFE");
+    assertThat(result.dataFreshness()).isEqualTo("NOT_REQUIRED");
+    assertThat(result.blockers()).isEmpty();
+  }
+
+  @Test
+  void configuredTransactionPolicyIsSafeOnCapableNodeWithFreshInactiveSignals() {
+    advertiseBrowserTransactionPolicyCapability();
+    when(browserTransactionPolicies.find("ses_1234567890abcdef", "tenant-a"))
+        .thenReturn(
+            new BrowserTransactionPolicy(
+                7,
+                List.of("https://crm.example.test"),
+                List.of("/api/authorize"),
+                List.of("/cases/finalize"),
+                "a".repeat(64)));
+    var now = Instant.now();
+    when(signals.findAllBySessionId("ses_1234567890abcdef"))
+        .thenReturn(
+            List.of(
+                signal("ACTIVE_INPUT", false, now),
+                signal("ACTIVE_DRAG", false, now),
+                browserActivitySignal("FILE_UPLOAD_ACTIVE", false, now),
+                browserActivitySignal("FILE_DOWNLOAD_ACTIVE", false, now),
+                browserActivitySignal("FORM_SUBMISSION_ACTIVE", false, now),
+                browserActivitySignal("SPA_MUTATION_ACTIVE", false, now),
+                browserActivitySignal("PAYMENT_OR_SECURITY_ACTIVE", false, now),
+                browserActivitySignal("CRITICAL_TRANSACTION_ACTIVE", false, now)));
+
+    var result = service.assess("ses_1234567890abcdef", "tenant-a");
+
+    assertThat(result.safe()).isTrue();
+    assertThat(result.state()).isEqualTo("SAFE");
+  }
+
+  @Test
   void activeApplicationPaymentLeaseBlocksMigration() {
     var now = Instant.now();
     when(signals.findAllBySessionId("ses_1234567890abcdef"))
@@ -322,6 +414,16 @@ class SafePointApplicationServiceTest {
             "{\"safePointBrowserActivity\":\"cdp-network-v1\","
                 + "\"safePointBrowserTransactions\":\"cdp-transaction-v1\","
                 + "\"resourceEnforcement\":\"cgroup-v2\"}");
+    when(browserNodes.findById("node-a")).thenReturn(Optional.of(node));
+  }
+
+  private void advertiseBrowserTransactionPolicyCapability() {
+    var node = mock(BrowserNodeEntity.class);
+    when(node.getLabels())
+        .thenReturn(
+            "{\"safePointBrowserActivity\":\"cdp-network-v1\","
+                + "\"safePointBrowserTransactions\":\"cdp-transaction-v1\","
+                + "\"safePointBrowserTransactionPolicy\":\"approved-route-v1\"}");
     when(browserNodes.findById("node-a")).thenReturn(Optional.of(node));
   }
 

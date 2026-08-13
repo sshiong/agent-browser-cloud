@@ -100,6 +100,8 @@ const formSchema = z
     requireDocumentComplete: z.boolean(),
     minimumNetworkQuietMillis: z.number().int().min(0).max(30_000),
     transientBlockerTargets: z.array(targetSchema).max(32),
+    paymentSecurityRoutePrefixes: z.string(),
+    criticalTransactionRoutePrefixes: z.string(),
     allowDepthLimited: z.boolean(),
     recoveryAction: z.enum([
       'NONE',
@@ -129,7 +131,12 @@ const formSchema = z
       });
     }
 
-    for (const field of ['readyRoutePrefixes', 'loginRoutePrefixes'] as const) {
+    for (const field of [
+      'readyRoutePrefixes',
+      'loginRoutePrefixes',
+      'paymentSecurityRoutePrefixes',
+      'criticalTransactionRoutePrefixes',
+    ] as const) {
       const routes = parseContractLines(values[field]);
       if (
         routes.length > 32 ||
@@ -897,6 +904,56 @@ function ContractEditor({
                 alert / Upload failed
               </span>
               。 命中后返回 STATE_CHANGED，不把 Toast 消失前的页面误判为 Ready。
+            </p>
+          </div>
+        </section>
+
+        <section className="border border-border-subtle bg-surface-2">
+          <div className="flex flex-col gap-2 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-[11px] font-semibold text-text-primary">
+                Browser Transaction Site Policy
+              </h3>
+              <p className="mt-1 max-w-2xl text-[9px] leading-4 text-text-muted">
+                扩展平台内置事务识别。规则仅在上方已批准 Origin
+                精确匹配时生效；Node 只在内存读取 URL Path，查询参数、请求体和
+                Header 不上传。
+              </p>
+            </div>
+            <span className="font-mono text-[9px] text-warning">
+              APPROVAL REQUIRED
+            </span>
+          </div>
+          <div className="grid gap-4 p-4 lg:grid-cols-2">
+            <Field
+              label="Payment / Account Security Routes"
+              hint="每行一个小写路径前缀，最多 32 项。"
+              error={errors.paymentSecurityRoutePrefixes?.message}
+            >
+              <textarea
+                {...register('paymentSecurityRoutePrefixes')}
+                className="min-h-24 w-full resize-y border border-border-subtle bg-surface-1 px-3 py-2 font-mono text-[10px] leading-5 text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+                placeholder={
+                  '/api/v2/authorize-payment\n/account/security/rotate-key'
+                }
+              />
+            </Field>
+            <Field
+              label="Critical Transaction Routes"
+              hint="用于订单提交、预订确认等业务关键写路径。"
+              error={errors.criticalTransactionRoutePrefixes?.message}
+            >
+              <textarea
+                {...register('criticalTransactionRoutePrefixes')}
+                className="min-h-24 w-full resize-y border border-border-subtle bg-surface-1 px-3 py-2 font-mono text-[10px] leading-5 text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+                placeholder={'/crm/v3/case/finalize\n/reservations/lock'}
+              />
+            </Field>
+            <p className="text-[9px] leading-4 text-text-muted lg:col-span-2">
+              路径前缀按 segment 边界匹配：
+              <span className="font-mono text-text-secondary"> /pay </span>
+              会匹配 /pay/confirm，但不会匹配 /payload。保存后形成新
+              Revision，并恢复为 DRAFT；必须由第二位管理员重新批准。
             </p>
           </div>
         </section>

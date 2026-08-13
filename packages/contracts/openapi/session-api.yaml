@@ -8297,6 +8297,24 @@ components:
           description: Exact accessible role and name indicators for transient Toast or Dialog blockers.
           items:
             $ref: "#/components/schemas/RecoveryTargetIndicator"
+        paymentSecurityRoutePrefixes:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          description: Approved lower-case URL-path prefixes for payment or account-security writes.
+          items:
+            type: string
+            maxLength: 512
+            pattern: "^/[^?#]*$"
+        criticalTransactionRoutePrefixes:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          description: Approved lower-case URL-path prefixes for critical business transactions.
+          items:
+            type: string
+            maxLength: 512
+            pattern: "^/[^?#]*$"
         allowDepthLimited:
           type: boolean
         recoveryAction:
@@ -8331,6 +8349,8 @@ components:
         - requireDocumentComplete
         - minimumNetworkQuietMillis
         - transientBlockerTargets
+        - paymentSecurityRoutePrefixes
+        - criticalTransactionRoutePrefixes
         - allowDepthLimited
         - recoveryAction
         - maximumAutoRecovery
@@ -8404,6 +8424,16 @@ components:
           maxItems: 32
           items:
             $ref: "#/components/schemas/RecoveryTargetIndicator"
+        paymentSecurityRoutePrefixes:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+        criticalTransactionRoutePrefixes:
+          type: array
+          maxItems: 32
+          items:
+            type: string
         allowDepthLimited:
           type: boolean
         recoveryAction:
@@ -8490,6 +8520,8 @@ components:
             - requireDocumentComplete
             - minimumNetworkQuietMillis
             - transientBlockerTargets
+            - paymentSecurityRoutePrefixes
+            - criticalTransactionRoutePrefixes
             - allowDepthLimited
             - recoveryAction
             - recoveryExtensionId

@@ -6,7 +6,7 @@ mod safety_monitor;
 
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
-pub use safety_monitor::BrowserSafetyObservation;
+pub use safety_monitor::{BrowserSafetyObservation, BrowserTransactionPolicy};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -408,7 +408,12 @@ impl CdpStateCollector {
     /// 观察器在独立 Browser WebSocket 上运行，不阻塞 State/Resource 的周期采集。
     /// 一旦已经建立过的观察连接丢失，本代 Runtime 会保持 fail-closed，不会把重连后的
     /// 不完整请求集合误报为“无上传/下载”。
-    pub async fn start_safety_monitor(&self, session_id: &str) -> anyhow::Result<()> {
+    pub async fn start_safety_monitor(
+        &self,
+        session_id: &str,
+        transaction_policy: BrowserTransactionPolicy,
+    ) -> anyhow::Result<()> {
+        transaction_policy.validate()?;
         let endpoint = self.endpoint(session_id).await?;
         if let Some(previous) = self.safety_monitors.lock().await.remove(session_id) {
             previous.abort();
@@ -420,6 +425,7 @@ impl CdpStateCollector {
         let monitor = safety_monitor::spawn(
             session_id.to_owned(),
             endpoint,
+            transaction_policy,
             Arc::clone(&self.safety_observations),
         );
         self.safety_monitors
@@ -2949,7 +2955,7 @@ mod tests {
         }
         assert!(ready, "real Chromium CDP did not become ready");
         collector
-            .start_safety_monitor("ses_real_chromium")
+            .start_safety_monitor("ses_real_chromium", BrowserTransactionPolicy::default())
             .await
             .unwrap();
         let mut safety_observer_ready = false;

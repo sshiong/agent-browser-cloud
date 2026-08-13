@@ -43,6 +43,7 @@ public final class SessionCoordinator {
   private final CoordinatorReconciliationMetrics reconciliationMetrics;
   private final RuntimeResourceLimitsRepository resourceLimitsRepository;
   private final ProxyRuntimeBindingRepository proxyBindingRepository;
+  private final BrowserTransactionPolicyRepository browserTransactionPolicyRepository;
   private final CoordinatorRouteAuthority routeAuthority;
   private final CoordinatorShardLocality shardLocality;
 
@@ -55,6 +56,7 @@ public final class SessionCoordinator {
       CoordinatorReconciliationMetrics reconciliationMetrics,
       RuntimeResourceLimitsRepository resourceLimitsRepository,
       ProxyRuntimeBindingRepository proxyBindingRepository,
+      BrowserTransactionPolicyRepository browserTransactionPolicyRepository,
       CoordinatorRouteAuthority routeAuthority,
       CoordinatorShardLocality shardLocality) {
     this.sessionRepository = sessionRepository;
@@ -65,8 +67,35 @@ public final class SessionCoordinator {
     this.reconciliationMetrics = reconciliationMetrics;
     this.resourceLimitsRepository = resourceLimitsRepository;
     this.proxyBindingRepository = proxyBindingRepository;
+    this.browserTransactionPolicyRepository = browserTransactionPolicyRepository;
     this.routeAuthority = routeAuthority;
     this.shardLocality = shardLocality;
+  }
+
+  /** N-1 source compatibility for callers that predate Browser transaction Site Policy. */
+  public SessionCoordinator(
+      SessionRepository sessionRepository,
+      OperationRepository operationRepository,
+      NodeCommandGateway nodeCommandGateway,
+      OutboxPublisher outboxPublisher,
+      CoordinatorOwnershipService ownershipService,
+      CoordinatorReconciliationMetrics reconciliationMetrics,
+      RuntimeResourceLimitsRepository resourceLimitsRepository,
+      ProxyRuntimeBindingRepository proxyBindingRepository,
+      CoordinatorRouteAuthority routeAuthority,
+      CoordinatorShardLocality shardLocality) {
+    this(
+        sessionRepository,
+        operationRepository,
+        nodeCommandGateway,
+        outboxPublisher,
+        ownershipService,
+        reconciliationMetrics,
+        resourceLimitsRepository,
+        proxyBindingRepository,
+        (sessionId, tenantId) -> BrowserTransactionPolicy.empty(),
+        routeAuthority,
+        shardLocality);
   }
 
   /** Compatibility constructor for isolated domain tests without physical worker membership. */
@@ -88,6 +117,7 @@ public final class SessionCoordinator {
         reconciliationMetrics,
         resourceLimitsRepository,
         (sessionId, bindingId) -> Optional.empty(),
+        (sessionId, tenantId) -> BrowserTransactionPolicy.empty(),
         routeAuthority,
         ignored -> true);
   }
@@ -112,6 +142,7 @@ public final class SessionCoordinator {
         reconciliationMetrics,
         resourceLimitsRepository,
         (sessionId, bindingId) -> Optional.empty(),
+        (sessionId, tenantId) -> BrowserTransactionPolicy.empty(),
         routeAuthority,
         shardLocality);
   }
@@ -298,9 +329,8 @@ public final class SessionCoordinator {
             command.requestedRuntimeBuildId(),
             command.resourceLimits(),
             command.profileCheckpointId(),
-            proxyBindingRepository
-                .find(session.sessionId(), session.proxyBindingId())
-                .orElse(null)));
+            proxyBindingRepository.find(session.sessionId(), session.proxyBindingId()).orElse(null),
+            browserTransactionPolicyRepository.find(session.sessionId(), session.tenantId())));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.STARTING));
 
     log.info(
@@ -632,7 +662,8 @@ public final class SessionCoordinator {
                 null,
                 proxyBindingRepository
                     .find(session.sessionId(), session.proxyBindingId())
-                    .orElse(null)));
+                    .orElse(null),
+                browserTransactionPolicyRepository.find(session.sessionId(), session.tenantId())));
         outboxPublisher.append(
             new SessionStateChanged(session.sessionId(), SessionState.RECOVERING));
 

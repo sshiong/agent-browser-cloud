@@ -1935,6 +1935,35 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
    */
   proxyCredentialRef?: string;
 
+  /**
+   * Exact-version, approved Application Recovery Contract Site Policy. Only normalized URL-path
+   * prefixes are transmitted. The Node validates the bounded rules and canonical SHA-256 before
+   * observing CDP request metadata; full URLs and request content never leave the Node.
+   *
+   * @generated from field: repeated string browser_transaction_expected_origins = 34;
+   */
+  browserTransactionExpectedOrigins: string[] = [];
+
+  /**
+   * @generated from field: repeated string payment_security_route_prefixes = 35;
+   */
+  paymentSecurityRoutePrefixes: string[] = [];
+
+  /**
+   * @generated from field: repeated string critical_transaction_route_prefixes = 36;
+   */
+  criticalTransactionRoutePrefixes: string[] = [];
+
+  /**
+   * @generated from field: string browser_transaction_policy_hash = 37;
+   */
+  browserTransactionPolicyHash = "";
+
+  /**
+   * @generated from field: uint64 browser_transaction_policy_version = 38;
+   */
+  browserTransactionPolicyVersion = protoInt64.zero;
+
   constructor(data?: PartialMessage<StartRuntimeCommand>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1976,6 +2005,11 @@ export class StartRuntimeCommand extends Message<StartRuntimeCommand> {
     { no: 31, name: "proxy_provider_id", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 32, name: "proxy_expected_exit_ip", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 33, name: "proxy_credential_ref", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 34, name: "browser_transaction_expected_origins", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 35, name: "payment_security_route_prefixes", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 36, name: "critical_transaction_route_prefixes", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 37, name: "browser_transaction_policy_hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 38, name: "browser_transaction_policy_version", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StartRuntimeCommand {

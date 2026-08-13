@@ -10,6 +10,92 @@ use tokio_tungstenite::tungstenite::Message;
 
 const MAX_NETWORK_QUIET_MILLIS: u64 = 300_000;
 const TRANSACTION_SETTLE_WINDOW: Duration = Duration::from_secs(10);
+const MAX_POLICY_RULES: usize = 32;
+const MAX_POLICY_VALUE_BYTES: usize = 512;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BrowserTransactionPolicy {
+    pub version: u64,
+    pub expected_origins: Vec<String>,
+    pub payment_security_route_prefixes: Vec<String>,
+    pub critical_transaction_route_prefixes: Vec<String>,
+    pub policy_hash: String,
+}
+
+impl BrowserTransactionPolicy {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let empty = self.version == 0
+            && self.expected_origins.is_empty()
+            && self.payment_security_route_prefixes.is_empty()
+            && self.critical_transaction_route_prefixes.is_empty()
+            && self.policy_hash.is_empty();
+        if empty {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            self.version > 0,
+            "transaction policy version must be positive"
+        );
+        anyhow::ensure!(
+            !self.expected_origins.is_empty()
+                && self.expected_origins.len() <= 16
+                && self.payment_security_route_prefixes.len() <= MAX_POLICY_RULES
+                && self.critical_transaction_route_prefixes.len() <= MAX_POLICY_RULES,
+            "transaction policy rule count is invalid"
+        );
+        anyhow::ensure!(
+            sorted_unique(&self.expected_origins)
+                && sorted_unique(&self.payment_security_route_prefixes)
+                && sorted_unique(&self.critical_transaction_route_prefixes),
+            "transaction policy rules must be canonical"
+        );
+        anyhow::ensure!(
+            self.expected_origins.iter().all(|value| {
+                value.len() <= MAX_POLICY_VALUE_BYTES
+                    && normalized_origin(value).as_deref() == Some(value)
+            }),
+            "transaction policy origin is invalid"
+        );
+        anyhow::ensure!(
+            self.payment_security_route_prefixes
+                .iter()
+                .chain(self.critical_transaction_route_prefixes.iter())
+                .all(|value| valid_route_prefix(value)),
+            "transaction policy route prefix is invalid"
+        );
+        anyhow::ensure!(
+            self.policy_hash.len() == 64
+                && self
+                    .policy_hash
+                    .bytes()
+                    .all(|value| value.is_ascii_hexdigit())
+                && self.policy_hash == self.canonical_hash(),
+            "transaction policy hash is invalid"
+        );
+        Ok(())
+    }
+
+    fn canonical_hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut value = format!("browser-transaction-policy-v1\n{}\n", self.version);
+        for origin in &self.expected_origins {
+            value.push_str("O:");
+            value.push_str(origin);
+            value.push('\n');
+        }
+        for route in &self.payment_security_route_prefixes {
+            value.push_str("P:");
+            value.push_str(route);
+            value.push('\n');
+        }
+        for route in &self.critical_transaction_route_prefixes {
+            value.push_str("C:");
+            value.push_str(route);
+            value.push('\n');
+        }
+        format!("{:x}", Sha256::digest(value.as_bytes()))
+    }
+}
 
 /// Browser Node 从持续 CDP 事件流读取的安全点活动快照。
 ///
@@ -204,6 +290,7 @@ fn extend_deadline(deadline: &mut Option<Instant>, next: Instant) {
 pub(crate) fn spawn(
     session_id: String,
     endpoint: String,
+    transaction_policy: BrowserTransactionPolicy,
     observations: Arc<RwLock<HashMap<String, BrowserSafetyObservation>>>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -226,8 +313,14 @@ pub(crate) fn spawn(
                 last_network_activity: Some(Instant::now()),
                 ..ActivityTracker::default()
             };
-            let result =
-                observe_browser(&websocket_url, &session_id, &observations, &mut tracker).await;
+            let result = observe_browser(
+                &websocket_url,
+                &session_id,
+                &observations,
+                &mut tracker,
+                &transaction_policy,
+            )
+            .await;
             established_once |= tracker.was_fresh;
             publish(
                 &observations,
@@ -273,6 +366,7 @@ async fn observe_browser(
     session_id: &str,
     observations: &Arc<RwLock<HashMap<String, BrowserSafetyObservation>>>,
     tracker: &mut ActivityTracker,
+    transaction_policy: &BrowserTransactionPolicy,
 ) -> anyhow::Result<()> {
     let (mut socket, _) = timeout(
         Duration::from_secs(3),
@@ -424,24 +518,31 @@ async fn observe_browser(
                     let spa_mutation = mutation && matches!(resource_type, "Fetch" | "XHR");
                     // Inspect only the route while the CDP event is in memory. Neither the URL,
                     // query string, headers nor body cross the Node boundary.
-                    let route = request
+                    let request_url = request
                         .get("url")
                         .and_then(serde_json::Value::as_str)
-                        .map(request_route)
-                        .filter(|route| route.len() <= 2_048)
-                        .unwrap_or_default()
+                        .unwrap_or_default();
+                    let route = request_route(request_url)
+                        .chars()
+                        .take(2_048)
+                        .collect::<String>()
                         .to_ascii_lowercase();
                     let payment_or_security = mutation
-                        && route_matches(
+                        && (route_matches(
                             &route,
                             &[
                                 "checkout", "payment", "billing", "purchase", "transfer", "wallet",
                                 "account", "password", "security", "mfa", "2fa", "otp", "webauthn",
                                 "login", "signin",
                             ],
-                        );
+                        ) || policy_route_matches(
+                            request_url,
+                            &route,
+                            &transaction_policy.expected_origins,
+                            &transaction_policy.payment_security_route_prefixes,
+                        ));
                     let critical_transaction = mutation
-                        && route_matches(
+                        && (route_matches(
                             &route,
                             &[
                                 "commit",
@@ -456,7 +557,12 @@ async fn observe_browser(
                                 "payment",
                                 "execute",
                             ],
-                        );
+                        ) || policy_route_matches(
+                            request_url,
+                            &route,
+                            &transaction_policy.expected_origins,
+                            &transaction_policy.critical_transaction_route_prefixes,
+                        ));
                     tracker.requests.insert(
                         (cdp_session.to_owned(), request_id.to_owned()),
                         RequestActivity {
@@ -582,6 +688,57 @@ fn route_matches(route: &str, terms: &[&str]) -> bool {
         .any(|segment| !segment.is_empty() && terms.contains(&segment))
 }
 
+fn prefix_matches(route: &str, prefixes: &[String]) -> bool {
+    prefixes.iter().any(|prefix| {
+        route == prefix
+            || (route.starts_with(prefix)
+                && (prefix.ends_with('/')
+                    || route.as_bytes().get(prefix.len()).copied() == Some(b'/')))
+    })
+}
+
+fn policy_route_matches(
+    request_url: &str,
+    route: &str,
+    expected_origins: &[String],
+    prefixes: &[String],
+) -> bool {
+    normalized_origin(request_url).is_some_and(|origin| expected_origins.contains(&origin))
+        && prefix_matches(route, prefixes)
+}
+
+fn valid_route_prefix(value: &str) -> bool {
+    value.len() <= MAX_POLICY_VALUE_BYTES
+        && value.starts_with('/')
+        && !value.contains("..")
+        && !value.contains(['?', '#'])
+        && value == value.to_ascii_lowercase()
+}
+
+fn sorted_unique(values: &[String]) -> bool {
+    values.windows(2).all(|pair| pair[0] < pair[1])
+}
+
+fn normalized_origin(url: &str) -> Option<String> {
+    let parsed = reqwest::Url::parse(url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+    {
+        return None;
+    }
+    let host = parsed.host_str()?.to_ascii_lowercase();
+    let port = parsed.port();
+    let default_port = matches!(
+        (parsed.scheme(), port),
+        ("http", Some(80)) | ("https", Some(443))
+    );
+    Some(match port.filter(|_| !default_port) {
+        Some(port) => format!("{}://{}:{}", parsed.scheme(), host, port),
+        None => format!("{}://{}", parsed.scheme(), host),
+    })
+}
+
 async fn publish(
     observations: &Arc<RwLock<HashMap<String, BrowserSafetyObservation>>>,
     session_id: &str,
@@ -662,6 +819,51 @@ mod tests {
             &["payment"]
         ));
         assert_eq!(request_route("https://payment.example.test"), "");
+    }
+
+    #[test]
+    fn validates_origin_scoped_transaction_policy_and_rejects_tampering() {
+        let mut policy = BrowserTransactionPolicy {
+            version: 7,
+            expected_origins: vec!["https://crm.example.test".to_owned()],
+            payment_security_route_prefixes: vec!["/api/authorize".to_owned()],
+            critical_transaction_route_prefixes: vec!["/cases/finalize".to_owned()],
+            policy_hash: String::new(),
+        };
+        policy.policy_hash = policy.canonical_hash();
+        policy.validate().unwrap();
+
+        assert!(prefix_matches(
+            "/api/authorize/confirm",
+            &policy.payment_security_route_prefixes
+        ));
+        assert!(!prefix_matches(
+            "/api/authorize-token",
+            &policy.payment_security_route_prefixes
+        ));
+        assert_eq!(
+            normalized_origin("https://CRM.EXAMPLE.TEST:443/api/authorize?secret=x"),
+            Some("https://crm.example.test".to_owned())
+        );
+        assert_ne!(
+            normalized_origin("https://other.example.test/api/authorize"),
+            policy.expected_origins.first().cloned()
+        );
+        assert!(policy_route_matches(
+            "https://crm.example.test/api/authorize/confirm?secret=x",
+            "/api/authorize/confirm",
+            &policy.expected_origins,
+            &policy.payment_security_route_prefixes,
+        ));
+        assert!(!policy_route_matches(
+            "https://other.example.test/api/authorize/confirm",
+            "/api/authorize/confirm",
+            &policy.expected_origins,
+            &policy.payment_security_route_prefixes,
+        ));
+
+        policy.critical_transaction_route_prefixes = vec!["/tampered".to_owned()];
+        assert!(policy.validate().is_err());
     }
 
     #[test]
@@ -864,6 +1066,7 @@ mod tests {
         let monitor = spawn(
             "ses_safety".to_owned(),
             format!("http://{http_address}"),
+            BrowserTransactionPolicy::default(),
             Arc::clone(&observations),
         );
         let mut active = None;

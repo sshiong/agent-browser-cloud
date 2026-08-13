@@ -981,6 +981,8 @@ class UpsertRecoveryContractRequest(TypedDict, total=False):
     requireDocumentComplete: bool
     minimumNetworkQuietMillis: int
     transientBlockerTargets: list[RecoveryTargetIndicator]
+    paymentSecurityRoutePrefixes: list[str]
+    criticalTransactionRoutePrefixes: list[str]
     allowDepthLimited: bool
     recoveryAction: Literal['NONE', 'RELOAD', 'NAVIGATE_HOME', 'REOPEN_KNOWN_ROUTE', 'REFRESH_SESSION', 'RESTART_EXTENSION']
     recoveryExtensionId: Any
@@ -1003,6 +1005,8 @@ class RecoveryContract(TypedDict, total=False):
     requireDocumentComplete: bool
     minimumNetworkQuietMillis: int
     transientBlockerTargets: list[RecoveryTargetIndicator]
+    paymentSecurityRoutePrefixes: list[str]
+    criticalTransactionRoutePrefixes: list[str]
     allowDepthLimited: bool
     recoveryAction: Literal['NONE', 'RELOAD', 'NAVIGATE_HOME', 'REOPEN_KNOWN_ROUTE', 'REFRESH_SESSION', 'RESTART_EXTENSION']
     recoveryExtensionId: Any
@@ -1027,7 +1031,7 @@ class RecoveryContractRevisionListResponse(TypedDict, total=False):
     currentVersion: int
 
 class RecoveryContractFieldChange(TypedDict, total=False):
-    field: Literal['expectedOrigins', 'readyRoutePrefixes', 'loginRoutePrefixes', 'requiredTargets', 'loginTargets', 'permissionDeniedTargets', 'accountMismatchTargets', 'requiredExtensionIds', 'requiredProviderEvidence', 'requireDocumentComplete', 'minimumNetworkQuietMillis', 'transientBlockerTargets', 'allowDepthLimited', 'recoveryAction', 'recoveryExtensionId', 'maximumAutoRecovery', 'enabled']
+    field: Literal['expectedOrigins', 'readyRoutePrefixes', 'loginRoutePrefixes', 'requiredTargets', 'loginTargets', 'permissionDeniedTargets', 'accountMismatchTargets', 'requiredExtensionIds', 'requiredProviderEvidence', 'requireDocumentComplete', 'minimumNetworkQuietMillis', 'transientBlockerTargets', 'paymentSecurityRoutePrefixes', 'criticalTransactionRoutePrefixes', 'allowDepthLimited', 'recoveryAction', 'recoveryExtensionId', 'maximumAutoRecovery', 'enabled']
     changeType: Literal['MODIFIED']
     beforeValue: str
     afterValue: str

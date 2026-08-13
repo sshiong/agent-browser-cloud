@@ -206,6 +206,8 @@ export interface RecoveryContractView {
   requireDocumentComplete: boolean;
   minimumNetworkQuietMillis: number;
   transientBlockerTargets: RecoveryTargetIndicator[];
+  paymentSecurityRoutePrefixes: string[];
+  criticalTransactionRoutePrefixes: string[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId?: string;
@@ -268,6 +270,8 @@ export interface UpsertRecoveryContractRequest {
   requireDocumentComplete?: boolean;
   minimumNetworkQuietMillis?: number;
   transientBlockerTargets?: RecoveryTargetIndicator[];
+  paymentSecurityRoutePrefixes?: string[];
+  criticalTransactionRoutePrefixes?: string[];
   allowDepthLimited: boolean;
   recoveryAction: BusinessRecoveryAction;
   recoveryExtensionId?: string;

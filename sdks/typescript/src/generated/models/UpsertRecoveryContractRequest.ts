@@ -27,6 +27,14 @@ export type UpsertRecoveryContractRequest = {
      * Exact accessible role and name indicators for transient Toast or Dialog blockers.
      */
     transientBlockerTargets?: Array<RecoveryTargetIndicator>;
+    /**
+     * Approved lower-case URL-path prefixes for payment or account-security writes.
+     */
+    paymentSecurityRoutePrefixes?: Array<string>;
+    /**
+     * Approved lower-case URL-path prefixes for critical business transactions.
+     */
+    criticalTransactionRoutePrefixes?: Array<string>;
     allowDepthLimited: boolean;
     recoveryAction?: 'NONE' | 'RELOAD' | 'NAVIGATE_HOME' | 'REOPEN_KNOWN_ROUTE' | 'REFRESH_SESSION' | 'RESTART_EXTENSION';
     /**

@@ -6160,6 +6160,28 @@ key_rotation_audit_result="$(curl -fsS \
 printf '%s' "$key_rotation_audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 5; assert len(result["items"]) == 5; assert {item["action"] for item in result["items"]} == {"KEY_ROTATION_REQUESTED","KEY_ROTATION_APPROVAL_DENIED","KEY_ROTATION_APPROVED","KEY_ROTATION_COMPLETION_DENIED","KEY_ROTATION_COMPLETED"}'
 
+secure_debug_notification_actions="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select coalesce(string_agg(distinct action, ',' order by action), '')
+     from workspace_notifications
+    where tenant_id='tenant-integration'
+      and category='SECURITY'
+      and action like 'SECURE_DEBUG_%'")"
+case ",${secure_debug_notification_actions}," in
+  *,SECURE_DEBUG_STARTED,*) ;;
+  *) echo "SECURE_DEBUG_STARTED missing from notifications: ${secure_debug_notification_actions}" >&2; exit 1 ;;
+esac
+case ",${secure_debug_notification_actions}," in
+  *,SECURE_DEBUG_SNAPSHOT_ACCESSED,*) ;;
+  *) echo "SECURE_DEBUG_SNAPSHOT_ACCESSED missing from notifications: ${secure_debug_notification_actions}" >&2; exit 1 ;;
+esac
+secure_debug_start_classification="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select category || ':' || severity
+     from workspace_notifications
+    where tenant_id='tenant-integration' and action='SECURE_DEBUG_STARTED'
+    order by audit_sequence_no
+    limit 1")"
+test "$secure_debug_start_classification" = "SECURITY:INFO"
+
 notification_feed="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/notifications?limit=30" \
   -H 'X-Tenant-Id: platform-control' \

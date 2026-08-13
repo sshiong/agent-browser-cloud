@@ -12,7 +12,7 @@ import {
   Unplug,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import { TopContextBar } from '@/components/layout/TopContextBar';
@@ -62,18 +62,14 @@ export function RemoteDesktopPage() {
     takeover && session.currentOperation?.actorId === currentActorId();
   const takeoverHeldByOther = takeover && !takeoverOwned;
   const runtimeReady = ['RUNNING', 'DEGRADED'].includes(session?.state ?? '');
-  const ready = takeover
-    ? takeoverOwned && session.currentOperation?.phase === 'EXECUTING'
-    : runtimeReady;
+  const ready = runtimeReady;
   const agentActive = session?.currentOperation?.ownerType === 'AGENT';
   const canRevokeParticipants = hasAnyRole(getRuntimeIdentity()?.roles ?? [], [
     'TENANT_ADMIN',
     'SECURITY_ADMIN',
     'PLATFORM_ADMIN',
   ]);
-  const bindingEpoch = takeover
-    ? (session?.currentOperation?.operationEpoch ?? 0)
-    : (session?.contextEpoch ?? 0);
+  const bindingEpoch = session?.contextEpoch ?? 0;
   const release = async () => {
     try {
       await releaseMutation.mutateAsync();
@@ -81,12 +77,6 @@ export function RemoteDesktopPage() {
       // The structured mutation error is rendered in the safety rail.
     }
   };
-  const releaseAfterDisconnect = useCallback(() => {
-    if (takeoverOwned && !releaseMutation.isPending) {
-      void releaseMutation.mutateAsync().catch(() => undefined);
-    }
-  }, [releaseMutation, takeoverOwned]);
-
   return (
     <div>
       <TopContextBar
@@ -132,45 +122,38 @@ export function RemoteDesktopPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {!takeover && (
-                <div
-                  className="inline-flex h-8 border border-border-default bg-surface-2"
-                  aria-label="远程桌面连接模式"
+              <div
+                className="inline-flex h-8 border border-border-default bg-surface-2"
+                aria-label="远程桌面连接模式"
+              >
+                <button
+                  type="button"
+                  aria-pressed={!viewOnly}
+                  onClick={() => setViewOnly(false)}
+                  className={cn(
+                    'px-2.5 font-mono text-[9px]',
+                    !viewOnly
+                      ? 'bg-accent/12 text-accent'
+                      : 'text-text-muted hover:text-text-primary'
+                  )}
                 >
-                  <button
-                    type="button"
-                    aria-pressed={!viewOnly}
-                    onClick={() => setViewOnly(false)}
-                    className={cn(
-                      'px-2.5 font-mono text-[9px]',
-                      !viewOnly
-                        ? 'bg-accent/12 text-accent'
-                        : 'text-text-muted hover:text-text-primary'
-                    )}
-                  >
-                    协作控制
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={viewOnly}
-                    onClick={() => setViewOnly(true)}
-                    className={cn(
-                      'border-l border-border-default px-2.5 font-mono text-[9px]',
-                      viewOnly
-                        ? 'bg-accent/12 text-accent'
-                        : 'text-text-muted hover:text-text-primary'
-                    )}
-                  >
-                    只读观察（推荐）
-                  </button>
-                </div>
-              )}
-              <CollaborationStatus
-                ready={ready}
-                agentActive={agentActive}
-                exclusive={takeoverOwned}
-                heldByOther={takeoverHeldByOther}
-              />
+                  协作控制
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={viewOnly}
+                  onClick={() => setViewOnly(true)}
+                  className={cn(
+                    'border-l border-border-default px-2.5 font-mono text-[9px]',
+                    viewOnly
+                      ? 'bg-accent/12 text-accent'
+                      : 'text-text-muted hover:text-text-primary'
+                  )}
+                >
+                  只读观察（推荐）
+                </button>
+              </div>
+              <CollaborationStatus ready={ready} agentActive={agentActive} />
               {takeoverOwned && (
                 <button
                   type="button"
@@ -213,9 +196,8 @@ export function RemoteDesktopPage() {
                     <NoVncViewport
                       sessionId={sessionId}
                       bindingEpoch={bindingEpoch}
-                      viewOnly={takeover ? false : viewOnly}
+                      viewOnly={viewOnly}
                       onConnectionState={setDesktopState}
-                      onUnexpectedDisconnect={releaseAfterDisconnect}
                     />
                   ) : (
                     <DisplayProvisioning
@@ -235,13 +217,7 @@ export function RemoteDesktopPage() {
                 <RailRow
                   icon={Hand}
                   label="Human Input"
-                  value={
-                    takeoverOwned
-                      ? 'EXCLUSIVE TAKEOVER'
-                      : viewOnly
-                        ? 'OBSERVE ONLY'
-                        : 'PRIORITY WHEN ACTIVE'
-                  }
+                  value={viewOnly ? 'OBSERVE ONLY' : 'PRIORITY WHEN ACTIVE'}
                   active={ready}
                 />
                 <RailRow
@@ -254,11 +230,9 @@ export function RemoteDesktopPage() {
                   icon={Eye}
                   label="Connection"
                   value={
-                    takeoverOwned
-                      ? 'EXCLUSIVE'
-                      : viewOnly
-                        ? 'VIEW ONLY / AGENT CONTINUES'
-                        : 'CONTROL / SHARED'
+                    viewOnly
+                      ? 'VIEW ONLY / AGENT CONTINUES'
+                      : 'CONTROL / HUMAN PRIORITY'
                   }
                   active={ready}
                 />
@@ -335,7 +309,7 @@ export function RemoteDesktopPage() {
                           <span className="font-mono text-[8px] text-text-muted">
                             {participant.viewOnly ? 'VIEW ONLY' : 'CONTROL'} ·{' '}
                             {participant.accessMode === 'EXCLUSIVE_TAKEOVER'
-                              ? 'EXCLUSIVE'
+                              ? 'LEGACY / SHARED'
                               : 'SHARED'}
                           </span>
                           {canRevokeParticipants && (
@@ -536,13 +510,9 @@ function DisplayProvisioning({
 function CollaborationStatus({
   ready,
   agentActive,
-  exclusive,
-  heldByOther,
 }: {
   ready: boolean;
   agentActive: boolean;
-  exclusive: boolean;
-  heldByOther: boolean;
 }) {
   return (
     <span
@@ -550,21 +520,15 @@ function CollaborationStatus({
         'inline-flex h-8 items-center gap-1.5 border px-2.5 font-mono text-[9px] tracking-[0.1em]',
         ready
           ? 'border-success/25 bg-success/8 text-success'
-          : heldByOther
-            ? 'border-warning/25 bg-warning/8 text-warning'
-            : 'border-border-default text-text-muted'
+          : 'border-border-default text-text-muted'
       )}
     >
       <CircleDot size={9} className={ready ? 'animate-pulse' : ''} />
       {ready
-        ? exclusive
-          ? 'EXCLUSIVE HUMAN CONTROL'
-          : agentActive
-            ? 'AGENT + HUMAN READY'
-            : 'HUMAN READY'
-        : heldByOther
-          ? 'LOCKED BY OTHER'
-          : 'SESSION NOT READY'}
+        ? agentActive
+          ? 'AGENT + HUMAN READY'
+          : 'HUMAN READY'
+        : 'SESSION NOT READY'}
     </span>
   );
 }

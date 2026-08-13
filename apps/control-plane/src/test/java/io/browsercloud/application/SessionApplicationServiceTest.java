@@ -17,11 +17,6 @@ import io.browsercloud.coordinator.SessionDescriptor;
 import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.coordinator.SessionRepository;
 import io.browsercloud.domain.agent.AgentPolicy;
-import io.browsercloud.domain.operation.ExclusiveOperation;
-import io.browsercloud.domain.operation.OperationMode;
-import io.browsercloud.domain.operation.OperationPhase;
-import io.browsercloud.domain.operation.OperationState;
-import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -29,7 +24,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -201,26 +195,6 @@ class SessionApplicationServiceTest {
             "policy-hash",
             now,
             now);
-    var activeAgentOperation =
-        new ExclusiveOperation(
-            "op_agent",
-            "ses_test",
-            OwnerType.AGENT,
-            "agent-worker",
-            OperationMode.AGENT_INTERACTIVE,
-            50,
-            2,
-            4,
-            9,
-            null,
-            true,
-            true,
-            OperationPhase.EXECUTING,
-            OperationState.ACTIVE,
-            Set.of("browser.action"),
-            now.plusSeconds(3600),
-            now,
-            null);
     var response =
         new RemoteDesktopConnectionResponse(
             "rdc_1234567890abcdefghij",
@@ -230,7 +204,6 @@ class SessionApplicationServiceTest {
             4,
             false);
     when(sessionRepository.require("ses_test")).thenReturn(context);
-    when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(activeAgentOperation));
     when(remoteDesktopTicketService.issueCollaborative(
             eq("tenant-test"),
             eq("ses_test"),
@@ -243,50 +216,30 @@ class SessionApplicationServiceTest {
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
         .isEqualTo(response);
-    verify(operationRepository).findActive("ses_test");
+    verifyNoInteractions(operationRepository);
     verifyNoInteractions(coordinator);
   }
 
   @Test
-  void preservesExplicitHumanTakeoverTicketAndActorBoundary() {
+  void issuesCollaborativeTicketEvenWhileLegacyHumanTakeoverOperationIsActive() {
     var now = Instant.parse("2026-08-10T00:00:00Z");
     var context = runningContext(now);
-    var takeover =
-        new ExclusiveOperation(
-            "op_takeover",
-            "ses_test",
-            OwnerType.HUMAN,
-            "operator-test",
-            OperationMode.HUMAN_TAKEOVER,
-            90,
-            2,
-            4,
-            7,
-            null,
-            true,
-            false,
-            OperationPhase.EXECUTING,
-            OperationState.ACTIVE,
-            Set.of("desktop.control"),
-            now.plusSeconds(3600),
-            now,
-            null);
     var response =
         new RemoteDesktopConnectionResponse(
             "rdc_1234567890abcdefghij",
-            "/desktop/v1/sessions/ses_test?ticket=exclusive",
+            "/desktop/v1/sessions/ses_test?ticket=collaborative",
             now.plusSeconds(45),
             "rfb",
-            7,
+            4,
             false);
     when(sessionRepository.require("ses_test")).thenReturn(context);
-    when(operationRepository.findActive("ses_test")).thenReturn(Optional.of(takeover));
-    when(remoteDesktopTicketService.issueExclusive(
-            "tenant-test", "ses_test", "operator-test", takeover, 8_000, 30))
+    when(remoteDesktopTicketService.issueCollaborative(
+            "tenant-test", "ses_test", "operator-test", context, false, 8_000, 30))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "operator-test"))
         .isEqualTo(response);
+    verifyNoInteractions(coordinator);
   }
 
   @Test
@@ -302,13 +255,13 @@ class SessionApplicationServiceTest {
             4,
             true);
     when(sessionRepository.require("ses_test")).thenReturn(context);
-    when(operationRepository.findActive("ses_test")).thenReturn(Optional.empty());
     when(remoteDesktopTicketService.issueCollaborative(
             "tenant-test", "ses_test", "viewer-test", context, true, 4_000, 15))
         .thenReturn(response);
 
     assertThat(service.createDesktopConnection("ses_test", "tenant-test", "viewer-test", true))
         .isEqualTo(response);
+    verifyNoInteractions(operationRepository);
     verifyNoInteractions(coordinator);
   }
 

@@ -2,7 +2,7 @@
 //!
 //! 浏览器只连接此 WebSocket 网关，VNC TCP 端口始终限制在 Node 回环地址。
 //! 网关校验 Control Plane 签发的短期 HMAC 票据，阻止票据重放，并为每个 Session
-//! 提供有界的多协作者连接。显式 HumanTakeover 仍保持独占。
+//! 提供有界的多协作者连接。VNC 始终是 Agent 的观察/辅助通道，真人输入短时优先。
 //! 普通远程桌面连接允许与 Agent 协作；只有真实 RFB 输入会触发短时真人优先窗口。
 
 use anyhow::Context;
@@ -71,7 +71,7 @@ pub struct RemoteDesktopTicketClaims {
 fn default_access_mode() -> String {
     // Missing accessMode can only come from an older Control Plane during a rolling upgrade.
     // Fail collaborative: opening VNC must never acquire exclusive control merely because an
-    // additive claim is absent. Exclusive takeover always requires an explicitly signed value.
+    // additive claim is absent.
     "COLLABORATIVE".to_owned()
 }
 
@@ -165,7 +165,6 @@ struct SessionConnectionState {
 #[derive(Debug)]
 struct ConnectionLease {
     claims: RemoteDesktopTicketClaims,
-    access_mode: String,
     revoke: watch::Sender<bool>,
 }
 
@@ -1567,6 +1566,12 @@ fn authorize(
         .ok_or_else(|| rejection(StatusCode::UNAUTHORIZED, "connection ticket is required"))?;
     let mut claims = verify_ticket(&state.ticket_secret, ticket)
         .map_err(|_| rejection(StatusCode::UNAUTHORIZED, "connection ticket is invalid"))?;
+    // Rolling upgrades can still deliver an older explicitly signed takeover ticket. Desktop
+    // connectivity is no longer an exclusive ownership primitive: normalize it before admission
+    // so it cannot revoke viewers or disconnect the Agent-side workflow.
+    if claims.access_mode == "EXCLUSIVE_TAKEOVER" {
+        claims.access_mode = "COLLABORATIVE".to_owned();
+    }
     if claims.connection_id.is_empty() {
         let nonce_hash = format!("{:x}", Sha256::digest(claims.nonce.as_bytes()));
         claims.connection_id = format!("rdc_{}", &nonce_hash[..20]);
@@ -1642,23 +1647,6 @@ fn authorize(
             .lock()
             .expect("active connection lock poisoned");
         let connections = sessions.entry(session_id.to_owned()).or_default();
-        let has_exclusive = connections
-            .leases_by_connection_id
-            .values()
-            .any(|lease| lease.access_mode == "EXCLUSIVE_TAKEOVER");
-        let requests_exclusive = claims.access_mode == "EXCLUSIVE_TAKEOVER";
-        if !requests_exclusive && has_exclusive {
-            return Err(rejection(
-                StatusCode::CONFLICT,
-                "exclusive HumanTakeover cannot share a remote desktop connection",
-            ));
-        }
-        if requests_exclusive {
-            for lease in connections.leases_by_connection_id.values() {
-                let _ = lease.revoke.send(true);
-            }
-            connections.leases_by_connection_id.clear();
-        }
         if connections.leases_by_connection_id.len() >= MAX_ACTIVE_CONNECTIONS_PER_SESSION {
             return Err(rejection(
                 StatusCode::TOO_MANY_REQUESTS,
@@ -1670,7 +1658,6 @@ fn authorize(
             claims.connection_id.clone(),
             ConnectionLease {
                 claims: claims.clone(),
-                access_mode: claims.access_mode.clone(),
                 revoke,
             },
         );
@@ -2782,7 +2769,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bounds_collaborators_and_explicit_takeover_revokes_them_exclusively() {
+    async fn bounds_collaborators_and_normalizes_legacy_takeover_as_collaborative() {
         let gateway = RemoteDesktopGateway::new(
             SECRET.as_bytes(),
             std::iter::empty(),
@@ -2842,9 +2829,10 @@ mod tests {
             .body(())
             .unwrap();
         let takeover = authorize(&gateway.state, &takeover).unwrap();
-        assert!(*collaborative.revocation.borrow());
+        assert_eq!(takeover.claims.access_mode, "COLLABORATIVE");
+        assert!(!*collaborative.revocation.borrow());
         assert!(!*takeover.revocation.borrow());
-        assert_eq!(gateway.active_connection_count(session_id), 1);
+        assert_eq!(gateway.active_connection_count(session_id), 2);
 
         let blocked_collaborator_nonce = "collaborator-during-takeover-123";
         let blocked_collaborator = Request::builder()
@@ -2854,11 +2842,8 @@ mod tests {
             ))
             .body(())
             .unwrap();
-        assert_eq!(
-            authorize(&gateway.state, &blocked_collaborator)
-                .unwrap_err()
-                .status,
-            StatusCode::CONFLICT
-        );
+        let collaborator = authorize(&gateway.state, &blocked_collaborator).unwrap();
+        assert_eq!(collaborator.claims.access_mode, "COLLABORATIVE");
+        assert_eq!(gateway.active_connection_count(session_id), 3);
     }
 }

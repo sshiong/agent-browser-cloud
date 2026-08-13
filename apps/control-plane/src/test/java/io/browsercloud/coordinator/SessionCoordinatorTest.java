@@ -335,6 +335,26 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void shouldKeepActiveAgentOperationWhenHumanJoinsCollaborativeDesktop() {
+    var session = createSession("ses-1", SessionState.RUNNING);
+    var agent =
+        createActiveOperation(
+            "ses-1", OperationMode.AGENT_INTERACTIVE, OperationPhase.EXECUTING, "task-1");
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.findActive("ses-1")).thenReturn(Optional.of(agent));
+
+    var result = coordinator.handle(new RequestHumanTakeover("ses-1", "user-1"));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.ACCEPTED);
+    assertThat(result.operationId()).isEqualTo(agent.operationId());
+    verify(operationRepository, never())
+        .transition(agent.operationId(), OperationState.ACTIVE, OperationState.ABORTED);
+    verify(operationRepository, never()).insert(any());
+    verify(nodeCommandGateway, never())
+        .send(argThat(command -> command.commandType().equals("BeginHumanTakeover")));
+  }
+
+  @Test
   void shouldMoveHumanTakeoverToExecutingAfterInputBarrierAndStateResync() {
     var session = createSession("ses-1", SessionState.RUNNING);
     when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);

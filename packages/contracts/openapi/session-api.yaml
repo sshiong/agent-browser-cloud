@@ -1418,9 +1418,10 @@ paths:
         gives fresh human input priority and resumes deferred Agent input after the human
         input idle window. Multiple collaborative clients are bounded per Session and use the
         shared RFB mode. A view-only ticket is enforced by both noVNC and Browser Node; attempted
-        Key, Pointer or Clipboard input is rejected before x11vnc. If the same actor already owns
-        an explicit EXECUTING HumanTakeover, the endpoint preserves that exclusive operation and
-        its release barrier; the Gateway revokes collaborative clients before admitting it. The
+        Key, Pointer or Clipboard input is rejected before x11vnc. An existing Agent or human
+        governance Operation never changes this connection into exclusive mode. Legacy signed
+        EXCLUSIVE_TAKEOVER tickets are normalized to collaborative admission by Browser Node and
+        cannot revoke another Viewer or the Agent workflow. The
         Control Plane also signs an actor-specific bandwidth and forwarding-frequency ceiling into
         every ticket. Browser Node shares that budget across the same actor's concurrent windows,
         isolates different actors, and never throttles the independent human/Agent input path.
@@ -11095,9 +11096,8 @@ components:
           format: int64
           minimum: 1
           description: >-
-            Compatibility field containing the Session Context Epoch for collaborative
-            desktop tickets; for an already established explicit HumanTakeover it contains
-            that Operation Epoch. Its presence alone does not imply an exclusive operation.
+            Compatibility field containing the Session Context Epoch. Its presence never implies
+            an exclusive Operation or permission to stop the Agent.
         viewOnly:
           type: boolean
         actorBitrateLimitKbps:

@@ -14,7 +14,7 @@ export type RemoteDesktopConnection = {
     expiresAt: string;
     protocol: 'rfb';
     /**
-     * Compatibility field containing the Session Context Epoch for collaborative desktop tickets; for an already established explicit HumanTakeover it contains that Operation Epoch. Its presence alone does not imply an exclusive operation.
+     * Compatibility field containing the Session Context Epoch. Its presence never implies an exclusive Operation or permission to stop the Agent.
      */
     operationEpoch: number;
     viewOnly: boolean;

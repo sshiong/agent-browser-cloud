@@ -46,7 +46,7 @@ import {
   useRequestHumanTakeover,
 } from '@/features/sessions/api/sessionQueries';
 import { ApiSessionStateChip } from '@/features/sessions/components/ApiSessionStateChip';
-import { currentActorId, isSessionApiError } from '@/api/session';
+import { isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
 import type {
   BrowserStateView,
@@ -108,13 +108,10 @@ export function SessionDetailPage() {
     !['TERMINATED', 'TERMINATING'].includes(session.state) &&
     !session.currentOperation;
   const takeoverActive = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
-  const takeoverOwned =
-    takeoverActive && session.currentOperation?.actorId === currentActorId();
   const canOpenDesktop =
     auth.canOperate &&
     session &&
-    ['RUNNING', 'DEGRADED'].includes(session.state) &&
-    (!takeoverActive || takeoverOwned);
+    ['RUNNING', 'DEGRADED'].includes(session.state);
 
   const terminate = async () => {
     await terminateMutation.mutateAsync();
@@ -260,11 +257,7 @@ export function SessionDetailPage() {
                     className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-accent/35 px-3 text-[11px] text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted disabled:opacity-45"
                   >
                     <Monitor size={13} />
-                    {takeoverActive
-                      ? takeoverOwned
-                        ? '打开显式接管'
-                        : '他人接管中'
-                      : '打开远程桌面'}
+                    {takeoverActive ? '打开协作远程桌面' : '打开远程桌面'}
                   </button>
                   {canStart && (
                     <button

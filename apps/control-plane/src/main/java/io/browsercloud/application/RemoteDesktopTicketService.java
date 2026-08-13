@@ -149,7 +149,11 @@ public class RemoteDesktopTicketService {
         actorFrameRateLimitFps);
   }
 
-  /** Issues a ticket for an already established explicit HumanTakeover barrier. */
+  /**
+   * Rolling compatibility entry point for callers that still carry a HumanTakeover Operation. The
+   * resulting desktop ticket is deliberately collaborative and binds to Context Epoch: VNC is not
+   * an exclusive ownership or Agent-disconnect primitive.
+   */
   public RemoteDesktopConnectionResponse issueExclusive(
       String tenantId, String sessionId, String actorId, ExclusiveOperation operation) {
     return issueExclusive(
@@ -174,8 +178,8 @@ public class RemoteDesktopTicketService {
         actorId,
         operation.coordinatorTerm(),
         operation.contextEpoch(),
-        operation.operationEpoch(),
-        "EXCLUSIVE_TAKEOVER",
+        operation.contextEpoch(),
+        "COLLABORATIVE",
         false,
         actorBitrateLimitKbps,
         actorFrameRateLimitFps);

@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "d681a8efd9d8f859630a7684563c339f993e639e2a4eb26f4619af480d33797d",
+  "contractSha256": "bd5bd5f49b322374f5a3c8547d16a65ad452c70e31f9694ed8dbe39982df8416",
   "files": {
     "go/browsercloud/generated/client.gen.go": "c6935e94ad287c3dfc0fdc8ee6e42eb997683a0854146463cfcba3c2ca61d168",
     "go/browsercloud/generated/models.gen.go": "29d942cea9555a0f2980c4f1a3d3bd9c46d5070ddfa18468220f4af4b483b712",

@@ -4,6 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.browsercloud.domain.operation.ExclusiveOperation;
+import io.browsercloud.domain.operation.OperationMode;
+import io.browsercloud.domain.operation.OperationPhase;
+import io.browsercloud.domain.operation.OperationState;
+import io.browsercloud.domain.operation.OwnerType;
 import io.browsercloud.domain.session.ResourceClass;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.domain.session.SessionState;
@@ -12,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Set;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
@@ -80,6 +86,44 @@ class RemoteDesktopTicketServiceTest {
         .contains("\"actorFrameRateLimitFps\":15");
     assertThat(response.actorBitrateLimitKbps()).isEqualTo(4_000);
     assertThat(response.actorFrameRateLimitFps()).isEqualTo(15);
+  }
+
+  @Test
+  void shouldDowngradeLegacyExclusiveTicketIssuerToCollaborativeContextBinding() throws Exception {
+    var now = Instant.parse("2026-07-26T00:00:00Z");
+    var clock = Clock.fixed(now, ZoneOffset.UTC);
+    var service = new RemoteDesktopTicketService(new ObjectMapper(), SECRET, 45, "test", clock);
+    var operation =
+        new ExclusiveOperation(
+            "op_takeover",
+            "ses_1234567890abcdef",
+            OwnerType.HUMAN,
+            "user-test",
+            OperationMode.HUMAN_TAKEOVER,
+            90,
+            1,
+            3,
+            9,
+            null,
+            true,
+            false,
+            OperationPhase.EXECUTING,
+            OperationState.ACTIVE,
+            Set.of("desktop.control"),
+            now.plusSeconds(3600),
+            now,
+            null);
+
+    var response =
+        service.issueExclusive("tenant-test", "ses_1234567890abcdef", "user-test", operation);
+
+    var ticket = response.webSocketPath().substring(response.webSocketPath().indexOf('=') + 1);
+    var payload =
+        new String(Base64.getUrlDecoder().decode(ticket.split("\\.")[0]), StandardCharsets.UTF_8);
+    assertThat(response.operationEpoch()).isEqualTo(3);
+    assertThat(payload)
+        .contains("\"operationEpoch\":3")
+        .contains("\"accessMode\":\"COLLABORATIVE\"");
   }
 
   @Test

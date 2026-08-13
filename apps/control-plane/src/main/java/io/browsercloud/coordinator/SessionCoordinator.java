@@ -431,6 +431,13 @@ public final class SessionCoordinator {
     var active = operationRepository.findActive(session.sessionId());
     if (active.isPresent()) {
       var operation = active.orElseThrow();
+      // A remote human joining the desktop is a collaborative observer/controller, not a
+      // replacement for the running Agent. Keep the Agent Operation and let Browser Node's
+      // short human-input priority window arbitrate actual conflicting writes.
+      if (operation.ownerType() == OwnerType.AGENT
+          || operation.mode() == OperationMode.AGENT_INTERACTIVE) {
+        return CoordinatorResult.accepted(operation.operationId());
+      }
       if (operation.mode() == OperationMode.HUMAN_TAKEOVER
           && command.userId().equals(operation.actorId())) {
         return CoordinatorResult.accepted(operation.operationId());

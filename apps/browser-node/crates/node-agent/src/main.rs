@@ -19,6 +19,7 @@ use node_contracts::proto::{
     ExtensionBackgroundPolicy, HumanAssistClickCommand, HumanAssistFailedEvent,
     HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
     PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
+    PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
     ProbeProxyBindingRequest, ProbeProxyBindingResponse, PublishRequest, PublishResponse,
     ReleaseAllInputCommand, RemoteDesktopParticipantEvent, ReportCapacityRequest,
     ReportSessionResourcesRequest, RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand,
@@ -540,6 +541,19 @@ impl NodeCapacityReporter {
                 && Self::bool_env("OBJECT_STORAGE_ENABLED", false)
             {
                 "checkpoint-stream-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "profileExport".to_owned(),
+            if std::env::var("STORAGE_HELPER_SOCKET")
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+                && Self::bool_env("OBJECT_STORAGE_ENABLED", false)
+            {
+                "presigned-checkpoint-v1"
             } else {
                 "unavailable"
             }
@@ -5976,6 +5990,74 @@ impl NodeControlServiceRpc for NodeControlService {
             grant_id: request.grant_id,
             node_id: self.node_id.clone(),
             evidence_id: access.evidence_id,
+            download_url: access.download_url,
+            expires_at_ms: access.expires_at_ms as i64,
+        }))
+    }
+
+    async fn presign_profile_export_download(
+        &self,
+        request: Request<PresignProfileExportDownloadRequest>,
+    ) -> Result<Response<PresignProfileExportDownloadResponse>, Status> {
+        let request = request.into_inner();
+        let valid_identifier = |value: &str, prefix: Option<&str>| {
+            !value.is_empty()
+                && value.len() <= 128
+                && prefix
+                    .map(|expected| value.starts_with(expected))
+                    .unwrap_or(true)
+                && value.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        };
+        if !valid_identifier(&request.grant_id, Some("pxg_"))
+            || !valid_identifier(&request.tenant_id, None)
+            || !valid_identifier(&request.profile_id, None)
+            || !valid_identifier(&request.checkpoint_id, Some("chk_"))
+            || !(30..=120).contains(&request.expires_in_seconds)
+        {
+            return Err(Status::invalid_argument(
+                "Profile export access request is invalid",
+            ));
+        }
+        let storage_helper = self.storage_helper.as_ref().ok_or_else(|| {
+            Status::failed_precondition("Profile export access requires the Storage Helper")
+        })?;
+        let access = storage_helper
+            .sign_profile_export_download(
+                &request.tenant_id,
+                &request.profile_id,
+                &request.checkpoint_id,
+                request.expires_in_seconds,
+            )
+            .await
+            .map_err(|error| {
+                tracing::warn!(
+                    grant_id = %request.grant_id,
+                    profile_id = %request.profile_id,
+                    checkpoint_id = %request.checkpoint_id,
+                    error = %error,
+                    "Storage Helper rejected Profile export access"
+                );
+                Status::failed_precondition("Profile archive is unavailable or invalid")
+            })?;
+        if access.profile_id != request.profile_id
+            || access.checkpoint_id != request.checkpoint_id
+            || access.archive_sha256.len() != 64
+            || access.archive_size_bytes == 0
+            || access.download_url.len() > 8192
+        {
+            return Err(Status::internal(
+                "Storage Helper Profile export acknowledgement mismatch",
+            ));
+        }
+        Ok(Response::new(PresignProfileExportDownloadResponse {
+            grant_id: request.grant_id,
+            node_id: self.node_id.clone(),
+            profile_id: access.profile_id,
+            checkpoint_id: access.checkpoint_id,
+            archive_sha256: access.archive_sha256,
+            archive_size_bytes: access.archive_size_bytes,
             download_url: access.download_url,
             expires_at_ms: access.expires_at_ms as i64,
         }))

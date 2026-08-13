@@ -9,6 +9,9 @@ import type {
   ProfileImportRequest,
   ProfileImportView,
   ProfileListResponse,
+  ProfileExportGrantView,
+  ProfileExportPurpose,
+  RedeemProfileExportResponse,
   ProfileView,
 } from '@/types/profile';
 
@@ -110,4 +113,33 @@ export function importProfileCheckpoint(
   form.set('archiveSha256', data.archiveSha256);
   form.set('archive', data.archive, data.archive.name);
   return multipartRequest('/profile-imports', form, idempotencyKey, tenantId);
+}
+
+export function createProfileExportGrant(
+  profileId: string,
+  purpose: ProfileExportPurpose,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID
+): Promise<ProfileExportGrantView> {
+  return request(
+    `/profiles/${encodeURIComponent(profileId)}/export-grants`,
+    tenantId,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ purpose }),
+    }
+  );
+}
+
+export function redeemProfileExportGrant(
+  profileId: string,
+  grantId: string,
+  tenantId = DEFAULT_TENANT_ID
+): Promise<RedeemProfileExportResponse> {
+  return request(
+    `/profiles/${encodeURIComponent(profileId)}/export-grants/${encodeURIComponent(grantId)}:redeem`,
+    tenantId,
+    { method: 'POST' }
+  );
 }

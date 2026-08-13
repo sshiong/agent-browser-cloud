@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Database,
   FileArchive,
+  Download,
   FileUp,
   Plus,
   Search,
@@ -15,6 +16,7 @@ import {
 } from '@/components/feedback/AsyncStates';
 import { CreateProfileDialog } from '@/features/profiles/CreateProfileDialog';
 import { ProfileImportDrawer } from '@/features/profiles/ProfileImportDrawer';
+import { ProfileExportDialog } from '@/features/profiles/ProfileExportDialog';
 import { useProfiles } from '@/features/profiles/profileQueries';
 import { cn } from '@/shared/lib/utils';
 import type { ProfileView } from '@/types/profile';
@@ -26,6 +28,12 @@ export function ProfilesPage() {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportProfile, setExportProfile] = useState<ProfileView>();
+  const canExport = auth.hasAnyRole([
+    'TENANT_ADMIN',
+    'SECURITY_ADMIN',
+    'PLATFORM_ADMIN',
+  ]);
   const profiles = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return query.data?.items ?? [];
@@ -166,6 +174,7 @@ export function ProfilesPage() {
                         '写入世代',
                         '恢复来源',
                         '更新时间',
+                        '操作',
                       ].map((label) => (
                         <th
                           key={label}
@@ -178,14 +187,24 @@ export function ProfilesPage() {
                   </thead>
                   <tbody>
                     {profiles.map((profile) => (
-                      <ProfileRow key={profile.profileId} profile={profile} />
+                      <ProfileRow
+                        key={profile.profileId}
+                        profile={profile}
+                        canExport={canExport}
+                        onExport={setExportProfile}
+                      />
                     ))}
                   </tbody>
                 </table>
               </div>
               <div className="divide-y divide-border-subtle md:hidden">
                 {profiles.map((profile) => (
-                  <ProfileCard key={profile.profileId} profile={profile} />
+                  <ProfileCard
+                    key={profile.profileId}
+                    profile={profile}
+                    canExport={canExport}
+                    onExport={setExportProfile}
+                  />
                 ))}
               </div>
             </>
@@ -199,6 +218,10 @@ export function ProfilesPage() {
           <ProfileImportDrawer open={importOpen} onOpenChange={setImportOpen} />
         </>
       )}
+      <ProfileExportDialog
+        profile={exportProfile}
+        onOpenChange={() => setExportProfile(undefined)}
+      />
     </div>
   );
 }
@@ -229,7 +252,15 @@ function Metric({
   );
 }
 
-function ProfileRow({ profile }: { profile: ProfileView }) {
+function ProfileRow({
+  profile,
+  canExport,
+  onExport,
+}: {
+  profile: ProfileView;
+  canExport: boolean;
+  onExport: (profile: ProfileView) => void;
+}) {
   return (
     <tr className="border-b border-border-subtle last:border-b-0 hover:bg-surface-2/60">
       <td className="px-4 py-3.5">
@@ -271,11 +302,30 @@ function ProfileRow({ profile }: { profile: ProfileView }) {
       <td className="px-4 py-3.5 text-[11px] text-text-muted">
         {formatDate(profile.updatedAt)}
       </td>
+      <td className="px-4 py-3.5">
+        {canExport && profile.latestCheckpointId && (
+          <button
+            type="button"
+            onClick={() => onExport(profile)}
+            className="inline-flex h-8 items-center gap-1.5 border border-border-default px-3 text-[11px] text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+          >
+            <Download size={13} /> 导出
+          </button>
+        )}
+      </td>
     </tr>
   );
 }
 
-function ProfileCard({ profile }: { profile: ProfileView }) {
+function ProfileCard({
+  profile,
+  canExport,
+  onExport,
+}: {
+  profile: ProfileView;
+  canExport: boolean;
+  onExport: (profile: ProfileView) => void;
+}) {
   return (
     <article className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -302,6 +352,15 @@ function ProfileCard({ profile }: { profile: ProfileView }) {
         />
         <Datum label="写入世代" value={String(profile.profileWriteEpoch)} />
       </dl>
+      {canExport && profile.latestCheckpointId && (
+        <button
+          type="button"
+          onClick={() => onExport(profile)}
+          className="mt-4 inline-flex h-8 w-full items-center justify-center gap-2 border border-border-default text-[11px] text-text-secondary"
+        >
+          <Download size={13} /> 导出 Checkpoint
+        </button>
+      )}
     </article>
   );
 }

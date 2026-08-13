@@ -64,3 +64,35 @@ export interface ProfileImportRequest {
   archiveSha256: string;
   archive: File;
 }
+
+export type ProfileExportPurpose =
+  | 'INCIDENT_RESPONSE'
+  | 'SUPPORT_DIAGNOSTICS'
+  | 'COMPLIANCE_EXPORT'
+  | 'TENANT_BACKUP';
+
+export interface ProfileExportGrantView {
+  grantId: string;
+  profileId: string;
+  checkpointId: string;
+  checkpointEpoch: number;
+  purpose: ProfileExportPurpose;
+  state: 'ISSUED' | 'REDEEMING' | 'REDEEMED' | 'FAILED';
+  expiresAt: string;
+  createdAt: string;
+  redeemedAt: string | null;
+  archiveSha256: string | null;
+  archiveSizeBytes: number | null;
+  errorCode: string | null;
+  requestId: string | null;
+}
+
+export interface RedeemProfileExportResponse {
+  grantId: string;
+  profileId: string;
+  checkpointId: string;
+  archiveSha256: string;
+  archiveSizeBytes: number;
+  downloadUrl: string;
+  expiresAt: string;
+}

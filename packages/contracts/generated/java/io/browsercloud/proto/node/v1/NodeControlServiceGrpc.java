@@ -174,6 +174,37 @@ public final class NodeControlServiceGrpc {
     return getPresignEvidenceDownloadMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+      io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> getPresignProfileExportDownloadMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "PresignProfileExportDownload",
+      requestType = io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.class,
+      responseType = io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+      io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> getPresignProfileExportDownloadMethod() {
+    io.grpc.MethodDescriptor<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest, io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> getPresignProfileExportDownloadMethod;
+    if ((getPresignProfileExportDownloadMethod = NodeControlServiceGrpc.getPresignProfileExportDownloadMethod) == null) {
+      synchronized (NodeControlServiceGrpc.class) {
+        if ((getPresignProfileExportDownloadMethod = NodeControlServiceGrpc.getPresignProfileExportDownloadMethod) == null) {
+          NodeControlServiceGrpc.getPresignProfileExportDownloadMethod = getPresignProfileExportDownloadMethod =
+              io.grpc.MethodDescriptor.<io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest, io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "PresignProfileExportDownload"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new NodeControlServiceMethodDescriptorSupplier("PresignProfileExportDownload"))
+              .build();
+        }
+      }
+    }
+    return getPresignProfileExportDownloadMethod;
+  }
+
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -274,6 +305,17 @@ public final class NodeControlServiceGrpc {
         io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPresignEvidenceDownloadMethod(), responseObserver);
     }
+
+    /**
+     * <pre>
+     * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
+     * verification plus short-lived signing to the isolated Storage Helper.
+     * </pre>
+     */
+    default void presignProfileExportDownload(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getPresignProfileExportDownloadMethod(), responseObserver);
+    }
   }
 
   /**
@@ -364,6 +406,18 @@ public final class NodeControlServiceGrpc {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()), request, responseObserver);
     }
+
+    /**
+     * <pre>
+     * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
+     * verification plus short-lived signing to the isolated Storage Helper.
+     * </pre>
+     */
+    public void presignProfileExportDownload(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request,
+        io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getPresignProfileExportDownloadMethod(), getCallOptions()), request, responseObserver);
+    }
   }
 
   /**
@@ -421,6 +475,17 @@ public final class NodeControlServiceGrpc {
     public io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse presignEvidenceDownload(io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getPresignEvidenceDownloadMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
+     * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
+     * verification plus short-lived signing to the isolated Storage Helper.
+     * </pre>
+     */
+    public io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse presignProfileExportDownload(io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getPresignProfileExportDownloadMethod(), getCallOptions(), request);
     }
   }
 
@@ -484,13 +549,26 @@ public final class NodeControlServiceGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getPresignEvidenceDownloadMethod(), getCallOptions()), request);
     }
+
+    /**
+     * <pre>
+     * Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
+     * verification plus short-lived signing to the isolated Storage Helper.
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse> presignProfileExportDownload(
+        io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getPresignProfileExportDownloadMethod(), getCallOptions()), request);
+    }
   }
 
   private static final int METHODID_PING = 0;
   private static final int METHODID_DISPATCH = 1;
   private static final int METHODID_PROBE_PROXY_BINDING = 2;
   private static final int METHODID_PRESIGN_EVIDENCE_DOWNLOAD = 3;
-  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 4;
+  private static final int METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD = 4;
+  private static final int METHODID_UPLOAD_PROFILE_IMPORT = 5;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -524,6 +602,10 @@ public final class NodeControlServiceGrpc {
         case METHODID_PRESIGN_EVIDENCE_DOWNLOAD:
           serviceImpl.presignEvidenceDownload((io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest) request,
               (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>) responseObserver);
+          break;
+        case METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD:
+          serviceImpl.presignProfileExportDownload((io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest) request,
+              (io.grpc.stub.StreamObserver<io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -581,6 +663,13 @@ public final class NodeControlServiceGrpc {
               io.browsercloud.proto.node.v1.PresignEvidenceDownloadRequest,
               io.browsercloud.proto.node.v1.PresignEvidenceDownloadResponse>(
                 service, METHODID_PRESIGN_EVIDENCE_DOWNLOAD)))
+        .addMethod(
+          getPresignProfileExportDownloadMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              io.browsercloud.proto.node.v1.PresignProfileExportDownloadRequest,
+              io.browsercloud.proto.node.v1.PresignProfileExportDownloadResponse>(
+                service, METHODID_PRESIGN_PROFILE_EXPORT_DOWNLOAD)))
         .build();
   }
 
@@ -634,6 +723,7 @@ public final class NodeControlServiceGrpc {
               .addMethod(getProbeProxyBindingMethod())
               .addMethod(getUploadProfileImportMethod())
               .addMethod(getPresignEvidenceDownloadMethod())
+              .addMethod(getPresignProfileExportDownloadMethod())
               .build();
         }
       }

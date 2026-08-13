@@ -2292,6 +2292,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bytes",
+ "futures-util",
  "helper-contracts",
  "http",
  "nix",

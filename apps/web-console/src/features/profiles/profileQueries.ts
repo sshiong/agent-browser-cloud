@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createProfile,
+  createProfileExportGrant,
   importProfileCheckpoint,
   listProfileImports,
   listProfiles,
+  redeemProfileExportGrant,
 } from '@/api/profile';
 import { currentActorId, currentTenantId } from '@/api/session';
 import type {
   CreateProfileRequest,
   ProfileImportRequest,
+  ProfileExportPurpose,
 } from '@/types/profile';
 
 export const profileKeys = {
@@ -49,5 +52,24 @@ export function useImportProfileCheckpoint() {
       importProfileCheckpoint(request, `profile-import-${crypto.randomUUID()}`),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: profileKeys.all }),
+  });
+}
+
+export function useProfileExport() {
+  return useMutation({
+    mutationFn: async ({
+      profileId,
+      purpose,
+    }: {
+      profileId: string;
+      purpose: ProfileExportPurpose;
+    }) => {
+      const grant = await createProfileExportGrant(
+        profileId,
+        purpose,
+        `profile-export-${crypto.randomUUID()}`
+      );
+      return redeemProfileExportGrant(profileId, grant.grantId);
+    },
   });
 }

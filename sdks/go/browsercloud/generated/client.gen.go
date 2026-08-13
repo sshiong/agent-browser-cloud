@@ -114,6 +114,8 @@ var Operations = map[string]Operation{
 	"listProfiles":                               {OperationID: "listProfiles", Method: "GET", Path: "/api/v1/profiles", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileListResponse"},
 	"createProfile":                              {OperationID: "createProfile", Method: "POST", Path: "/api/v1/profiles", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "CreateProfileRequest", RequestRequired: true, ResponseSchema: "Profile"},
 	"getProfile":                                 {OperationID: "getProfile", Method: "GET", Path: "/api/v1/profiles/{profileId}", PathParameters: []string{"profileId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "Profile"},
+	"createProfileExportGrant":                   {OperationID: "createProfileExportGrant", Method: "POST", Path: "/api/v1/profiles/{profileId}/export-grants", PathParameters: []string{"profileId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateProfileExportGrantRequest", RequestRequired: true, ResponseSchema: "ProfileExportGrant"},
+	"redeemProfileExportGrant":                   {OperationID: "redeemProfileExportGrant", Method: "POST", Path: "/api/v1/profiles/{profileId}/export-grants/{grantId}:redeem", PathParameters: []string{"grantId", "profileId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RedeemProfileExportResponse"},
 	"listProfileImports":                         {OperationID: "listProfileImports", Method: "GET", Path: "/api/v1/profile-imports", PathParameters: nil, QueryParameters: []string{"limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileImportListResponse"},
 	"importProfileCheckpoint":                    {OperationID: "importProfileCheckpoint", Method: "POST", Path: "/api/v1/profile-imports", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "object", RequestRequired: true, ResponseSchema: "ProfileImport"},
 	"getProfileImport":                           {OperationID: "getProfileImport", Method: "GET", Path: "/api/v1/profile-imports/{importId}", PathParameters: []string{"importId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ProfileImport"},
@@ -543,6 +545,12 @@ func (c *Client) CreateProfile(ctx context.Context, request Request) (any, *http
 }
 func (c *Client) GetProfile(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getProfile", request)
+}
+func (c *Client) CreateProfileExportGrant(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "createProfileExportGrant", request)
+}
+func (c *Client) RedeemProfileExportGrant(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "redeemProfileExportGrant", request)
 }
 func (c *Client) ListProfileImports(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listProfileImports", request)

@@ -37,6 +37,9 @@ import io.browsercloud.application.KeyRotationApplicationService.KeyRotationNotF
 import io.browsercloud.application.KeyRotationApplicationService.KeyRotationRejectedException;
 import io.browsercloud.application.ProfileApplicationService.ProfileAlreadyExistsException;
 import io.browsercloud.application.ProfileApplicationService.ProfileNotFoundException;
+import io.browsercloud.application.ProfileExportAccessNodeGateway.ProfileExportNodeRejectedException;
+import io.browsercloud.application.ProfileExportGovernanceService.ProfileExportRejectedException;
+import io.browsercloud.application.ProfileExportGovernanceService.ProfileExportUnavailableException;
 import io.browsercloud.application.ProfileImportApplicationService.ProfileImportRejectedException;
 import io.browsercloud.application.ProfileImportApplicationService.ProfileImportUnavailableException;
 import io.browsercloud.application.ProfileImportJobStore.ProfileImportConflictException;
@@ -704,6 +707,31 @@ public class GlobalExceptionHandler {
         "PROFILE_IMPORT_NOT_FOUND",
         "Profile Import was not found",
         Map.of(),
+        request);
+  }
+
+  @ExceptionHandler({
+    ProfileExportRejectedException.class,
+    ProfileExportNodeRejectedException.class
+  })
+  ResponseEntity<ApiError> profileExportRejected(
+      RuntimeException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "PROFILE_EXPORT_REJECTED",
+        "Profile export access cannot be completed",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(ProfileExportUnavailableException.class)
+  ResponseEntity<ApiError> profileExportUnavailable(
+      ProfileExportUnavailableException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "PROFILE_EXPORT_UNAVAILABLE",
+        "No verified Profile export data plane is currently available",
+        Map.of("reason", exception.getMessage()),
         request);
   }
 

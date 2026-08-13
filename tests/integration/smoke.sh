@@ -708,7 +708,7 @@ for _ in $(seq 1 30); do
   sleep 0.25
 done
 printf '%s' "$browser_nodes" | python3 -c \
-  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
+  'import json,sys; node=json.load(sys.stdin)["items"][0]; assert node["nodeId"] == "node_integration"; assert node["admissionState"] == "OPEN"; assert node["pressureState"] == "NORMAL"; assert node["labels"]["safePointBrowserActivity"] == "cdp-network-v1"; assert node["labels"]["businessRecoveryActions"] == "cdp-low-risk-v1"; assert node["labels"]["businessRecoveryExtensionActions"] == "cdp-extension-restart-v1"; assert node["labels"]["startRuntimeGenerationFloor"] == "v1"; assert node["labels"]["profileImport"] == "checkpoint-stream-v1"; assert node["labels"]["profileExport"] == "presigned-checkpoint-v1"; assert node["labels"]["observerEvidence"] == "cdp-s3-v1"; assert node["labels"]["evidenceAccess"] == "presigned-get-v1"; assert node["labels"]["evidenceRedaction"] == "dom-overlay-script-freeze-v1"; assert node["labels"]["profileIoTelemetry"] == "unavailable"; assert node["labels"]["extensionTelemetry"] == "unavailable"; assert node["labels"]["mediaTelemetry"] == "unavailable"; assert node["lastHeartbeatAt"]'
 
 runtime_builds="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/runtime-builds" \
@@ -4708,6 +4708,52 @@ profile_after_terminate="$(curl -fsS \
 checkpoint_one="$(printf '%s' "$profile_after_terminate" | python3 -c \
   'import json,sys; profile=json.load(sys.stdin); assert profile["latestCheckpointEpoch"] == 1; assert profile["profileWriteEpoch"] == 1; assert profile["coreSizeBytes"] > 0; assert profile["checkpointFileCount"] >= 1; assert profile["restoreStatus"] == "EMPTY"; print(profile["latestCheckpointId"])')"
 test -f "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/checkpoints/${checkpoint_one}/COMMITTED"
+profile_export_grant="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration/export-grants" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: profile-export-admin' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H 'Idempotency-Key: profile-export-integration-v1' \
+  -d '{"purpose":"TENANT_BACKUP"}')"
+profile_export_grant_id="$(printf '%s' "$profile_export_grant" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["state"] == "ISSUED"; assert item["checkpointEpoch"] == 1; assert item["purpose"] == "TENANT_BACKUP"; assert item["requestId"]; print(item["grantId"])')"
+profile_export_cross_actor="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration/export-grants/${profile_export_grant_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: different-profile-export-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$profile_export_cross_actor" = "409"
+profile_export_access="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration/export-grants/${profile_export_grant_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: profile-export-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+profile_export_url="$(printf '%s' "$profile_export_access" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["checkpointId"] == sys.argv[1]; assert item["archiveSizeBytes"] > 0; assert len(item["archiveSha256"]) == 64; assert item["downloadUrl"].startswith("http://127.0.0.1:"); assert item["expiresAt"]; print(item["downloadUrl"])' "$checkpoint_one")"
+curl -fsS "$profile_export_url" -o "$temp_dir/profile-export.tar.zst"
+python3 - "$profile_export_access" "$temp_dir/profile-export.tar.zst" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+access = json.loads(sys.argv[1])
+archive = pathlib.Path(sys.argv[2]).read_bytes()
+assert len(archive) == access["archiveSizeBytes"]
+assert hashlib.sha256(archive).hexdigest() == access["archiveSha256"]
+PY
+profile_export_second_redeem="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  "http://localhost:${control_port}/api/v1/profiles/profile-integration/export-grants/${profile_export_grant_id}:redeem" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: profile-export-admin' \
+  -H 'X-Roles: TENANT_ADMIN')"
+test "$profile_export_second_redeem" = "409"
+profile_export_db="$(docker exec "$postgres_name" psql -qAt -U browsercloud -d browsercloud -c \
+  "select state || ':' || signer_node_id || ':' || (archive_sha256 is not null)::text || ':' || (archive_size_bytes > 0)::text || ':' || (error_code is null)::text
+     from profile_export_access_grants where grant_id='${profile_export_grant_id}';")"
+test "$profile_export_db" = "REDEEMED:node_integration:true:true:true"
+printf 'profile_checkpoint_export=true\n'
 proxy_after_terminate="$(curl -fsS "http://localhost:${control_port}/api/v1/proxies" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$proxy_after_terminate" | python3 -c \

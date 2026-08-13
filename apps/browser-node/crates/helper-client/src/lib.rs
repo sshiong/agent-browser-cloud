@@ -411,6 +411,31 @@ impl StorageHelperClient {
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted evidence access result"))
     }
 
+    pub async fn sign_profile_export_download(
+        &self,
+        tenant_id: &str,
+        profile_id: &str,
+        checkpoint_id: &str,
+        expires_in_seconds: u32,
+    ) -> anyhow::Result<helper_contracts::StorageProfileExportAccess> {
+        validate_identifier("tenant_id", tenant_id)?;
+        validate_identifier("profile_id", profile_id)?;
+        validate_identifier("checkpoint_id", checkpoint_id)?;
+        anyhow::ensure!(
+            (30..=120).contains(&expires_in_seconds),
+            "Profile export access duration is invalid"
+        );
+        self.call(StorageCommand::SignProfileExportDownload {
+            tenant_id: tenant_id.to_owned(),
+            profile_id: profile_id.to_owned(),
+            checkpoint_id: checkpoint_id.to_owned(),
+            expires_in_seconds,
+        })
+        .await?
+        .profile_export_access
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted Profile export access result"))
+    }
+
     pub async fn release(&self, workspace: &StorageWorkspace) -> anyhow::Result<()> {
         self.validate_workspace(
             workspace,

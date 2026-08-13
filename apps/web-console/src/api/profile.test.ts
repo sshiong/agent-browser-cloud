@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProfile,
+  createProfileExportGrant,
   importProfileCheckpoint,
   listProfileImports,
   listProfiles,
+  redeemProfileExportGrant,
 } from './profile';
 
 afterEach(() => {
@@ -142,6 +144,71 @@ describe('profile API', () => {
       expect.objectContaining({
         headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })
+    );
+  });
+
+  it('creates and redeems a purpose-bound one-time Profile export grant', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            grantId: 'pxg_1234567890abcdef',
+            profileId: 'profile-test',
+            checkpointId: 'chk_1234567890abcdef',
+            checkpointEpoch: 2,
+            purpose: 'TENANT_BACKUP',
+            state: 'ISSUED',
+            expiresAt: '2026-08-13T00:05:00Z',
+            createdAt: '2026-08-13T00:00:00Z',
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            grantId: 'pxg_1234567890abcdef',
+            profileId: 'profile-test',
+            checkpointId: 'chk_1234567890abcdef',
+            archiveSha256: 'a'.repeat(64),
+            archiveSizeBytes: 4096,
+            downloadUrl:
+              'https://objects.example.test/checkpoint?signature=redacted',
+            expiresAt: '2026-08-13T00:01:00Z',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const grant = await createProfileExportGrant(
+      'profile-test',
+      'TENANT_BACKUP',
+      'profile-export-key',
+      'tenant-test'
+    );
+    await redeemProfileExportGrant(
+      'profile-test',
+      grant.grantId,
+      'tenant-test'
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/profiles/profile-test/export-grants',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'profile-export-key',
+          'X-Tenant-Id': 'tenant-test',
+        }),
+        body: JSON.stringify({ purpose: 'TENANT_BACKUP' }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/profiles/profile-test/export-grants/pxg_1234567890abcdef:redeem',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 });

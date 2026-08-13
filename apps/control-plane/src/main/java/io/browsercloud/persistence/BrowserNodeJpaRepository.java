@@ -92,6 +92,22 @@ public interface BrowserNodeJpaRepository extends JpaRepository<BrowserNodeEntit
           """
           SELECT *
           FROM browser_nodes
+          WHERE lifecycle_state = 'READY'
+            AND admission_state = 'OPEN'
+            AND pressure_state = 'NORMAL'
+            AND last_heartbeat_at >= :freshAfter
+            AND labels->>'profileExport' = 'presigned-checkpoint-v1'
+          ORDER BY active_sessions ASC, last_heartbeat_at DESC, node_id ASC
+          LIMIT 16
+          """,
+      nativeQuery = true)
+  List<BrowserNodeEntity> findProfileExportCandidates(@Param("freshAfter") Instant freshAfter);
+
+  @Query(
+      value =
+          """
+          SELECT *
+          FROM browser_nodes
           WHERE (:region IS NULL OR region = :region)
             AND lifecycle_state = 'READY'
             AND admission_state = 'OPEN'

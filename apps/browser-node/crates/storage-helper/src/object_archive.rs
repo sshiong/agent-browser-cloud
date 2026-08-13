@@ -1,6 +1,7 @@
 use crate::{LocalProfileStore, ProfileCheckpointManifest};
 use anyhow::Context;
 use bytes::Bytes;
+use futures_util::StreamExt;
 use http::Method;
 use object_store::aws::{AmazonS3, AmazonS3Builder};
 use object_store::path::Path;
@@ -27,6 +28,22 @@ pub struct EvidenceDownloadRequest<'a> {
     pub content_bytes: u64,
     pub expires_in: Duration,
 }
+
+pub struct ProfileExportDownloadRequest<'a> {
+    pub tenant_id: &'a str,
+    pub profile_id: &'a str,
+    pub checkpoint_id: &'a str,
+    pub expires_in: Duration,
+}
+
+pub struct SignedProfileExport {
+    pub archive_sha256: String,
+    pub archive_size_bytes: u64,
+    pub download_url: String,
+    pub expires_at_ms: u64,
+}
+
+const MAX_PROFILE_EXPORT_BYTES: usize = 256 * 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -317,6 +334,90 @@ impl ObjectArchive {
         Ok((signed_url.to_string(), expires_at_ms))
     }
 
+    pub async fn sign_profile_export_download(
+        &self,
+        request: ProfileExportDownloadRequest<'_>,
+    ) -> anyhow::Result<SignedProfileExport> {
+        anyhow::ensure!(
+            (Duration::from_secs(30)..=Duration::from_secs(120)).contains(&request.expires_in),
+            "Profile export access duration must be between 30 and 120 seconds"
+        );
+        let base =
+            self.object_key_for(request.tenant_id, request.profile_id, request.checkpoint_id);
+        let marker_bytes = self.get(&format!("{base}/COMMITTED")).await?;
+        let marker: StoredArchiveCommitMarker = serde_json::from_slice(&marker_bytes)?;
+        anyhow::ensure!(
+            marker.checkpoint_id == request.checkpoint_id
+                && marker.archive_sha256.len() == 64
+                && marker
+                    .archive_sha256
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit())
+                && (1..=MAX_PROFILE_EXPORT_BYTES).contains(&marker.archive_bytes),
+            "Profile archive commit marker is invalid"
+        );
+        let object_key = format!("{base}/checkpoint.tar.zst");
+        let object_path = Path::from(object_key.as_str());
+        let metadata = tokio::time::timeout(self.operation_timeout, self.store.head(&object_path))
+            .await
+            .context("Object Storage operation timed out")?
+            .with_context(|| format!("Object Storage HEAD failed for {object_key}"))?;
+        anyhow::ensure!(
+            metadata.size == marker.archive_bytes as u64,
+            "Profile archive size does not match its commit marker"
+        );
+
+        // A signed export is a high-risk data disclosure. Re-read the immutable object as a
+        // bounded stream and verify the marker hash immediately before issuing the URL.
+        let get_result = tokio::time::timeout(self.operation_timeout, self.store.get(&object_path))
+            .await
+            .context("Object Storage operation timed out")?
+            .with_context(|| format!("Object Storage GET failed for {object_key}"))?;
+        let mut stream = get_result.into_stream();
+        let mut digest = Sha256::new();
+        let mut observed_bytes = 0_u64;
+        while let Some(chunk) = tokio::time::timeout(self.operation_timeout, stream.next())
+            .await
+            .context("Object Storage export verification timed out")?
+        {
+            let chunk = chunk.context("Object Storage export verification failed")?;
+            observed_bytes = observed_bytes
+                .checked_add(chunk.len() as u64)
+                .ok_or_else(|| anyhow::anyhow!("Profile archive size overflow"))?;
+            anyhow::ensure!(
+                observed_bytes <= marker.archive_bytes as u64,
+                "Profile archive exceeds its commit marker"
+            );
+            digest.update(&chunk);
+        }
+        let observed_sha256 = format!("{:x}", digest.finalize());
+        anyhow::ensure!(
+            observed_bytes == marker.archive_bytes as u64
+                && observed_sha256.eq_ignore_ascii_case(&marker.archive_sha256),
+            "Profile archive integrity verification failed"
+        );
+
+        let signed_url = tokio::time::timeout(
+            self.operation_timeout,
+            self.store
+                .signed_url(Method::GET, &object_path, request.expires_in),
+        )
+        .await
+        .context("Object Storage signing timed out")?
+        .context("Object Storage Profile export signing failed")?;
+        let expires_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .checked_add(request.expires_in)
+            .ok_or_else(|| anyhow::anyhow!("Profile export expiry overflow"))?
+            .as_millis() as u64;
+        Ok(SignedProfileExport {
+            archive_sha256: observed_sha256,
+            archive_size_bytes: observed_bytes,
+            download_url: signed_url.to_string(),
+            expires_at_ms,
+        })
+    }
+
     async fn put(&self, key: &str, payload: Bytes) -> anyhow::Result<()> {
         tokio::time::timeout(
             self.operation_timeout,
@@ -476,6 +577,28 @@ mod tests {
                 .get(&Path::from(format!("{base}/COMMITTED")))
                 .await
                 .unwrap();
+            let signed_export = archive
+                .sign_profile_export_download(ProfileExportDownloadRequest {
+                    tenant_id: "tenant-test",
+                    profile_id: "profile-test",
+                    checkpoint_id: &manifest.checkpoint_id,
+                    expires_in: Duration::from_secs(60),
+                })
+                .await
+                .unwrap();
+            let downloaded_export = reqwest::get(signed_export.download_url)
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert_eq!(
+                signed_export.archive_size_bytes,
+                downloaded_export.len() as u64
+            );
+            assert_eq!(signed_export.archive_sha256, hex_sha256(&downloaded_export));
             let recording_content = Bytes::from_static(
                 br#"{"capturedAtMs":1,"cdpSessionId":7,"format":"jpeg","data":"/9j/"}"#,
             );

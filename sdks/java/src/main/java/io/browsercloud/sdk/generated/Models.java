@@ -135,6 +135,14 @@ public final class Models {
 
   public record CreateProfileRequest(String profileId, String name, String description) {}
 
+  public record CreateProfileExportGrantRequest(ProfileExportPurpose purpose) {}
+
+  public enum ProfileExportPurpose { INCIDENTRESPONSE, SUPPORTDIAGNOSTICS, COMPLIANCEEXPORT, TENANTBACKUP }
+
+  public record ProfileExportGrant(String grantId, String profileId, String checkpointId, Long checkpointEpoch, ProfileExportPurpose purpose, String state, String expiresAt, String createdAt, Object redeemedAt, Object archiveSha256, Object archiveSizeBytes, Object errorCode, Object requestId) {}
+
+  public record RedeemProfileExportResponse(String grantId, String profileId, String checkpointId, String archiveSha256, Long archiveSizeBytes, String downloadUrl, String expiresAt) {}
+
   public record Profile(String profileId, String tenantId, String name, Object description, Object latestCheckpointId, Object latestCheckpointEpoch, Long profileWriteEpoch, Long coreSizeBytes, Long checkpointFileCount, String restoreStatus, String state, String createdAt, String updatedAt, Object lastCheckpointAt) {}
 
   public record ProfileListResponse(List<Profile> items, Integer total) {}

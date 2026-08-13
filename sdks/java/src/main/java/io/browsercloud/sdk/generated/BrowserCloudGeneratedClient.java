@@ -90,6 +90,8 @@ public final class BrowserCloudGeneratedClient {
     operation("listProfiles", "GET", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "ProfileListResponse"),
     operation("createProfile", "POST", "/api/v1/profiles", List.of(), List.of(), List.of("X-Tenant-Id"), "CreateProfileRequest", true, "Profile"),
     operation("getProfile", "GET", "/api/v1/profiles/{profileId}", List.of("profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "Profile"),
+    operation("createProfileExportGrant", "POST", "/api/v1/profiles/{profileId}/export-grants", List.of("profileId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateProfileExportGrantRequest", true, "ProfileExportGrant"),
+    operation("redeemProfileExportGrant", "POST", "/api/v1/profiles/{profileId}/export-grants/{grantId}:redeem", List.of("grantId", "profileId"), List.of(), List.of("X-Tenant-Id"), "", false, "RedeemProfileExportResponse"),
     operation("listProfileImports", "GET", "/api/v1/profile-imports", List.of(), List.of("limit"), List.of("X-Tenant-Id"), "", false, "ProfileImportListResponse"),
     operation("importProfileCheckpoint", "POST", "/api/v1/profile-imports", List.of(), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "object", true, "ProfileImport"),
     operation("getProfileImport", "GET", "/api/v1/profile-imports/{importId}", List.of("importId"), List.of(), List.of("X-Tenant-Id"), "", false, "ProfileImport"),
@@ -319,6 +321,8 @@ public final class BrowserCloudGeneratedClient {
   public Response listProfiles(Request request) { return call("listProfiles", request); }
   public Response createProfile(Request request) { return call("createProfile", request); }
   public Response getProfile(Request request) { return call("getProfile", request); }
+  public Response createProfileExportGrant(Request request) { return call("createProfileExportGrant", request); }
+  public Response redeemProfileExportGrant(Request request) { return call("redeemProfileExportGrant", request); }
   public Response listProfileImports(Request request) { return call("listProfileImports", request); }
   public Response importProfileCheckpoint(Request request) { return call("importProfileCheckpoint", request); }
   public Response getProfileImport(Request request) { return call("getProfileImport", request); }

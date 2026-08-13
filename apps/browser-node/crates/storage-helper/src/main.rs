@@ -2,8 +2,8 @@ use anyhow::Context;
 use bytes::Bytes;
 use helper_contracts::{
     read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageEvidence,
-    StorageEvidenceAccess, StorageRecording, StorageRequest, StorageResponse, StorageRestoreStatus,
-    StorageWorkspace, SCHEMA_VERSION,
+    StorageEvidenceAccess, StorageProfileExportAccess, StorageRecording, StorageRequest,
+    StorageResponse, StorageRestoreStatus, StorageWorkspace, SCHEMA_VERSION,
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
@@ -12,7 +12,9 @@ use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use storage_helper::object_archive::{EvidenceDownloadRequest, ObjectArchive, S3ArchiveConfig};
+use storage_helper::object_archive::{
+    EvidenceDownloadRequest, ObjectArchive, ProfileExportDownloadRequest, S3ArchiveConfig,
+};
 use storage_helper::{LocalProfileStore, ProfileRestoreStatus, ProfileWorkspace};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio::net::{UnixListener, UnixStream};
@@ -49,9 +51,10 @@ impl StorageService {
         Option<StorageRecording>,
         Option<StorageEvidence>,
         Option<StorageEvidenceAccess>,
+        Option<StorageProfileExportAccess>,
     )> {
         let Some((tenant_id, profile_id)) = command_profile(command) else {
-            return Ok((None, None, None, None, None));
+            return Ok((None, None, None, None, None, None));
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
@@ -125,7 +128,14 @@ async fn serve_connection(
         )
     } else {
         match service.execute(&request.command).await {
-            Ok((workspace, checkpoint, recording, evidence, evidence_access)) => StorageResponse {
+            Ok((
+                workspace,
+                checkpoint,
+                recording,
+                evidence,
+                evidence_access,
+                profile_export_access,
+            )) => StorageResponse {
                 schema_version: SCHEMA_VERSION,
                 request_id: request.request_id,
                 ok: true,
@@ -134,6 +144,7 @@ async fn serve_connection(
                 recording,
                 evidence,
                 evidence_access,
+                profile_export_access,
                 error_code: None,
                 error_message: None,
             },
@@ -161,9 +172,10 @@ async fn execute_storage_operation(
     Option<StorageRecording>,
     Option<StorageEvidence>,
     Option<StorageEvidenceAccess>,
+    Option<StorageProfileExportAccess>,
 )> {
     match command {
-        StorageCommand::Ping => Ok((None, None, None, None, None)),
+        StorageCommand::Ping => Ok((None, None, None, None, None, None)),
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -188,7 +200,14 @@ async fn execute_storage_operation(
             let workspace = store
                 .acquire_workspace(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((Some(workspace_response(workspace)), None, None, None, None))
+            Ok((
+                Some(workspace_response(workspace)),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ))
         }
         StorageCommand::Checkpoint {
             tenant_id,
@@ -212,6 +231,7 @@ async fn execute_storage_operation(
                     core_size_bytes: checkpoint.core_size_bytes,
                     checkpoint_file_count: checkpoint.files.len() as u64,
                 }),
+                None,
                 None,
                 None,
                 None,
@@ -312,6 +332,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::PrepareRecording {
@@ -340,6 +361,7 @@ async fn execute_storage_operation(
                     frame_count: 0,
                     completed: false,
                 }),
+                None,
                 None,
                 None,
             ))
@@ -438,6 +460,7 @@ async fn execute_storage_operation(
                 }),
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::CompleteRecording {
@@ -480,6 +503,7 @@ async fn execute_storage_operation(
                     frame_count: *frame_count,
                     completed: true,
                 }),
+                None,
                 None,
                 None,
             ))
@@ -582,6 +606,7 @@ async fn execute_storage_operation(
                     committed: true,
                 }),
                 None,
+                None,
             ))
         }
         StorageCommand::SignEvidenceDownload {
@@ -632,6 +657,44 @@ async fn execute_storage_operation(
                     download_url,
                     expires_at_ms,
                 }),
+                None,
+            ))
+        }
+        StorageCommand::SignProfileExportDownload {
+            tenant_id,
+            profile_id,
+            checkpoint_id,
+            expires_in_seconds,
+        } => {
+            validate_import_identifier("checkpoint_id", checkpoint_id, "chk_")?;
+            anyhow::ensure!(
+                (30..=120).contains(expires_in_seconds),
+                "Profile export access duration is invalid"
+            );
+            let archive =
+                archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
+            let signed = archive
+                .sign_profile_export_download(ProfileExportDownloadRequest {
+                    tenant_id,
+                    profile_id,
+                    checkpoint_id,
+                    expires_in: Duration::from_secs((*expires_in_seconds).into()),
+                })
+                .await?;
+            Ok((
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(StorageProfileExportAccess {
+                    profile_id: profile_id.clone(),
+                    checkpoint_id: checkpoint_id.clone(),
+                    archive_sha256: signed.archive_sha256,
+                    archive_size_bytes: signed.archive_size_bytes,
+                    download_url: signed.download_url,
+                    expires_at_ms: signed.expires_at_ms,
+                }),
             ))
         }
         StorageCommand::Release {
@@ -642,7 +705,7 @@ async fn execute_storage_operation(
             store
                 .release_writer_by_identity(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((None, None, None, None, None))
+            Ok((None, None, None, None, None, None))
         }
     }
 }
@@ -725,6 +788,11 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             ..
         }
         | StorageCommand::SignEvidenceDownload {
+            tenant_id,
+            profile_id,
+            ..
+        }
+        | StorageCommand::SignProfileExportDownload {
             tenant_id,
             profile_id,
             ..
@@ -885,6 +953,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         recording: None,
         evidence: None,
         evidence_access: None,
+        profile_export_access: None,
         error_code: Some(code.to_owned()),
         error_message: Some(message.to_owned()),
     }

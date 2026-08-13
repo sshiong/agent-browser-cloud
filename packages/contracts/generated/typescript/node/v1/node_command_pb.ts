@@ -684,6 +684,146 @@ export class PresignEvidenceDownloadResponse extends Message<PresignEvidenceDown
 }
 
 /**
+ * @generated from message browsercloud.node.v1.PresignProfileExportDownloadRequest
+ */
+export class PresignProfileExportDownloadRequest extends Message<PresignProfileExportDownloadRequest> {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId = "";
+
+  /**
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string checkpoint_id = 4;
+   */
+  checkpointId = "";
+
+  /**
+   * @generated from field: uint32 expires_in_seconds = 5;
+   */
+  expiresInSeconds = 0;
+
+  constructor(data?: PartialMessage<PresignProfileExportDownloadRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PresignProfileExportDownloadRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "grant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "tenant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "expires_in_seconds", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresignProfileExportDownloadRequest {
+    return new PresignProfileExportDownloadRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresignProfileExportDownloadRequest {
+    return new PresignProfileExportDownloadRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresignProfileExportDownloadRequest {
+    return new PresignProfileExportDownloadRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PresignProfileExportDownloadRequest | PlainMessage<PresignProfileExportDownloadRequest> | undefined, b: PresignProfileExportDownloadRequest | PlainMessage<PresignProfileExportDownloadRequest> | undefined): boolean {
+    return proto3.util.equals(PresignProfileExportDownloadRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message browsercloud.node.v1.PresignProfileExportDownloadResponse
+ */
+export class PresignProfileExportDownloadResponse extends Message<PresignProfileExportDownloadResponse> {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId = "";
+
+  /**
+   * @generated from field: string node_id = 2;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: string checkpoint_id = 4;
+   */
+  checkpointId = "";
+
+  /**
+   * @generated from field: string archive_sha256 = 5;
+   */
+  archiveSha256 = "";
+
+  /**
+   * @generated from field: uint64 archive_size_bytes = 6;
+   */
+  archiveSizeBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: string download_url = 7;
+   */
+  downloadUrl = "";
+
+  /**
+   * @generated from field: int64 expires_at_ms = 8;
+   */
+  expiresAtMs = protoInt64.zero;
+
+  constructor(data?: PartialMessage<PresignProfileExportDownloadResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.PresignProfileExportDownloadResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "grant_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "checkpoint_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "archive_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "archive_size_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 7, name: "download_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "expires_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresignProfileExportDownloadResponse {
+    return new PresignProfileExportDownloadResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresignProfileExportDownloadResponse {
+    return new PresignProfileExportDownloadResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresignProfileExportDownloadResponse {
+    return new PresignProfileExportDownloadResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PresignProfileExportDownloadResponse | PlainMessage<PresignProfileExportDownloadResponse> | undefined, b: PresignProfileExportDownloadResponse | PlainMessage<PresignProfileExportDownloadResponse> | undefined): boolean {
+    return proto3.util.equals(PresignProfileExportDownloadResponse, a, b);
+  }
+}
+
+/**
  * @generated from message browsercloud.node.v1.PublishRequest
  */
 export class PublishRequest extends Message<PublishRequest> {

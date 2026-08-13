@@ -157,6 +157,40 @@ pub struct PresignEvidenceDownloadResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PresignProfileExportDownloadRequest {
+    #[prost(string, tag="1")]
+    pub grant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub tenant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub checkpoint_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="5")]
+    pub expires_in_seconds: u32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PresignProfileExportDownloadResponse {
+    #[prost(string, tag="1")]
+    pub grant_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub checkpoint_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub archive_sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag="6")]
+    pub archive_size_bytes: u64,
+    #[prost(string, tag="7")]
+    pub download_url: ::prost::alloc::string::String,
+    #[prost(int64, tag="8")]
+    pub expires_at_ms: i64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishRequest {
     #[prost(message, optional, tag="1")]
     pub event: ::core::option::Option<EventEnvelope>,

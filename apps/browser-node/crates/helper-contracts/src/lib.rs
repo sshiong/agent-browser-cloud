@@ -138,6 +138,12 @@ pub enum StorageCommand {
         content_bytes: u64,
         expires_in_seconds: u32,
     },
+    SignProfileExportDownload {
+        tenant_id: String,
+        profile_id: String,
+        checkpoint_id: String,
+        expires_in_seconds: u32,
+    },
     Release {
         tenant_id: String,
         profile_id: String,
@@ -159,6 +165,8 @@ pub struct StorageResponse {
     pub evidence: Option<StorageEvidence>,
     #[serde(default)]
     pub evidence_access: Option<StorageEvidenceAccess>,
+    #[serde(default)]
+    pub profile_export_access: Option<StorageProfileExportAccess>,
     pub error_code: Option<String>,
     pub error_message: Option<String>,
 }
@@ -219,6 +227,17 @@ pub struct StorageEvidence {
 #[serde(rename_all = "camelCase")]
 pub struct StorageEvidenceAccess {
     pub evidence_id: String,
+    pub download_url: String,
+    pub expires_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageProfileExportAccess {
+    pub profile_id: String,
+    pub checkpoint_id: String,
+    pub archive_sha256: String,
+    pub archive_size_bytes: u64,
     pub download_url: String,
     pub expires_at_ms: u64,
 }

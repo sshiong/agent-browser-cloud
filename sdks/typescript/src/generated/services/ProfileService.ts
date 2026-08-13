@@ -2,11 +2,14 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { CreateProfileExportGrantRequest } from '../models/CreateProfileExportGrantRequest.js';
 import type { CreateProfileRequest } from '../models/CreateProfileRequest.js';
 import type { Profile } from '../models/Profile.js';
+import type { ProfileExportGrant } from '../models/ProfileExportGrant.js';
 import type { ProfileImport } from '../models/ProfileImport.js';
 import type { ProfileImportListResponse } from '../models/ProfileImportListResponse.js';
 import type { ProfileListResponse } from '../models/ProfileListResponse.js';
+import type { RedeemProfileExportResponse } from '../models/RedeemProfileExportResponse.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class ProfileService {
@@ -91,6 +94,79 @@ export class ProfileService {
             errors: {
                 403: `Resource is outside the caller tenant scope.`,
                 404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Create a five-minute, actor-owned grant for the latest committed checkpoint
+     * @returns ProfileExportGrant Purpose-bound export grant created.
+     * @throws ApiError
+     */
+    public createProfileExportGrant({
+        profileId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        profileId: string,
+        idempotencyKey: string,
+        requestBody: CreateProfileExportGrantRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<ProfileExportGrant> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/profiles/{profileId}/export-grants',
+            path: {
+                'profileId': profileId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Redeem an export grant exactly once for a 60-second signed URL
+     * @returns RedeemProfileExportResponse Ephemeral signed checkpoint archive download.
+     * @throws ApiError
+     */
+    public redeemProfileExportGrant({
+        profileId,
+        grantId,
+        xTenantId,
+    }: {
+        profileId: string,
+        grantId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<RedeemProfileExportResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/profiles/{profileId}/export-grants/{grantId}:redeem',
+            path: {
+                'profileId': profileId,
+                'grantId': grantId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+                503: `A required capacity or dependency is temporarily unavailable.`,
             },
         });
     }

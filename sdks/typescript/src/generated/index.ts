@@ -82,6 +82,7 @@ export type { CreateDeletionReceiptRequest } from './models/CreateDeletionReceip
 export type { CreateEnvironmentSavedViewRequest } from './models/CreateEnvironmentSavedViewRequest.js';
 export type { CreateEvidenceAccessGrantRequest } from './models/CreateEvidenceAccessGrantRequest.js';
 export type { CreateKeyRotationRequest } from './models/CreateKeyRotationRequest.js';
+export type { CreateProfileExportGrantRequest } from './models/CreateProfileExportGrantRequest.js';
 export type { CreateProfileRequest } from './models/CreateProfileRequest.js';
 export type { CreateRuntimeDisableRequest } from './models/CreateRuntimeDisableRequest.js';
 export type { CreateRuntimeReleaseRequest } from './models/CreateRuntimeReleaseRequest.js';
@@ -139,6 +140,8 @@ export type { OperationResponse } from './models/OperationResponse.js';
 export type { OperationView } from './models/OperationView.js';
 export type { PreviewEnvironmentImportRequest } from './models/PreviewEnvironmentImportRequest.js';
 export type { Profile } from './models/Profile.js';
+export type { ProfileExportGrant } from './models/ProfileExportGrant.js';
+export type { ProfileExportPurpose } from './models/ProfileExportPurpose.js';
 export type { ProfileId } from './models/ProfileId.js';
 export type { ProfileImport } from './models/ProfileImport.js';
 export type { ProfileImportListResponse } from './models/ProfileImportListResponse.js';
@@ -182,6 +185,7 @@ export type { RecoveryGameDayReportExport } from './models/RecoveryGameDayReport
 export type { RecoveryGameDayTrend } from './models/RecoveryGameDayTrend.js';
 export type { RecoveryTargetIndicator } from './models/RecoveryTargetIndicator.js';
 export type { RedeemEvidenceAccessResponse } from './models/RedeemEvidenceAccessResponse.js';
+export type { RedeemProfileExportResponse } from './models/RedeemProfileExportResponse.js';
 export type { RegionId } from './models/RegionId.js';
 export type { RegisterBrowserNodeRequest } from './models/RegisterBrowserNodeRequest.js';
 export type { ReleaseFreeze } from './models/ReleaseFreeze.js';

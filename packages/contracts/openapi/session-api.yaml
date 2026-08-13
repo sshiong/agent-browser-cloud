@@ -1594,6 +1594,69 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/profiles/{profileId}/export-grants:
+    post:
+      operationId: createProfileExportGrant
+      summary: Create a five-minute, actor-owned grant for the latest committed checkpoint
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfileExportGrantRequest"
+      responses:
+        "201":
+          description: Purpose-bound export grant created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileExportGrant"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/profiles/{profileId}/export-grants/{grantId}:redeem:
+    post:
+      operationId: redeemProfileExportGrant
+      summary: Redeem an export grant exactly once for a 60-second signed URL
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: grantId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^pxg_[a-zA-Z0-9]{16,}$"
+      responses:
+        "200":
+          description: Ephemeral signed checkpoint archive download.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedeemProfileExportResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/profile-imports:
     get:
       operationId: listProfileImports
@@ -6650,6 +6713,82 @@ components:
         description:
           type: string
           maxLength: 1024
+    CreateProfileExportGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          $ref: "#/components/schemas/ProfileExportPurpose"
+    ProfileExportPurpose:
+      type: string
+      enum: [INCIDENT_RESPONSE, SUPPORT_DIAGNOSTICS, COMPLIANCE_EXPORT, TENANT_BACKUP]
+    ProfileExportGrant:
+      type: object
+      additionalProperties: false
+      required:
+        [grantId, profileId, checkpointId, checkpointEpoch, purpose, state, expiresAt, createdAt]
+      properties:
+        grantId:
+          type: string
+          pattern: "^pxg_[a-zA-Z0-9]{16,}$"
+        profileId:
+          type: string
+        checkpointId:
+          type: string
+        checkpointEpoch:
+          type: integer
+          format: int64
+        purpose:
+          $ref: "#/components/schemas/ProfileExportPurpose"
+        state:
+          type: string
+          enum: [ISSUED, REDEEMING, REDEEMED, FAILED]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: [string, "null"]
+          format: date-time
+        archiveSha256:
+          type: [string, "null"]
+          pattern: "^[0-9a-f]{64}$"
+        archiveSizeBytes:
+          type: [integer, "null"]
+          format: int64
+        errorCode:
+          type: [string, "null"]
+        requestId:
+          type: [string, "null"]
+    RedeemProfileExportResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [grantId, profileId, checkpointId, archiveSha256, archiveSizeBytes, downloadUrl, expiresAt]
+      properties:
+        grantId:
+          type: string
+        profileId:
+          type: string
+        checkpointId:
+          type: string
+        archiveSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        archiveSizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+        downloadUrl:
+          type: string
+          format: uri
+          writeOnly: true
+        expiresAt:
+          type: string
+          format: date-time
     Profile:
       type: object
       additionalProperties: false

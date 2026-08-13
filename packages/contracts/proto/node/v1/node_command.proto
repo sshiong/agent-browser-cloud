@@ -22,6 +22,10 @@ service NodeControlService {
   // Storage Helper and never returns Object Storage credentials.
   rpc PresignEvidenceDownload(PresignEvidenceDownloadRequest)
       returns (PresignEvidenceDownloadResponse);
+  // Purpose-bound Profile export. The Node delegates commit-marker and archive-integrity
+  // verification plus short-lived signing to the isolated Storage Helper.
+  rpc PresignProfileExportDownload(PresignProfileExportDownloadRequest)
+      returns (PresignProfileExportDownloadResponse);
 }
 
 // Browser Node 将命令执行结果作为版本化事件回传给 Control Plane。
@@ -123,6 +127,25 @@ message PresignEvidenceDownloadResponse {
   string evidence_id = 3;
   string download_url = 4;
   int64 expires_at_ms = 5;
+}
+
+message PresignProfileExportDownloadRequest {
+  string grant_id = 1;
+  string tenant_id = 2;
+  string profile_id = 3;
+  string checkpoint_id = 4;
+  uint32 expires_in_seconds = 5;
+}
+
+message PresignProfileExportDownloadResponse {
+  string grant_id = 1;
+  string node_id = 2;
+  string profile_id = 3;
+  string checkpoint_id = 4;
+  string archive_sha256 = 5;
+  uint64 archive_size_bytes = 6;
+  string download_url = 7;
+  int64 expires_at_ms = 8;
 }
 
 message PublishRequest {

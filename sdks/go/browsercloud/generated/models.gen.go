@@ -636,6 +636,45 @@ type CreateProfileRequest struct {
 	Description string `json:"description,omitempty"`
 }
 
+type CreateProfileExportGrantRequest struct {
+	Purpose ProfileExportPurpose `json:"purpose,omitempty"`
+}
+
+type ProfileExportPurpose string
+
+const (
+	ProfileExportPurposeINCIDENTRESPONSE   ProfileExportPurpose = "INCIDENT_RESPONSE"
+	ProfileExportPurposeSUPPORTDIAGNOSTICS ProfileExportPurpose = "SUPPORT_DIAGNOSTICS"
+	ProfileExportPurposeCOMPLIANCEEXPORT   ProfileExportPurpose = "COMPLIANCE_EXPORT"
+	ProfileExportPurposeTENANTBACKUP       ProfileExportPurpose = "TENANT_BACKUP"
+)
+
+type ProfileExportGrant struct {
+	GrantId          string               `json:"grantId,omitempty"`
+	ProfileId        string               `json:"profileId,omitempty"`
+	CheckpointId     string               `json:"checkpointId,omitempty"`
+	CheckpointEpoch  int64                `json:"checkpointEpoch,omitempty"`
+	Purpose          ProfileExportPurpose `json:"purpose,omitempty"`
+	State            string               `json:"state,omitempty"`
+	ExpiresAt        string               `json:"expiresAt,omitempty"`
+	CreatedAt        string               `json:"createdAt,omitempty"`
+	RedeemedAt       any                  `json:"redeemedAt,omitempty"`
+	ArchiveSha256    any                  `json:"archiveSha256,omitempty"`
+	ArchiveSizeBytes any                  `json:"archiveSizeBytes,omitempty"`
+	ErrorCode        any                  `json:"errorCode,omitempty"`
+	RequestId        any                  `json:"requestId,omitempty"`
+}
+
+type RedeemProfileExportResponse struct {
+	GrantId          string `json:"grantId,omitempty"`
+	ProfileId        string `json:"profileId,omitempty"`
+	CheckpointId     string `json:"checkpointId,omitempty"`
+	ArchiveSha256    string `json:"archiveSha256,omitempty"`
+	ArchiveSizeBytes int64  `json:"archiveSizeBytes,omitempty"`
+	DownloadUrl      string `json:"downloadUrl,omitempty"`
+	ExpiresAt        string `json:"expiresAt,omitempty"`
+}
+
 type Profile struct {
 	ProfileId             string `json:"profileId,omitempty"`
 	TenantId              string `json:"tenantId,omitempty"`

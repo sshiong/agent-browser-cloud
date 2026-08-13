@@ -90,6 +90,26 @@ for invariant in (
     assert invariant in remote_desktop_usage_upper, (
         f"remote desktop usage migration lacks invariant: {invariant}"
     )
+
+profile_export_migration = read(
+    "database/migrations/V095__profile_export_access_governance.sql"
+)
+profile_export_upper = profile_export_migration.upper()
+for forbidden in ("DROP COLUMN", "RENAME COLUMN", "ALTER COLUMN"):
+    assert forbidden not in profile_export_upper, (
+        f"Profile export migration contains incompatible operation: {forbidden}"
+    )
+for invariant in (
+    "CREATE TABLE PROFILE_EXPORT_ACCESS_GRANTS",
+    "UNIQUE (TENANT_ID, ACTOR_ID, IDEMPOTENCY_KEY)",
+    "CREATE TRIGGER TRG_PROFILE_EXPORT_ACCESS_SCOPE",
+    "STATE IN ('ISSUED', 'REDEEMING', 'REDEEMED', 'FAILED')",
+    "EXPIRES_AT <= CREATED_AT + INTERVAL '5 MINUTES'",
+    "VALIDATE CONSTRAINT CHK_PROFILE_EXPORT_ACCESS_RESULT",
+):
+    assert invariant in profile_export_upper, (
+        f"Profile export migration lacks invariant: {invariant}"
+    )
 for version, migration_text in enterprise_migrations.items():
     upper_migration = migration_text.upper()
     assert "DROP COLUMN" not in upper_migration, f"{version} drops a column"
@@ -804,6 +824,11 @@ assert (
     in service
     and "returns (PresignEvidenceDownloadResponse);" in service
 )
+assert (
+    "rpc PresignProfileExportDownload(PresignProfileExportDownloadRequest)"
+    in service
+    and "returns (PresignProfileExportDownloadResponse);" in service
+)
 for message_name, expected_tags in (
     (
         "UploadProfileImportRequest",
@@ -855,6 +880,29 @@ for message_name, expected_tags in (
             "evidence_id": 3,
             "download_url": 4,
             "expires_at_ms": 5,
+        },
+    ),
+    (
+        "PresignProfileExportDownloadRequest",
+        {
+            "grant_id": 1,
+            "tenant_id": 2,
+            "profile_id": 3,
+            "checkpoint_id": 4,
+            "expires_in_seconds": 5,
+        },
+    ),
+    (
+        "PresignProfileExportDownloadResponse",
+        {
+            "grant_id": 1,
+            "node_id": 2,
+            "profile_id": 3,
+            "checkpoint_id": 4,
+            "archive_sha256": 5,
+            "archive_size_bytes": 6,
+            "download_url": 7,
+            "expires_at_ms": 8,
         },
     ),
     (
@@ -2014,8 +2062,8 @@ for invariant in (
     assert invariant in validation_worker_network_policy
 
 facts = {
-    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070,V084-V086 expand-online-index-validate,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V076 additive,V077 gameday-expand,V078 gameday-governance-additive,V079 agent-worker-expand,V080 reviewer-worker-expand,V081 agent-human-input-wait-expand,V082 state-resync-budget-additive,V083-state-snapshot-stream-additive,V093-workspace-desktop-actor-quota-additive-default-and-validate,V094-desktop-usage-metering-additive-default-and-validate,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
-    "protobuf": "unknown-fields-13-16,optional-28-38,proxy-health-tags-31-34,resource-readback-tags-40-56,remote-desktop-usage-tags-10-12,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,browser-readiness-tags-full-and-diff-11-13,state-snapshot-begin-chunk-commit-additive,resync-request-and-cpu-tags-9-16-17,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,observer-capture-tags-1-2",
+    "schema": "V019-V021 additive,V028,V034,V039-V042,V062-V065,V070,V084-V086 expand-online-index-validate,online concurrent-index,V029-V033,V035-V038,V043-V060,V066-V068,V071-V076 additive,V077 gameday-expand,V078 gameday-governance-additive,V079 agent-worker-expand,V080 reviewer-worker-expand,V081 agent-human-input-wait-expand,V082 state-resync-budget-additive,V083-state-snapshot-stream-additive,V093-workspace-desktop-actor-quota-additive-default-and-validate,V094-desktop-usage-metering-additive-default-and-validate,V095-profile-export-access-additive-and-validate,V061 concurrent-trigram-index,V069 concurrent-agent-summary-index,V070 workspace-overview-stream",
+    "protobuf": "unknown-fields-13-16,optional-28-38,proxy-health-tags-31-34,resource-readback-tags-40-56,remote-desktop-usage-tags-10-12,cold-probe-rpc-request-1-6-response-1-7-capability-gated,extension-tags-15-22,media-slot-tags-16-24,tab-policy-tags-start-23-24-adjust-17-18-event-25-28,extension-background-tags-start-25-adjust-19-20-event-29-30,success-trace-tags-start-26-adjust-21-event-31-32,observer-fps-tags-start-27-adjust-22-event-33-34,recording-tags-start-28-adjust-23-event-35-36,screenshot-sampling-tags-start-29-adjust-24-event-37-38,start-minimum-browser-generation-tag-30,evidence-event-tags-1-15,recovery-extension-tag-6,browser-readiness-tags-full-and-diff-11-13,state-snapshot-begin-chunk-commit-additive,resync-request-and-cpu-tags-9-16-17,profile-import-stream-tags-1-10-capability-gated,evidence-presign-tags-request-1-8-response-1-5,profile-export-presign-tags-request-1-5-response-1-8-capability-gated,observer-capture-tags-1-2",
     "json": "AUTO-create-without-resource-class,public-resource-template-pricing,new-media-recording-and-application-recovery-fields-optional,recoveryExtensionId-and-approval-metadata-optional,profile-import-and-proxy-binding-additive-endpoints,proxy-provider-routing-metadata,workspace-batch-operation-saved-view-filter-and-metadata-batch-and-agent-summary-and-workspace-overview-and-notification-stream-and-release-freeze-and-validation-worker-and-gameday-worker-and-gameday-governance-and-agent-worker-and-reviewer-worker-and-human-input-wait-additive-contracts",
     "rolling": "leased-rendezvous-shard-dispatch,durable-routed-coordinator-command-inbox,durable-workspace-batch-command-ledger,isolated-metadata-batch-lease-ledger,isolated-validation-worker-lease-and-claim-token-fencing,isolated-gameday-worker-lease-claim-token-and-recovery-fencing,isolated-agent-worker-lease-claim-token-and-epoch-fencing,isolated-reviewer-worker-lease-claim-token-model-revision-and-plan-hash-fencing,proxy-cold-probe-db-lease-and-node-capability,proxy-routing-snapshot-and-fail-closed-selection,migration-target-generation-floor-capability,migration-target-cleanup-gated-retry,maxUnavailable=0,maxSurge=1,pdb-maxUnavailable=1",
 }

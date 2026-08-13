@@ -15,7 +15,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
@@ -55,13 +55,20 @@ import type {
   SessionState,
 } from '@/types/session';
 import { useAuth } from '@/auth/AuthProvider';
-import { SessionResourcePanel } from '@/features/sessions/components/resources/SessionResourcePanel';
 import { BusinessRecoveryCard } from '@/features/sessions/components/BusinessRecoveryCard';
 import { SessionEvidenceCard } from '@/features/sessions/components/SessionEvidenceCard';
 import { SessionRecordingCard } from '@/features/sessions/components/SessionRecordingCard';
 import { ProxyRebindPanel } from '@/features/sessions/components/ProxyRebindPanel';
 import { useProxyBindings } from '@/features/proxies/proxyQueries';
 import { ChallengeAssistCard } from '@/features/sessions/components/ChallengeAssistCard';
+
+// The resource panel pulls in the charting library; loading it lazily keeps
+// the Session detail route chunk small without changing panel behavior.
+const SessionResourcePanel = lazy(() =>
+  import('@/features/sessions/components/resources/SessionResourcePanel').then(
+    (module) => ({ default: module.SessionResourcePanel })
+  )
+);
 
 export function SessionDetailPage() {
   const auth = useAuth();
@@ -299,29 +306,31 @@ export function SessionDetailPage() {
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
               <div className="space-y-4">
-                <SessionResourcePanel
-                  resource={resourceQuery.data}
-                  events={resourceEventsQuery.data?.items ?? []}
-                  safePoint={safePointQuery.data}
-                  safePointError={safePointQuery.error}
-                  migration={migrationQuery.data ?? undefined}
-                  streamState={resourceStreamState}
-                  loading={resourceQuery.isLoading}
-                  error={resourceQuery.error}
-                  canAdminister={auth.hasAnyRole([
-                    'TENANT_ADMIN',
-                    'SECURITY_ADMIN',
-                    'PLATFORM_ADMIN',
-                  ])}
-                  platformAdmin={auth.hasAnyRole(['PLATFORM_ADMIN'])}
-                  humanTakeover={Boolean(takeoverActive)}
-                  updating={resourcePolicyMutation.isPending}
-                  updateError={resourcePolicyMutation.error}
-                  onRetry={() => resourceQuery.refetch()}
-                  onUpdate={(policy) =>
-                    resourcePolicyMutation.mutateAsync(policy)
-                  }
-                />
+                <Suspense fallback={<LoadingPanel label="正在加载资源面板" />}>
+                  <SessionResourcePanel
+                    resource={resourceQuery.data}
+                    events={resourceEventsQuery.data?.items ?? []}
+                    safePoint={safePointQuery.data}
+                    safePointError={safePointQuery.error}
+                    migration={migrationQuery.data ?? undefined}
+                    streamState={resourceStreamState}
+                    loading={resourceQuery.isLoading}
+                    error={resourceQuery.error}
+                    canAdminister={auth.hasAnyRole([
+                      'TENANT_ADMIN',
+                      'SECURITY_ADMIN',
+                      'PLATFORM_ADMIN',
+                    ])}
+                    platformAdmin={auth.hasAnyRole(['PLATFORM_ADMIN'])}
+                    humanTakeover={Boolean(takeoverActive)}
+                    updating={resourcePolicyMutation.isPending}
+                    updateError={resourcePolicyMutation.error}
+                    onRetry={() => resourceQuery.refetch()}
+                    onUpdate={(policy) =>
+                      resourcePolicyMutation.mutateAsync(policy)
+                    }
+                  />
+                </Suspense>
 
                 <SessionEvidenceCard
                   items={evidenceQuery.data?.items ?? []}

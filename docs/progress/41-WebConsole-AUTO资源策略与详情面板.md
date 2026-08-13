@@ -109,6 +109,8 @@
 > 本节是滚动状态记录。资源遥测/Actuator/Safe Point/迁移/SSE 已由进度 42−54
 > 逐步关闭；五分钟成本趋势、成本上限执行和上限前一次性非核心降载已由
 > [进度 65](65-AUTO成本趋势与上限前降载闭环.md)关闭。以下以各条最新说明为准。
+> 2026-08-13 已按代码逐项复核以下全部条目，复核证据见
+> [进度 141](141-AUTO资源清单复核与WebConsole可访问性技术质量收口.md)。
 
 1. Browser Node 已按 5 秒周期自动上报 CPU、RSS、Memory PSI、Renderer、Tab、主线程、
    Agent Action、State Diff、Profile I/O、Extension、Remote Desktop 与 Media 指标；

@@ -282,3 +282,30 @@ button:not(:disabled) {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* ========================================
+   Touch Target Expansion (WCAG 2.5.5)
+   ======================================== */
+
+/*
+ * Desktop keeps the compact visual density; on coarse pointers every
+ * enabled button gains an invisible hit area of at least 44x44 CSS px.
+ * :where() keeps specificity at zero so buttons that opt into
+ * absolute/fixed positioning via utility classes are not overridden.
+ * ::before is used because active-tab buttons already draw an ::after
+ * underline indicator.
+ */
+@media (pointer: coarse) {
+  :where(button:not(:disabled)) {
+    position: relative;
+  }
+
+  button:not(:disabled)::before {
+    content: '';
+    position: absolute;
+    top: min(0px, calc((100% - 44px) / 2));
+    right: min(0px, calc((100% - 44px) / 2));
+    bottom: min(0px, calc((100% - 44px) / 2));
+    left: min(0px, calc((100% - 44px) / 2));
+  }
+}

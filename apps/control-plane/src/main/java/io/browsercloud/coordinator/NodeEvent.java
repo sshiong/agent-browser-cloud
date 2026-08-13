@@ -10,6 +10,7 @@ import java.util.List;
 public sealed interface NodeEvent
     permits NodeEvent.RuntimeStarted,
         NodeEvent.RuntimeStopped,
+        NodeEvent.ProfileWarmTierSynced,
         NodeEvent.RuntimeResourcesAdjusted,
         NodeEvent.RuntimeCrashed,
         NodeEvent.StateUpdated,
@@ -67,6 +68,22 @@ public sealed interface NodeEvent
       long coreSizeBytes,
       long checkpointFileCount,
       String restoreStatus)
+      implements NodeEvent {}
+
+  record ProfileWarmTierSynced(
+      String sessionId,
+      String nodeId,
+      String profileId,
+      long profileWriteEpoch,
+      long journalSequence,
+      String transactionBarrier,
+      long changedFileCount,
+      long deletedFileCount,
+      long reusedChunkCount,
+      long uploadedBytes,
+      long deferredGroupCount,
+      String manifestSha256,
+      long committedAtMs)
       implements NodeEvent {}
 
   record RuntimeResourcesAdjusted(

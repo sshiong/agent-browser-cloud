@@ -380,6 +380,25 @@ message RuntimeStoppedEvent {
   string restore_status = 10;
 }
 
+// A committed, transaction-barriered Profile delta written to Region Warm Tier. The Browser Node
+// publishes this only after the isolated Storage Helper has atomically installed the manifest and
+// COMMITTED marker. No Profile bytes or storage credentials cross this event boundary.
+message ProfileWarmTierSyncedEvent {
+  string session_id = 1;
+  string node_id = 2;
+  string profile_id = 3;
+  uint64 profile_write_epoch = 4;
+  uint64 journal_sequence = 5;
+  string transaction_barrier = 6;
+  uint64 changed_file_count = 7;
+  uint64 deleted_file_count = 8;
+  uint64 reused_chunk_count = 9;
+  uint64 uploaded_bytes = 10;
+  uint64 deferred_group_count = 11;
+  string manifest_sha256 = 12;
+  int64 committed_at_ms = 13;
+}
+
 // 对运行中的 Runtime 执行同节点资源调整。资源调整只由 Control Plane 发起。
 message AdjustRuntimeResourcesCommand {
   string session_id = 1;

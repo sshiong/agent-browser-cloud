@@ -697,6 +697,21 @@ type ProfileListResponse struct {
 	Total int       `json:"total,omitempty"`
 }
 
+type ProfileWarmTierStatus struct {
+	State              string `json:"state,omitempty"`
+	NodeId             any    `json:"nodeId,omitempty"`
+	ProfileWriteEpoch  any    `json:"profileWriteEpoch,omitempty"`
+	JournalSequence    any    `json:"journalSequence,omitempty"`
+	TransactionBarrier any    `json:"transactionBarrier,omitempty"`
+	ChangedFileCount   any    `json:"changedFileCount,omitempty"`
+	DeletedFileCount   any    `json:"deletedFileCount,omitempty"`
+	ReusedChunkCount   any    `json:"reusedChunkCount,omitempty"`
+	UploadedBytes      any    `json:"uploadedBytes,omitempty"`
+	DeferredGroupCount any    `json:"deferredGroupCount,omitempty"`
+	ManifestSha256     any    `json:"manifestSha256,omitempty"`
+	CommittedAt        any    `json:"committedAt,omitempty"`
+}
+
 type ProfileImport struct {
 	ImportId            string `json:"importId,omitempty"`
 	OperationId         string `json:"operationId,omitempty"`

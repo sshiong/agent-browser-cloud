@@ -18,6 +18,7 @@ import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
 import io.browsercloud.proto.node.v1.InteractiveTargetState;
+import io.browsercloud.proto.node.v1.ProfileWarmTierSyncedEvent;
 import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
@@ -170,6 +171,45 @@ class NodeEventMapperTest {
               assertThat(stopped.profileWriteEpoch()).isEqualTo(2);
               assertThat(stopped.coreSizeBytes()).isEqualTo(42);
               assertThat(stopped.restoreStatus()).isEqualTo("TECHNICAL_READY");
+            });
+  }
+
+  @Test
+  void shouldMapCommittedProfileWarmTierBarrier() {
+    var payload =
+        ProfileWarmTierSyncedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setNodeId("node_test")
+            .setProfileId("profile-test")
+            .setProfileWriteEpoch(3)
+            .setJournalSequence(7)
+            .setTransactionBarrier("wtb_3_7_1234567890abcdef")
+            .setChangedFileCount(2)
+            .setDeletedFileCount(1)
+            .setReusedChunkCount(8)
+            .setUploadedBytes(4096)
+            .setDeferredGroupCount(2)
+            .setManifestSha256("a".repeat(64))
+            .setCommittedAtMs(1_786_576_800_000L)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_warm_tier")
+            .setEventType(NodeEventMapper.PROFILE_WARM_TIER_SYNCED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.ProfileWarmTierSynced.class,
+            synced -> {
+              assertThat(synced.profileWriteEpoch()).isEqualTo(3);
+              assertThat(synced.journalSequence()).isEqualTo(7);
+              assertThat(synced.transactionBarrier()).startsWith("wtb_");
+              assertThat(synced.uploadedBytes()).isEqualTo(4096);
             });
   }
 

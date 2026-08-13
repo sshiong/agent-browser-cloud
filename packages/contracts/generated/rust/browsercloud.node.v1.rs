@@ -586,6 +586,39 @@ pub struct RuntimeStoppedEvent {
     #[prost(string, tag="10")]
     pub restore_status: ::prost::alloc::string::String,
 }
+/// A committed, transaction-barriered Profile delta written to Region Warm Tier. The Browser Node
+/// publishes this only after the isolated Storage Helper has atomically installed the manifest and
+/// COMMITTED marker. No Profile bytes or storage credentials cross this event boundary.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProfileWarmTierSyncedEvent {
+    #[prost(string, tag="1")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
+    pub profile_write_epoch: u64,
+    #[prost(uint64, tag="5")]
+    pub journal_sequence: u64,
+    #[prost(string, tag="6")]
+    pub transaction_barrier: ::prost::alloc::string::String,
+    #[prost(uint64, tag="7")]
+    pub changed_file_count: u64,
+    #[prost(uint64, tag="8")]
+    pub deleted_file_count: u64,
+    #[prost(uint64, tag="9")]
+    pub reused_chunk_count: u64,
+    #[prost(uint64, tag="10")]
+    pub uploaded_bytes: u64,
+    #[prost(uint64, tag="11")]
+    pub deferred_group_count: u64,
+    #[prost(string, tag="12")]
+    pub manifest_sha256: ::prost::alloc::string::String,
+    #[prost(int64, tag="13")]
+    pub committed_at_ms: i64,
+}
 /// 对运行中的 Runtime 执行同节点资源调整。资源调整只由 Control Plane 发起。
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

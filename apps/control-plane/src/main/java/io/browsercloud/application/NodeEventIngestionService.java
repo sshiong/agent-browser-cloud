@@ -42,6 +42,7 @@ public class NodeEventIngestionService {
   private final ChallengeDetectionService challengeDetectionService;
   private final HumanAssistApplicationService humanAssistService;
   private final RemoteDesktopParticipantApplicationService remoteDesktopParticipants;
+  private final ProfileWarmTierApplicationService profileWarmTier;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -81,6 +82,7 @@ public class NodeEventIngestionService {
         stateSnapshotAssembler,
         challengeDetectionService,
         humanAssistService,
+        null,
         null);
   }
 
@@ -104,7 +106,8 @@ public class NodeEventIngestionService {
       BrowserStateSnapshotAssembler stateSnapshotAssembler,
       ChallengeDetectionService challengeDetectionService,
       HumanAssistApplicationService humanAssistService,
-      RemoteDesktopParticipantApplicationService remoteDesktopParticipants) {
+      RemoteDesktopParticipantApplicationService remoteDesktopParticipants,
+      ProfileWarmTierApplicationService profileWarmTier) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -124,6 +127,7 @@ public class NodeEventIngestionService {
     this.challengeDetectionService = challengeDetectionService;
     this.humanAssistService = humanAssistService;
     this.remoteDesktopParticipants = remoteDesktopParticipants;
+    this.profileWarmTier = profileWarmTier;
   }
 
   @Transactional
@@ -206,6 +210,11 @@ public class NodeEventIngestionService {
             resourceService.recordAdjustmentRejected(
                 command.tenantId(), adjusted, rejected.getMessage());
           }
+        }
+      }
+      case NodeEvent.ProfileWarmTierSynced synced -> {
+        if (profileWarmTier != null) {
+          profileWarmTier.record(command, synced);
         }
       }
       case NodeEvent.RuntimeCrashed crashed ->

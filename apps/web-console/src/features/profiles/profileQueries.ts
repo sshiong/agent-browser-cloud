@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createProfile,
   createProfileExportGrant,
+  getProfileWarmTierStatus,
   importProfileCheckpoint,
   listProfileImports,
   listProfiles,
@@ -19,12 +20,23 @@ export const profileKeys = {
   list: () => [...profileKeys.all, 'list'] as const,
   imports: (tenantId: string, actorId: string) =>
     [...profileKeys.all, 'imports', tenantId, actorId] as const,
+  warmTier: (profileId: string) =>
+    [...profileKeys.all, 'warm-tier', profileId] as const,
 };
 
 export function useProfiles() {
   return useQuery({
     queryKey: profileKeys.list(),
     queryFn: ({ signal }) => listProfiles(undefined, signal),
+  });
+}
+
+export function useProfileWarmTier(profileId?: string) {
+  return useQuery({
+    queryKey: profileKeys.warmTier(profileId ?? ''),
+    queryFn: ({ signal }) =>
+      getProfileWarmTierStatus(profileId!, undefined, signal),
+    enabled: Boolean(profileId),
   });
 }
 

@@ -42,6 +42,8 @@ class NodeEventIngestionServiceTest {
   @Mock private BrowserStateSnapshotAssembler stateSnapshotAssembler;
   @Mock private ChallengeDetectionService challengeDetectionService;
   @Mock private HumanAssistApplicationService humanAssistService;
+  @Mock private RemoteDesktopParticipantApplicationService remoteDesktopParticipants;
+  @Mock private ProfileWarmTierApplicationService profileWarmTier;
 
   private NodeEventIngestionService service;
 
@@ -66,7 +68,9 @@ class NodeEventIngestionServiceTest {
             stateResyncAdmissionService,
             stateSnapshotAssembler,
             challengeDetectionService,
-            humanAssistService);
+            humanAssistService,
+            remoteDesktopParticipants,
+            profileWarmTier);
     org.mockito.Mockito.lenient()
         .when(humanAssistService.stateUpdated(any(), any()))
         .thenReturn(HumanAssistApplicationService.StateCommit.notHumanAssist());
@@ -257,6 +261,33 @@ class NodeEventIngestionServiceTest {
     service.receive(command);
 
     verify(resourceService).recordAdjustmentAcknowledged("tenant-test", adjusted);
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldCommitProfileWarmTierBarrierBeforeAcknowledgingInbox() {
+    var synced =
+        new NodeEvent.ProfileWarmTierSynced(
+            "ses-test",
+            "node-test",
+            "profile-test",
+            4,
+            12,
+            "barrier-12",
+            3,
+            1,
+            8,
+            4096,
+            2,
+            "a".repeat(64),
+            1_785_283_200_000L);
+    var command =
+        new NodeEventReceived("evt-warm-tier", "tenant-test", "ses-test", 1, 2, 0, 5, synced);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(profileWarmTier).record(command, synced);
     verify(inboxRepository).save(any());
   }
 

@@ -2205,6 +2205,119 @@ export class RuntimeStoppedEvent extends Message<RuntimeStoppedEvent> {
 }
 
 /**
+ * A committed, transaction-barriered Profile delta written to Region Warm Tier. The Browser Node
+ * publishes this only after the isolated Storage Helper has atomically installed the manifest and
+ * COMMITTED marker. No Profile bytes or storage credentials cross this event boundary.
+ *
+ * @generated from message browsercloud.node.v1.ProfileWarmTierSyncedEvent
+ */
+export class ProfileWarmTierSyncedEvent extends Message<ProfileWarmTierSyncedEvent> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId = "";
+
+  /**
+   * @generated from field: string node_id = 2;
+   */
+  nodeId = "";
+
+  /**
+   * @generated from field: string profile_id = 3;
+   */
+  profileId = "";
+
+  /**
+   * @generated from field: uint64 profile_write_epoch = 4;
+   */
+  profileWriteEpoch = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 journal_sequence = 5;
+   */
+  journalSequence = protoInt64.zero;
+
+  /**
+   * @generated from field: string transaction_barrier = 6;
+   */
+  transactionBarrier = "";
+
+  /**
+   * @generated from field: uint64 changed_file_count = 7;
+   */
+  changedFileCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 deleted_file_count = 8;
+   */
+  deletedFileCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 reused_chunk_count = 9;
+   */
+  reusedChunkCount = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 uploaded_bytes = 10;
+   */
+  uploadedBytes = protoInt64.zero;
+
+  /**
+   * @generated from field: uint64 deferred_group_count = 11;
+   */
+  deferredGroupCount = protoInt64.zero;
+
+  /**
+   * @generated from field: string manifest_sha256 = 12;
+   */
+  manifestSha256 = "";
+
+  /**
+   * @generated from field: int64 committed_at_ms = 13;
+   */
+  committedAtMs = protoInt64.zero;
+
+  constructor(data?: PartialMessage<ProfileWarmTierSyncedEvent>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "browsercloud.node.v1.ProfileWarmTierSyncedEvent";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "node_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "profile_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "profile_write_epoch", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 5, name: "journal_sequence", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 6, name: "transaction_barrier", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "changed_file_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 8, name: "deleted_file_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 9, name: "reused_chunk_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 10, name: "uploaded_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 11, name: "deferred_group_count", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 12, name: "manifest_sha256", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 13, name: "committed_at_ms", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ProfileWarmTierSyncedEvent {
+    return new ProfileWarmTierSyncedEvent().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ProfileWarmTierSyncedEvent {
+    return new ProfileWarmTierSyncedEvent().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ProfileWarmTierSyncedEvent {
+    return new ProfileWarmTierSyncedEvent().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ProfileWarmTierSyncedEvent | PlainMessage<ProfileWarmTierSyncedEvent> | undefined, b: ProfileWarmTierSyncedEvent | PlainMessage<ProfileWarmTierSyncedEvent> | undefined): boolean {
+    return proto3.util.equals(ProfileWarmTierSyncedEvent, a, b);
+  }
+}
+
+/**
  * 对运行中的 Runtime 执行同节点资源调整。资源调整只由 Control Plane 发起。
  *
  * @generated from message browsercloud.node.v1.AdjustRuntimeResourcesCommand

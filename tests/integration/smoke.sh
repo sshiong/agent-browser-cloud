@@ -398,6 +398,7 @@ start_browser_node() {
   FAKE_CHROMIUM_DELAY_START_NUMBER=2 \
   FAKE_CHROMIUM_STARTUP_DELAY_SECONDS=30 \
   SESSION_RESOURCE_REPORT_INTERVAL_SECONDS=300 \
+  PROFILE_WARM_TIER_SYNC_INTERVAL_SECONDS=15 \
   PROXY_HEALTH_PROBE_INTERVAL_SECONDS=15 \
   RUST_LOG=info \
   NODE_CERTIFIED_MEDIA_SLOTS=2 \
@@ -4626,6 +4627,24 @@ takeover_state="$(curl -fsS \
 printf '%s' "$takeover_state" | python3 -c \
   'import json,sys; state=json.load(sys.stdin); expected=int(sys.argv[1]); assert state["contextEpoch"] == expected; assert state["stateVersion"] >= 1; assert state["stateQuality"] == "COMPLETE"' \
   "$expected_reconciled_epoch"
+
+warm_tier_state=""
+for _ in $(seq 1 80); do
+  warm_tier_status="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/profiles/profile-integration/warm-tier" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  warm_tier_state="$(printf '%s' "$warm_tier_status" | python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$warm_tier_state" = "LIVE" ]]; then break; fi
+  sleep 0.25
+done
+test "$warm_tier_state" = "LIVE"
+printf '%s' "$warm_tier_status" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["profileWriteEpoch"] >= 1; assert item["journalSequence"] >= 1; assert item["changedFileCount"] >= 0; assert item["uploadedBytes"] >= 0; assert len(item["manifestSha256"]) == 64; assert item["transactionBarrier"]; assert item["nodeId"] == "node_integration"'
+warm_tier_uploaded="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from profile_warm_tier_journal_commits where tenant_id='tenant-integration' and profile_id='profile-integration' and changed_file_count > 0 and uploaded_bytes > 0")"
+test "$warm_tier_uploaded" -ge "1"
+test -f "$temp_dir/runtime/profile-storage/tenants/tenant-integration/profiles/profile-integration/warm-tier/LATEST"
+printf 'profile_warm_tier_delta_journal=true\n'
 
 published="0"
 for _ in $(seq 1 30); do

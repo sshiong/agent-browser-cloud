@@ -13,6 +13,7 @@ import type {
   ProfileExportPurpose,
   RedeemProfileExportResponse,
   ProfileView,
+  ProfileWarmTierStatus,
 } from '@/types/profile';
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -89,6 +90,18 @@ export function createProfile(
     body: JSON.stringify(data),
     signal,
   });
+}
+
+export function getProfileWarmTierStatus(
+  profileId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ProfileWarmTierStatus> {
+  return request(
+    `/profiles/${encodeURIComponent(profileId)}/warm-tier`,
+    tenantId,
+    { signal }
+  );
 }
 
 export function listProfileImports(

@@ -471,6 +471,13 @@ public final class SessionCoordinator {
     if (command.coordinatorTerm() != session.coordinatorTerm()) {
       return CoordinatorResult.rejected("STALE_COORDINATOR_TERM");
     }
+    if (event instanceof NodeEvent.ProfileWarmTierSynced
+        && command.contextEpoch() != session.contextEpoch()) {
+      // A completed delta from a previous Browser context must never block the durable Node
+      // journal after a migration/restart. Its Region-local barrier remains valid, but the new
+      // context owns all subsequent Profile writes and will establish its own Warm Tier cursor.
+      return CoordinatorResult.rejected("STALE_PROFILE_WARM_TIER_CONTEXT");
+    }
     if (command.contextEpoch() != session.contextEpoch()) {
       return CoordinatorResult.rejected("STALE_CONTEXT_EPOCH");
     }
@@ -565,6 +572,18 @@ public final class SessionCoordinator {
         }
         // Resource Application Service validates the old/new allocation and commits Placement,
         // Policy, lifecycle ledger and this Operation atomically after this fencing check.
+        yield CoordinatorResult.completed();
+      }
+
+      case NodeEvent.ProfileWarmTierSynced synced -> {
+        // The sync can finish concurrently with StopRuntime. Accept the already committed barrier
+        // while this Browser context still owns the Profile instead of turning it into a poison
+        // journal event merely because the Session entered TERMINATING/HIBERNATING first.
+        if (command.operationEpoch() != 0
+            || !session.nodeId().equals(synced.nodeId())
+            || !session.profileId().equals(synced.profileId())) {
+          yield CoordinatorResult.rejected("INVALID_PROFILE_WARM_TIER_EVENT");
+        }
         yield CoordinatorResult.completed();
       }
 
@@ -739,6 +758,7 @@ public final class SessionCoordinator {
     return switch (event) {
       case NodeEvent.RuntimeStarted started -> started.sessionId();
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
+      case NodeEvent.ProfileWarmTierSynced synced -> synced.sessionId();
       case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();

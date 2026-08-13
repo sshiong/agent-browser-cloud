@@ -20,12 +20,12 @@ use node_contracts::proto::{
     HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
     PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
     PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
-    ProbeProxyBindingRequest, ProbeProxyBindingResponse, PublishRequest, PublishResponse,
-    ReleaseAllInputCommand, RemoteDesktopParticipantEvent, ReportCapacityRequest,
-    ReportSessionResourcesRequest, RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand,
-    RuntimeResourcesAdjustedEvent, RuntimeStartedEvent, RuntimeStoppedEvent,
-    SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
-    UploadProfileImportRequest, UploadProfileImportResponse,
+    ProbeProxyBindingRequest, ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent,
+    PublishRequest, PublishResponse, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
+    ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
+    RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
+    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand,
+    TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -120,8 +120,10 @@ struct NodeControlService {
     session_evidence: SessionEvidenceRegistry,
     profile_import_staging_root: PathBuf,
     inflight_profile_imports: Arc<Mutex<HashSet<String>>>,
+    warm_tier_sync_inflight: Arc<Mutex<HashSet<String>>>,
     resource_report_interval_probes: u64,
     proxy_health_probe_interval_probes: u64,
+    warm_tier_sync_interval_probes: u64,
     next_cdp_port: Arc<Mutex<u16>>,
     next_display: Arc<Mutex<u16>>,
     remote_desktop_gateway: Option<RemoteDesktopGateway>,
@@ -554,6 +556,18 @@ impl NodeCapacityReporter {
                 && Self::bool_env("OBJECT_STORAGE_ENABLED", false)
             {
                 "presigned-checkpoint-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
+        labels.insert(
+            "profileWarmTier".to_owned(),
+            if std::env::var("STORAGE_HELPER_SOCKET")
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+            {
+                "delta-journal-v1"
             } else {
                 "unavailable"
             }
@@ -2155,7 +2169,10 @@ impl NodeControlService {
     fn is_terminal_event_rejection(error_code: &str) -> bool {
         matches!(
             error_code,
-            "STALE_HUMAN_TAKEOVER" | "STALE_COORDINATOR_TERM" | "STALE_COORDINATOR_LEASE"
+            "STALE_HUMAN_TAKEOVER"
+                | "STALE_COORDINATOR_TERM"
+                | "STALE_COORDINATOR_LEASE"
+                | "STALE_PROFILE_WARM_TIER_CONTEXT"
         )
     }
 
@@ -4813,6 +4830,16 @@ impl NodeControlService {
                                 )
                                 .await;
                         }
+                        if probe_count.is_multiple_of(service.warm_tier_sync_interval_probes) {
+                            service
+                                .begin_warm_tier_sync(
+                                    &tenant_id,
+                                    &session_id,
+                                    running_context_epoch,
+                                    coordinator_term,
+                                )
+                                .await;
+                        }
                         if probe_count == 5 || regular_resource_report {
                             if let Err(error) = service
                                 .report_session_resources(
@@ -5144,6 +5171,108 @@ impl NodeControlService {
             );
         }
         Ok(())
+    }
+
+    async fn begin_warm_tier_sync(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        context_epoch: i64,
+        coordinator_term_fallback: i64,
+    ) {
+        let Some(storage_helper) = self.storage_helper.as_ref().cloned() else {
+            return;
+        };
+        let Some(active_profile) = self
+            .profile_workspaces
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+        else {
+            return;
+        };
+        {
+            let mut inflight = self.warm_tier_sync_inflight.lock().await;
+            if !inflight.insert(session_id.to_owned()) {
+                return;
+            }
+        }
+        let service = self.clone();
+        let tenant_id = tenant_id.to_owned();
+        let session_id = session_id.to_owned();
+        tokio::spawn(async move {
+            let sync = match storage_helper
+                .sync_warm_tier(&active_profile.workspace)
+                .await
+            {
+                Ok(sync) => sync,
+                Err(error) => {
+                    tracing::warn!(
+                        session_id,
+                        error = %error,
+                        "Profile Warm Tier sync deferred"
+                    );
+                    service
+                        .warm_tier_sync_inflight
+                        .lock()
+                        .await
+                        .remove(&session_id);
+                    return;
+                }
+            };
+            let coordinator_term = match service
+                .current_coordinator_term(&session_id, coordinator_term_fallback)
+                .await
+            {
+                Ok(term) => term,
+                Err(error) => {
+                    tracing::warn!(session_id, error = %error, "Warm Tier term lookup deferred");
+                    service
+                        .warm_tier_sync_inflight
+                        .lock()
+                        .await
+                        .remove(&session_id);
+                    return;
+                }
+            };
+            if let Err(error) = service
+                .record_and_publish_background_event(
+                    &tenant_id,
+                    &session_id,
+                    coordinator_term,
+                    context_epoch,
+                    "ProfileWarmTierSynced",
+                    ProfileWarmTierSyncedEvent {
+                        session_id: session_id.clone(),
+                        node_id: service.node_id.clone(),
+                        profile_id: sync.profile_id,
+                        profile_write_epoch: sync.profile_write_epoch,
+                        journal_sequence: sync.journal_sequence,
+                        transaction_barrier: sync.transaction_barrier,
+                        changed_file_count: sync.changed_file_count,
+                        deleted_file_count: sync.deleted_file_count,
+                        reused_chunk_count: sync.reused_chunk_count,
+                        uploaded_bytes: sync.uploaded_bytes,
+                        deferred_group_count: sync.deferred_group_count,
+                        manifest_sha256: sync.manifest_sha256,
+                        committed_at_ms: sync.committed_at_ms as i64,
+                    },
+                )
+                .await
+            {
+                tracing::warn!(
+                    session_id,
+                    error = %error,
+                    "Profile Warm Tier event queued for redelivery"
+                );
+            }
+            service
+                .warm_tier_sync_inflight
+                .lock()
+                .await
+                .remove(&session_id);
+        });
     }
 
     async fn record_and_publish_state_diff(
@@ -6240,6 +6369,13 @@ async fn main() -> Result<()> {
         (15..=3600).contains(&proxy_health_probe_interval_probes),
         "PROXY_HEALTH_PROBE_INTERVAL_SECONDS must be between 15 and 3600"
     );
+    let warm_tier_sync_interval_probes = std::env::var("PROFILE_WARM_TIER_SYNC_INTERVAL_SECONDS")
+        .unwrap_or_else(|_| "30".to_owned())
+        .parse::<u64>()?;
+    anyhow::ensure!(
+        (15..=3600).contains(&warm_tier_sync_interval_probes),
+        "PROFILE_WARM_TIER_SYNC_INTERVAL_SECONDS must be between 15 and 3600"
+    );
     let cold_proxy_probe_concurrency = std::env::var("PROXY_COLD_PROBE_CONCURRENCY")
         .unwrap_or_else(|_| "4".to_owned())
         .parse::<usize>()?;
@@ -6529,8 +6665,10 @@ async fn main() -> Result<()> {
         session_evidence: SessionEvidenceRegistry::default(),
         profile_import_staging_root,
         inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
+        warm_tier_sync_inflight: Arc::new(Mutex::new(HashSet::new())),
         resource_report_interval_probes,
         proxy_health_probe_interval_probes,
+        warm_tier_sync_interval_probes,
         next_cdp_port: Arc::new(Mutex::new(10_000)),
         next_display: Arc::new(Mutex::new(100)),
         remote_desktop_gateway: Some(remote_desktop_gateway),
@@ -6781,6 +6919,9 @@ mod tests {
         ));
         assert!(NodeControlService::is_terminal_event_rejection(
             "STALE_COORDINATOR_LEASE"
+        ));
+        assert!(NodeControlService::is_terminal_event_rejection(
+            "STALE_PROFILE_WARM_TIER_CONTEXT"
         ));
         assert!(NodeControlService::is_terminal_event_rejection(
             "STALE_HUMAN_TAKEOVER"
@@ -7040,12 +7181,14 @@ mod tests {
             session_evidence: SessionEvidenceRegistry::default(),
             resource_report_interval_probes: 5,
             proxy_health_probe_interval_probes: 30,
+            warm_tier_sync_interval_probes: 30,
             next_cdp_port: Arc::new(Mutex::new(10_000)),
             next_display: Arc::new(Mutex::new(100)),
             remote_desktop_gateway: None,
             desktop_enabled: false,
             profile_import_staging_root: root.join("profile-imports"),
             inflight_profile_imports: Arc::new(Mutex::new(HashSet::new())),
+            warm_tier_sync_inflight: Arc::new(Mutex::new(HashSet::new())),
         };
 
         // Give the local gRPC listener one scheduler turn before redelivery.

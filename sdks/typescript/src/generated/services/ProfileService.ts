@@ -9,6 +9,7 @@ import type { ProfileExportGrant } from '../models/ProfileExportGrant.js';
 import type { ProfileImport } from '../models/ProfileImport.js';
 import type { ProfileImportListResponse } from '../models/ProfileImportListResponse.js';
 import type { ProfileListResponse } from '../models/ProfileListResponse.js';
+import type { ProfileWarmTierStatus } from '../models/ProfileWarmTierStatus.js';
 import type { RedeemProfileExportResponse } from '../models/RedeemProfileExportResponse.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
@@ -85,6 +86,37 @@ export class ProfileService {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/v1/profiles/{profileId}',
+            path: {
+                'profileId': profileId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * Get the latest committed Region Warm Tier delta barrier
+     * Returns PostgreSQL-authoritative metadata from the latest Browser Node/Storage Helper transaction-barriered delta commit. Profile bytes and Region storage credentials are never exposed by this endpoint.
+     * @returns ProfileWarmTierStatus Latest Warm Tier status or an explicit awaiting-first-sync state.
+     * @throws ApiError
+     */
+    public getProfileWarmTierStatus({
+        profileId,
+        xTenantId,
+    }: {
+        profileId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<ProfileWarmTierStatus> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/profiles/{profileId}/warm-tier',
             path: {
                 'profileId': profileId,
             },

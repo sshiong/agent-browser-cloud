@@ -3,7 +3,7 @@ use bytes::Bytes;
 use helper_contracts::{
     read_frame, write_frame, StorageCheckpoint, StorageCommand, StorageEvidence,
     StorageEvidenceAccess, StorageProfileExportAccess, StorageRecording, StorageRequest,
-    StorageResponse, StorageRestoreStatus, StorageWorkspace, SCHEMA_VERSION,
+    StorageResponse, StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace, SCHEMA_VERSION,
 };
 use nix::sys::socket::getsockopt;
 use nix::unistd::Uid;
@@ -48,13 +48,14 @@ impl StorageService {
     ) -> anyhow::Result<(
         Option<StorageWorkspace>,
         Option<StorageCheckpoint>,
+        Option<StorageWarmTierSync>,
         Option<StorageRecording>,
         Option<StorageEvidence>,
         Option<StorageEvidenceAccess>,
         Option<StorageProfileExportAccess>,
     )> {
         let Some((tenant_id, profile_id)) = command_profile(command) else {
-            return Ok((None, None, None, None, None, None));
+            return Ok((None, None, None, None, None, None, None));
         };
         let stripe = profile_lock_stripe(tenant_id, profile_id, self.profile_locks.len());
         let _guard = self.profile_locks[stripe].lock().await;
@@ -131,6 +132,7 @@ async fn serve_connection(
             Ok((
                 workspace,
                 checkpoint,
+                warm_tier_sync,
                 recording,
                 evidence,
                 evidence_access,
@@ -141,6 +143,7 @@ async fn serve_connection(
                 ok: true,
                 workspace,
                 checkpoint,
+                warm_tier_sync,
                 recording,
                 evidence,
                 evidence_access,
@@ -169,13 +172,14 @@ async fn execute_storage_operation(
 ) -> anyhow::Result<(
     Option<StorageWorkspace>,
     Option<StorageCheckpoint>,
+    Option<StorageWarmTierSync>,
     Option<StorageRecording>,
     Option<StorageEvidence>,
     Option<StorageEvidenceAccess>,
     Option<StorageProfileExportAccess>,
 )> {
     match command {
-        StorageCommand::Ping => Ok((None, None, None, None, None, None)),
+        StorageCommand::Ping => Ok((None, None, None, None, None, None, None)),
         StorageCommand::Acquire {
             tenant_id,
             profile_id,
@@ -207,6 +211,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::Checkpoint {
@@ -230,6 +235,38 @@ async fn execute_storage_operation(
                     profile_write_epoch: checkpoint.profile_write_epoch,
                     core_size_bytes: checkpoint.core_size_bytes,
                     checkpoint_file_count: checkpoint.files.len() as u64,
+                }),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ))
+        }
+        StorageCommand::SyncWarmTier {
+            tenant_id,
+            profile_id,
+            session_id,
+        } => {
+            let workspace = store
+                .resume_workspace(tenant_id, profile_id, session_id)
+                .await?;
+            let sync = store.sync_warm_tier(&workspace).await?;
+            Ok((
+                None,
+                None,
+                Some(StorageWarmTierSync {
+                    profile_id: sync.profile_id,
+                    profile_write_epoch: sync.profile_write_epoch,
+                    journal_sequence: sync.journal_sequence,
+                    transaction_barrier: sync.transaction_barrier,
+                    changed_file_count: sync.changed_file_count,
+                    deleted_file_count: sync.deleted_file_count,
+                    reused_chunk_count: sync.reused_chunk_count,
+                    uploaded_bytes: sync.uploaded_bytes,
+                    deferred_group_count: sync.deferred_groups.len() as u64,
+                    manifest_sha256: sync.content_hash,
+                    committed_at_ms: sync.committed_at_ms,
                 }),
                 None,
                 None,
@@ -333,6 +370,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
             ))
         }
         StorageCommand::PrepareRecording {
@@ -351,6 +389,7 @@ async fn execute_storage_operation(
                 .await?;
             verified_recording_directory(&workspace.ephemeral_dir, recording_id, true).await?;
             Ok((
+                None,
                 None,
                 None,
                 Some(StorageRecording {
@@ -450,6 +489,7 @@ async fn execute_storage_operation(
             Ok((
                 None,
                 None,
+                None,
                 Some(StorageRecording {
                     recording_id: recording_id.clone(),
                     segment_sequence: Some(*segment_sequence),
@@ -493,6 +533,7 @@ async fn execute_storage_operation(
                 )
                 .await?;
             Ok((
+                None,
                 None,
                 None,
                 Some(StorageRecording {
@@ -597,6 +638,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
                 Some(StorageEvidence {
                     evidence_id: evidence_id.clone(),
                     object_key,
@@ -652,6 +694,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
                 Some(StorageEvidenceAccess {
                     evidence_id: evidence_id.clone(),
                     download_url,
@@ -687,6 +730,7 @@ async fn execute_storage_operation(
                 None,
                 None,
                 None,
+                None,
                 Some(StorageProfileExportAccess {
                     profile_id: profile_id.clone(),
                     checkpoint_id: checkpoint_id.clone(),
@@ -705,7 +749,7 @@ async fn execute_storage_operation(
             store
                 .release_writer_by_identity(tenant_id, profile_id, session_id)
                 .await?;
-            Ok((None, None, None, None, None, None))
+            Ok((None, None, None, None, None, None, None))
         }
     }
 }
@@ -758,6 +802,11 @@ fn command_profile(command: &StorageCommand) -> Option<(&str, &str)> {
             ..
         }
         | StorageCommand::Checkpoint {
+            tenant_id,
+            profile_id,
+            ..
+        }
+        | StorageCommand::SyncWarmTier {
             tenant_id,
             profile_id,
             ..
@@ -950,6 +999,7 @@ fn rejected(request_id: String, code: &str, message: &str) -> StorageResponse {
         ok: false,
         workspace: None,
         checkpoint: None,
+        warm_tier_sync: None,
         recording: None,
         evidence: None,
         evidence_access: None,

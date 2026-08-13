@@ -55,7 +55,8 @@ DDL；已签名 URL 会在 60 秒内自然失效。
 
 ## 仍未完成
 
-1. Warm Tier Delta Journal 与 Multipart Resume；
+1. 稳定文件 Warm Tier Delta Journal 已由[进度 135](135-Profile-Warm-Tier增量日志闭环.md)
+   关闭；仍缺 SQLite/LevelDB 应用感知 Adapter 与 Multipart Resume；
 2. 真实跨 Region Profile Restore 和全局带宽/一致性证书；
 3. Profile 对象保留期、Legal Hold 和对象锁的深度联动；
 4. 目标云 KMS/IAM、外部 HSM 与正式密钥轮换演练；

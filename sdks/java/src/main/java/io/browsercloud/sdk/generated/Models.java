@@ -147,6 +147,8 @@ public final class Models {
 
   public record ProfileListResponse(List<Profile> items, Integer total) {}
 
+  public record ProfileWarmTierStatus(String state, Object nodeId, Object profileWriteEpoch, Object journalSequence, Object transactionBarrier, Object changedFileCount, Object deletedFileCount, Object reusedChunkCount, Object uploadedBytes, Object deferredGroupCount, Object manifestSha256, Object committedAt) {}
+
   public record ProfileImport(String importId, String operationId, String profileId, String profileName, String runtimeBuildId, String archiveSha256, Long archiveSizeBytes, String state, Object nodeId, String checkpointId, Object checkpointEpoch, Object profileWriteEpoch, Object coreSizeBytes, Object checkpointFileCount, Object errorCode, String requestId, String createdAt, String updatedAt, Object completedAt) {}
 
   public record ProfileImportListResponse(List<ProfileImport> items, Integer total) {}

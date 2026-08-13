@@ -20,6 +20,21 @@ export interface ProfileListResponse {
   total: number;
 }
 
+export interface ProfileWarmTierStatus {
+  state: 'AWAITING_FIRST_SYNC' | 'LIVE';
+  nodeId: string | null;
+  profileWriteEpoch: number | null;
+  journalSequence: number | null;
+  transactionBarrier: string | null;
+  changedFileCount: number | null;
+  deletedFileCount: number | null;
+  reusedChunkCount: number | null;
+  uploadedBytes: number | null;
+  deferredGroupCount: number | null;
+  manifestSha256: string | null;
+  committedAt: string | null;
+}
+
 export interface CreateProfileRequest {
   profileId: string;
   name: string;

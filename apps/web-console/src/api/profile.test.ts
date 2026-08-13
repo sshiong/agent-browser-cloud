@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProfile,
   createProfileExportGrant,
+  getProfileWarmTierStatus,
   importProfileCheckpoint,
   listProfileImports,
   listProfiles,
@@ -65,6 +66,38 @@ describe('profile API', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ profileId: 'profile-test', name: 'Test' }),
+      })
+    );
+  });
+
+  it('reads the committed Warm Tier journal status from the control plane', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          profileId: 'profile-test',
+          state: 'LIVE',
+          profileWriteEpoch: 4,
+          journalSequence: 12,
+          transactionBarrier: 'barrier-12',
+          changedFileCount: 3,
+          deletedFileCount: 1,
+          reusedChunkCount: 8,
+          uploadedBytes: 4096,
+          deferredGroupCount: 2,
+          manifestSha256: 'a'.repeat(64),
+          nodeId: 'node-test',
+          committedAt: '2026-08-13T00:00:00Z',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    await getProfileWarmTierStatus('profile-test', 'tenant-test');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/profiles/profile-test/warm-tier',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Tenant-Id': 'tenant-test' }),
       })
     );
   });

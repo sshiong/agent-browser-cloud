@@ -494,6 +494,75 @@ class SessionCoordinatorTest {
   }
 
   @Test
+  void warmTierBarrierCanCommitWhileTheSameBrowserContextIsStopping() {
+    var session =
+        createSession("ses-1", SessionState.TERMINATING)
+            .withPlacement("node-1", ResourceClass.L2, 1);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    var synced = warmTierEvent("node-1");
+
+    var result = coordinator.handle(nodeEvent(synced, 1, 0));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.COMPLETED);
+  }
+
+  @Test
+  void oldContextWarmTierBarrierIsTerminallyRejectedAfterMigration() {
+    var session =
+        createSession("ses-1", SessionState.RUNNING).withPlacement("node-2", ResourceClass.L2, 1);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+
+    var result = coordinator.handle(nodeEvent(warmTierEvent("node-1"), 0, 0));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.REJECTED);
+    assertThat(result.reason()).isEqualTo("STALE_PROFILE_WARM_TIER_CONTEXT");
+  }
+
+  @Test
+  void warmTierBarrierCannotBeAttributedToAnotherProfile() {
+    var session =
+        createSession("ses-1", SessionState.RUNNING).withPlacement("node-1", ResourceClass.L2, 1);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    var foreign =
+        new NodeEvent.ProfileWarmTierSynced(
+            "ses-1",
+            "node-1",
+            "profile-other",
+            1,
+            1,
+            "wtb_1_1_12345678",
+            1,
+            0,
+            0,
+            32,
+            0,
+            "a".repeat(64),
+            1_785_283_200_000L);
+
+    var result = coordinator.handle(nodeEvent(foreign, 1, 0));
+
+    assertThat(result.status()).isEqualTo(CoordinatorResult.Status.REJECTED);
+    assertThat(result.reason()).isEqualTo("INVALID_PROFILE_WARM_TIER_EVENT");
+  }
+
+  private static NodeEvent.ProfileWarmTierSynced warmTierEvent(String nodeId) {
+    return new NodeEvent.ProfileWarmTierSynced(
+        "ses-1",
+        nodeId,
+        "profile-1",
+        1,
+        1,
+        "wtb_1_1_12345678",
+        1,
+        0,
+        0,
+        32,
+        0,
+        "a".repeat(64),
+        1_785_283_200_000L);
+  }
+
+  @Test
   void shouldCheckpointAndHibernateRunningSession() {
     var running = createSession("ses-1", SessionState.RUNNING);
     var hibernating = createSession("ses-1", SessionState.HIBERNATING);

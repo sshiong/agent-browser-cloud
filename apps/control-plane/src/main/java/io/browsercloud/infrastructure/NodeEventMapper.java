@@ -16,6 +16,7 @@ import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverEndedEvent;
 import io.browsercloud.proto.node.v1.HumanTakeoverReadyEvent;
+import io.browsercloud.proto.node.v1.ProfileWarmTierSyncedEvent;
 import io.browsercloud.proto.node.v1.RemoteDesktopParticipantEvent;
 import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
@@ -32,6 +33,7 @@ public class NodeEventMapper {
 
   static final String RUNTIME_STARTED = "RuntimeStarted";
   static final String RUNTIME_STOPPED = "RuntimeStopped";
+  static final String PROFILE_WARM_TIER_SYNCED = "ProfileWarmTierSynced";
   static final String RUNTIME_RESOURCES_ADJUSTED = "RuntimeResourcesAdjusted";
   static final String BROWSER_CRASHED = "BrowserCrashed";
   static final String BROWSER_STATE_UPDATED = "BrowserStateUpdated";
@@ -135,6 +137,38 @@ public class NodeEventMapper {
               payload.getCoreSizeBytes(),
               payload.getCheckpointFileCount(),
               payload.getRestoreStatus());
+        }
+        case PROFILE_WARM_TIER_SYNCED -> {
+          var payload = ProfileWarmTierSyncedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getNodeId(), "node_id");
+          requireText(payload.getProfileId(), "profile_id");
+          requireText(payload.getTransactionBarrier(), "transaction_barrier");
+          requireText(payload.getManifestSha256(), "manifest_sha256");
+          if (!payload.getNodeId().startsWith("node_")
+              || !payload.getTransactionBarrier().startsWith("wtb_")
+              || payload.getProfileWriteEpoch() <= 0
+              || payload.getJournalSequence() <= 0
+              || payload.getChangedFileCount() + payload.getReusedChunkCount() > 50_000
+              || payload.getUploadedBytes() > 64L * 1024 * 1024
+              || payload.getManifestSha256().length() != 64
+              || !payload.getManifestSha256().chars().allMatch(NodeEventMapper::isLowerHex)
+              || payload.getCommittedAtMs() <= 0) {
+            throw new IllegalArgumentException("Profile Warm Tier event is invalid");
+          }
+          yield new NodeEvent.ProfileWarmTierSynced(
+              payload.getSessionId(),
+              payload.getNodeId(),
+              payload.getProfileId(),
+              payload.getProfileWriteEpoch(),
+              payload.getJournalSequence(),
+              payload.getTransactionBarrier(),
+              payload.getChangedFileCount(),
+              payload.getDeletedFileCount(),
+              payload.getReusedChunkCount(),
+              payload.getUploadedBytes(),
+              payload.getDeferredGroupCount(),
+              payload.getManifestSha256(),
+              payload.getCommittedAtMs());
         }
         case RUNTIME_RESOURCES_ADJUSTED -> {
           var payload = RuntimeResourcesAdjustedEvent.parseFrom(envelope.getPayload());
@@ -660,6 +694,7 @@ public class NodeEventMapper {
     return switch (event) {
       case NodeEvent.RuntimeStarted started -> started.sessionId();
       case NodeEvent.RuntimeStopped stopped -> stopped.sessionId();
+      case NodeEvent.ProfileWarmTierSynced synced -> synced.sessionId();
       case NodeEvent.RuntimeResourcesAdjusted adjusted -> adjusted.sessionId();
       case NodeEvent.RuntimeCrashed crashed -> crashed.sessionId();
       case NodeEvent.StateUpdated updated -> updated.sessionId();
@@ -827,6 +862,10 @@ public class NodeEventMapper {
         target.getEnabled(),
         target.getVisible(),
         target.getSensitive());
+  }
+
+  private static boolean isLowerHex(int character) {
+    return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
   }
 
   private void requireText(String value, String field) {

@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Read, Write};
 #[cfg(unix)]
@@ -23,6 +23,9 @@ const COMMIT_MARKER_FILE: &str = "COMMITTED";
 const LATEST_FILE: &str = "LATEST";
 const WRITER_LOCK_FILE: &str = "WRITER";
 const MAX_CHECKPOINT_ARCHIVE_BYTES: usize = 1024 * 1024 * 1024;
+const WARM_TIER_DIR: &str = "warm-tier";
+const WARM_TIER_LATEST_FILE: &str = "LATEST";
+const MAX_WARM_TIER_DELTA_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Profile 检查点清单。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -47,6 +50,36 @@ pub struct CheckpointFile {
     pub relative_path: String,
     pub size: u64,
     pub sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileDeltaJournalManifest {
+    pub tenant_id: String,
+    pub profile_id: String,
+    pub profile_write_epoch: u64,
+    pub journal_sequence: u64,
+    pub transaction_barrier: String,
+    pub files: Vec<DeltaJournalFile>,
+    pub deleted_files: Vec<String>,
+    pub changed_file_count: u64,
+    pub deleted_file_count: u64,
+    pub reused_chunk_count: u64,
+    pub uploaded_bytes: u64,
+    pub deferred_groups: Vec<String>,
+    pub content_hash: String,
+    pub committed_at_ms: u64,
+    pub committed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeltaJournalFile {
+    pub relative_path: String,
+    pub size: u64,
+    pub sha256: String,
+    pub database_group: String,
+    pub changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -113,6 +146,15 @@ impl LocalProfileStore {
             checkpoint_blocking(&root, &workspace, &runtime_build_id)
         })
         .await?
+    }
+
+    pub async fn sync_warm_tier(
+        &self,
+        workspace: &ProfileWorkspace,
+    ) -> anyhow::Result<ProfileDeltaJournalManifest> {
+        let root = self.root.clone();
+        let workspace = workspace.clone();
+        tokio::task::spawn_blocking(move || sync_warm_tier_blocking(&root, &workspace)).await?
     }
 
     pub async fn pack_checkpoint(
@@ -727,6 +769,382 @@ fn checkpoint_blocking(
     Ok(manifest)
 }
 
+fn sync_warm_tier_blocking(
+    root: &Path,
+    workspace: &ProfileWorkspace,
+) -> anyhow::Result<ProfileDeltaJournalManifest> {
+    let profile_root = profile_root(root, &workspace.tenant_id, &workspace.profile_id);
+    require_writer(&profile_root, &workspace.session_id)?;
+    anyhow::ensure!(
+        workspace
+            .core_dir
+            .starts_with(profile_root.join("workspaces")),
+        "workspace core path escaped profile root"
+    );
+
+    let warm_root = profile_root.join(WARM_TIER_DIR);
+    let journal_root = warm_root.join("journal");
+    let chunk_root = warm_root.join("chunks");
+    secure_create_dir_all(&journal_root)?;
+    secure_create_dir_all(&chunk_root)?;
+
+    let previous = read_latest_warm_tier_manifest(&warm_root)?;
+    let previous_by_path = previous
+        .as_ref()
+        .filter(|manifest| manifest.profile_write_epoch == workspace.profile_write_epoch)
+        .map(|manifest| {
+            manifest
+                .files
+                .iter()
+                .map(|file| (file.relative_path.clone(), file.sha256.clone()))
+                .collect::<HashMap<_, _>>()
+        })
+        .unwrap_or_default();
+
+    let mut observed = Vec::new();
+    collect_core_metadata(&workspace.core_dir, Path::new(""), &mut observed)?;
+    observed.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    anyhow::ensure!(
+        observed.len() <= MAX_PROFILE_FILES,
+        "profile contains too many files"
+    );
+
+    let observed_hashes = observed
+        .iter()
+        .map(|file| (file.relative_path.clone(), file.sha256.clone()))
+        .collect::<HashMap<_, _>>();
+    let observed_paths = observed_hashes.keys().cloned().collect::<HashSet<_>>();
+    let mut changed = Vec::new();
+    let mut reused_chunk_count = 0_u64;
+    let mut deferred_groups = HashSet::new();
+    for mut file in observed {
+        let prior_hash = previous_by_path.get(&file.relative_path);
+        file.changed = prior_hash != Some(&file.sha256);
+        if file.changed {
+            if is_transactional_database_path(&file.relative_path) {
+                deferred_groups.insert(file.database_group.clone());
+                if prior_hash.is_none() {
+                    continue;
+                }
+            } else {
+                changed.push(file.relative_path.clone());
+            }
+        } else {
+            reused_chunk_count = reused_chunk_count.saturating_add(1);
+        }
+    }
+    let mut deleted_files = previous_by_path
+        .keys()
+        .filter(|path| !observed_paths.contains(*path))
+        .filter(|path| !is_transactional_database_path(path))
+        .cloned()
+        .collect::<Vec<_>>();
+    deleted_files.sort();
+
+    // Re-scan immediately before copy and require exact metadata equality. This bounded
+    // transaction barrier prevents a changing file from being committed under an old hash.
+    let mut barrier_files = Vec::new();
+    collect_core_metadata(&workspace.core_dir, Path::new(""), &mut barrier_files)?;
+    barrier_files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    let barrier_hashes = barrier_files
+        .iter()
+        .map(|file| (file.relative_path.clone(), file.sha256.clone()))
+        .collect::<HashMap<_, _>>();
+    anyhow::ensure!(
+        barrier_hashes == observed_hashes,
+        "Profile changed before the Warm Tier transaction barrier"
+    );
+    let mut eligible_files = barrier_files
+        .into_iter()
+        .filter(|file| !is_transactional_database_path(&file.relative_path))
+        .collect::<Vec<_>>();
+    let current_hashes = eligible_files
+        .iter()
+        .map(|file| (file.relative_path.clone(), file.sha256.clone()))
+        .collect::<HashMap<_, _>>();
+    let changed = changed
+        .into_iter()
+        .filter(|path| current_hashes.contains_key(path))
+        .collect::<Vec<_>>();
+    let uploaded_bytes = eligible_files
+        .iter()
+        .filter(|file| changed.contains(&file.relative_path))
+        .map(|file| file.size)
+        .try_fold(0_u64, |total, size| total.checked_add(size))
+        .ok_or_else(|| anyhow::anyhow!("Warm Tier delta size overflow"))?;
+    anyhow::ensure!(
+        uploaded_bytes <= MAX_WARM_TIER_DELTA_BYTES,
+        "Warm Tier delta exceeds the bounded sync size"
+    );
+
+    let sequence = previous
+        .as_ref()
+        .map(|manifest| manifest.journal_sequence)
+        .unwrap_or_default()
+        .saturating_add(1);
+    let transaction_barrier = format!(
+        "wtb_{}_{}_{}",
+        workspace.profile_write_epoch,
+        sequence,
+        uuid::Uuid::new_v4().simple()
+    );
+    let staging = journal_root.join(format!(".staging-{transaction_barrier}"));
+    let committed = journal_root.join(format!("{sequence:020}"));
+    if committed.exists() {
+        // Recover commit-last crashes deterministically. A fully committed manifest only missing
+        // LATEST can be promoted without copying bytes again. A directory installed before its
+        // COMMITTED marker is not visible state and is rebuilt from the active writer workspace.
+        match validate_warm_tier_manifest(&warm_root, sequence) {
+            Ok(manifest)
+                if manifest.tenant_id == workspace.tenant_id
+                    && manifest.profile_id == workspace.profile_id
+                    && manifest.profile_write_epoch == workspace.profile_write_epoch =>
+            {
+                atomic_write(
+                    &warm_root.join(WARM_TIER_LATEST_FILE),
+                    sequence.to_string().as_bytes(),
+                )?;
+                return Ok(manifest);
+            }
+            _ => fs::remove_dir_all(&committed)?,
+        }
+    }
+    secure_create_dir_all(&staging)?;
+
+    let result = (|| {
+        for path in &changed {
+            let metadata = eligible_files
+                .iter()
+                .find(|file| &file.relative_path == path)
+                .ok_or_else(|| anyhow::anyhow!("Warm Tier changed file disappeared"))?;
+            let source = workspace.core_dir.join(safe_relative_path(path)?);
+            let chunk = chunk_root.join(&metadata.sha256);
+            if !chunk.is_file() {
+                let temporary = chunk_root.join(format!(".tmp-{}", uuid::Uuid::new_v4().simple()));
+                fs::copy(&source, &temporary)?;
+                secure_file_permissions(&temporary)?;
+                anyhow::ensure!(
+                    fs::metadata(&temporary)?.len() == metadata.size
+                        && hash_file(&temporary)? == metadata.sha256,
+                    "Warm Tier source changed during copy"
+                );
+                fs::rename(&temporary, &chunk)?;
+                sync_directory(&chunk_root)?;
+            } else {
+                anyhow::ensure!(
+                    fs::metadata(&chunk)?.len() == metadata.size
+                        && hash_file(&chunk)? == metadata.sha256,
+                    "Warm Tier chunk integrity mismatch"
+                );
+            }
+        }
+        for file in &mut eligible_files {
+            file.changed = changed.contains(&file.relative_path);
+        }
+        let content_hash = delta_manifest_content_hash(
+            workspace.profile_write_epoch,
+            sequence,
+            &eligible_files,
+            &deleted_files,
+            &deferred_groups,
+        );
+        let committed_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_millis()
+            .try_into()
+            .unwrap_or(u64::MAX);
+        let mut deferred_groups = deferred_groups.into_iter().collect::<Vec<_>>();
+        deferred_groups.sort();
+        let manifest = ProfileDeltaJournalManifest {
+            tenant_id: workspace.tenant_id.clone(),
+            profile_id: workspace.profile_id.clone(),
+            profile_write_epoch: workspace.profile_write_epoch,
+            journal_sequence: sequence,
+            transaction_barrier: transaction_barrier.clone(),
+            files: eligible_files,
+            deleted_files: deleted_files.clone(),
+            changed_file_count: changed.len() as u64,
+            deleted_file_count: deleted_files.len() as u64,
+            reused_chunk_count,
+            uploaded_bytes,
+            deferred_groups,
+            content_hash: content_hash.clone(),
+            committed_at_ms,
+            committed: true,
+        };
+        atomic_write(
+            &staging.join(MANIFEST_FILE),
+            &serde_json::to_vec_pretty(&manifest)?,
+        )?;
+        fs::rename(&staging, &committed)?;
+        sync_directory(&journal_root)?;
+        atomic_write(&committed.join(COMMIT_MARKER_FILE), content_hash.as_bytes())?;
+        atomic_write(
+            &warm_root.join(WARM_TIER_LATEST_FILE),
+            sequence.to_string().as_bytes(),
+        )?;
+        validate_warm_tier_manifest(&warm_root, sequence)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    result
+}
+
+fn collect_core_metadata(
+    source_root: &Path,
+    relative: &Path,
+    files: &mut Vec<DeltaJournalFile>,
+) -> anyhow::Result<()> {
+    let source = source_root.join(relative);
+    for entry in fs::read_dir(&source)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let next_relative = relative.join(entry.file_name());
+        if is_ephemeral(&next_relative) {
+            continue;
+        }
+        anyhow::ensure!(!file_type.is_symlink(), "profile symlinks are not allowed");
+        if file_type.is_dir() {
+            collect_core_metadata(source_root, &next_relative, files)?;
+        } else if file_type.is_file() {
+            anyhow::ensure!(
+                files.len() < MAX_PROFILE_FILES,
+                "profile contains too many files"
+            );
+            let metadata = entry.metadata()?;
+            anyhow::ensure!(
+                metadata.len() <= MAX_PROFILE_FILE_BYTES,
+                "profile file exceeds size limit"
+            );
+            let relative_path = path_to_manifest(&next_relative)?;
+            files.push(DeltaJournalFile {
+                database_group: database_group(&relative_path),
+                relative_path,
+                size: metadata.len(),
+                sha256: hash_file(&entry.path())?,
+                changed: false,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn database_group(path: &str) -> String {
+    let lower = path.to_ascii_lowercase();
+    if lower.ends_with(".sqlite")
+        || lower.ends_with(".sqlite-wal")
+        || lower.ends_with(".sqlite-shm")
+        || lower.ends_with("/cookies")
+        || lower.ends_with("/history")
+    {
+        "SQLITE".to_owned()
+    } else if lower.contains("leveldb/")
+        || lower.ends_with("/current")
+        || lower.contains("manifest-")
+    {
+        "LEVELDB".to_owned()
+    } else if lower.ends_with("preferences") || lower.ends_with("secure preferences") {
+        "PREFERENCES".to_owned()
+    } else if lower.contains("extension state/") {
+        "EXTENSION_STATE".to_owned()
+    } else {
+        "FILE".to_owned()
+    }
+}
+
+fn is_transactional_database_path(path: &str) -> bool {
+    matches!(database_group(path).as_str(), "SQLITE" | "LEVELDB")
+}
+
+fn delta_manifest_content_hash(
+    write_epoch: u64,
+    sequence: u64,
+    files: &[DeltaJournalFile],
+    deleted: &[String],
+    deferred: &HashSet<String>,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(write_epoch.to_be_bytes());
+    hasher.update(sequence.to_be_bytes());
+    for file in files {
+        hasher.update(file.relative_path.as_bytes());
+        hasher.update([0]);
+        hasher.update(file.size.to_be_bytes());
+        hasher.update(file.sha256.as_bytes());
+        hasher.update([file.changed as u8]);
+    }
+    for path in deleted {
+        hasher.update(b"delete\0");
+        hasher.update(path.as_bytes());
+    }
+    let mut deferred = deferred.iter().collect::<Vec<_>>();
+    deferred.sort();
+    for group in deferred {
+        hasher.update(b"defer\0");
+        hasher.update(group.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn read_latest_warm_tier_manifest(
+    warm_root: &Path,
+) -> anyhow::Result<Option<ProfileDeltaJournalManifest>> {
+    let Some(sequence) = read_optional_text(&warm_root.join(WARM_TIER_LATEST_FILE))? else {
+        return Ok(None);
+    };
+    Ok(Some(validate_warm_tier_manifest(
+        warm_root,
+        sequence.parse()?,
+    )?))
+}
+
+fn validate_warm_tier_manifest(
+    warm_root: &Path,
+    sequence: u64,
+) -> anyhow::Result<ProfileDeltaJournalManifest> {
+    let committed = warm_root.join("journal").join(format!("{sequence:020}"));
+    let manifest: ProfileDeltaJournalManifest =
+        serde_json::from_slice(&fs::read(committed.join(MANIFEST_FILE))?)?;
+    anyhow::ensure!(
+        manifest.committed && manifest.journal_sequence == sequence,
+        "Warm Tier manifest identity mismatch"
+    );
+    anyhow::ensure!(
+        manifest.files.len() <= MAX_PROFILE_FILES,
+        "Warm Tier manifest has too many files"
+    );
+    anyhow::ensure!(
+        fs::read_to_string(committed.join(COMMIT_MARKER_FILE))?.trim() == manifest.content_hash,
+        "Warm Tier commit marker mismatch"
+    );
+    let deferred = manifest
+        .deferred_groups
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
+    anyhow::ensure!(
+        delta_manifest_content_hash(
+            manifest.profile_write_epoch,
+            manifest.journal_sequence,
+            &manifest.files,
+            &manifest.deleted_files,
+            &deferred,
+        ) == manifest.content_hash,
+        "Warm Tier manifest content hash mismatch"
+    );
+    for file in &manifest.files {
+        let chunk = warm_root.join("chunks").join(&file.sha256);
+        anyhow::ensure!(
+            chunk.is_file()
+                && fs::metadata(&chunk)?.len() == file.size
+                && hash_file(&chunk)? == file.sha256,
+            "Warm Tier chunk integrity mismatch"
+        );
+    }
+    Ok(manifest)
+}
+
 fn release_writer_blocking(root: &Path, workspace: &ProfileWorkspace) -> anyhow::Result<()> {
     let profile_root = profile_root(root, &workspace.tenant_id, &workspace.profile_id);
     require_writer(&profile_root, &workspace.session_id)?;
@@ -1192,6 +1610,118 @@ mod tests {
             ProfileRestoreStatus::TechnicalReady
         );
         store.release_writer(&restored).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn warm_tier_journal_commits_only_stable_file_deltas() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::create_dir_all(workspace.core_dir.join("Default/Local Storage/leveldb")).unwrap();
+        fs::write(
+            workspace.core_dir.join("Default/Preferences"),
+            b"{\"theme\":1}",
+        )
+        .unwrap();
+        fs::write(workspace.core_dir.join("Default/Cookies"), b"sqlite-live").unwrap();
+        fs::write(
+            workspace
+                .core_dir
+                .join("Default/Local Storage/leveldb/CURRENT"),
+            b"MANIFEST-1",
+        )
+        .unwrap();
+
+        let first = store.sync_warm_tier(&workspace).await.unwrap();
+        assert_eq!(first.journal_sequence, 1);
+        assert_eq!(first.changed_file_count, 1);
+        assert_eq!(first.deferred_groups, vec!["LEVELDB", "SQLITE"]);
+        assert!(first.committed);
+
+        fs::write(
+            workspace.core_dir.join("Default/Preferences"),
+            b"{\"theme\":2}",
+        )
+        .unwrap();
+        fs::write(workspace.core_dir.join("Default/NewFile"), b"new-value").unwrap();
+        let second = store.sync_warm_tier(&workspace).await.unwrap();
+        assert_eq!(second.journal_sequence, 2);
+        assert_eq!(second.changed_file_count, 2);
+        assert!(second.uploaded_bytes > 0);
+        assert_ne!(first.content_hash, second.content_hash);
+        assert!(second.transaction_barrier.starts_with("wtb_"));
+
+        fs::remove_file(workspace.core_dir.join("Default/NewFile")).unwrap();
+        let third = store.sync_warm_tier(&workspace).await.unwrap();
+        assert_eq!(third.deleted_files, vec!["Default/NewFile"]);
+        assert_eq!(third.deleted_file_count, 1);
+        store.release_writer(&workspace).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn warm_tier_journal_rejects_a_stale_write_epoch() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let first = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::write(first.core_dir.join("Preferences"), b"one").unwrap();
+        store.sync_warm_tier(&first).await.unwrap();
+        store.release_writer(&first).await.unwrap();
+        let second = store
+            .acquire_workspace("tenant-test", "profile-test", "session-two")
+            .await
+            .unwrap();
+        fs::write(second.core_dir.join("Preferences"), b"two").unwrap();
+        let error = store.sync_warm_tier(&first).await.unwrap_err();
+        assert!(error.to_string().contains("writer ownership mismatch"));
+        let second_sync = store.sync_warm_tier(&second).await.unwrap();
+        assert_eq!(second_sync.profile_write_epoch, second.profile_write_epoch);
+        assert_eq!(second_sync.journal_sequence, 2);
+        store.release_writer(&second).await.unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn warm_tier_journal_recovers_commit_last_crash_windows() {
+        let root = temp_root();
+        let store = LocalProfileStore::open(root.clone()).await.unwrap();
+        let workspace = store
+            .acquire_workspace("tenant-test", "profile-test", "session-one")
+            .await
+            .unwrap();
+        fs::write(workspace.core_dir.join("Preferences"), b"stable").unwrap();
+        let first = store.sync_warm_tier(&workspace).await.unwrap();
+        let warm_root = profile_root(&root, "tenant-test", "profile-test").join(WARM_TIER_DIR);
+
+        // Crash after COMMITTED but before LATEST: promote the verified existing barrier.
+        fs::remove_file(warm_root.join(WARM_TIER_LATEST_FILE)).unwrap();
+        let promoted = store.sync_warm_tier(&workspace).await.unwrap();
+        assert_eq!(promoted.transaction_barrier, first.transaction_barrier);
+        assert_eq!(promoted.journal_sequence, 1);
+
+        // Crash after directory install but before COMMITTED: discard the invisible orphan and
+        // rebuild the same sequence from the still-authoritative active writer workspace.
+        fs::remove_file(warm_root.join(WARM_TIER_LATEST_FILE)).unwrap();
+        fs::remove_file(
+            warm_root
+                .join("journal")
+                .join(format!("{:020}", first.journal_sequence))
+                .join(COMMIT_MARKER_FILE),
+        )
+        .unwrap();
+        let rebuilt = store.sync_warm_tier(&workspace).await.unwrap();
+        assert_eq!(rebuilt.journal_sequence, 1);
+        assert_ne!(rebuilt.transaction_barrier, first.transaction_barrier);
+        validate_warm_tier_manifest(&warm_root, 1).unwrap();
+
+        store.release_writer(&workspace).await.unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

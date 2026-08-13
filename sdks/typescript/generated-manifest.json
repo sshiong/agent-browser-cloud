@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "3140642d027ab4a5549d4d27fe264da22cb0c3b01b8a36cf9db711752ec94e7b",
+  "contractSha256": "1b451fe5482ac07daa1b6fbe5497219568b3a4d947f397f458464c00c1559f46",
   "files": {
     "BrowserCloudGeneratedClient.ts": "eed5280848e608a7f52f53d877b7bda2b0c49cac18cf6adbe305e2f1b1c7cb90",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -11,7 +11,7 @@
     "core/FetchHttpRequest.ts": "6c3d87ef0960cfa9ee353bc638b6d9a389867a4f0f7f23e59931b4a972b4aeef",
     "core/OpenAPI.ts": "471e123472ddaf12e4b2ddd6ec301a05032331ddb720f2bd1b75bb8543eb9f63",
     "core/request.ts": "599939ccf4b4b09fbd4ad2a8e4d2cf3a441e64e9b4cd42c180a9599150c7374c",
-    "index.ts": "454f21f507629199f2878ff7b0381294ea88fd8d6a730bc496ff025692db67aa",
+    "index.ts": "7ef2a2ec150e35da6b5f5fdc657b2658a4b70e1d94b91e5cd0bdaff51fb6b980",
     "models/ActorId.ts": "a6b9a2f1d3ae13603cf93ec6584983bc6798012e98e4870d7cd838778fb4c620",
     "models/AgentActionRequest.ts": "0c7b34b4fdb196034105e6f5bdc4162ee254a26af48d1470afca3857f9de1614",
     "models/AgentConfirmation.ts": "510d3a5c509a808209a38e0d9153e5d718231fae03a81b8510da799936fd1b30",
@@ -148,6 +148,7 @@
     "models/ProfileImport.ts": "fbb2829110d08ff5052f18293ee24c5023fc11a3e013bcde5ff80c1d05f6d91f",
     "models/ProfileImportListResponse.ts": "5b5ed5e10d86de9f5d535e63e206aaf93b616ef7751b540a4605525cbf8bc0b0",
     "models/ProfileListResponse.ts": "28e6fc3614b09f6ca9cb76440a190302c47eb0c61e2a27b4d4dd0e8430ad2946",
+    "models/ProfileWarmTierStatus.ts": "bf13a176c3f570d3399e0e5e596aa2f4c6c18d4fb81f720f1ed00b9d00c3b924",
     "models/PromptSecurityEvent.ts": "670714ee91966b31b2be6665a31cfd38c0d82bed4cae3b7807cacef9c2e1b4aa",
     "models/ProviderEvidence.ts": "e0b48047ef3bfd86f558c7f562c04009eb88d1671fdf7a9e4ca1332975a4c929",
     "models/ProviderEvidenceListResponse.ts": "740a9aea5be18b82c577d432d252bcd5b01ed2a67b010be8b145de4c3a3d4acf",
@@ -319,7 +320,7 @@
     "services/HumanTakeoverService.ts": "73c655f7d26b334180bbba34491b4911d004daf7b9ff0a47f6cde7578c393aaa",
     "services/NotificationService.ts": "e0ac4ce59486b356eb0dd9ba461c1a323744c6774242c48d28005baec6328e01",
     "services/OperationService.ts": "83525a318395a0505b083c86afac68785c4dd635bfe94bf0f2cb469a87f667d5",
-    "services/ProfileService.ts": "2ff0283ce18453a9fe3446205bf07a41af95ec68266719703c3c53e987c2f0d2",
+    "services/ProfileService.ts": "8fd7164bf463992ac0c3eb867338ca68a53820d5d37547abdb8848f65f489da1",
     "services/ProxyService.ts": "e689612866e4c0de3ce454750819450e98a573f1ea50045f18809f453ea61c27",
     "services/RemoteDesktopService.ts": "a9d4a8dbb9da198aa4b0155a75c3f4e7b9b3e5600d7d5a387a01bf5cb5aaca72",
     "services/ResourceService.ts": "98930e338d694497628f700f07a4b996157fc9104f1c759ed950bbb80d33f843",

@@ -146,6 +146,7 @@ export type { ProfileId } from './models/ProfileId.js';
 export type { ProfileImport } from './models/ProfileImport.js';
 export type { ProfileImportListResponse } from './models/ProfileImportListResponse.js';
 export type { ProfileListResponse } from './models/ProfileListResponse.js';
+export type { ProfileWarmTierStatus } from './models/ProfileWarmTierStatus.js';
 export type { PromptSecurityEvent } from './models/PromptSecurityEvent.js';
 export type { ProviderEvidence } from './models/ProviderEvidence.js';
 export type { ProviderEvidenceListResponse } from './models/ProviderEvidenceListResponse.js';

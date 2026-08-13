@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import io.browsercloud.application.ProfileApplicationService;
 import io.browsercloud.application.ProfileExportGovernanceService;
+import io.browsercloud.application.ProfileWarmTierApplicationService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,14 +30,17 @@ public class ProfileController {
   private final ProfileApplicationService service;
   private final ProfileExportGovernanceService exports;
   private final PlatformIdentity identity;
+  private final ProfileWarmTierApplicationService warmTier;
 
   public ProfileController(
       ProfileApplicationService service,
       ProfileExportGovernanceService exports,
-      PlatformIdentity identity) {
+      PlatformIdentity identity,
+      ProfileWarmTierApplicationService warmTier) {
     this.service = service;
     this.exports = exports;
     this.identity = identity;
+    this.warmTier = warmTier;
   }
 
   @PostMapping
@@ -54,6 +58,12 @@ public class ProfileController {
   public ProfileView get(
       @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId) {
     return service.get(identity.current().tenantId(), profileId);
+  }
+
+  @GetMapping("/{profileId}/warm-tier")
+  public ProfileWarmTierApplicationService.WarmTierStatus warmTier(
+      @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,128}$") String profileId) {
+    return warmTier.status(identity.current().tenantId(), profileId);
   }
 
   @PostMapping("/{profileId}/export-grants")

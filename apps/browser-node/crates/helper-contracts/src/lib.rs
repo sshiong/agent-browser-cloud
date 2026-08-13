@@ -82,6 +82,11 @@ pub enum StorageCommand {
         session_id: String,
         runtime_build_id: String,
     },
+    SyncWarmTier {
+        tenant_id: String,
+        profile_id: String,
+        session_id: String,
+    },
     ImportCheckpoint {
         tenant_id: String,
         profile_id: String,
@@ -160,6 +165,8 @@ pub struct StorageResponse {
     pub workspace: Option<StorageWorkspace>,
     pub checkpoint: Option<StorageCheckpoint>,
     #[serde(default)]
+    pub warm_tier_sync: Option<StorageWarmTierSync>,
+    #[serde(default)]
     pub recording: Option<StorageRecording>,
     #[serde(default)]
     pub evidence: Option<StorageEvidence>,
@@ -199,6 +206,22 @@ pub struct StorageCheckpoint {
     pub profile_write_epoch: u64,
     pub core_size_bytes: u64,
     pub checkpoint_file_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageWarmTierSync {
+    pub profile_id: String,
+    pub profile_write_epoch: u64,
+    pub journal_sequence: u64,
+    pub transaction_barrier: String,
+    pub changed_file_count: u64,
+    pub deleted_file_count: u64,
+    pub reused_chunk_count: u64,
+    pub uploaded_bytes: u64,
+    pub deferred_group_count: u64,
+    pub manifest_sha256: String,
+    pub committed_at_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -1594,6 +1594,29 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/profiles/{profileId}/warm-tier:
+    get:
+      operationId: getProfileWarmTierStatus
+      summary: Get the latest committed Region Warm Tier delta barrier
+      description: >-
+        Returns PostgreSQL-authoritative metadata from the latest Browser Node/Storage Helper
+        transaction-barriered delta commit. Profile bytes and Region storage credentials are never
+        exposed by this endpoint.
+      tags: [Profile]
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Latest Warm Tier status or an explicit awaiting-first-sync state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileWarmTierStatus"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/profiles/{profileId}/export-grants:
     post:
       operationId: createProfileExportGrant
@@ -6856,6 +6879,54 @@ components:
         total:
           type: integer
           minimum: 0
+    ProfileWarmTierStatus:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [AWAITING_FIRST_SYNC, LIVE]
+        nodeId:
+          type: [string, "null"]
+        profileWriteEpoch:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+        journalSequence:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+        transactionBarrier:
+          type: [string, "null"]
+          pattern: "^wtb_[A-Za-z0-9_-]{8,192}$"
+        changedFileCount:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        deletedFileCount:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        reusedChunkCount:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        uploadedBytes:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+          maximum: 67108864
+        deferredGroupCount:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+        manifestSha256:
+          type: [string, "null"]
+          pattern: "^[0-9a-f]{64}$"
+        committedAt:
+          type: [string, "null"]
+          format: date-time
     ProfileImport:
       type: object
       additionalProperties: false

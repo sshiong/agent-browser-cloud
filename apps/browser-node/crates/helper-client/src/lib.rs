@@ -6,7 +6,7 @@ use helper_contracts::{
 };
 pub use helper_contracts::{
     StorageCheckpoint, StorageEvidence, StorageEvidenceAccess, StorageRecording,
-    StorageRestoreStatus, StorageWorkspace,
+    StorageRestoreStatus, StorageWarmTierSync, StorageWorkspace,
 };
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -205,6 +205,26 @@ impl StorageHelperClient {
         .await?
         .checkpoint
         .ok_or_else(|| anyhow::anyhow!("storage helper omitted checkpoint"))
+    }
+
+    pub async fn sync_warm_tier(
+        &self,
+        workspace: &StorageWorkspace,
+    ) -> anyhow::Result<StorageWarmTierSync> {
+        self.validate_workspace(
+            workspace,
+            &workspace.tenant_id,
+            &workspace.profile_id,
+            &workspace.session_id,
+        )?;
+        self.call(StorageCommand::SyncWarmTier {
+            tenant_id: workspace.tenant_id.clone(),
+            profile_id: workspace.profile_id.clone(),
+            session_id: workspace.session_id.clone(),
+        })
+        .await?
+        .warm_tier_sync
+        .ok_or_else(|| anyhow::anyhow!("storage helper omitted Warm Tier sync result"))
     }
 
     #[allow(clippy::too_many_arguments)]

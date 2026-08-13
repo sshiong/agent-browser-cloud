@@ -5,6 +5,7 @@ import {
   FileArchive,
   Download,
   FileUp,
+  Layers3,
   Plus,
   Search,
 } from 'lucide-react';
@@ -17,7 +18,10 @@ import {
 import { CreateProfileDialog } from '@/features/profiles/CreateProfileDialog';
 import { ProfileImportDrawer } from '@/features/profiles/ProfileImportDrawer';
 import { ProfileExportDialog } from '@/features/profiles/ProfileExportDialog';
-import { useProfiles } from '@/features/profiles/profileQueries';
+import {
+  useProfiles,
+  useProfileWarmTier,
+} from '@/features/profiles/profileQueries';
 import { cn } from '@/shared/lib/utils';
 import type { ProfileView } from '@/types/profile';
 import { useAuth } from '@/auth/AuthProvider';
@@ -29,6 +33,7 @@ export function ProfilesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exportProfile, setExportProfile] = useState<ProfileView>();
+  const [warmTierProfile, setWarmTierProfile] = useState<ProfileView>();
   const canExport = auth.hasAnyRole([
     'TENANT_ADMIN',
     'SECURITY_ADMIN',
@@ -123,6 +128,13 @@ export function ProfilesPage() {
           )}
         </div>
 
+        {warmTierProfile && (
+          <WarmTierPanel
+            profile={warmTierProfile}
+            onClose={() => setWarmTierProfile(undefined)}
+          />
+        )}
+
         <section className="overflow-hidden border border-border-subtle bg-surface-1">
           {query.isLoading ? (
             <LoadingRows rows={5} />
@@ -192,6 +204,7 @@ export function ProfilesPage() {
                         profile={profile}
                         canExport={canExport}
                         onExport={setExportProfile}
+                        onWarmTier={setWarmTierProfile}
                       />
                     ))}
                   </tbody>
@@ -204,6 +217,7 @@ export function ProfilesPage() {
                     profile={profile}
                     canExport={canExport}
                     onExport={setExportProfile}
+                    onWarmTier={setWarmTierProfile}
                   />
                 ))}
               </div>
@@ -256,10 +270,12 @@ function ProfileRow({
   profile,
   canExport,
   onExport,
+  onWarmTier,
 }: {
   profile: ProfileView;
   canExport: boolean;
   onExport: (profile: ProfileView) => void;
+  onWarmTier: (profile: ProfileView) => void;
 }) {
   return (
     <tr className="border-b border-border-subtle last:border-b-0 hover:bg-surface-2/60">
@@ -303,15 +319,24 @@ function ProfileRow({
         {formatDate(profile.updatedAt)}
       </td>
       <td className="px-4 py-3.5">
-        {canExport && profile.latestCheckpointId && (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onExport(profile)}
+            onClick={() => onWarmTier(profile)}
             className="inline-flex h-8 items-center gap-1.5 border border-border-default px-3 text-[11px] text-text-secondary hover:bg-surface-2 hover:text-text-primary"
           >
-            <Download size={13} /> 导出
+            <Layers3 size={13} /> Warm Tier
           </button>
-        )}
+          {canExport && profile.latestCheckpointId && (
+            <button
+              type="button"
+              onClick={() => onExport(profile)}
+              className="inline-flex h-8 items-center gap-1.5 border border-border-default px-3 text-[11px] text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+            >
+              <Download size={13} /> 导出
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -321,10 +346,12 @@ function ProfileCard({
   profile,
   canExport,
   onExport,
+  onWarmTier,
 }: {
   profile: ProfileView;
   canExport: boolean;
   onExport: (profile: ProfileView) => void;
+  onWarmTier: (profile: ProfileView) => void;
 }) {
   return (
     <article className="p-4">
@@ -352,16 +379,124 @@ function ProfileCard({
         />
         <Datum label="写入世代" value={String(profile.profileWriteEpoch)} />
       </dl>
-      {canExport && profile.latestCheckpointId && (
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => onExport(profile)}
-          className="mt-4 inline-flex h-8 w-full items-center justify-center gap-2 border border-border-default text-[11px] text-text-secondary"
+          onClick={() => onWarmTier(profile)}
+          className="inline-flex h-8 items-center justify-center gap-2 border border-border-default text-[11px] text-text-secondary"
         >
-          <Download size={13} /> 导出 Checkpoint
+          <Layers3 size={13} /> Warm Tier
         </button>
-      )}
+        {canExport && profile.latestCheckpointId && (
+          <button
+            type="button"
+            onClick={() => onExport(profile)}
+            className="inline-flex h-8 items-center justify-center gap-2 border border-border-default text-[11px] text-text-secondary"
+          >
+            <Download size={13} /> 导出
+          </button>
+        )}
+      </div>
     </article>
+  );
+}
+
+function WarmTierPanel({
+  profile,
+  onClose,
+}: {
+  profile: ProfileView;
+  onClose: () => void;
+}) {
+  const query = useProfileWarmTier(profile.profileId);
+  const status = query.data;
+  return (
+    <section
+      className="mb-3 border border-border-default bg-surface-1"
+      aria-live="polite"
+    >
+      <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-4 py-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+            Region Warm Tier
+          </p>
+          <h2 className="mt-1 text-[13px] font-medium text-text-primary">
+            {profile.name}
+          </h2>
+          <p className="mt-1 text-[11px] text-text-muted">
+            Storage Helper 事务屏障后的增量状态；SQLite / LevelDB
+            未形成安全屏障时会延后。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[11px] text-text-muted hover:text-text-primary"
+        >
+          收起
+        </button>
+      </div>
+      {query.isLoading ? (
+        <div className="px-4 py-5 text-[11px] text-text-muted">
+          正在读取权威 Warm Tier 状态…
+        </div>
+      ) : query.isError ? (
+        <div className="flex items-center justify-between gap-4 px-4 py-4 text-[11px] text-danger">
+          <span>Warm Tier 状态读取失败，未使用缓存结果。</span>
+          <button
+            type="button"
+            onClick={() => query.refetch()}
+            className="border border-danger/30 px-3 py-1.5"
+          >
+            重试
+          </button>
+        </div>
+      ) : status?.state === 'LIVE' ? (
+        <dl className="grid grid-cols-2 divide-x divide-y divide-border-subtle sm:grid-cols-4">
+          <Datum label="状态" value="已提交 / LIVE" />
+          <Datum
+            label="写入世代 / 序列"
+            value={`${status.profileWriteEpoch} / ${status.journalSequence}`}
+          />
+          <Datum
+            label="本轮上传"
+            value={formatBytes(status.uploadedBytes ?? 0)}
+          />
+          <Datum
+            label="变更 / 删除"
+            value={`${status.changedFileCount ?? 0} / ${status.deletedFileCount ?? 0}`}
+          />
+          <Datum
+            label="复用 Chunk"
+            value={String(status.reusedChunkCount ?? 0)}
+          />
+          <Datum
+            label="延后数据库组"
+            value={String(status.deferredGroupCount ?? 0)}
+          />
+          <Datum label="Browser Node" value={status.nodeId ?? '—'} />
+          <Datum
+            label="提交时间"
+            value={status.committedAt ? formatDate(status.committedAt) : '—'}
+          />
+          <div className="col-span-2 px-4 py-3 sm:col-span-4">
+            <dt className="text-[10px] uppercase tracking-wider text-text-muted">
+              Transaction Barrier / Manifest
+            </dt>
+            <dd className="mt-1 break-all font-mono text-[10px] text-text-secondary">
+              {status.transactionBarrier} · {status.manifestSha256}
+            </dd>
+          </div>
+        </dl>
+      ) : (
+        <div className="px-4 py-5">
+          <p className="text-[12px] text-text-primary">等待首次增量同步</p>
+          <p className="mt-1 text-[11px] text-text-muted">
+            运行中的 Browser Node 会按正式周期提交；这里不会伪造进度。
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 

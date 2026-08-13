@@ -21,6 +21,9 @@
 - Web/Tauri 共用 Session 详情新增录制清单，展示真实 Hash、帧数、丢帧、分段、Policy
   Version、保留期和 Legal Hold，不使用 Mock、localStorage 或定时器伪造数据；
 - OpenAPI、TypeScript/Python/Go/Java SDK 与 N/N−1 Gate 已同步到 201 Operations / 271 Schemas。
+- 修复 Recording 收尾接入后的 failover 回归：`StopRuntime` 再次保持幂等，目标 Runtime
+  从未完成启动、已被清理或被新 term 重复停止时，不会因 Recorder 未注册而阻塞 Coordinator
+  收敛；真实录制 Finalization 失败仍保持 fail-closed，并新增单元回归测试。
 
 ## 验证
 

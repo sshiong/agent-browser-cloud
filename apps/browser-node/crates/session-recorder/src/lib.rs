@@ -371,6 +371,12 @@ impl SessionRecorderRegistry {
     }
 
     pub async fn unregister(&self, session_id: &str) -> anyhow::Result<Option<RecordingSummary>> {
+        // StopRuntime is intentionally idempotent: failover cleanup may target a Runtime that
+        // never completed StartRuntime, or retry after the recorder registry was already
+        // drained. In both cases there is no manifest to finalize and cleanup must continue.
+        if !self.sessions.lock().await.contains_key(session_id) {
+            return Ok(None);
+        }
         if let Some(summary) = self.set_enabled(session_id, false).await? {
             return Ok(Some(summary));
         }
@@ -2128,5 +2134,21 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("previous recording finalization failed"));
+    }
+
+    #[tokio::test]
+    async fn unregister_is_idempotent_for_an_unregistered_session() {
+        let registry = SessionRecorderRegistry::default();
+
+        assert!(registry
+            .unregister("session-never-started")
+            .await
+            .unwrap()
+            .is_none());
+        assert!(registry
+            .unregister("session-never-started")
+            .await
+            .unwrap()
+            .is_none());
     }
 }

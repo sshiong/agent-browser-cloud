@@ -165,6 +165,8 @@ export type { ProxyRoutingCandidateScore } from './models/ProxyRoutingCandidateS
 export type { ProxyRoutingDecision } from './models/ProxyRoutingDecision.js';
 export type { RebindSessionApplicationRequest } from './models/RebindSessionApplicationRequest.js';
 export type { RecordExtensionSampleRequest } from './models/RecordExtensionSampleRequest.js';
+export type { Recording } from './models/Recording.js';
+export type { RecordingList } from './models/RecordingList.js';
 export type { RecordNodePressureRequest } from './models/RecordNodePressureRequest.js';
 export type { RecordServiceLevelEventRequest } from './models/RecordServiceLevelEventRequest.js';
 export type { RecoveryContract } from './models/RecoveryContract.js';
@@ -321,6 +323,7 @@ export { NotificationService } from './services/NotificationService.js';
 export { OperationService } from './services/OperationService.js';
 export { ProfileService } from './services/ProfileService.js';
 export { ProxyService } from './services/ProxyService.js';
+export { RecordingService } from './services/RecordingService.js';
 export { RemoteDesktopService } from './services/RemoteDesktopService.js';
 export { ResourceService } from './services/ResourceService.js';
 export { RuntimeService } from './services/RuntimeService.js';

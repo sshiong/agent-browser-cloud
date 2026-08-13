@@ -401,6 +401,8 @@ async fn execute_storage_operation(
                     redacted_frame_count: 0,
                     redacted_region_count: 0,
                     redaction_policy_version: 1,
+                    manifest_sha256: None,
+                    manifest_bytes: 0,
                     completed: false,
                 }),
                 None,
@@ -521,6 +523,8 @@ async fn execute_storage_operation(
                     redacted_frame_count: *redacted_frame_count,
                     redacted_region_count: *redacted_region_count,
                     redaction_policy_version: *redaction_policy_version,
+                    manifest_sha256: None,
+                    manifest_bytes: 0,
                     completed: false,
                 }),
                 None,
@@ -554,7 +558,7 @@ async fn execute_storage_operation(
             );
             let archive =
                 archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
-            let object_key = archive
+            let committed = archive
                 .complete_recording(
                     tenant_id,
                     profile_id,
@@ -576,12 +580,14 @@ async fn execute_storage_operation(
                 Some(StorageRecording {
                     recording_id: recording_id.clone(),
                     segment_sequence: None,
-                    object_key: Some(object_key),
+                    object_key: Some(committed.object_key),
                     content_bytes: 0,
                     frame_count: *frame_count,
                     redacted_frame_count: *redacted_frame_count,
                     redacted_region_count: *redacted_region_count,
                     redaction_policy_version: *redaction_policy_version,
+                    manifest_sha256: Some(committed.manifest_sha256),
+                    manifest_bytes: committed.manifest_bytes,
                     completed: true,
                 }),
                 None,

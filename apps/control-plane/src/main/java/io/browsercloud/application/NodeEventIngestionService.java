@@ -43,6 +43,7 @@ public class NodeEventIngestionService {
   private final HumanAssistApplicationService humanAssistService;
   private final RemoteDesktopParticipantApplicationService remoteDesktopParticipants;
   private final ProfileWarmTierApplicationService profileWarmTier;
+  private final SessionRecordingApplicationService recordings;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -83,6 +84,7 @@ public class NodeEventIngestionService {
         challengeDetectionService,
         humanAssistService,
         null,
+        null,
         null);
   }
 
@@ -107,7 +109,8 @@ public class NodeEventIngestionService {
       ChallengeDetectionService challengeDetectionService,
       HumanAssistApplicationService humanAssistService,
       RemoteDesktopParticipantApplicationService remoteDesktopParticipants,
-      ProfileWarmTierApplicationService profileWarmTier) {
+      ProfileWarmTierApplicationService profileWarmTier,
+      SessionRecordingApplicationService recordings) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -128,6 +131,7 @@ public class NodeEventIngestionService {
     this.humanAssistService = humanAssistService;
     this.remoteDesktopParticipants = remoteDesktopParticipants;
     this.profileWarmTier = profileWarmTier;
+    this.recordings = recordings;
   }
 
   @Transactional
@@ -225,6 +229,11 @@ public class NodeEventIngestionService {
               "NODE_RUNTIME_EVENT");
       case NodeEvent.EvidenceCaptured captured ->
           evidenceService.record(command.tenantId(), command.eventId(), captured);
+      case NodeEvent.RecordingFinalized finalized -> {
+        if (recordings != null) {
+          recordings.record(command.tenantId(), command.eventId(), finalized);
+        }
+      }
       default -> {}
     }
     if (command.event() instanceof NodeEvent.RuntimeStopped stopped

@@ -12,6 +12,7 @@ import {
   getBrowserState,
   getSessionResourceEvents,
   getSessionEvidence,
+  getSessionRecordings,
   getSessionEvidenceCapture,
   getSessionResources,
   getSessionSafePoint,
@@ -83,6 +84,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'resource-events'] as const,
   evidence: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'evidence'] as const,
+  recordings: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'recordings'] as const,
   evidenceCaptures: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'evidence-captures'] as const,
   evidenceCapture: (sessionId: string, captureId: string) =>
@@ -247,6 +250,14 @@ export function useSessionEvidence(sessionId: string) {
   return useQuery({
     queryKey: sessionKeys.evidence(sessionId),
     queryFn: ({ signal }) => getSessionEvidence(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useSessionRecordings(sessionId: string) {
+  return useQuery({
+    queryKey: sessionKeys.recordings(sessionId),
+    queryFn: ({ signal }) => getSessionRecordings(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
   });
 }

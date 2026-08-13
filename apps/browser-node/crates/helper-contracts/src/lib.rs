@@ -250,6 +250,10 @@ pub struct StorageRecording {
     pub redacted_region_count: u64,
     #[serde(default)]
     pub redaction_policy_version: u32,
+    #[serde(default)]
+    pub manifest_sha256: Option<String>,
+    #[serde(default)]
+    pub manifest_bytes: u64,
     pub completed: bool,
 }
 

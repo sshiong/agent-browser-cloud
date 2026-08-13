@@ -9,6 +9,7 @@ import io.browsercloud.application.SessionApplicationService;
 import io.browsercloud.application.SessionEvidenceApplicationService;
 import io.browsercloud.application.SessionEvidenceGovernanceService;
 import io.browsercloud.application.SessionMigrationApplicationService;
+import io.browsercloud.application.SessionRecordingApplicationService;
 import io.browsercloud.application.SessionResourceApplicationService;
 import io.browsercloud.application.SessionResourceEventStreamService;
 import io.browsercloud.application.SessionSafetyLeaseApplicationService;
@@ -54,6 +55,7 @@ public class SessionController {
   private final SessionEvidenceApplicationService evidenceService;
   private final SessionEvidenceGovernanceService evidenceGovernance;
   private final CoordinatorCommandRoutingService commandRouting;
+  private final SessionRecordingApplicationService recordingService;
 
   public SessionController(
       SessionApplicationService service,
@@ -66,7 +68,8 @@ public class SessionController {
       SessionResourceEventStreamService resourceEventStream,
       SessionEvidenceApplicationService evidenceService,
       SessionEvidenceGovernanceService evidenceGovernance,
-      CoordinatorCommandRoutingService commandRouting) {
+      CoordinatorCommandRoutingService commandRouting,
+      SessionRecordingApplicationService recordingService) {
     this.service = service;
     this.stateGateway = stateGateway;
     this.identity = identity;
@@ -78,6 +81,7 @@ public class SessionController {
     this.evidenceService = evidenceService;
     this.evidenceGovernance = evidenceGovernance;
     this.commandRouting = commandRouting;
+    this.recordingService = recordingService;
   }
 
   /**
@@ -249,6 +253,14 @@ public class SessionController {
       @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
       @RequestParam(defaultValue = "0") @Min(0) int offset) {
     return evidenceService.list(sessionId, identity.current().tenantId(), limit, offset);
+  }
+
+  @GetMapping("/{sessionId}/recordings")
+  public SessionRecordingModels.RecordingListResponse getRecordings(
+      @PathVariable @Pattern(regexp = "^ses_[a-zA-Z0-9]{16,}$") String sessionId,
+      @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
+      @RequestParam(defaultValue = "0") @Min(0) int offset) {
+    return recordingService.list(sessionId, identity.current().tenantId(), limit, offset);
   }
 
   /** Requests a real Browser screenshot. Completion arrives through SessionEvidenceCaptured. */

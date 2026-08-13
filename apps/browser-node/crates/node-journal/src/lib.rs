@@ -638,6 +638,57 @@ impl SqliteNodeJournal {
         .await
     }
 
+    /// Atomically journals every event produced by StopRuntime and closes the Runtime Lease.
+    /// Recording finalization is an additional event in this batch; persisting only the first
+    /// result would acknowledge shutdown while losing the immutable recording manifest.
+    pub async fn record_command_results_and_stop_runtime_atomic(
+        &self,
+        results: &[PersistedCommandResult],
+        session_id: &str,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !results.is_empty(),
+            "stop runtime command result batch must not be empty"
+        );
+        let results = results.to_vec();
+        let session_id = session_id.to_owned();
+        self.with_connection(move |mut connection| {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let created_at_ms: i64 = transaction.query_row(
+                "SELECT CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)",
+                [],
+                |row| row.get(0),
+            )?;
+            for (index, result) in results.iter().enumerate() {
+                let offset = i64::try_from(index).unwrap_or(i64::MAX);
+                transaction.execute(
+                    r#"
+                    INSERT INTO command_results (
+                        message_id, accepted, error_code, error_message,
+                        event_id, event_payload, event_delivered, created_at_ms
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                    ON CONFLICT(message_id) DO NOTHING
+                    "#,
+                    params![
+                        result.acknowledgement.message_id,
+                        result.acknowledgement.accepted,
+                        result.acknowledgement.error_code,
+                        result.acknowledgement.error_message,
+                        result.event_id,
+                        result.event_payload,
+                        result.event_delivered,
+                        created_at_ms.saturating_add(offset),
+                    ],
+                )?;
+            }
+            mark_runtime_stopped_in(&transaction, &session_id)?;
+            transaction.commit()?;
+            Ok(())
+        })
+        .await
+    }
+
     pub async fn mark_runtime_stopped(&self, session_id: &str) -> anyhow::Result<()> {
         let session_id = session_id.to_owned();
         self.with_connection(move |connection| {
@@ -1081,11 +1132,30 @@ mod tests {
             event_payload: Some(vec![2]),
             event_delivered: false,
         };
+        let finalized = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id: "msg_stop#event-1".into(),
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some("evt_recording_finalized".into()),
+            event_payload: Some(vec![3]),
+            event_delivered: false,
+        };
         journal
-            .record_command_result_and_stop_runtime(&stopped, "ses_atomic")
+            .record_command_results_and_stop_runtime_atomic(&[stopped, finalized], "ses_atomic")
             .await
             .unwrap();
         assert!(journal.command_result("msg_stop").await.unwrap().is_some());
+        let pending = journal.pending_events(10).await.unwrap();
+        assert_eq!(
+            pending
+                .iter()
+                .filter_map(|item| item.event_id.as_deref())
+                .collect::<Vec<_>>(),
+            vec!["evt_start", "evt_stop", "evt_recording_finalized"]
+        );
         assert!(journal.active_runtime_leases().await.unwrap().is_empty());
         let _ = std::fs::remove_file(path);
     }

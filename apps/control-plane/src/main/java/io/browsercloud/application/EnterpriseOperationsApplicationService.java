@@ -662,6 +662,18 @@ public class EnterpriseOperationsApplicationService {
         request.legalHold(),
         request.residencyRegion(),
         actorId);
+    if ("REMOTE_DESKTOP_RECORDING".equals(request.dataClass())) {
+      jdbc.update(
+          """
+          UPDATE session_recordings
+             SET retention_until = ended_at + make_interval(days => ?),
+                 legal_hold = ?
+           WHERE tenant_id = ?
+          """,
+          request.retentionDays(),
+          request.legalHold(),
+          tenantId);
+    }
     return jdbc.query(
             """
             SELECT * FROM enterprise_retention_policies

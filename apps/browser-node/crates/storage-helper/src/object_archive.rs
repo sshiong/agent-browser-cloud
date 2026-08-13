@@ -6,7 +6,10 @@ use http::Method;
 use object_store::aws::{AmazonS3, AmazonS3Builder};
 use object_store::path::Path;
 use object_store::signer::Signer;
-use object_store::{ClientOptions, ObjectStoreExt, PutPayload};
+use object_store::{
+    ClientOptions, Error as ObjectStoreError, ObjectStore, ObjectStoreExt, PutMode, PutOptions,
+    PutPayload,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -90,6 +93,12 @@ struct RecordingCommitMarker<'a> {
     redaction_policy_version: u32,
     started_at_ms: u64,
     ended_at_ms: u64,
+}
+
+pub struct RecordingCommitResult {
+    pub object_key: String,
+    pub manifest_sha256: String,
+    pub manifest_bytes: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -217,7 +226,7 @@ impl ObjectArchive {
         );
         let base = self.recording_key_for(tenant_id, profile_id, session_id, recording_id);
         let object_key = format!("{base}/segments/{segment_sequence:020}.ndjson");
-        self.put(&object_key, content.clone()).await?;
+        self.put_immutable(&object_key, content.clone()).await?;
         let marker = RecordingSegmentMarker {
             recording_id,
             segment_sequence,
@@ -230,7 +239,7 @@ impl ObjectArchive {
             started_at_ms,
             ended_at_ms,
         };
-        self.put(
+        self.put_immutable(
             &format!("{base}/segments/{segment_sequence:020}.COMMITTED"),
             Bytes::from(serde_json::to_vec(&marker)?),
         )
@@ -252,7 +261,7 @@ impl ObjectArchive {
         redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
-    ) -> anyhow::Result<String> {
+    ) -> anyhow::Result<RecordingCommitResult> {
         let base = self.recording_key_for(tenant_id, profile_id, session_id, recording_id);
         let marker = RecordingCommitMarker {
             recording_id,
@@ -265,9 +274,16 @@ impl ObjectArchive {
             ended_at_ms,
         };
         let object_key = format!("{base}/COMMITTED");
-        self.put(&object_key, Bytes::from(serde_json::to_vec(&marker)?))
+        let manifest = serde_json::to_vec(&marker)?;
+        let manifest_sha256 = hex_sha256(&manifest);
+        let manifest_bytes = manifest.len() as u64;
+        self.put_immutable(&object_key, Bytes::from(manifest))
             .await?;
-        Ok(object_key)
+        Ok(RecordingCommitResult {
+            object_key,
+            manifest_sha256,
+            manifest_bytes,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -446,6 +462,37 @@ impl ObjectArchive {
         .context("Object Storage operation timed out")?
         .with_context(|| format!("Object Storage PUT failed for {key}"))?;
         Ok(())
+    }
+
+    /// Create-only write used by immutable recording objects. A retry is accepted only when
+    /// the existing bytes are identical; a conflicting overwrite fails closed.
+    async fn put_immutable(&self, key: &str, payload: Bytes) -> anyhow::Result<()> {
+        let result = tokio::time::timeout(
+            self.operation_timeout,
+            self.store.put_opts(
+                &Path::from(key),
+                PutPayload::from_bytes(payload.clone()),
+                PutOptions {
+                    mode: PutMode::Create,
+                    ..Default::default()
+                },
+            ),
+        )
+        .await
+        .context("Object Storage operation timed out")?;
+        match result {
+            Ok(_) => Ok(()),
+            Err(ObjectStoreError::AlreadyExists { .. }) => {
+                let existing = self.get(key).await?;
+                anyhow::ensure!(
+                    existing == payload,
+                    "immutable Object Storage key already exists with different content: {key}"
+                );
+                Ok(())
+            }
+            Err(error) => Err(error)
+                .with_context(|| format!("Object Storage create-only PUT failed for {key}")),
+        }
     }
 
     async fn get(&self, key: &str) -> anyhow::Result<Bytes> {
@@ -658,7 +705,7 @@ mod tests {
                 )))
                 .await
                 .unwrap();
-            let completed_key = archive
+            let completed = archive
                 .complete_recording(
                     "tenant-test",
                     "profile-test",
@@ -674,7 +721,16 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            archive.store.get(&Path::from(completed_key)).await.unwrap();
+            let manifest = archive
+                .store
+                .get(&Path::from(completed.object_key.as_str()))
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+            assert_eq!(completed.manifest_sha256, hex_sha256(&manifest));
+            assert_eq!(completed.manifest_bytes, manifest.len() as u64);
             let evidence_content = Bytes::from_static(&[0xff, 0xd8, 0xff, 0xd9]);
             let evidence_hash = hex_sha256(&evidence_content);
             let evidence_key = archive

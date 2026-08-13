@@ -765,6 +765,25 @@ message SessionEvidenceCapturedEvent {
   uint32 redacted_region_count = 15;
 }
 
+// Emitted only after Storage Helper has committed the immutable recording manifest. The event
+// carries bounded metadata and hashes, never frame bytes or storage credentials.
+message SessionRecordingFinalizedEvent {
+  string session_id = 1;
+  string recording_id = 2;
+  uint64 segment_count = 3;
+  uint64 frame_count = 4;
+  uint64 dropped_frames = 5;
+  uint64 redacted_frame_count = 6;
+  uint64 redacted_region_count = 7;
+  uint32 redaction_policy_version = 8;
+  string manifest_object_key = 9;
+  string manifest_sha256 = 10;
+  uint64 manifest_bytes = 11;
+  int64 started_at_ms = 12;
+  int64 ended_at_ms = 13;
+  string node_id = 14;
+}
+
 message BrowserStateDiffEvent {
   string session_id = 1;
   uint64 base_state_version = 2;

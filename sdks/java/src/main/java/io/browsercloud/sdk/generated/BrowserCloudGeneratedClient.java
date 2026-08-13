@@ -48,6 +48,7 @@ public final class BrowserCloudGeneratedClient {
     operation("getSessionResources", "GET", "/api/v1/sessions/{sessionId}/resources", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionResource"),
     operation("listSessionResourceEvents", "GET", "/api/v1/sessions/{sessionId}/resource-events", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "ResourceEventList"),
     operation("listSessionEvidence", "GET", "/api/v1/sessions/{sessionId}/evidence", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "EvidenceList"),
+    operation("listSessionRecordings", "GET", "/api/v1/sessions/{sessionId}/recordings", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "RecordingList"),
     operation("captureSessionEvidence", "POST", "/api/v1/sessions/{sessionId}/evidence:capture", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CaptureEvidenceRequest", true, "EvidenceCapture"),
     operation("getSessionEvidenceCapture", "GET", "/api/v1/sessions/{sessionId}/evidence-captures/{captureId}", List.of("captureId", "sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "EvidenceCapture"),
     operation("createSessionEvidenceAccessGrant", "POST", "/api/v1/sessions/{sessionId}/evidence/{evidenceId}/access-grants", List.of("evidenceId", "sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateEvidenceAccessGrantRequest", true, "EvidenceAccessGrant"),
@@ -280,6 +281,7 @@ public final class BrowserCloudGeneratedClient {
   public Response getSessionResources(Request request) { return call("getSessionResources", request); }
   public Response listSessionResourceEvents(Request request) { return call("listSessionResourceEvents", request); }
   public Response listSessionEvidence(Request request) { return call("listSessionEvidence", request); }
+  public Response listSessionRecordings(Request request) { return call("listSessionRecordings", request); }
   public Response captureSessionEvidence(Request request) { return call("captureSessionEvidence", request); }
   public Response getSessionEvidenceCapture(Request request) { return call("getSessionEvidenceCapture", request); }
   public Response createSessionEvidenceAccessGrant(Request request) { return call("createSessionEvidenceAccessGrant", request); }

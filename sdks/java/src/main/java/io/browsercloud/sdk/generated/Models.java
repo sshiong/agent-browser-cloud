@@ -269,6 +269,10 @@ public final class Models {
 
   public record EvidenceList(List<Evidence> items, Integer limit, Integer offset) {}
 
+  public record Recording(String recordingId, String nodeId, Long segmentCount, Long frameCount, Long droppedFrames, Long redactedFrameCount, Long redactedRegionCount, Integer redactionPolicyVersion, String manifestSha256, Long manifestBytes, String startedAt, String endedAt, String retentionUntil, Boolean legalHold) {}
+
+  public record RecordingList(List<Recording> items, Integer limit, Integer offset) {}
+
   public enum EvidencePurpose { INCIDENTRESPONSE, CHANGEVALIDATION, SUPPORTDIAGNOSTICS, COMPLIANCEAUDIT }
 
   public record CaptureEvidenceRequest(EvidencePurpose purpose) {}

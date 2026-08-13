@@ -1486,6 +1486,29 @@ type EvidenceList struct {
 	Offset int        `json:"offset,omitempty"`
 }
 
+type Recording struct {
+	RecordingId            string `json:"recordingId,omitempty"`
+	NodeId                 string `json:"nodeId,omitempty"`
+	SegmentCount           int64  `json:"segmentCount,omitempty"`
+	FrameCount             int64  `json:"frameCount,omitempty"`
+	DroppedFrames          int64  `json:"droppedFrames,omitempty"`
+	RedactedFrameCount     int64  `json:"redactedFrameCount,omitempty"`
+	RedactedRegionCount    int64  `json:"redactedRegionCount,omitempty"`
+	RedactionPolicyVersion int    `json:"redactionPolicyVersion,omitempty"`
+	ManifestSha256         string `json:"manifestSha256,omitempty"`
+	ManifestBytes          int64  `json:"manifestBytes,omitempty"`
+	StartedAt              string `json:"startedAt,omitempty"`
+	EndedAt                string `json:"endedAt,omitempty"`
+	RetentionUntil         string `json:"retentionUntil,omitempty"`
+	LegalHold              bool   `json:"legalHold,omitempty"`
+}
+
+type RecordingList struct {
+	Items  []Recording `json:"items,omitempty"`
+	Limit  int         `json:"limit,omitempty"`
+	Offset int         `json:"offset,omitempty"`
+}
+
 type EvidencePurpose string
 
 const (

@@ -746,6 +746,7 @@ public final class SessionCoordinator {
         }
         yield CoordinatorResult.completed();
       }
+      case NodeEvent.RecordingFinalized ignored -> CoordinatorResult.completed();
       case NodeEvent.HumanTakeoverReady ready -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
         if (operation.isEmpty()
@@ -810,6 +811,7 @@ public final class SessionCoordinator {
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
+      case NodeEvent.RecordingFinalized finalized -> finalized.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

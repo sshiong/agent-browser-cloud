@@ -27,6 +27,7 @@ import type { ProxyRebind } from '../models/ProxyRebind.js';
 import type { ProxyRebindOperation } from '../models/ProxyRebindOperation.js';
 import type { ProxyRebindRequest } from '../models/ProxyRebindRequest.js';
 import type { RebindSessionApplicationRequest } from '../models/RebindSessionApplicationRequest.js';
+import type { RecordingList } from '../models/RecordingList.js';
 import type { RedeemEvidenceAccessResponse } from '../models/RedeemEvidenceAccessResponse.js';
 import type { RemoteDesktopConnection } from '../models/RemoteDesktopConnection.js';
 import type { RemoteDesktopParticipant } from '../models/RemoteDesktopParticipant.js';
@@ -295,6 +296,45 @@ export class SessionService {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/v1/sessions/{sessionId}/evidence',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'limit': limit,
+                'offset': offset,
+            },
+            errors: {
+                404: `Resource not found.`,
+            },
+        });
+    }
+    /**
+     * List immutable Session recording manifests
+     * Lists the tenant-scoped PostgreSQL projection of Browser Node-authoritative recording manifests. Internal object-storage coordinates and raw recording bytes are not returned.
+     *
+     * @returns RecordingList Recording manifests ordered newest first.
+     * @throws ApiError
+     */
+    public listSessionRecordings({
+        sessionId,
+        xTenantId,
+        limit = 50,
+        offset,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        limit?: number,
+        offset?: number,
+    }): CancelablePromise<RecordingList> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/recordings',
             path: {
                 'sessionId': sessionId,
             },

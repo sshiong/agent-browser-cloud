@@ -24,6 +24,7 @@ import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
+import io.browsercloud.proto.node.v1.SessionRecordingFinalizedEvent;
 import io.browsercloud.proto.node.v1.TargetBounds;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -843,6 +844,77 @@ class NodeEventMapperTest {
     assertThatThrownBy(() -> mapper.toCommand(envelope))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("committed evidence metadata");
+  }
+
+  @Test
+  void shouldMapAuthoritativeSessionRecordingManifest() {
+    var payload =
+        SessionRecordingFinalizedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setRecordingId("rec_1234567890abcdef1234567890abcdef")
+            .setSegmentCount(4)
+            .setFrameCount(120)
+            .setDroppedFrames(3)
+            .setRedactedFrameCount(6)
+            .setRedactedRegionCount(8)
+            .setRedactionPolicyVersion(1)
+            .setManifestObjectKey(
+                "tenants/tenant-test/profiles/profile-test/sessions/ses_test/recordings/"
+                    + "rec_1234567890abcdef1234567890abcdef/COMMITTED")
+            .setManifestSha256("b".repeat(64))
+            .setManifestBytes(512)
+            .setStartedAtMs(1_785_283_100_000L)
+            .setEndedAtMs(1_785_283_200_000L)
+            .setNodeId("node-test")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-recording-finalized")
+            .setEventType(NodeEventMapper.SESSION_RECORDING_FINALIZED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(5)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.RecordingFinalized.class,
+            recording -> {
+              assertThat(recording.recordingId()).isEqualTo("rec_1234567890abcdef1234567890abcdef");
+              assertThat(recording.frameCount()).isEqualTo(120);
+              assertThat(recording.manifestSha256()).isEqualTo("b".repeat(64));
+            });
+  }
+
+  @Test
+  void shouldRejectRecordingManifestOutsideTenantSessionPrefix() {
+    var payload =
+        SessionRecordingFinalizedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setRecordingId("rec_1234567890abcdef1234567890abcdef")
+            .setRedactionPolicyVersion(1)
+            .setManifestObjectKey(
+                "tenants/other/profiles/p/sessions/ses_test/recordings/x/COMMITTED")
+            .setManifestSha256("b".repeat(64))
+            .setManifestBytes(10)
+            .setStartedAtMs(10)
+            .setEndedAtMs(20)
+            .setNodeId("node-test")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-recording-invalid")
+            .setEventType(NodeEventMapper.SESSION_RECORDING_FINALIZED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(5)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("recording manifest metadata");
   }
 
   @Test

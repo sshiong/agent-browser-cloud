@@ -25,6 +25,7 @@ import {
   useResyncBrowserState,
   useSessionResourceEvents,
   useSessionEvidence,
+  useSessionRecordings,
   useEvidenceCapture,
   useCaptureSessionEvidence,
   useCreateEvidenceAccessGrant,
@@ -57,6 +58,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { SessionResourcePanel } from '@/features/sessions/components/resources/SessionResourcePanel';
 import { BusinessRecoveryCard } from '@/features/sessions/components/BusinessRecoveryCard';
 import { SessionEvidenceCard } from '@/features/sessions/components/SessionEvidenceCard';
+import { SessionRecordingCard } from '@/features/sessions/components/SessionRecordingCard';
 import { ProxyRebindPanel } from '@/features/sessions/components/ProxyRebindPanel';
 import { useProxyBindings } from '@/features/proxies/proxyQueries';
 import { ChallengeAssistCard } from '@/features/sessions/components/ChallengeAssistCard';
@@ -76,6 +78,7 @@ export function SessionDetailPage() {
   const resourceQuery = useSessionResources(id);
   const resourceEventsQuery = useSessionResourceEvents(id);
   const evidenceQuery = useSessionEvidence(id);
+  const recordingsQuery = useSessionRecordings(id);
   const [captureId, setCaptureId] = useState<string>();
   const captureMutation = useCaptureSessionEvidence(id);
   const captureQuery = useEvidenceCapture(id, captureId);
@@ -352,6 +355,13 @@ export function SessionDetailPage() {
                   onRedeem={(grantId) =>
                     evidenceRedeemMutation.mutateAsync(grantId)
                   }
+                />
+
+                <SessionRecordingCard
+                  items={recordingsQuery.data?.items ?? []}
+                  loading={recordingsQuery.isLoading}
+                  error={recordingsQuery.error}
+                  onRetry={() => recordingsQuery.refetch()}
                 />
 
                 <BrowserStatePanel

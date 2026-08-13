@@ -24,6 +24,7 @@ public sealed interface NodeEvent
         NodeEvent.HumanAssistFailed,
         NodeEvent.RemoteDesktopParticipantChanged,
         NodeEvent.EvidenceCaptured,
+        NodeEvent.RecordingFinalized,
         NodeEvent.HumanTakeoverReady,
         NodeEvent.HumanTakeoverEnded {
 
@@ -507,6 +508,23 @@ public sealed interface NodeEvent
       String errorCode,
       String redactionState,
       int redactedRegionCount)
+      implements NodeEvent {}
+
+  record RecordingFinalized(
+      String sessionId,
+      String recordingId,
+      String nodeId,
+      long segmentCount,
+      long frameCount,
+      long droppedFrames,
+      long redactedFrameCount,
+      long redactedRegionCount,
+      int redactionPolicyVersion,
+      String manifestObjectKey,
+      String manifestSha256,
+      long manifestBytes,
+      long startedAtMs,
+      long endedAtMs)
       implements NodeEvent {}
 
   record InteractiveTarget(

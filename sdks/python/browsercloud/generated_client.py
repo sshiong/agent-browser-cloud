@@ -58,6 +58,7 @@ OPERATIONS: dict[str, Operation] = {
     'getSessionResources': Operation('getSessionResources', 'GET', '/api/v1/sessions/{sessionId}/resources', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionResource'),
     'listSessionResourceEvents': Operation('listSessionResourceEvents', 'GET', '/api/v1/sessions/{sessionId}/resource-events', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'ResourceEventList'),
     'listSessionEvidence': Operation('listSessionEvidence', 'GET', '/api/v1/sessions/{sessionId}/evidence', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'EvidenceList'),
+    'listSessionRecordings': Operation('listSessionRecordings', 'GET', '/api/v1/sessions/{sessionId}/recordings', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'RecordingList'),
     'captureSessionEvidence': Operation('captureSessionEvidence', 'POST', '/api/v1/sessions/{sessionId}/evidence:capture', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CaptureEvidenceRequest', True, 'EvidenceCapture'),
     'getSessionEvidenceCapture': Operation('getSessionEvidenceCapture', 'GET', '/api/v1/sessions/{sessionId}/evidence-captures/{captureId}', ('captureId', 'sessionId'), (), ('X-Tenant-Id',), '', False, 'EvidenceCapture'),
     'createSessionEvidenceAccessGrant': Operation('createSessionEvidenceAccessGrant', 'POST', '/api/v1/sessions/{sessionId}/evidence/{evidenceId}/access-grants', ('evidenceId', 'sessionId'), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateEvidenceAccessGrantRequest', True, 'EvidenceAccessGrant'),
@@ -361,6 +362,9 @@ class BrowserCloudGeneratedClient:
 
     def listSessionEvidence(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listSessionEvidence', path=path, query=query, body=body, headers=headers)
+
+    def listSessionRecordings(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('listSessionRecordings', path=path, query=query, body=body, headers=headers)
 
     def captureSessionEvidence(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('captureSessionEvidence', path=path, query=query, body=body, headers=headers)

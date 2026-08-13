@@ -504,6 +504,29 @@ export interface SessionEvidenceListResponse {
   offset: number;
 }
 
+export interface SessionRecordingView {
+  recordingId: string;
+  nodeId: string;
+  segmentCount: number;
+  frameCount: number;
+  droppedFrames: number;
+  redactedFrameCount: number;
+  redactedRegionCount: number;
+  redactionPolicyVersion: number;
+  manifestSha256: string;
+  manifestBytes: number;
+  startedAt: string;
+  endedAt: string;
+  retentionUntil: string;
+  legalHold: boolean;
+}
+
+export interface SessionRecordingListResponse {
+  items: SessionRecordingView[];
+  limit: number;
+  offset: number;
+}
+
 export type EvidencePurpose =
   | 'INCIDENT_RESPONSE'
   | 'CHANGE_VALIDATION'

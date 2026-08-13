@@ -43,6 +43,7 @@ pub struct RecordingSpec {
 struct RegisteredRecording {
     spec: RecordingSpec,
     active: Option<ActiveRecording>,
+    pending_summary: Option<RecordingSummary>,
     failure: Option<String>,
 }
 
@@ -60,6 +61,11 @@ pub struct RecordingSummary {
     pub redacted_frame_count: u64,
     pub redacted_region_count: u64,
     pub redaction_policy_version: u32,
+    pub manifest_object_key: String,
+    pub manifest_sha256: String,
+    pub manifest_bytes: u64,
+    pub started_at_ms: u64,
+    pub ended_at_ms: u64,
 }
 
 #[derive(Clone, Default)]
@@ -271,6 +277,7 @@ impl SessionRecorderRegistry {
             RegisteredRecording {
                 spec,
                 active: None,
+                pending_summary: None,
                 failure: None,
             },
         );
@@ -283,24 +290,35 @@ impl SessionRecorderRegistry {
         Ok(())
     }
 
-    pub async fn set_enabled(&self, session_id: &str, enabled: bool) -> anyhow::Result<bool> {
+    pub async fn set_enabled(
+        &self,
+        session_id: &str,
+        enabled: bool,
+    ) -> anyhow::Result<Option<RecordingSummary>> {
         let (spec, active, stale) = {
             let mut sessions = self.sessions.lock().await;
             let registered = sessions
                 .get_mut(session_id)
                 .ok_or_else(|| anyhow::anyhow!("recording Session is not registered"))?;
             if enabled {
+                anyhow::ensure!(
+                    registered.pending_summary.is_none(),
+                    "completed recording summary must be acknowledged before restart"
+                );
                 if registered
                     .active
                     .as_ref()
                     .is_some_and(|active| !active.task.is_finished())
                 {
-                    return Ok(true);
+                    return Ok(None);
                 }
                 let stale = registered.active.take();
                 registered.failure = None;
                 (Some(registered.spec.clone()), None, stale)
             } else {
+                if let Some(summary) = registered.pending_summary.as_ref() {
+                    return Ok(Some(summary.clone()));
+                }
                 if let Some(failure) = registered.failure.as_ref() {
                     anyhow::bail!("previous recording finalization failed: {failure}");
                 }
@@ -313,17 +331,23 @@ impl SessionRecorderRegistry {
         }
         if let Some(active) = active {
             let _ = active.stop.send(true);
-            let result = active
+            let summary = match active
                 .task
                 .await
-                .map_err(|error| anyhow::anyhow!("recording task join failed: {error}"))?;
-            if let Err(error) = result {
-                if let Some(registered) = self.sessions.lock().await.get_mut(session_id) {
-                    registered.failure = Some(error.to_string());
+                .map_err(|error| anyhow::anyhow!("recording task join failed: {error}"))?
+            {
+                Ok(summary) => summary,
+                Err(error) => {
+                    if let Some(registered) = self.sessions.lock().await.get_mut(session_id) {
+                        registered.failure = Some(error.to_string());
+                    }
+                    return Err(error);
                 }
-                return Err(error);
+            };
+            if let Some(registered) = self.sessions.lock().await.get_mut(session_id) {
+                registered.pending_summary = Some(summary.clone());
             }
-            return Ok(false);
+            return Ok(Some(summary));
         }
         if let Some(spec) = spec {
             let active = start_recording(spec).await?;
@@ -332,9 +356,9 @@ impl SessionRecorderRegistry {
                 .get_mut(session_id)
                 .ok_or_else(|| anyhow::anyhow!("recording Session disappeared during start"))?;
             registered.active = Some(active);
-            return Ok(true);
+            return Ok(None);
         }
-        Ok(false)
+        Ok(None)
     }
 
     pub async fn enabled(&self, session_id: &str) -> Option<bool> {
@@ -347,38 +371,53 @@ impl SessionRecorderRegistry {
     }
 
     pub async fn unregister(&self, session_id: &str) -> anyhow::Result<Option<RecordingSummary>> {
+        if let Some(summary) = self.set_enabled(session_id, false).await? {
+            return Ok(Some(summary));
+        }
+        self.sessions.lock().await.remove(session_id);
+        Ok(None)
+    }
+
+    pub async fn acknowledge_summary(
+        &self,
+        session_id: &str,
+        recording_id: &str,
+    ) -> anyhow::Result<()> {
+        let mut sessions = self.sessions.lock().await;
+        let registered = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| anyhow::anyhow!("recording Session is not registered"))?;
+        anyhow::ensure!(
+            registered
+                .pending_summary
+                .as_ref()
+                .is_some_and(|summary| summary.recording_id == recording_id),
+            "recording summary acknowledgement does not match pending manifest"
+        );
+        registered.pending_summary = None;
+        Ok(())
+    }
+
+    /*
+     * The pending summary remains in the registry until Node Journal has durably accepted the
+     * finalization event. This makes Control Plane projection retryable across dispatch retries.
+     */
+    pub async fn remove_inactive(&self, session_id: &str) -> anyhow::Result<()> {
         let active = {
             let mut sessions = self.sessions.lock().await;
             let Some(registered) = sessions.get_mut(session_id) else {
-                return Ok(None);
+                return Ok(());
             };
-            if let Some(failure) = registered.failure.as_ref() {
-                anyhow::bail!("previous recording finalization failed: {failure}");
-            }
-            let active = registered.active.take();
-            if active.is_none() {
-                sessions.remove(session_id);
-                return Ok(None);
-            }
-            active.expect("checked active recording")
+            anyhow::ensure!(registered.active.is_none(), "recording is still active");
+            anyhow::ensure!(
+                registered.pending_summary.is_none(),
+                "recording summary is still pending acknowledgement"
+            );
+            sessions.remove(session_id);
+            None::<ActiveRecording>
         };
-        let _ = active.stop.send(true);
-        let result = active
-            .task
-            .await
-            .map_err(|error| anyhow::anyhow!("recording task join failed: {error}"))?;
-        match result {
-            Ok(summary) => {
-                self.sessions.lock().await.remove(session_id);
-                Ok(Some(summary))
-            }
-            Err(error) => {
-                if let Some(registered) = self.sessions.lock().await.get_mut(session_id) {
-                    registered.failure = Some(error.to_string());
-                }
-                Err(error)
-            }
-        }
+        drop(active);
+        Ok(())
     }
 }
 
@@ -926,7 +965,16 @@ async fn write_segments(
             && completed.frame_count == total_frames
             && completed.redacted_frame_count == redacted_frame_count
             && completed.redacted_region_count == redacted_region_count
-            && completed.redaction_policy_version == RECORDING_REDACTION_POLICY_VERSION,
+            && completed.redaction_policy_version == RECORDING_REDACTION_POLICY_VERSION
+            && completed
+                .object_key
+                .as_deref()
+                .is_some_and(|key| !key.is_empty())
+            && completed
+                .manifest_sha256
+                .as_deref()
+                .is_some_and(|hash| hash.len() == 64)
+            && completed.manifest_bytes > 0,
         "storage helper did not acknowledge the recording redaction manifest"
     );
     Ok(RecordingSummary {
@@ -937,6 +985,13 @@ async fn write_segments(
         redacted_frame_count,
         redacted_region_count,
         redaction_policy_version: RECORDING_REDACTION_POLICY_VERSION,
+        manifest_object_key: completed.object_key.expect("validated manifest object key"),
+        manifest_sha256: completed
+            .manifest_sha256
+            .expect("validated manifest SHA-256"),
+        manifest_bytes: completed.manifest_bytes,
+        started_at_ms: recording_started_at,
+        ended_at_ms,
     })
 }
 
@@ -2056,6 +2111,7 @@ mod tests {
                         anyhow::bail!("Object Storage finalization failed")
                     }),
                 }),
+                pending_summary: None,
                 failure: None,
             },
         );

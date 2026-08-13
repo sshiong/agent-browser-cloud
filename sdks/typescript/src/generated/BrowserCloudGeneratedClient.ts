@@ -26,6 +26,7 @@ import { NotificationService } from './services/NotificationService.js';
 import { OperationService } from './services/OperationService.js';
 import { ProfileService } from './services/ProfileService.js';
 import { ProxyService } from './services/ProxyService.js';
+import { RecordingService } from './services/RecordingService.js';
 import { RemoteDesktopService } from './services/RemoteDesktopService.js';
 import { ResourceService } from './services/ResourceService.js';
 import { RuntimeService } from './services/RuntimeService.js';
@@ -62,6 +63,7 @@ export class BrowserCloudGeneratedClient {
     public readonly operation: OperationService;
     public readonly profile: ProfileService;
     public readonly proxy: ProxyService;
+    public readonly recording: RecordingService;
     public readonly remoteDesktop: RemoteDesktopService;
     public readonly resource: ResourceService;
     public readonly runtime: RuntimeService;
@@ -110,6 +112,7 @@ export class BrowserCloudGeneratedClient {
         this.operation = new OperationService(this.request);
         this.profile = new ProfileService(this.request);
         this.proxy = new ProxyService(this.request);
+        this.recording = new RecordingService(this.request);
         this.remoteDesktop = new RemoteDesktopService(this.request);
         this.resource = new ResourceService(this.request);
         this.runtime = new RuntimeService(this.request);

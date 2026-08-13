@@ -44,6 +44,7 @@ class NodeEventIngestionServiceTest {
   @Mock private HumanAssistApplicationService humanAssistService;
   @Mock private RemoteDesktopParticipantApplicationService remoteDesktopParticipants;
   @Mock private ProfileWarmTierApplicationService profileWarmTier;
+  @Mock private SessionRecordingApplicationService recordingService;
 
   private NodeEventIngestionService service;
 
@@ -70,7 +71,8 @@ class NodeEventIngestionServiceTest {
             challengeDetectionService,
             humanAssistService,
             remoteDesktopParticipants,
-            profileWarmTier);
+            profileWarmTier,
+            recordingService);
     org.mockito.Mockito.lenient()
         .when(humanAssistService.stateUpdated(any(), any()))
         .thenReturn(HumanAssistApplicationService.StateCommit.notHumanAssist());
@@ -126,6 +128,34 @@ class NodeEventIngestionServiceTest {
     service.receive(command);
 
     verify(evidenceService).record("tenant-test", "evt_evidence", evidence);
+  }
+
+  @Test
+  void shouldPersistRecordingManifestInsideTheInboxTransaction() {
+    var recording =
+        new NodeEvent.RecordingFinalized(
+            "ses_test",
+            "rec_1234567890abcdef1234567890abcdef",
+            "node-test",
+            4,
+            120,
+            3,
+            6,
+            8,
+            1,
+            "tenants/tenant-test/profiles/p/sessions/ses_test/recordings/rec/COMMITTED",
+            "b".repeat(64),
+            512,
+            1_785_283_100_000L,
+            1_785_283_200_000L);
+    var command =
+        new NodeEventReceived("evt_recording", "tenant-test", "ses_test", 1, 1, 0, 2, recording);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(recordingService).record("tenant-test", "evt_recording", recording);
+    verify(inboxRepository).save(any());
   }
 
   @Test

@@ -38,6 +38,7 @@ import type {
   RebindSessionApplicationRequest,
   SessionApplicationRebindView,
   SessionEvidenceListResponse,
+  SessionRecordingListResponse,
   EvidencePurpose,
   EvidenceCaptureView,
   EvidenceAccessGrantView,
@@ -217,6 +218,18 @@ export async function getSessionEvidence(
 ): Promise<SessionEvidenceListResponse> {
   return request<SessionEvidenceListResponse>(
     `/sessions/${sessionId}/evidence?limit=20`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function getSessionRecordings(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionRecordingListResponse> {
+  return request<SessionRecordingListResponse>(
+    `/sessions/${sessionId}/recordings?limit=20`,
     { signal },
     tenantId
   );

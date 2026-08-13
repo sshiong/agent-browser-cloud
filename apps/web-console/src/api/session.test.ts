@@ -15,6 +15,7 @@ import {
   getSessionApplicationBinding,
   getSessionSafePoint,
   getSessionEvidence,
+  getSessionRecordings,
   getSessionChallenges,
   getSessionProxyRebind,
   listRecoveryContracts,
@@ -84,6 +85,31 @@ describe('session API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/sessions/ses_1234567890abcdef/evidence?limit=20',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+        }),
+      })
+    );
+  });
+
+  it('reads the tenant-scoped immutable recording manifest index', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], limit: 20, offset: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getSessionRecordings(
+      'ses_1234567890abcdef',
+      'tenant-test',
+      undefined
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/sessions/ses_1234567890abcdef/recordings?limit=20',
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',

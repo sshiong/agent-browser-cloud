@@ -22,6 +22,7 @@ import io.browsercloud.proto.node.v1.RuntimeResourcesAdjustedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStartedEvent;
 import io.browsercloud.proto.node.v1.RuntimeStoppedEvent;
 import io.browsercloud.proto.node.v1.SessionEvidenceCapturedEvent;
+import io.browsercloud.proto.node.v1.SessionRecordingFinalizedEvent;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
@@ -47,6 +48,7 @@ public class NodeEventMapper {
   static final String HUMAN_ASSIST_FAILED = "HumanAssistFailed";
   static final String REMOTE_DESKTOP_PARTICIPANT_CHANGED = "RemoteDesktopParticipantChanged";
   static final String SESSION_EVIDENCE_CAPTURED = "SessionEvidenceCaptured";
+  static final String SESSION_RECORDING_FINALIZED = "SessionRecordingFinalized";
   static final String HUMAN_TAKEOVER_READY = "HumanTakeoverReady";
   static final String HUMAN_TAKEOVER_ENDED = "HumanTakeoverEnded";
   private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
@@ -653,6 +655,55 @@ public class NodeEventMapper {
               redactionState,
               redactedRegionCount);
         }
+        case SESSION_RECORDING_FINALIZED -> {
+          var payload = SessionRecordingFinalizedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getRecordingId(), "recording_id");
+          requireText(payload.getNodeId(), "node_id");
+          requireText(payload.getManifestObjectKey(), "manifest_object_key");
+          var objectKey = payload.getManifestObjectKey();
+          var normalizedObjectKey = "/" + objectKey;
+          var tenantRecordingRoot = "/tenants/" + envelope.getTenantId() + "/profiles/";
+          var recordingSuffix =
+              "/sessions/"
+                  + payload.getSessionId()
+                  + "/recordings/"
+                  + payload.getRecordingId()
+                  + "/COMMITTED";
+          if (!payload.getRecordingId().matches("^rec_[0-9a-f]{32}$")
+              || payload.getNodeId().length() > 128
+              || payload.getSegmentCount() > 1_000_000L
+              || payload.getFrameCount() > 1_000_000_000L
+              || payload.getDroppedFrames() > 1_000_000_000L
+              || payload.getRedactedFrameCount() > payload.getFrameCount()
+              || payload.getRedactedRegionCount() > payload.getFrameCount() * 256L
+              || payload.getRedactionPolicyVersion() != 1
+              || !payload.getManifestSha256().matches("^[0-9a-f]{64}$")
+              || payload.getManifestBytes() <= 0
+              || payload.getManifestBytes() > 1024L * 1024L
+              || payload.getStartedAtMs() <= 0
+              || payload.getEndedAtMs() < payload.getStartedAtMs()
+              || objectKey.contains("..")
+              || objectKey.contains("\\")
+              || !normalizedObjectKey.startsWith(tenantRecordingRoot)
+              || !normalizedObjectKey.endsWith(recordingSuffix)) {
+            throw new IllegalArgumentException("recording manifest metadata is invalid");
+          }
+          yield new NodeEvent.RecordingFinalized(
+              payload.getSessionId(),
+              payload.getRecordingId(),
+              payload.getNodeId(),
+              payload.getSegmentCount(),
+              payload.getFrameCount(),
+              payload.getDroppedFrames(),
+              payload.getRedactedFrameCount(),
+              payload.getRedactedRegionCount(),
+              payload.getRedactionPolicyVersion(),
+              payload.getManifestObjectKey(),
+              payload.getManifestSha256(),
+              payload.getManifestBytes(),
+              payload.getStartedAtMs(),
+              payload.getEndedAtMs());
+        }
         case HUMAN_TAKEOVER_READY -> {
           var payload = HumanTakeoverReadyEvent.parseFrom(envelope.getPayload());
           if (!payload.hasState()) {
@@ -708,6 +759,7 @@ public class NodeEventMapper {
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
+      case NodeEvent.RecordingFinalized finalized -> finalized.sessionId();
       case NodeEvent.HumanTakeoverReady ready -> ready.sessionId();
       case NodeEvent.HumanTakeoverEnded ended -> ended.sessionId();
     };

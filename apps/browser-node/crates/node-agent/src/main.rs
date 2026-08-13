@@ -24,8 +24,9 @@ use node_contracts::proto::{
     PublishRequest, PublishResponse, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
     ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
     RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
-    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, StartRuntimeCommand, StopRuntimeCommand,
-    TargetBounds, UploadProfileImportRequest, UploadProfileImportResponse,
+    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, SessionRecordingFinalizedEvent,
+    StartRuntimeCommand, StopRuntimeCommand, TargetBounds, UploadProfileImportRequest,
+    UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -40,7 +41,8 @@ use runtime_supervisor::{
     RuntimeSpec, RuntimeSupervisor,
 };
 use session_recorder::{
-    EvidenceCapture, EvidenceSpec, RecordingSpec, SessionEvidenceRegistry, SessionRecorderRegistry,
+    EvidenceCapture, EvidenceSpec, RecordingSpec, RecordingSummary, SessionEvidenceRegistry,
+    SessionRecorderRegistry,
 };
 use sha2::{Digest, Sha256};
 use state_collector::{
@@ -867,9 +869,43 @@ struct CommandResult {
     runtime_lease: Option<RuntimeLease>,
     stop_runtime_lease: bool,
     state_baseline: Option<CurrentState>,
+    recording_summary_ack: Option<String>,
+    remove_recording_after_ack: bool,
 }
 
 impl NodeControlService {
+    fn recording_finalized_event(
+        &self,
+        command: &CommandEnvelope,
+        summary: &RecordingSummary,
+        sequence: i64,
+    ) -> anyhow::Result<EventEnvelope> {
+        Ok(Self::event_with_id(
+            command,
+            format!("evt_{}_recording_finalized", command.message_id),
+            "SessionRecordingFinalized",
+            sequence,
+            SessionRecordingFinalizedEvent {
+                session_id: command.session_id.clone(),
+                recording_id: summary.recording_id.clone(),
+                segment_count: summary.segment_count,
+                frame_count: summary.frame_count,
+                dropped_frames: summary.dropped_frames,
+                redacted_frame_count: summary.redacted_frame_count,
+                redacted_region_count: summary.redacted_region_count,
+                redaction_policy_version: summary.redaction_policy_version,
+                manifest_object_key: summary.manifest_object_key.clone(),
+                manifest_sha256: summary.manifest_sha256.clone(),
+                manifest_bytes: summary.manifest_bytes,
+                started_at_ms: i64::try_from(summary.started_at_ms)
+                    .context("recording start timestamp exceeds event range")?,
+                ended_at_ms: i64::try_from(summary.ended_at_ms)
+                    .context("recording end timestamp exceeds event range")?,
+                node_id: self.node_id.clone(),
+            },
+        ))
+    }
+
     fn evidence_request(
         command: &CommandEnvelope,
         result: &CommandResult,
@@ -1128,6 +1164,8 @@ impl NodeControlService {
             runtime_lease: None,
             stop_runtime_lease: false,
             state_baseline: None,
+            recording_summary_ack: None,
+            remove_recording_after_ack: false,
         }
     }
 
@@ -1161,6 +1199,8 @@ impl NodeControlService {
             runtime_lease: None,
             stop_runtime_lease: false,
             state_baseline: Some(state_baseline),
+            recording_summary_ack: None,
+            remove_recording_after_ack: false,
         }
     }
 
@@ -1176,6 +1216,8 @@ impl NodeControlService {
             runtime_lease: Some(runtime_lease),
             stop_runtime_lease: false,
             state_baseline: None,
+            recording_summary_ack: None,
+            remove_recording_after_ack: false,
         }
     }
 
@@ -1187,6 +1229,8 @@ impl NodeControlService {
             runtime_lease: None,
             stop_runtime_lease: true,
             state_baseline: None,
+            recording_summary_ack: None,
+            remove_recording_after_ack: false,
         }
     }
 
@@ -1337,6 +1381,8 @@ impl NodeControlService {
             runtime_lease: None,
             stop_runtime_lease: false,
             state_baseline: Some(state),
+            recording_summary_ack: None,
+            remove_recording_after_ack: false,
         }
     }
 
@@ -3312,10 +3358,11 @@ impl NodeControlService {
                             return self.failed(command, error);
                         }
                     }
-                    if let Err(error) = self.session_recorders.unregister(&command.session_id).await
-                    {
-                        return self.failed(command, error);
-                    }
+                    let recording_summary =
+                        match self.session_recorders.unregister(&command.session_id).await {
+                            Ok(summary) => summary,
+                            Err(error) => return self.failed(command, error),
+                        };
                     self.session_evidence.unregister(&command.session_id).await;
                     self.state_collector
                         .unregister_runtime(&command.session_id)
@@ -3338,6 +3385,14 @@ impl NodeControlService {
                             {
                                 Ok(sequence) => sequence,
                                 Err(error) => return self.failed(command, error),
+                            };
+                            let recording_sequence = if recording_summary.is_some() {
+                                match self.next_event_sequence(&command.session_id).await {
+                                    Ok(sequence) => Some(sequence),
+                                    Err(error) => return self.failed(command, error),
+                                }
+                            } else {
+                                None
                             };
                             tracing::info!(
                                 session_id = %command.session_id,
@@ -3445,10 +3500,24 @@ impl NodeControlService {
                                     restore_status: restore_status.to_owned(),
                                 },
                             );
-                            Self::runtime_stopped_result(
+                            let mut result = Self::runtime_stopped_result(
                                 Self::ack(&command.message_id, true, "", ""),
                                 event,
-                            )
+                            );
+                            if let Some(summary) = recording_summary.as_ref() {
+                                let finalized = match self.recording_finalized_event(
+                                    command,
+                                    summary,
+                                    recording_sequence.expect("recording sequence was reserved"),
+                                ) {
+                                    Ok(event) => event,
+                                    Err(error) => return self.failed(command, error),
+                                };
+                                result.additional_events.push(finalized);
+                                result.recording_summary_ack = Some(summary.recording_id.clone());
+                            }
+                            result.remove_recording_after_ack = true;
+                            result
                         }
                         Err(error) => self.failed(command, error),
                     }
@@ -3755,24 +3824,6 @@ impl NodeControlService {
                             return self.failed(command, error);
                         }
                         if let Err(error) = self
-                            .session_recorders
-                            .set_enabled(&command.session_id, next_video_recording_enabled)
-                            .await
-                        {
-                            self.rollback_resource_adjustment(
-                                &command.session_id,
-                                previous.clone(),
-                                previous_state_collector_budget_percent,
-                                previous_remote_desktop_bitrate_kbps,
-                                previous_observer_frame_rate_fps,
-                                previous_video_recording_enabled,
-                                previous_success_screenshot_sample_percent,
-                                previous_tab_resource_policy.clone(),
-                            )
-                            .await;
-                            return self.failed(command, error);
-                        }
-                        if let Err(error) = self
                             .session_evidence
                             .set_success_sample_percent(
                                 &command.session_id,
@@ -3828,6 +3879,51 @@ impl NodeControlService {
                             .await;
                             return self.failed(command, error);
                         }
+                        let recording_sequence =
+                            if previous_video_recording_enabled && !next_video_recording_enabled {
+                                match self.next_event_sequence(&command.session_id).await {
+                                    Ok(sequence) => Some(sequence),
+                                    Err(error) => {
+                                        self.rollback_resource_adjustment(
+                                            &command.session_id,
+                                            previous.clone(),
+                                            previous_state_collector_budget_percent,
+                                            previous_remote_desktop_bitrate_kbps,
+                                            previous_observer_frame_rate_fps,
+                                            previous_video_recording_enabled,
+                                            previous_success_screenshot_sample_percent,
+                                            previous_tab_resource_policy.clone(),
+                                        )
+                                        .await;
+                                        return self.failed(command, error);
+                                    }
+                                }
+                            } else {
+                                None
+                            };
+                        // Recording is adjusted last: once finalization succeeds there are no
+                        // remaining fallible actuators that could strand an unjournaled manifest.
+                        let recording_summary = match self
+                            .session_recorders
+                            .set_enabled(&command.session_id, next_video_recording_enabled)
+                            .await
+                        {
+                            Ok(summary) => summary,
+                            Err(error) => {
+                                self.rollback_resource_adjustment(
+                                    &command.session_id,
+                                    previous.clone(),
+                                    previous_state_collector_budget_percent,
+                                    previous_remote_desktop_bitrate_kbps,
+                                    previous_observer_frame_rate_fps,
+                                    previous_video_recording_enabled,
+                                    previous_success_screenshot_sample_percent,
+                                    previous_tab_resource_policy.clone(),
+                                )
+                                .await;
+                                return self.failed(command, error);
+                            }
+                        };
                         let event = Self::event(
                             command,
                             "RuntimeResourcesAdjusted",
@@ -3901,7 +3997,29 @@ impl NodeControlService {
                                 ),
                             },
                         );
-                        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+                        let mut result =
+                            Self::result(Self::ack(&command.message_id, true, "", ""), Some(event));
+                        if let Some(summary) = recording_summary.as_ref() {
+                            let Some(recording_sequence) = recording_sequence else {
+                                return self.failed(
+                                    command,
+                                    anyhow::anyhow!(
+                                        "recording finalized without a reserved event sequence"
+                                    ),
+                                );
+                            };
+                            let finalized = match self.recording_finalized_event(
+                                command,
+                                summary,
+                                recording_sequence,
+                            ) {
+                                Ok(event) => event,
+                                Err(error) => return self.failed(command, error),
+                            };
+                            result.additional_events.push(finalized);
+                            result.recording_summary_ack = Some(summary.recording_id.clone());
+                        }
+                        result
                     }
                     Err(error) => self.failed(command, error.into()),
                 }
@@ -5129,14 +5247,18 @@ impl NodeControlService {
                             .state_collector
                             .unregister_runtime(&session_id)
                             .await;
-                        if let Err(error) = service.session_recorders.unregister(&session_id).await
-                        {
-                            tracing::error!(
-                                session_id,
-                                error = %error,
-                                "Failed to finalize Session recording after Browser crash"
-                            );
-                        }
+                        let recording_summary =
+                            match service.session_recorders.unregister(&session_id).await {
+                                Ok(summary) => summary,
+                                Err(error) => {
+                                    tracing::error!(
+                                        session_id,
+                                        error = %error,
+                                        "Failed to finalize Session recording after Browser crash"
+                                    );
+                                    None
+                                }
+                            };
                         service.session_evidence.unregister(&session_id).await;
                         if let Some(gateway) = service.remote_desktop_gateway.as_ref() {
                             gateway.unregister_session(&session_id);
@@ -5146,6 +5268,24 @@ impl NodeControlService {
                             .await
                         {
                             Ok(current_term) => {
+                                if let Some(summary) = recording_summary.as_ref() {
+                                    if let Err(error) = service
+                                        .record_and_publish_recording_finalized(
+                                            &tenant_id,
+                                            &session_id,
+                                            current_term,
+                                            running_context_epoch,
+                                            summary,
+                                        )
+                                        .await
+                                    {
+                                        tracing::error!(
+                                            session_id,
+                                            error = %error,
+                                            "Failed to persist recording finalization after Browser crash"
+                                        );
+                                    }
+                                }
                                 service
                                     .record_and_publish_crash(
                                         &tenant_id,
@@ -5506,6 +5646,72 @@ impl NodeControlService {
         Ok(())
     }
 
+    async fn record_and_publish_recording_finalized(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+        coordinator_term: i64,
+        context_epoch: i64,
+        summary: &RecordingSummary,
+    ) -> anyhow::Result<()> {
+        let event_id = format!("evt_recording_{}", uuid::Uuid::new_v4().simple());
+        let message_id = format!("probe_{}", uuid::Uuid::new_v4().simple());
+        let sequence = self.next_event_sequence(session_id).await?;
+        let event = EventEnvelope {
+            event_id: event_id.clone(),
+            event_type: "SessionRecordingFinalized".to_owned(),
+            tenant_id: tenant_id.to_owned(),
+            session_id: session_id.to_owned(),
+            coordinator_term,
+            context_epoch,
+            operation_epoch: 0,
+            sequence,
+            payload: SessionRecordingFinalizedEvent {
+                session_id: session_id.to_owned(),
+                recording_id: summary.recording_id.clone(),
+                segment_count: summary.segment_count,
+                frame_count: summary.frame_count,
+                dropped_frames: summary.dropped_frames,
+                redacted_frame_count: summary.redacted_frame_count,
+                redacted_region_count: summary.redacted_region_count,
+                redaction_policy_version: summary.redaction_policy_version,
+                manifest_object_key: summary.manifest_object_key.clone(),
+                manifest_sha256: summary.manifest_sha256.clone(),
+                manifest_bytes: summary.manifest_bytes,
+                started_at_ms: i64::try_from(summary.started_at_ms)
+                    .context("recording start timestamp exceeds event range")?,
+                ended_at_ms: i64::try_from(summary.ended_at_ms)
+                    .context("recording end timestamp exceeds event range")?,
+                node_id: self.node_id.clone(),
+            }
+            .encode_to_vec(),
+        };
+        let persisted = PersistedCommandResult {
+            acknowledgement: PersistedAcknowledgement {
+                message_id,
+                accepted: true,
+                error_code: String::new(),
+                error_message: String::new(),
+            },
+            event_id: Some(event_id),
+            event_payload: Some(event.encode_to_vec()),
+            event_delivered: false,
+        };
+        self.journal.record_command_result(&persisted).await?;
+        self.session_recorders
+            .acknowledge_summary(session_id, &summary.recording_id)
+            .await?;
+        self.session_recorders.remove_inactive(session_id).await?;
+        if let Err(error) = self.publish_and_mark(event).await {
+            tracing::warn!(
+                session_id,
+                error = %error,
+                "Session recording finalization queued for redelivery"
+            );
+        }
+        Ok(())
+    }
+
     async fn dispatch_durable(
         &self,
         command: CommandEnvelope,
@@ -5674,9 +5880,18 @@ impl NodeControlService {
                     .record_command_result_and_start_runtime(persisted, lease)
                     .await
             } else if result.stop_runtime_lease {
-                self.journal
-                    .record_command_result_and_stop_runtime(persisted, &command.session_id)
-                    .await
+                if persisted_batch.len() > 1 {
+                    self.journal
+                        .record_command_results_and_stop_runtime_atomic(
+                            &persisted_batch,
+                            &command.session_id,
+                        )
+                        .await
+                } else {
+                    self.journal
+                        .record_command_result_and_stop_runtime(persisted, &command.session_id)
+                        .await
+                }
             } else if persisted_batch.len() > 1 {
                 self.journal
                     .record_command_results_atomic(&persisted_batch)
@@ -5704,6 +5919,33 @@ impl NodeControlService {
                     "Failed to persist Node command result"
                 );
                 return Err(Status::internal("node journal unavailable"));
+            }
+            if let Some(recording_id) = result.recording_summary_ack.as_deref() {
+                self.session_recorders
+                    .acknowledge_summary(&command.session_id, recording_id)
+                    .await
+                    .map_err(|error| {
+                        tracing::error!(
+                            session_id = %command.session_id,
+                            recording_id,
+                            error = %error,
+                            "Failed to acknowledge journaled recording manifest"
+                        );
+                        Status::internal("recording manifest acknowledgement failed")
+                    })?;
+            }
+            if result.remove_recording_after_ack {
+                self.session_recorders
+                    .remove_inactive(&command.session_id)
+                    .await
+                    .map_err(|error| {
+                        tracing::error!(
+                            session_id = %command.session_id,
+                            error = %error,
+                            "Failed to remove inactive recording registry"
+                        );
+                        Status::internal("recording registry cleanup failed")
+                    })?;
             }
             for _ in 0..state_backlog_events {
                 self.increment_pending_state_event(&command.session_id)

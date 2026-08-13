@@ -501,6 +501,39 @@ paths:
                 $ref: "#/components/schemas/EvidenceList"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/recordings:
+    get:
+      operationId: listSessionRecordings
+      summary: List immutable Session recording manifests
+      description: >
+        Lists the tenant-scoped PostgreSQL projection of Browser Node-authoritative recording
+        manifests. Internal object-storage coordinates and raw recording bytes are not returned.
+      tags: [Session, Recording]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Recording manifests ordered newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingList"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sessions/{sessionId}/evidence:capture:
     post:
       operationId: captureSessionEvidence
@@ -9378,6 +9411,76 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Evidence"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        offset:
+          type: integer
+          minimum: 0
+    Recording:
+      type: object
+      additionalProperties: false
+      required:
+        [recordingId, nodeId, segmentCount, frameCount, droppedFrames,
+         redactedFrameCount, redactedRegionCount, redactionPolicyVersion,
+         manifestSha256, manifestBytes, startedAt, endedAt, retentionUntil, legalHold]
+      properties:
+        recordingId:
+          type: string
+          pattern: "^rec_[0-9a-f]{32}$"
+        nodeId:
+          type: string
+        segmentCount:
+          type: integer
+          format: int64
+          minimum: 0
+        frameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        droppedFrames:
+          type: integer
+          format: int64
+          minimum: 0
+        redactedFrameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        redactedRegionCount:
+          type: integer
+          format: int64
+          minimum: 0
+        redactionPolicyVersion:
+          type: integer
+          minimum: 1
+        manifestSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        manifestBytes:
+          type: integer
+          format: int64
+          minimum: 1
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        retentionUntil:
+          type: string
+          format: date-time
+        legalHold:
+          type: boolean
+    RecordingList:
+      type: object
+      additionalProperties: false
+      required: [items, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recording"
         limit:
           type: integer
           minimum: 1

@@ -51,7 +51,11 @@ export function RemoteDesktopPage() {
   const revokeParticipant = useRevokeRemoteDesktopParticipant(sessionId);
   const [desktopState, setDesktopState] =
     useState<DesktopConnectionState>('DISCONNECTED');
-  const [viewOnly, setViewOnly] = useState(false);
+  // Opening VNC is primarily an Agent observer workflow. Default to the
+  // server-enforced read-only ticket so merely watching (including incidental
+  // pointer movement over the canvas) can never defer Agent commands. The
+  // operator can explicitly opt into shared control when human input is needed.
+  const [viewOnly, setViewOnly] = useState(true);
   const session = sessionQuery.data;
   const takeover = session?.currentOperation?.mode === 'HUMAN_TAKEOVER';
   const takeoverOwned =
@@ -157,7 +161,7 @@ export function RemoteDesktopPage() {
                         : 'text-text-muted hover:text-text-primary'
                     )}
                   >
-                    只读观察
+                    只读观察（推荐）
                   </button>
                 </div>
               )}
@@ -234,7 +238,9 @@ export function RemoteDesktopPage() {
                   value={
                     takeoverOwned
                       ? 'EXCLUSIVE TAKEOVER'
-                      : 'PRIORITY WHEN ACTIVE'
+                      : viewOnly
+                        ? 'OBSERVE ONLY'
+                        : 'PRIORITY WHEN ACTIVE'
                   }
                   active={ready}
                 />
@@ -251,7 +257,7 @@ export function RemoteDesktopPage() {
                     takeoverOwned
                       ? 'EXCLUSIVE'
                       : viewOnly
-                        ? 'VIEW ONLY / SHARED'
+                        ? 'VIEW ONLY / AGENT CONTINUES'
                         : 'CONTROL / SHARED'
                   }
                   active={ready}

@@ -479,6 +479,14 @@ try {
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
+  await expect(page.getByText("· VIEW ONLY", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("VIEW ONLY / AGENT CONTINUES", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "协作控制" }).click();
+  await expect(page.getByText("· SHARED CONTROL", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
   const sharedObserverContext = await browser.newContext({
     viewport: { width: 1024, height: 768 },
   });
@@ -486,14 +494,10 @@ try {
   await sharedObserverPage.goto(
     `${baseUrl}/remote-desktop?session=${startSessionId}`,
   );
-  const [viewOnlyTicketResponse] = await Promise.all([
-    sharedObserverPage.waitForResponse(
-      (response) =>
-        response.url().includes(":desktop-connection?viewOnly=true") &&
-        response.status() === 200,
-    ),
-    sharedObserverPage.getByRole("button", { name: "只读观察" }).click(),
-  ]);
+  const viewOnlyTicketResponse = await sharedObserverPage.request.post(
+    `${baseUrl}/api/v1/sessions/${startSessionId}:desktop-connection?viewOnly=true`,
+    { headers: { "X-Tenant-Id": "tenant-local" } },
+  );
   const viewOnlyTicket = await viewOnlyTicketResponse.json();
   if (viewOnlyTicket.viewOnly !== true) {
     throw new Error(
@@ -561,6 +565,10 @@ try {
   await page.getByRole("button", { name: "打开远程桌面" }).click();
   await page.waitForURL("**/remote-desktop?session=ses_*");
   await expect(page.getByText("RFB LIVE", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole("button", { name: "协作控制" }).click();
+  await expect(page.getByText("· SHARED CONTROL", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
   const disconnectCanvas = page
@@ -670,6 +678,10 @@ try {
   await expect(observerPage.getByText("RFB LIVE", { exact: true })).toBeVisible(
     { timeout: 15_000 },
   );
+  await observerPage.getByRole("button", { name: "协作控制" }).click();
+  await expect(
+    observerPage.getByText("· SHARED CONTROL", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
   const observerCanvas = observerPage
     .getByLabel("实时远程桌面画面")
     .locator("canvas");

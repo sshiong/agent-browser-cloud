@@ -296,6 +296,9 @@ impl StorageHelperClient {
         content_sha256: &str,
         content_bytes: u64,
         frame_count: u64,
+        redacted_frame_count: u64,
+        redacted_region_count: u64,
+        redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
     ) -> anyhow::Result<StorageRecording> {
@@ -315,6 +318,9 @@ impl StorageHelperClient {
             content_sha256: content_sha256.to_owned(),
             content_bytes,
             frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
             started_at_ms,
             ended_at_ms,
         })
@@ -330,6 +336,9 @@ impl StorageHelperClient {
         recording_id: &str,
         segment_count: u64,
         frame_count: u64,
+        redacted_frame_count: u64,
+        redacted_region_count: u64,
+        redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
     ) -> anyhow::Result<StorageRecording> {
@@ -347,6 +356,9 @@ impl StorageHelperClient {
             recording_id: recording_id.to_owned(),
             segment_count,
             frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
             started_at_ms,
             ended_at_ms,
         })

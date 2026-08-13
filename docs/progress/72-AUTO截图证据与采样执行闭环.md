@@ -117,6 +117,6 @@ Storage checkpoint/recording/evidence GameDay 和 Kubernetes Operator E2E，补�
 2. Screenshot 保留期、Legal Hold、WORM Manifest、删除 Receipt 和租户配额的对象
    生命周期深度联动；
 3. 基础敏感语义识别与 Agent/Observer 截图不透明遮罩已由
-   [进度 88](88-截图敏感区域遮罩与分类闭环.md)关闭；仍缺站点级隐私策略、无语义
-   视觉文本分类和 Recording 帧级遮罩；
+   [进度 88](88-截图敏感区域遮罩与分类闭环.md)关闭；站点级策略与 Recording 帧级遮罩
+   已由进度 137、138 关闭，仍缺无语义视觉文本/OCR 分类；
 4. 目标 Linux 多 Session 长稳、磁盘满、Object Storage 背压/网络分区和告警矩阵。

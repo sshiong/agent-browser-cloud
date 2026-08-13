@@ -7,10 +7,13 @@
 use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use helper_client::{StorageHelperClient, StorageWorkspace};
+use jpeg_decoder::PixelFormat;
+use jpeg_encoder::ColorType;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -24,6 +27,10 @@ const SEGMENT_MAX_BYTES: u64 = 4 * 1024 * 1024;
 const SEGMENT_MAX_DURATION_MS: u64 = 10_000;
 const CDP_TIMEOUT: Duration = Duration::from_secs(5);
 const EVIDENCE_MAX_BYTES: usize = 8 * 1024 * 1024;
+const RECORDING_REDACTION_POLICY_VERSION: u32 = 1;
+const RECORDING_MAX_SENSITIVE_REGIONS: usize = 256;
+const RECORDING_MAX_WIDTH: usize = 1920;
+const RECORDING_MAX_HEIGHT: usize = 1080;
 
 #[derive(Clone)]
 pub struct RecordingSpec {
@@ -50,6 +57,9 @@ pub struct RecordingSummary {
     pub segment_count: u64,
     pub frame_count: u64,
     pub dropped_frames: u64,
+    pub redacted_frame_count: u64,
+    pub redacted_region_count: u64,
+    pub redaction_policy_version: u32,
 }
 
 #[derive(Clone, Default)]
@@ -374,9 +384,14 @@ impl SessionRecorderRegistry {
 
 async fn start_recording(spec: RecordingSpec) -> anyhow::Result<ActiveRecording> {
     let recording_id = format!("rec_{}", uuid::Uuid::new_v4().simple());
-    spec.storage_helper
+    let prepared = spec
+        .storage_helper
         .prepare_recording(&spec.workspace, &recording_id)
         .await?;
+    anyhow::ensure!(
+        prepared.redaction_policy_version == RECORDING_REDACTION_POLICY_VERSION,
+        "storage helper does not acknowledge frame-level recording redaction"
+    );
     let (stop, stop_rx) = watch::channel(false);
     let (ready_tx, ready_rx) = oneshot::channel();
     let task = tokio::spawn(run_recording(spec, recording_id, stop_rx, ready_tx));
@@ -406,6 +421,8 @@ struct CapturedFrame {
     session_id: i64,
     data: String,
     metadata: Value,
+    redaction_state: &'static str,
+    redacted_region_count: u32,
 }
 
 async fn run_recording(
@@ -419,12 +436,24 @@ async fn run_recording(
     let writer_spec = spec.clone();
     let writer_recording_id = recording_id.clone();
     let writer_drops = Arc::clone(&dropped_frames);
+    // Remains true unless the capture loop reaches an orderly stop. The writer must not publish a
+    // completion marker after a CDP/redaction failure, even if all earlier frames were safe.
+    let capture_failed = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let writer_capture_failed = Arc::clone(&capture_failed);
     let mut writer = tokio::spawn(async move {
-        write_segments(writer_spec, writer_recording_id, frames_rx, writer_drops).await
+        write_segments(
+            writer_spec,
+            writer_recording_id,
+            frames_rx,
+            writer_drops,
+            writer_capture_failed,
+        )
+        .await
     });
     let (capture_stop_tx, capture_stop_rx) = watch::channel(false);
     let capture_endpoint = spec.cdp_endpoint.clone();
     let capture_drops = Arc::clone(&dropped_frames);
+    let capture_completion_signal = Arc::clone(&capture_failed);
     let mut capture = tokio::spawn(async move {
         capture_frames(
             &capture_endpoint,
@@ -432,6 +461,7 @@ async fn run_recording(
             capture_stop_rx,
             ready,
             capture_drops.as_ref(),
+            capture_completion_signal.as_ref(),
         )
         .await
     });
@@ -477,6 +507,7 @@ async fn capture_frames(
     mut stop: watch::Receiver<bool>,
     ready: oneshot::Sender<Result<(), String>>,
     dropped_frames: &std::sync::atomic::AtomicU64,
+    capture_failed: &std::sync::atomic::AtomicBool,
 ) -> anyhow::Result<()> {
     let websocket_url = target_websocket(cdp_endpoint).await?;
     require_loopback_websocket(&websocket_url)?;
@@ -535,22 +566,19 @@ async fn capture_frames(
                 let Some(session_id) = params.get("sessionId").and_then(Value::as_i64) else {
                     continue;
                 };
-                let frame = CapturedFrame {
-                    captured_at_ms: now_millis(),
-                    session_id,
-                    data: params
-                        .get("data")
-                        .and_then(Value::as_str)
-                        .unwrap_or_default()
-                        .to_owned(),
-                    metadata: params.get("metadata").cloned().unwrap_or_else(|| json!({})),
-                };
-                if frame.data.is_empty()
-                    || frame.data.len() > SEGMENT_MAX_BYTES as usize
-                    || frames.try_send(frame).is_err()
+                let raw_data = params
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let redaction_result = if raw_data.is_empty()
+                    || raw_data.len() > SEGMENT_MAX_BYTES as usize
                 {
-                    dropped_frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
+                    Err(anyhow::anyhow!("CDP recording frame is empty or exceeds the bound"))
+                } else {
+                    redact_recording_frame(&mut socket, raw_data, session_id).await
+                };
+                // CDP must always receive the ACK for the raw frame. On any redaction error the
+                // frame is discarded and the recording terminates; raw pixels are never queued.
                 socket
                     .send(Message::Text(
                         json!({
@@ -561,10 +589,276 @@ async fn capture_frames(
                         .to_string(),
                     ))
                     .await?;
+                let redacted = redaction_result?;
+                let frame = CapturedFrame {
+                    captured_at_ms: now_millis(),
+                    session_id,
+                    data: redacted.data,
+                    metadata: params.get("metadata").cloned().unwrap_or_else(|| json!({})),
+                    redaction_state: if redacted.redacted_region_count > 0 {
+                        "MASKED"
+                    } else {
+                        "NOT_REQUIRED"
+                    },
+                    redacted_region_count: redacted.redacted_region_count,
+                };
+                if frames.try_send(frame).is_err() {
+                    dropped_frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
             }
         }
     }
+    capture_failed.store(false, std::sync::atomic::Ordering::Release);
     drop(frames);
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SensitiveRegionSnapshot {
+    version: u32,
+    viewport_width: f64,
+    viewport_height: f64,
+    regions: Vec<SensitiveRegion>,
+    #[serde(default)]
+    error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SensitiveRegion {
+    left: f64,
+    top: f64,
+    width: f64,
+    height: f64,
+}
+
+struct RedactedRecordingFrame {
+    data: String,
+    redacted_region_count: u32,
+}
+
+const COLLECT_RECORDING_REDACTION_REGIONS_SCRIPT: &str = r#"
+(() => {
+  const sensitiveName = /(^|[^a-z])(password|passwd|pwd|passcode|otp|one.?time.?code|pin|cvv|cvc|card.?number|account.?number|routing.?number|secret|token|api.?key|private.?key|ssn|social.?security)([^a-z]|$)/i;
+  const sensitiveAutocomplete = new Set([
+    'current-password', 'new-password', 'one-time-code', 'cc-number', 'cc-csc',
+    'cc-exp', 'cc-exp-month', 'cc-exp-year', 'transaction-amount',
+    'transaction-currency'
+  ]);
+  const candidateSelector =
+    'input, textarea, select, iframe, [contenteditable="true"], ' +
+    '[data-sensitive], [data-private], [data-redact], [data-classification]';
+  const candidates = new Set();
+  const roots = [document];
+  let scannedElements = 0;
+  while (roots.length > 0) {
+    const currentRoot = roots.pop();
+    for (const element of currentRoot.querySelectorAll('*')) {
+      scannedElements += 1;
+      if (scannedElements > 10000) {
+        return {version: 1, error: 'SENSITIVE_SCAN_LIMIT_EXCEEDED'};
+      }
+      if (element.matches(candidateSelector)) candidates.add(element);
+      if (element.shadowRoot) roots.push(element.shadowRoot);
+    }
+  }
+  const isSensitive = (element) => {
+    if (element.matches('iframe, [data-sensitive], [data-private], [data-redact]')) return true;
+    const classification = (element.getAttribute('data-classification') || '').toUpperCase();
+    if (classification === 'SENSITIVE' || classification === 'HIGHLY_SENSITIVE') return true;
+    if ((element.getAttribute('type') || '').toLowerCase() === 'password') return true;
+    const autocomplete = (element.getAttribute('autocomplete') || '')
+      .toLowerCase().split(/\s+/).filter(Boolean);
+    if (autocomplete.some((token) => sensitiveAutocomplete.has(token))) return true;
+    const identity = [
+      element.getAttribute('name'), element.getAttribute('id'),
+      element.getAttribute('aria-label'), element.getAttribute('placeholder')
+    ].filter(Boolean).join(' ');
+    return sensitiveName.test(identity);
+  };
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const regions = [];
+  for (const element of candidates) {
+    if (!isSensitive(element)) continue;
+    const rect = element.getBoundingClientRect();
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(viewportWidth, rect.right);
+    const bottom = Math.min(viewportHeight, rect.bottom);
+    if (right <= left || bottom <= top) continue;
+    if (regions.length >= 256) {
+      return {version: 1, error: 'SENSITIVE_REGION_LIMIT_EXCEEDED'};
+    }
+    regions.push({left, top, width: right - left, height: bottom - top});
+  }
+  return {version: 1, viewportWidth, viewportHeight, regions};
+})()
+"#;
+
+async fn redact_recording_frame<S>(
+    socket: &mut tokio_tungstenite::WebSocketStream<S>,
+    encoded: &str,
+    frame_session_id: i64,
+) -> anyhow::Result<RedactedRecordingFrame>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    let command_id = 20_000_i64.saturating_add(frame_session_id);
+    let response = send_command_value(
+        socket,
+        command_id,
+        "Runtime.evaluate",
+        json!({
+            "expression": COLLECT_RECORDING_REDACTION_REGIONS_SCRIPT,
+            "returnByValue": true,
+            "awaitPromise": false,
+            "userGesture": false
+        }),
+    )
+    .await?;
+    let snapshot: SensitiveRegionSnapshot = serde_json::from_value(
+        response
+            .pointer("/result/result/value")
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("recording redaction response omitted region data"))?,
+    )?;
+    anyhow::ensure!(
+        snapshot.version == RECORDING_REDACTION_POLICY_VERSION && snapshot.error.is_none(),
+        "recording redaction region collection failed closed: {}",
+        snapshot
+            .error
+            .as_deref()
+            .unwrap_or("unsupported policy version")
+    );
+    anyhow::ensure!(
+        snapshot.viewport_width.is_finite()
+            && snapshot.viewport_height.is_finite()
+            && snapshot.viewport_width > 0.0
+            && snapshot.viewport_height > 0.0
+            && snapshot.regions.len() <= RECORDING_MAX_SENSITIVE_REGIONS,
+        "recording redaction viewport or region count is invalid"
+    );
+    let compressed = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|_| anyhow::anyhow!("CDP recording frame is not valid base64"))?;
+    anyhow::ensure!(
+        compressed.len() <= EVIDENCE_MAX_BYTES,
+        "CDP recording frame exceeds the compressed image bound"
+    );
+    let mut decoder = jpeg_decoder::Decoder::new(Cursor::new(compressed));
+    decoder.set_max_decoding_buffer_size(
+        RECORDING_MAX_WIDTH
+            .saturating_mul(RECORDING_MAX_HEIGHT)
+            .saturating_mul(4),
+    );
+    let mut pixels = decoder
+        .decode()
+        .map_err(|error| anyhow::anyhow!("CDP recording JPEG decode failed: {error}"))?;
+    let info = decoder
+        .info()
+        .ok_or_else(|| anyhow::anyhow!("CDP recording JPEG omitted image metadata"))?;
+    let width = usize::from(info.width);
+    let height = usize::from(info.height);
+    anyhow::ensure!(
+        width > 0 && height > 0 && width <= RECORDING_MAX_WIDTH && height <= RECORDING_MAX_HEIGHT,
+        "CDP recording JPEG dimensions exceed the bound"
+    );
+    let channels = match info.pixel_format {
+        PixelFormat::L8 => 1,
+        PixelFormat::RGB24 => 3,
+        _ => anyhow::bail!("CDP recording JPEG pixel format is unsupported"),
+    };
+    anyhow::ensure!(
+        pixels.len() == width.saturating_mul(height).saturating_mul(channels),
+        "CDP recording JPEG pixel buffer has an invalid size"
+    );
+    for region in &snapshot.regions {
+        mask_sensitive_region(
+            &mut pixels,
+            width,
+            height,
+            channels,
+            snapshot.viewport_width,
+            snapshot.viewport_height,
+            region,
+        )?;
+    }
+    let mut redacted_jpeg = Vec::with_capacity(pixels.len() / 2);
+    jpeg_encoder::Encoder::new(&mut redacted_jpeg, 60)
+        .encode(
+            &pixels,
+            info.width,
+            info.height,
+            if channels == 1 {
+                ColorType::Luma
+            } else {
+                ColorType::Rgb
+            },
+        )
+        .map_err(|error| anyhow::anyhow!("recording redaction JPEG encode failed: {error}"))?;
+    let data = base64::engine::general_purpose::STANDARD.encode(redacted_jpeg);
+    anyhow::ensure!(
+        data.len() <= SEGMENT_MAX_BYTES as usize,
+        "redacted recording frame exceeds the segment bound"
+    );
+    Ok(RedactedRecordingFrame {
+        data,
+        redacted_region_count: snapshot
+            .regions
+            .len()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("recording redaction region count overflow"))?,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn mask_sensitive_region(
+    pixels: &mut [u8],
+    image_width: usize,
+    image_height: usize,
+    channels: usize,
+    viewport_width: f64,
+    viewport_height: f64,
+    region: &SensitiveRegion,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        region.left.is_finite()
+            && region.top.is_finite()
+            && region.width.is_finite()
+            && region.height.is_finite()
+            && region.left >= 0.0
+            && region.top >= 0.0
+            && region.width > 0.0
+            && region.height > 0.0
+            && region.left + region.width <= viewport_width
+            && region.top + region.height <= viewport_height,
+        "recording redaction region is invalid"
+    );
+    let scale_x = image_width as f64 / viewport_width;
+    let scale_y = image_height as f64 / viewport_height;
+    let left = (region.left * scale_x).floor().max(0.0) as usize;
+    let top = (region.top * scale_y).floor().max(0.0) as usize;
+    let right = ((region.left + region.width) * scale_x)
+        .ceil()
+        .min(image_width as f64) as usize;
+    let bottom = ((region.top + region.height) * scale_y)
+        .ceil()
+        .min(image_height as f64) as usize;
+    anyhow::ensure!(
+        left < right && top < bottom && right <= image_width && bottom <= image_height,
+        "recording redaction region is outside the image"
+    );
+    for y in top..bottom {
+        for x in left..right {
+            let offset = (y * image_width + x) * channels;
+            if channels == 1 {
+                pixels[offset] = 7;
+            } else {
+                pixels[offset..offset + 3].copy_from_slice(&[5, 8, 13]);
+            }
+        }
+    }
     Ok(())
 }
 
@@ -573,6 +867,7 @@ async fn write_segments(
     recording_id: String,
     mut frames: mpsc::Receiver<CapturedFrame>,
     dropped_frames: Arc<std::sync::atomic::AtomicU64>,
+    capture_failed: Arc<std::sync::atomic::AtomicBool>,
 ) -> anyhow::Result<RecordingSummary> {
     let recording_started_at = now_millis();
     let directory = PathBuf::from(&spec.workspace.ephemeral_dir)
@@ -580,6 +875,8 @@ async fn write_segments(
         .join(&recording_id);
     let mut sequence = 0_u64;
     let mut total_frames = 0_u64;
+    let mut redacted_frame_count = 0_u64;
+    let mut redacted_region_count = 0_u64;
     let mut segment: Option<SegmentWriter> = None;
     while let Some(frame) = frames.recv().await {
         if segment.is_none() {
@@ -588,6 +885,11 @@ async fn write_segments(
         let current = segment.as_mut().expect("segment opened");
         current.write(&frame).await?;
         total_frames = total_frames.saturating_add(1);
+        if frame.redacted_region_count > 0 {
+            redacted_frame_count = redacted_frame_count.saturating_add(1);
+        }
+        redacted_region_count =
+            redacted_region_count.saturating_add(u64::from(frame.redacted_region_count));
         if current.bytes >= SEGMENT_MAX_BYTES
             || current.ended_at_ms.saturating_sub(current.started_at_ms) >= SEGMENT_MAX_DURATION_MS
         {
@@ -600,22 +902,41 @@ async fn write_segments(
         commit_segment(&spec, &recording_id, current).await?;
         sequence = sequence.saturating_add(1);
     }
+    anyhow::ensure!(
+        !capture_failed.load(std::sync::atomic::Ordering::Acquire),
+        "recording capture failed before a redaction-safe completion marker could be committed"
+    );
     let ended_at_ms = now_millis();
-    spec.storage_helper
+    let completed = spec
+        .storage_helper
         .complete_recording(
             &spec.workspace,
             &recording_id,
             sequence,
             total_frames,
+            redacted_frame_count,
+            redacted_region_count,
+            RECORDING_REDACTION_POLICY_VERSION,
             recording_started_at,
             ended_at_ms,
         )
         .await?;
+    anyhow::ensure!(
+        completed.completed
+            && completed.frame_count == total_frames
+            && completed.redacted_frame_count == redacted_frame_count
+            && completed.redacted_region_count == redacted_region_count
+            && completed.redaction_policy_version == RECORDING_REDACTION_POLICY_VERSION,
+        "storage helper did not acknowledge the recording redaction manifest"
+    );
     Ok(RecordingSummary {
         recording_id,
         segment_count: sequence,
         frame_count: total_frames,
         dropped_frames: dropped_frames.load(std::sync::atomic::Ordering::Relaxed),
+        redacted_frame_count,
+        redacted_region_count,
+        redaction_policy_version: RECORDING_REDACTION_POLICY_VERSION,
     })
 }
 
@@ -625,6 +946,8 @@ struct SegmentWriter {
     hasher: Sha256,
     bytes: u64,
     frames: u64,
+    redacted_frames: u64,
+    redacted_regions: u64,
     started_at_ms: u64,
     ended_at_ms: u64,
 }
@@ -647,6 +970,8 @@ impl SegmentWriter {
             hasher: Sha256::new(),
             bytes: 0,
             frames: 0,
+            redacted_frames: 0,
+            redacted_regions: 0,
             started_at_ms,
             ended_at_ms: started_at_ms,
         })
@@ -658,6 +983,9 @@ impl SegmentWriter {
             "cdpSessionId": frame.session_id,
             "format": "jpeg",
             "metadata": frame.metadata,
+            "redactionState": frame.redaction_state,
+            "redactedRegionCount": frame.redacted_region_count,
+            "redactionPolicyVersion": RECORDING_REDACTION_POLICY_VERSION,
             "data": frame.data
         }))?;
         line.push(b'\n');
@@ -665,6 +993,12 @@ impl SegmentWriter {
         self.hasher.update(&line);
         self.bytes = self.bytes.saturating_add(line.len() as u64);
         self.frames = self.frames.saturating_add(1);
+        if frame.redacted_region_count > 0 {
+            self.redacted_frames = self.redacted_frames.saturating_add(1);
+        }
+        self.redacted_regions = self
+            .redacted_regions
+            .saturating_add(u64::from(frame.redacted_region_count));
         self.ended_at_ms = frame.captured_at_ms;
         Ok(())
     }
@@ -678,7 +1012,8 @@ async fn commit_segment(
     segment.file.flush().await?;
     segment.file.sync_data().await?;
     let content_sha256 = format!("{:x}", segment.hasher.clone().finalize());
-    spec.storage_helper
+    let committed = spec
+        .storage_helper
         .commit_recording_segment(
             &spec.workspace,
             recording_id,
@@ -686,10 +1021,21 @@ async fn commit_segment(
             &content_sha256,
             segment.bytes,
             segment.frames,
+            segment.redacted_frames,
+            segment.redacted_regions,
+            RECORDING_REDACTION_POLICY_VERSION,
             segment.started_at_ms,
             segment.ended_at_ms,
         )
         .await?;
+    anyhow::ensure!(
+        committed.segment_sequence == Some(segment.sequence)
+            && committed.frame_count == segment.frames
+            && committed.redacted_frame_count == segment.redacted_frames
+            && committed.redacted_region_count == segment.redacted_regions
+            && committed.redaction_policy_version == RECORDING_REDACTION_POLICY_VERSION,
+        "storage helper did not acknowledge recording segment redaction metadata"
+    );
     Ok(())
 }
 
@@ -1193,6 +1539,18 @@ mod tests {
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
 
+    fn solid_rgb_jpeg(width: u16, height: u16, rgb: [u8; 3]) -> String {
+        let mut pixels = Vec::with_capacity(usize::from(width) * usize::from(height) * 3);
+        for _ in 0..usize::from(width) * usize::from(height) {
+            pixels.extend_from_slice(&rgb);
+        }
+        let mut jpeg = Vec::new();
+        jpeg_encoder::Encoder::new(&mut jpeg, 90)
+            .encode(&pixels, width, height, ColorType::Rgb)
+            .unwrap();
+        base64::engine::general_purpose::STANDARD.encode(jpeg)
+    }
+
     #[test]
     fn rejects_non_loopback_cdp_endpoints() {
         assert!(require_loopback_http("http://127.0.0.1:9222").is_ok());
@@ -1397,6 +1755,8 @@ mod tests {
 
     #[tokio::test]
     async fn captures_and_acknowledges_a_real_cdp_screencast_frame() {
+        let raw_frame = solid_rgb_jpeg(16, 16, [240, 20, 20]);
+        let websocket_frame = raw_frame.clone();
         let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_address = websocket_listener.local_addr().unwrap();
         let websocket_task = tokio::spawn(async move {
@@ -1421,9 +1781,33 @@ mod tests {
                         "method": "Page.screencastFrame",
                         "params": {
                             "sessionId": 7,
-                            "data": "/9j/test-frame",
+                            "data": websocket_frame,
                             "metadata": {"timestamp": 1.25}
                         }
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(redaction) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected frame redaction region query");
+            };
+            let redaction: Value = serde_json::from_str(&redaction).unwrap();
+            assert_eq!(redaction["method"], "Runtime.evaluate");
+            assert!(redaction["params"]["expression"]
+                .as_str()
+                .unwrap()
+                .contains("SENSITIVE_REGION_LIMIT_EXCEEDED"));
+            socket
+                .send(Message::Text(
+                    json!({
+                        "id": redaction["id"],
+                        "result": {"result": {"value": {
+                            "version": 1,
+                            "viewportWidth": 16,
+                            "viewportHeight": 16,
+                            "regions": [{"left": 0, "top": 0, "width": 16, "height": 16}]
+                        }}}
                     })
                     .to_string(),
                 ))
@@ -1487,6 +1871,8 @@ mod tests {
         let (ready_tx, ready_rx) = oneshot::channel();
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let capture_dropped = Arc::clone(&dropped);
+        let capture_failed = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let capture_failure_signal = Arc::clone(&capture_failed);
         let capture = tokio::spawn(async move {
             capture_frames(
                 &format!("http://{http_address}"),
@@ -1494,6 +1880,7 @@ mod tests {
                 stop_rx,
                 ready_tx,
                 capture_dropped.as_ref(),
+                capture_failure_signal.as_ref(),
             )
             .await
         });
@@ -1503,9 +1890,131 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(frame.session_id, 7);
-        assert_eq!(frame.data, "/9j/test-frame");
+        assert_ne!(frame.data, raw_frame);
+        assert_eq!(frame.redaction_state, "MASKED");
+        assert_eq!(frame.redacted_region_count, 1);
+        let redacted_jpeg = base64::engine::general_purpose::STANDARD
+            .decode(frame.data)
+            .unwrap();
+        let mut decoder = jpeg_decoder::Decoder::new(Cursor::new(redacted_jpeg));
+        let pixels = decoder.decode().unwrap();
+        assert!(pixels.iter().all(|component| *component < 40));
         stop_tx.send(true).unwrap();
         capture.await.unwrap().unwrap();
+        assert!(!capture_failed.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(dropped.load(std::sync::atomic::Ordering::Relaxed), 0);
+        http_task.await.unwrap();
+        websocket_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn recording_redaction_failure_acks_but_never_queues_the_raw_frame() {
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let websocket_task = tokio::spawn(async move {
+            let (stream, _) = websocket_listener.accept().await.unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            for expected_id in [1_i64, 2_i64] {
+                let Message::Text(command) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected CDP command");
+                };
+                let command: Value = serde_json::from_str(&command).unwrap();
+                assert_eq!(command["id"], expected_id);
+                socket
+                    .send(Message::Text(
+                        json!({"id": expected_id, "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+            socket
+                .send(Message::Text(
+                    json!({
+                        "method": "Page.screencastFrame",
+                        "params": {
+                            "sessionId": 9,
+                            "data": base64::engine::general_purpose::STANDARD.encode(b"raw-secret-not-a-jpeg"),
+                            "metadata": {"timestamp": 2.5}
+                        }
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(redaction) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected redaction region query");
+            };
+            let redaction: Value = serde_json::from_str(&redaction).unwrap();
+            socket
+                .send(Message::Text(
+                    json!({
+                        "id": redaction["id"],
+                        "result": {"result": {"value": {
+                            "version": 1,
+                            "viewportWidth": 16,
+                            "viewportHeight": 16,
+                            "regions": []
+                        }}}
+                    })
+                    .to_string(),
+                ))
+                .await
+                .unwrap();
+            let Message::Text(ack) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected failed-frame ACK");
+            };
+            let ack: Value = serde_json::from_str(&ack).unwrap();
+            assert_eq!(ack["method"], "Page.screencastFrameAck");
+            assert_eq!(ack["params"]["sessionId"], 9);
+        });
+
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = [0_u8; 2048];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let body = json!([{
+                "type": "page",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
+            }])
+            .to_string();
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                        body.len(), body
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        });
+
+        let (frames_tx, mut frames_rx) = mpsc::channel(1);
+        let (_stop_tx, stop_rx) = watch::channel(false);
+        let (ready_tx, ready_rx) = oneshot::channel();
+        let dropped = std::sync::atomic::AtomicU64::new(0);
+        let capture_failed = std::sync::atomic::AtomicBool::new(true);
+        let cdp_endpoint = format!("http://{http_address}");
+        let capture = capture_frames(
+            &cdp_endpoint,
+            frames_tx,
+            stop_rx,
+            ready_tx,
+            &dropped,
+            &capture_failed,
+        );
+        let (ready, result) = tokio::join!(ready_rx, capture);
+
+        ready.unwrap().unwrap();
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("JPEG decode failed"));
+        assert!(frames_rx.recv().await.is_none());
+        assert!(capture_failed.load(std::sync::atomic::Ordering::Acquire));
         assert_eq!(dropped.load(std::sync::atomic::Ordering::Relaxed), 0);
         http_task.await.unwrap();
         websocket_task.await.unwrap();

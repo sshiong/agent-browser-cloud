@@ -53,6 +53,8 @@ public class BrowserCapacityApplicationService {
   private static final String GENERATION_FLOOR_CAPABILITY_VERSION = "v1";
   private static final String PROXY_DESCRIPTOR_CAPABILITY = "proxyProviderDescriptor";
   private static final String PROXY_DESCRIPTOR_CAPABILITY_VERSION = "v1";
+  private static final String RECORDING_REDACTION_CAPABILITY = "recordingRedaction";
+  private static final String RECORDING_REDACTION_CAPABILITY_VERSION = "frame-mask-v1";
   private static final Set<String> ACTIVE_PLACEMENT_STATES =
       Set.of("RESERVED", "ACTIVE", "WAITING_SAFE_POINT");
 
@@ -367,6 +369,7 @@ public class BrowserCapacityApplicationService {
     var calculated = calculateDemand(demand);
     var requiresProxyDescriptor =
         session.proxyBindingId() != null && !session.proxyBindingId().isBlank();
+    var requiresRecordingRedaction = demand.isVideoRecordingRequested();
     enterpriseOperationsService.requireResidency(session.tenantId(), region);
     enterpriseOperationsService.requireMediaQuota(
         session.tenantId(), calculated.mediaSlots(), calculated.mediaBitrateKbps());
@@ -388,6 +391,13 @@ public class BrowserCapacityApplicationService {
                     !requiresProxyDescriptor
                         || nodeHasLabel(
                             node, PROXY_DESCRIPTOR_CAPABILITY, PROXY_DESCRIPTOR_CAPABILITY_VERSION))
+            .filter(
+                node ->
+                    !requiresRecordingRedaction
+                        || nodeHasLabel(
+                            node,
+                            RECORDING_REDACTION_CAPABILITY,
+                            RECORDING_REDACTION_CAPABILITY_VERSION))
             .map(node -> scoreCandidate(node, session.tenantId(), calculated))
             .filter(Candidate::eligible)
             .sorted(
@@ -400,11 +410,13 @@ public class BrowserCapacityApplicationService {
             .toList();
     if (candidates.isEmpty()) {
       throw new BrowserCapacityUnavailableException(
-          requiresProxyDescriptor
-              ? "NO_PROXY_DESCRIPTOR_CAPABLE_NODE"
-              : requireGenerationFloorCapability
-                  ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
-                  : "NO_ELIGIBLE_BROWSER_NODE");
+          requiresRecordingRedaction
+              ? "NO_RECORDING_REDACTION_CAPABLE_NODE"
+              : requiresProxyDescriptor
+                  ? "NO_PROXY_DESCRIPTOR_CAPABLE_NODE"
+                  : requireGenerationFloorCapability
+                      ? "NO_MIGRATION_TARGET_WITH_GENERATION_FLOOR_CAPABILITY"
+                      : "NO_ELIGIBLE_BROWSER_NODE");
     }
     var chosen = candidates.getFirst();
     var node = chosen.node();

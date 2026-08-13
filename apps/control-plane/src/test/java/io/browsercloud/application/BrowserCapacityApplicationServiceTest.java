@@ -183,6 +183,69 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   @Test
+  void recordingPlacementRejectsNodeWithoutFrameRedactionCapability() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L2,
+            1,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            true,
+            "[]",
+            now);
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any()))
+        .thenReturn(List.of(standardNode(now)));
+
+    assertThatThrownBy(() -> service.reserve(session(ResourceClass.L2), "local"))
+        .isInstanceOf(BrowserCapacityUnavailableException.class)
+        .hasMessage("NO_RECORDING_REDACTION_CAPABLE_NODE");
+  }
+
+  @Test
+  void recordingPlacementAcceptsNodeWithFrameRedactionCapability() throws Exception {
+    var now = Instant.now();
+    var demand =
+        new SessionResourceDemandEntity(
+            "ses_1234567890abcdef",
+            "tenant-a",
+            ResourceClass.L2,
+            1,
+            0,
+            false,
+            false,
+            false,
+            0,
+            0,
+            true,
+            "[]",
+            now);
+    var node = standardNode(now, "{\"recordingRedaction\":\"frame-mask-v1\"}");
+    when(placementRepository.findForUpdate("ses_1234567890abcdef")).thenReturn(Optional.empty());
+    when(demandRepository.findById("ses_1234567890abcdef")).thenReturn(Optional.of(demand));
+    when(extensionRepository.findAllById(any())).thenReturn(List.of());
+    when(nodeRepository.lockPlacementCandidates(eq("local"), any())).thenReturn(List.of(node));
+    when(placementRepository.findAllByNodeIdAndStateIn(eq("node_local"), any()))
+        .thenReturn(List.of());
+    when(nodeRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(placementRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var placement = service.reserve(session(ResourceClass.L2), "local");
+
+    assertThat(placement.videoRecordingRequested()).isTrue();
+    assertThat(placement.nodeId()).isEqualTo("node_local");
+  }
+
+  @Test
   void mediaWorkloadUsesIndependentEncoderSlotsWithoutRequiringGpu() throws Exception {
     var now = Instant.now();
     var demand =
@@ -531,6 +594,10 @@ class BrowserCapacityApplicationServiceTest {
   }
 
   private static BrowserNodeEntity standardNode(Instant now) {
+    return standardNode(now, "{}");
+  }
+
+  private static BrowserNodeEntity standardNode(Instant now, String labels) {
     return new BrowserNodeEntity(
         "node_local",
         "local",
@@ -547,7 +614,7 @@ class BrowserCapacityApplicationServiceTest {
         false,
         false,
         true,
-        "{}",
+        labels,
         now);
   }
 

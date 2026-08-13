@@ -700,7 +700,7 @@ export function CreateSessionDialog({
                       })
                     }
                     title="启用独立像素录制"
-                    detail="通过 CDP 独立采集并由 Storage Helper 分段提交；达到资源上限时会优先停止录制。"
+                    detail="每帧先在 Node 内完成敏感区域遮罩，再由 Storage Helper 分段提交；遮罩失败会停止录制且不上传原帧。"
                   />
                 </WizardStep>
               )}

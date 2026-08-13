@@ -612,6 +612,15 @@ impl NodeCapacityReporter {
             }
             .to_owned(),
         );
+        labels.insert(
+            "recordingRedaction".to_owned(),
+            if evidence_storage_available {
+                "frame-mask-v1"
+            } else {
+                "unavailable"
+            }
+            .to_owned(),
+        );
         Ok(Self {
             node_id,
             region,

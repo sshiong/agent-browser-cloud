@@ -111,6 +111,12 @@ pub enum StorageCommand {
         content_sha256: String,
         content_bytes: u64,
         frame_count: u64,
+        #[serde(default)]
+        redacted_frame_count: u64,
+        #[serde(default)]
+        redacted_region_count: u64,
+        #[serde(default)]
+        redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
     },
@@ -121,6 +127,12 @@ pub enum StorageCommand {
         recording_id: String,
         segment_count: u64,
         frame_count: u64,
+        #[serde(default)]
+        redacted_frame_count: u64,
+        #[serde(default)]
+        redacted_region_count: u64,
+        #[serde(default)]
+        redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
     },
@@ -232,6 +244,12 @@ pub struct StorageRecording {
     pub object_key: Option<String>,
     pub content_bytes: u64,
     pub frame_count: u64,
+    #[serde(default)]
+    pub redacted_frame_count: u64,
+    #[serde(default)]
+    pub redacted_region_count: u64,
+    #[serde(default)]
+    pub redaction_policy_version: u32,
     pub completed: bool,
 }
 

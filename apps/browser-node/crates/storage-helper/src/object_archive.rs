@@ -72,6 +72,9 @@ struct RecordingSegmentMarker<'a> {
     content_sha256: &'a str,
     content_bytes: u64,
     frame_count: u64,
+    redacted_frame_count: u64,
+    redacted_region_count: u64,
+    redaction_policy_version: u32,
     started_at_ms: u64,
     ended_at_ms: u64,
 }
@@ -82,6 +85,9 @@ struct RecordingCommitMarker<'a> {
     recording_id: &'a str,
     segment_count: u64,
     frame_count: u64,
+    redacted_frame_count: u64,
+    redacted_region_count: u64,
+    redaction_policy_version: u32,
     started_at_ms: u64,
     ended_at_ms: u64,
 }
@@ -199,6 +205,9 @@ impl ObjectArchive {
         content: Bytes,
         content_sha256: &str,
         frame_count: u64,
+        redacted_frame_count: u64,
+        redacted_region_count: u64,
+        redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
     ) -> anyhow::Result<String> {
@@ -215,6 +224,9 @@ impl ObjectArchive {
             content_sha256,
             content_bytes: content.len() as u64,
             frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
             started_at_ms,
             ended_at_ms,
         };
@@ -235,6 +247,9 @@ impl ObjectArchive {
         recording_id: &str,
         segment_count: u64,
         frame_count: u64,
+        redacted_frame_count: u64,
+        redacted_region_count: u64,
+        redaction_policy_version: u32,
         started_at_ms: u64,
         ended_at_ms: u64,
     ) -> anyhow::Result<String> {
@@ -243,6 +258,9 @@ impl ObjectArchive {
             recording_id,
             segment_count,
             frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
             started_at_ms,
             ended_at_ms,
         };
@@ -600,7 +618,7 @@ mod tests {
             );
             assert_eq!(signed_export.archive_sha256, hex_sha256(&downloaded_export));
             let recording_content = Bytes::from_static(
-                br#"{"capturedAtMs":1,"cdpSessionId":7,"format":"jpeg","data":"/9j/"}"#,
+                br#"{"capturedAtMs":1,"cdpSessionId":7,"format":"jpeg","redactionState":"MASKED","redactedRegionCount":2,"redactionPolicyVersion":1,"data":"/9j/"}"#,
             );
             let recording_hash = hex_sha256(&recording_content);
             let segment_key = archive
@@ -612,6 +630,9 @@ mod tests {
                     0,
                     recording_content,
                     &recording_hash,
+                    1,
+                    1,
+                    2,
                     1,
                     1,
                     2,
@@ -644,6 +665,9 @@ mod tests {
                     "session-test",
                     "rec-test",
                     1,
+                    1,
+                    1,
+                    2,
                     1,
                     1,
                     2,

@@ -398,6 +398,9 @@ async fn execute_storage_operation(
                     object_key: None,
                     content_bytes: 0,
                     frame_count: 0,
+                    redacted_frame_count: 0,
+                    redacted_region_count: 0,
+                    redaction_policy_version: 1,
                     completed: false,
                 }),
                 None,
@@ -414,6 +417,9 @@ async fn execute_storage_operation(
             content_sha256,
             content_bytes,
             frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
             started_at_ms,
             ended_at_ms,
         } => {
@@ -432,6 +438,12 @@ async fn execute_storage_operation(
             anyhow::ensure!(
                 *frame_count > 0 && *ended_at_ms >= *started_at_ms,
                 "recording segment metadata is invalid"
+            );
+            anyhow::ensure!(
+                *redaction_policy_version == 1
+                    && *redacted_frame_count <= *frame_count
+                    && (*redacted_frame_count == 0 || *redacted_region_count > 0),
+                "recording segment redaction metadata is invalid"
             );
             let archive =
                 archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
@@ -471,6 +483,13 @@ async fn execute_storage_operation(
                 content.len() as u64 == *content_bytes,
                 "recording segment changed while being read"
             );
+            verify_recording_segment_redaction(
+                &content,
+                *frame_count,
+                *redacted_frame_count,
+                *redacted_region_count,
+                *redaction_policy_version,
+            )?;
             let object_key = archive
                 .commit_recording_segment(
                     tenant_id,
@@ -481,6 +500,9 @@ async fn execute_storage_operation(
                     Bytes::from(content),
                     content_sha256,
                     *frame_count,
+                    *redacted_frame_count,
+                    *redacted_region_count,
+                    *redaction_policy_version,
                     *started_at_ms,
                     *ended_at_ms,
                 )
@@ -496,6 +518,9 @@ async fn execute_storage_operation(
                     object_key: Some(object_key),
                     content_bytes: *content_bytes,
                     frame_count: *frame_count,
+                    redacted_frame_count: *redacted_frame_count,
+                    redacted_region_count: *redacted_region_count,
+                    redaction_policy_version: *redaction_policy_version,
                     completed: false,
                 }),
                 None,
@@ -510,6 +535,9 @@ async fn execute_storage_operation(
             recording_id,
             segment_count,
             frame_count,
+            redacted_frame_count,
+            redacted_region_count,
+            redaction_policy_version,
             started_at_ms,
             ended_at_ms,
         } => {
@@ -517,6 +545,12 @@ async fn execute_storage_operation(
             anyhow::ensure!(
                 *ended_at_ms >= *started_at_ms,
                 "recording completion timestamps are invalid"
+            );
+            anyhow::ensure!(
+                *redaction_policy_version == 1
+                    && *redacted_frame_count <= *frame_count
+                    && (*redacted_frame_count == 0 || *redacted_region_count > 0),
+                "recording completion redaction metadata is invalid"
             );
             let archive =
                 archive.ok_or_else(|| anyhow::anyhow!("Object Storage is not configured"))?;
@@ -528,6 +562,9 @@ async fn execute_storage_operation(
                     recording_id,
                     *segment_count,
                     *frame_count,
+                    *redacted_frame_count,
+                    *redacted_region_count,
+                    *redaction_policy_version,
                     *started_at_ms,
                     *ended_at_ms,
                 )
@@ -542,6 +579,9 @@ async fn execute_storage_operation(
                     object_key: Some(object_key),
                     content_bytes: 0,
                     frame_count: *frame_count,
+                    redacted_frame_count: *redacted_frame_count,
+                    redacted_region_count: *redacted_region_count,
+                    redaction_policy_version: *redaction_policy_version,
                     completed: true,
                 }),
                 None,
@@ -968,6 +1008,61 @@ fn validate_recording_identifier(name: &str, value: &str) -> anyhow::Result<()> 
     Ok(())
 }
 
+fn verify_recording_segment_redaction(
+    content: &[u8],
+    expected_frames: u64,
+    expected_redacted_frames: u64,
+    expected_redacted_regions: u64,
+    expected_policy_version: u32,
+) -> anyhow::Result<()> {
+    let mut frames = 0_u64;
+    let mut redacted_frames = 0_u64;
+    let mut redacted_regions = 0_u64;
+    for line in content.split(|byte| *byte == b'\n') {
+        if line.is_empty() {
+            continue;
+        }
+        let frame: serde_json::Value =
+            serde_json::from_slice(line).context("recording segment contains invalid NDJSON")?;
+        let state = frame
+            .get("redactionState")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("recording frame omitted redaction state"))?;
+        anyhow::ensure!(
+            matches!(state, "MASKED" | "NOT_REQUIRED"),
+            "recording frame redaction state is invalid"
+        );
+        let policy_version = frame
+            .get("redactionPolicyVersion")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok());
+        anyhow::ensure!(
+            policy_version == Some(expected_policy_version),
+            "recording frame redaction policy version does not match command"
+        );
+        let regions = frame
+            .get("redactedRegionCount")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| anyhow::anyhow!("recording frame omitted redacted region count"))?;
+        anyhow::ensure!(
+            (state == "MASKED") == (regions > 0),
+            "recording frame redaction state does not match region count"
+        );
+        frames = frames.saturating_add(1);
+        if regions > 0 {
+            redacted_frames = redacted_frames.saturating_add(1);
+        }
+        redacted_regions = redacted_regions.saturating_add(regions);
+    }
+    anyhow::ensure!(
+        frames == expected_frames
+            && redacted_frames == expected_redacted_frames
+            && redacted_regions == expected_redacted_regions,
+        "recording segment redaction summary does not match its frames"
+    );
+    Ok(())
+}
+
 fn profile_lock_stripe(tenant_id: &str, profile_id: &str, stripes: usize) -> usize {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -1130,5 +1225,29 @@ mod tests {
             .to_string()
             .contains("recordings root is not a regular directory"));
         tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[test]
+    fn verifies_recording_redaction_metadata_from_every_ndjson_frame() {
+        let content = br#"{"redactionState":"MASKED","redactedRegionCount":2,"redactionPolicyVersion":1,"data":"safe"}
+{"redactionState":"NOT_REQUIRED","redactedRegionCount":0,"redactionPolicyVersion":1,"data":"safe"}
+"#;
+
+        verify_recording_segment_redaction(content, 2, 1, 2, 1).unwrap();
+        assert!(verify_recording_segment_redaction(content, 2, 0, 0, 1)
+            .unwrap_err()
+            .to_string()
+            .contains("summary does not match"));
+    }
+
+    #[test]
+    fn rejects_recording_frame_without_a_redaction_attestation() {
+        let legacy = br#"{"capturedAtMs":1,"data":"raw"}
+"#;
+
+        assert!(verify_recording_segment_redaction(legacy, 1, 0, 0, 1)
+            .unwrap_err()
+            .to_string()
+            .contains("omitted redaction state"));
     }
 }

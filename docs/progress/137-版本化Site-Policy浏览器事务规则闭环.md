@@ -52,5 +52,5 @@
 1. Site Policy 是通用浏览器侧保护，不是业务系统事务完成证明。客户 CRM、支付、IAM
    仍需 Application Lease SDK 与 Provider Evidence Adapter 提供可信完成语义、字段映射
    和正式凭据。
-2. 无语义像素/OCR 事务识别、Recording 帧级敏感遮罩尚未实现。
+2. Recording 帧级敏感遮罩已由进度 138 关闭；无语义像素/OCR 事务识别仍未实现。
 3. 目标 Linux 多 Node、网络分区、多 Coordinator 和长期压力矩阵仍是生产 Gate。

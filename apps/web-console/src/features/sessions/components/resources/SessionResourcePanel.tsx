@@ -260,7 +260,7 @@ export function SessionResourcePanel({
                       : '创建时未请求'}
                 </p>
                 <p className="mt-1 text-[9px] text-text-muted">
-                  独立 CDP 数据面 · Storage Helper 提交
+                  帧级敏感遮罩 · Storage Helper 审计提交
                 </p>
               </div>
             </div>

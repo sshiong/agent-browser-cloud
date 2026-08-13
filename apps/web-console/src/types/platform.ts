@@ -1,3 +1,5 @@
+import type { ResourceStreamConnectionState } from './session';
+
 export interface AuditEventView {
   eventId: string;
   sequenceNo: number;
@@ -24,6 +26,20 @@ export interface AuditEventListResponse {
   chainValid: boolean;
   headHash: string | null;
 }
+
+export interface AuditEventStreamControl {
+  cursor: number;
+  resetRequired: boolean;
+  connectedAt: string;
+}
+
+export interface AuditEventStreamEvent {
+  sequence: number;
+  occurredAt: string;
+  replayed: boolean;
+}
+
+export type AuditStreamConnectionState = ResourceStreamConnectionState;
 
 export interface RuntimeBuildView {
   buildId: string;

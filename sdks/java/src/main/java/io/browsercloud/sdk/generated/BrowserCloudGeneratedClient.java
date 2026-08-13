@@ -126,6 +126,7 @@ public final class BrowserCloudGeneratedClient {
     operation("acceptAgentHandoff", "POST", "/api/v1/agent-tasks/{taskId}:accept-handoff", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("rejectAgentHandoff", "POST", "/api/v1/agent-tasks/{taskId}:reject-handoff", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("listAuditEvents", "GET", "/api/v1/audit-events", List.of(), List.of("eventType", "limit", "offset", "sessionId"), List.of("X-Tenant-Id"), "", false, "AuditEventListResponse"),
+    operation("streamAuditEventChanges", "GET", "/api/v1/audit-events/event-stream", List.of(), List.of(), List.of("Last-Event-ID", "X-Tenant-Id"), "", false, "string"),
     operation("listRuntimeBuilds", "GET", "/api/v1/runtime-builds", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "RuntimeBuildListResponse"),
     operation("requestRuntimePromotion", "POST", "/api/v1/runtime-builds/{buildId}:promote", List.of("buildId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "CreateRuntimeReleaseRequest", true, "RuntimeReleaseRequest"),
     operation("requestRuntimeDisable", "POST", "/api/v1/runtime-builds/{buildId}:disable", List.of("buildId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "CreateRuntimeDisableRequest", true, "RuntimeReleaseRequest"),
@@ -359,6 +360,7 @@ public final class BrowserCloudGeneratedClient {
   public Response acceptAgentHandoff(Request request) { return call("acceptAgentHandoff", request); }
   public Response rejectAgentHandoff(Request request) { return call("rejectAgentHandoff", request); }
   public Response listAuditEvents(Request request) { return call("listAuditEvents", request); }
+  public Response streamAuditEventChanges(Request request) { return call("streamAuditEventChanges", request); }
   public Response listRuntimeBuilds(Request request) { return call("listRuntimeBuilds", request); }
   public Response requestRuntimePromotion(Request request) { return call("requestRuntimePromotion", request); }
   public Response requestRuntimeDisable(Request request) { return call("requestRuntimeDisable", request); }

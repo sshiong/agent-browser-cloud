@@ -150,6 +150,7 @@ var Operations = map[string]Operation{
 	"acceptAgentHandoff":                         {OperationID: "acceptAgentHandoff", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:accept-handoff", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"rejectAgentHandoff":                         {OperationID: "rejectAgentHandoff", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:reject-handoff", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"listAuditEvents":                            {OperationID: "listAuditEvents", Method: "GET", Path: "/api/v1/audit-events", PathParameters: nil, QueryParameters: []string{"eventType", "limit", "offset", "sessionId"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AuditEventListResponse"},
+	"streamAuditEventChanges":                    {OperationID: "streamAuditEventChanges", Method: "GET", Path: "/api/v1/audit-events/event-stream", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Last-Event-ID", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "string"},
 	"listRuntimeBuilds":                          {OperationID: "listRuntimeBuilds", Method: "GET", Path: "/api/v1/runtime-builds", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "RuntimeBuildListResponse"},
 	"requestRuntimePromotion":                    {OperationID: "requestRuntimePromotion", Method: "POST", Path: "/api/v1/runtime-builds/{buildId}:promote", PathParameters: []string{"buildId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "CreateRuntimeReleaseRequest", RequestRequired: true, ResponseSchema: "RuntimeReleaseRequest"},
 	"requestRuntimeDisable":                      {OperationID: "requestRuntimeDisable", Method: "POST", Path: "/api/v1/runtime-builds/{buildId}:disable", PathParameters: []string{"buildId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "CreateRuntimeDisableRequest", RequestRequired: true, ResponseSchema: "RuntimeReleaseRequest"},
@@ -655,6 +656,9 @@ func (c *Client) RejectAgentHandoff(ctx context.Context, request Request) (any, 
 }
 func (c *Client) ListAuditEvents(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listAuditEvents", request)
+}
+func (c *Client) StreamAuditEventChanges(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "streamAuditEventChanges", request)
 }
 func (c *Client) ListRuntimeBuilds(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listRuntimeBuilds", request)

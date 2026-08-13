@@ -1,6 +1,9 @@
+import { consumeEventStream, requireMatchingEventId } from './eventStream';
 import { DEFAULT_TENANT_ID, identityHeaders, SessionApiError } from './session';
 import type {
   AuditEventListResponse,
+  AuditEventStreamControl,
+  AuditEventStreamEvent,
   BreakGlassRequestListResponse,
   BreakGlassRequestView,
   CompleteKeyRotationRequest,
@@ -17,6 +20,21 @@ import type {
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
 const API_BASE = (configuredBase || '/api/v1').replace(/\/$/, '');
 
+function roleHeaders(options: {
+  securityAdmin?: boolean;
+  platformAdmin?: boolean;
+}): Record<string, string> {
+  const identity = identityHeaders(DEFAULT_TENANT_ID);
+  return {
+    ...identity,
+    ...(!('Authorization' in identity) && options.securityAdmin
+      ? { 'X-Roles': 'SECURITY_ADMIN' }
+      : !('Authorization' in identity) && options.platformAdmin
+        ? { 'X-Roles': 'PLATFORM_ADMIN' }
+        : {}),
+  };
+}
+
 async function request<T>(
   path: string,
   options: {
@@ -27,7 +45,6 @@ async function request<T>(
     body?: unknown;
   } = {}
 ): Promise<T> {
-  const identity = identityHeaders(DEFAULT_TENANT_ID);
   const response = await fetch(`${API_BASE}${path}`, {
     signal: options.signal,
     method: options.method ?? 'GET',
@@ -37,12 +54,7 @@ async function request<T>(
       ...(options.body === undefined
         ? {}
         : { 'Content-Type': 'application/json' }),
-      ...identity,
-      ...(!('Authorization' in identity) && options.securityAdmin
-        ? { 'X-Roles': 'SECURITY_ADMIN' }
-        : !('Authorization' in identity) && options.platformAdmin
-          ? { 'X-Roles': 'PLATFORM_ADMIN' }
-          : {}),
+      ...roleHeaders(options),
     },
   });
   if (!response.ok) {
@@ -65,6 +77,89 @@ export function listAuditEvents(
   const query = new URLSearchParams({ limit: '200' });
   if (eventType) query.set('eventType', eventType);
   return request(`/audit-events?${query}`, { signal, securityAdmin: true });
+}
+
+export async function streamAuditEventChanges(callbacks: {
+  lastEventId?: string;
+  signal: AbortSignal;
+  onOpen: () => void;
+  onControl: (control: AuditEventStreamControl) => void;
+  onChange: (change: AuditEventStreamEvent) => void;
+}): Promise<void> {
+  const response = await fetch(`${API_BASE}/audit-events/event-stream`, {
+    signal: callbacks.signal,
+    headers: {
+      Accept: 'text/event-stream',
+      ...roleHeaders({ securityAdmin: true }),
+      ...(callbacks.lastEventId
+        ? { 'Last-Event-ID': callbacks.lastEventId }
+        : {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({
+      code: 'AUDIT_STREAM_UNAVAILABLE',
+      message: `Audit event stream failed with status ${response.status}`,
+      details: {},
+      requestId: '',
+      timestamp: new Date().toISOString(),
+    }));
+    throw new SessionApiError(response.status, body);
+  }
+  if (!response.body) {
+    throw new Error('Audit event stream response body is unavailable');
+  }
+  callbacks.onOpen();
+  let acceptedCursor: number | undefined;
+  await consumeEventStream(response.body, ({ id, event, data }) => {
+    const parsed: unknown = JSON.parse(data);
+    if (event === 'audit-stream-ready' || event === 'audit-stream-reset') {
+      if (!isAuditStreamControl(parsed)) {
+        throw new Error('Audit event stream control is invalid');
+      }
+      requireMatchingEventId(id, parsed.cursor, 'Audit event stream');
+      acceptedCursor = parsed.cursor;
+      callbacks.onControl(parsed);
+      return;
+    }
+    if (event === 'audit-change') {
+      if (!isAuditStreamEvent(parsed)) {
+        throw new Error('Audit event stream event is invalid');
+      }
+      requireMatchingEventId(id, parsed.sequence, 'Audit event stream');
+      if (acceptedCursor !== undefined && parsed.sequence <= acceptedCursor) {
+        throw new Error('Audit event stream sequence did not advance');
+      }
+      acceptedCursor = parsed.sequence;
+      callbacks.onChange(parsed);
+    }
+  });
+}
+
+function isAuditStreamControl(
+  value: unknown
+): value is AuditEventStreamControl {
+  if (!value || typeof value !== 'object') return false;
+  const control = value as Partial<AuditEventStreamControl>;
+  return (
+    typeof control.cursor === 'number' &&
+    Number.isSafeInteger(control.cursor) &&
+    control.cursor >= 0 &&
+    typeof control.resetRequired === 'boolean' &&
+    typeof control.connectedAt === 'string'
+  );
+}
+
+function isAuditStreamEvent(value: unknown): value is AuditEventStreamEvent {
+  if (!value || typeof value !== 'object') return false;
+  const change = value as Partial<AuditEventStreamEvent>;
+  return (
+    typeof change.sequence === 'number' &&
+    Number.isSafeInteger(change.sequence) &&
+    change.sequence > 0 &&
+    typeof change.occurredAt === 'string' &&
+    typeof change.replayed === 'boolean'
+  );
 }
 
 export function listRuntimeBuilds(

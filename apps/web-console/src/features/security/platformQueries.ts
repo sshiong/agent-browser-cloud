@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import {
   createBreakGlassRequest,
   completeKeyRotationRequest,
@@ -11,10 +12,12 @@ import {
   listSecureDebugSessions,
   readSecureDebugSnapshot,
   startSecureDebugSession,
+  streamAuditEventChanges,
   transitionBreakGlassRequest,
   transitionKeyRotationRequest,
 } from '@/api/platform';
 import type {
+  AuditStreamConnectionState,
   CompleteKeyRotationRequest,
   CreateBreakGlassRequest,
   CreateKeyRotationRequest,
@@ -33,8 +36,9 @@ export const platformKeys = {
  * cursor therefore covers them without loss and replaces their fixed polling.
  *
  * `audit-events` is deliberately excluded: it lists the full audit ledger, while the projection
- * only carries high-signal rows. Driving it purely by notifications would trade "stale for at
- * most one interval" for "never refreshes when an event is not projected".
+ * only carries high-signal rows. Driving it from the notification cursor would trade "stale for
+ * at most one interval" for "never refreshes when an event is not projected"; it follows the
+ * audit chain cursor in `useAuditEventStream` instead.
  */
 export const NOTIFICATION_DRIVEN_PLATFORM_KEYS = [
   platformKeys.breakGlassRequests,
@@ -46,7 +50,101 @@ export function useAuditEvents(eventType?: string) {
   return useQuery({
     queryKey: [...platformKeys.auditEvents, eventType ?? 'all'],
     queryFn: ({ signal }) => listAuditEvents(eventType, signal),
-    refetchInterval: 30_000,
+  });
+}
+
+/**
+ * Follows the tenant audit chain sequence. Every audited row advances this cursor, so unlike the
+ * high-signal notification projection it can fully replace polling for the audit ledger.
+ */
+export function useAuditEventStream(
+  enabled: boolean
+): AuditStreamConnectionState {
+  const queryClient = useQueryClient();
+  const [connectionState, setConnectionState] =
+    useState<AuditStreamConnectionState>(enabled ? 'CONNECTING' : 'IDLE');
+
+  useEffect(() => {
+    if (!enabled) {
+      setConnectionState('IDLE');
+      return;
+    }
+    const controller = new AbortController();
+    let lastEventId: string | undefined;
+    let reconnectAttempt = 0;
+
+    const refreshAudit = () =>
+      queryClient.invalidateQueries({ queryKey: platformKeys.auditEvents });
+
+    const run = async () => {
+      while (!controller.signal.aborted) {
+        if (!navigator.onLine) {
+          setConnectionState('OFFLINE');
+          if (!(await waitForReconnect(2_000, controller.signal))) return;
+          continue;
+        }
+        setConnectionState(
+          reconnectAttempt === 0 ? 'CONNECTING' : 'RECONNECTING'
+        );
+        try {
+          await streamAuditEventChanges({
+            lastEventId,
+            signal: controller.signal,
+            onOpen: () => {
+              setConnectionState(
+                reconnectAttempt === 0 ? 'CONNECTING' : 'RECONNECTING'
+              );
+            },
+            onControl: (control) => {
+              reconnectAttempt = 0;
+              lastEventId = String(control.cursor);
+              setConnectionState('LIVE');
+              void refreshAudit();
+            },
+            onChange: (change) => {
+              lastEventId = String(change.sequence);
+              void refreshAudit();
+            },
+          });
+        } catch {
+          if (controller.signal.aborted) return;
+        }
+        reconnectAttempt += 1;
+        setConnectionState(navigator.onLine ? 'RECONNECTING' : 'OFFLINE');
+        const backoff =
+          Math.min(30_000, 1_000 * 2 ** Math.min(reconnectAttempt - 1, 5)) +
+          Math.round(Math.random() * 500);
+        if (!(await waitForReconnect(backoff, controller.signal))) return;
+      }
+    };
+
+    const markOffline = () => setConnectionState('OFFLINE');
+    const markOnline = () => setConnectionState('RECONNECTING');
+    window.addEventListener('offline', markOffline);
+    window.addEventListener('online', markOnline);
+    void run();
+    return () => {
+      controller.abort();
+      window.removeEventListener('offline', markOffline);
+      window.removeEventListener('online', markOnline);
+    };
+  }, [enabled, queryClient]);
+
+  return connectionState;
+}
+
+async function waitForReconnect(milliseconds: number, signal: AbortSignal) {
+  if (signal.aborted) return false;
+  return new Promise<boolean>((resolve) => {
+    const timeout = window.setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve(true);
+    }, milliseconds);
+    const abort = () => {
+      window.clearTimeout(timeout);
+      resolve(false);
+    };
+    signal.addEventListener('abort', abort, { once: true });
   });
 }
 

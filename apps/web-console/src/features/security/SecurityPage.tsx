@@ -19,6 +19,7 @@ import {
 } from '@/components/feedback/AsyncStates';
 import {
   useAuditEvents,
+  useAuditEventStream,
   useBreakGlassRequests,
   useCreateBreakGlassRequest,
   useTransitionBreakGlassRequest,
@@ -26,9 +27,18 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { currentActorId, currentTenantId } from '@/api/session';
 import type {
+  AuditStreamConnectionState,
   BreakGlassRequestView,
   CreateBreakGlassRequest,
 } from '@/types/platform';
+
+const AUDIT_STREAM_LABELS: Record<AuditStreamConnectionState, string> = {
+  IDLE: '待连接',
+  CONNECTING: '连接中',
+  LIVE: '实时',
+  RECONNECTING: '重连中',
+  OFFLINE: '离线',
+};
 import { KeyRotationWorkspace } from './KeyRotationWorkspace';
 import { SecureDebugWorkspace } from './SecureDebugWorkspace';
 import { useAuth } from '@/auth/AuthProvider';
@@ -61,6 +71,7 @@ function TenantSecurityWorkspace({
   showKeyRotation: boolean;
 }) {
   const query = useAuditEvents();
+  const auditStreamState = useAuditEventStream(true);
   const breakGlass = useBreakGlassRequests();
   const createBreakGlass = useCreateBreakGlassRequest();
   const transitionBreakGlass = useTransitionBreakGlassRequest();
@@ -166,6 +177,12 @@ function TenantSecurityWorkspace({
               >
                 HEAD {query.data?.headHash ?? '尚未形成'}
               </code>
+              <span
+                className="shrink-0 text-[10px] text-text-muted"
+                title="审计链事件流状态"
+              >
+                {AUDIT_STREAM_LABELS[auditStreamState]}
+              </span>
               <button
                 type="button"
                 onClick={() => query.refetch()}

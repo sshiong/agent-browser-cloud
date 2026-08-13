@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "20d6fbe2790ea2d68b2053f518499bdd6bc9e3cb0c35c826316f9ea998eac027",
+  "contractSha256": "3475ac3524399e776a2ba89ec2d43fefbfc2a40fd499ec07093cccebbd0afe6d",
   "files": {
     "BrowserCloudGeneratedClient.ts": "f284729911903edb70bf6fc290d5e5a8c6422a9d2e7a7a6949b0dc294fa2f222",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -306,7 +306,7 @@
     "services/AgentSafetyService.ts": "8dda99814dfbc2b4bda622a183a71beaa69a1c275cda2caf8943af4ae428038f",
     "services/AgentService.ts": "e8637e9d69771bd434689661ba05f202314c9971b98d7dde3a23b413ff5eaf77",
     "services/AgentToolService.ts": "529421b2038d536254729c59cf0b91baf55b911209162a787bca6771af0a6cf3",
-    "services/AuditService.ts": "e8377ade1e9a56791b137e8a8eb9ee1f3999baa4d4fe55380ff6ee04f02d69c5",
+    "services/AuditService.ts": "7d8232371f96bfd508c5a9de97b27f406c100ccf1e140b6e09d674f5df7c466e",
     "services/BusinessRecoveryService.ts": "8549251ae6f2b16012e421740944f9c4d20909f3af8f1a06274d488ae1c440c1",
     "services/CapacityService.ts": "5602762215b533bedf5de1fc26bfc6525e9491bd868c0ec1637b1ea771c3c88f",
     "services/ChallengeService.ts": "92912edc0d92b068d7e3d41275528f41fd54fa845cff9e681c39874fd138316f",

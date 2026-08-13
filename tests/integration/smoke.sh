@@ -57,6 +57,7 @@ reviewer_model_pid=""
 resource_stream_pid=""
 overview_stream_pid=""
 notification_stream_pid=""
+audit_stream_pid=""
 dual_node_safety_pid=""
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
@@ -108,6 +109,9 @@ cleanup() {
   if [[ -n "$overview_stream_pid" ]]; then kill "$overview_stream_pid" 2>/dev/null || true; fi
   if [[ -n "$notification_stream_pid" ]]; then
     kill "$notification_stream_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$audit_stream_pid" ]]; then
+    kill "$audit_stream_pid" 2>/dev/null || true
   fi
   if [[ -n "$dual_node_safety_pid" ]]; then
     kill "$dual_node_safety_pid" 2>/dev/null || true
@@ -6159,6 +6163,39 @@ key_rotation_audit_result="$(curl -fsS \
   -H 'X-Roles: SECURITY_ADMIN')"
 printf '%s' "$key_rotation_audit_result" | python3 -c \
   'import json,sys; result=json.load(sys.stdin); assert result["chainValid"] is True; assert result["total"] >= 5; assert len(result["items"]) == 5; assert {item["action"] for item in result["items"]} == {"KEY_ROTATION_REQUESTED","KEY_ROTATION_APPROVAL_DENIED","KEY_ROTATION_APPROVED","KEY_ROTATION_COMPLETION_DENIED","KEY_ROTATION_COMPLETED"}'
+
+audit_head_sequence="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select coalesce(max(sequence_no), 0)
+     from audit_events
+    where tenant_id='tenant-integration' and sequence_no is not null")"
+test "$audit_head_sequence" -gt 1
+audit_resume_cursor="$((audit_head_sequence - 1))"
+curl -fsS --no-buffer --max-time 8 \
+  "http://localhost:${control_port}/api/v1/audit-events/event-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: SECURITY_ADMIN' \
+  -H "Last-Event-ID: ${audit_resume_cursor}" \
+  >"$temp_dir/audit-replay.sse" &
+audit_stream_pid=$!
+for _ in $(seq 1 50); do
+  if grep -q 'event:audit-change' "$temp_dir/audit-replay.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q 'event:audit-stream-ready' "$temp_dir/audit-replay.sse"
+grep -q 'event:audit-change' "$temp_dir/audit-replay.sse"
+grep -q '"replayed":true' "$temp_dir/audit-replay.sse"
+kill "$audit_stream_pid" 2>/dev/null || true
+wait "$audit_stream_pid" 2>/dev/null || true
+audit_stream_pid=""
+audit_stream_cross_tenant="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 8 \
+  "http://localhost:${control_port}/api/v1/audit-events/event-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$audit_stream_cross_tenant" = "403"
 
 secure_debug_notification_actions="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select coalesce(string_agg(distinct action, ',' order by action), '')

@@ -2541,6 +2541,39 @@ paths:
                 $ref: "#/components/schemas/AuditEventListResponse"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/audit-events/event-stream:
+    get:
+      operationId: streamAuditEventChanges
+      summary: Stream resumable invalidations for the tenant audit chain
+      description: >
+        Requires the SECURITY_ADMIN role. Emits payload-free change notifications whose id is the
+        tenant audit chain sequence. Every audited row advances the cursor, so a client that
+        resumes with Last-Event-ID and refetches the authorized projection cannot miss a change.
+      tags: [Audit]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: Resumable tenant audit Server-Sent Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/runtime-builds:
     get:
       operationId: listRuntimeBuilds

@@ -136,6 +136,7 @@ OPERATIONS: dict[str, Operation] = {
     'acceptAgentHandoff': Operation('acceptAgentHandoff', 'POST', '/api/v1/agent-tasks/{taskId}:accept-handoff', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'rejectAgentHandoff': Operation('rejectAgentHandoff', 'POST', '/api/v1/agent-tasks/{taskId}:reject-handoff', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'listAuditEvents': Operation('listAuditEvents', 'GET', '/api/v1/audit-events', (), ('eventType', 'limit', 'offset', 'sessionId'), ('X-Tenant-Id',), '', False, 'AuditEventListResponse'),
+    'streamAuditEventChanges': Operation('streamAuditEventChanges', 'GET', '/api/v1/audit-events/event-stream', (), (), ('Last-Event-ID', 'X-Tenant-Id'), '', False, 'string'),
     'listRuntimeBuilds': Operation('listRuntimeBuilds', 'GET', '/api/v1/runtime-builds', (), (), ('X-Tenant-Id',), '', False, 'RuntimeBuildListResponse'),
     'requestRuntimePromotion': Operation('requestRuntimePromotion', 'POST', '/api/v1/runtime-builds/{buildId}:promote', ('buildId',), (), ('X-Actor-Id', 'X-Tenant-Id'), 'CreateRuntimeReleaseRequest', True, 'RuntimeReleaseRequest'),
     'requestRuntimeDisable': Operation('requestRuntimeDisable', 'POST', '/api/v1/runtime-builds/{buildId}:disable', ('buildId',), (), ('X-Actor-Id', 'X-Tenant-Id'), 'CreateRuntimeDisableRequest', True, 'RuntimeReleaseRequest'),
@@ -596,6 +597,9 @@ class BrowserCloudGeneratedClient:
 
     def listAuditEvents(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listAuditEvents', path=path, query=query, body=body, headers=headers)
+
+    def streamAuditEventChanges(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('streamAuditEventChanges', path=path, query=query, body=body, headers=headers)
 
     def listRuntimeBuilds(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listRuntimeBuilds', path=path, query=query, body=body, headers=headers)

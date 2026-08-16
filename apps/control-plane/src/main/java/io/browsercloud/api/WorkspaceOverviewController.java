@@ -34,7 +34,7 @@ public class WorkspaceOverviewController {
   @GetMapping
   public WorkspaceOverviewResponse get() {
     var principal = identity.current();
-    return service.get(principal.tenantId(), principal.roles().contains("PLATFORM_ADMIN"));
+    return service.get(principal.tenantId(), canViewBrowserNodes(principal.roles()));
   }
 
   @GetMapping(value = "/event-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -42,6 +42,12 @@ public class WorkspaceOverviewController {
       @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
     var principal = identity.current();
     return eventStream.subscribe(
-        principal.tenantId(), principal.roles().contains("PLATFORM_ADMIN"), lastEventId);
+        principal.tenantId(), canViewBrowserNodes(principal.roles()), lastEventId);
+  }
+
+  static boolean canViewBrowserNodes(java.util.Set<String> roles) {
+    return roles.contains("TENANT_ADMIN")
+        || roles.contains("SECURITY_ADMIN")
+        || roles.contains("PLATFORM_ADMIN");
   }
 }

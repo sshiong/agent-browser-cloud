@@ -49,13 +49,13 @@ public class WorkspaceOverviewApplicationService {
                   WHERE lifecycle_state = 'READY'
                     AND admission_state = 'OPEN'
                     AND pressure_state = 'NORMAL'
-                    AND last_heartbeat_at >= now() - interval '30 seconds'
+                    AND last_heartbeat_at >= now() - interval '60 seconds'
                 ) AS node_ready,
                 count(*) FILTER (
                   WHERE lifecycle_state <> 'READY'
                      OR admission_state <> 'OPEN'
                      OR pressure_state <> 'NORMAL'
-                     OR last_heartbeat_at < now() - interval '30 seconds'
+                     OR last_heartbeat_at < now() - interval '60 seconds'
                 ) AS node_constrained,
                 COALESCE(sum(active_sessions), 0) AS node_active_sessions,
                 COALESCE(sum(max_sessions), 0) AS node_maximum_sessions,

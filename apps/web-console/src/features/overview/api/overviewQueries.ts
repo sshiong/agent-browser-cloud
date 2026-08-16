@@ -6,6 +6,7 @@ import {
 } from '@/api/workspaceOverview';
 import { sessionKeys } from '@/features/sessions/api/sessionQueries';
 import { proxyKeys } from '@/features/proxies/proxyQueries';
+import { browserNodesKey } from '@/features/nodes/capacityQueries';
 import type { WorkspaceOverviewConnectionState } from '@/types/workspaceOverview';
 
 export const workspaceOverviewKey = ['workspace-overview'] as const;
@@ -74,6 +75,11 @@ export function useWorkspaceOverviewStream(
               }
               if (change.changeType === 'PROXY') {
                 void queryClient.invalidateQueries({ queryKey: proxyKeys.all });
+              }
+              if (change.changeType === 'BROWSER_NODE') {
+                void queryClient.invalidateQueries({
+                  queryKey: browserNodesKey,
+                });
               }
             },
           });

@@ -1655,6 +1655,60 @@ workspace_overview_other="$(curl -fsS \
   -H 'X-Roles: TENANT_VIEWER')"
 printf '%s' "$workspace_overview_other" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["sessions"]["total"] == 0; assert item["proxies"]["boundSessions"] == 0; assert item["browserNodes"]["visible"] is False; assert item["browserNodes"]["total"] == 0'
+workspace_overview_tenant_admin="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/workspace-overview" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN')"
+printf '%s' "$workspace_overview_tenant_admin" | python3 -c \
+  'import json,sys; item=json.load(sys.stdin); assert item["browserNodes"]["visible"] is True; assert item["browserNodes"]["total"] >= 1'
+browser_node_projection=""
+for _ in $(seq 1 40); do
+  browser_node_projection="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select freshness_state from browser_node_freshness_projections where node_id='node_integration'")"
+  if [[ "$browser_node_projection" = "FRESH" ]]; then break; fi
+  sleep 0.25
+done
+test "$browser_node_projection" = "FRESH"
+browser_node_event_before="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from workspace_overview_events where tenant_id is null and change_type='BROWSER_NODE' and entity_id='node_integration'")"
+docker exec "$postgres_name" psql -U browsercloud -d browsercloud -v ON_ERROR_STOP=1 -c \
+  "update browser_node_freshness_projections set freshness_state='STALE' where node_id='node_integration'" >/dev/null
+browser_node_event_after="$browser_node_event_before"
+for _ in $(seq 1 40); do
+  browser_node_projection="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select freshness_state from browser_node_freshness_projections where node_id='node_integration'")"
+  browser_node_event_after="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+    "select count(*) from workspace_overview_events where tenant_id is null and change_type='BROWSER_NODE' and entity_id='node_integration'")"
+  if [[ "$browser_node_projection" = "FRESH" ]] && (( browser_node_event_after > browser_node_event_before )); then break; fi
+  sleep 0.25
+done
+test "$browser_node_projection" = "FRESH"
+test "$browser_node_event_after" -gt "$browser_node_event_before"
+browser_node_cursor="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select max(stream_sequence) from workspace_overview_events where tenant_id is null and change_type='BROWSER_NODE' and entity_id='node_integration'")"
+browser_node_resume_cursor="$((browser_node_cursor - 1))"
+curl -fsS --no-buffer --max-time 8 \
+  "http://localhost:${control_port}/api/v1/workspace-overview/event-stream" \
+  -H 'Accept: text/event-stream' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_ADMIN' \
+  -H "Last-Event-ID: ${browser_node_resume_cursor}" \
+  >"$temp_dir/browser-node-replay.sse" &
+overview_stream_pid=$!
+for _ in $(seq 1 50); do
+  if grep -q '"changeType":"BROWSER_NODE"' \
+    "$temp_dir/browser-node-replay.sse" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+grep -q 'event:workspace-overview-change' "$temp_dir/browser-node-replay.sse"
+grep -q '"changeType":"BROWSER_NODE"' "$temp_dir/browser-node-replay.sse"
+grep -q '"replayed":true' "$temp_dir/browser-node-replay.sse"
+kill "$overview_stream_pid" 2>/dev/null || true
+wait "$overview_stream_pid" 2>/dev/null || true
+overview_stream_pid=""
+printf 'browser_node_freshness_sse=true\n'
 agent_pause_constraint="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select pg_get_constraintdef(oid) from pg_constraint where conname='chk_agent_task_state'")"
 printf '%s' "$agent_pause_constraint" | grep -q 'PAUSED_BY_RESOURCE_POLICY'

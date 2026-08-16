@@ -63,6 +63,8 @@ browser-node:
   grpc-target: ${BROWSER_NODE_GRPC_TARGET:localhost:9090}
   dispatch-interval-ms: ${BROWSER_NODE_DISPATCH_INTERVAL_MS:250}
   default-runtime-build-id: ${BROWSER_NODE_DEFAULT_RUNTIME_BUILD_ID:runtime_local_chromium}
+  freshness-threshold-ms: ${BROWSER_NODE_FRESHNESS_THRESHOLD_MS:60000}
+  freshness-projection-interval-ms: ${BROWSER_NODE_FRESHNESS_PROJECTION_INTERVAL_MS:5000}
 
 remote-desktop:
   ticket-secret: ${REMOTE_DESKTOP_TICKET_SECRET:browsercloud-local-remote-desktop-ticket-secret-v1}

@@ -66,6 +66,10 @@ spec:
                   key: output-price-micros-per-million-tokens
             - name: GRPC_TLS_ENABLED
               value: "true"
+            - name: BROWSER_NODE_FRESHNESS_THRESHOLD_MS
+              value: "60000"
+            - name: BROWSER_NODE_FRESHNESS_PROJECTION_INTERVAL_MS
+              value: "5000"
             - name: REMOTE_DESKTOP_CONTROL_ACTOR_BITRATE_LIMIT_KBPS
               value: "8000"
             - name: REMOTE_DESKTOP_CONTROL_ACTOR_FRAME_RATE_LIMIT_FPS

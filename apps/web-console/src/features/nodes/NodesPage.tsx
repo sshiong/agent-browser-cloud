@@ -7,12 +7,14 @@ import {
 } from '@/components/feedback/AsyncStates';
 import { HealthChip } from '@/components/ui/StatusChip';
 import { useBrowserNodes } from './capacityQueries';
+import { useWorkspaceOverviewStream } from '@/features/overview/api/overviewQueries';
 import { cn } from '@/shared/lib/utils';
 import type { BrowserNodeView } from '@/types/capacity';
 import type { HealthStatus } from '@/types';
 
 export function NodesPage() {
   const query = useBrowserNodes();
+  const streamState = useWorkspaceOverviewStream(query.isSuccess);
   const nodes = query.data?.items ?? [];
   const ready = nodes.filter(
     (node) =>
@@ -34,8 +36,14 @@ export function NodesPage() {
     <div>
       <TopContextBar
         title="Browser Node"
-        subtitle="认证容量、Placement 预留、PSI 压力与 Admission 状态"
+        subtitle={`认证容量、Placement 预留、PSI 压力与 Admission 状态 · ${streamLabel(streamState)}`}
       />
+      {(streamState === 'OFFLINE' || streamState === 'RECONNECTING') && (
+        <div className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning sm:px-6">
+          实时事件{streamState === 'OFFLINE' ? '已离线' : '正在重连'}，Browser
+          Node 数据可能已过期。
+        </div>
+      )}
       <main className="p-4 sm:p-6">
         <section className="grid border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-4">
           <Metric
@@ -98,6 +106,13 @@ export function NodesPage() {
       </main>
     </div>
   );
+}
+
+function streamLabel(state: ReturnType<typeof useWorkspaceOverviewStream>) {
+  if (state === 'LIVE') return '实时同步';
+  if (state === 'OFFLINE') return '网络离线';
+  if (state === 'RECONNECTING') return '正在重连';
+  return '正在连接';
 }
 
 function NodeCard({ node }: { node: BrowserNodeView }) {

@@ -1,7 +1,7 @@
 # Enterprise Overview 全量事件源与轮询移除
 
 > 日期：2026-08-18  
-> 状态：仓库实现与本地完整验证通过；远端 `ci` / `desktop` Workflow 待本提交推送后核验。
+> 状态：仓库实现、本地完整验证及远端 `ci` / `desktop` Workflow 均通过。
 
 ## 目标与边界
 
@@ -85,6 +85,10 @@ Integration 真实执行 V102 后，以 `TENANT_ADMIN + Last-Event-ID` 收到
 `"replayed":true`；`TENANT_VIEWER` 返回 403；另一个租户的 `MEDIA_QUOTA` 序号不进入
 当前租户查询。测试还确认实际业务链已产生 Validation、Media、SLO、Freeze、SLA、
 Retention、Compliance 和 GameDay 类型，原有 `audit_chain_valid=true` 保持成立。
+
+提交 `343baa1` 推送 `main` 后，GitHub `ci` run `32126377468` 的 Verify、完整 Integration
+与 Kubernetes Operator E2E 全部通过；`desktop` run `32126377512` 的 Windows/macOS
+任务全部通过。该远端结果与上述本地证据共同关闭本切片的仓库 Gate。
 
 ## 未改变的发布边界
 

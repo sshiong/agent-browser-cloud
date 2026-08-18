@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-18
 > 基准分支：`main`
-> 编写时基准提交：`1974bd9 docs: add cross-session project handoff`
+> 编写时基准提交：`343baa1 feat: stream complete enterprise overview changes`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -153,16 +153,16 @@ Rust Browser Node
 
 ### 最近验证状态
 
-- 基准提交 `85746c3` 时工作区干净，`main == origin/main`。
-- 该提交的 GitHub `ci` 与 `desktop` Workflow 均通过；本地 Java、Web 110 项、Lint/Build、契约、N/N-1 和完整 PostgreSQL/mTLS/Chromium Integration 均通过。
-- 最近修复 `StopRuntime` + Recording 的幂等回归，主干已恢复绿色。
-- Enterprise Overview 切片本地 Java 437 项、Web 112 项、全量 Test/Lint/Build、Desktop、SDK、N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 `ci`/`desktop` 待本提交推送后核验。
+- 基准提交 `343baa1` 时工作区干净，`main == origin/main`。
+- Enterprise Overview 切片本地 Java 437 项、Web 112 项、全量 Test/Lint/Build、Desktop、SDK、N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过。
+- 该提交的 GitHub `ci`（run `32126377468`，含 Verify、Integration 与 Kubernetes Operator E2E）和 `desktop`（run `32126377512`，Windows/macOS）均通过。
+- `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
 
 ## 7. 当前正在处理的任务
 
-交接完成后的最高优先级开发任务：
+本轮最高优先级开发任务：
 
-### Enterprise Operations Overview 全量事件源与轮询移除（本地已闭环，待远端 Gate）
+### Enterprise Operations Overview 全量事件源与轮询移除（已闭环）
 
 当前代码证据：
 
@@ -179,7 +179,7 @@ Rust Browser Node
 - [已确认] 采用独立 `enterprise_overview_events`，来源/写路径矩阵见 progress 145；不要退回 Notification/Audit 子集。
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
-当前仅剩本次提交、推送及 GitHub `ci`/`desktop` 结果核验；通过后应把本节切换为下一项代码产品化任务。
+提交 `343baa1` 已推送 `main`，对应 GitHub `ci`/`desktop` 均通过。下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker；开始前应复核对象存储和 Retention/Legal Hold 当前边界。
 
 ## 8. 尚未完成的功能
 
@@ -266,9 +266,9 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 提交并推送 Enterprise Overview 切片，等待 GitHub `ci` 与 `desktop` Workflow 通过后更新最近验证状态。
-2. 下一仓库级优先任务建议从 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker 开始；实施前复核对象存储和 Retention/Legal Hold 当前边界。
-3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
+1. 从 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker 开始；实施前复核对象存储和 Retention/Legal Hold 当前边界。
+2. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
+3. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
 
 ## 14. 何时必须更新本文件
 

@@ -2,6 +2,7 @@ package io.browsercloud.api;
 
 import static io.browsercloud.api.ChallengeModels.*;
 
+import io.browsercloud.application.ChallengeInputApplicationService;
 import io.browsercloud.application.HumanAssistApplicationService;
 import io.browsercloud.security.PlatformIdentity;
 import io.browsercloud.security.PlatformRoles;
@@ -31,10 +32,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChallengeController {
 
   private final HumanAssistApplicationService service;
+  private final ChallengeInputApplicationService challengeInputs;
   private final PlatformIdentity identity;
 
-  public ChallengeController(HumanAssistApplicationService service, PlatformIdentity identity) {
+  public ChallengeController(
+      HumanAssistApplicationService service,
+      ChallengeInputApplicationService challengeInputs,
+      PlatformIdentity identity) {
     this.service = service;
+    this.challengeInputs = challengeInputs;
     this.identity = identity;
   }
 
@@ -69,6 +75,25 @@ public class ChallengeController {
     return ResponseEntity.accepted()
         .body(
             service.authorize(
+                eventId,
+                principal.tenantId(),
+                principal.actorId(),
+                idempotencyKey,
+                String.valueOf(request.getAttribute(ApiRequestContextFilter.REQUEST_ID_ATTRIBUTE)),
+                body));
+  }
+
+  @PostMapping("/challenges/{eventId}/input-responses")
+  @PreAuthorize(PlatformRoles.OPERATE)
+  public ResponseEntity<ChallengeInputResponseView> submitInputResponse(
+      @PathVariable @Pattern(regexp = "^chl_[a-zA-Z0-9]{20}$") String eventId,
+      @RequestHeader("Idempotency-Key") @NotBlank @Size(min = 8, max = 128) String idempotencyKey,
+      @Valid @RequestBody SubmitChallengeInputResponseRequest body,
+      HttpServletRequest request) {
+    var principal = identity.current();
+    return ResponseEntity.accepted()
+        .body(
+            challengeInputs.submit(
                 eventId,
                 principal.tenantId(),
                 principal.actorId(),

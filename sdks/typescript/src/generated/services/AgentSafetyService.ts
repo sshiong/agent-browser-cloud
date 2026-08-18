@@ -12,6 +12,7 @@ import type { AgentReviewJobClaimRequest } from '../models/AgentReviewJobClaimRe
 import type { AgentTask } from '../models/AgentTask.js';
 import type { AgentTaskListResponse } from '../models/AgentTaskListResponse.js';
 import type { AgentTaskSummaryListResponse } from '../models/AgentTaskSummaryListResponse.js';
+import type { ChallengeInputResponse } from '../models/ChallengeInputResponse.js';
 import type { ClaimAgentExecutionJobRequest } from '../models/ClaimAgentExecutionJobRequest.js';
 import type { ClaimAgentReviewJobRequest } from '../models/ClaimAgentReviewJobRequest.js';
 import type { CompleteAgentReviewJobRequest } from '../models/CompleteAgentReviewJobRequest.js';
@@ -19,6 +20,7 @@ import type { CreateAgentInputSecretRequest } from '../models/CreateAgentInputSe
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
 import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
 import type { FailAgentReviewJobRequest } from '../models/FailAgentReviewJobRequest.js';
+import type { SubmitChallengeInputResponseRequest } from '../models/SubmitChallengeInputResponseRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class AgentSafetyService {
@@ -51,6 +53,53 @@ export class AgentSafetyService {
             },
             headers: {
                 'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Supply a one-time OTP to an AUTONOMOUS Agent waiting for human assistance
+     * Used only after automatic handling is exhausted and the Agent has emitted one durable assistance request. The request references a write-only OTP secret; the Agent types it into the current sensitive target and resumes the original task. It does not create or require a Human Takeover Operation. The operator may instead type directly through the collaborative desktop.
+     *
+     * @returns ChallengeInputResponse OTP response accepted for bounded Agent input and original-task continuation.
+     * @throws ApiError
+     */
+    public submitChallengeInputResponse({
+        eventId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+        xActorId,
+    }: {
+        eventId: string,
+        idempotencyKey: string,
+        requestBody: SubmitChallengeInputResponseRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        /**
+         * Optional Local/Test actor identity. Ignored in Production, where actor identity is the JWT subject.
+         */
+        xActorId?: string,
+    }): CancelablePromise<ChallengeInputResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/challenges/{eventId}/input-responses',
+            path: {
+                'eventId': eventId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'X-Actor-Id': xActorId,
                 'Idempotency-Key': idempotencyKey,
             },
             body: requestBody,

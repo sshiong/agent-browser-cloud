@@ -24,6 +24,7 @@ import io.browsercloud.application.BrowserCapacityApplicationService.BrowserCapa
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserNodeNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.BrowserPlacementNotFoundException;
 import io.browsercloud.application.BrowserCapacityApplicationService.ExtensionProfileRejectedException;
+import io.browsercloud.application.ChallengeInputApplicationService.ChallengeInputRejectedException;
 import io.browsercloud.application.CoordinatorCommandRoutingService.RoutedCoordinatorCommandException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.EnterpriseResourceNotFoundException;
 import io.browsercloud.application.EnterpriseOperationsApplicationService.GovernanceRejectedException;
@@ -131,6 +132,17 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT,
         "AGENT_INPUT_SECRET_REJECTED",
         "Agent sensitive input operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(ChallengeInputRejectedException.class)
+  ResponseEntity<ApiError> challengeInputRejected(
+      ChallengeInputRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "CHALLENGE_INPUT_REJECTED",
+        "Challenge input response was rejected",
         Map.of("reason", exception.getMessage()),
         request);
   }

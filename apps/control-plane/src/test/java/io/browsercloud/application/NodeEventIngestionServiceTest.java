@@ -46,6 +46,7 @@ class NodeEventIngestionServiceTest {
   @Mock private ProfileWarmTierApplicationService profileWarmTier;
   @Mock private SessionRecordingApplicationService recordingService;
   @Mock private ChallengeAutomationApplicationService challengeAutomationService;
+  @Mock private ChallengeInputApplicationService challengeInputService;
 
   private NodeEventIngestionService service;
 
@@ -74,7 +75,8 @@ class NodeEventIngestionServiceTest {
             remoteDesktopParticipants,
             profileWarmTier,
             recordingService,
-            challengeAutomationService);
+            challengeAutomationService,
+            challengeInputService);
     org.mockito.Mockito.lenient()
         .when(humanAssistService.stateUpdated(any(), any()))
         .thenReturn(HumanAssistApplicationService.StateCommit.notHumanAssist());
@@ -211,6 +213,56 @@ class NodeEventIngestionServiceTest {
     service.receive(command);
 
     verify(browserStateRepository).save("tenant-test", 2, state);
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldCommitAgentSuppliedOtpBeforeRunningChallengeDetectionAgain() {
+    var state =
+        new NodeEvent.StateUpdated(
+            "ses-test",
+            15,
+            7,
+            "https://example.test/verify",
+            "Verify",
+            "hash-15",
+            "COMPLETE",
+            java.util.List.of(),
+            "AGENT_TYPE_TEXT",
+            "step_human_1234567890abcdef");
+    var command =
+        new NodeEventReceived("evt-agent-otp", "tenant-test", "ses-test", 1, 2, 9, 6, state);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+    when(challengeInputService.stateUpdated(command, state)).thenReturn(true);
+
+    service.receive(command);
+
+    verify(browserStateRepository).save("tenant-test", 2, state);
+    verify(challengeInputService).stateUpdated(command, state);
+    verify(challengeDetectionService, never()).observe(any(), any());
+    verify(agentNavigationCompletionService, never()).stateUpdated(any(), any(), any());
+    verify(inboxRepository).save(any());
+  }
+
+  @Test
+  void shouldRouteBoundedOtpInputFailureWithoutFailingTheOriginalAgentStep() {
+    var failed =
+        new NodeEvent.AgentActionFailed(
+            "ses-test",
+            "agt_1234567890abcdef",
+            "step_human_1234567890abcdef",
+            "TYPE_TEXT",
+            "TARGET_REVISION_STALE");
+    var command =
+        new NodeEventReceived(
+            "evt-agent-otp-failed", "tenant-test", "ses-test", 1, 2, 9, 6, failed);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+    when(challengeInputService.failed(command, failed)).thenReturn(true);
+
+    service.receive(command);
+
+    verify(challengeInputService).failed(command, failed);
+    verify(agentNavigationCompletionService, never()).actionFailed(any(), any());
     verify(inboxRepository).save(any());
   }
 

@@ -732,6 +732,17 @@ public class AgentTaskEntity {
     this.updatedAt = now;
   }
 
+  /** Keeps the original task resumable while recording the one condition that needs an operator. */
+  public boolean requestHumanAssistance(String reasonCode, Instant now) {
+    if (!"WAITING_FOR_HUMAN".equals(state) || challengeEventId == null) return false;
+    if (this.blockedReason != null && this.blockedReason.startsWith("HUMAN_ASSISTANCE_REQUIRED:"))
+      return false;
+    var next = "HUMAN_ASSISTANCE_REQUIRED:" + reasonCode;
+    this.blockedReason = next;
+    this.updatedAt = now;
+    return true;
+  }
+
   public boolean deferForHumanInput(Instant now) {
     if (!"RUNNING".equals(state) || executionWaitReason != null) return false;
     this.executionWaitReason = "HUMAN_INPUT_PRIORITY";

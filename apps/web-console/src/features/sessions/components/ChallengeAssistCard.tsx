@@ -1,6 +1,7 @@
 import {
   Crosshair,
   Hand,
+  KeyRound,
   LoaderCircle,
   MousePointerClick,
   RefreshCw,
@@ -13,6 +14,7 @@ import {
   useChallengeAutomation,
   useChallengePreview,
   useSessionChallenges,
+  useSubmitChallengeOtp,
   useUpdateChallengeAutomationPolicy,
 } from '@/features/sessions/api/sessionQueries';
 import { isSessionApiError } from '@/api/session';
@@ -60,6 +62,8 @@ export function ChallengeAssistCard({
       : undefined;
   const preview = useChallengePreview(sessionId, previewEventId);
   const authorization = useAuthorizeHumanAssist(sessionId);
+  const submitOtp = useSubmitChallengeOtp(sessionId);
+  const [otp, setOtp] = useState('');
   const automationPolicy = automation.policy.data;
 
   if (challenges.isLoading) {
@@ -115,8 +119,8 @@ export function ChallengeAssistCard({
               Agent 控制模式
             </p>
             <p className="mt-1 text-[9px] text-text-muted">
-              自动模式允许 Agent 使用一次性密文 API 填写账号、密码和
-              OTP；人工协作始终可选。
+              自动模式持续自行工作，只有确认需要人工时才通知。届时可发送 OTP 让
+              Agent 填写，也可自行进入协作界面输入。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -239,9 +243,48 @@ export function ChallengeAssistCard({
               {AUTOMATABLE.has(active.suspectedType)
                 ? `自动视觉预算已用尽或无法可靠定位（${automation.run.data?.lastErrorCode ?? '等待人工'}）。`
                 : automation.policy.data?.controlMode === 'AUTONOMOUS'
-                  ? '若任务已绑定一次性账号/密码/OTP，Agent 会直接继续；否则保留现场并通知，人工接管不是强制步骤。'
+                  ? 'Agent 已确认当前步骤需要人工信息；任务和浏览器现场保持不变，不会强制接管。'
                   : '安全模式保留 OTP、设备、支付与账号安全的显式人工门禁。'}
             </p>
+            {active.suspectedType === 'OTP' &&
+              automation.policy.data?.controlMode === 'AUTONOMOUS' &&
+              active.targetRef && (
+                <form
+                  className="mt-3 flex flex-wrap items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!otp.trim()) return;
+                    submitOtp.mutate(
+                      { eventId: active.challengeEventId, value: otp.trim() },
+                      { onSuccess: () => setOtp('') }
+                    );
+                  }}
+                >
+                  <input
+                    aria-label="提供给 Agent 的验证码"
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value)}
+                    disabled={!canOperate || submitOtp.isPending}
+                    placeholder="输入验证码，由 Agent 填写"
+                    className="h-8 min-w-[190px] flex-1 rounded-[6px] border border-border-default bg-surface-1 px-3 text-[10px] text-text-primary outline-none focus:border-accent disabled:opacity-40"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!canOperate || !otp.trim() || submitOtp.isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-warning px-3 text-[10px] font-medium text-canvas disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {submitOtp.isPending ? (
+                      <LoaderCircle size={11} className="animate-spin" />
+                    ) : (
+                      <KeyRound size={11} />
+                    )}
+                    发送给 Agent 填写
+                  </button>
+                </form>
+              )}
             <button
               type="button"
               disabled={!canOperate || requestingTakeover}
@@ -347,9 +390,16 @@ export function ChallengeAssistCard({
           </div>
         )}
 
-      {Boolean(preview.error || authorization.error || takeoverError) && (
+      {Boolean(
+        preview.error || authorization.error || submitOtp.error || takeoverError
+      ) && (
         <p className="mt-3 border border-danger/25 bg-danger/5 p-3 text-[10px] leading-5 text-danger">
-          {errorMessage(preview.error ?? authorization.error ?? takeoverError)}
+          {errorMessage(
+            preview.error ??
+              authorization.error ??
+              submitOtp.error ??
+              takeoverError
+          )}
         </p>
       )}
 

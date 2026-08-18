@@ -63,6 +63,7 @@ export type { ChallengeAutomationRun } from './models/ChallengeAutomationRun.js'
 export type { ChallengeEvent } from './models/ChallengeEvent.js';
 export type { ChallengeEventId } from './models/ChallengeEventId.js';
 export type { ChallengeEventListResponse } from './models/ChallengeEventListResponse.js';
+export type { ChallengeInputResponse } from './models/ChallengeInputResponse.js';
 export type { ChallengePreview } from './models/ChallengePreview.js';
 export type { ChallengeRegion } from './models/ChallengeRegion.js';
 export type { ChallengeVisualAction } from './models/ChallengeVisualAction.js';
@@ -259,6 +260,7 @@ export type { StartRuntimeValidationMatrixRequest } from './models/StartRuntimeV
 export type { StartRuntimeValidationRequest } from './models/StartRuntimeValidationRequest.js';
 export type { StateResyncRequest } from './models/StateResyncRequest.js';
 export type { StateResyncResponse } from './models/StateResyncResponse.js';
+export type { SubmitChallengeInputResponseRequest } from './models/SubmitChallengeInputResponseRequest.js';
 export type { SubmitProviderEvidenceRequest } from './models/SubmitProviderEvidenceRequest.js';
 export type { TargetBounds } from './models/TargetBounds.js';
 export type { TenantId } from './models/TenantId.js';

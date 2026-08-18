@@ -71,4 +71,33 @@ class AgentTaskEntityHumanInputWaitTest {
     assertThat(task.getChallengeEventId()).isEqualTo("chl_abcdefghijklmnopqrst");
     assertThat(task.getBlockedReason()).isEqualTo("CHALLENGE_DETECTED");
   }
+
+  @Test
+  void requestsHumanAssistanceOnceWithoutFailingOrForcingTakeover() {
+    var createdAt = Instant.parse("2026-08-11T08:00:00Z");
+    var task =
+        new AgentTaskEntity(
+            "agt_1234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "Sign in",
+            "PLANNED",
+            "R0_READ_ONLY",
+            "ALLOWED",
+            null,
+            AgentPolicy.BALANCED,
+            "[]",
+            "{}",
+            "[]",
+            createdAt);
+    task.startExecution(
+        "op_1234567890abcdef", "worker-test", createdAt.plusSeconds(30), createdAt.plusSeconds(1));
+    task.awaitChallenge(1, "[]", "chl_1234567890abcdefghij", createdAt.plusSeconds(2));
+
+    assertThat(task.requestHumanAssistance("OTP_REQUIRED", createdAt.plusSeconds(3))).isTrue();
+    assertThat(task.requestHumanAssistance("OTP_REQUIRED", createdAt.plusSeconds(4))).isFalse();
+    assertThat(task.getState()).isEqualTo("WAITING_FOR_HUMAN");
+    assertThat(task.getChallengeEventId()).isEqualTo("chl_1234567890abcdefghij");
+    assertThat(task.getBlockedReason()).isEqualTo("HUMAN_ASSISTANCE_REQUIRED:OTP_REQUIRED");
+  }
 }

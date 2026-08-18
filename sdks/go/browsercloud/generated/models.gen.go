@@ -453,6 +453,25 @@ type HumanAssistIntent struct {
 	ErrorCode            any    `json:"errorCode,omitempty"`
 }
 
+type SubmitChallengeInputResponseRequest struct {
+	SecretId string `json:"secretId,omitempty"`
+}
+
+type ChallengeInputResponse struct {
+	IntentId         string `json:"intentId,omitempty"`
+	ChallengeEventId string `json:"challengeEventId,omitempty"`
+	SessionId        string `json:"sessionId,omitempty"`
+	TaskId           string `json:"taskId,omitempty"`
+	Purpose          string `json:"purpose,omitempty"`
+	State            string `json:"state,omitempty"`
+	MaximumAttempts  int    `json:"maximumAttempts,omitempty"`
+	OperationId      string `json:"operationId,omitempty"`
+	ExpiresAt        string `json:"expiresAt,omitempty"`
+	CreatedAt        string `json:"createdAt,omitempty"`
+	CompletedAt      any    `json:"completedAt,omitempty"`
+	ErrorCode        any    `json:"errorCode,omitempty"`
+}
+
 type AgentTask struct {
 	TaskId           string                     `json:"taskId,omitempty"`
 	SessionId        string                     `json:"sessionId,omitempty"`

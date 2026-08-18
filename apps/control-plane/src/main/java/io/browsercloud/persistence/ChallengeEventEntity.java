@@ -124,6 +124,20 @@ public class ChallengeEventEntity {
     updatedAt = now;
   }
 
+  public void inputExecuting(Instant now) {
+    if (!java.util.Set.of("TAKEOVER_REQUIRED", "CONFIRMED").contains(status)) {
+      throw new IllegalStateException("challenge event is not waiting for an input response");
+    }
+    status = "EXECUTING";
+    updatedAt = now;
+  }
+
+  public void inputAttemptFailed(Instant now) {
+    requireStatus("EXECUTING");
+    status = "TAKEOVER_REQUIRED";
+    updatedAt = now;
+  }
+
   public void resolved(Instant now) {
     if ("RESOLVED".equals(status)) return;
     requireStatus("EXECUTING");

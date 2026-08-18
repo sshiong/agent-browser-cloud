@@ -181,6 +181,31 @@ public final class OperationFactory {
         null);
   }
 
+  /** Creates a short-lived Agent input Operation after an operator supplies a one-time OTP. */
+  public static ExclusiveOperation agentHumanInput(
+      SessionContext session, String userId, long operationEpoch) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.HUMAN,
+        userId,
+        OperationMode.HUMAN_ASSIST,
+        85,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.EXECUTING,
+        OperationState.ACTIVE,
+        Set.of("challenge.input.once"),
+        now.plusSeconds(60),
+        now,
+        null);
+  }
+
   /** Creates one short-lived visual Challenge attempt; retries require a new Operation. */
   public static ExclusiveOperation challengeAutomation(
       SessionContext session, String runId, long operationEpoch) {

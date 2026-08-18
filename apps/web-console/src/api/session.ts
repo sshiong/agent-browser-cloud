@@ -52,6 +52,8 @@ import type {
   ChallengeAutomationRunView,
   CreateAgentInputSecretRequest,
   AgentInputSecretView,
+  SubmitChallengeInputResponseRequest,
+  ChallengeInputResponseView,
 } from '../types/session';
 import type {
   ProxyRebindOperation,
@@ -552,7 +554,8 @@ function isResourceStreamEvent(value: unknown): value is ResourceStreamEvent {
       change.changeType === 'CHALLENGE_EVENT' ||
       change.changeType === 'HUMAN_ASSIST_INTENT' ||
       change.changeType === 'REMOTE_DESKTOP_PARTICIPANT' ||
-      change.changeType === 'CHALLENGE_AUTOMATION') &&
+      change.changeType === 'CHALLENGE_AUTOMATION' ||
+      change.changeType === 'AGENT_HUMAN_INPUT') &&
     typeof change.entityId === 'string' &&
     typeof change.occurredAt === 'string' &&
     typeof change.replayed === 'boolean'
@@ -1001,6 +1004,27 @@ export async function createAgentInputSecret(
 ): Promise<AgentInputSecretView> {
   return request<AgentInputSecretView>(
     `/sessions/${sessionId}/agent-input-secrets`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export async function submitChallengeInputResponse(
+  eventId: string,
+  body: SubmitChallengeInputResponseRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<ChallengeInputResponseView> {
+  return request<ChallengeInputResponseView>(
+    `/challenges/${eventId}/input-responses`,
     {
       method: 'POST',
       body: JSON.stringify(body),

@@ -2060,6 +2060,43 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/challenges/{eventId}/input-responses:
+    post:
+      operationId: submitChallengeInputResponse
+      summary: Supply a one-time OTP to an AUTONOMOUS Agent waiting for human assistance
+      description: >
+        Used only after automatic handling is exhausted and the Agent has emitted one durable
+        assistance request. The request references a write-only OTP secret; the Agent types it
+        into the current sensitive target and resumes the original task. It does not create or
+        require a Human Takeover Operation. The operator may instead type directly through the
+        collaborative desktop.
+      tags: [Challenge, HumanAssist, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeEventId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitChallengeInputResponseRequest"
+      responses:
+        "202":
+          description: OTP response accepted for bounded Agent input and original-task continuation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeInputResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}/agent-input-secrets:
     post:
       operationId: createAgentInputSecret
@@ -2116,9 +2153,10 @@ paths:
       operationId: updateChallengeAutomationPolicy
       summary: Update automatic screenshot/OCR click and slide limits
       description: >
-        SAFE retains sensitive-input gates. AUTONOMOUS authorizes purpose-bound username,
-        password and OTP inputs without repeated confirmation; payment and destructive account
-        decisions remain separately gated.
+        SAFE retains sensitive-input gates. AUTONOMOUS runs without per-action prompts and reports
+        only after it proves human assistance is required. An operator can then provide a
+        purpose-bound one-time OTP for Agent input or type directly through collaborative desktop;
+        payment and destructive account decisions remain separately gated.
       tags: [Challenge, HumanAssist]
       parameters:
         - $ref: "#/components/parameters/SessionId"
@@ -6533,6 +6571,66 @@ components:
           format: date-time
         consumedAt:
           type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        errorCode:
+          type: [string, "null"]
+    SubmitChallengeInputResponseRequest:
+      type: object
+      additionalProperties: false
+      required: [secretId]
+      properties:
+        secretId:
+          type: string
+          pattern: "^ais_[A-Za-z0-9]{20,32}$"
+          description: Write-only OTP envelope created for the same tenant and Session.
+    ChallengeInputResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - intentId
+        - challengeEventId
+        - sessionId
+        - taskId
+        - purpose
+        - state
+        - maximumAttempts
+        - operationId
+        - expiresAt
+        - createdAt
+        - completedAt
+        - errorCode
+      properties:
+        intentId:
+          type: string
+          pattern: "^aci_[A-Za-z0-9]{20}$"
+        challengeEventId:
+          type: string
+          pattern: "^chl_[A-Za-z0-9]{20}$"
+        sessionId:
+          type: string
+        taskId:
+          type: string
+          pattern: "^agt_[A-Za-z0-9]{16,32}$"
+        purpose:
+          type: string
+          const: OTP
+        state:
+          type: string
+          enum: [EXECUTING, COMMITTED, FAILED, EXPIRED]
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        operationId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
           format: date-time
         completedAt:
           type: [string, "null"]

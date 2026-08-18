@@ -534,6 +534,35 @@ public final class NodeCommands {
     return command(session, operation, "AgentAction", payload);
   }
 
+  public static NodeCommand agentChallengeInput(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String taskId,
+      String stepId,
+      String targetRef,
+      long targetRevision,
+      String sealedText,
+      long baseStateVersion,
+      String baseContentHash,
+      int maximumAttempts) {
+    var payload =
+        AgentActionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setTaskId(taskId)
+            .setStepId(stepId)
+            .setToolId("TYPE_TEXT")
+            .setTargetRef(targetRef)
+            .setTargetRevision(targetRevision)
+            .setSealedText(sealedText)
+            .setBaseStateVersion(baseStateVersion)
+            .setBaseContentHash(baseContentHash)
+            .setAllowSensitiveTarget(true)
+            .setMaximumAttempts(maximumAttempts)
+            .build()
+            .toByteArray();
+    return command(session, operation, "AgentAction", payload);
+  }
+
   private static NodeCommand command(
       SessionContext session, ExclusiveOperation operation, String commandType, byte[] payload) {
     return new NodeCommand(

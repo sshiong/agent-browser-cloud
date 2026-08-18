@@ -66,7 +66,8 @@ class ChallengeDetectionServiceTest {
     verify(events).save(captured.capture());
     assertThat(captured.getValue().getSuspectedType()).isEqualTo("OTP");
     assertThat(captured.getValue().getStatus()).isEqualTo("TAKEOVER_REQUIRED");
-    assertThat(captured.getValue().getTargetRef()).isNull();
+    assertThat(captured.getValue().getTargetRef()).isEqualTo("target:7:otp");
+    assertThat(captured.getValue().getTargetSummary()).isEqualTo("验证码需要人工提供或自行填写");
   }
 
   private static NodeEventReceived envelope() {

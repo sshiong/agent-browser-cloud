@@ -20,7 +20,7 @@ class GeneratedClientTest(unittest.TestCase):
             transport=transport,
         )
         result = client.getSession(path={"sessionId": "ses_1"})
-        self.assertEqual(212, len(OPERATIONS))
+        self.assertEqual(213, len(OPERATIONS))
         self.assertEqual("GET", captured["method"])
         self.assertEqual(
             "https://browser.example/api/v1/sessions/ses_1", captured["url"]

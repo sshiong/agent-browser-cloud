@@ -213,7 +213,7 @@ public class ChallengeAutomationApplicationService {
     if (!AUTOMATABLE_TYPES.contains(challenge.getSuspectedType())) {
       if (policy.controlMode()
           == io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS) {
-        agentExecution.failWaitingChallenge(
+        agentExecution.requestHumanAssistance(
             challengeEventId,
             tenantId,
             "AUTONOMOUS_CHALLENGE_" + challenge.getSuspectedType() + "_UNRESOLVED");
@@ -221,8 +221,8 @@ public class ChallengeAutomationApplicationService {
             tenantId,
             sessionId,
             task.getTaskId(),
-            "AGENT_AUTONOMOUS_CHALLENGE_FAILED",
-            "FAILED",
+            "AGENT_AUTONOMOUS_CHALLENGE_RESULT",
+            "NEEDS_HUMAN",
             Map.of("challengeType", challenge.getSuspectedType(), "humanTakeoverRequired", false));
       }
       return;
@@ -230,14 +230,14 @@ public class ChallengeAutomationApplicationService {
     if (!policy.enabled() || policy.maximumAttempts() == 0) {
       if (policy.controlMode()
           == io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS) {
-        agentExecution.failWaitingChallenge(
+        agentExecution.requestHumanAssistance(
             challengeEventId, tenantId, "AUTONOMOUS_CHALLENGE_AUTOMATION_DISABLED");
         appendAudit(
             tenantId,
             sessionId,
             task.getTaskId(),
-            "AGENT_AUTONOMOUS_CHALLENGE_FAILED",
-            "FAILED",
+            "AGENT_AUTONOMOUS_CHALLENGE_RESULT",
+            "NEEDS_HUMAN",
             Map.of("challengeType", challenge.getSuspectedType(), "automationEnabled", false));
       }
       return;
@@ -647,8 +647,8 @@ public class ChallengeAutomationApplicationService {
         run.tenantId(),
         run.sessionId(),
         run.runId(),
-        "AGENT_CHALLENGE_AUTOMATION_FAILED",
-        "FAILED",
+        "AGENT_CHALLENGE_AUTOMATION_RESULT",
+        "NEEDS_HUMAN",
         Map.of(
             "attemptCount",
             run.attemptCount(),
@@ -656,7 +656,7 @@ public class ChallengeAutomationApplicationService {
             safeCode(code, "CHALLENGE_AUTOMATION_FAILED")));
     if (policy(run.sessionId(), run.tenantId()).controlMode()
         == io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS) {
-      agentExecution.failWaitingChallenge(
+      agentExecution.requestHumanAssistance(
           run.currentChallengeEventId(),
           run.tenantId(),
           "AUTONOMOUS_CHALLENGE_" + safeCode(code, "AUTOMATION_FAILED"));

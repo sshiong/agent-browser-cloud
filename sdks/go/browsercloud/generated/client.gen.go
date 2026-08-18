@@ -131,6 +131,7 @@ var Operations = map[string]Operation{
 	"getChallengeEvent":                          {OperationID: "getChallengeEvent", Method: "GET", Path: "/api/v1/challenges/{eventId}", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeEvent"},
 	"previewHumanAssist":                         {OperationID: "previewHumanAssist", Method: "GET", Path: "/api/v1/challenges/{eventId}/preview", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengePreview"},
 	"authorizeHumanAssist":                       {OperationID: "authorizeHumanAssist", Method: "POST", Path: "/api/v1/challenges/{eventId}/assist-authorizations", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "AuthorizeHumanAssistRequest", RequestRequired: true, ResponseSchema: "HumanAssistIntent"},
+	"submitChallengeInputResponse":               {OperationID: "submitChallengeInputResponse", Method: "POST", Path: "/api/v1/challenges/{eventId}/input-responses", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "SubmitChallengeInputResponseRequest", RequestRequired: true, ResponseSchema: "ChallengeInputResponse"},
 	"createAgentInputSecret":                     {OperationID: "createAgentInputSecret", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-input-secrets", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "CreateAgentInputSecretRequest", RequestRequired: true, ResponseSchema: "AgentInputSecret"},
 	"getChallengeAutomationPolicy":               {OperationID: "getChallengeAutomationPolicy", Method: "GET", Path: "/api/v1/sessions/{sessionId}/challenge-automation/policy", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeAutomationPolicy"},
 	"updateChallengeAutomationPolicy":            {OperationID: "updateChallengeAutomationPolicy", Method: "PUT", Path: "/api/v1/sessions/{sessionId}/challenge-automation/policy", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "UpdateChallengeAutomationPolicyRequest", RequestRequired: true, ResponseSchema: "ChallengeAutomationPolicy"},
@@ -609,6 +610,9 @@ func (c *Client) PreviewHumanAssist(ctx context.Context, request Request) (any, 
 }
 func (c *Client) AuthorizeHumanAssist(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "authorizeHumanAssist", request)
+}
+func (c *Client) SubmitChallengeInputResponse(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "submitChallengeInputResponse", request)
 }
 func (c *Client) CreateAgentInputSecret(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "createAgentInputSecret", request)

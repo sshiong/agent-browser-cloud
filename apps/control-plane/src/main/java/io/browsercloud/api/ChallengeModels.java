@@ -68,4 +68,22 @@ public final class ChallengeModels {
       Instant consumedAt,
       Instant completedAt,
       String errorCode) {}
+
+  /** References a write-only, one-time OTP envelope; plaintext is never returned by this API. */
+  public record SubmitChallengeInputResponseRequest(
+      @NotBlank @Pattern(regexp = "^ais_[A-Za-z0-9]{20,32}$") String secretId) {}
+
+  public record ChallengeInputResponseView(
+      String intentId,
+      String challengeEventId,
+      String sessionId,
+      String taskId,
+      String purpose,
+      String state,
+      int maximumAttempts,
+      String operationId,
+      Instant expiresAt,
+      Instant createdAt,
+      Instant completedAt,
+      String errorCode) {}
 }

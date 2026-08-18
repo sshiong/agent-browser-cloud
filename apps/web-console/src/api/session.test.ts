@@ -7,6 +7,7 @@ import {
   createRemoteDesktopConnection,
   createSession,
   createAgentInputSecret,
+  submitChallengeInputResponse,
   getBrowserState,
   getBusinessRecovery,
   getChallengePreview,
@@ -1198,6 +1199,51 @@ describe('session API', () => {
     );
   });
 
+  it('submits a one-time OTP response to the original paused Challenge task', async () => {
+    const eventId = 'chl_1234567890abcdefghij';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          intentId: 'aci_1234567890abcdefghij',
+          challengeEventId: eventId,
+          sessionId: 'ses_1234567890abcdef',
+          taskId: 'agt_1234567890abcdef',
+          purpose: 'OTP',
+          state: 'EXECUTING',
+          maximumAttempts: 3,
+          operationId: 'op_1234567890abcdef',
+          expiresAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }),
+        { status: 202, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await submitChallengeInputResponse(
+      eventId,
+      { secretId: 'ais_1234567890abcdefghijklmn' },
+      'challenge-input-idem-1',
+      'tenant-test',
+      'operator-test'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/challenges/${eventId}/input-responses`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          secretId: 'ais_1234567890abcdefghijklmn',
+        }),
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'challenge-input-idem-1',
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'operator-test',
+        }),
+      })
+    );
+  });
+
   it('preserves the structured backend error and request id', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -1311,7 +1357,8 @@ describe('session API', () => {
       'id: 22\nevent: session-change\ndata: {"sequence":22,"changeType":"BROWSER_STATE","entityId":"ses_1234567890abcdef:1:8","occurredAt":"2026-07-30T00:00:02Z","replayed":false}\n\n' +
       'id: 23\nevent: session-change\ndata: {"sequence":23,"changeType":"AUDIT_EVENT","entityId":"aud_1234567890abcdef","occurredAt":"2026-07-30T00:00:03Z","replayed":false}\n\n' +
       'id: 24\nevent: session-change\ndata: {"sequence":24,"changeType":"OPERATION","entityId":"op_1234567890abcdef","occurredAt":"2026-07-30T00:00:04Z","replayed":false}\n\n' +
-      'id: 25\nevent: session-change\ndata: {"sequence":25,"changeType":"AGENT_TASK","entityId":"agt_1234567890abcdef","occurredAt":"2026-07-30T00:00:05Z","replayed":false}\n\n';
+      'id: 25\nevent: session-change\ndata: {"sequence":25,"changeType":"AGENT_TASK","entityId":"agt_1234567890abcdef","occurredAt":"2026-07-30T00:00:05Z","replayed":false}\n\n' +
+      'id: 26\nevent: session-change\ndata: {"sequence":26,"changeType":"AGENT_HUMAN_INPUT","entityId":"aci_1234567890abcdefghij","occurredAt":"2026-07-30T00:00:06Z","replayed":false}\n\n';
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(encoder.encode(payload));
@@ -1340,6 +1387,7 @@ describe('session API', () => {
       'AUDIT_EVENT',
       'OPERATION',
       'AGENT_TASK',
+      'AGENT_HUMAN_INPUT',
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/sessions/ses_1234567890abcdef/event-stream',

@@ -599,7 +599,8 @@ export interface ResourceStreamEvent {
     | 'CHALLENGE_EVENT'
     | 'HUMAN_ASSIST_INTENT'
     | 'REMOTE_DESKTOP_PARTICIPANT'
-    | 'CHALLENGE_AUTOMATION';
+    | 'CHALLENGE_AUTOMATION'
+    | 'AGENT_HUMAN_INPUT';
   entityId: string;
   occurredAt: string;
   replayed: boolean;
@@ -996,6 +997,25 @@ export interface AgentInputSecretView {
   purpose: 'USERNAME' | 'PASSWORD' | 'OTP';
   expiresAt: string;
   consumed: boolean;
+}
+
+export interface SubmitChallengeInputResponseRequest {
+  secretId: string;
+}
+
+export interface ChallengeInputResponseView {
+  intentId: string;
+  challengeEventId: string;
+  sessionId: string;
+  taskId: string;
+  purpose: 'OTP';
+  state: 'EXECUTING' | 'COMMITTED' | 'FAILED' | 'EXPIRED';
+  maximumAttempts: number;
+  operationId: string;
+  expiresAt: string;
+  createdAt: string;
+  completedAt?: string;
+  errorCode?: string;
 }
 
 export interface ChallengeAutomationRunView {

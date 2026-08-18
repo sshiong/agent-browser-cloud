@@ -7,6 +7,7 @@ import type { ChallengeAutomationPolicy } from '../models/ChallengeAutomationPol
 import type { ChallengeAutomationRun } from '../models/ChallengeAutomationRun.js';
 import type { ChallengeEvent } from '../models/ChallengeEvent.js';
 import type { ChallengeEventListResponse } from '../models/ChallengeEventListResponse.js';
+import type { ChallengeInputResponse } from '../models/ChallengeInputResponse.js';
 import type { ChallengePreview } from '../models/ChallengePreview.js';
 import type { ChallengeVisualJob } from '../models/ChallengeVisualJob.js';
 import type { ChallengeVisualJobClaim } from '../models/ChallengeVisualJobClaim.js';
@@ -15,6 +16,7 @@ import type { ClaimChallengeVisualJobRequest } from '../models/ClaimChallengeVis
 import type { CompleteChallengeVisualJobRequest } from '../models/CompleteChallengeVisualJobRequest.js';
 import type { FailChallengeVisualJobRequest } from '../models/FailChallengeVisualJobRequest.js';
 import type { HumanAssistIntent } from '../models/HumanAssistIntent.js';
+import type { SubmitChallengeInputResponseRequest } from '../models/SubmitChallengeInputResponseRequest.js';
 import type { UpdateChallengeAutomationPolicyRequest } from '../models/UpdateChallengeAutomationPolicyRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
@@ -169,6 +171,53 @@ export class ChallengeService {
         });
     }
     /**
+     * Supply a one-time OTP to an AUTONOMOUS Agent waiting for human assistance
+     * Used only after automatic handling is exhausted and the Agent has emitted one durable assistance request. The request references a write-only OTP secret; the Agent types it into the current sensitive target and resumes the original task. It does not create or require a Human Takeover Operation. The operator may instead type directly through the collaborative desktop.
+     *
+     * @returns ChallengeInputResponse OTP response accepted for bounded Agent input and original-task continuation.
+     * @throws ApiError
+     */
+    public submitChallengeInputResponse({
+        eventId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+        xActorId,
+    }: {
+        eventId: string,
+        idempotencyKey: string,
+        requestBody: SubmitChallengeInputResponseRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        /**
+         * Optional Local/Test actor identity. Ignored in Production, where actor identity is the JWT subject.
+         */
+        xActorId?: string,
+    }): CancelablePromise<ChallengeInputResponse> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/challenges/{eventId}/input-responses',
+            path: {
+                'eventId': eventId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'X-Actor-Id': xActorId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
      * Get the bounded visual Challenge automation policy
      * @returns ChallengeAutomationPolicy Tenant-scoped policy; new Sessions default to three attempts.
      * @throws ApiError
@@ -199,7 +248,7 @@ export class ChallengeService {
     }
     /**
      * Update automatic screenshot/OCR click and slide limits
-     * SAFE retains sensitive-input gates. AUTONOMOUS authorizes purpose-bound username, password and OTP inputs without repeated confirmation; payment and destructive account decisions remain separately gated.
+     * SAFE retains sensitive-input gates. AUTONOMOUS runs without per-action prompts and reports only after it proves human assistance is required. An operator can then provide a purpose-bound one-time OTP for Agent input or type directly through collaborative desktop; payment and destructive account decisions remain separately gated.
      *
      * @returns ChallengeAutomationPolicy Updated policy.
      * @throws ApiError

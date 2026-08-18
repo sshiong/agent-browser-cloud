@@ -45,6 +45,7 @@ public class NodeEventIngestionService {
   private final ProfileWarmTierApplicationService profileWarmTier;
   private final SessionRecordingApplicationService recordings;
   private final ChallengeAutomationApplicationService challengeAutomation;
+  private final ChallengeInputApplicationService challengeInputs;
 
   public NodeEventIngestionService(
       InboxEventJpaRepository inboxRepository,
@@ -84,6 +85,7 @@ public class NodeEventIngestionService {
         stateSnapshotAssembler,
         challengeDetectionService,
         humanAssistService,
+        null,
         null,
         null,
         null,
@@ -134,6 +136,7 @@ public class NodeEventIngestionService {
         remoteDesktopParticipants,
         profileWarmTier,
         recordings,
+        null,
         null);
   }
 
@@ -160,7 +163,8 @@ public class NodeEventIngestionService {
       RemoteDesktopParticipantApplicationService remoteDesktopParticipants,
       ProfileWarmTierApplicationService profileWarmTier,
       SessionRecordingApplicationService recordings,
-      ChallengeAutomationApplicationService challengeAutomation) {
+      ChallengeAutomationApplicationService challengeAutomation,
+      ChallengeInputApplicationService challengeInputs) {
     this.inboxRepository = inboxRepository;
     this.coordinator = coordinator;
     this.browserStateRepository = browserStateRepository;
@@ -183,6 +187,7 @@ public class NodeEventIngestionService {
     this.profileWarmTier = profileWarmTier;
     this.recordings = recordings;
     this.challengeAutomation = challengeAutomation;
+    this.challengeInputs = challengeInputs;
   }
 
   @Transactional
@@ -242,8 +247,11 @@ public class NodeEventIngestionService {
       }
       case NodeEvent.AgentNavigationFailed failed ->
           agentNavigationCompletionService.navigationFailed(command, failed);
-      case NodeEvent.AgentActionFailed failed ->
+      case NodeEvent.AgentActionFailed failed -> {
+        if (challengeInputs == null || !challengeInputs.failed(command, failed)) {
           agentNavigationCompletionService.actionFailed(command, failed);
+        }
+      }
       case NodeEvent.HumanAssistFailed failed -> humanAssistService.failed(command, failed);
       case NodeEvent.ChallengeAutomationFailed failed -> {
         if (challengeAutomation != null) {
@@ -401,6 +409,10 @@ public class NodeEventIngestionService {
   }
 
   private void processAuthoritativeState(NodeEventReceived command, NodeEvent.StateUpdated state) {
+    if (challengeInputs != null && challengeInputs.stateUpdated(command, state)) {
+      recoveryActionService.stateUpdated(command, state);
+      return;
+    }
     var assist = humanAssistService.stateUpdated(command, state);
     var challenge = challengeDetectionService.observe(command, state).orElse(null);
     if (challenge != null) {

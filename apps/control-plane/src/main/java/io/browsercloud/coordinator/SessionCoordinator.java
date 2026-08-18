@@ -690,7 +690,9 @@ public final class SessionCoordinator {
           var humanAssistState =
               active.ownerType() == OwnerType.HUMAN
                   && active.mode() == OperationMode.HUMAN_ASSIST
-                  && "HUMAN_ASSIST".equals(updated.snapshotKind());
+                  && ("HUMAN_ASSIST".equals(updated.snapshotKind())
+                      || ("AGENT_TYPE_TEXT".equals(updated.snapshotKind())
+                          && active.allowedCapabilities().contains("challenge.input.once")));
           var challengeAutomationState =
               active.ownerType() == OwnerType.AGENT
                   && active.mode() == OperationMode.CHALLENGE_AUTOMATION
@@ -719,10 +721,18 @@ public final class SessionCoordinator {
       }
       case NodeEvent.AgentActionFailed failed -> {
         var operation = matchingActiveOperation(session.sessionId(), command);
-        if (operation.isEmpty()
-            || operation.orElseThrow().ownerType() != OwnerType.AGENT
-            || operation.orElseThrow().mode() != OperationMode.AGENT_INTERACTIVE
-            || !operation.orElseThrow().actorId().equals(failed.taskId())) {
+        var agentOperation =
+            operation.isPresent()
+                && operation.orElseThrow().ownerType() == OwnerType.AGENT
+                && operation.orElseThrow().mode() == OperationMode.AGENT_INTERACTIVE
+                && operation.orElseThrow().actorId().equals(failed.taskId());
+        var suppliedChallengeInput =
+            operation.isPresent()
+                && operation.orElseThrow().ownerType() == OwnerType.HUMAN
+                && operation.orElseThrow().mode() == OperationMode.HUMAN_ASSIST
+                && operation.orElseThrow().allowedCapabilities().contains("challenge.input.once")
+                && failed.stepId().startsWith("step_human_");
+        if (operation.isEmpty() || (!agentOperation && !suppliedChallengeInput)) {
           yield CoordinatorResult.rejected("STALE_AGENT_OPERATION");
         }
         yield CoordinatorResult.completed();

@@ -50,6 +50,8 @@ import {
   getChallengeAutomationPolicy,
   updateChallengeAutomationPolicy,
   getCurrentChallengeAutomationRun,
+  createAgentInputSecret,
+  submitChallengeInputResponse,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -255,6 +257,41 @@ export function useAuthorizeHumanAssist(sessionId: string) {
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.challengePreview(sessionId, variables.eventId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.detail(sessionId),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useSubmitChallengeOtp(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      value,
+    }: {
+      eventId: string;
+      value: string;
+    }) => {
+      const requestId = crypto.randomUUID();
+      const secret = await createAgentInputSecret(
+        sessionId,
+        { purpose: 'OTP', value },
+        `challenge-otp-secret-${requestId}`
+      );
+      return submitChallengeInputResponse(
+        eventId,
+        { secretId: secret.secretId },
+        `challenge-otp-response-${requestId}`
+      );
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.challenges(sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.detail(sessionId),

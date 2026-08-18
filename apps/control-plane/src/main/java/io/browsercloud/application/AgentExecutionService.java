@@ -52,6 +52,7 @@ public class AgentExecutionService {
   private final AgentActionToolService actionToolService;
   private final AgentHumanGovernanceService governanceService;
   private final AgentApplicationService taskService;
+  private final AuditApplicationService audit;
   private final ObjectMapper objectMapper;
   private final long leaseSeconds;
   private final String executorId =
@@ -68,6 +69,7 @@ public class AgentExecutionService {
       AgentActionToolService actionToolService,
       AgentHumanGovernanceService governanceService,
       AgentApplicationService taskService,
+      AuditApplicationService audit,
       ObjectMapper objectMapper,
       @Value("${agent.executor-lease-seconds:30}") long leaseSeconds) {
     this.taskRepository = taskRepository;
@@ -80,6 +82,7 @@ public class AgentExecutionService {
     this.actionToolService = actionToolService;
     this.governanceService = governanceService;
     this.taskService = taskService;
+    this.audit = audit;
     this.objectMapper = objectMapper;
     this.leaseSeconds = Math.max(1, Math.min(300, leaseSeconds));
   }
@@ -220,15 +223,38 @@ public class AgentExecutionService {
     drive(task, session, operation, plan, readResults(task.getExecutionResults()));
   }
 
-  /** AUTONOMOUS mode reports an unresolved Challenge instead of forcing a Human takeover state. */
+  /**
+   * Keeps the original Agent task resumable and emits exactly one operator-facing assistance
+   * request for the current reason. It never creates or forces a takeover Operation.
+   */
   @Transactional
-  public void failWaitingChallenge(String challengeEventId, String tenantId, String failureCode) {
+  public void requestHumanAssistance(String challengeEventId, String tenantId, String reasonCode) {
     var task =
         taskRepository.findByChallengeEventForUpdate(challengeEventId, tenantId).orElse(null);
     if (task == null || !task.getState().equals(TaskState.WAITING_FOR_HUMAN.name())) return;
-    task.failExecution(
-        task.getCurrentStep(), task.getExecutionResults(), safeCode(failureCode), Instant.now());
+    if (!task.requestHumanAssistance(safeCode(reasonCode), Instant.now())) return;
     taskRepository.save(task);
+    audit.append(
+        new AuditApplicationService.AuditRecord(
+            tenantId,
+            task.getSessionId(),
+            "AGENT_HUMAN_ASSISTANCE_REQUESTED",
+            "AGENT",
+            task.getTaskId(),
+            "AGENT_TASK",
+            task.getTaskId(),
+            "REQUEST_ASSISTANCE",
+            "REQUESTED",
+            java.util.Map.of(
+                "challengeEventId",
+                challengeEventId,
+                "reason",
+                safeCode(reasonCode),
+                "forcedTakeover",
+                false,
+                "responseModes",
+                java.util.List.of("PROVIDE_OTP", "COLLABORATIVE_INPUT")),
+            "agent-assistance:" + task.getTaskId() + ":" + challengeEventId));
   }
 
   /** Keeps an already paused Agent bound to the newest Challenge instead of resuming it. */

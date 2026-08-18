@@ -171,14 +171,18 @@ public class ChallengeDetectionService {
     if (PAYMENT.matcher(text).find()) {
       return takeover("PAYMENT_CONFIRMATION", "PAYMENT_CONFIRMATION_SIGNAL", "支付确认需要人工接管");
     }
-    if (OTP.matcher(text).find()
-        || state.targets().stream()
+    var otpTarget =
+        state.targets().stream()
             .filter(NodeEvent.InteractiveTarget::sensitive)
-            .map(NodeEvent.InteractiveTarget::name)
-            .filter(java.util.Objects::nonNull)
-            .map(ChallengeDetectionService::normalize)
-            .anyMatch(name -> OTP.matcher(name).find())) {
-      return takeover("OTP", "OTP_OR_SENSITIVE_INPUT_SIGNAL", "验证码或敏感输入需要人工接管");
+            .filter(target -> target.name() != null && OTP.matcher(normalize(target.name())).find())
+            .filter(target -> target.visible() && target.enabled())
+            .filter(
+                target -> java.util.Set.of("textbox", "combobox").contains(safeRole(target.role())))
+            .findFirst()
+            .orElse(null);
+    if (OTP.matcher(text).find() || otpTarget != null) {
+      return new Classification(
+          "OTP", "OTP_OR_SENSITIVE_INPUT_SIGNAL", "验证码需要人工提供或自行填写", 0.98, otpTarget, false);
     }
     if (IMAGE_OR_PUZZLE.matcher(text).find()) {
       var type = text.matches("(?is).*(puzzle|drag|拼图).*") ? "PUZZLE" : "IMAGE_SELECTION";

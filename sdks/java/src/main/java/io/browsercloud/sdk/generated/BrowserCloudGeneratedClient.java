@@ -107,6 +107,7 @@ public final class BrowserCloudGeneratedClient {
     operation("getChallengeEvent", "GET", "/api/v1/challenges/{eventId}", List.of("eventId"), List.of(), List.of("X-Tenant-Id"), "", false, "ChallengeEvent"),
     operation("previewHumanAssist", "GET", "/api/v1/challenges/{eventId}/preview", List.of("eventId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "ChallengePreview"),
     operation("authorizeHumanAssist", "POST", "/api/v1/challenges/{eventId}/assist-authorizations", List.of("eventId"), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "AuthorizeHumanAssistRequest", true, "HumanAssistIntent"),
+    operation("submitChallengeInputResponse", "POST", "/api/v1/challenges/{eventId}/input-responses", List.of("eventId"), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "SubmitChallengeInputResponseRequest", true, "ChallengeInputResponse"),
     operation("createAgentInputSecret", "POST", "/api/v1/sessions/{sessionId}/agent-input-secrets", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "CreateAgentInputSecretRequest", true, "AgentInputSecret"),
     operation("getChallengeAutomationPolicy", "GET", "/api/v1/sessions/{sessionId}/challenge-automation/policy", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "ChallengeAutomationPolicy"),
     operation("updateChallengeAutomationPolicy", "PUT", "/api/v1/sessions/{sessionId}/challenge-automation/policy", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "UpdateChallengeAutomationPolicyRequest", true, "ChallengeAutomationPolicy"),
@@ -351,6 +352,7 @@ public final class BrowserCloudGeneratedClient {
   public Response getChallengeEvent(Request request) { return call("getChallengeEvent", request); }
   public Response previewHumanAssist(Request request) { return call("previewHumanAssist", request); }
   public Response authorizeHumanAssist(Request request) { return call("authorizeHumanAssist", request); }
+  public Response submitChallengeInputResponse(Request request) { return call("submitChallengeInputResponse", request); }
   public Response createAgentInputSecret(Request request) { return call("createAgentInputSecret", request); }
   public Response getChallengeAutomationPolicy(Request request) { return call("getChallengeAutomationPolicy", request); }
   public Response updateChallengeAutomationPolicy(Request request) { return call("updateChallengeAutomationPolicy", request); }

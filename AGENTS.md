@@ -159,8 +159,9 @@ Rust Browser Node
 
 - AUTONOMOUS 按需人工协助切片本地 Control Plane 446 项、Web 115 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N-1 与
-  完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `941bf5b`，远端 Workflow
-  待推送后确认，见 progress 148。
+  完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `941bf5b` 的 GitHub `ci`
+  （run `32159504238`）和 `desktop`（run `32159504071`，Windows/macOS）均通过，见
+  progress 148。
 
 - Agent SAFE/AUTONOMOUS 切片本地 Control Plane 442 项、Web 114 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、
@@ -213,8 +214,8 @@ Rust Browser Node
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
 Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线均已推送 `main`
-且对应 GitHub `ci`/`desktop` 通过；V105 按需人工协助续行切片已完成本地 Gate，远端结果
-必须在推送后单独确认。
+且对应 GitHub `ci`/`desktop` 通过；V105 按需人工协助续行切片的本地 Gate 与 GitHub
+`ci`/`desktop` 也已通过。
 
 ### Recording 播放授权与对象治理（下一开发切片）
 

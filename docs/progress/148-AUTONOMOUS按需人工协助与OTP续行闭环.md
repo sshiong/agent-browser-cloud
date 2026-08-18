@@ -1,7 +1,7 @@
 # AUTONOMOUS 按需人工协助与 OTP 续行闭环
 
 > 日期：2026-08-19
-> 状态：仓库实现与本地全量验证完成；远端 Workflow 待推送后确认。
+> 状态：仓库实现、本地全量验证与远端 Workflow 全部完成。
 > 实现提交：`941bf5b feat: resume autonomous agents with human otp`
 
 ## 问题与最终语义
@@ -87,6 +87,10 @@ OpenAPI 和 TypeScript/Python/Go/Java SDK 已同步到 **213 Operations / 287 Sc
 - `make test-integration` 通过完整 PostgreSQL/mTLS/Chromium 主链，V105 被真实 Flyway 应用，
   并保持 Challenge 视觉自动化、Enterprise Overview SSE、租户隔离、Coordinator 恢复、
   Recording 与审计链断言。
+
+GitHub `ci` run `32159504238` 已通过，覆盖 Verify、Build、四 Worker 镜像、SBOM/扫描、
+Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E；`desktop` run
+`32159504071` 的 Windows/macOS 原生安全边界和验证二进制构建均通过。
 
 当前没有把目标站点“收到 OTP 后服务端认证成功”的专项浏览器场景写成完成；已有证据覆盖
 输入 Operation、状态路由、原任务续行状态机和完整平台回归。目标 IAM/邮箱/短信 Provider

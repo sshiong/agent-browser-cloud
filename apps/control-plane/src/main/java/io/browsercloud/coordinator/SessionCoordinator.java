@@ -691,7 +691,11 @@ public final class SessionCoordinator {
               active.ownerType() == OwnerType.HUMAN
                   && active.mode() == OperationMode.HUMAN_ASSIST
                   && "HUMAN_ASSIST".equals(updated.snapshotKind());
-          if (!agentState && !humanAssistState) {
+          var challengeAutomationState =
+              active.ownerType() == OwnerType.AGENT
+                  && active.mode() == OperationMode.CHALLENGE_AUTOMATION
+                  && "CHALLENGE_AUTOMATION".equals(updated.snapshotKind());
+          if (!agentState && !humanAssistState && !challengeAutomationState) {
             yield CoordinatorResult.rejected("STALE_OPERATION");
           }
         }
@@ -729,6 +733,16 @@ public final class SessionCoordinator {
             || operation.orElseThrow().ownerType() != OwnerType.HUMAN
             || operation.orElseThrow().mode() != OperationMode.HUMAN_ASSIST) {
           yield CoordinatorResult.rejected("STALE_HUMAN_ASSIST");
+        }
+        yield CoordinatorResult.completed();
+      }
+      case NodeEvent.ChallengeAutomationFailed failed -> {
+        var operation = matchingActiveOperation(session.sessionId(), command);
+        if (operation.isEmpty()
+            || operation.orElseThrow().ownerType() != OwnerType.AGENT
+            || operation.orElseThrow().mode() != OperationMode.CHALLENGE_AUTOMATION
+            || !operation.orElseThrow().actorId().equals(failed.runId())) {
+          yield CoordinatorResult.rejected("STALE_CHALLENGE_AUTOMATION");
         }
         yield CoordinatorResult.completed();
       }
@@ -809,6 +823,7 @@ public final class SessionCoordinator {
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
+      case NodeEvent.ChallengeAutomationFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.RecordingFinalized finalized -> finalized.sessionId();

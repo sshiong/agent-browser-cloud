@@ -47,6 +47,9 @@ import type {
   ChallengePreviewView,
   AuthorizeHumanAssistRequest,
   HumanAssistView,
+  ChallengeAutomationPolicyView,
+  UpdateChallengeAutomationPolicyRequest,
+  ChallengeAutomationRunView,
 } from '../types/session';
 import type {
   ProxyRebindOperation,
@@ -543,7 +546,11 @@ function isResourceStreamEvent(value: unknown): value is ResourceStreamEvent {
       change.changeType === 'BROWSER_STATE' ||
       change.changeType === 'AUDIT_EVENT' ||
       change.changeType === 'OPERATION' ||
-      change.changeType === 'AGENT_TASK') &&
+      change.changeType === 'AGENT_TASK' ||
+      change.changeType === 'CHALLENGE_EVENT' ||
+      change.changeType === 'HUMAN_ASSIST_INTENT' ||
+      change.changeType === 'REMOTE_DESKTOP_PARTICIPANT' ||
+      change.changeType === 'CHALLENGE_AUTOMATION') &&
     typeof change.entityId === 'string' &&
     typeof change.occurredAt === 'string' &&
     typeof change.replayed === 'boolean'
@@ -967,6 +974,45 @@ export async function authorizeHumanAssist(
     },
     tenantId,
     actorId
+  );
+}
+
+export async function getChallengeAutomationPolicy(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ChallengeAutomationPolicyView> {
+  return request<ChallengeAutomationPolicyView>(
+    `/sessions/${sessionId}/challenge-automation/policy`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function updateChallengeAutomationPolicy(
+  sessionId: string,
+  body: UpdateChallengeAutomationPolicyRequest,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<ChallengeAutomationPolicyView> {
+  return request<ChallengeAutomationPolicyView>(
+    `/sessions/${sessionId}/challenge-automation/policy`,
+    { method: 'PUT', body: JSON.stringify(body), signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function getCurrentChallengeAutomationRun(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<ChallengeAutomationRunView | null> {
+  return requestOptional<ChallengeAutomationRunView>(
+    `/sessions/${sessionId}/challenge-automation/current`,
+    { signal },
+    tenantId
   );
 }
 

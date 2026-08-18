@@ -141,6 +141,60 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: vision-worker-default-deny
+  namespace: browsercloud-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vision-worker
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vision-worker-controlled-egress
+  namespace: browsercloud-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vision-worker
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: control-plane
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              browsercloud.io/model-egress: "true"
+      ports:
+        - protocol: TCP
+          port: 8443
+    - to:
+        - podSelector:
+            matchLabels:
+              browsercloud.io/evidence-download: "true"
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: recovery-gameday-worker-default-deny
   namespace: browsercloud-system
 spec:

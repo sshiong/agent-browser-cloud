@@ -181,6 +181,31 @@ public final class OperationFactory {
         null);
   }
 
+  /** Creates one short-lived visual Challenge attempt; retries require a new Operation. */
+  public static ExclusiveOperation challengeAutomation(
+      SessionContext session, String runId, long operationEpoch) {
+    var now = Instant.now();
+    return new ExclusiveOperation(
+        "op_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16),
+        session.sessionId(),
+        OwnerType.AGENT,
+        runId,
+        OperationMode.CHALLENGE_AUTOMATION,
+        60,
+        session.coordinatorTerm(),
+        session.contextEpoch(),
+        operationEpoch,
+        null,
+        false,
+        false,
+        OperationPhase.EXECUTING,
+        OperationState.ACTIVE,
+        Set.of("challenge.visual.click", "challenge.visual.slide"),
+        now.plusSeconds(45),
+        now,
+        null);
+  }
+
   /** 创建受限 Agent Task Operation。 */
   public static ExclusiveOperation agentTask(
       SessionContext session, String taskId, long operationEpoch, Set<String> capabilities) {

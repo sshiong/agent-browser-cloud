@@ -117,6 +117,9 @@ OPERATIONS: dict[str, Operation] = {
     'getChallengeEvent': Operation('getChallengeEvent', 'GET', '/api/v1/challenges/{eventId}', ('eventId',), (), ('X-Tenant-Id',), '', False, 'ChallengeEvent'),
     'previewHumanAssist': Operation('previewHumanAssist', 'GET', '/api/v1/challenges/{eventId}/preview', ('eventId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'ChallengePreview'),
     'authorizeHumanAssist': Operation('authorizeHumanAssist', 'POST', '/api/v1/challenges/{eventId}/assist-authorizations', ('eventId',), (), ('Idempotency-Key', 'X-Actor-Id', 'X-Tenant-Id'), 'AuthorizeHumanAssistRequest', True, 'HumanAssistIntent'),
+    'getChallengeAutomationPolicy': Operation('getChallengeAutomationPolicy', 'GET', '/api/v1/sessions/{sessionId}/challenge-automation/policy', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'ChallengeAutomationPolicy'),
+    'updateChallengeAutomationPolicy': Operation('updateChallengeAutomationPolicy', 'PUT', '/api/v1/sessions/{sessionId}/challenge-automation/policy', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), 'UpdateChallengeAutomationPolicyRequest', True, 'ChallengeAutomationPolicy'),
+    'getCurrentChallengeAutomationRun': Operation('getCurrentChallengeAutomationRun', 'GET', '/api/v1/sessions/{sessionId}/challenge-automation/current', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'ChallengeAutomationRun'),
     'listAgentTasks': Operation('listAgentTasks', 'GET', '/api/v1/agent-tasks', (), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'AgentTaskListResponse'),
     'listAgentTaskSummaries': Operation('listAgentTaskSummaries', 'GET', '/api/v1/agent-task-summaries', (), ('cursor', 'limit'), ('X-Tenant-Id',), '', False, 'AgentTaskSummaryListResponse'),
     'getAgentTask': Operation('getAgentTask', 'GET', '/api/v1/agent-tasks/{taskId}', ('taskId',), (), ('X-Tenant-Id',), '', False, 'AgentTask'),
@@ -131,6 +134,11 @@ OPERATIONS: dict[str, Operation] = {
     'heartbeatAgentReviewJob': Operation('heartbeatAgentReviewJob', 'POST', '/api/v1/agent-review-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'AgentReviewJobClaimRequest', True, 'AgentReviewJob'),
     'completeAgentReviewJob': Operation('completeAgentReviewJob', 'POST', '/api/v1/agent-review-jobs/{jobId}:complete', ('jobId',), (), (), 'CompleteAgentReviewJobRequest', True, 'AgentReviewJob'),
     'failAgentReviewJob': Operation('failAgentReviewJob', 'POST', '/api/v1/agent-review-jobs/{jobId}:fail', ('jobId',), (), (), 'FailAgentReviewJobRequest', True, 'AgentReviewJob'),
+    'claimChallengeVisualJob': Operation('claimChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs:claim', (), (), (), 'ClaimChallengeVisualJobRequest', True, 'ChallengeVisualJobClaim'),
+    'startChallengeVisualJob': Operation('startChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs/{jobId}:start', ('jobId',), (), (), 'ChallengeVisualJobClaimRequest', True, 'ChallengeVisualJob'),
+    'heartbeatChallengeVisualJob': Operation('heartbeatChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs/{jobId}:heartbeat', ('jobId',), (), (), 'ChallengeVisualJobClaimRequest', True, 'ChallengeVisualJob'),
+    'completeChallengeVisualJob': Operation('completeChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs/{jobId}:complete', ('jobId',), (), (), 'CompleteChallengeVisualJobRequest', True, 'ChallengeVisualJob'),
+    'failChallengeVisualJob': Operation('failChallengeVisualJob', 'POST', '/api/v1/challenge-visual-jobs/{jobId}:fail', ('jobId',), (), (), 'FailChallengeVisualJobRequest', True, 'ChallengeVisualJob'),
     'approveAgentTask': Operation('approveAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:approve', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'rejectAgentTask': Operation('rejectAgentTask', 'POST', '/api/v1/agent-tasks/{taskId}:reject', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
     'acceptAgentHandoff': Operation('acceptAgentHandoff', 'POST', '/api/v1/agent-tasks/{taskId}:accept-handoff', ('taskId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'AgentTask'),
@@ -542,6 +550,15 @@ class BrowserCloudGeneratedClient:
     def authorizeHumanAssist(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('authorizeHumanAssist', path=path, query=query, body=body, headers=headers)
 
+    def getChallengeAutomationPolicy(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getChallengeAutomationPolicy', path=path, query=query, body=body, headers=headers)
+
+    def updateChallengeAutomationPolicy(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('updateChallengeAutomationPolicy', path=path, query=query, body=body, headers=headers)
+
+    def getCurrentChallengeAutomationRun(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getCurrentChallengeAutomationRun', path=path, query=query, body=body, headers=headers)
+
     def listAgentTasks(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listAgentTasks', path=path, query=query, body=body, headers=headers)
 
@@ -583,6 +600,21 @@ class BrowserCloudGeneratedClient:
 
     def failAgentReviewJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('failAgentReviewJob', path=path, query=query, body=body, headers=headers)
+
+    def claimChallengeVisualJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('claimChallengeVisualJob', path=path, query=query, body=body, headers=headers)
+
+    def startChallengeVisualJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('startChallengeVisualJob', path=path, query=query, body=body, headers=headers)
+
+    def heartbeatChallengeVisualJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('heartbeatChallengeVisualJob', path=path, query=query, body=body, headers=headers)
+
+    def completeChallengeVisualJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('completeChallengeVisualJob', path=path, query=query, body=body, headers=headers)
+
+    def failChallengeVisualJob(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('failChallengeVisualJob', path=path, query=query, body=body, headers=headers)
 
     def approveAgentTask(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('approveAgentTask', path=path, query=query, body=body, headers=headers)

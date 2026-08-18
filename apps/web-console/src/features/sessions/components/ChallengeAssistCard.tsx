@@ -10,8 +10,10 @@ import {
 import { useMemo, useState } from 'react';
 import {
   useAuthorizeHumanAssist,
+  useChallengeAutomation,
   useChallengePreview,
   useSessionChallenges,
+  useUpdateChallengeAutomationPolicy,
 } from '@/features/sessions/api/sessionQueries';
 import { isSessionApiError } from '@/api/session';
 import { cn } from '@/shared/lib/utils';
@@ -23,6 +25,12 @@ const ACTIVE = new Set([
   'AUTHORIZED',
   'EXECUTING',
   'TAKEOVER_REQUIRED',
+]);
+const AUTOMATABLE = new Set([
+  'SINGLE_CLICK',
+  'IMAGE_SELECTION',
+  'PUZZLE',
+  'MULTI_ROUND',
 ]);
 
 export function ChallengeAssistCard({
@@ -39,6 +47,8 @@ export function ChallengeAssistCard({
   onRequestTakeover: () => Promise<unknown>;
 }) {
   const challenges = useSessionChallenges(sessionId);
+  const automation = useChallengeAutomation(sessionId);
+  const updateAutomation = useUpdateChallengeAutomationPolicy(sessionId);
   const [selectedId, setSelectedId] = useState<string>();
   const active = useMemo(
     () => challenges.data?.items.find((item) => ACTIVE.has(item.status)),
@@ -88,13 +98,61 @@ export function ChallengeAssistCard({
             </h2>
           </div>
           <p className="mt-1.5 text-[10px] leading-5 text-text-muted">
-            检测器没有输入权限；只有当前用户确认的单次点击才会创建写 Operation。
+            低风险视觉挑战优先由脱敏截图
+            OCR/视觉识别执行点击、连续点击或滑动；预算耗尽后通知操作员。
           </p>
         </div>
         <span className="border border-border-default bg-surface-2 px-2 py-1 font-mono text-[9px] text-text-muted">
-          AUTO CLICK 0
+          AUTO{' '}
+          {automation.policy.data?.enabled
+            ? automation.policy.data.maximumAttempts
+            : 0}
         </span>
       </header>
+
+      {automation.policy.data && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border-subtle bg-canvas/35 p-3">
+          <div>
+            <p className="text-[10px] font-medium text-text-secondary">
+              自动尝试预算
+            </p>
+            <p className="mt-1 text-[9px] text-text-muted">
+              默认 3 次；OTP、设备确认、支付及账号安全判断始终转人工。
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Challenge 自动尝试次数"
+              disabled={!canOperate || updateAutomation.isPending}
+              value={
+                automation.policy.data.enabled
+                  ? automation.policy.data.maximumAttempts
+                  : 0
+              }
+              onChange={(event) => {
+                const maximumAttempts = Number(event.target.value);
+                updateAutomation.mutate({
+                  enabled: maximumAttempts > 0,
+                  maximumAttempts,
+                  minimumConfidence:
+                    automation.policy.data?.minimumConfidence ?? 0.85,
+                  allowMultiClick:
+                    automation.policy.data?.allowMultiClick ?? true,
+                  allowSlide: automation.policy.data?.allowSlide ?? true,
+                });
+              }}
+              className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
+            >
+              <option value={0}>关闭</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((attempts) => (
+                <option key={attempts} value={attempts}>
+                  {attempts} 次
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {!active ? (
         <div className="mt-4 border border-border-subtle bg-canvas/35 p-4">
@@ -110,111 +168,140 @@ export function ChallengeAssistCard({
         <ChallengeSummary challenge={active} />
       )}
 
-      {active?.status === 'TAKEOVER_REQUIRED' && (
-        <div className="mt-4 border border-warning/30 bg-warning/5 p-4">
-          <div className="flex items-center gap-2 text-[11px] font-medium text-warning">
-            <TriangleAlert size={13} /> 多步骤或高风险挑战
+      {active &&
+        AUTOMATABLE.has(active.suspectedType) &&
+        automation.policy.data?.enabled &&
+        automation.run.data &&
+        !['COMPLETED', 'EXHAUSTED', 'ESCALATED', 'FAILED'].includes(
+          automation.run.data.state
+        ) && (
+          <div className="mt-4 flex items-center gap-2 border border-accent/25 bg-accent/5 p-3 text-[10px] text-accent">
+            <LoaderCircle size={12} className="animate-spin" />
+            视觉自动化 {automation.run.data.state} · 第{' '}
+            {automation.run.data.attemptCount}/
+            {automation.run.data.maximumAttempts} 次
           </div>
-          <p className="mt-2 text-[10px] leading-5 text-text-muted">
-            图片、拼图、验证码、设备确认、多轮问题和支付确认禁止单次代理点击，必须显式人工接管。
-          </p>
-          <button
-            type="button"
-            disabled={!canOperate || requestingTakeover}
-            onClick={() => void onRequestTakeover()}
-            className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-warning/35 px-3 text-[10px] font-medium text-warning hover:bg-warning/10 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {requestingTakeover ? (
-              <LoaderCircle size={11} className="animate-spin" />
-            ) : (
-              <Hand size={11} />
-            )}
-            请求显式人工接管
-          </button>
-        </div>
-      )}
+        )}
 
-      {active?.status === 'CONFIRMED' && active.oneClickEligible && (
-        <div className="mt-4">
-          {!previewEventId ? (
+      {active?.status === 'TAKEOVER_REQUIRED' &&
+        (!AUTOMATABLE.has(active.suspectedType) ||
+          !automation.policy.data?.enabled ||
+          ['EXHAUSTED', 'ESCALATED', 'FAILED'].includes(
+            automation.run.data?.state ?? ''
+          )) && (
+          <div className="mt-4 border border-warning/30 bg-warning/5 p-4">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-warning">
+              <TriangleAlert size={13} /> 需要操作员处理
+            </div>
+            <p className="mt-2 text-[10px] leading-5 text-text-muted">
+              {AUTOMATABLE.has(active.suspectedType)
+                ? `自动视觉预算已用尽或无法可靠定位（${automation.run.data?.lastErrorCode ?? '等待人工'}）。`
+                : 'OTP、设备确认、用户判断、支付与账号安全挑战不会自动操作。'}
+            </p>
             <button
               type="button"
-              disabled={!canOperate}
-              onClick={() => setSelectedId(active.challengeEventId)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-accent/35 px-3 text-[10px] font-medium text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!canOperate || requestingTakeover}
+              onClick={() => void onRequestTakeover()}
+              className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-warning/35 px-3 text-[10px] font-medium text-warning hover:bg-warning/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Crosshair size={11} /> 预览当前目标
-            </button>
-          ) : preview.isLoading ? (
-            <div className="flex items-center gap-2 text-[10px] text-text-muted">
-              <LoaderCircle size={12} className="animate-spin" />{' '}
-              正在重新校验当前目标
-            </div>
-          ) : preview.data ? (
-            <div className="border border-accent/25 bg-accent/5 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-medium text-text-primary">
-                    用户确认预览
-                  </p>
-                  <p className="mt-1.5 text-[10px] leading-5 text-text-muted">
-                    {preview.data.challenge.targetSummary}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    'font-mono text-[9px]',
-                    preview.data.canAuthorize ? 'text-success' : 'text-warning'
-                  )}
-                >
-                  {preview.data.canAuthorize ? 'FRESH' : 'BLOCKED'}
-                </span>
-              </div>
-              {preview.data.highlight && (
-                <div className="mt-3 grid grid-cols-4 gap-px border border-border-subtle bg-border-subtle font-mono text-[9px]">
-                  <Metric label="X" value={preview.data.highlight.x} />
-                  <Metric label="Y" value={preview.data.highlight.y} />
-                  <Metric label="W" value={preview.data.highlight.width} />
-                  <Metric label="H" value={preview.data.highlight.height} />
-                </div>
-              )}
-              <p className="mt-3 text-[10px] leading-5 text-warning">
-                只执行一次点击；失败不会自动重试，新的点击必须重新授权。
-              </p>
-              {preview.data.canAuthorize ? (
-                <button
-                  type="button"
-                  disabled={authorization.isPending}
-                  onClick={() =>
-                    authorization.mutate({
-                      eventId: active.challengeEventId,
-                      request: {
-                        previewHash: preview.data.previewHash,
-                        expectedStateVersion:
-                          preview.data.challenge.stateVersion,
-                        expectedTargetRevision:
-                          preview.data.challenge.targetRevision,
-                      },
-                    })
-                  }
-                  className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[10px] font-medium text-canvas hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {authorization.isPending ? (
-                    <LoaderCircle size={11} className="animate-spin" />
-                  ) : (
-                    <MousePointerClick size={11} />
-                  )}
-                  确认执行一次点击
-                </button>
+              {requestingTakeover ? (
+                <LoaderCircle size={11} className="animate-spin" />
               ) : (
-                <p className="mt-3 font-mono text-[9px] text-warning">
-                  {preview.data.blockingReason}
-                </p>
+                <Hand size={11} />
               )}
-            </div>
-          ) : null}
-        </div>
-      )}
+              请求显式人工接管
+            </button>
+          </div>
+        )}
+
+      {active?.status === 'CONFIRMED' &&
+        active.oneClickEligible &&
+        (!automation.policy.data?.enabled ||
+          ['EXHAUSTED', 'ESCALATED', 'FAILED'].includes(
+            automation.run.data?.state ?? ''
+          )) && (
+          <div className="mt-4">
+            {!previewEventId ? (
+              <button
+                type="button"
+                disabled={!canOperate}
+                onClick={() => setSelectedId(active.challengeEventId)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-accent/35 px-3 text-[10px] font-medium text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Crosshair size={11} /> 预览当前目标
+              </button>
+            ) : preview.isLoading ? (
+              <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                <LoaderCircle size={12} className="animate-spin" />{' '}
+                正在重新校验当前目标
+              </div>
+            ) : preview.data ? (
+              <div className="border border-accent/25 bg-accent/5 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-text-primary">
+                      用户确认预览
+                    </p>
+                    <p className="mt-1.5 text-[10px] leading-5 text-text-muted">
+                      {preview.data.challenge.targetSummary}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      'font-mono text-[9px]',
+                      preview.data.canAuthorize
+                        ? 'text-success'
+                        : 'text-warning'
+                    )}
+                  >
+                    {preview.data.canAuthorize ? 'FRESH' : 'BLOCKED'}
+                  </span>
+                </div>
+                {preview.data.highlight && (
+                  <div className="mt-3 grid grid-cols-4 gap-px border border-border-subtle bg-border-subtle font-mono text-[9px]">
+                    <Metric label="X" value={preview.data.highlight.x} />
+                    <Metric label="Y" value={preview.data.highlight.y} />
+                    <Metric label="W" value={preview.data.highlight.width} />
+                    <Metric label="H" value={preview.data.highlight.height} />
+                  </div>
+                )}
+                <p className="mt-3 text-[10px] leading-5 text-warning">
+                  只执行一次点击；失败不会自动重试，新的点击必须重新授权。
+                </p>
+                {preview.data.canAuthorize ? (
+                  <button
+                    type="button"
+                    disabled={authorization.isPending}
+                    onClick={() =>
+                      authorization.mutate({
+                        eventId: active.challengeEventId,
+                        request: {
+                          previewHash: preview.data.previewHash,
+                          expectedStateVersion:
+                            preview.data.challenge.stateVersion,
+                          expectedTargetRevision:
+                            preview.data.challenge.targetRevision,
+                        },
+                      })
+                    }
+                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[10px] font-medium text-canvas hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {authorization.isPending ? (
+                      <LoaderCircle size={11} className="animate-spin" />
+                    ) : (
+                      <MousePointerClick size={11} />
+                    )}
+                    确认执行一次点击
+                  </button>
+                ) : (
+                  <p className="mt-3 font-mono text-[9px] text-warning">
+                    {preview.data.blockingReason}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
 
       {Boolean(preview.error || authorization.error || takeoverError) && (
         <p className="mt-3 border border-danger/25 bg-danger/5 p-3 text-[10px] leading-5 text-danger">

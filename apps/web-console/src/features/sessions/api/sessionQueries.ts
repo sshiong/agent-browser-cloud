@@ -47,6 +47,9 @@ import {
   getRemoteDesktopParticipants,
   getRemoteDesktopParticipantHistory,
   revokeRemoteDesktopParticipant,
+  getChallengeAutomationPolicy,
+  updateChallengeAutomationPolicy,
+  getCurrentChallengeAutomationRun,
 } from '@/api/session';
 import type {
   CreateSessionRequest,
@@ -60,6 +63,7 @@ import type {
   RestoreRecoveryContractRevisionRequest,
   EvidencePurpose,
   AuthorizeHumanAssistRequest,
+  UpdateChallengeAutomationPolicyRequest,
 } from '@/types/session';
 import type { ProxyRebindRequest } from '@/types/proxy';
 
@@ -104,6 +108,8 @@ export const sessionKeys = {
     [...sessionKeys.detail(sessionId), 'application-binding'] as const,
   challenges: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'challenges'] as const,
+  challengeAutomation: (sessionId: string) =>
+    [...sessionKeys.detail(sessionId), 'challenge-automation'] as const,
   desktopParticipants: (sessionId: string) =>
     [...sessionKeys.detail(sessionId), 'desktop-participants'] as const,
   desktopParticipantHistory: (sessionId: string) =>
@@ -182,6 +188,35 @@ export function useSessionChallenges(sessionId: string) {
     queryKey: sessionKeys.challenges(sessionId),
     queryFn: ({ signal }) => getSessionChallenges(sessionId, undefined, signal),
     enabled: Boolean(sessionId),
+  });
+}
+
+export function useChallengeAutomation(sessionId: string) {
+  const policy = useQuery({
+    queryKey: [...sessionKeys.challengeAutomation(sessionId), 'policy'],
+    queryFn: ({ signal }) =>
+      getChallengeAutomationPolicy(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+  const run = useQuery({
+    queryKey: [...sessionKeys.challengeAutomation(sessionId), 'current'],
+    queryFn: ({ signal }) =>
+      getCurrentChallengeAutomationRun(sessionId, undefined, signal),
+    enabled: Boolean(sessionId),
+  });
+  return { policy, run };
+}
+
+export function useUpdateChallengeAutomationPolicy(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: UpdateChallengeAutomationPolicyRequest) =>
+      updateChallengeAutomationPolicy(sessionId, request),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: sessionKeys.challengeAutomation(sessionId),
+      });
+    },
   });
 }
 
@@ -571,6 +606,12 @@ export function useRebindSessionApplication(sessionId: string) {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: sessionKeys.applicationBinding(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.challenges(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sessionKeys.challengeAutomation(sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionKeys.challenges(sessionId),

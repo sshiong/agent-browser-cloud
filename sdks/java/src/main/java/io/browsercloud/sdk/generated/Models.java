@@ -67,6 +67,26 @@ public final class Models {
 
   public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, Object executionWaitReason, Object executionWaitSince, String createdAt, String updatedAt) {}
 
+  public record ChallengeAutomationPolicy(String sessionId, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, String updatedAt) {}
+
+  public record UpdateChallengeAutomationPolicyRequest(Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide) {}
+
+  public record ChallengeAutomationRun(String runId, String challengeEventId, String state, Integer attemptCount, Integer maximumAttempts, Object lastAction, Object lastErrorCode, String updatedAt, Object completedAt) {}
+
+  public record ClaimChallengeVisualJobRequest(String protocolVersion, Map<String, Boolean> capabilities, String deploymentId, String modelRevision) {}
+
+  public record ChallengeVisualJobClaimRequest(String claimToken) {}
+
+  public record ChallengeVisualAction(String actionType, Double x, Double y, Object endX, Object endY, Integer repeatCount) {}
+
+  public record CompleteChallengeVisualJobRequest(String claimToken, String decision, List<ChallengeVisualAction> actions, Double confidence, String deploymentId, String modelRevision, Object providerRequestId, Integer inputTokens, Integer outputTokens, Integer latencyMs, String outputHash) {}
+
+  public record FailChallengeVisualJobRequest(String claimToken, String failureCode, Boolean retryable) {}
+
+  public record ChallengeVisualJob(String jobId, String runId, String challengeEventId, String state, Integer attemptNumber, Integer maximumAttempts, Object workerId, Long claimEpoch, Object leaseExpiresAt, Object decision, List<ChallengeVisualAction> actions, Object confidence, Object failureCode, String updatedAt) {}
+
+  public record ChallengeVisualJobClaim(String claimToken, ChallengeVisualJob job, String screenshotUrl, String screenshotExpiresAt, String challengeType, String targetSummary, Boolean allowMultiClick, Boolean allowSlide, Double minimumConfidence) {}
+
   public record ChallengeRegion(Double x, Double y, Double width, Double height) {}
 
   public record ChallengeEvent(String challengeEventId, String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, Double confidence, Map<String, Object> evidence, String suspectedType, String accessOutcome, Object targetRef, String targetSummary, String status, Boolean oneClickEligible, String detectedAt, String authorizationDeadline, String expiresAt, String updatedAt) {}

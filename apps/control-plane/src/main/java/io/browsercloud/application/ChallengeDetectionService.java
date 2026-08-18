@@ -18,9 +18,9 @@ import org.springframework.stereotype.Service;
 /**
  * Conservative, input-free Challenge detector.
  *
- * <p>It stores only signal codes and hashes. It never receives an Input Broker, Node command
- * gateway, or Operation capability, making automated challenge interaction impossible by
- * construction.
+ * <p>It stores only signal codes and hashes and has no browser-write capability. Eligible results
+ * may be consumed by the separate, policy-bound visual automation service; high-risk results stay
+ * on the explicit human-assist path.
  */
 @Service
 public class ChallengeDetectionService {
@@ -97,6 +97,7 @@ public class ChallengeDetectionService {
     evidence.put("targetNameHash", target == null ? "NONE" : hash(target.name()));
     evidence.put("sensitiveContentStored", false);
     evidence.put("automaticInteraction", false);
+    evidence.put("downstreamAutomationEligible", automationEligible(classification.type()));
     var status = classification.oneClick() ? "CONFIRMED" : "TAKEOVER_REQUIRED";
     var event =
         new ChallengeEventEntity(
@@ -138,8 +139,10 @@ public class ChallengeDetectionService {
                 state.stateVersion(),
                 "targetRevision",
                 state.targetRevision(),
-                "automaticClickBudget",
-                0),
+                "detectorAutomaticClickBudget",
+                0,
+                "downstreamAutomationEligible",
+                automationEligible(classification.type())),
             envelope.eventId()));
     return Optional.of(eventId);
   }
@@ -215,6 +218,11 @@ public class ChallengeDetectionService {
 
   private static Classification takeover(String type, String signal, String summary) {
     return new Classification(type, signal, summary, 0.98, null, false);
+  }
+
+  private static boolean automationEligible(String type) {
+    return java.util.Set.of("SINGLE_CLICK", "IMAGE_SELECTION", "PUZZLE", "MULTI_ROUND")
+        .contains(type);
   }
 
   private static String safeRole(String role) {

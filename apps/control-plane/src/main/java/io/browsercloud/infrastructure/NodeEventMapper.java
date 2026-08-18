@@ -11,6 +11,7 @@ import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotCommitEvent;
+import io.browsercloud.proto.node.v1.ChallengeAutomationFailedEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.HumanAssistFailedEvent;
@@ -46,6 +47,7 @@ public class NodeEventMapper {
   static final String AGENT_NAVIGATION_FAILED = "AgentNavigationFailed";
   static final String AGENT_ACTION_FAILED = "AgentActionFailed";
   static final String HUMAN_ASSIST_FAILED = "HumanAssistFailed";
+  static final String CHALLENGE_AUTOMATION_FAILED = "ChallengeAutomationFailed";
   static final String REMOTE_DESKTOP_PARTICIPANT_CHANGED = "RemoteDesktopParticipantChanged";
   static final String SESSION_EVIDENCE_CAPTURED = "SessionEvidenceCaptured";
   static final String SESSION_RECORDING_FINALIZED = "SessionRecordingFinalized";
@@ -539,6 +541,28 @@ public class NodeEventMapper {
               payload.getIntentId(),
               payload.getErrorCode());
         }
+        case CHALLENGE_AUTOMATION_FAILED -> {
+          var payload = ChallengeAutomationFailedEvent.parseFrom(envelope.getPayload());
+          requireText(payload.getRunId(), "run_id");
+          requireText(payload.getJobId(), "job_id");
+          requireText(payload.getChallengeEventId(), "challenge_event_id");
+          requireText(payload.getErrorCode(), "error_code");
+          if (!payload.getRunId().matches("^car_[A-Za-z0-9]{20}$")
+              || !payload.getJobId().matches("^cvj_[A-Za-z0-9]{20}$")
+              || !payload.getChallengeEventId().matches("^chl_[A-Za-z0-9]{20}$")
+              || payload.getAttemptNumber() < 1
+              || payload.getAttemptNumber() > 10
+              || !payload.getErrorCode().matches("^[A-Z][A-Z0-9_]{2,127}$")) {
+            throw new IllegalArgumentException("Challenge automation failure metadata is invalid");
+          }
+          yield new NodeEvent.ChallengeAutomationFailed(
+              payload.getSessionId(),
+              payload.getRunId(),
+              payload.getJobId(),
+              payload.getChallengeEventId(),
+              payload.getAttemptNumber(),
+              payload.getErrorCode());
+        }
         case REMOTE_DESKTOP_PARTICIPANT_CHANGED -> {
           var payload = RemoteDesktopParticipantEvent.parseFrom(envelope.getPayload());
           requireText(payload.getConnectionId(), "connection_id");
@@ -757,6 +781,7 @@ public class NodeEventMapper {
       case NodeEvent.AgentNavigationFailed failed -> failed.sessionId();
       case NodeEvent.AgentActionFailed failed -> failed.sessionId();
       case NodeEvent.HumanAssistFailed failed -> failed.sessionId();
+      case NodeEvent.ChallengeAutomationFailed failed -> failed.sessionId();
       case NodeEvent.RemoteDesktopParticipantChanged changed -> changed.sessionId();
       case NodeEvent.EvidenceCaptured captured -> captured.sessionId();
       case NodeEvent.RecordingFinalized finalized -> finalized.sessionId();

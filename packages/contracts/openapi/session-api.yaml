@@ -2060,6 +2060,68 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/challenge-automation/policy:
+    get:
+      operationId: getChallengeAutomationPolicy
+      summary: Get the bounded visual Challenge automation policy
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Tenant-scoped policy; new Sessions default to three attempts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeAutomationPolicy"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateChallengeAutomationPolicy
+      summary: Update automatic screenshot/OCR click and slide limits
+      description: High-risk OTP, device, payment and account-security decisions remain manual.
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChallengeAutomationPolicyRequest"
+      responses:
+        "200":
+          description: Updated policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeAutomationPolicy"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/challenge-automation/current:
+    get:
+      operationId: getCurrentChallengeAutomationRun
+      summary: Get the newest durable visual Challenge automation run
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Newest run and attempt status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeAutomationRun"
+        "204":
+          description: This Session has no visual Challenge automation run.
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/agent-tasks:
     get:
       operationId: listAgentTasks
@@ -2427,6 +2489,119 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/challenge-visual-jobs:claim:
+    post:
+      operationId: claimChallengeVisualJob
+      summary: Claim one redacted screenshot analysis job with a fenced lease
+      description: Requires VISION_WORKER; the grant is purpose-bound and one-time.
+      tags: [Challenge, HumanAssist]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimChallengeVisualJobRequest"
+      responses:
+        "200":
+          description: Claimed job, one-time screenshot URL and Claim Token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeVisualJobClaim"
+        "204":
+          description: No ready job for the pinned deployment and model revision.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/challenge-visual-jobs/{jobId}:start:
+    post:
+      operationId: startChallengeVisualJob
+      summary: ACK start of a claimed visual analysis
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVisualJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeVisualJobClaimRequest"
+      responses:
+        "200":
+          description: Job entered RUNNING.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeVisualJob"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/challenge-visual-jobs/{jobId}:heartbeat:
+    post:
+      operationId: heartbeatChallengeVisualJob
+      summary: Renew a visual worker fenced lease
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVisualJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeVisualJobClaimRequest"
+      responses:
+        "200":
+          description: Lease renewed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeVisualJob"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/challenge-visual-jobs/{jobId}:complete:
+    post:
+      operationId: completeChallengeVisualJob
+      summary: Commit a bounded normalized click or slide decision
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVisualJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteChallengeVisualJobRequest"
+      responses:
+        "200":
+          description: Decision accepted and either escalated or dispatched to the Browser Node.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeVisualJob"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/challenge-visual-jobs/{jobId}:fail:
+    post:
+      operationId: failChallengeVisualJob
+      summary: Fail one visual attempt and apply the durable retry budget
+      tags: [Challenge, HumanAssist]
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVisualJobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailChallengeVisualJobRequest"
+      responses:
+        "200":
+          description: Attempt failed; the run was recaptured or escalated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeVisualJob"
         "409":
           $ref: "#/components/responses/Conflict"
   /api/v1/agent-tasks/{taskId}:approve:
@@ -5080,6 +5255,13 @@ components:
       schema:
         type: string
         pattern: "^rjob_[A-Za-z0-9]{20}$"
+    ChallengeVisualJobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^cvj_[A-Za-z0-9]{20}$"
     BreakGlassRequestId:
       name: requestId
       in: path
@@ -5769,6 +5951,280 @@ components:
         updatedAt:
           type: string
           format: date-time
+    ChallengeAutomationPolicy:
+      type: object
+      additionalProperties: false
+      required: [sessionId, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, updatedAt]
+      properties:
+        sessionId:
+          type: string
+          pattern: "^ses_[A-Za-z0-9]{16,}$"
+        enabled:
+          type: boolean
+        maximumAttempts:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 3
+        minimumConfidence:
+          type: number
+          minimum: 0.5
+          maximum: 1
+          default: 0.85
+        allowMultiClick:
+          type: boolean
+        allowSlide:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateChallengeAutomationPolicyRequest:
+      type: object
+      additionalProperties: false
+      required: [enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide]
+      properties:
+        enabled:
+          type: boolean
+        maximumAttempts:
+          type: integer
+          minimum: 0
+          maximum: 10
+        minimumConfidence:
+          type: number
+          minimum: 0.5
+          maximum: 1
+        allowMultiClick:
+          type: boolean
+        allowSlide:
+          type: boolean
+    ChallengeAutomationRun:
+      type: object
+      additionalProperties: false
+      required: [runId, challengeEventId, state, attemptCount, maximumAttempts, updatedAt]
+      properties:
+        runId:
+          type: string
+          pattern: "^car_[A-Za-z0-9]{20}$"
+        challengeEventId:
+          type: string
+          pattern: "^chl_[A-Za-z0-9]{20}$"
+        state:
+          type: string
+          enum: [CAPTURING, ANALYZING, EXECUTING, COMPLETED, EXHAUSTED, ESCALATED, FAILED]
+        attemptCount:
+          type: integer
+          minimum: 0
+          maximum: 10
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        lastAction:
+          type: [string, "null"]
+        lastErrorCode:
+          type: [string, "null"]
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    ClaimChallengeVisualJobRequest:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, capabilities, deploymentId, modelRevision]
+      properties:
+        protocolVersion:
+          type: string
+          const: challenge-vision-worker/v1
+        capabilities:
+          type: object
+          minProperties: 1
+          maxProperties: 16
+          additionalProperties:
+            type: boolean
+        deploymentId:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,128}$"
+        modelRevision:
+          type: string
+          pattern: "^[A-Za-z0-9._:/-]{1,200}$"
+    ChallengeVisualJobClaimRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+    ChallengeVisualAction:
+      type: object
+      additionalProperties: false
+      required: [actionType, x, y, repeatCount]
+      properties:
+        actionType:
+          type: string
+          enum: [CLICK, SLIDE]
+        x:
+          type: number
+          minimum: 0
+          maximum: 1
+        y:
+          type: number
+          minimum: 0
+          maximum: 1
+        endX:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        endY:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        repeatCount:
+          type: integer
+          minimum: 1
+          maximum: 5
+    CompleteChallengeVisualJobRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken, decision, actions, confidence, deploymentId, modelRevision, inputTokens, outputTokens, latencyMs, outputHash]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        decision:
+          type: string
+          enum: [ACT, ESCALATE]
+        actions:
+          type: array
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/ChallengeVisualAction"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        deploymentId:
+          type: string
+        modelRevision:
+          type: string
+        providerRequestId:
+          type: [string, "null"]
+        inputTokens:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        outputTokens:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        latencyMs:
+          type: integer
+          minimum: 0
+          maximum: 600000
+        outputHash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    FailChallengeVisualJobRequest:
+      type: object
+      additionalProperties: false
+      required: [claimToken, failureCode, retryable]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        failureCode:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{2,127}$"
+        retryable:
+          type: boolean
+    ChallengeVisualJob:
+      type: object
+      additionalProperties: false
+      required: [jobId, runId, challengeEventId, state, attemptNumber, maximumAttempts, claimEpoch, actions, updatedAt]
+      properties:
+        jobId:
+          type: string
+          pattern: "^cvj_[A-Za-z0-9]{20}$"
+        runId:
+          type: string
+          pattern: "^car_[A-Za-z0-9]{20}$"
+        challengeEventId:
+          type: string
+          pattern: "^chl_[A-Za-z0-9]{20}$"
+        state:
+          type: string
+          enum: [CAPTURING, READY, CLAIMED, RUNNING, EXECUTING, COMPLETED, FAILED, ESCALATED]
+        attemptNumber:
+          type: integer
+          minimum: 1
+          maximum: 10
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        workerId:
+          type: [string, "null"]
+        claimEpoch:
+          type: integer
+          format: int64
+          minimum: 0
+        leaseExpiresAt:
+          type: [string, "null"]
+          format: date-time
+        decision:
+          type: [string, "null"]
+          enum: [ACT, ESCALATE, null]
+        actions:
+          type: array
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/ChallengeVisualAction"
+        confidence:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        failureCode:
+          type: [string, "null"]
+        updatedAt:
+          type: string
+          format: date-time
+    ChallengeVisualJobClaim:
+      type: object
+      additionalProperties: false
+      required: [claimToken, job, screenshotUrl, screenshotExpiresAt, challengeType, targetSummary, allowMultiClick, allowSlide, minimumConfidence]
+      properties:
+        claimToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+        job:
+          $ref: "#/components/schemas/ChallengeVisualJob"
+        screenshotUrl:
+          type: string
+          format: uri
+          writeOnly: true
+        screenshotExpiresAt:
+          type: string
+          format: date-time
+        challengeType:
+          type: string
+          enum: [SINGLE_CLICK, IMAGE_SELECTION, PUZZLE, MULTI_ROUND]
+        targetSummary:
+          type: string
+          maxLength: 512
+        allowMultiClick:
+          type: boolean
+        allowSlide:
+          type: boolean
+        minimumConfidence:
+          type: number
+          minimum: 0.5
+          maximum: 1
     ChallengeRegion:
       type: object
       additionalProperties: false

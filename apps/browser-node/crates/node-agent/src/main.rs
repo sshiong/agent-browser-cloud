@@ -14,19 +14,20 @@ use node_contracts::proto::{
     AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
     BrowserStateDiffEvent, BrowserStateEvent, BrowserStateSnapshotBeginEvent,
     BrowserStateSnapshotChunkEvent, BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
-    CaptureObserverScreenshotCommand, CommandAck, CommandEnvelope, DiffTruncatedEvent,
-    DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope, ExecuteInputCommand,
-    ExtensionBackgroundPolicy, HumanAssistClickCommand, HumanAssistFailedEvent,
-    HumanTakeoverEndedEvent, HumanTakeoverReadyEvent, InteractiveTargetState, PingRequest,
-    PingResponse, PresignEvidenceDownloadRequest, PresignEvidenceDownloadResponse,
-    PresignProfileExportDownloadRequest, PresignProfileExportDownloadResponse,
-    ProbeProxyBindingRequest, ProbeProxyBindingResponse, ProfileWarmTierSyncedEvent,
-    PublishRequest, PublishResponse, ReleaseAllInputCommand, RemoteDesktopParticipantEvent,
-    ReportCapacityRequest, ReportSessionResourcesRequest, RequestStateResyncCommand,
-    RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent, RuntimeStartedEvent,
-    RuntimeStoppedEvent, SessionEvidenceCapturedEvent, SessionRecordingFinalizedEvent,
-    StartRuntimeCommand, StopRuntimeCommand, TargetBounds, UploadProfileImportRequest,
-    UploadProfileImportResponse,
+    CaptureObserverScreenshotCommand, ChallengeAutomationActionCommand,
+    ChallengeAutomationFailedEvent, ChallengeVisualAction, CommandAck, CommandEnvelope,
+    DiffTruncatedEvent, DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope,
+    ExecuteInputCommand, ExtensionBackgroundPolicy, HumanAssistClickCommand,
+    HumanAssistFailedEvent, HumanTakeoverEndedEvent, HumanTakeoverReadyEvent,
+    InteractiveTargetState, PingRequest, PingResponse, PresignEvidenceDownloadRequest,
+    PresignEvidenceDownloadResponse, PresignProfileExportDownloadRequest,
+    PresignProfileExportDownloadResponse, ProbeProxyBindingRequest, ProbeProxyBindingResponse,
+    ProfileWarmTierSyncedEvent, PublishRequest, PublishResponse, ReleaseAllInputCommand,
+    RemoteDesktopParticipantEvent, ReportCapacityRequest, ReportSessionResourcesRequest,
+    RequestStateResyncCommand, RevokeRemoteDesktopConnectionCommand, RuntimeResourcesAdjustedEvent,
+    RuntimeStartedEvent, RuntimeStoppedEvent, SessionEvidenceCapturedEvent,
+    SessionRecordingFinalizedEvent, StartRuntimeCommand, StopRuntimeCommand, TargetBounds,
+    UploadProfileImportRequest, UploadProfileImportResponse,
 };
 use node_journal::{
     CommandFenceDecision, PersistedAcknowledgement, PersistedCommandResult, RuntimeLease,
@@ -64,6 +65,35 @@ const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
 const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
 const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
 const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
+
+fn challenge_visual_action_budget(actions: &[ChallengeVisualAction]) -> Option<u32> {
+    if actions.is_empty() || actions.len() > 8 {
+        return None;
+    }
+    let mut interaction_count = 0_u32;
+    for action in actions {
+        let valid_start = action.x.is_finite()
+            && action.y.is_finite()
+            && (0.0..=1.0).contains(&action.x)
+            && (0.0..=1.0).contains(&action.y);
+        let valid_action = match action.action_type.as_str() {
+            "CLICK" => (1..=5).contains(&action.repeat_count),
+            "SLIDE" => {
+                action.repeat_count == 1
+                    && action.end_x.is_finite()
+                    && action.end_y.is_finite()
+                    && (0.0..=1.0).contains(&action.end_x)
+                    && (0.0..=1.0).contains(&action.end_y)
+            }
+            _ => false,
+        };
+        interaction_count = interaction_count.checked_add(action.repeat_count)?;
+        if !valid_start || !valid_action || interaction_count > 8 {
+            return None;
+        }
+    }
+    Some(interaction_count)
+}
 
 fn state_backpressure_truncation(
     previous: &CurrentState,
@@ -1453,6 +1483,32 @@ impl NodeControlService {
                 session_id: command.session_id.clone(),
                 challenge_event_id: payload.challenge_event_id.clone(),
                 intent_id: payload.intent_id.clone(),
+                error_code: error_code.to_owned(),
+            },
+        );
+        Self::result(Self::ack(&command.message_id, true, "", ""), Some(event))
+    }
+
+    async fn challenge_automation_failed(
+        &self,
+        command: &CommandEnvelope,
+        payload: &ChallengeAutomationActionCommand,
+        error_code: &str,
+    ) -> CommandResult {
+        let sequence = match self.next_event_sequence(&command.session_id).await {
+            Ok(sequence) => sequence,
+            Err(error) => return self.failed(command, error),
+        };
+        let event = Self::event(
+            command,
+            "ChallengeAutomationFailed",
+            sequence,
+            ChallengeAutomationFailedEvent {
+                session_id: command.session_id.clone(),
+                run_id: payload.run_id.clone(),
+                job_id: payload.job_id.clone(),
+                challenge_event_id: payload.challenge_event_id.clone(),
+                attempt_number: payload.attempt_number,
                 error_code: error_code.to_owned(),
             },
         );
@@ -4516,6 +4572,264 @@ impl NodeControlService {
                 }
                 Err(error) => self.failed(command, error.into()),
             },
+            "ChallengeAutomationAction" => {
+                match ChallengeAutomationActionCommand::decode(command.payload.as_slice()) {
+                    Ok(payload) => {
+                        if payload.session_id != command.session_id
+                            || !payload.run_id.starts_with("car_")
+                            || payload.run_id.chars().count() != 24
+                            || !payload.job_id.starts_with("cvj_")
+                            || payload.job_id.chars().count() != 24
+                            || !payload.challenge_event_id.starts_with("chl_")
+                            || payload.challenge_event_id.chars().count() != 24
+                            || !(1..=10).contains(&payload.attempt_number)
+                            || payload.base_state_version == 0
+                            || payload.base_content_hash.len() != 64
+                            || !payload.base_content_hash.bytes().all(|value| {
+                                value.is_ascii_hexdigit() && !value.is_ascii_uppercase()
+                            })
+                            || payload.actions.is_empty()
+                            || payload.actions.len() > 8
+                        {
+                            return self.failed(
+                                command,
+                                anyhow::anyhow!("Challenge automation payload is invalid"),
+                            );
+                        }
+                        if challenge_visual_action_budget(&payload.actions).is_none() {
+                            return self
+                                .challenge_automation_failed(
+                                    command,
+                                    &payload,
+                                    "CHALLENGE_AUTOMATION_ACTION_INVALID",
+                                )
+                                .await;
+                        }
+                        if self
+                            .active_human_takeovers
+                            .lock()
+                            .await
+                            .contains(&command.session_id)
+                        {
+                            return self
+                                .challenge_automation_failed(
+                                    command,
+                                    &payload,
+                                    "HUMAN_TAKEOVER_ACTIVE",
+                                )
+                                .await;
+                        }
+                        if self.human_input_has_priority(&command.session_id) {
+                            return self
+                                .challenge_automation_failed(
+                                    command,
+                                    &payload,
+                                    "HUMAN_INPUT_ACTIVE",
+                                )
+                                .await;
+                        }
+                        let current = match self
+                            .state_collector
+                            .collect_current_state(&command.session_id)
+                            .await
+                        {
+                            Ok(state) => state,
+                            Err(_) => {
+                                return self
+                                    .challenge_automation_failed(
+                                        command,
+                                        &payload,
+                                        "CURRENT_STATE_UNAVAILABLE",
+                                    )
+                                    .await
+                            }
+                        };
+                        if !matches!(
+                            current.quality,
+                            StateQuality::Complete | StateQuality::DepthLimited
+                        ) || current.state_version != payload.base_state_version
+                            || current.content_hash != payload.base_content_hash
+                        {
+                            return self
+                                .challenge_automation_failed(
+                                    command,
+                                    &payload,
+                                    "STALE_CHALLENGE_SCREENSHOT",
+                                )
+                                .await;
+                        }
+                        let (viewport_width, viewport_height) = match self
+                            .state_collector
+                            .viewport_size(&command.session_id)
+                            .await
+                        {
+                            Ok(viewport) => viewport,
+                            Err(_) => {
+                                return self
+                                    .challenge_automation_failed(
+                                        command,
+                                        &payload,
+                                        "VIEWPORT_UNAVAILABLE",
+                                    )
+                                    .await
+                            }
+                        };
+                        let input = match self
+                            .input_brokers
+                            .lock()
+                            .await
+                            .get(&command.session_id)
+                            .cloned()
+                        {
+                            Some(input) => input,
+                            None => {
+                                return self
+                                    .challenge_automation_failed(
+                                        command,
+                                        &payload,
+                                        "INPUT_BROKER_UNAVAILABLE",
+                                    )
+                                    .await
+                            }
+                        };
+                        let mut next_sequence = input.ledger_snapshot().await.last_sequence;
+                        let execution: anyhow::Result<()> = async {
+                            for action in &payload.actions {
+                                anyhow::ensure!(
+                                    action.x.is_finite()
+                                        && action.y.is_finite()
+                                        && (0.0..=1.0).contains(&action.x)
+                                        && (0.0..=1.0).contains(&action.y),
+                                    "visual action start coordinate is invalid"
+                                );
+                                let max_x = (viewport_width - 1.0).max(0.0);
+                                let max_y = (viewport_height - 1.0).max(0.0);
+                                let start_x = (action.x * max_x).round() as i32;
+                                let start_y = (action.y * max_y).round() as i32;
+                                next_sequence = next_sequence
+                                    .checked_add(1)
+                                    .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
+                                input.mouse_move(start_x, start_y, next_sequence).await?;
+                                match action.action_type.as_str() {
+                                    "CLICK" => {
+                                        anyhow::ensure!(
+                                            (1..=5).contains(&action.repeat_count),
+                                            "visual click repeat count is invalid"
+                                        );
+                                        for repeat in 0..action.repeat_count {
+                                            next_sequence =
+                                                next_sequence.checked_add(1).ok_or_else(|| {
+                                                    anyhow::anyhow!("input sequence overflow")
+                                                })?;
+                                            input.mouse_down(0, next_sequence).await?;
+                                            next_sequence =
+                                                next_sequence.checked_add(1).ok_or_else(|| {
+                                                    anyhow::anyhow!("input sequence overflow")
+                                                })?;
+                                            input.mouse_up(0, next_sequence).await?;
+                                            if repeat + 1 < action.repeat_count {
+                                                tokio::time::sleep(Duration::from_millis(120))
+                                                    .await;
+                                            }
+                                        }
+                                    }
+                                    "SLIDE" => {
+                                        anyhow::ensure!(
+                                            action.repeat_count == 1
+                                                && action.end_x.is_finite()
+                                                && action.end_y.is_finite()
+                                                && (0.0..=1.0).contains(&action.end_x)
+                                                && (0.0..=1.0).contains(&action.end_y),
+                                            "visual slide endpoint is invalid"
+                                        );
+                                        next_sequence =
+                                            next_sequence.checked_add(1).ok_or_else(|| {
+                                                anyhow::anyhow!("input sequence overflow")
+                                            })?;
+                                        input.mouse_down(0, next_sequence).await?;
+                                        let end_x = action.end_x * max_x;
+                                        let end_y = action.end_y * max_y;
+                                        for step in 1..=10 {
+                                            let progress = f64::from(step) / 10.0;
+                                            let x = f64::from(start_x)
+                                                + (end_x - f64::from(start_x)) * progress;
+                                            let y = f64::from(start_y)
+                                                + (end_y - f64::from(start_y)) * progress;
+                                            next_sequence =
+                                                next_sequence.checked_add(1).ok_or_else(|| {
+                                                    anyhow::anyhow!("input sequence overflow")
+                                                })?;
+                                            input
+                                                .mouse_move(
+                                                    x.round() as i32,
+                                                    y.round() as i32,
+                                                    next_sequence,
+                                                )
+                                                .await?;
+                                            tokio::time::sleep(Duration::from_millis(25)).await;
+                                        }
+                                        next_sequence =
+                                            next_sequence.checked_add(1).ok_or_else(|| {
+                                                anyhow::anyhow!("input sequence overflow")
+                                            })?;
+                                        input.mouse_up(0, next_sequence).await?;
+                                    }
+                                    _ => anyhow::bail!("visual action type is unsupported"),
+                                }
+                            }
+                            Ok(())
+                        }
+                        .await;
+                        if let Err(error) = execution {
+                            tracing::warn!(
+                                run_id = payload.run_id,
+                                job_id = payload.job_id,
+                                error = %error,
+                                "Challenge automation input failed"
+                            );
+                            let _ = input.release_all().await;
+                            return self
+                                .challenge_automation_failed(
+                                    command,
+                                    &payload,
+                                    "CHALLENGE_AUTOMATION_INPUT_FAILED",
+                                )
+                                .await;
+                        }
+                        let state = match self
+                            .state_collector
+                            .collect_action_confirmation(&command.session_id)
+                            .await
+                        {
+                            Ok(state) => state,
+                            Err(_) => {
+                                return self
+                                    .challenge_automation_failed(
+                                        command,
+                                        &payload,
+                                        "POST_ACTION_STATE_UNAVAILABLE",
+                                    )
+                                    .await
+                            }
+                        };
+                        let sequence = match self.next_event_sequence(&command.session_id).await {
+                            Ok(sequence) => sequence,
+                            Err(error) => return self.failed(command, error),
+                        };
+                        let mut state_payload = Self::browser_state_payload(state.clone());
+                        state_payload.snapshot_kind = "CHALLENGE_AUTOMATION".to_owned();
+                        state_payload.requested_root_ref = payload.job_id;
+                        let event =
+                            Self::event(command, "BrowserStateUpdated", sequence, state_payload);
+                        Self::state_result(
+                            Self::ack(&command.message_id, true, "", ""),
+                            event,
+                            state,
+                        )
+                    }
+                    Err(error) => self.failed(command, error.into()),
+                }
+            }
             "HumanAssistClick" => {
                 match HumanAssistClickCommand::decode(command.payload.as_slice()) {
                     Ok(payload) => {
@@ -7104,6 +7418,47 @@ mod tests {
                 30.0
             ),
             "6dc7a8367775c215991f36f2d4553d38a64f6e5df58b813cc77d8d8e448647a5"
+        );
+    }
+
+    #[test]
+    fn challenge_visual_actions_bound_clicks_slides_and_total_interactions() {
+        let click = ChallengeVisualAction {
+            action_type: "CLICK".into(),
+            x: 0.25,
+            y: 0.75,
+            end_x: 0.0,
+            end_y: 0.0,
+            repeat_count: 5,
+        };
+        let slide = ChallengeVisualAction {
+            action_type: "SLIDE".into(),
+            x: 0.1,
+            y: 0.5,
+            end_x: 0.9,
+            end_y: 0.5,
+            repeat_count: 1,
+        };
+        assert_eq!(
+            challenge_visual_action_budget(&[click.clone(), slide]),
+            Some(6)
+        );
+        assert_eq!(
+            challenge_visual_action_budget(&[click.clone(), click]),
+            None,
+            "continuous clicks must not exceed the per-attempt interaction budget"
+        );
+        assert_eq!(
+            challenge_visual_action_budget(&[ChallengeVisualAction {
+                action_type: "SLIDE".into(),
+                x: 0.1,
+                y: 0.5,
+                end_x: 1.1,
+                end_y: 0.5,
+                repeat_count: 1,
+            }]),
+            None,
+            "slide coordinates remain normalized"
         );
     }
 

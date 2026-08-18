@@ -736,6 +736,37 @@ message HumanAssistFailedEvent {
   string error_code = 4;
 }
 
+// Model-proposed, policy-bounded visual action. Coordinates are normalized to the current
+// viewport and are revalidated by the Node immediately before input. No text or secret is allowed.
+message ChallengeVisualAction {
+  string action_type = 1;
+  double x = 2;
+  double y = 3;
+  double end_x = 4;
+  double end_y = 5;
+  uint32 repeat_count = 6;
+}
+
+message ChallengeAutomationActionCommand {
+  string session_id = 1;
+  string run_id = 2;
+  string job_id = 3;
+  string challenge_event_id = 4;
+  uint32 attempt_number = 5;
+  uint64 base_state_version = 6;
+  string base_content_hash = 7;
+  repeated ChallengeVisualAction actions = 8;
+}
+
+message ChallengeAutomationFailedEvent {
+  string session_id = 1;
+  string run_id = 2;
+  string job_id = 3;
+  string challenge_event_id = 4;
+  uint32 attempt_number = 5;
+  string error_code = 6;
+}
+
 // Administrator-requested, read-only Observer screenshot. The request contains no arbitrary CDP
 // method or Object Storage coordinate.
 message CaptureObserverScreenshotCommand {

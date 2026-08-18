@@ -48,10 +48,10 @@
 | Desktop | Tauri 2；复用 Web UI；OS Vault、系统浏览器 OIDC/Deep Link、Updater Gate |
 | 数据与消息 | PostgreSQL 17 + Flyway、Redis 7、事务 Outbox/Inbox、PostgreSQL 单调游标 SSE |
 | 契约与 SDK | OpenAPI 3.1、Protobuf/gRPC、TypeScript/Python/Go/Java SDK |
-| Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer Worker；Go Terraform Provider；Kubernetes Operator |
+| Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **203 Operations / 273 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **211 Operations / 283 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V101 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V103 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -141,8 +141,10 @@ Rust Browser Node
 - [已确认] 开启协作控制后，只有 Gateway 实际收到真人键盘/鼠标/剪贴板输入时才触发 `HUMAN_INPUT_PRIORITY`；真人停止输入 2 秒后，同一持久 Operation 自动续行。
 - [已确认] 新票据只签发 `COLLABORATIVE`；遗留 `EXCLUSIVE_TAKEOVER` 在 Gateway 中 fail-collaborative，不再踢出协作者。
 - [已确认] 多参与者、单上游 RFB Fan-out、慢消费者隔离、每 Actor 带宽/FPS/成本、在线列表、精准撤销和历史治理已实现。
+- [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；耗尽或低置信度会写高信号通知并保留人工接管。
+- [已确认] Vision Worker 只有 Purpose-bound 一次性截图读取和结构化动作输出权限；Browser Node 在 State Hash/Version、Operation Epoch、八次动作预算及真人输入优先级下重新校验，不接受键盘、文本、Secret 或任意 CDP。
 - 高风险 Challenge、支付和账号安全仍需显式人工授权；VNC 协作不等于绕过安全门禁。
-- 证据见 `docs/progress/139-VNC与Agent永久在线协作回归.md` 及 115、117、123—126、131—132。
+- 证据见 `docs/progress/146-Challenge视觉自动化与人工兜底闭环.md`、139 及 115、117、123—126、131—132。
 
 ### 事件流与录制
 
@@ -154,6 +156,9 @@ Rust Browser Node
 ### 最近验证状态
 
 - 基准提交 `343baa1` 时工作区干净，`main == origin/main`。
+- Challenge 视觉自动化切片本地 Java 439 项、Web 113 项、Rust Workspace、Python Worker、
+  Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、N/N-1、Operator
+  和完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 Workflow 待本轮提交后确认。
 - Enterprise Overview 切片本地 Java 437 项、Web 112 项、全量 Test/Lint/Build、Desktop、SDK、N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过。
 - 该提交的 GitHub `ci`（run `32126377468`，含 Verify、Integration 与 Kubernetes Operator E2E）和 `desktop`（run `32126377512`，Windows/macOS）均通过。
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
@@ -161,6 +166,14 @@ Rust Browser Node
 ## 7. 当前正在处理的任务
 
 本轮最高优先级开发任务：
+
+### Challenge 视觉自动化与人工兜底（已闭环）
+
+- V103 已建立租户级 Run/Job、默认三次可调预算、Worker Claim/Lease/固定模型版本和 Session 单调事件；
+- 隔离 Vision Worker 只消费脱敏 Evidence Grant，输出有界归一化 CLICK/SLIDE；Node 重新校验 State、Operation、真人输入优先级和动作预算；
+- Web/Tauri 共用 Policy、Run 状态与 Session SSE，预算耗尽进入高信号通知和人工接管；
+- OTP、设备、支付、账号安全和用户判断仍禁止自动输入；通用无语义 OCR 敏感分类没有因本切片而关闭；
+- OpenAPI/四 SDK 已同步为 211 Operations / 283 Schemas，N/N-1 和完整 Integration 已通过，见 progress 146。
 
 ### Enterprise Operations Overview 全量事件源与轮询移除（已闭环）
 
@@ -179,7 +192,7 @@ Rust Browser Node
 - [已确认] 采用独立 `enterprise_overview_events`，来源/写路径矩阵见 progress 145；不要退回 Notification/Audit 子集。
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
-提交 `343baa1` 已推送 `main`，对应 GitHub `ci`/`desktop` 均通过。下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker；开始前应复核对象存储和 Retention/Legal Hold 当前边界。
+Enterprise Overview 的提交 `343baa1` 已推送 `main`，对应 GitHub `ci`/`desktop` 均通过。Challenge 视觉切片完成本地验证后，下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker；开始前应复核对象存储和 Retention/Legal Hold 当前边界。
 
 ## 8. 尚未完成的功能
 
@@ -213,10 +226,11 @@ Rust Browser Node
 4. [已确认] **资源与运行环境分离**：Native OS 是 Execution Environment，不是资源等级；内部 Template 不直接暴露成用户等级。
 5. [已确认] **迁移安全**：真人连续输入、拖拽、上传/下载、表单/支付/账号安全、Snapshot、Profile Flush、关键事务或 Business Recovery Unknown 时不得自动迁移。
 6. [已确认] **VNC/Agent 协作**：连接不触发 Agent 断开；真人实际输入优先 2 秒；Agent 保持同一 Operation 并自动恢复。
-7. [已确认] **事件流**：只在有完整、持久、单调变化源时删除轮询；SSE payload 最小化，租户隔离，支持 Resume/Reset，不在前端伪造曲线或状态。
-8. [已确认] **安全默认值**：OIDC/RBAC、mTLS、最小权限、fail-closed、用途绑定短期授权、签名与重放防护；公共 API 不返回 Secret URL、对象路径或敏感快照内容。
-9. [已确认] **迁移策略**：数据库迁移 expand-only；必须保持 N/N-1 滚动兼容，旧枚举/字段在兼容窗口结束前不物理删除。
-10. [已确认] **UI 方向**：Neo-Industrial Observatory，高信息密度、企业级、深浅主题、状态不只依赖颜色；Web 优先并与 Tauri 共用组件/API/权限逻辑。
+7. [已确认] **Challenge 自动化**：低风险视觉挑战默认三次自动尝试，截图先脱敏、Worker 最小权限、Node 状态绑定；OTP/支付/账号安全等高风险输入人工处理，真人输入始终优先。
+8. [已确认] **事件流**：只在有完整、持久、单调变化源时删除轮询；SSE payload 最小化，租户隔离，支持 Resume/Reset，不在前端伪造曲线或状态。
+9. [已确认] **安全默认值**：OIDC/RBAC、mTLS、最小权限、fail-closed、用途绑定短期授权、签名与重放防护；公共 API 不返回 Secret URL、对象路径或敏感快照内容。
+10. [已确认] **迁移策略**：数据库迁移 expand-only；必须保持 N/N-1 滚动兼容，旧枚举/字段在兼容窗口结束前不物理删除。
+11. [已确认] **UI 方向**：Neo-Industrial Observatory，高信息密度、企业级、深浅主题、状态不只依赖颜色；Web 优先并与 Tauri 共用组件/API/权限逻辑。
 
 ## 10. 重要约束和开发原则
 

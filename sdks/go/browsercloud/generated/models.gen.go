@@ -266,6 +266,105 @@ type AgentTaskSummary struct {
 	UpdatedAt           string `json:"updatedAt,omitempty"`
 }
 
+type ChallengeAutomationPolicy struct {
+	SessionId         string  `json:"sessionId,omitempty"`
+	Enabled           bool    `json:"enabled,omitempty"`
+	MaximumAttempts   int     `json:"maximumAttempts,omitempty"`
+	MinimumConfidence float64 `json:"minimumConfidence,omitempty"`
+	AllowMultiClick   bool    `json:"allowMultiClick,omitempty"`
+	AllowSlide        bool    `json:"allowSlide,omitempty"`
+	UpdatedAt         string  `json:"updatedAt,omitempty"`
+}
+
+type UpdateChallengeAutomationPolicyRequest struct {
+	Enabled           bool    `json:"enabled,omitempty"`
+	MaximumAttempts   int     `json:"maximumAttempts,omitempty"`
+	MinimumConfidence float64 `json:"minimumConfidence,omitempty"`
+	AllowMultiClick   bool    `json:"allowMultiClick,omitempty"`
+	AllowSlide        bool    `json:"allowSlide,omitempty"`
+}
+
+type ChallengeAutomationRun struct {
+	RunId            string `json:"runId,omitempty"`
+	ChallengeEventId string `json:"challengeEventId,omitempty"`
+	State            string `json:"state,omitempty"`
+	AttemptCount     int    `json:"attemptCount,omitempty"`
+	MaximumAttempts  int    `json:"maximumAttempts,omitempty"`
+	LastAction       any    `json:"lastAction,omitempty"`
+	LastErrorCode    any    `json:"lastErrorCode,omitempty"`
+	UpdatedAt        string `json:"updatedAt,omitempty"`
+	CompletedAt      any    `json:"completedAt,omitempty"`
+}
+
+type ClaimChallengeVisualJobRequest struct {
+	ProtocolVersion string          `json:"protocolVersion,omitempty"`
+	Capabilities    map[string]bool `json:"capabilities,omitempty"`
+	DeploymentId    string          `json:"deploymentId,omitempty"`
+	ModelRevision   string          `json:"modelRevision,omitempty"`
+}
+
+type ChallengeVisualJobClaimRequest struct {
+	ClaimToken string `json:"claimToken,omitempty"`
+}
+
+type ChallengeVisualAction struct {
+	ActionType  string  `json:"actionType,omitempty"`
+	X           float64 `json:"x,omitempty"`
+	Y           float64 `json:"y,omitempty"`
+	EndX        any     `json:"endX,omitempty"`
+	EndY        any     `json:"endY,omitempty"`
+	RepeatCount int     `json:"repeatCount,omitempty"`
+}
+
+type CompleteChallengeVisualJobRequest struct {
+	ClaimToken        string                  `json:"claimToken,omitempty"`
+	Decision          string                  `json:"decision,omitempty"`
+	Actions           []ChallengeVisualAction `json:"actions,omitempty"`
+	Confidence        float64                 `json:"confidence,omitempty"`
+	DeploymentId      string                  `json:"deploymentId,omitempty"`
+	ModelRevision     string                  `json:"modelRevision,omitempty"`
+	ProviderRequestId any                     `json:"providerRequestId,omitempty"`
+	InputTokens       int                     `json:"inputTokens,omitempty"`
+	OutputTokens      int                     `json:"outputTokens,omitempty"`
+	LatencyMs         int                     `json:"latencyMs,omitempty"`
+	OutputHash        string                  `json:"outputHash,omitempty"`
+}
+
+type FailChallengeVisualJobRequest struct {
+	ClaimToken  string `json:"claimToken,omitempty"`
+	FailureCode string `json:"failureCode,omitempty"`
+	Retryable   bool   `json:"retryable,omitempty"`
+}
+
+type ChallengeVisualJob struct {
+	JobId            string                  `json:"jobId,omitempty"`
+	RunId            string                  `json:"runId,omitempty"`
+	ChallengeEventId string                  `json:"challengeEventId,omitempty"`
+	State            string                  `json:"state,omitempty"`
+	AttemptNumber    int                     `json:"attemptNumber,omitempty"`
+	MaximumAttempts  int                     `json:"maximumAttempts,omitempty"`
+	WorkerId         any                     `json:"workerId,omitempty"`
+	ClaimEpoch       int64                   `json:"claimEpoch,omitempty"`
+	LeaseExpiresAt   any                     `json:"leaseExpiresAt,omitempty"`
+	Decision         any                     `json:"decision,omitempty"`
+	Actions          []ChallengeVisualAction `json:"actions,omitempty"`
+	Confidence       any                     `json:"confidence,omitempty"`
+	FailureCode      any                     `json:"failureCode,omitempty"`
+	UpdatedAt        string                  `json:"updatedAt,omitempty"`
+}
+
+type ChallengeVisualJobClaim struct {
+	ClaimToken          string             `json:"claimToken,omitempty"`
+	Job                 ChallengeVisualJob `json:"job,omitempty"`
+	ScreenshotUrl       string             `json:"screenshotUrl,omitempty"`
+	ScreenshotExpiresAt string             `json:"screenshotExpiresAt,omitempty"`
+	ChallengeType       string             `json:"challengeType,omitempty"`
+	TargetSummary       string             `json:"targetSummary,omitempty"`
+	AllowMultiClick     bool               `json:"allowMultiClick,omitempty"`
+	AllowSlide          bool               `json:"allowSlide,omitempty"`
+	MinimumConfidence   float64            `json:"minimumConfidence,omitempty"`
+}
+
 type ChallengeRegion struct {
 	X      float64 `json:"x,omitempty"`
 	Y      float64 `json:"y,omitempty"`

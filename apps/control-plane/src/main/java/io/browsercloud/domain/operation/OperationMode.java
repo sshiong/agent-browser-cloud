@@ -15,6 +15,9 @@ public enum OperationMode {
   /** 人工辅助 */
   HUMAN_ASSIST,
 
+  /** 有界截图/OCR/视觉 Challenge 自动动作 */
+  CHALLENGE_AUTOMATION,
+
   /** 静默（用于 Snapshot 等） */
   QUIESCE,
 

@@ -597,7 +597,9 @@ export interface ResourceStreamEvent {
     | 'RESOURCE_EVENT'
     | 'SAFETY_LEASE_EVENT'
     | 'CHALLENGE_EVENT'
-    | 'HUMAN_ASSIST_INTENT';
+    | 'HUMAN_ASSIST_INTENT'
+    | 'REMOTE_DESKTOP_PARTICIPANT'
+    | 'CHALLENGE_AUTOMATION';
   entityId: string;
   occurredAt: string;
   replayed: boolean;
@@ -958,4 +960,41 @@ export interface HumanAssistView {
   consumedAt?: string;
   completedAt?: string;
   errorCode?: string;
+}
+
+export interface ChallengeAutomationPolicyView {
+  sessionId: string;
+  enabled: boolean;
+  maximumAttempts: number;
+  minimumConfidence: number;
+  allowMultiClick: boolean;
+  allowSlide: boolean;
+  updatedAt: string;
+}
+
+export interface UpdateChallengeAutomationPolicyRequest {
+  enabled: boolean;
+  maximumAttempts: number;
+  minimumConfidence: number;
+  allowMultiClick: boolean;
+  allowSlide: boolean;
+}
+
+export interface ChallengeAutomationRunView {
+  runId: string;
+  challengeEventId: string;
+  state:
+    | 'CAPTURING'
+    | 'ANALYZING'
+    | 'EXECUTING'
+    | 'COMPLETED'
+    | 'EXHAUSTED'
+    | 'ESCALATED'
+    | 'FAILED';
+  attemptCount: number;
+  maximumAttempts: number;
+  lastAction?: string;
+  lastErrorCode?: string;
+  updatedAt: string;
+  completedAt?: string;
 }

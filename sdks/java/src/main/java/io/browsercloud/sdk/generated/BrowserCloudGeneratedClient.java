@@ -107,6 +107,9 @@ public final class BrowserCloudGeneratedClient {
     operation("getChallengeEvent", "GET", "/api/v1/challenges/{eventId}", List.of("eventId"), List.of(), List.of("X-Tenant-Id"), "", false, "ChallengeEvent"),
     operation("previewHumanAssist", "GET", "/api/v1/challenges/{eventId}/preview", List.of("eventId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "ChallengePreview"),
     operation("authorizeHumanAssist", "POST", "/api/v1/challenges/{eventId}/assist-authorizations", List.of("eventId"), List.of(), List.of("Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"), "AuthorizeHumanAssistRequest", true, "HumanAssistIntent"),
+    operation("getChallengeAutomationPolicy", "GET", "/api/v1/sessions/{sessionId}/challenge-automation/policy", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "ChallengeAutomationPolicy"),
+    operation("updateChallengeAutomationPolicy", "PUT", "/api/v1/sessions/{sessionId}/challenge-automation/policy", List.of("sessionId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "UpdateChallengeAutomationPolicyRequest", true, "ChallengeAutomationPolicy"),
+    operation("getCurrentChallengeAutomationRun", "GET", "/api/v1/sessions/{sessionId}/challenge-automation/current", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "ChallengeAutomationRun"),
     operation("listAgentTasks", "GET", "/api/v1/agent-tasks", List.of(), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "AgentTaskListResponse"),
     operation("listAgentTaskSummaries", "GET", "/api/v1/agent-task-summaries", List.of(), List.of("cursor", "limit"), List.of("X-Tenant-Id"), "", false, "AgentTaskSummaryListResponse"),
     operation("getAgentTask", "GET", "/api/v1/agent-tasks/{taskId}", List.of("taskId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentTask"),
@@ -121,6 +124,11 @@ public final class BrowserCloudGeneratedClient {
     operation("heartbeatAgentReviewJob", "POST", "/api/v1/agent-review-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "AgentReviewJobClaimRequest", true, "AgentReviewJob"),
     operation("completeAgentReviewJob", "POST", "/api/v1/agent-review-jobs/{jobId}:complete", List.of("jobId"), List.of(), List.of(), "CompleteAgentReviewJobRequest", true, "AgentReviewJob"),
     operation("failAgentReviewJob", "POST", "/api/v1/agent-review-jobs/{jobId}:fail", List.of("jobId"), List.of(), List.of(), "FailAgentReviewJobRequest", true, "AgentReviewJob"),
+    operation("claimChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs:claim", List.of(), List.of(), List.of(), "ClaimChallengeVisualJobRequest", true, "ChallengeVisualJobClaim"),
+    operation("startChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs/{jobId}:start", List.of("jobId"), List.of(), List.of(), "ChallengeVisualJobClaimRequest", true, "ChallengeVisualJob"),
+    operation("heartbeatChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs/{jobId}:heartbeat", List.of("jobId"), List.of(), List.of(), "ChallengeVisualJobClaimRequest", true, "ChallengeVisualJob"),
+    operation("completeChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs/{jobId}:complete", List.of("jobId"), List.of(), List.of(), "CompleteChallengeVisualJobRequest", true, "ChallengeVisualJob"),
+    operation("failChallengeVisualJob", "POST", "/api/v1/challenge-visual-jobs/{jobId}:fail", List.of("jobId"), List.of(), List.of(), "FailChallengeVisualJobRequest", true, "ChallengeVisualJob"),
     operation("approveAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:approve", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("rejectAgentTask", "POST", "/api/v1/agent-tasks/{taskId}:reject", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
     operation("acceptAgentHandoff", "POST", "/api/v1/agent-tasks/{taskId}:accept-handoff", List.of("taskId"), List.of(), List.of("X-Actor-Id", "X-Tenant-Id"), "", false, "AgentTask"),
@@ -342,6 +350,9 @@ public final class BrowserCloudGeneratedClient {
   public Response getChallengeEvent(Request request) { return call("getChallengeEvent", request); }
   public Response previewHumanAssist(Request request) { return call("previewHumanAssist", request); }
   public Response authorizeHumanAssist(Request request) { return call("authorizeHumanAssist", request); }
+  public Response getChallengeAutomationPolicy(Request request) { return call("getChallengeAutomationPolicy", request); }
+  public Response updateChallengeAutomationPolicy(Request request) { return call("updateChallengeAutomationPolicy", request); }
+  public Response getCurrentChallengeAutomationRun(Request request) { return call("getCurrentChallengeAutomationRun", request); }
   public Response listAgentTasks(Request request) { return call("listAgentTasks", request); }
   public Response listAgentTaskSummaries(Request request) { return call("listAgentTaskSummaries", request); }
   public Response getAgentTask(Request request) { return call("getAgentTask", request); }
@@ -356,6 +367,11 @@ public final class BrowserCloudGeneratedClient {
   public Response heartbeatAgentReviewJob(Request request) { return call("heartbeatAgentReviewJob", request); }
   public Response completeAgentReviewJob(Request request) { return call("completeAgentReviewJob", request); }
   public Response failAgentReviewJob(Request request) { return call("failAgentReviewJob", request); }
+  public Response claimChallengeVisualJob(Request request) { return call("claimChallengeVisualJob", request); }
+  public Response startChallengeVisualJob(Request request) { return call("startChallengeVisualJob", request); }
+  public Response heartbeatChallengeVisualJob(Request request) { return call("heartbeatChallengeVisualJob", request); }
+  public Response completeChallengeVisualJob(Request request) { return call("completeChallengeVisualJob", request); }
+  public Response failChallengeVisualJob(Request request) { return call("failChallengeVisualJob", request); }
   public Response approveAgentTask(Request request) { return call("approveAgentTask", request); }
   public Response rejectAgentTask(Request request) { return call("rejectAgentTask", request); }
   public Response acceptAgentHandoff(Request request) { return call("acceptAgentHandoff", request); }

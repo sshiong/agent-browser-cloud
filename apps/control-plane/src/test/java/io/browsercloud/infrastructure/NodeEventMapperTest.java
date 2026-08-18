@@ -11,6 +11,7 @@ import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
+import io.browsercloud.proto.node.v1.ChallengeAutomationFailedEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
@@ -103,6 +104,39 @@ class NodeEventMapperTest {
             failed -> {
               assertThat(failed.intentId()).isEqualTo("hint_1234567890abcdefghij");
               assertThat(failed.errorCode()).isEqualTo("TARGET_MOVED");
+            });
+  }
+
+  @Test
+  void shouldMapFencedChallengeAutomationFailure() {
+    var payload =
+        ChallengeAutomationFailedEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setRunId("car_1234567890abcdefghij")
+            .setJobId("cvj_1234567890abcdefghij")
+            .setChallengeEventId("chl_1234567890abcdefghij")
+            .setAttemptNumber(3)
+            .setErrorCode("CHALLENGE_AUTOMATION_INPUT_FAILED")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt-challenge-automation-failed")
+            .setEventType(NodeEventMapper.CHALLENGE_AUTOMATION_FAILED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setOperationEpoch(9)
+            .setSequence(1)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThat(mapper.toCommand(envelope).event())
+        .isInstanceOfSatisfying(
+            NodeEvent.ChallengeAutomationFailed.class,
+            failed -> {
+              assertThat(failed.runId()).isEqualTo("car_1234567890abcdefghij");
+              assertThat(failed.jobId()).isEqualTo("cvj_1234567890abcdefghij");
+              assertThat(failed.attemptNumber()).isEqualTo(3);
+              assertThat(failed.errorCode()).isEqualTo("CHALLENGE_AUTOMATION_INPUT_FAILED");
             });
   }
 

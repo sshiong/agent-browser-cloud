@@ -22,6 +22,7 @@ public sealed interface NodeEvent
         NodeEvent.AgentNavigationFailed,
         NodeEvent.AgentActionFailed,
         NodeEvent.HumanAssistFailed,
+        NodeEvent.ChallengeAutomationFailed,
         NodeEvent.RemoteDesktopParticipantChanged,
         NodeEvent.EvidenceCaptured,
         NodeEvent.RecordingFinalized,
@@ -490,6 +491,15 @@ public sealed interface NodeEvent
 
   record HumanAssistFailed(
       String sessionId, String challengeEventId, String intentId, String errorCode)
+      implements NodeEvent {}
+
+  record ChallengeAutomationFailed(
+      String sessionId,
+      String runId,
+      String jobId,
+      String challengeEventId,
+      int attemptNumber,
+      String errorCode)
       implements NodeEvent {}
 
   record EvidenceCaptured(

@@ -1458,6 +1458,61 @@ impl CdpStateCollector {
         Ok(target)
     }
 
+    /// Returns the current CSS viewport used by CDP input coordinates.
+    pub async fn viewport_size(&self, session_id: &str) -> anyhow::Result<(f64, f64)> {
+        let websocket_url = self.target_websocket(session_id).await?;
+        let (mut socket, _) = timeout(
+            Duration::from_secs(3),
+            tokio_tungstenite::connect_async(websocket_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("CDP viewport connection timed out"))??;
+        socket
+            .send(Message::Text(
+                serde_json::json!({
+                    "id": 8,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": "({width:window.innerWidth,height:window.innerHeight})",
+                        "returnByValue": true,
+                        "awaitPromise": false,
+                        "userGesture": false
+                    }
+                })
+                .to_string(),
+            ))
+            .await?;
+        while let Some(message) = timeout(Duration::from_secs(3), socket.next())
+            .await
+            .map_err(|_| anyhow::anyhow!("CDP viewport command timed out"))?
+        {
+            let Message::Text(text) = message? else {
+                continue;
+            };
+            let response: serde_json::Value = serde_json::from_str(&text)?;
+            if response.get("id").and_then(serde_json::Value::as_i64) != Some(8) {
+                continue;
+            }
+            if let Some(error) = response.get("error") {
+                anyhow::bail!("CDP viewport command failed: {error}");
+            }
+            let width = response
+                .pointer("/result/result/value/width")
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| anyhow::anyhow!("CDP viewport width is unavailable"))?;
+            let height = response
+                .pointer("/result/result/value/height")
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| anyhow::anyhow!("CDP viewport height is unavailable"))?;
+            anyhow::ensure!(
+                width.is_finite() && height.is_finite() && width > 0.0 && height > 0.0,
+                "CDP viewport dimensions are invalid"
+            );
+            return Ok((width, height));
+        }
+        anyhow::bail!("CDP websocket closed before viewport response")
+    }
+
     pub async fn scroll(&self, session_id: &str, delta_y: i32) -> anyhow::Result<()> {
         anyhow::ensure!(
             (100..=2000).contains(&delta_y.abs()),

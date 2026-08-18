@@ -131,6 +131,9 @@ var Operations = map[string]Operation{
 	"getChallengeEvent":                          {OperationID: "getChallengeEvent", Method: "GET", Path: "/api/v1/challenges/{eventId}", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeEvent"},
 	"previewHumanAssist":                         {OperationID: "previewHumanAssist", Method: "GET", Path: "/api/v1/challenges/{eventId}/preview", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengePreview"},
 	"authorizeHumanAssist":                       {OperationID: "authorizeHumanAssist", Method: "POST", Path: "/api/v1/challenges/{eventId}/assist-authorizations", PathParameters: []string{"eventId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "AuthorizeHumanAssistRequest", RequestRequired: true, ResponseSchema: "HumanAssistIntent"},
+	"getChallengeAutomationPolicy":               {OperationID: "getChallengeAutomationPolicy", Method: "GET", Path: "/api/v1/sessions/{sessionId}/challenge-automation/policy", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeAutomationPolicy"},
+	"updateChallengeAutomationPolicy":            {OperationID: "updateChallengeAutomationPolicy", Method: "PUT", Path: "/api/v1/sessions/{sessionId}/challenge-automation/policy", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "UpdateChallengeAutomationPolicyRequest", RequestRequired: true, ResponseSchema: "ChallengeAutomationPolicy"},
+	"getCurrentChallengeAutomationRun":           {OperationID: "getCurrentChallengeAutomationRun", Method: "GET", Path: "/api/v1/sessions/{sessionId}/challenge-automation/current", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ChallengeAutomationRun"},
 	"listAgentTasks":                             {OperationID: "listAgentTasks", Method: "GET", Path: "/api/v1/agent-tasks", PathParameters: nil, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTaskListResponse"},
 	"listAgentTaskSummaries":                     {OperationID: "listAgentTaskSummaries", Method: "GET", Path: "/api/v1/agent-task-summaries", PathParameters: nil, QueryParameters: []string{"cursor", "limit"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTaskSummaryListResponse"},
 	"getAgentTask":                               {OperationID: "getAgentTask", Method: "GET", Path: "/api/v1/agent-tasks/{taskId}", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
@@ -145,6 +148,11 @@ var Operations = map[string]Operation{
 	"heartbeatAgentReviewJob":                    {OperationID: "heartbeatAgentReviewJob", Method: "POST", Path: "/api/v1/agent-review-jobs/{jobId}:heartbeat", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "AgentReviewJobClaimRequest", RequestRequired: true, ResponseSchema: "AgentReviewJob"},
 	"completeAgentReviewJob":                     {OperationID: "completeAgentReviewJob", Method: "POST", Path: "/api/v1/agent-review-jobs/{jobId}:complete", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteAgentReviewJobRequest", RequestRequired: true, ResponseSchema: "AgentReviewJob"},
 	"failAgentReviewJob":                         {OperationID: "failAgentReviewJob", Method: "POST", Path: "/api/v1/agent-review-jobs/{jobId}:fail", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "FailAgentReviewJobRequest", RequestRequired: true, ResponseSchema: "AgentReviewJob"},
+	"claimChallengeVisualJob":                    {OperationID: "claimChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs:claim", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ClaimChallengeVisualJobRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJobClaim"},
+	"startChallengeVisualJob":                    {OperationID: "startChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs/{jobId}:start", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ChallengeVisualJobClaimRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJob"},
+	"heartbeatChallengeVisualJob":                {OperationID: "heartbeatChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs/{jobId}:heartbeat", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "ChallengeVisualJobClaimRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJob"},
+	"completeChallengeVisualJob":                 {OperationID: "completeChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs/{jobId}:complete", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteChallengeVisualJobRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJob"},
+	"failChallengeVisualJob":                     {OperationID: "failChallengeVisualJob", Method: "POST", Path: "/api/v1/challenge-visual-jobs/{jobId}:fail", PathParameters: []string{"jobId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "FailChallengeVisualJobRequest", RequestRequired: true, ResponseSchema: "ChallengeVisualJob"},
 	"approveAgentTask":                           {OperationID: "approveAgentTask", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:approve", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"rejectAgentTask":                            {OperationID: "rejectAgentTask", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:reject", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
 	"acceptAgentHandoff":                         {OperationID: "acceptAgentHandoff", Method: "POST", Path: "/api/v1/agent-tasks/{taskId}:accept-handoff", PathParameters: []string{"taskId"}, QueryParameters: nil, HeaderParameters: []string{"X-Actor-Id", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentTask"},
@@ -601,6 +609,15 @@ func (c *Client) PreviewHumanAssist(ctx context.Context, request Request) (any, 
 func (c *Client) AuthorizeHumanAssist(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "authorizeHumanAssist", request)
 }
+func (c *Client) GetChallengeAutomationPolicy(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getChallengeAutomationPolicy", request)
+}
+func (c *Client) UpdateChallengeAutomationPolicy(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "updateChallengeAutomationPolicy", request)
+}
+func (c *Client) GetCurrentChallengeAutomationRun(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getCurrentChallengeAutomationRun", request)
+}
 func (c *Client) ListAgentTasks(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listAgentTasks", request)
 }
@@ -642,6 +659,21 @@ func (c *Client) CompleteAgentReviewJob(ctx context.Context, request Request) (a
 }
 func (c *Client) FailAgentReviewJob(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "failAgentReviewJob", request)
+}
+func (c *Client) ClaimChallengeVisualJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "claimChallengeVisualJob", request)
+}
+func (c *Client) StartChallengeVisualJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "startChallengeVisualJob", request)
+}
+func (c *Client) HeartbeatChallengeVisualJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "heartbeatChallengeVisualJob", request)
+}
+func (c *Client) CompleteChallengeVisualJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "completeChallengeVisualJob", request)
+}
+func (c *Client) FailChallengeVisualJob(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "failChallengeVisualJob", request)
 }
 func (c *Client) ApproveAgentTask(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "approveAgentTask", request)

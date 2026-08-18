@@ -45,6 +45,7 @@ class ChallengeDetectionServiceTest {
     assertThat(captured.getValue().getVisualAnchorHash())
         .isEqualTo("6dc7a8367775c215991f36f2d4553d38a64f6e5df58b813cc77d8d8e448647a5");
     assertThat(captured.getValue().getEvidence()).contains("\"automaticInteraction\":false");
+    assertThat(captured.getValue().getEvidence()).contains("\"downstreamAutomationEligible\":true");
     verify(audit).append(any());
   }
 

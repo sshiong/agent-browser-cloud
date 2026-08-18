@@ -9,6 +9,8 @@ import {
   getBrowserState,
   getBusinessRecovery,
   getChallengePreview,
+  getChallengeAutomationPolicy,
+  getCurrentChallengeAutomationRun,
   getRecoveryContractDiff,
   getRemoteDesktopParticipants,
   getRemoteDesktopParticipantHistory,
@@ -37,6 +39,7 @@ import {
   streamSessionResourceChanges,
   upsertRecoveryContract,
   validateBusinessRecovery,
+  updateChallengeAutomationPolicy,
 } from './session';
 
 describe('session API', () => {
@@ -1089,6 +1092,64 @@ describe('session API', () => {
           previewHash: preview.previewHash,
           expectedStateVersion: 12,
           expectedTargetRevision: 4,
+        }),
+      })
+    );
+  });
+
+  it('reads and adjusts the bounded Challenge visual automation budget', async () => {
+    const sessionId = 'ses_1234567890abcdef';
+    const policy = {
+      sessionId,
+      enabled: true,
+      maximumAttempts: 3,
+      minimumConfidence: 0.85,
+      allowMultiClick: true,
+      allowSlide: true,
+      updatedAt: new Date().toISOString(),
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(policy), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...policy, maximumAttempts: 5 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getChallengeAutomationPolicy(sessionId, 'tenant-test');
+    await updateChallengeAutomationPolicy(
+      sessionId,
+      {
+        enabled: true,
+        maximumAttempts: 5,
+        minimumConfidence: 0.85,
+        allowMultiClick: true,
+        allowSlide: true,
+      },
+      'tenant-test',
+      'operator-test'
+    );
+    expect(
+      await getCurrentChallengeAutomationRun(sessionId, 'tenant-test')
+    ).toBeNull();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/sessions/${sessionId}/challenge-automation/policy`,
+      expect.objectContaining({
+        method: 'PUT',
+        headers: expect.objectContaining({
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'operator-test',
         }),
       })
     );

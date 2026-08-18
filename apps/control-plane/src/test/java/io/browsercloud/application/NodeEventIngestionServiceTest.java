@@ -45,6 +45,7 @@ class NodeEventIngestionServiceTest {
   @Mock private RemoteDesktopParticipantApplicationService remoteDesktopParticipants;
   @Mock private ProfileWarmTierApplicationService profileWarmTier;
   @Mock private SessionRecordingApplicationService recordingService;
+  @Mock private ChallengeAutomationApplicationService challengeAutomationService;
 
   private NodeEventIngestionService service;
 
@@ -72,7 +73,8 @@ class NodeEventIngestionServiceTest {
             humanAssistService,
             remoteDesktopParticipants,
             profileWarmTier,
-            recordingService);
+            recordingService,
+            challengeAutomationService);
     org.mockito.Mockito.lenient()
         .when(humanAssistService.stateUpdated(any(), any()))
         .thenReturn(HumanAssistApplicationService.StateCommit.notHumanAssist());
@@ -128,6 +130,28 @@ class NodeEventIngestionServiceTest {
     service.receive(command);
 
     verify(evidenceService).record("tenant-test", "evt_evidence", evidence);
+    verify(challengeAutomationService).evidenceCaptured("tenant-test", evidence);
+  }
+
+  @Test
+  void shouldRouteFencedChallengeAutomationFailureInsideTheInboxTransaction() {
+    var failure =
+        new NodeEvent.ChallengeAutomationFailed(
+            "ses-test",
+            "car_1234567890abcdefghij",
+            "cvj_1234567890abcdefghij",
+            "chl_1234567890abcdefghij",
+            3,
+            "STALE_CHALLENGE_SCREENSHOT");
+    var command =
+        new NodeEventReceived(
+            "evt-challenge-automation-failed", "tenant-test", "ses-test", 1, 2, 9, 5, failure);
+    when(coordinator.handle(command)).thenReturn(CoordinatorResult.completed());
+
+    service.receive(command);
+
+    verify(challengeAutomationService).failed(command, failure);
+    verify(inboxRepository).save(any());
   }
 
   @Test

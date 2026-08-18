@@ -16,6 +16,7 @@ public final class PlatformRoles {
   public static final String GAMEDAY_WORKER = "hasAnyRole('GAMEDAY_WORKER','PLATFORM_ADMIN')";
   public static final String AGENT_WORKER = "hasAnyRole('AGENT_WORKER','PLATFORM_ADMIN')";
   public static final String REVIEWER_WORKER = "hasAnyRole('REVIEWER_WORKER','PLATFORM_ADMIN')";
+  public static final String VISION_WORKER = "hasAnyRole('VISION_WORKER','PLATFORM_ADMIN')";
   public static final String SECURITY_ADMIN = "hasRole('SECURITY_ADMIN')";
   public static final String PLATFORM_ADMIN = "hasRole('PLATFORM_ADMIN')";
 

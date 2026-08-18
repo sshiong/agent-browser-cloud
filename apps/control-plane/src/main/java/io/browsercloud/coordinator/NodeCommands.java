@@ -11,6 +11,8 @@ import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
 import io.browsercloud.proto.node.v1.CaptureObserverScreenshotCommand;
+import io.browsercloud.proto.node.v1.ChallengeAutomationActionCommand;
+import io.browsercloud.proto.node.v1.ChallengeVisualAction;
 import io.browsercloud.proto.node.v1.EndHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.ExtensionBackgroundPolicy;
 import io.browsercloud.proto.node.v1.HumanAssistClickCommand;
@@ -438,6 +440,38 @@ public final class NodeCommands {
         0,
         "observer-evidence:" + captureId,
         payload);
+  }
+
+  public static NodeCommand challengeAutomationAction(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String runId,
+      String jobId,
+      String challengeEventId,
+      int attemptNumber,
+      long baseStateVersion,
+      String baseContentHash,
+      java.util.List<io.browsercloud.api.ChallengeAutomationModels.ChallengeVisualAction> actions) {
+    var payload =
+        ChallengeAutomationActionCommand.newBuilder()
+            .setSessionId(session.sessionId())
+            .setRunId(runId)
+            .setJobId(jobId)
+            .setChallengeEventId(challengeEventId)
+            .setAttemptNumber(attemptNumber)
+            .setBaseStateVersion(baseStateVersion)
+            .setBaseContentHash(baseContentHash);
+    actions.forEach(
+        action ->
+            payload.addActions(
+                ChallengeVisualAction.newBuilder()
+                    .setActionType(action.actionType().name())
+                    .setX(action.x().doubleValue())
+                    .setY(action.y().doubleValue())
+                    .setEndX(action.endX() == null ? 0 : action.endX().doubleValue())
+                    .setEndY(action.endY() == null ? 0 : action.endY().doubleValue())
+                    .setRepeatCount(action.repeatCount())));
+    return command(session, operation, "ChallengeAutomationAction", payload.build().toByteArray());
   }
 
   public static NodeCommand requestAgentStateResync(

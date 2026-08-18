@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-18
 > 基准分支：`main`
-> 编写时基准提交：`a8e2268 fix: include vision worker in release gate`
+> 编写时基准提交：`04568d0 feat: add autonomous agent sensitive inputs`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -161,7 +161,8 @@ Rust Browser Node
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、
   N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 Workflow 待最终推送
   后确认。
-- 基准提交 `a8e2268` 时工作区干净，`main == origin/main`。
+- 本切片实现提交为 `04568d0`；本地全量验证通过，远端 `ci`/`desktop` 待推送后确认。
+- 上一基准提交 `a8e2268` 时工作区干净，`main == origin/main`。
 - Challenge 视觉自动化切片本地 Java 439 项、Web 113 项、Rust Workspace、Python Worker、
   Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、N/N-1、Operator
   和完整 PostgreSQL/mTLS/Chromium Integration 已通过。

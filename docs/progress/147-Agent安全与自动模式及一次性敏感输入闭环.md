@@ -2,6 +2,7 @@
 
 > 日期：2026-08-18
 > 状态：仓库实现与本地全量验证完成；远端 Workflow 证据在推送后补记。
+> 实现提交：`04568d0 feat: add autonomous agent sensitive inputs`
 
 ## 目标与模式语义
 

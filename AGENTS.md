@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-18
 > 基准分支：`main`
-> 编写时基准提交：`343baa1 feat: stream complete enterprise overview changes`
+> 编写时基准提交：`a8e2268 fix: include vision worker in release gate`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -155,10 +155,13 @@ Rust Browser Node
 
 ### 最近验证状态
 
-- 基准提交 `343baa1` 时工作区干净，`main == origin/main`。
+- 基准提交 `a8e2268` 时工作区干净，`main == origin/main`。
 - Challenge 视觉自动化切片本地 Java 439 项、Web 113 项、Rust Workspace、Python Worker、
   Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、N/N-1、Operator
-  和完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 Workflow 待本轮提交后确认。
+  和完整 PostgreSQL/mTLS/Chromium Integration 已通过。
+- 提交 `a8e2268` 的 GitHub `ci`（run `32139754379`，含 Verify、供应链、Integration、
+  Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop`
+  （run `32139754412`，Windows/macOS）均通过。
 - Enterprise Overview 切片本地 Java 437 项、Web 112 项、全量 Test/Lint/Build、Desktop、SDK、N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过。
 - 该提交的 GitHub `ci`（run `32126377468`，含 Verify、Integration 与 Kubernetes Operator E2E）和 `desktop`（run `32126377512`，Windows/macOS）均通过。
 - `StopRuntime` + Recording 的幂等回归保持修复，主干绿色。
@@ -192,7 +195,10 @@ Rust Browser Node
 - [已确认] 采用独立 `enterprise_overview_events`，来源/写路径矩阵见 progress 145；不要退回 Notification/Audit 子集。
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
-Enterprise Overview 的提交 `343baa1` 已推送 `main`，对应 GitHub `ci`/`desktop` 均通过。Challenge 视觉切片完成本地验证后，下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker；开始前应复核对象存储和 Retention/Legal Hold 当前边界。
+Enterprise Overview 与 Challenge 视觉自动化均已推送 `main` 且对应 GitHub
+`ci`/`desktop` 通过。下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放
+Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker；开始前应复核对象存储和
+Retention/Legal Hold 当前边界。
 
 ## 8. 尚未完成的功能
 

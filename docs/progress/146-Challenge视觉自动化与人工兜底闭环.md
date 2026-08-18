@@ -1,7 +1,7 @@
 # Challenge 视觉自动化与人工兜底闭环
 
 > 日期：2026-08-18  
-> 状态：仓库实现与本地验证通过；远端 Workflow 结果以本文后续记录为准。
+> 状态：仓库实现、本地验证与远端 Workflow 均通过。
 
 ## 目标
 
@@ -73,6 +73,9 @@ Viewport 边界会钳制到可点击像素。动作后必须采集新的权威 B
 - N/N-1 Gate 包含 V103 expand-only、视觉 Worker 隔离部署及新增 Protobuf 消息断言；
 - 完整 PostgreSQL/mTLS/Chromium Integration 已真实执行 V103；新增集成断言覆盖默认三次、
   Operator 可调、Viewer 写拒绝、跨租户 404、非 Worker Claim 403 和 Worker 空队列 204。
+- 实现提交 `9625f57`、供应链 Gate 修复提交 `a8e2268` 已推送 `main`；最终 GitHub `ci`
+  run `32139754379`（含 Verify、供应链、Integration、Object Storage/Recording GameDay、
+  Kubernetes Operator E2E）与 `desktop` run `32139754412`（Windows/macOS）均通过。
 
 ## 未关闭边界
 

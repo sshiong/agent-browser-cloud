@@ -3,6 +3,7 @@ package io.browsercloud.api;
 import static io.browsercloud.api.EnterpriseOperationsModels.*;
 
 import io.browsercloud.application.EnterpriseOperationsApplicationService;
+import io.browsercloud.application.EnterpriseOverviewEventStreamService;
 import io.browsercloud.application.RecoveryGameDayGovernanceApplicationService;
 import io.browsercloud.application.RecoveryGameDayQueueApplicationService;
 import io.browsercloud.application.RuntimeValidationQueueApplicationService;
@@ -14,6 +15,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -22,9 +24,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/v1/enterprise")
@@ -32,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class EnterpriseOperationsController {
 
   private final EnterpriseOperationsApplicationService service;
+  private final EnterpriseOverviewEventStreamService overviewEventStream;
   private final RuntimeValidationQueueApplicationService validationQueue;
   private final RecoveryGameDayQueueApplicationService gameDayQueue;
   private final RecoveryGameDayGovernanceApplicationService gameDayGovernance;
@@ -39,11 +44,13 @@ public class EnterpriseOperationsController {
 
   public EnterpriseOperationsController(
       EnterpriseOperationsApplicationService service,
+      EnterpriseOverviewEventStreamService overviewEventStream,
       RuntimeValidationQueueApplicationService validationQueue,
       RecoveryGameDayQueueApplicationService gameDayQueue,
       RecoveryGameDayGovernanceApplicationService gameDayGovernance,
       PlatformIdentity identity) {
     this.service = service;
+    this.overviewEventStream = overviewEventStream;
     this.validationQueue = validationQueue;
     this.gameDayQueue = gameDayQueue;
     this.gameDayGovernance = gameDayGovernance;
@@ -54,6 +61,13 @@ public class EnterpriseOperationsController {
   @PreAuthorize(PlatformRoles.ADMIN)
   public EnterpriseOverviewResponse overview() {
     return service.overview(identity.current().tenantId());
+  }
+
+  @GetMapping(value = "/overview/event-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  @PreAuthorize(PlatformRoles.ADMIN)
+  public SseEmitter streamOverview(
+      @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
+    return overviewEventStream.subscribe(identity.current().tenantId(), lastEventId);
   }
 
   @GetMapping("/runtime-validations")

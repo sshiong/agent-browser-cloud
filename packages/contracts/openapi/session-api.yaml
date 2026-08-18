@@ -3223,6 +3223,46 @@ paths:
                 $ref: "#/components/schemas/EnterpriseOverview"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/enterprise/overview/event-stream:
+    get:
+      operationId: streamEnterpriseOverviewChanges
+      summary: Stream complete resumable invalidations for Enterprise Operations Overview
+      description: >
+        Emits payload-free tenant/global change notifications from the dedicated
+        PostgreSQL monotonic projection. Clients resume with Last-Event-ID and
+        refetch GET /api/v1/enterprise/overview after every control or change frame.
+        Global frames correspond only to platform-wide fields already visible in
+        Enterprise Overview; tenant-owned frames remain isolated to the caller.
+      tags: [Enterprise]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      x-sse-event-schemas:
+        control:
+          $ref: "#/components/schemas/EnterpriseOverviewStreamControl"
+        change:
+          $ref: "#/components/schemas/EnterpriseOverviewStreamChange"
+      responses:
+        "200":
+          description: Resumable Enterprise Overview Server-Sent Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/enterprise/runtime-validations:
     get:
       operationId: listRuntimeValidations
@@ -13623,6 +13663,48 @@ components:
         generatedAt:
           type: string
           format: date-time
+    EnterpriseOverviewStreamControl:
+      type: object
+      additionalProperties: false
+      required: [cursor, resetRequired, connectedAt]
+      properties:
+        cursor:
+          type: integer
+          format: int64
+          minimum: 0
+        resetRequired:
+          type: boolean
+        connectedAt:
+          type: string
+          format: date-time
+    EnterpriseOverviewStreamChange:
+      type: object
+      additionalProperties: false
+      required: [sequence, changeType, occurredAt, replayed]
+      properties:
+        sequence:
+          type: integer
+          format: int64
+          minimum: 1
+        changeType:
+          type: string
+          enum:
+            - RUNTIME_VALIDATION
+            - COST_RATE
+            - MEDIA_QUOTA
+            - ERROR_BUDGET
+            - RELEASE_FREEZE
+            - SLA_EXCLUSION
+            - RETENTION
+            - LICENSE
+            - REGION
+            - RECOVERY_GAMEDAY
+            - COMPLIANCE
+        occurredAt:
+          type: string
+          format: date-time
+        replayed:
+          type: boolean
     BooleanMap:
       type: object
       additionalProperties:

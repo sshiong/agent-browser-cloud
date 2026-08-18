@@ -156,6 +156,7 @@ public final class BrowserCloudGeneratedClient {
     operation("recordExtensionProfileSample", "POST", "/api/v1/extensions/{extensionId}:sample", List.of("extensionId"), List.of(), List.of(), "RecordExtensionSampleRequest", true, "ExtensionProfile"),
     operation("getBrowserPlacement", "GET", "/api/v1/browser-placements/{sessionId}", List.of("sessionId"), List.of(), List.of(), "", false, "BrowserPlacement"),
     operation("getEnterpriseOverview", "GET", "/api/v1/enterprise/overview", List.of(), List.of(), List.of("X-Tenant-Id"), "", false, "EnterpriseOverview"),
+    operation("streamEnterpriseOverviewChanges", "GET", "/api/v1/enterprise/overview/event-stream", List.of(), List.of(), List.of("Last-Event-ID", "X-Tenant-Id"), "", false, "string"),
     operation("listRuntimeValidations", "GET", "/api/v1/enterprise/runtime-validations", List.of(), List.of(), List.of(), "", false, "array<RuntimeValidation>"),
     operation("startRuntimeValidation", "POST", "/api/v1/enterprise/runtime-validations", List.of(), List.of(), List.of(), "StartRuntimeValidationRequest", true, "RuntimeValidation"),
     operation("completeRuntimeValidation", "POST", "/api/v1/enterprise/runtime-validations/{validationId}:complete", List.of("validationId"), List.of(), List.of(), "CompleteRuntimeValidationRequest", true, "RuntimeValidation"),
@@ -390,6 +391,7 @@ public final class BrowserCloudGeneratedClient {
   public Response recordExtensionProfileSample(Request request) { return call("recordExtensionProfileSample", request); }
   public Response getBrowserPlacement(Request request) { return call("getBrowserPlacement", request); }
   public Response getEnterpriseOverview(Request request) { return call("getEnterpriseOverview", request); }
+  public Response streamEnterpriseOverviewChanges(Request request) { return call("streamEnterpriseOverviewChanges", request); }
   public Response listRuntimeValidations(Request request) { return call("listRuntimeValidations", request); }
   public Response startRuntimeValidation(Request request) { return call("startRuntimeValidation", request); }
   public Response completeRuntimeValidation(Request request) { return call("completeRuntimeValidation", request); }

@@ -78,6 +78,38 @@ export class EnterpriseService {
         });
     }
     /**
+     * Stream complete resumable invalidations for Enterprise Operations Overview
+     * Emits payload-free tenant/global change notifications from the dedicated PostgreSQL monotonic projection. Clients resume with Last-Event-ID and refetch GET /api/v1/enterprise/overview after every control or change frame. Global frames correspond only to platform-wide fields already visible in Enterprise Overview; tenant-owned frames remain isolated to the caller.
+     *
+     * @returns string Resumable Enterprise Overview Server-Sent Event stream.
+     * @throws ApiError
+     */
+    public streamEnterpriseOverviewChanges({
+        xTenantId,
+        lastEventId,
+    }: {
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        lastEventId?: number,
+    }): CancelablePromise<string> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/enterprise/overview/event-stream',
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Last-Event-ID': lastEventId,
+            },
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                429: `The bounded concurrent stream capacity has been reached.`,
+                503: `A required capacity or dependency is temporarily unavailable.`,
+            },
+        });
+    }
+    /**
      * List Build-bound Runtime Validation runs
      * @returns RuntimeValidation Validation runs.
      * @throws ApiError

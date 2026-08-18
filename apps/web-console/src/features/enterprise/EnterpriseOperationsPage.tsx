@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  AlertTriangle,
   BadgeCheck,
   CircleDollarSign,
   Download,
@@ -12,6 +13,7 @@ import { TopContextBar } from '@/components/layout/TopContextBar';
 import { ErrorState, LoadingPanel } from '@/components/feedback/AsyncStates';
 import {
   useEnterpriseOverview,
+  useEnterpriseOverviewStream,
   useGenerateRecoveryGameDayReport,
   useRecoveryGameDayEvents,
   useUpdateRecoveryGameDayRemediation,
@@ -23,6 +25,7 @@ import type { RecoveryGameDayRemediationView } from '@/types/enterprise';
 
 export function EnterpriseOperationsPage() {
   const query = useEnterpriseOverview();
+  const streamState = useEnterpriseOverviewStream(query.isSuccess);
 
   return (
     <div>
@@ -31,6 +34,22 @@ export function EnterpriseOperationsPage() {
         subtitle="Runtime Validation、成本、SLA、合规证据与多 Region 灾备"
       />
       <main className="p-4 sm:p-6">
+        {query.data && streamState !== 'LIVE' ? (
+          <div
+            className="mb-4 flex items-start gap-3 border border-warning/40 bg-warning/10 px-4 py-3 text-[12px] text-text-secondary"
+            role="status"
+          >
+            <AlertTriangle
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0 text-warning"
+            />
+            <p>
+              {streamState === 'OFFLINE'
+                ? '网络已离线，企业运营数据可能过期。'
+                : '企业运营实时事件正在重连，当前数据可能过期；连接恢复后会自动重取权威状态。'}
+            </p>
+          </div>
+        ) : null}
         {query.isLoading ? (
           <div className="border border-border-subtle bg-surface-1">
             <LoadingPanel label="正在读取企业运营状态" />

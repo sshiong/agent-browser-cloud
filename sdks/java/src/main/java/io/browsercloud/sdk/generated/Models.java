@@ -545,6 +545,10 @@ public final class Models {
 
   public record EnterpriseOverview(List<RuntimeValidation> validations, List<CostRate> costRates, MediaQuota mediaQuota, ErrorBudget errorBudget, ReleaseFreeze releaseFreeze, List<SlaExclusion> slaExclusions, List<RetentionPolicy> retentionPolicies, List<LicenseInventory> licenseInventory, List<EnterpriseRegion> regions, List<RecoveryGameDay> recoveryGameDays, List<RecoveryGameDayTrend> recoveryGameDayTrends, List<RecoveryGameDayRemediation> recoveryGameDayRemediations, ComplianceSnapshot latestCompliance, String generatedAt) {}
 
+  public record EnterpriseOverviewStreamControl(Long cursor, Boolean resetRequired, String connectedAt) {}
+
+  public record EnterpriseOverviewStreamChange(Long sequence, String changeType, String occurredAt, Boolean replayed) {}
+
   public record BooleanMap(Map<String, Object> values) {}
 
   public record Error(String code, String message, Map<String, Object> details, String requestId, String timestamp) {}

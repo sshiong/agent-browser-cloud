@@ -180,6 +180,7 @@ var Operations = map[string]Operation{
 	"recordExtensionProfileSample":               {OperationID: "recordExtensionProfileSample", Method: "POST", Path: "/api/v1/extensions/{extensionId}:sample", PathParameters: []string{"extensionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "RecordExtensionSampleRequest", RequestRequired: true, ResponseSchema: "ExtensionProfile"},
 	"getBrowserPlacement":                        {OperationID: "getBrowserPlacement", Method: "GET", Path: "/api/v1/browser-placements/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "BrowserPlacement"},
 	"getEnterpriseOverview":                      {OperationID: "getEnterpriseOverview", Method: "GET", Path: "/api/v1/enterprise/overview", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "EnterpriseOverview"},
+	"streamEnterpriseOverviewChanges":            {OperationID: "streamEnterpriseOverviewChanges", Method: "GET", Path: "/api/v1/enterprise/overview/event-stream", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Last-Event-ID", "X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "string"},
 	"listRuntimeValidations":                     {OperationID: "listRuntimeValidations", Method: "GET", Path: "/api/v1/enterprise/runtime-validations", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "", RequestRequired: false, ResponseSchema: "array<RuntimeValidation>"},
 	"startRuntimeValidation":                     {OperationID: "startRuntimeValidation", Method: "POST", Path: "/api/v1/enterprise/runtime-validations", PathParameters: nil, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "StartRuntimeValidationRequest", RequestRequired: true, ResponseSchema: "RuntimeValidation"},
 	"completeRuntimeValidation":                  {OperationID: "completeRuntimeValidation", Method: "POST", Path: "/api/v1/enterprise/runtime-validations/{validationId}:complete", PathParameters: []string{"validationId"}, QueryParameters: nil, HeaderParameters: nil, RequestSchema: "CompleteRuntimeValidationRequest", RequestRequired: true, ResponseSchema: "RuntimeValidation"},
@@ -746,6 +747,9 @@ func (c *Client) GetBrowserPlacement(ctx context.Context, request Request) (any,
 }
 func (c *Client) GetEnterpriseOverview(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getEnterpriseOverview", request)
+}
+func (c *Client) StreamEnterpriseOverviewChanges(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "streamEnterpriseOverviewChanges", request)
 }
 func (c *Client) ListRuntimeValidations(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "listRuntimeValidations", request)

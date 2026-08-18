@@ -2978,6 +2978,19 @@ type EnterpriseOverview struct {
 	GeneratedAt                 string                       `json:"generatedAt,omitempty"`
 }
 
+type EnterpriseOverviewStreamControl struct {
+	Cursor        int64  `json:"cursor,omitempty"`
+	ResetRequired bool   `json:"resetRequired,omitempty"`
+	ConnectedAt   string `json:"connectedAt,omitempty"`
+}
+
+type EnterpriseOverviewStreamChange struct {
+	Sequence   int64  `json:"sequence,omitempty"`
+	ChangeType string `json:"changeType,omitempty"`
+	OccurredAt string `json:"occurredAt,omitempty"`
+	Replayed   bool   `json:"replayed,omitempty"`
+}
+
 type BooleanMap struct {
 	AdditionalProperties map[string]any `json:"-"`
 }

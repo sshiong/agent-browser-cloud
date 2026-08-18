@@ -93,6 +93,8 @@ export type { CreateWorkspaceBatchOperationRequest } from './models/CreateWorksp
 export type { CreateWorkspaceMetadataBatchOperationRequest } from './models/CreateWorkspaceMetadataBatchOperationRequest.js';
 export type { DeletionReceipt } from './models/DeletionReceipt.js';
 export type { EnterpriseOverview } from './models/EnterpriseOverview.js';
+export type { EnterpriseOverviewStreamChange } from './models/EnterpriseOverviewStreamChange.js';
+export type { EnterpriseOverviewStreamControl } from './models/EnterpriseOverviewStreamControl.js';
 export type { EnterpriseRegion } from './models/EnterpriseRegion.js';
 export type { EnvironmentImport } from './models/EnvironmentImport.js';
 export type { EnvironmentImportExecutionState } from './models/EnvironmentImportExecutionState.js';

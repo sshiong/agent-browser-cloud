@@ -166,6 +166,7 @@ OPERATIONS: dict[str, Operation] = {
     'recordExtensionProfileSample': Operation('recordExtensionProfileSample', 'POST', '/api/v1/extensions/{extensionId}:sample', ('extensionId',), (), (), 'RecordExtensionSampleRequest', True, 'ExtensionProfile'),
     'getBrowserPlacement': Operation('getBrowserPlacement', 'GET', '/api/v1/browser-placements/{sessionId}', ('sessionId',), (), (), '', False, 'BrowserPlacement'),
     'getEnterpriseOverview': Operation('getEnterpriseOverview', 'GET', '/api/v1/enterprise/overview', (), (), ('X-Tenant-Id',), '', False, 'EnterpriseOverview'),
+    'streamEnterpriseOverviewChanges': Operation('streamEnterpriseOverviewChanges', 'GET', '/api/v1/enterprise/overview/event-stream', (), (), ('Last-Event-ID', 'X-Tenant-Id'), '', False, 'string'),
     'listRuntimeValidations': Operation('listRuntimeValidations', 'GET', '/api/v1/enterprise/runtime-validations', (), (), (), '', False, 'array<RuntimeValidation>'),
     'startRuntimeValidation': Operation('startRuntimeValidation', 'POST', '/api/v1/enterprise/runtime-validations', (), (), (), 'StartRuntimeValidationRequest', True, 'RuntimeValidation'),
     'completeRuntimeValidation': Operation('completeRuntimeValidation', 'POST', '/api/v1/enterprise/runtime-validations/{validationId}:complete', ('validationId',), (), (), 'CompleteRuntimeValidationRequest', True, 'RuntimeValidation'),
@@ -687,6 +688,9 @@ class BrowserCloudGeneratedClient:
 
     def getEnterpriseOverview(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getEnterpriseOverview', path=path, query=query, body=body, headers=headers)
+
+    def streamEnterpriseOverviewChanges(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('streamEnterpriseOverviewChanges', path=path, query=query, body=body, headers=headers)
 
     def listRuntimeValidations(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('listRuntimeValidations', path=path, query=query, body=body, headers=headers)

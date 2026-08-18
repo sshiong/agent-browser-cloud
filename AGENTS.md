@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-18
 > 基准分支：`main`
-> 编写时基准提交：`85746c3 feat: stream browser node freshness transitions`
+> 编写时基准提交：`1974bd9 docs: add cross-session project handoff`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **202 Operations / 271 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **203 Operations / 273 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -148,6 +148,7 @@ Rust Browser Node
 
 - [已确认] Session/Resource/State/Operation/Agent Task、Workspace Overview、通知和租户审计已使用 PostgreSQL 单调游标、`Last-Event-ID`、Reset/Replay 的可续传 SSE。
 - [已确认] Browser Node 仅在 `FRESH/STALE` 状态转换时发布 payload-free 事件；Node 页面已删除 5 秒轮询，见 progress 144。
+- [已确认] Enterprise Overview 已用 V102 专用 PostgreSQL 投影覆盖 Validation、Cost、Media、SLO/Freeze、SLA、Retention、License、Region、GameDay/Trend/Remediation、Compliance 及时间窗口到期变化；Web/Tauri 已删除 15 秒轮询并显示断线过期状态，见 progress 145。
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
@@ -155,38 +156,40 @@ Rust Browser Node
 - 基准提交 `85746c3` 时工作区干净，`main == origin/main`。
 - 该提交的 GitHub `ci` 与 `desktop` Workflow 均通过；本地 Java、Web 110 项、Lint/Build、契约、N/N-1 和完整 PostgreSQL/mTLS/Chromium Integration 均通过。
 - 最近修复 `StopRuntime` + Recording 的幂等回归，主干已恢复绿色。
+- Enterprise Overview 切片本地 Java 437 项、Web 112 项、全量 Test/Lint/Build、Desktop、SDK、N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 `ci`/`desktop` 待本提交推送后核验。
 
 ## 7. 当前正在处理的任务
 
 交接完成后的最高优先级开发任务：
 
-### Enterprise Operations Overview 全量事件源与轮询移除
+### Enterprise Operations Overview 全量事件源与轮询移除（本地已闭环，待远端 Gate）
 
 当前代码证据：
 
-- `apps/web-console/src/features/enterprise/enterpriseQueries.ts` 的 `useEnterpriseOverview()` 仍有 `refetchInterval: 15_000`；
-- `GET /api/v1/enterprise/overview` 聚合 Validation、Cost Rate、Media Quota、Error Budget、Release Freeze、SLA Exclusion、Retention、License、Region、GameDay、Remediation 和 Compliance 等多个治理域；
-- 现有 Notification 流仅包含高信号事件，Audit 流权限边界为 Security Admin，二者都不能无损覆盖 Enterprise Overview。
+- V102 `enterprise_overview_events` 已以 16 个来源表 Trigger 覆盖全部 Overview 域；`browser_placements` 媒体用量和 Error Budget/GameDay 时间窗口也已纳入；
+- `GET /api/v1/enterprise/overview/event-stream` 已沿用 ADMIN RBAC，支持租户/平台全局隔离、Last-Event-ID、Replay/Reset、Keepalive 和双层连接上限；
+- Web/Tauri 共用 `useEnterpriseOverviewStream()`，15 秒固定轮询已删除，离线/重连明确提示数据可能过期；
+- Notification/Audit 流未被复用；GameDay timeline 的 5 秒轮询因读取独立 `recovery_gameday_job_events` 而保留；
+- OpenAPI/四 SDK 已同步为 203 Operations / 273 Schemas，N/N-1 和完整 Integration 已通过。
 
-必须遵守的结论：
+必须继续遵守的结论：
 
 - [已确认] 不允许用部分 Notification 或 Security-only Audit 流冒充 Enterprise Overview 的全量变化源。
 - [已确认] 新事件源必须是租户隔离、持久、单调、payload-free、支持 `Last-Event-ID`、Reset/Replay、连接上限和断线过期提示的正式 API。
-- [待评估] 具体采用独立 `enterprise_overview_events`，还是扩展现有可证明完整的租户级事件投影；实施前必须枚举 Overview 每个来源表和所有写入路径，证明覆盖完整。
-- [待评估] `useRecoveryGameDayEvents()` 的 5 秒轮询是否可在同一切片安全替换；它不是本任务删除 Overview 15 秒轮询的必要条件，不得为了顺手修改而引入不完整流。
+- [已确认] 采用独立 `enterprise_overview_events`，来源/写路径矩阵见 progress 145；不要退回 Notification/Audit 子集。
+- [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
-完成定义：数据库迁移/生产者、Control Plane SSE、OpenAPI/四 SDK、Web Query 失效与过期 UI、RBAC/租户隔离、Replay/Reset、N/N-1、Integration、进度文档全部闭环；删除 Overview 的固定轮询。
+当前仅剩本次提交、推送及 GitHub `ci`/`desktop` 结果核验；通过后应把本节切换为下一项代码产品化任务。
 
 ## 8. 尚未完成的功能
 
 ### P0/P1：仓库内代码产品化
 
-1. Enterprise Overview 覆盖全部治理域的权威单调事件源与 15 秒轮询移除。
-2. Warm Tier SQLite/LevelDB 应用感知 Adapter、Multipart Resume、跨 Region Restore、Profile 对象保留/Legal Hold 深度联动。
-3. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
-4. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
-5. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
-6. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
+1. Warm Tier SQLite/LevelDB 应用感知 Adapter、Multipart Resume、跨 Region Restore、Profile 对象保留/Legal Hold 深度联动。
+2. 目标 CRM/支付/IAM Provider 的真实凭据、字段/事务映射和 Provider 特有认证接入。
+3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
+4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
+5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
 
 ### P1/P2：目标环境与外部集成 Gate
 
@@ -244,18 +247,16 @@ make test-desktop
 
 ## 11. 已知问题、Bug 和技术债
 
-1. Enterprise Overview 的 15 秒轮询是当前明确代码债；其聚合域多，最大风险是事件源漏覆盖导致 UI 永久陈旧。
-2. `useRecoveryGameDayEvents()` 仍以 5 秒轮询读取；替换前需先证明事件分页的完整顺序和权限边界。
-3. 遗留 `EXCLUSIVE_TAKEOVER` 枚举/协议字段尚在 N/N-1 兼容窗口内；行为已失效，但暂不能物理删除。
-4. VNC/Agent 综合 E2E 历史上出现与 VNC 无关的 Agent 表单响应 30 秒偶发超时；并发关键段已有真实证据，完整长稳仍需单独稳定。
-5. README 目录树和部分早期进度快照可能落后；不要据此恢复已经删除或重构的模块。
-6. 目标环境、真实外部凭据和组织审批缺失是发布阻断项，不是本地单测通过即可关闭的代码任务。
+1. `useRecoveryGameDayEvents()` 仍以 5 秒轮询读取；替换前需先证明 timeline 事件分页的完整顺序和权限边界。
+2. 遗留 `EXCLUSIVE_TAKEOVER` 枚举/协议字段尚在 N/N-1 兼容窗口内；行为已失效，但暂不能物理删除。
+3. VNC/Agent 综合 E2E 历史上出现与 VNC 无关的 Agent 表单响应 30 秒偶发超时；并发关键段已有真实证据，完整长稳仍需单独稳定。
+4. README 目录树和部分早期进度快照可能落后；不要据此恢复已经删除或重构的模块。
+5. 目标环境、真实外部凭据和组织审批缺失是发布阻断项，不是本地单测通过即可关闭的代码任务。
 
 ## 12. 当前重点与推荐优先级
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
-| P0 | Enterprise Overview 全量事件源与轮询移除 | 唯一已明确的主控制台总览固定轮询，且存在多治理域完整性风险 |
 | P1 | Recording 播放授权、WORM/删除 Worker 和对象治理 | 涉及敏感浏览器证据、Retention/Legal Hold 的生产闭环 |
 | P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
@@ -265,12 +266,9 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 对 Enterprise Overview 返回的每个字段建立“来源表/写路径/租户范围/已有事件”矩阵。
-2. 选择并记录完整单调事件投影方案，新增 expand-only 迁移与跨 Control Plane 去重写入。
-3. 实现受 RBAC 保护的 resumable SSE、连接上限、Replay/Reset 和 payload-free 事件。
-4. 更新 OpenAPI 和四语言 SDK，补齐租户隔离、游标重连、N/N-1 与 Integration 断言。
-5. Web/Tauri 共用 Client 订阅事件，移除 `useEnterpriseOverview()` 的 15 秒轮询，增加断线/重连过期提示。
-6. 跑完整验证，更新进度 08/33、新增独立 progress 文档、更新本文件，提交推送并等待远端 Workflow 通过。
+1. 提交并推送 Enterprise Overview 切片，等待 GitHub `ci` 与 `desktop` Workflow 通过后更新最近验证状态。
+2. 下一仓库级优先任务建议从 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker 开始；实施前复核对象存储和 Retention/Legal Hold 当前边界。
+3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
 
 ## 14. 何时必须更新本文件
 

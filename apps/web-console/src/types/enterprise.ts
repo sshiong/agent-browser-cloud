@@ -299,3 +299,29 @@ export interface EnterpriseOverviewResponse {
   latestCompliance: ComplianceSnapshotView | null;
   generatedAt: string;
 }
+
+export type EnterpriseOverviewChangeType =
+  | 'RUNTIME_VALIDATION'
+  | 'COST_RATE'
+  | 'MEDIA_QUOTA'
+  | 'ERROR_BUDGET'
+  | 'RELEASE_FREEZE'
+  | 'SLA_EXCLUSION'
+  | 'RETENTION'
+  | 'LICENSE'
+  | 'REGION'
+  | 'RECOVERY_GAMEDAY'
+  | 'COMPLIANCE';
+
+export interface EnterpriseOverviewStreamControl {
+  cursor: number;
+  resetRequired: boolean;
+  connectedAt: string;
+}
+
+export interface EnterpriseOverviewStreamChange {
+  sequence: number;
+  changeType: EnterpriseOverviewChangeType;
+  occurredAt: string;
+  replayed: boolean;
+}

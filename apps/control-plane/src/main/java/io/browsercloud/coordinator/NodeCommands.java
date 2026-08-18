@@ -527,6 +527,8 @@ public final class NodeCommands {
             .setTimeoutMs(input == null || input.timeoutMs() == null ? 0 : input.timeoutMs())
             .setBaseStateVersion(baseStateVersion)
             .setBaseContentHash(baseContentHash)
+            .setAllowSensitiveTarget(input != null && input.allowSensitiveTarget())
+            .setMaximumAttempts(input == null ? 1 : input.maximumAttempts())
             .build()
             .toByteArray();
     return command(session, operation, "AgentAction", payload);

@@ -33,16 +33,19 @@ public class AgentActionToolService {
   private final ToolCapabilityUseJpaRepository capabilityUses;
   private final AgentCapabilityTokenService capabilityTokens;
   private final NodeCommandGateway nodeCommandGateway;
+  private final AgentControlPolicyService controlPolicies;
 
   public AgentActionToolService(
       BrowserStateRepository stateRepository,
       ToolCapabilityUseJpaRepository capabilityUses,
       AgentCapabilityTokenService capabilityTokens,
-      NodeCommandGateway nodeCommandGateway) {
+      NodeCommandGateway nodeCommandGateway,
+      AgentControlPolicyService controlPolicies) {
     this.stateRepository = stateRepository;
     this.capabilityUses = capabilityUses;
     this.capabilityTokens = capabilityTokens;
     this.nodeCommandGateway = nodeCommandGateway;
+    this.controlPolicies = controlPolicies;
   }
 
   public PendingAction authorizeAndQueue(
@@ -66,7 +69,7 @@ public class AgentActionToolService {
     if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())) {
       throw new ActionToolException("STATE_QUALITY_NOT_EXECUTABLE");
     }
-    validateInput(step, state);
+    validateInput(step, state, controlPolicies.require(session.sessionId(), tenantId));
     var currentDomain = domainOf(state.url());
     var claims =
         capabilityTokens.verify(
@@ -92,7 +95,9 @@ public class AgentActionToolService {
   }
 
   private static void validateInput(
-      PlanStep step, io.browsercloud.coordinator.NodeEvent.StateUpdated state) {
+      PlanStep step,
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
+      AgentControlPolicyService.Policy policy) {
     var input = step.input();
     switch (step.toolId()) {
       case CLICK_TARGET, TYPE_TEXT -> {
@@ -111,8 +116,19 @@ public class AgentActionToolService {
           throw new ActionToolException("TARGET_NOT_ACTIONABLE");
         }
         if (step.toolId() == ToolId.TYPE_TEXT) {
-          if (target.sensitive()) {
+          var sensitiveData =
+              input.dataClass() == ActionDataClass.CREDENTIAL
+                  || input.dataClass() == ActionDataClass.OTP;
+          if (target.sensitive()
+              && (!policy.autonomous() || !input.allowSensitiveTarget() || !sensitiveData)) {
             throw new ActionToolException("SENSITIVE_TARGET_FORBIDDEN");
+          }
+          if (input.allowSensitiveTarget()
+              && (!policy.autonomous()
+                  || !sensitiveData
+                  || input.maximumAttempts() < 1
+                  || input.maximumAttempts() > policy.sensitiveInputMaximumAttempts())) {
+            throw new ActionToolException("AUTONOMOUS_SENSITIVE_INPUT_POLICY_MISMATCH");
           }
           if (!Set.of("textbox", "combobox").contains(target.role())) {
             throw new ActionToolException("TYPE_TARGET_ROLE_INVALID");
@@ -156,7 +172,12 @@ public class AgentActionToolService {
     return switch (step.toolId()) {
       case CLICK_TARGET -> "TARGET_ACTION";
       case TYPE_TEXT ->
-          step.input().dataClass() == ActionDataClass.PII ? "FORM_INPUT_PII" : "FORM_INPUT_PUBLIC";
+          switch (step.input().dataClass()) {
+            case PII -> "FORM_INPUT_PII";
+            case CREDENTIAL -> "FORM_INPUT_CREDENTIAL";
+            case OTP -> "FORM_INPUT_OTP";
+            default -> "FORM_INPUT_PUBLIC";
+          };
       case SCROLL -> "VIEWPORT_ACTION";
       case WAIT_FOR -> "STATE_OBSERVATION";
       default -> throw new ActionToolException("ACTION_STEP_INVALID");

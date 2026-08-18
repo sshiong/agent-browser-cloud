@@ -19,6 +19,7 @@ export type { AgentExecutionJobClaimRequest } from './models/AgentExecutionJobCl
 export type { AgentExecutionJobId } from './models/AgentExecutionJobId.js';
 export type { AgentExecutionWait } from './models/AgentExecutionWait.js';
 export type { AgentHumanHandoff } from './models/AgentHumanHandoff.js';
+export type { AgentInputSecret } from './models/AgentInputSecret.js';
 export type { AgentInstructionSource } from './models/AgentInstructionSource.js';
 export type { AgentPlan } from './models/AgentPlan.js';
 export type { AgentPlanStep } from './models/AgentPlanStep.js';
@@ -84,6 +85,7 @@ export type { CompleteRuntimeValidationJobRequest } from './models/CompleteRunti
 export type { CompleteRuntimeValidationRequest } from './models/CompleteRuntimeValidationRequest.js';
 export type { ComplianceSnapshot } from './models/ComplianceSnapshot.js';
 export type { CostRate } from './models/CostRate.js';
+export type { CreateAgentInputSecretRequest } from './models/CreateAgentInputSecretRequest.js';
 export type { CreateAgentTaskRequest } from './models/CreateAgentTaskRequest.js';
 export type { CreateBreakGlassRequest } from './models/CreateBreakGlassRequest.js';
 export type { CreateCostRateRequest } from './models/CreateCostRateRequest.js';

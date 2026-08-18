@@ -35,4 +35,21 @@ class AgentActionPayloadServiceTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("must be configured");
   }
+
+  @Test
+  void sealsPurposeBoundReferenceAndUsesKeyedStableFingerprint() {
+    var sealed =
+        service.sealReference(
+            "tenant-test", "ses_1234567890abcdef", "ais_1234567890abcdefghijklmn", "123456");
+
+    assertThat(sealed).doesNotContain("123456");
+    assertThat(
+            service.unsealReference(
+                "tenant-test", "ses_1234567890abcdef", "ais_1234567890abcdefghijklmn", sealed))
+        .isEqualTo("123456");
+    assertThat(service.fingerprintReference("OTP\n123456"))
+        .hasSize(64)
+        .isEqualTo(service.fingerprintReference("OTP\n123456"))
+        .isNotEqualTo(service.fingerprintReference("OTP\n654321"));
+  }
 }

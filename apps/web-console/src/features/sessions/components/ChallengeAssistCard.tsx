@@ -60,6 +60,7 @@ export function ChallengeAssistCard({
       : undefined;
   const preview = useChallengePreview(sessionId, previewEventId);
   const authorization = useAuthorizeHumanAssist(sessionId);
+  const automationPolicy = automation.policy.data;
 
   if (challenges.isLoading) {
     return (
@@ -103,42 +104,83 @@ export function ChallengeAssistCard({
           </p>
         </div>
         <span className="border border-border-default bg-surface-2 px-2 py-1 font-mono text-[9px] text-text-muted">
-          AUTO{' '}
-          {automation.policy.data?.enabled
-            ? automation.policy.data.maximumAttempts
-            : 0}
+          {automationPolicy?.controlMode ?? 'SAFE'}
         </span>
       </header>
 
-      {automation.policy.data && (
+      {automationPolicy && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border-subtle bg-canvas/35 p-3">
           <div>
             <p className="text-[10px] font-medium text-text-secondary">
-              自动尝试预算
+              Agent 控制模式
             </p>
             <p className="mt-1 text-[9px] text-text-muted">
-              默认 3 次；OTP、设备确认、支付及账号安全判断始终转人工。
+              自动模式允许 Agent 使用一次性密文 API 填写账号、密码和
+              OTP；人工协作始终可选。
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Agent 控制模式"
+              disabled={!canOperate || updateAutomation.isPending}
+              value={automationPolicy.controlMode}
+              onChange={(event) =>
+                updateAutomation.mutate({
+                  controlMode: event.target.value as 'SAFE' | 'AUTONOMOUS',
+                  sensitiveInputMaximumAttempts:
+                    automationPolicy.sensitiveInputMaximumAttempts,
+                  enabled: automationPolicy.enabled,
+                  maximumAttempts: automationPolicy.maximumAttempts,
+                  minimumConfidence: automationPolicy.minimumConfidence,
+                  allowMultiClick: automationPolicy.allowMultiClick,
+                  allowSlide: automationPolicy.allowSlide,
+                })
+              }
+              className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
+            >
+              <option value="SAFE">安全模式</option>
+              <option value="AUTONOMOUS">自动模式</option>
+            </select>
+            <select
+              aria-label="敏感输入自动重试次数"
+              disabled={!canOperate || updateAutomation.isPending}
+              value={automationPolicy.sensitiveInputMaximumAttempts}
+              onChange={(event) =>
+                updateAutomation.mutate({
+                  controlMode: automationPolicy.controlMode,
+                  sensitiveInputMaximumAttempts: Number(event.target.value),
+                  enabled: automationPolicy.enabled,
+                  maximumAttempts: automationPolicy.maximumAttempts,
+                  minimumConfidence: automationPolicy.minimumConfidence,
+                  allowMultiClick: automationPolicy.allowMultiClick,
+                  allowSlide: automationPolicy.allowSlide,
+                })
+              }
+              className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((attempts) => (
+                <option key={attempts} value={attempts}>
+                  输入重试 {attempts} 次
+                </option>
+              ))}
+            </select>
             <select
               aria-label="Challenge 自动尝试次数"
               disabled={!canOperate || updateAutomation.isPending}
               value={
-                automation.policy.data.enabled
-                  ? automation.policy.data.maximumAttempts
-                  : 0
+                automationPolicy.enabled ? automationPolicy.maximumAttempts : 0
               }
               onChange={(event) => {
                 const maximumAttempts = Number(event.target.value);
                 updateAutomation.mutate({
+                  controlMode: automationPolicy.controlMode,
+                  sensitiveInputMaximumAttempts:
+                    automationPolicy.sensitiveInputMaximumAttempts,
                   enabled: maximumAttempts > 0,
                   maximumAttempts,
-                  minimumConfidence:
-                    automation.policy.data?.minimumConfidence ?? 0.85,
-                  allowMultiClick:
-                    automation.policy.data?.allowMultiClick ?? true,
-                  allowSlide: automation.policy.data?.allowSlide ?? true,
+                  minimumConfidence: automationPolicy.minimumConfidence,
+                  allowMultiClick: automationPolicy.allowMultiClick,
+                  allowSlide: automationPolicy.allowSlide,
                 });
               }}
               className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
@@ -191,12 +233,14 @@ export function ChallengeAssistCard({
           )) && (
           <div className="mt-4 border border-warning/30 bg-warning/5 p-4">
             <div className="flex items-center gap-2 text-[11px] font-medium text-warning">
-              <TriangleAlert size={13} /> 需要操作员处理
+              <TriangleAlert size={13} /> 已通知操作员
             </div>
             <p className="mt-2 text-[10px] leading-5 text-text-muted">
               {AUTOMATABLE.has(active.suspectedType)
                 ? `自动视觉预算已用尽或无法可靠定位（${automation.run.data?.lastErrorCode ?? '等待人工'}）。`
-                : 'OTP、设备确认、用户判断、支付与账号安全挑战不会自动操作。'}
+                : automation.policy.data?.controlMode === 'AUTONOMOUS'
+                  ? '若任务已绑定一次性账号/密码/OTP，Agent 会直接继续；否则保留现场并通知，人工接管不是强制步骤。'
+                  : '安全模式保留 OTP、设备、支付与账号安全的显式人工门禁。'}
             </p>
             <button
               type="button"
@@ -209,7 +253,7 @@ export function ChallengeAssistCard({
               ) : (
                 <Hand size={11} />
               )}
-              请求显式人工接管
+              可选：进入人工协作
             </button>
           </div>
         )}

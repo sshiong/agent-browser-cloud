@@ -6,6 +6,7 @@ import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedE
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerJobNotFoundException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerRejectedException;
 import io.browsercloud.application.AgentHumanGovernanceService.HumanGovernanceException;
+import io.browsercloud.application.AgentInputSecretApplicationService.AgentInputSecretRejectedException;
 import io.browsercloud.application.AgentReviewerApplicationService.AgentReviewRejectedException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryStateUnavailableException;
 import io.browsercloud.application.ApplicationBusinessRecoveryService.BusinessRecoveryValidationNotFoundException;
@@ -122,6 +123,17 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(AgentInputSecretRejectedException.class)
+  ResponseEntity<ApiError> agentInputSecretRejected(
+      AgentInputSecretRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_INPUT_SECRET_REJECTED",
+        "Agent sensitive input operation was rejected",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(RemoteDesktopParticipantNotFoundException.class)
   ResponseEntity<ApiError> remoteDesktopParticipantNotFound(

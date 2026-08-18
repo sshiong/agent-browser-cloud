@@ -24,7 +24,7 @@ export type InstructionSourceType =
   | 'WEB_CONTENT'
   | 'THIRD_PARTY_WIDGET';
 
-export type AgentActionDataClass = 'PUBLIC' | 'PII';
+export type AgentActionDataClass = 'PUBLIC' | 'PII' | 'CREDENTIAL' | 'OTP';
 export type AgentWaitCondition =
   'STATE_CHANGED' | 'STATE_STABLE' | 'TARGET_PRESENT';
 
@@ -38,6 +38,7 @@ export interface CreateAgentActionRequest {
   targetRef?: string;
   targetRevision?: number;
   value?: string;
+  secretId?: string;
   dataClass?: AgentActionDataClass;
   scrollDeltaY?: number;
   waitCondition?: AgentWaitCondition;
@@ -172,6 +173,8 @@ export interface AgentPlanStep {
     scrollDeltaY?: number;
     waitCondition?: AgentWaitCondition;
     timeoutMs?: number;
+    sensitiveTargetAuthorized?: boolean;
+    maximumAttempts?: number;
   };
   rationale: string;
   supportingSources: string[];

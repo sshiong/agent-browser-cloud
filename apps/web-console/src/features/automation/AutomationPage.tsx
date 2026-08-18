@@ -824,8 +824,11 @@ function ActionEditor({
             {actionableTargets.map((target) => {
               const typeForbidden =
                 action.toolId === 'TYPE_TEXT' &&
-                (target.sensitive ||
-                  !['textbox', 'combobox'].includes(target.role));
+                (!['textbox', 'combobox'].includes(target.role) ||
+                  (target.sensitive &&
+                    !['CREDENTIAL', 'OTP'].includes(
+                      action.dataClass ?? 'PUBLIC'
+                    )));
               return (
                 <option
                   key={target.targetRef}
@@ -840,35 +843,65 @@ function ActionEditor({
           </select>
           {action.toolId === 'TYPE_TEXT' && (
             <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
-              <input
-                value={action.value ?? ''}
-                onChange={(event) =>
-                  onChange({ ...action, value: event.target.value })
-                }
-                maxLength={2000}
-                placeholder="明确授权的非凭证文本"
-                autoComplete="off"
-                className={inputClass}
-              />
+              {['CREDENTIAL', 'OTP'].includes(action.dataClass ?? 'PUBLIC') ? (
+                <input
+                  value={action.secretId ?? ''}
+                  onChange={(event) =>
+                    onChange({
+                      ...action,
+                      secretId: event.target.value,
+                      value: undefined,
+                    })
+                  }
+                  maxLength={36}
+                  placeholder="一次性密文引用 ais_…"
+                  autoComplete="off"
+                  className={cn(inputClass, 'font-mono')}
+                />
+              ) : (
+                <input
+                  value={action.value ?? ''}
+                  onChange={(event) =>
+                    onChange({
+                      ...action,
+                      value: event.target.value,
+                      secretId: undefined,
+                    })
+                  }
+                  maxLength={2000}
+                  placeholder="明确授权的非凭证文本"
+                  autoComplete="off"
+                  className={inputClass}
+                />
+              )}
               <select
                 aria-label="输入数据分类"
                 value={action.dataClass ?? 'PUBLIC'}
                 onChange={(event) =>
                   onChange({
                     ...action,
-                    dataClass: event.target.value as 'PUBLIC' | 'PII',
+                    dataClass: event.target
+                      .value as CreateAgentActionRequest['dataClass'],
+                    value: ['CREDENTIAL', 'OTP'].includes(event.target.value)
+                      ? undefined
+                      : action.value,
+                    secretId: ['CREDENTIAL', 'OTP'].includes(event.target.value)
+                      ? action.secretId
+                      : undefined,
                   })
                 }
                 className={inputClass}
               >
                 <option value="PUBLIC">PUBLIC</option>
                 <option value="PII">PII</option>
+                <option value="CREDENTIAL">CREDENTIAL</option>
+                <option value="OTP">OTP</option>
               </select>
             </div>
           )}
           <p className="font-mono text-[8px] text-text-muted">
             TARGET REVISION {targetRevision ?? 'UNAVAILABLE'} · sensitive
-            targets fail closed
+            targets require AUTONOMOUS + one-time secret
           </p>
         </div>
       )}
@@ -1018,6 +1051,7 @@ function toActionRequest(action: DraftAction): CreateAgentActionRequest {
     targetRef: action.targetRef,
     targetRevision: action.targetRevision,
     value: action.value,
+    secretId: action.secretId,
     dataClass: action.dataClass,
     scrollDeltaY: action.scrollDeltaY,
     waitCondition: action.waitCondition,

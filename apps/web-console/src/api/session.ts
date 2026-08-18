@@ -50,6 +50,8 @@ import type {
   ChallengeAutomationPolicyView,
   UpdateChallengeAutomationPolicyRequest,
   ChallengeAutomationRunView,
+  CreateAgentInputSecretRequest,
+  AgentInputSecretView,
 } from '../types/session';
 import type {
   ProxyRebindOperation,
@@ -986,6 +988,27 @@ export async function getChallengeAutomationPolicy(
     `/sessions/${sessionId}/challenge-automation/policy`,
     { signal },
     tenantId
+  );
+}
+
+export async function createAgentInputSecret(
+  sessionId: string,
+  body: CreateAgentInputSecretRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<AgentInputSecretView> {
+  return request<AgentInputSecretView>(
+    `/sessions/${sessionId}/agent-input-secrets`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId,
+    actorId
   );
 }
 

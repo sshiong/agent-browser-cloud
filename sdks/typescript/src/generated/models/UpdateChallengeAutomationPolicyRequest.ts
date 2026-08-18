@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type UpdateChallengeAutomationPolicyRequest = {
+    controlMode?: 'SAFE' | 'AUTONOMOUS';
+    sensitiveInputMaximumAttempts?: number;
     enabled: boolean;
     maximumAttempts: number;
     minimumConfidence: number;

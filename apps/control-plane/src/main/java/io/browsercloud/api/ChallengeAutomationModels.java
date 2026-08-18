@@ -1,5 +1,6 @@
 package io.browsercloud.api;
 
+import io.browsercloud.domain.agent.AgentModels.AgentControlMode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -31,6 +32,8 @@ public final class ChallengeAutomationModels {
 
   public record ChallengeAutomationPolicyView(
       String sessionId,
+      AgentControlMode controlMode,
+      int sensitiveInputMaximumAttempts,
       boolean enabled,
       int maximumAttempts,
       BigDecimal minimumConfidence,
@@ -39,6 +42,8 @@ public final class ChallengeAutomationModels {
       Instant updatedAt) {}
 
   public record UpdateChallengeAutomationPolicyRequest(
+      AgentControlMode controlMode,
+      @Min(1) @Max(10) Integer sensitiveInputMaximumAttempts,
       boolean enabled,
       @Min(0) @Max(10) int maximumAttempts,
       @NotNull @DecimalMin("0.5") @DecimalMax("1.0") BigDecimal minimumConfidence,

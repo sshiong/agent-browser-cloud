@@ -213,6 +213,7 @@ type AgentActionRequest struct {
 	TargetRef      string `json:"targetRef,omitempty"`
 	TargetRevision int64  `json:"targetRevision,omitempty"`
 	Value          string `json:"value,omitempty"`
+	SecretId       string `json:"secretId,omitempty"`
 	DataClass      string `json:"dataClass,omitempty"`
 	ScrollDeltaY   int    `json:"scrollDeltaY,omitempty"`
 	WaitCondition  string `json:"waitCondition,omitempty"`
@@ -267,21 +268,39 @@ type AgentTaskSummary struct {
 }
 
 type ChallengeAutomationPolicy struct {
-	SessionId         string  `json:"sessionId,omitempty"`
-	Enabled           bool    `json:"enabled,omitempty"`
-	MaximumAttempts   int     `json:"maximumAttempts,omitempty"`
-	MinimumConfidence float64 `json:"minimumConfidence,omitempty"`
-	AllowMultiClick   bool    `json:"allowMultiClick,omitempty"`
-	AllowSlide        bool    `json:"allowSlide,omitempty"`
-	UpdatedAt         string  `json:"updatedAt,omitempty"`
+	SessionId                     string  `json:"sessionId,omitempty"`
+	ControlMode                   string  `json:"controlMode,omitempty"`
+	SensitiveInputMaximumAttempts int     `json:"sensitiveInputMaximumAttempts,omitempty"`
+	Enabled                       bool    `json:"enabled,omitempty"`
+	MaximumAttempts               int     `json:"maximumAttempts,omitempty"`
+	MinimumConfidence             float64 `json:"minimumConfidence,omitempty"`
+	AllowMultiClick               bool    `json:"allowMultiClick,omitempty"`
+	AllowSlide                    bool    `json:"allowSlide,omitempty"`
+	UpdatedAt                     string  `json:"updatedAt,omitempty"`
 }
 
 type UpdateChallengeAutomationPolicyRequest struct {
-	Enabled           bool    `json:"enabled,omitempty"`
-	MaximumAttempts   int     `json:"maximumAttempts,omitempty"`
-	MinimumConfidence float64 `json:"minimumConfidence,omitempty"`
-	AllowMultiClick   bool    `json:"allowMultiClick,omitempty"`
-	AllowSlide        bool    `json:"allowSlide,omitempty"`
+	ControlMode                   string  `json:"controlMode,omitempty"`
+	SensitiveInputMaximumAttempts int     `json:"sensitiveInputMaximumAttempts,omitempty"`
+	Enabled                       bool    `json:"enabled,omitempty"`
+	MaximumAttempts               int     `json:"maximumAttempts,omitempty"`
+	MinimumConfidence             float64 `json:"minimumConfidence,omitempty"`
+	AllowMultiClick               bool    `json:"allowMultiClick,omitempty"`
+	AllowSlide                    bool    `json:"allowSlide,omitempty"`
+}
+
+type CreateAgentInputSecretRequest struct {
+	Purpose   string `json:"purpose,omitempty"`
+	Value     string `json:"value,omitempty"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
+}
+
+type AgentInputSecret struct {
+	SecretId  string `json:"secretId,omitempty"`
+	SessionId string `json:"sessionId,omitempty"`
+	Purpose   string `json:"purpose,omitempty"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
+	Consumed  bool   `json:"consumed,omitempty"`
 }
 
 type ChallengeAutomationRun struct {
@@ -678,14 +697,16 @@ type AgentPlanStep struct {
 }
 
 type AgentStepInput struct {
-	TargetRef      any `json:"targetRef,omitempty"`
-	TargetRevision any `json:"targetRevision,omitempty"`
-	PayloadHash    any `json:"payloadHash,omitempty"`
-	PayloadLength  any `json:"payloadLength,omitempty"`
-	DataClass      any `json:"dataClass,omitempty"`
-	ScrollDeltaY   any `json:"scrollDeltaY,omitempty"`
-	WaitCondition  any `json:"waitCondition,omitempty"`
-	TimeoutMs      any `json:"timeoutMs,omitempty"`
+	TargetRef                 any  `json:"targetRef,omitempty"`
+	TargetRevision            any  `json:"targetRevision,omitempty"`
+	PayloadHash               any  `json:"payloadHash,omitempty"`
+	PayloadLength             any  `json:"payloadLength,omitempty"`
+	DataClass                 any  `json:"dataClass,omitempty"`
+	ScrollDeltaY              any  `json:"scrollDeltaY,omitempty"`
+	WaitCondition             any  `json:"waitCondition,omitempty"`
+	TimeoutMs                 any  `json:"timeoutMs,omitempty"`
+	SensitiveTargetAuthorized bool `json:"sensitiveTargetAuthorized,omitempty"`
+	MaximumAttempts           int  `json:"maximumAttempts,omitempty"`
 }
 
 type AgentRiskClass string

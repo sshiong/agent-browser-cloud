@@ -7,7 +7,11 @@ export type AgentActionRequest = {
     targetRef?: string;
     targetRevision?: number;
     value?: string;
-    dataClass?: 'PUBLIC' | 'PII';
+    /**
+     * One-time encrypted input reference. AUTONOMOUS mode and CREDENTIAL or OTP dataClass are required.
+     */
+    secretId?: string;
+    dataClass?: 'PUBLIC' | 'PII' | 'CREDENTIAL' | 'OTP';
     scrollDeltaY?: number;
     waitCondition?: 'STATE_CHANGED' | 'STATE_STABLE' | 'TARGET_PRESENT';
     timeoutMs?: number;

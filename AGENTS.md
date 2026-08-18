@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **211 Operations / 283 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **212 Operations / 285 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -141,10 +141,12 @@ Rust Browser Node
 - [已确认] 开启协作控制后，只有 Gateway 实际收到真人键盘/鼠标/剪贴板输入时才触发 `HUMAN_INPUT_PRIORITY`；真人停止输入 2 秒后，同一持久 Operation 自动续行。
 - [已确认] 新票据只签发 `COLLABORATIVE`；遗留 `EXCLUSIVE_TAKEOVER` 在 Gateway 中 fail-collaborative，不再踢出协作者。
 - [已确认] 多参与者、单上游 RFB Fan-out、慢消费者隔离、每 Actor 带宽/FPS/成本、在线列表、精准撤销和历史治理已实现。
-- [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；耗尽或低置信度会写高信号通知并保留人工接管。
+- [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；耗尽或低置信度会写高信号通知，SAFE 可等人工，AUTONOMOUS 返回结构化失败。
 - [已确认] Vision Worker 只有 Purpose-bound 一次性截图读取和结构化动作输出权限；Browser Node 在 State Hash/Version、Operation Epoch、八次动作预算及真人输入优先级下重新校验，不接受键盘、文本、Secret 或任意 CDP。
-- 高风险 Challenge、支付和账号安全仍需显式人工授权；VNC 协作不等于绕过安全门禁。
-- 证据见 `docs/progress/146-Challenge视觉自动化与人工兜底闭环.md`、139 及 115、117、123—126、131—132。
+- [已确认] Session 默认 `SAFE`，操作员可一次切换 `AUTONOMOUS`；后者允许 Agent 通过租户/Session/用途绑定的一次性 AES-GCM API 输入账号、密码和 OTP，默认三次输入代理重试且可调 1—10 次，不逐动作索要人工确认。
+- [已确认] 密文引用只能由一次 `TYPE_TEXT` Step 事务消费；Plan/API/审计/Agent Worker/Vision Worker 不含明文或低熵 OTP Hash。若已有密文计划则登录/OTP Challenge 直接续行；缺少输入或自动预算耗尽只通知并返回结构化失败，不强迫人工接管。
+- 支付、转账、购买、修改密码、删除账号等决策仍需独立高风险确认；自动登录不等于绕过安全门禁。人工 VNC 是随时可加入的协作能力，不是 Agent 的必经步骤。
+- 证据见 `docs/progress/147-Agent安全与自动模式及一次性敏感输入闭环.md`、146、139 及 115、117、123—126、131—132。
 
 ### 事件流与录制
 
@@ -155,6 +157,10 @@ Rust Browser Node
 
 ### 最近验证状态
 
+- Agent SAFE/AUTONOMOUS 切片本地 Control Plane 442 项、Web 114 项、Rust Workspace、
+  Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、
+  N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 Workflow 待最终推送
+  后确认。
 - 基准提交 `a8e2268` 时工作区干净，`main == origin/main`。
 - Challenge 视觉自动化切片本地 Java 439 项、Web 113 项、Rust Workspace、Python Worker、
   Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、N/N-1、Operator
@@ -170,13 +176,15 @@ Rust Browser Node
 
 本轮最高优先级开发任务：
 
-### Challenge 视觉自动化与人工兜底（已闭环）
+### Agent SAFE/AUTONOMOUS 与敏感输入自动化（本地验证完成，远端收口中）
 
-- V103 已建立租户级 Run/Job、默认三次可调预算、Worker Claim/Lease/固定模型版本和 Session 单调事件；
-- 隔离 Vision Worker 只消费脱敏 Evidence Grant，输出有界归一化 CLICK/SLIDE；Node 重新校验 State、Operation、真人输入优先级和动作预算；
-- Web/Tauri 共用 Policy、Run 状态与 Session SSE，预算耗尽进入高信号通知和人工接管；
-- OTP、设备、支付、账号安全和用户判断仍禁止自动输入；通用无语义 OCR 敏感分类没有因本切片而关闭；
-- OpenAPI/四 SDK 已同步为 211 Operations / 283 Schemas，N/N-1 和完整 Integration 已通过，见 progress 146。
+- V104 已增加默认 SAFE、可显式开启 AUTONOMOUS 和默认三次可调敏感输入预算；旧 Session/客户端行为保持 fail-closed；
+- 新的一次性密文 API 支持 USERNAME/PASSWORD/OTP，要求幂等键，租户/Session/用途绑定、短 TTL、单次事务消费且不向 Worker/API 回显明文；
+- Planner、Prompt Security、Action Tool 和 Browser Node 四层重新校验模式、用途、State/Target Revision、Capability 与域名；Node 使用覆盖式有界重试，N/N-1 新字段为 additive；
+- 自动模式有已绑定密文时继续登录/OTP Step，无输入、自动禁用或预算耗尽时通知并结构化失败，不强迫人工接管；支付和破坏性账号决策仍独立确认；
+- Web/Tauri 共用模式与重试 UI；OpenAPI/四 SDK 已同步为 212 Operations / 285 Schemas；
+  本地全量验证已通过。远端 Workflow 尚未完成前，不得把本切片标为已发布，见 progress
+  147。
 
 ### Enterprise Operations Overview 全量事件源与轮询移除（已闭环）
 
@@ -196,9 +204,9 @@ Rust Browser Node
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
 Enterprise Overview 与 Challenge 视觉自动化均已推送 `main` 且对应 GitHub
-`ci`/`desktop` 通过。下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放
-Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker；开始前应复核对象存储和
-Retention/Legal Hold 当前边界。
+`ci`/`desktop` 通过。当前先完成 Agent SAFE/AUTONOMOUS 切片的完整验证、提交、推送和
+远端 Workflow；通过后下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放
+Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker。
 
 ## 8. 尚未完成的功能
 
@@ -232,7 +240,7 @@ Retention/Legal Hold 当前边界。
 4. [已确认] **资源与运行环境分离**：Native OS 是 Execution Environment，不是资源等级；内部 Template 不直接暴露成用户等级。
 5. [已确认] **迁移安全**：真人连续输入、拖拽、上传/下载、表单/支付/账号安全、Snapshot、Profile Flush、关键事务或 Business Recovery Unknown 时不得自动迁移。
 6. [已确认] **VNC/Agent 协作**：连接不触发 Agent 断开；真人实际输入优先 2 秒；Agent 保持同一 Operation 并自动恢复。
-7. [已确认] **Challenge 自动化**：低风险视觉挑战默认三次自动尝试，截图先脱敏、Worker 最小权限、Node 状态绑定；OTP/支付/账号安全等高风险输入人工处理，真人输入始终优先。
+7. [已确认] **Challenge 与敏感输入自动化**：低风险视觉挑战默认三次自动尝试，截图先脱敏、Worker 最小权限、Node 状态绑定；Session 默认 SAFE，AUTONOMOUS 只通过一次性用途绑定密文输入账号/密码/OTP，失败通知但不强迫人工，真人输入始终优先；支付和破坏性账号决策仍独立确认。
 8. [已确认] **事件流**：只在有完整、持久、单调变化源时删除轮询；SSE payload 最小化，租户隔离，支持 Resume/Reset，不在前端伪造曲线或状态。
 9. [已确认] **安全默认值**：OIDC/RBAC、mTLS、最小权限、fail-closed、用途绑定短期授权、签名与重放防护；公共 API 不返回 Secret URL、对象路径或敏感快照内容。
 10. [已确认] **迁移策略**：数据库迁移 expand-only；必须保持 N/N-1 滚动兼容，旧枚举/字段在兼容窗口结束前不物理删除。

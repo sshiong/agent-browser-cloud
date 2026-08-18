@@ -1577,13 +1577,13 @@ challenge_automation_policy="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER')"
 printf '%s' "$challenge_automation_policy" | python3 -c \
-  'import json,sys; value=json.load(sys.stdin); assert value["enabled"] is True; assert value["maximumAttempts"] == 3; assert value["allowMultiClick"] is True; assert value["allowSlide"] is True'
+  'import json,sys; value=json.load(sys.stdin); assert value["controlMode"] == "SAFE"; assert value["sensitiveInputMaximumAttempts"] == 3; assert value["enabled"] is True; assert value["maximumAttempts"] == 3; assert value["allowMultiClick"] is True; assert value["allowSlide"] is True'
 challenge_automation_viewer_write="$(curl -sS -o "$temp_dir/challenge-automation-viewer-write.json" -w '%{http_code}' \
   -X PUT "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' \
-  -d '{"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true}')"
+  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true}')"
 test "$challenge_automation_viewer_write" = "403"
 challenge_automation_updated="$(curl -fsS \
   -X PUT "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
@@ -1591,9 +1591,60 @@ challenge_automation_updated="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: challenge-operator' \
   -H 'X-Roles: TENANT_OPERATOR' \
-  -d '{"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true}')"
+  -d '{"controlMode":"AUTONOMOUS","sensitiveInputMaximumAttempts":3,"enabled":true,"maximumAttempts":5,"minimumConfidence":0.9,"allowMultiClick":true,"allowSlide":true}')"
 printf '%s' "$challenge_automation_updated" | python3 -c \
-  'import json,sys; value=json.load(sys.stdin); assert value["maximumAttempts"] == 5; assert value["minimumConfidence"] == 0.9'
+  'import json,sys; value=json.load(sys.stdin); assert value["controlMode"] == "AUTONOMOUS"; assert value["sensitiveInputMaximumAttempts"] == 3; assert value["maximumAttempts"] == 5; assert value["minimumConfidence"] == 0.9'
+
+agent_secret_viewer_write="$(curl -sS -o "$temp_dir/agent-secret-viewer-write.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-input-secrets" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -H 'Idempotency-Key: smoke-agent-secret-viewer' \
+  -d '{"purpose":"PASSWORD","value":"not-returned"}')"
+test "$agent_secret_viewer_write" = "403"
+agent_secret_created="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-input-secrets" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: agent-secret-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-secret-001' \
+  -d '{"purpose":"PASSWORD","value":"integration-password-never-returned"}')"
+printf '%s' "$agent_secret_created" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["secretId"].startswith("ais_"); assert value["purpose"] == "PASSWORD"; assert value["consumed"] is False; assert "value" not in value; assert "integration-password" not in str(value)'
+agent_secret_replayed="$(curl -fsS \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-input-secrets" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: agent-secret-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-secret-001' \
+  -d '{"purpose":"PASSWORD","value":"integration-password-never-returned"}')"
+test "$(printf '%s' "$agent_secret_created" | python3 -c 'import json,sys; print(json.load(sys.stdin)["secretId"])')" = \
+  "$(printf '%s' "$agent_secret_replayed" | python3 -c 'import json,sys; print(json.load(sys.stdin)["secretId"])')"
+agent_secret_conflict="$(curl -sS -o "$temp_dir/agent-secret-conflict.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-input-secrets" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: agent-secret-owner' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-secret-001' \
+  -d '{"purpose":"PASSWORD","value":"different-value"}')"
+test "$agent_secret_conflict" = "409"
+agent_secret_cross_tenant="$(curl -sS -o "$temp_dir/agent-secret-cross-tenant.json" -w '%{http_code}' \
+  -X POST "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-input-secrets" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-other' \
+  -H 'X-Actor-Id: cross-tenant-operator' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-secret-cross-tenant' \
+  -d '{"purpose":"OTP","value":"123456"}')"
+test "$agent_secret_cross_tenant" = "403"
+agent_secret_plain_sha="$(python3 -c 'import hashlib; print(hashlib.sha256(b"integration-password-never-returned").hexdigest())')"
+agent_secret_plaintext_rows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
+  "select count(*) from agent_input_secrets where sealed_value like '%integration-password-never-returned%' or request_fingerprint = '${agent_secret_plain_sha}'")"
+test "$agent_secret_plaintext_rows" = "0"
 challenge_automation_cross_tenant="$(curl -sS -o "$temp_dir/challenge-automation-cross-tenant.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
   -H 'X-Tenant-Id: tenant-other' \

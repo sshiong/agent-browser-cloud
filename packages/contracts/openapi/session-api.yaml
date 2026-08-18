@@ -2060,6 +2060,41 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/agent-input-secrets:
+    post:
+      operationId: createAgentInputSecret
+      summary: Create an encrypted one-time Agent username, password, or OTP value
+      description: >
+        Available only when the Session is in AUTONOMOUS mode. The plaintext is write-only,
+        tenant/session scoped, expires within 30 minutes, and can be consumed by exactly one
+        TYPE_TEXT task Step. It is never returned to the Agent worker, Vision worker, plan, or API.
+      tags: [Agent, AgentSafety]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentInputSecretRequest"
+      responses:
+        "201":
+          description: Encrypted one-time input reference created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentInputSecret"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/sessions/{sessionId}/challenge-automation/policy:
     get:
       operationId: getChallengeAutomationPolicy
@@ -2080,7 +2115,10 @@ paths:
     put:
       operationId: updateChallengeAutomationPolicy
       summary: Update automatic screenshot/OCR click and slide limits
-      description: High-risk OTP, device, payment and account-security decisions remain manual.
+      description: >
+        SAFE retains sensitive-input gates. AUTONOMOUS authorizes purpose-bound username,
+        password and OTP inputs without repeated confirmation; payment and destructive account
+        decisions remain separately gated.
       tags: [Challenge, HumanAssist]
       parameters:
         - $ref: "#/components/parameters/SessionId"
@@ -5793,9 +5831,13 @@ components:
           type: string
           maxLength: 2000
           writeOnly: true
+        secretId:
+          type: string
+          pattern: "^ais_[A-Za-z0-9]{20,32}$"
+          description: One-time encrypted input reference. AUTONOMOUS mode and CREDENTIAL or OTP dataClass are required.
         dataClass:
           type: string
-          enum: [PUBLIC, PII]
+          enum: [PUBLIC, PII, CREDENTIAL, OTP]
         scrollDeltaY:
           type: integer
           minimum: -2000
@@ -5954,11 +5996,19 @@ components:
     ChallengeAutomationPolicy:
       type: object
       additionalProperties: false
-      required: [sessionId, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, updatedAt]
+      required: [sessionId, controlMode, sensitiveInputMaximumAttempts, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, updatedAt]
       properties:
         sessionId:
           type: string
           pattern: "^ses_[A-Za-z0-9]{16,}$"
+        controlMode:
+          type: string
+          enum: [SAFE, AUTONOMOUS]
+        sensitiveInputMaximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
         enabled:
           type: boolean
         maximumAttempts:
@@ -5983,6 +6033,13 @@ components:
       additionalProperties: false
       required: [enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide]
       properties:
+        controlMode:
+          type: string
+          enum: [SAFE, AUTONOMOUS]
+        sensitiveInputMaximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
         enabled:
           type: boolean
         maximumAttempts:
@@ -5996,6 +6053,42 @@ components:
         allowMultiClick:
           type: boolean
         allowSlide:
+          type: boolean
+    CreateAgentInputSecretRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, value]
+      properties:
+        purpose:
+          type: string
+          enum: [USERNAME, PASSWORD, OTP]
+        value:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          writeOnly: true
+        expiresAt:
+          type: string
+          format: date-time
+          description: Optional expiry no later than 30 minutes from creation.
+    AgentInputSecret:
+      type: object
+      additionalProperties: false
+      required: [secretId, sessionId, purpose, expiresAt, consumed]
+      properties:
+        secretId:
+          type: string
+          pattern: "^ais_[A-Za-z0-9]{20,32}$"
+        sessionId:
+          type: string
+          pattern: "^ses_[A-Za-z0-9]{16,}$"
+        purpose:
+          type: string
+          enum: [USERNAME, PASSWORD, OTP]
+        expiresAt:
+          type: string
+          format: date-time
+        consumed:
           type: boolean
     ChallengeAutomationRun:
       type: object
@@ -7177,6 +7270,8 @@ components:
         - scrollDeltaY
         - waitCondition
         - timeoutMs
+        - sensitiveTargetAuthorized
+        - maximumAttempts
       properties:
         targetRef:
           type: [string, "null"]
@@ -7196,6 +7291,12 @@ components:
           type: [string, "null"]
         timeoutMs:
           type: [integer, "null"]
+        sensitiveTargetAuthorized:
+          type: boolean
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
     AgentRiskClass:
       type: string
       enum:

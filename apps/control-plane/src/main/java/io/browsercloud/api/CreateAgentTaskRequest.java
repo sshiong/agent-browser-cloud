@@ -35,6 +35,7 @@ public record CreateAgentTaskRequest(
       @Size(max = 128) String targetRef,
       @Min(1) Long targetRevision,
       @Size(max = 2_000) String value,
+      @Pattern(regexp = "^ais_[A-Za-z0-9]{20,32}$") String secretId,
       ActionDataClass dataClass,
       @Min(-2_000) @Max(2_000) Integer scrollDeltaY,
       WaitCondition waitCondition,

@@ -14,4 +14,6 @@ export type AgentStepInput = {
     scrollDeltaY: number | null;
     waitCondition: string | null;
     timeoutMs: number | null;
+    sensitiveTargetAuthorized: boolean;
+    maximumAttempts: number;
 };

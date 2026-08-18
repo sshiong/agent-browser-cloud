@@ -700,6 +700,10 @@ message AgentActionCommand {
   uint32 timeout_ms = 11;
   uint64 base_state_version = 12;
   string base_content_hash = 13;
+  // Additive N/N-1 field. True only for an AUTONOMOUS, purpose-bound credential/OTP Step.
+  bool allow_sensitive_target = 14;
+  // Browser-local bounded retry budget. Old Nodes default to zero and remain fail-closed.
+  uint32 maximum_attempts = 15;
 }
 
 message AgentActionFailedEvent {

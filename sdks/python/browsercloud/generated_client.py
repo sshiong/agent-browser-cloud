@@ -117,6 +117,7 @@ OPERATIONS: dict[str, Operation] = {
     'getChallengeEvent': Operation('getChallengeEvent', 'GET', '/api/v1/challenges/{eventId}', ('eventId',), (), ('X-Tenant-Id',), '', False, 'ChallengeEvent'),
     'previewHumanAssist': Operation('previewHumanAssist', 'GET', '/api/v1/challenges/{eventId}/preview', ('eventId',), (), ('X-Actor-Id', 'X-Tenant-Id'), '', False, 'ChallengePreview'),
     'authorizeHumanAssist': Operation('authorizeHumanAssist', 'POST', '/api/v1/challenges/{eventId}/assist-authorizations', ('eventId',), (), ('Idempotency-Key', 'X-Actor-Id', 'X-Tenant-Id'), 'AuthorizeHumanAssistRequest', True, 'HumanAssistIntent'),
+    'createAgentInputSecret': Operation('createAgentInputSecret', 'POST', '/api/v1/sessions/{sessionId}/agent-input-secrets', ('sessionId',), (), ('Idempotency-Key', 'X-Actor-Id', 'X-Tenant-Id'), 'CreateAgentInputSecretRequest', True, 'AgentInputSecret'),
     'getChallengeAutomationPolicy': Operation('getChallengeAutomationPolicy', 'GET', '/api/v1/sessions/{sessionId}/challenge-automation/policy', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'ChallengeAutomationPolicy'),
     'updateChallengeAutomationPolicy': Operation('updateChallengeAutomationPolicy', 'PUT', '/api/v1/sessions/{sessionId}/challenge-automation/policy', ('sessionId',), (), ('X-Actor-Id', 'X-Tenant-Id'), 'UpdateChallengeAutomationPolicyRequest', True, 'ChallengeAutomationPolicy'),
     'getCurrentChallengeAutomationRun': Operation('getCurrentChallengeAutomationRun', 'GET', '/api/v1/sessions/{sessionId}/challenge-automation/current', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'ChallengeAutomationRun'),
@@ -549,6 +550,9 @@ class BrowserCloudGeneratedClient:
 
     def authorizeHumanAssist(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('authorizeHumanAssist', path=path, query=query, body=body, headers=headers)
+
+    def createAgentInputSecret(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('createAgentInputSecret', path=path, query=query, body=body, headers=headers)
 
     def getChallengeAutomationPolicy(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getChallengeAutomationPolicy', path=path, query=query, body=body, headers=headers)

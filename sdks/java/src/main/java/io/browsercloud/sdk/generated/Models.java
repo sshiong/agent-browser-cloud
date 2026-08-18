@@ -55,7 +55,7 @@ public final class Models {
 
   public record CreateAgentTaskRequest(String goal, String startUrl, List<String> allowedDomains, Integer maxActions, Integer replanBudget, List<AgentInstructionSource> contextSources, List<AgentActionRequest> actions) {}
 
-  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs) {}
+  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs) {}
 
   public record AgentInstructionSource(String sourceId, String sourceType, String classification, String content) {}
 
@@ -67,9 +67,13 @@ public final class Models {
 
   public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, Object executionWaitReason, Object executionWaitSince, String createdAt, String updatedAt) {}
 
-  public record ChallengeAutomationPolicy(String sessionId, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, String updatedAt) {}
+  public record ChallengeAutomationPolicy(String sessionId, String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, String updatedAt) {}
 
-  public record UpdateChallengeAutomationPolicyRequest(Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide) {}
+  public record UpdateChallengeAutomationPolicyRequest(String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide) {}
+
+  public record CreateAgentInputSecretRequest(String purpose, String value, String expiresAt) {}
+
+  public record AgentInputSecret(String secretId, String sessionId, String purpose, String expiresAt, Boolean consumed) {}
 
   public record ChallengeAutomationRun(String runId, String challengeEventId, String state, Integer attemptCount, Integer maximumAttempts, Object lastAction, Object lastErrorCode, String updatedAt, Object completedAt) {}
 
@@ -143,7 +147,7 @@ public final class Models {
 
   public record AgentPlanStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetUrl, AgentStepInput input, String rationale, List<String> supportingSources, String trustFloor, List<String> taintLabels, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification, String capabilityTokenId) {}
 
-  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs) {}
+  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts) {}
 
   public enum AgentRiskClass { R0READONLY, R1LOWRISKCHANGE, R2DATACHANGE, R3ACCOUNTCHANGE, R4FINANCIAL, R5SECURITY }
 

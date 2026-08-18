@@ -4,6 +4,8 @@
 /* eslint-disable */
 export type ChallengeAutomationPolicy = {
     sessionId: string;
+    controlMode: 'SAFE' | 'AUTONOMOUS';
+    sensitiveInputMaximumAttempts: number;
     enabled: boolean;
     maximumAttempts: number;
     minimumConfidence: number;

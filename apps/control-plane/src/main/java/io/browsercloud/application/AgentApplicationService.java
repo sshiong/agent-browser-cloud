@@ -41,6 +41,8 @@ public class AgentApplicationService {
   private final PromptSecurityService promptSecurityService;
   private final AgentCapabilityTokenService capabilityTokenService;
   private final AgentActionPayloadService actionPayloadService;
+  private final AgentControlPolicyService controlPolicyService;
+  private final AgentInputSecretApplicationService inputSecrets;
   private final AuditApplicationService auditService;
   private final ObjectMapper objectMapper;
 
@@ -52,6 +54,8 @@ public class AgentApplicationService {
       PromptSecurityService promptSecurityService,
       AgentCapabilityTokenService capabilityTokenService,
       AgentActionPayloadService actionPayloadService,
+      AgentControlPolicyService controlPolicyService,
+      AgentInputSecretApplicationService inputSecrets,
       AuditApplicationService auditService,
       ObjectMapper objectMapper) {
     this.repository = repository;
@@ -61,6 +65,8 @@ public class AgentApplicationService {
     this.promptSecurityService = promptSecurityService;
     this.capabilityTokenService = capabilityTokenService;
     this.actionPayloadService = actionPayloadService;
+    this.controlPolicyService = controlPolicyService;
+    this.inputSecrets = inputSecrets;
     this.auditService = auditService;
     this.objectMapper = objectMapper;
   }
@@ -82,7 +88,10 @@ public class AgentApplicationService {
       return get(claimedTaskId, tenantId);
     }
 
-    var evaluation = promptSecurityService.evaluate(request.goal(), request.contextSources());
+    var controlPolicy = controlPolicyService.require(sessionId, tenantId);
+    var evaluation =
+        promptSecurityService.evaluate(
+            request.goal(), request.contextSources(), controlPolicy.mode());
     var allowedDomains = normalizeDomains(request.allowedDomains());
     // PostgreSQL stores Instant-backed timestamps at microsecond precision. Normalize before
     // constructing the first response so an idempotent replay loaded from the database is
@@ -114,7 +123,8 @@ public class AgentApplicationService {
             sessionId,
             request.actions(),
             agentPolicy,
-            descriptor.humanTakeoverEnabled());
+            descriptor.humanTakeoverEnabled(),
+            controlPolicy);
     var authorizedDomain = resolveAuthorizedDomain(request.startUrl(), sessionId);
     var plan =
         blockReason.isBlank()
@@ -128,7 +138,8 @@ public class AgentApplicationService {
                 request.actions(),
                 maxActions,
                 replanBudget,
-                expiresAt)
+                expiresAt,
+                controlPolicy)
             : new AgentPlan(intentId, List.of(), maxActions, replanBudget, expiresAt);
     var securityEvents = new ArrayList<>(evaluation.securityEvents());
     if (!blockReason.isBlank()) {
@@ -234,7 +245,8 @@ public class AgentApplicationService {
       String sessionId,
       List<CreateAgentTaskRequest.ActionRequest> requestedActions,
       AgentPolicy agentPolicy,
-      boolean humanTakeoverEnabled) {
+      boolean humanTakeoverEnabled,
+      AgentControlPolicyService.Policy controlPolicy) {
     var actions =
         requestedActions == null
             ? List.<CreateAgentTaskRequest.ActionRequest>of()
@@ -279,7 +291,8 @@ public class AgentApplicationService {
           return "CURRENT_DOMAIN_NOT_ALLOWED";
         }
       }
-      var actionError = validateRequestedActions(actions, snapshot.orElseThrow().state());
+      var actionError =
+          validateRequestedActions(actions, snapshot.orElseThrow().state(), controlPolicy);
       if (!actionError.isBlank()) {
         return actionError;
       }
@@ -293,7 +306,8 @@ public class AgentApplicationService {
 
   private String validateRequestedActions(
       List<CreateAgentTaskRequest.ActionRequest> actions,
-      io.browsercloud.coordinator.NodeEvent.StateUpdated state) {
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
+      AgentControlPolicyService.Policy controlPolicy) {
     var handoffCount =
         actions.stream().filter(action -> action.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER).count();
     if (handoffCount > 1
@@ -318,16 +332,27 @@ public class AgentApplicationService {
             return "TARGET_NOT_ACTIONABLE";
           }
           if (action.toolId() == ToolId.TYPE_TEXT) {
-            if (target.sensitive()) {
+            var sensitiveData =
+                action.dataClass() == ActionDataClass.CREDENTIAL
+                    || action.dataClass() == ActionDataClass.OTP;
+            if (action.value() != null && action.secretId() != null) {
+              return "TYPE_TEXT_VALUE_SOURCE_AMBIGUOUS";
+            }
+            if (action.secretId() != null && (!controlPolicy.autonomous() || !sensitiveData)) {
+              return "AUTONOMOUS_SENSITIVE_INPUT_REQUIRED";
+            }
+            if (target.sensitive()
+                && (!controlPolicy.autonomous() || action.secretId() == null || !sensitiveData)) {
               return "SENSITIVE_TARGET_FORBIDDEN";
             }
             if (!java.util.Set.of("textbox", "combobox").contains(target.role())) {
               return "TYPE_TARGET_ROLE_INVALID";
             }
-            if (action.value() == null || action.value().isBlank()) {
+            if ((action.value() == null || action.value().isBlank()) && action.secretId() == null) {
               return "TYPE_TEXT_VALUE_REQUIRED";
             }
-            if (AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
+            if (action.value() != null
+                && AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
               return "CREDENTIAL_VALUE_FORBIDDEN";
             }
           }
@@ -355,6 +380,7 @@ public class AgentApplicationService {
           if (action.targetRef() != null
               || action.targetRevision() != null
               || action.value() != null
+              || action.secretId() != null
               || action.dataClass() != null
               || action.scrollDeltaY() != null
               || action.waitCondition() != null
@@ -380,7 +406,8 @@ public class AgentApplicationService {
       List<CreateAgentTaskRequest.ActionRequest> requestedActions,
       int maxActions,
       int replanBudget,
-      Instant expiresAt) {
+      Instant expiresAt,
+      AgentControlPolicyService.Policy controlPolicy) {
     var steps = new ArrayList<PlanStep>();
     var actions =
         requestedActions == null
@@ -424,7 +451,14 @@ public class AgentApplicationService {
     for (var action : actions) {
       steps.add(
           actionStep(
-              tenantId, sessionId, operationId, intentId, authorizedDomain, action, expiresAt));
+              tenantId,
+              sessionId,
+              operationId,
+              intentId,
+              authorizedDomain,
+              action,
+              expiresAt,
+              controlPolicy));
     }
     var endsWithHandoff =
         !actions.isEmpty() && actions.getLast().toolId() == ToolId.REQUEST_HUMAN_TAKEOVER;
@@ -513,26 +547,42 @@ public class AgentApplicationService {
       String intentId,
       String allowedDomain,
       CreateAgentTaskRequest.ActionRequest request,
-      Instant expiresAt) {
+      Instant expiresAt,
+      AgentControlPolicyService.Policy controlPolicy) {
     var stepId = newId("step_");
     var dataClass = request.dataClass() == null ? ActionDataClass.PUBLIC : request.dataClass();
+    var resolvedSecret =
+        request.secretId() == null
+            ? null
+            : inputSecrets.consume(request.secretId(), sessionId, tenantId, taskId, dataClass);
+    var plaintext = resolvedSecret == null ? request.value() : resolvedSecret.plaintext();
+    var sensitiveInput =
+        dataClass == ActionDataClass.CREDENTIAL || dataClass == ActionDataClass.OTP;
+    var sealedPayload =
+        request.toolId() == ToolId.TYPE_TEXT
+            ? actionPayloadService.seal(tenantId, taskId, stepId, plaintext)
+            : null;
     var input =
         request.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER
             ? null
             : new StepInput(
                 request.targetRef(),
                 request.targetRevision(),
+                sealedPayload,
                 request.toolId() == ToolId.TYPE_TEXT
-                    ? actionPayloadService.seal(tenantId, taskId, stepId, request.value())
+                    ? PromptSecurityService.sha256(sensitiveInput ? sealedPayload : plaintext)
                     : null,
-                request.toolId() == ToolId.TYPE_TEXT
-                    ? PromptSecurityService.sha256(request.value())
-                    : null,
-                request.toolId() == ToolId.TYPE_TEXT ? request.value().length() : null,
+                request.toolId() == ToolId.TYPE_TEXT ? plaintext.length() : null,
                 request.toolId() == ToolId.TYPE_TEXT ? dataClass : null,
                 request.scrollDeltaY(),
                 request.waitCondition(),
-                request.timeoutMs());
+                request.timeoutMs(),
+                request.toolId() == ToolId.TYPE_TEXT
+                    && sensitiveInput
+                    && controlPolicy.autonomous(),
+                request.toolId() == ToolId.TYPE_TEXT && sensitiveInput
+                    ? controlPolicy.sensitiveInputMaximumAttempts()
+                    : 1);
     var risk =
         switch (request.toolId()) {
           case TYPE_TEXT -> RiskClass.R2_DATA_CHANGE;
@@ -578,9 +628,14 @@ public class AgentApplicationService {
       case NAVIGATE -> "NAVIGATION";
       case CLICK_TARGET -> "TARGET_ACTION";
       case TYPE_TEXT ->
-          input != null && input.dataClass() == ActionDataClass.PII
-              ? "FORM_INPUT_PII"
-              : "FORM_INPUT_PUBLIC";
+          input == null
+              ? "FORM_INPUT_PUBLIC"
+              : switch (input.dataClass()) {
+                case PII -> "FORM_INPUT_PII";
+                case CREDENTIAL -> "FORM_INPUT_CREDENTIAL";
+                case OTP -> "FORM_INPUT_OTP";
+                default -> "FORM_INPUT_PUBLIC";
+              };
       case SCROLL -> "VIEWPORT_ACTION";
       case WAIT_FOR -> "STATE_OBSERVATION";
       case REQUEST_HUMAN_TAKEOVER -> "HUMAN_HANDOFF";
@@ -591,7 +646,7 @@ public class AgentApplicationService {
   private static String rationale(ToolId toolId) {
     return switch (toolId) {
       case CLICK_TARGET -> "Click the exact user-authorized current-state target";
-      case TYPE_TEXT -> "Type sealed user-provided text into the exact authorized target";
+      case TYPE_TEXT -> "Type sealed purpose-bound text into the exact authorized target";
       case SCROLL -> "Scroll the current page by a bounded amount";
       case WAIT_FOR -> "Wait for a bounded browser-state condition";
       case REQUEST_HUMAN_TAKEOVER -> "Pause the Agent and request an explicit human takeover";
@@ -635,7 +690,9 @@ public class AgentApplicationService {
                                 step.input().dataClass(),
                                 step.input().scrollDeltaY(),
                                 step.input().waitCondition(),
-                                step.input().timeoutMs()),
+                                step.input().timeoutMs(),
+                                step.input().allowSensitiveTarget(),
+                                step.input().maximumAttempts()),
                         step.rationale(),
                         step.supportingSources(),
                         step.trustFloor(),

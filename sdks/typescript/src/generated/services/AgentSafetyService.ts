@@ -5,6 +5,7 @@
 import type { AgentExecutionJob } from '../models/AgentExecutionJob.js';
 import type { AgentExecutionJobClaim } from '../models/AgentExecutionJobClaim.js';
 import type { AgentExecutionJobClaimRequest } from '../models/AgentExecutionJobClaimRequest.js';
+import type { AgentInputSecret } from '../models/AgentInputSecret.js';
 import type { AgentReviewJob } from '../models/AgentReviewJob.js';
 import type { AgentReviewJobClaim } from '../models/AgentReviewJobClaim.js';
 import type { AgentReviewJobClaimRequest } from '../models/AgentReviewJobClaimRequest.js';
@@ -14,6 +15,7 @@ import type { AgentTaskSummaryListResponse } from '../models/AgentTaskSummaryLis
 import type { ClaimAgentExecutionJobRequest } from '../models/ClaimAgentExecutionJobRequest.js';
 import type { ClaimAgentReviewJobRequest } from '../models/ClaimAgentReviewJobRequest.js';
 import type { CompleteAgentReviewJobRequest } from '../models/CompleteAgentReviewJobRequest.js';
+import type { CreateAgentInputSecretRequest } from '../models/CreateAgentInputSecretRequest.js';
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
 import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
 import type { FailAgentReviewJobRequest } from '../models/FailAgentReviewJobRequest.js';
@@ -49,6 +51,53 @@ export class AgentSafetyService {
             },
             headers: {
                 'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request.`,
+                403: `Resource is outside the caller tenant scope.`,
+                404: `Resource not found.`,
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Create an encrypted one-time Agent username, password, or OTP value
+     * Available only when the Session is in AUTONOMOUS mode. The plaintext is write-only, tenant/session scoped, expires within 30 minutes, and can be consumed by exactly one TYPE_TEXT task Step. It is never returned to the Agent worker, Vision worker, plan, or API.
+     *
+     * @returns AgentInputSecret Encrypted one-time input reference created.
+     * @throws ApiError
+     */
+    public createAgentInputSecret({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+        xActorId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: CreateAgentInputSecretRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+        /**
+         * Optional Local/Test actor identity. Ignored in Production, where actor identity is the JWT subject.
+         */
+        xActorId?: string,
+    }): CancelablePromise<AgentInputSecret> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-input-secrets',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'X-Actor-Id': xActorId,
                 'Idempotency-Key': idempotencyKey,
             },
             body: requestBody,

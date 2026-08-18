@@ -2668,7 +2668,19 @@ impl NodeControlService {
                     )
                     .await?;
                 if payload.tool_id == "TYPE_TEXT" {
-                    anyhow::ensure!(!target.sensitive, "sensitive target is forbidden");
+                    anyhow::ensure!(
+                        !target.sensitive || payload.allow_sensitive_target,
+                        "sensitive target is forbidden"
+                    );
+                    let effective_attempts = if payload.maximum_attempts == 0 {
+                        1
+                    } else {
+                        payload.maximum_attempts
+                    };
+                    anyhow::ensure!(
+                        (1..=10).contains(&effective_attempts),
+                        "type text retry budget is invalid"
+                    );
                     anyhow::ensure!(
                         matches!(target.role.as_str(), "textbox" | "combobox"),
                         "type target role is not supported"
@@ -2701,30 +2713,62 @@ impl NodeControlService {
                     .get(&payload.session_id)
                     .cloned()
                     .ok_or_else(|| anyhow::anyhow!("input broker is unavailable"))?;
-                let base = input.ledger_snapshot().await.last_sequence;
-                let sequence = |offset: u64| {
-                    base.checked_add(offset)
-                        .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))
+                let maximum_attempts = if payload.tool_id == "TYPE_TEXT" {
+                    if payload.maximum_attempts == 0 {
+                        1
+                    } else {
+                        payload.maximum_attempts
+                    }
+                } else {
+                    1
                 };
-                input
-                    .mouse_move(
-                        center_x.round() as i32,
-                        center_y.round() as i32,
-                        sequence(1)?,
-                    )
-                    .await?;
-                input.mouse_down(0, sequence(2)?).await?;
-                input.mouse_up(0, sequence(3)?).await?;
-                if payload.tool_id == "TYPE_TEXT" {
-                    input.key_down(InputKey::Control, sequence(4)?).await?;
-                    input
-                        .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
-                        .await?;
-                    input
-                        .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
-                        .await?;
-                    input.key_up(InputKey::Control, sequence(7)?).await?;
-                    input.insert_text(&payload.text, sequence(8)?).await?;
+                let mut last_error = None;
+                for attempt in 0..maximum_attempts {
+                    let base = input.ledger_snapshot().await.last_sequence;
+                    let sequence = |offset: u64| {
+                        base.checked_add(offset)
+                            .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))
+                    };
+                    let result: anyhow::Result<()> = async {
+                        input
+                            .mouse_move(
+                                center_x.round() as i32,
+                                center_y.round() as i32,
+                                sequence(1)?,
+                            )
+                            .await?;
+                        input.mouse_down(0, sequence(2)?).await?;
+                        input.mouse_up(0, sequence(3)?).await?;
+                        if payload.tool_id == "TYPE_TEXT" {
+                            // Every retry replaces the field value; it never appends a password/OTP twice.
+                            input.key_down(InputKey::Control, sequence(4)?).await?;
+                            input
+                                .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
+                                .await?;
+                            input
+                                .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
+                                .await?;
+                            input.key_up(InputKey::Control, sequence(7)?).await?;
+                            input.insert_text(&payload.text, sequence(8)?).await?;
+                        }
+                        Ok(())
+                    }
+                    .await;
+                    match result {
+                        Ok(()) => {
+                            last_error = None;
+                            break;
+                        }
+                        Err(error) => {
+                            last_error = Some(error);
+                            if attempt + 1 < maximum_attempts {
+                                tokio::time::sleep(Duration::from_millis(150)).await;
+                            }
+                        }
+                    }
+                }
+                if let Some(error) = last_error {
+                    return Err(error);
                 }
             }
             "SCROLL" => {
@@ -4984,6 +5028,8 @@ impl NodeControlService {
                             timeout_ms: 0,
                             base_state_version: current.state_version,
                             base_content_hash: current.content_hash,
+                            allow_sensitive_target: false,
+                            maximum_attempts: 1,
                         };
                         let state = match self.execute_agent_action(&click).await {
                             Ok(state) => state,

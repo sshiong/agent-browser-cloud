@@ -22,8 +22,10 @@ public final class PromptSecurityService {
 
   private static final Pattern FORBIDDEN_DIRECT =
       Pattern.compile(
-          "(?iu)(cookie|浏览器缓存凭证|password|密码|otp|验证码|shell|命令行|raw\\s*cdp|"
+          "(?iu)(cookie|浏览器缓存凭证|shell|命令行|raw\\s*cdp|"
               + "vault|kubernetes|k8s|node\\s*helper|关闭审计|disable\\s+audit|绕过策略|bypass\\s+policy)");
+  private static final Pattern SENSITIVE_INPUT =
+      Pattern.compile("(?iu)(username|user name|账号|用户名|password|密码|otp|验证码)");
   private static final Pattern FINANCIAL =
       Pattern.compile("(?iu)(付款|支付|转账|购买|payment|transfer|purchase)");
   private static final Pattern ACCOUNT_OR_SECURITY =
@@ -50,6 +52,11 @@ public final class PromptSecurityService {
           InstructionSourceType.THIRD_PARTY_WIDGET);
 
   public IntentEvaluation evaluate(String goal, List<InstructionSourceRequest> requestedSources) {
+    return evaluate(goal, requestedSources, AgentControlMode.SAFE);
+  }
+
+  public IntentEvaluation evaluate(
+      String goal, List<InstructionSourceRequest> requestedSources, AgentControlMode controlMode) {
     var now = Instant.now();
     var events = new ArrayList<SecurityEvent>();
     var sources = new ArrayList<InstructionSource>();
@@ -68,7 +75,8 @@ public final class PromptSecurityService {
     IntentDecision decision = IntentDecision.ALLOWED;
     RiskClass risk = RiskClass.R0_READ_ONLY;
     String reason = "";
-    if (FORBIDDEN_DIRECT.matcher(goal).find()) {
+    if (FORBIDDEN_DIRECT.matcher(goal).find()
+        || (controlMode != AgentControlMode.AUTONOMOUS && SENSITIVE_INPUT.matcher(goal).find())) {
       decision = IntentDecision.FORBIDDEN;
       risk = RiskClass.R5_SECURITY;
       reason = "DIRECT_PRIVILEGED_RESOURCE_REQUEST";
@@ -89,6 +97,8 @@ public final class PromptSecurityService {
       decision = IntentDecision.CONFIRM_REQUIRED;
       risk = RiskClass.R3_ACCOUNT_CHANGE;
       reason = "HIGH_RISK_CONFIRMATION_REQUIRED";
+    } else if (SENSITIVE_INPUT.matcher(goal).find()) {
+      risk = RiskClass.R2_DATA_CHANGE;
     } else if (DATA_CHANGE.matcher(goal).find()) {
       risk = RiskClass.R2_DATA_CHANGE;
     }

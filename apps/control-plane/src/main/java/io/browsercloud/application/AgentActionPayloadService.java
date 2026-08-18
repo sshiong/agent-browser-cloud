@@ -5,7 +5,9 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HexFormat;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -73,6 +75,26 @@ public final class AgentActionPayloadService {
           cipher.doFinal(Base64.getUrlDecoder().decode(parts[2])), StandardCharsets.UTF_8);
     } catch (GeneralSecurityException | IllegalArgumentException exception) {
       throw new InvalidActionPayloadException();
+    }
+  }
+
+  public String sealReference(
+      String tenantId, String sessionId, String secretId, String plaintext) {
+    return seal(tenantId, "session:" + sessionId, "secret:" + secretId, plaintext);
+  }
+
+  public String unsealReference(
+      String tenantId, String sessionId, String secretId, String sealedPayload) {
+    return unseal(tenantId, "session:" + sessionId, "secret:" + secretId, sealedPayload);
+  }
+
+  public String fingerprintReference(String value) {
+    try {
+      var mac = Mac.getInstance("HmacSHA256");
+      mac.init(new SecretKeySpec(key.getEncoded(), "HmacSHA256"));
+      return HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (GeneralSecurityException exception) {
+      throw new IllegalStateException("HMAC-SHA256 is unavailable", exception);
     }
   }
 

@@ -100,7 +100,8 @@ public class ChallengeAutomationApplicationService {
     requireTenant(sessionId, tenantId);
     return jdbc.queryForObject(
         """
-        SELECT id, challenge_automation_enabled, challenge_automation_max_attempts,
+        SELECT id, agent_control_mode, agent_sensitive_input_max_attempts,
+               challenge_automation_enabled, challenge_automation_max_attempts,
                challenge_automation_min_confidence, challenge_automation_allow_multi_click,
                challenge_automation_allow_slide, updated_at
         FROM sessions WHERE id = ? AND tenant_id = ?
@@ -122,7 +123,15 @@ public class ChallengeAutomationApplicationService {
       throw new IllegalArgumentException("Enabled Challenge automation needs at least one attempt");
     }
     var current = policy(sessionId, tenantId);
+    var requestedControlMode =
+        request.controlMode() == null ? current.controlMode() : request.controlMode();
+    var requestedSensitiveAttempts =
+        request.sensitiveInputMaximumAttempts() == null
+            ? current.sensitiveInputMaximumAttempts()
+            : request.sensitiveInputMaximumAttempts();
     if (current.enabled() == request.enabled()
+        && current.controlMode() == requestedControlMode
+        && current.sensitiveInputMaximumAttempts() == requestedSensitiveAttempts
         && current.maximumAttempts() == request.maximumAttempts()
         && current.minimumConfidence().compareTo(request.minimumConfidence()) == 0
         && current.allowMultiClick() == request.allowMultiClick()
@@ -132,12 +141,15 @@ public class ChallengeAutomationApplicationService {
     jdbc.update(
         """
         UPDATE sessions
-        SET challenge_automation_enabled = ?, challenge_automation_max_attempts = ?,
+        SET agent_control_mode = ?, agent_sensitive_input_max_attempts = ?,
+            challenge_automation_enabled = ?, challenge_automation_max_attempts = ?,
             challenge_automation_min_confidence = ?,
             challenge_automation_allow_multi_click = ?, challenge_automation_allow_slide = ?,
             updated_at = now()
         WHERE id = ? AND tenant_id = ?
         """,
+        requestedControlMode.name(),
+        requestedSensitiveAttempts,
         request.enabled(),
         request.maximumAttempts(),
         request.minimumConfidence(),
@@ -157,6 +169,8 @@ public class ChallengeAutomationApplicationService {
             "UPDATE",
             "COMMITTED",
             Map.of(
+                "controlMode", requestedControlMode.name(),
+                "sensitiveInputMaximumAttempts", requestedSensitiveAttempts,
                 "enabled", request.enabled(),
                 "maximumAttempts", request.maximumAttempts(),
                 "allowMultiClick", request.allowMultiClick(),
@@ -186,7 +200,7 @@ public class ChallengeAutomationApplicationService {
   @Transactional
   public void challengeObserved(String challengeEventId, String tenantId, String sessionId) {
     var challenge = challenges.findForUpdate(challengeEventId, tenantId).orElse(null);
-    if (challenge == null || !AUTOMATABLE_TYPES.contains(challenge.getSuspectedType())) return;
+    if (challenge == null) return;
     var task =
         tasks
             .findWaitingForChallengeBySessionForUpdate(sessionId, tenantId, PageRequest.of(0, 1))
@@ -196,7 +210,38 @@ public class ChallengeAutomationApplicationService {
     if (task == null || !TaskState.WAITING_FOR_HUMAN.name().equals(task.getState())) return;
     if (activeRun(task.getTaskId(), tenantId).isPresent()) return;
     var policy = policy(sessionId, tenantId);
-    if (!policy.enabled() || policy.maximumAttempts() == 0) return;
+    if (!AUTOMATABLE_TYPES.contains(challenge.getSuspectedType())) {
+      if (policy.controlMode()
+          == io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS) {
+        agentExecution.failWaitingChallenge(
+            challengeEventId,
+            tenantId,
+            "AUTONOMOUS_CHALLENGE_" + challenge.getSuspectedType() + "_UNRESOLVED");
+        appendAudit(
+            tenantId,
+            sessionId,
+            task.getTaskId(),
+            "AGENT_AUTONOMOUS_CHALLENGE_FAILED",
+            "FAILED",
+            Map.of("challengeType", challenge.getSuspectedType(), "humanTakeoverRequired", false));
+      }
+      return;
+    }
+    if (!policy.enabled() || policy.maximumAttempts() == 0) {
+      if (policy.controlMode()
+          == io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS) {
+        agentExecution.failWaitingChallenge(
+            challengeEventId, tenantId, "AUTONOMOUS_CHALLENGE_AUTOMATION_DISABLED");
+        appendAudit(
+            tenantId,
+            sessionId,
+            task.getTaskId(),
+            "AGENT_AUTONOMOUS_CHALLENGE_FAILED",
+            "FAILED",
+            Map.of("challengeType", challenge.getSuspectedType(), "automationEnabled", false));
+      }
+      return;
+    }
     var now = Instant.now();
     var runId = id("car_");
     jdbc.update(
@@ -609,6 +654,13 @@ public class ChallengeAutomationApplicationService {
             run.attemptCount(),
             "reason",
             safeCode(code, "CHALLENGE_AUTOMATION_FAILED")));
+    if (policy(run.sessionId(), run.tenantId()).controlMode()
+        == io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS) {
+      agentExecution.failWaitingChallenge(
+          run.currentChallengeEventId(),
+          run.tenantId(),
+          "AUTONOMOUS_CHALLENGE_" + safeCode(code, "AUTOMATION_FAILED"));
+    }
   }
 
   private Optional<Job> claimReadyJob(
@@ -733,6 +785,9 @@ public class ChallengeAutomationApplicationService {
   private ChallengeAutomationPolicyView policy(ResultSet result) throws SQLException {
     return new ChallengeAutomationPolicyView(
         result.getString("id"),
+        io.browsercloud.domain.agent.AgentModels.AgentControlMode.valueOf(
+            result.getString("agent_control_mode")),
+        result.getInt("agent_sensitive_input_max_attempts"),
         result.getBoolean("challenge_automation_enabled"),
         result.getInt("challenge_automation_max_attempts"),
         result.getBigDecimal("challenge_automation_min_confidence"),

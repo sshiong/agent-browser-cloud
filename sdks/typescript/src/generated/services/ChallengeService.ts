@@ -199,7 +199,8 @@ export class ChallengeService {
     }
     /**
      * Update automatic screenshot/OCR click and slide limits
-     * High-risk OTP, device, payment and account-security decisions remain manual.
+     * SAFE retains sensitive-input gates. AUTONOMOUS authorizes purpose-bound username, password and OTP inputs without repeated confirmation; payment and destructive account decisions remain separately gated.
+     *
      * @returns ChallengeAutomationPolicy Updated policy.
      * @throws ApiError
      */

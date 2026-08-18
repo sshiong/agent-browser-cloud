@@ -94,7 +94,9 @@ public record AgentTaskView(
       ActionDataClass dataClass,
       Integer scrollDeltaY,
       WaitCondition waitCondition,
-      Integer timeoutMs) {}
+      Integer timeoutMs,
+      boolean sensitiveTargetAuthorized,
+      int maximumAttempts) {}
 
   public record SecurityEventView(
       String eventId,

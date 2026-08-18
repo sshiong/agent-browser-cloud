@@ -220,6 +220,17 @@ public class AgentExecutionService {
     drive(task, session, operation, plan, readResults(task.getExecutionResults()));
   }
 
+  /** AUTONOMOUS mode reports an unresolved Challenge instead of forcing a Human takeover state. */
+  @Transactional
+  public void failWaitingChallenge(String challengeEventId, String tenantId, String failureCode) {
+    var task =
+        taskRepository.findByChallengeEventForUpdate(challengeEventId, tenantId).orElse(null);
+    if (task == null || !task.getState().equals(TaskState.WAITING_FOR_HUMAN.name())) return;
+    task.failExecution(
+        task.getCurrentStep(), task.getExecutionResults(), safeCode(failureCode), Instant.now());
+    taskRepository.save(task);
+  }
+
   /** Keeps an already paused Agent bound to the newest Challenge instead of resuming it. */
   @Transactional
   public void bindWaitingTaskToChallenge(

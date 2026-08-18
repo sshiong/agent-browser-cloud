@@ -964,6 +964,8 @@ export interface HumanAssistView {
 
 export interface ChallengeAutomationPolicyView {
   sessionId: string;
+  controlMode: 'SAFE' | 'AUTONOMOUS';
+  sensitiveInputMaximumAttempts: number;
   enabled: boolean;
   maximumAttempts: number;
   minimumConfidence: number;
@@ -973,11 +975,27 @@ export interface ChallengeAutomationPolicyView {
 }
 
 export interface UpdateChallengeAutomationPolicyRequest {
+  controlMode?: 'SAFE' | 'AUTONOMOUS';
+  sensitiveInputMaximumAttempts?: number;
   enabled: boolean;
   maximumAttempts: number;
   minimumConfidence: number;
   allowMultiClick: boolean;
   allowSlide: boolean;
+}
+
+export interface CreateAgentInputSecretRequest {
+  purpose: 'USERNAME' | 'PASSWORD' | 'OTP';
+  value: string;
+  expiresAt?: string;
+}
+
+export interface AgentInputSecretView {
+  secretId: string;
+  sessionId: string;
+  purpose: 'USERNAME' | 'PASSWORD' | 'OTP';
+  expiresAt: string;
+  consumed: boolean;
 }
 
 export interface ChallengeAutomationRunView {

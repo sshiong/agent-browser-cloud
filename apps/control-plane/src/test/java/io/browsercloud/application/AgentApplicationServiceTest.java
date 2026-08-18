@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +38,8 @@ class AgentApplicationServiceTest {
   @Mock private BrowserStateRepository stateRepository;
   @Mock private IdempotencyService idempotencyService;
   @Mock private AuditApplicationService auditService;
+  @Mock private AgentControlPolicyService controlPolicyService;
+  @Mock private AgentInputSecretApplicationService inputSecrets;
 
   private AgentApplicationService service;
 
@@ -54,8 +57,14 @@ class AgentApplicationServiceTest {
                 mapper, "test-agent-capability-token-secret-with-more-than-32-bytes", "test"),
             new AgentActionPayloadService(
                 "test-agent-action-payload-secret-with-more-than-32-bytes", "test"),
+            controlPolicyService,
+            inputSecrets,
             auditService,
             mapper);
+    when(controlPolicyService.require(anyString(), anyString()))
+        .thenReturn(
+            new AgentControlPolicyService.Policy(
+                io.browsercloud.domain.agent.AgentModels.AgentControlMode.SAFE, 3));
     when(sessionRepository.describe(anyString()))
         .thenReturn(
             new SessionDescriptor(
@@ -160,6 +169,7 @@ class AgentApplicationServiceTest {
                     "target:2:0",
                     2L,
                     "Quarterly note",
+                    null,
                     ActionDataClass.PUBLIC,
                     null,
                     null,
@@ -177,6 +187,88 @@ class AgentApplicationServiceTest {
     assertThat(typeStep.input().payloadLength()).isEqualTo(14);
     assertThat(typeStep.input().payloadHash()).hasSize(64);
     assertThat(view.toString()).doesNotContain("Quarterly note", "v1.");
+  }
+
+  @Test
+  void autonomousModeConsumesOneTimeCredentialForSensitiveTargetWithoutExposingIt() {
+    when(controlPolicyService.require(anyString(), anyString()))
+        .thenReturn(
+            new AgentControlPolicyService.Policy(
+                io.browsercloud.domain.agent.AgentModels.AgentControlMode.AUTONOMOUS, 3));
+    when(stateRepository.find(anyString()))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    3,
+                    new NodeEvent.StateUpdated(
+                        "ses_1234567890abcdef",
+                        9,
+                        2,
+                        "https://example.com/login",
+                        "Login",
+                        "hash",
+                        "COMPLETE",
+                        List.of(
+                            new NodeEvent.InteractiveTarget(
+                                "target:2:password",
+                                "textbox",
+                                "Password",
+                                new NodeEvent.Bounds(10, 20, 180, 32),
+                                true,
+                                true,
+                                true))))));
+    when(inputSecrets.consume(
+            org.mockito.ArgumentMatchers.eq("ais_1234567890abcdefghijklmn"),
+            org.mockito.ArgumentMatchers.eq("ses_1234567890abcdef"),
+            org.mockito.ArgumentMatchers.eq("tenant-test"),
+            org.mockito.ArgumentMatchers.startsWith("agt_"),
+            org.mockito.ArgumentMatchers.eq(ActionDataClass.CREDENTIAL)))
+        .thenReturn(
+            new AgentInputSecretApplicationService.ResolvedSecret(
+                "never-return-this-password",
+                26,
+                io.browsercloud.api.AgentInputSecretModels.AgentInputSecretPurpose.PASSWORD));
+    var request =
+        new CreateAgentTaskRequest(
+            "输入密码完成登录",
+            null,
+            List.of("example.com"),
+            8,
+            1,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.TYPE_TEXT,
+                    "target:2:password",
+                    2L,
+                    null,
+                    "ais_1234567890abcdefghijklmn",
+                    ActionDataClass.CREDENTIAL,
+                    null,
+                    null,
+                    null)));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-secret");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var input =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.TYPE_TEXT)
+            .findFirst()
+            .orElseThrow()
+            .input();
+    assertThat(input.dataClass()).isEqualTo(ActionDataClass.CREDENTIAL);
+    assertThat(input.sensitiveTargetAuthorized()).isTrue();
+    assertThat(input.maximumAttempts()).isEqualTo(3);
+    assertThat(view.toString()).doesNotContain("never-return-this-password", "v1.");
+    verify(inputSecrets)
+        .consume(
+            org.mockito.ArgumentMatchers.eq("ais_1234567890abcdefghijklmn"),
+            org.mockito.ArgumentMatchers.eq("ses_1234567890abcdef"),
+            org.mockito.ArgumentMatchers.eq("tenant-test"),
+            org.mockito.ArgumentMatchers.startsWith("agt_"),
+            org.mockito.ArgumentMatchers.eq(ActionDataClass.CREDENTIAL));
   }
 
   @Test

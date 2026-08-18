@@ -43,6 +43,11 @@ public final class AgentModels {
     FORBIDDEN
   }
 
+  public enum AgentControlMode {
+    SAFE,
+    AUTONOMOUS
+  }
+
   public enum TaskState {
     PLANNED,
     QUEUED,
@@ -79,7 +84,9 @@ public final class AgentModels {
 
   public enum ActionDataClass {
     PUBLIC,
-    PII
+    PII,
+    CREDENTIAL,
+    OTP
   }
 
   public enum WaitCondition {
@@ -100,7 +107,9 @@ public final class AgentModels {
       ActionDataClass dataClass,
       Integer scrollDeltaY,
       WaitCondition waitCondition,
-      Integer timeoutMs) {}
+      Integer timeoutMs,
+      boolean allowSensitiveTarget,
+      int maximumAttempts) {}
 
   public record InstructionSource(
       String sourceId,

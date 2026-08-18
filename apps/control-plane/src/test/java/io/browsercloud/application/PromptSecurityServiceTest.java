@@ -4,6 +4,7 @@ import static io.browsercloud.domain.agent.AgentModels.InstructionSourceType.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.browsercloud.api.CreateAgentTaskRequest.InstructionSourceRequest;
+import io.browsercloud.domain.agent.AgentModels.AgentControlMode;
 import io.browsercloud.domain.agent.AgentModels.IntentDecision;
 import io.browsercloud.domain.agent.AgentModels.RiskClass;
 import java.util.List;
@@ -52,5 +53,15 @@ class PromptSecurityServiceTest {
     assertThat(result.decision()).isEqualTo(IntentDecision.FORBIDDEN);
     assertThat(result.sanitizedGoal()).doesNotContain("secret-value", "alice@example.com", "138");
     assertThat(result.sanitizedGoal()).contains("[REDACTED]", "[PHONE_REDACTED]");
+  }
+
+  @Test
+  void permitsCredentialAndOtpIntentOnlyInAutonomousMode() {
+    var safe = service.evaluate("输入账号密码和验证码完成登录", List.of());
+    var autonomous = service.evaluate("输入账号密码和验证码完成登录", List.of(), AgentControlMode.AUTONOMOUS);
+
+    assertThat(safe.decision()).isEqualTo(IntentDecision.FORBIDDEN);
+    assertThat(autonomous.decision()).isEqualTo(IntentDecision.ALLOWED);
+    assertThat(autonomous.riskClass()).isEqualTo(RiskClass.R2_DATA_CHANGE);
   }
 }

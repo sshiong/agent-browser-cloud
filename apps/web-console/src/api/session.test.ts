@@ -6,6 +6,7 @@ import {
   createSessionEvidenceAccessGrant,
   createRemoteDesktopConnection,
   createSession,
+  createAgentInputSecret,
   getBrowserState,
   getBusinessRecovery,
   getChallengePreview,
@@ -1101,6 +1102,8 @@ describe('session API', () => {
     const sessionId = 'ses_1234567890abcdef';
     const policy = {
       sessionId,
+      controlMode: 'SAFE' as const,
+      sensitiveInputMaximumAttempts: 3,
       enabled: true,
       maximumAttempts: 3,
       minimumConfidence: 0.85,
@@ -1129,6 +1132,8 @@ describe('session API', () => {
     await updateChallengeAutomationPolicy(
       sessionId,
       {
+        controlMode: 'AUTONOMOUS',
+        sensitiveInputMaximumAttempts: 3,
         enabled: true,
         maximumAttempts: 5,
         minimumConfidence: 0.85,
@@ -1150,6 +1155,44 @@ describe('session API', () => {
         headers: expect.objectContaining({
           'X-Tenant-Id': 'tenant-test',
           'X-Actor-Id': 'operator-test',
+        }),
+      })
+    );
+  });
+
+  it('creates a write-only one-time Agent input with idempotency and actor scope', async () => {
+    const sessionId = 'ses_1234567890abcdef';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          secretId: 'ais_1234567890abcdefghijklmn',
+          sessionId,
+          purpose: 'OTP',
+          expiresAt: new Date().toISOString(),
+          consumed: false,
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await createAgentInputSecret(
+      sessionId,
+      { purpose: 'OTP', value: '123456' },
+      'agent-secret-idem-1',
+      'tenant-test',
+      'agent-test'
+    );
+
+    expect(result.secretId).toBe('ais_1234567890abcdefghijklmn');
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/sessions/${sessionId}/agent-input-secrets`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'agent-secret-idem-1',
+          'X-Tenant-Id': 'tenant-test',
+          'X-Actor-Id': 'agent-test',
         }),
       })
     );

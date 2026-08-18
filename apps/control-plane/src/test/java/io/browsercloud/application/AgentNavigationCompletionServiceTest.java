@@ -38,6 +38,7 @@ class AgentNavigationCompletionServiceTest {
             mock(OperationRepository.class),
             mock(NodeCommandGateway.class),
             mock(AgentExecutionService.class),
+            mock(AgentControlPolicyService.class),
             objectMapper);
     var task =
         new AgentTaskEntity(
@@ -60,7 +61,7 @@ class AgentNavigationCompletionServiceTest {
             ToolId.CLICK_TARGET,
             RiskClass.R1_LOW_RISK_CHANGE,
             null,
-            new StepInput("#target", 7L, null, null, null, null, null, null, null),
+            new StepInput("#target", 7L, null, null, null, null, null, null, null, false, 1),
             "click target",
             List.of("user_goal"),
             TrustLevel.TRUSTED,
@@ -126,6 +127,7 @@ class AgentNavigationCompletionServiceTest {
             operationRepository,
             commandGateway,
             executionService,
+            mock(AgentControlPolicyService.class),
             objectMapper);
 
     var step =

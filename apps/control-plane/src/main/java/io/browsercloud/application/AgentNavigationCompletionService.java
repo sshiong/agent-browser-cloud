@@ -33,6 +33,7 @@ public class AgentNavigationCompletionService {
   private final OperationRepository operationRepository;
   private final NodeCommandGateway nodeCommandGateway;
   private final AgentExecutionService executionService;
+  private final AgentControlPolicyService controlPolicies;
   private final ObjectMapper objectMapper;
 
   public AgentNavigationCompletionService(
@@ -41,12 +42,14 @@ public class AgentNavigationCompletionService {
       OperationRepository operationRepository,
       NodeCommandGateway nodeCommandGateway,
       AgentExecutionService executionService,
+      AgentControlPolicyService controlPolicies,
       ObjectMapper objectMapper) {
     this.taskRepository = taskRepository;
     this.sessionRepository = sessionRepository;
     this.operationRepository = operationRepository;
     this.nodeCommandGateway = nodeCommandGateway;
     this.executionService = executionService;
+    this.controlPolicies = controlPolicies;
     this.objectMapper = objectMapper;
   }
 
@@ -76,7 +79,7 @@ public class AgentNavigationCompletionService {
       return;
     }
     var verified = verifiedResult(step, state);
-    if (challengeEventId != null) {
+    if (challengeEventId != null && !canContinueWithPlannedSensitiveInput(task, plan)) {
       executionService.pauseAfterVerifiedStepForChallenge(
           task.getTaskId(),
           event.tenantId(),
@@ -88,6 +91,19 @@ public class AgentNavigationCompletionService {
       executionService.resumeAfterVerifiedStep(
           task.getTaskId(), event.tenantId(), operation.operationId(), step.stepId(), verified);
     }
+  }
+
+  private boolean canContinueWithPlannedSensitiveInput(AgentTaskEntity task, AgentPlan plan) {
+    if (!controlPolicies.require(task.getSessionId(), task.getTenantId()).autonomous())
+      return false;
+    var nextIndex = task.getCurrentStep() + 1;
+    if (nextIndex >= plan.steps().size()) return false;
+    var next = plan.steps().get(nextIndex);
+    return next.toolId() == ToolId.TYPE_TEXT
+        && next.input() != null
+        && next.input().allowSensitiveTarget()
+        && java.util.Set.of(ActionDataClass.CREDENTIAL, ActionDataClass.OTP)
+            .contains(next.input().dataClass());
   }
 
   public void challengeObserved(String sessionId, String tenantId, String challengeEventId) {

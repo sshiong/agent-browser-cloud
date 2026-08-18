@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-08-18
+> 更新日期：2026-08-19
 > 基准分支：`main`
-> 编写时基准提交：`0b14702 test: update generated sdk operation counts`
+> 编写时基准提交：`941bf5b feat: resume autonomous agents with human otp`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **212 Operations / 285 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **213 Operations / 287 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V103 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V105 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -141,12 +141,12 @@ Rust Browser Node
 - [已确认] 开启协作控制后，只有 Gateway 实际收到真人键盘/鼠标/剪贴板输入时才触发 `HUMAN_INPUT_PRIORITY`；真人停止输入 2 秒后，同一持久 Operation 自动续行。
 - [已确认] 新票据只签发 `COLLABORATIVE`；遗留 `EXCLUSIVE_TAKEOVER` 在 Gateway 中 fail-collaborative，不再踢出协作者。
 - [已确认] 多参与者、单上游 RFB Fan-out、慢消费者隔离、每 Actor 带宽/FPS/成本、在线列表、精准撤销和历史治理已实现。
-- [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；耗尽或低置信度会写高信号通知，SAFE 可等人工，AUTONOMOUS 返回结构化失败。
+- [已确认] 低风险 `SINGLE_CLICK/IMAGE_SELECTION/PUZZLE/MULTI_ROUND` Challenge 支持脱敏截图 OCR/视觉定位，默认三次且可按 Session 调整，并可执行点击、连续点击和滑动；AUTONOMOUS 只有在自动路径耗尽后才写一次人工协助通知，原 Task 保持可续行。
 - [已确认] Vision Worker 只有 Purpose-bound 一次性截图读取和结构化动作输出权限；Browser Node 在 State Hash/Version、Operation Epoch、八次动作预算及真人输入优先级下重新校验，不接受键盘、文本、Secret 或任意 CDP。
 - [已确认] Session 默认 `SAFE`，操作员可一次切换 `AUTONOMOUS`；后者允许 Agent 通过租户/Session/用途绑定的一次性 AES-GCM API 输入账号、密码和 OTP，默认三次输入代理重试且可调 1—10 次，不逐动作索要人工确认。
-- [已确认] 密文引用只能由一次 `TYPE_TEXT` Step 事务消费；Plan/API/审计/Agent Worker/Vision Worker 不含明文或低熵 OTP Hash。若已有密文计划则登录/OTP Challenge 直接续行；缺少输入或自动预算耗尽只通知并返回结构化失败，不强迫人工接管。
+- [已确认] 密文引用只能由一次 `TYPE_TEXT` Step 事务消费；Plan/API/审计/Agent Worker/Vision Worker 不含明文或低熵 OTP Hash。若已有密文计划则登录/OTP Challenge 直接续行；确需人工时只通知一次，操作员可发送 OTP 由 Agent 有界重试代填并恢复原 Task，也可自愿进入协作自行填写，系统不强迫接管。
 - 支付、转账、购买、修改密码、删除账号等决策仍需独立高风险确认；自动登录不等于绕过安全门禁。人工 VNC 是随时可加入的协作能力，不是 Agent 的必经步骤。
-- 证据见 `docs/progress/147-Agent安全与自动模式及一次性敏感输入闭环.md`、146、139 及 115、117、123—126、131—132。
+- 证据见 `docs/progress/148-AUTONOMOUS按需人工协助与OTP续行闭环.md`、147、146、139 及 115、117、123—126、131—132。
 
 ### 事件流与录制
 
@@ -156,6 +156,11 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- AUTONOMOUS 按需人工协助切片本地 Control Plane 446 项、Web 115 项、Rust Workspace、
+  Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N-1 与
+  完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `941bf5b`，远端 Workflow
+  待推送后确认，见 progress 148。
 
 - Agent SAFE/AUTONOMOUS 切片本地 Control Plane 442 项、Web 114 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、
@@ -183,9 +188,12 @@ Rust Browser Node
 - V104 已增加默认 SAFE、可显式开启 AUTONOMOUS 和默认三次可调敏感输入预算；旧 Session/客户端行为保持 fail-closed；
 - 新的一次性密文 API 支持 USERNAME/PASSWORD/OTP，要求幂等键，租户/Session/用途绑定、短 TTL、单次事务消费且不向 Worker/API 回显明文；
 - Planner、Prompt Security、Action Tool 和 Browser Node 四层重新校验模式、用途、State/Target Revision、Capability 与域名；Node 使用覆盖式有界重试，N/N-1 新字段为 additive；
-- 自动模式有已绑定密文时继续登录/OTP Step，无输入、自动禁用或预算耗尽时通知并结构化失败，不强迫人工接管；支付和破坏性账号决策仍独立确认；
-- Web/Tauri 共用模式与重试 UI；OpenAPI/四 SDK 已同步为 212 Operations / 285 Schemas；
-  本地全量与 GitHub `ci`/`desktop` 均通过，见 progress 147。
+- 自动模式有已绑定密文时继续登录/OTP Step；无输入、自动禁用或预算耗尽时保留原 Task 并只通知一次，不强迫人工接管；
+- V105 增加租户隔离、幂等、密文持久的 OTP 响应 Intent。操作员可发送 OTP 由 Agent 以默认
+  三次可调预算代填并恢复原 Task，也可主动进入协作自行填写；本地输入失败保持 Challenge
+  可重试且不重复通知；
+- Web/Tauri 共用模式、重试与 OTP 响应 UI；OpenAPI/四 SDK 已同步为 213 Operations /
+  287 Schemas；本地全量验证通过，见 progress 147、148；支付和破坏性账号决策仍独立确认。
 
 ### Enterprise Operations Overview 全量事件源与轮询移除（已闭环）
 
@@ -204,8 +212,9 @@ Rust Browser Node
 - [已确认] 采用独立 `enterprise_overview_events`，来源/写路径矩阵见 progress 145；不要退回 Notification/Audit 子集。
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
-Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 均已推送 `main`
-且对应 GitHub `ci`/`desktop` 通过。
+Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线均已推送 `main`
+且对应 GitHub `ci`/`desktop` 通过；V105 按需人工协助续行切片已完成本地 Gate，远端结果
+必须在推送后单独确认。
 
 ### Recording 播放授权与对象治理（下一开发切片）
 
@@ -246,7 +255,7 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 4. [已确认] **资源与运行环境分离**：Native OS 是 Execution Environment，不是资源等级；内部 Template 不直接暴露成用户等级。
 5. [已确认] **迁移安全**：真人连续输入、拖拽、上传/下载、表单/支付/账号安全、Snapshot、Profile Flush、关键事务或 Business Recovery Unknown 时不得自动迁移。
 6. [已确认] **VNC/Agent 协作**：连接不触发 Agent 断开；真人实际输入优先 2 秒；Agent 保持同一 Operation 并自动恢复。
-7. [已确认] **Challenge 与敏感输入自动化**：低风险视觉挑战默认三次自动尝试，截图先脱敏、Worker 最小权限、Node 状态绑定；Session 默认 SAFE，AUTONOMOUS 只通过一次性用途绑定密文输入账号/密码/OTP，失败通知但不强迫人工，真人输入始终优先；支付和破坏性账号决策仍独立确认。
+7. [已确认] **Challenge 与敏感输入自动化**：低风险视觉挑战默认三次自动尝试，截图先脱敏、Worker 最小权限、Node 状态绑定；Session 默认 SAFE，AUTONOMOUS 只通过一次性用途绑定密文输入账号/密码/OTP，只有自动路径耗尽后才通知一次；原 Task 保持可续行，人工可发送 OTP 由 Agent 代填或自愿协作填写，真人输入始终优先；支付和破坏性账号决策仍独立确认。
 8. [已确认] **事件流**：只在有完整、持久、单调变化源时删除轮询；SSE payload 最小化，租户隔离，支持 Resume/Reset，不在前端伪造曲线或状态。
 9. [已确认] **安全默认值**：OIDC/RBAC、mTLS、最小权限、fail-closed、用途绑定短期授权、签名与重放防护；公共 API 不返回 Secret URL、对象路径或敏感快照内容。
 10. [已确认] **迁移策略**：数据库迁移 expand-only；必须保持 N/N-1 滚动兼容，旧枚举/字段在兼容窗口结束前不物理删除。

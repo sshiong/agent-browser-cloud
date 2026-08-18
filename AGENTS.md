@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-18
 > 基准分支：`main`
-> 编写时基准提交：`04568d0 feat: add autonomous agent sensitive inputs`
+> 编写时基准提交：`0b14702 test: update generated sdk operation counts`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -159,9 +159,10 @@ Rust Browser Node
 
 - Agent SAFE/AUTONOMOUS 切片本地 Control Plane 442 项、Web 114 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、
-  N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过；远端 Workflow 待最终推送
-  后确认。
-- 本切片实现提交为 `04568d0`；本地全量验证通过，远端 `ci`/`desktop` 待推送后确认。
+  N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过。
+- 最终功能提交 `0b14702` 的 GitHub `ci`（run `32149210380`，含 Verify、供应链、
+  Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop`
+  （run `32149210343`，Windows/macOS）均通过。
 - 上一基准提交 `a8e2268` 时工作区干净，`main == origin/main`。
 - Challenge 视觉自动化切片本地 Java 439 项、Web 113 项、Rust Workspace、Python Worker、
   Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、N/N-1、Operator
@@ -175,17 +176,16 @@ Rust Browser Node
 
 ## 7. 当前正在处理的任务
 
-本轮最高优先级开发任务：
+最近切片与当前最高优先级开发任务：
 
-### Agent SAFE/AUTONOMOUS 与敏感输入自动化（本地验证完成，远端收口中）
+### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
 - V104 已增加默认 SAFE、可显式开启 AUTONOMOUS 和默认三次可调敏感输入预算；旧 Session/客户端行为保持 fail-closed；
 - 新的一次性密文 API 支持 USERNAME/PASSWORD/OTP，要求幂等键，租户/Session/用途绑定、短 TTL、单次事务消费且不向 Worker/API 回显明文；
 - Planner、Prompt Security、Action Tool 和 Browser Node 四层重新校验模式、用途、State/Target Revision、Capability 与域名；Node 使用覆盖式有界重试，N/N-1 新字段为 additive；
 - 自动模式有已绑定密文时继续登录/OTP Step，无输入、自动禁用或预算耗尽时通知并结构化失败，不强迫人工接管；支付和破坏性账号决策仍独立确认；
 - Web/Tauri 共用模式与重试 UI；OpenAPI/四 SDK 已同步为 212 Operations / 285 Schemas；
-  本地全量验证已通过。远端 Workflow 尚未完成前，不得把本切片标为已发布，见 progress
-  147。
+  本地全量与 GitHub `ci`/`desktop` 均通过，见 progress 147。
 
 ### Enterprise Operations Overview 全量事件源与轮询移除（已闭环）
 
@@ -204,10 +204,15 @@ Rust Browser Node
 - [已确认] 采用独立 `enterprise_overview_events`，来源/写路径矩阵见 progress 145；不要退回 Notification/Audit 子集。
 - [已确认] `useRecoveryGameDayEvents()` 的 5 秒轮询不能由 Overview 流替换；后续只有为 timeline 建立完整单调源后才可删除。
 
-Enterprise Overview 与 Challenge 视觉自动化均已推送 `main` 且对应 GitHub
-`ci`/`desktop` 通过。当前先完成 Agent SAFE/AUTONOMOUS 切片的完整验证、提交、推送和
-远端 Workflow；通过后下一项仓库级优先任务切换为 Recording purpose-bound 一次性播放
-Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker。
+Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 均已推送 `main`
+且对应 GitHub `ci`/`desktop` 通过。
+
+### Recording 播放授权与对象治理（下一开发切片）
+
+当前仓库级最高优先任务已切换为 Recording purpose-bound 一次性播放 Grant、目标 Bucket
+Object Lock/WORM 与到期删除 Worker；实施前必须先复核现有 Manifest、Retention、Legal
+Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删除投影冒充对象已经
+物理删除。
 
 ## 8. 尚未完成的功能
 

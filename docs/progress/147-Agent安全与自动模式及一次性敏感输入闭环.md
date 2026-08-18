@@ -1,8 +1,9 @@
 # Agent 安全与自动模式及一次性敏感输入闭环
 
 > 日期：2026-08-18
-> 状态：仓库实现与本地全量验证完成；远端 Workflow 证据在推送后补记。
+> 状态：仓库实现、本地全量验证与远端 Workflow 全部完成。
 > 实现提交：`04568d0 feat: add autonomous agent sensitive inputs`
+> 最终功能提交：`0b14702 test: update generated sdk operation counts`
 
 ## 目标与模式语义
 
@@ -78,8 +79,9 @@ Viewer 403、幂等重放与冲突 409，并通过完整 PostgreSQL/mTLS/Chromiu
 - `make test-integration` 通过，输出 `challenge_visual_automation=true`，并同时保持
   Enterprise Overview SSE、租户隔离、协调器恢复、录制与审计链等既有断言。
 
-远端 GitHub `ci` 与 `desktop` Run ID/结论在最终推送后补记；在两者通过前只称“本地
-验证完成”，不称远端发布 Gate 已通过。
+远端 GitHub `ci` run `32149210380` 已通过，覆盖 Verify、Build、四 Worker 镜像、SBOM/
+扫描、Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E；
+`desktop` run `32149210343` 的 macOS/Windows 原生安全边界和验证二进制构建均通过。
 
 本切片不实现从目标企业 IAM/邮箱/短信供应商主动获取凭据或 OTP；它提供受控的一次性
 输入 API，真实 Provider 凭据、字段/事务映射和供应商特有认证仍是现有生产集成 Gate。

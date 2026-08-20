@@ -176,7 +176,9 @@ Rust Browser Node
 
 - Agent Browser Batch 稳定重绑定切片实现提交 `54b28ea`；本地 Control Plane 456 项、Rust Workspace、Web
   115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
-  PostgreSQL/mTLS/真实 Chromium Integration 已通过；GitHub `ci/desktop` 待执行，
+  PostgreSQL/mTLS/真实 Chromium Integration 已通过；最终提交 `ec7b61f` 的 GitHub `ci`
+  （run `32368996758`，含供应链、Integration、Object Storage/Recording GameDay 与
+  Kubernetes Operator E2E）和 `desktop`（run `32368997078`，Windows/macOS）均通过，
   见 progress 150。
 
 - Agent Browser 结构化感知/Batch/Identity/Clipboard 基础切片本地 Control Plane 456 项、
@@ -228,7 +230,7 @@ Rust Browser Node
   `32363001455` 也均通过；
 - 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和其余高级 Action
   Primitive，见 progress 149；稳定 Element ID 的逐 Primitive 重绑定已完成定向验证，
-  且完整本地 Gate 已通过；实现提交 `54b28ea`，远端 Workflow 待执行，见 progress 150。
+  且完整本地及远端 Gate 已通过；实现提交 `54b28ea`、最终提交 `ec7b61f`，见 progress 150。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 

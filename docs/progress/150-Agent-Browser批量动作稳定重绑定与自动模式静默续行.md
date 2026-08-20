@@ -1,7 +1,7 @@
 # Agent Browser 批量动作稳定重绑定与自动模式静默续行
 
 > 日期：2026-08-20
-> 状态：实现、提交与完整本地验证完成；远端 Workflow 待执行。
+> 状态：实现、本地完整验证与远端 Workflow 全部完成。
 > 实现提交：`54b28ea fix: rebind autonomous action batches`
 
 ## 问题
@@ -55,6 +55,9 @@ OTP 可由操作员通过正式一次性密文 API 发给 Agent 代填，也可�
   Coordinator、State、Agent/Reviewer/Challenge、Identity、Clipboard、Recording、企业运营
   事件流与租户/RBAC 回归全绿。
 
-GitHub `ci/desktop` 尚未在提交 `54b28ea` 状态下完成，因此远端状态不得提前写成完成。
-Dialog/Tab/File、局部 Screenshot、受治理 JS Evaluate 和其余高级键鼠 Primitive 仍按
-进度 149 的保留边界继续开发。
+最终提交 `ec7b61f` 的 GitHub `ci` run `32368996758` 已通过，覆盖 Verify、供应链、
+Integration、Object Storage/Recording GameDay 和 Kubernetes Operator E2E；`desktop`
+run `32368997078` 的 Windows/macOS 原生安全边界与无签名验证构建均通过。
+
+Dialog/Tab/File、局部 Screenshot、受治理 JS Evaluate 和其余高级键鼠 Primitive 仍按进度
+149 的保留边界继续开发，不因本切片通过而提前关闭。

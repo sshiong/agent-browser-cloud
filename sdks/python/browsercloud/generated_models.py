@@ -164,7 +164,7 @@ class CreateAgentTaskRequest(TypedDict, total=False):
     actions: list[AgentActionRequest]
 
 class AgentActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
     targetRef: str
     targetRevision: int
     value: str
@@ -173,11 +173,13 @@ class AgentActionRequest(TypedDict, total=False):
     scrollDeltaY: int
     waitCondition: Literal['STATE_CHANGED', 'STATE_STABLE', 'TARGET_PRESENT']
     timeoutMs: int
+    tabId: str
+    tabUrl: str
     actions: list[AgentBatchActionRequest]
     stopOnError: bool
 
 class AgentBatchActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB']
     targetRef: str
     targetRevision: int
     value: str
@@ -186,6 +188,8 @@ class AgentBatchActionRequest(TypedDict, total=False):
     scrollDeltaY: int
     waitCondition: Literal['STATE_CHANGED', 'STATE_STABLE', 'TARGET_PRESENT']
     timeoutMs: int
+    tabId: str
+    tabUrl: str
 
 class AgentInstructionSource(TypedDict, total=False):
     sourceId: str
@@ -514,7 +518,7 @@ class FailAgentReviewJobRequest(TypedDict, total=False):
 
 class AgentReviewStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetOrigin: Any
     targetRefHash: Any
@@ -633,7 +637,7 @@ class AgentPlan(TypedDict, total=False):
 
 class AgentPlanStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetUrl: Any
     input: AgentStepInput | None
@@ -660,10 +664,12 @@ class AgentStepInput(TypedDict, total=False):
     maximumAttempts: int
     actions: list[AgentBatchActionInput]
     stopOnError: bool
+    tabId: Any
+    tabUrl: Any
 
 class AgentBatchActionInput(TypedDict, total=False):
     actionId: str
-    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB']
     targetRef: Any
     elementId: Any
     targetRevision: Any
@@ -675,6 +681,8 @@ class AgentBatchActionInput(TypedDict, total=False):
     timeoutMs: Any
     sensitiveTargetAuthorized: bool
     maximumAttempts: int
+    tabId: Any
+    tabUrl: Any
 
 AgentRiskClass = Literal['R0_READ_ONLY', 'R1_LOW_RISK_CHANGE', 'R2_DATA_CHANGE', 'R3_ACCOUNT_CHANGE', 'R4_FINANCIAL', 'R5_SECURITY']
 
@@ -682,7 +690,7 @@ AgentPolicy = Literal['DISABLED', 'RESTRICTED', 'BALANCED', 'INTERACTIVE']
 
 class AgentToolExecutionResult(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'OPEN_TAB', 'SWITCH_TAB', 'CLOSE_TAB', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     status: Literal['VERIFIED', 'WAITING_FOR_HUMAN', 'ACCEPTED']
     resultHash: str
     output: dict[str, Any]
@@ -1098,12 +1106,15 @@ class BrowserState(TypedDict, total=False):
     networkQuietMillis: int
     networkEvidenceFresh: bool
     targets: list[InteractiveTarget]
+    tabs: list[AgentBrowserTab]
+    activeTabId: str
 
 class AgentBrowserSnapshot(TypedDict, total=False):
     stateCursor: str
     state: BrowserState
     visibleTextSummary: str
-    activeTab: AgentBrowserTab
+    tabs: list[AgentBrowserTab]
+    activeTab: AgentBrowserTab | None
     focusedElementId: Any
     formControlElementIds: list[str]
     dialogElementIds: list[str]
@@ -1112,6 +1123,7 @@ class AgentBrowserSnapshot(TypedDict, total=False):
     visionRecommended: bool
 
 class AgentBrowserTab(TypedDict, total=False):
+    tabId: str
     url: str
     title: str
     active: bool

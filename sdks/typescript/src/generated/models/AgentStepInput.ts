@@ -19,4 +19,6 @@ export type AgentStepInput = {
     maximumAttempts: number;
     actions: Array<AgentBatchActionInput>;
     stopOnError: boolean;
+    tabId: string | null;
+    tabUrl: string | null;
 };

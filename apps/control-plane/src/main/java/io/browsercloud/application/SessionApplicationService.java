@@ -668,6 +668,13 @@ public class SessionApplicationService {
                                   target.occluded(),
                                   target.visibilityReason()))
                       .toList();
+              var tabs =
+                  state.tabs().stream()
+                      .map(
+                          tab ->
+                              new BrowserStateView.BrowserTabView(
+                                  tab.tabId(), tab.url(), tab.title(), tab.active()))
+                      .toList();
               return new BrowserStateView(
                   state.sessionId(),
                   snapshot.contextEpoch(),
@@ -680,7 +687,9 @@ public class SessionApplicationService {
                   state.documentReadyState(),
                   state.networkQuietMillis(),
                   state.networkEvidenceFresh(),
-                  targets);
+                  targets,
+                  tabs,
+                  state.activeTabId());
             });
   }
 

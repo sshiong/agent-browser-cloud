@@ -11,6 +11,7 @@ import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
+import io.browsercloud.proto.node.v1.BrowserTabState;
 import io.browsercloud.proto.node.v1.ChallengeAutomationFailedEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
@@ -664,6 +665,13 @@ class NodeEventMapperTest {
             .setDocumentReadyState("complete")
             .setNetworkQuietMillis(1_500)
             .setNetworkEvidenceFresh(true)
+            .addTabs(
+                BrowserTabState.newBuilder()
+                    .setTabId("tab-main")
+                    .setUrl("https://example.test")
+                    .setTitle("Example")
+                    .setActive(true))
+            .setActiveTabId("tab-main")
             .addTargets(
                 InteractiveTargetState.newBuilder()
                     .setTargetRef("target:7:0")
@@ -697,11 +705,46 @@ class NodeEventMapperTest {
               assertThat(state.documentReadyState()).isEqualTo("complete");
               assertThat(state.networkQuietMillis()).isEqualTo(1_500);
               assertThat(state.networkEvidenceFresh()).isTrue();
+              assertThat(state.activeTabId()).isEqualTo("tab-main");
+              assertThat(state.tabs())
+                  .singleElement()
+                  .extracting(NodeEvent.BrowserTab::active)
+                  .isEqualTo(true);
               assertThat(state.targets()).hasSize(1);
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);
               assertThat(state.targets().getFirst().sensitive()).isTrue();
             });
+  }
+
+  @Test
+  void shouldRejectInconsistentBrowserTabAuthority() {
+    var payload =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setUrl("https://example.test")
+            .setTitle("Example")
+            .setContentHash("hash-7")
+            .setStateQuality("COMPLETE")
+            .addTabs(BrowserTabState.newBuilder().setTabId("tab-one").setActive(true))
+            .addTabs(BrowserTabState.newBuilder().setTabId("tab-two").setActive(true))
+            .setActiveTabId("tab-one")
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_state_invalid_tabs")
+            .setEventType(NodeEventMapper.BROWSER_STATE_UPDATED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("active tab metadata");
   }
 
   @Test

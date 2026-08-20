@@ -17,6 +17,7 @@ public final class AgentBrowserPerceptionModels {
       String stateCursor,
       BrowserStateView state,
       String visibleTextSummary,
+      List<TabView> tabs,
       TabView activeTab,
       String focusedElementId,
       List<String> formControlElementIds,
@@ -29,7 +30,14 @@ public final class AgentBrowserPerceptionModels {
           stateCursor,
           state,
           "",
-          new TabView(state.url(), state.title(), true),
+          state.tabs().stream()
+              .map(tab -> new TabView(tab.tabId(), tab.url(), tab.title(), tab.active()))
+              .toList(),
+          state.tabs().stream()
+              .filter(tab -> tab.active() && tab.tabId().equals(state.activeTabId()))
+              .findFirst()
+              .map(tab -> new TabView(tab.tabId(), tab.url(), tab.title(), true))
+              .orElse(null),
           null,
           List.of(),
           List.of(),
@@ -39,7 +47,7 @@ public final class AgentBrowserPerceptionModels {
     }
   }
 
-  public record TabView(String url, String title, boolean active) {}
+  public record TabView(String tabId, String url, String title, boolean active) {}
 
   public record InspectRequest(
       @NotBlank @Pattern(regexp = "^[0-9]+:[0-9]+:[a-f0-9]{64}$") String stateCursor,

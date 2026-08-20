@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +43,7 @@ public class AgentReadToolService {
       String taskId,
       String intentId,
       PlanStep step,
+      Set<String> allowedDomains,
       Instant now) {
     if (step.toolId() != ToolId.GET_CURRENT_STATE
         && step.toolId() != ToolId.GET_URL
@@ -61,16 +63,28 @@ public class AgentReadToolService {
     var currentDomain = domainOf(state.url());
     var dataScope = "BROWSER_STATE_METADATA";
     var claims =
-        capabilityTokens.verify(
-            step.capabilityToken(),
-            tenantId,
-            session.sessionId(),
-            intentId,
-            taskId,
-            step.toolId(),
-            currentDomain,
-            dataScope,
-            now);
+        step.toolId() == ToolId.GET_CURRENT_STATE
+            ? capabilityTokens.verify(
+                step.capabilityToken(),
+                tenantId,
+                session.sessionId(),
+                intentId,
+                taskId,
+                step.toolId(),
+                currentDomain,
+                dataScope,
+                now)
+            : capabilityTokens.verifyWithinAllowedDomains(
+                step.capabilityToken(),
+                tenantId,
+                session.sessionId(),
+                intentId,
+                taskId,
+                step.toolId(),
+                currentDomain,
+                allowedDomains,
+                dataScope,
+                now);
     if (capabilityUses.claim(
             claims.tokenId(), tenantId, session.sessionId(), taskId, step.toolId().name(), now)
         != 1) {

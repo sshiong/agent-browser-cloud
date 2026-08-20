@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
 
@@ -107,7 +107,7 @@ struct CdpTarget {
 /// 所有输入都按 sequence 串行，旧 sequence 被拒绝，重复 sequence 幂等忽略。
 #[derive(Clone)]
 pub struct CdpDesktopInput {
-    websocket_url: String,
+    websocket_url: Arc<RwLock<String>>,
     ledger: Arc<Mutex<InputLedger>>,
     last_activity: Arc<Mutex<Instant>>,
 }
@@ -135,11 +135,42 @@ impl CdpDesktopInput {
             .find(|target| target.target_type == "page")
             .map(|target| target.web_socket_debugger_url)
             .ok_or_else(|| anyhow::anyhow!("CDP has no page target"))?;
+        Self::require_loopback_websocket(&websocket_url)?;
         Ok(Self {
-            websocket_url,
+            websocket_url: Arc::new(RwLock::new(websocket_url)),
             ledger: Arc::new(Mutex::new(InputLedger::default())),
             last_activity: Arc::new(Mutex::new(Instant::now())),
         })
+    }
+
+    /// Rebind structured Agent input to the Browser-level active Page Target.
+    ///
+    /// Pending modifiers/buttons are released on the previous Page before the switch so a tab
+    /// transition cannot strand input state in either renderer. The monotonically increasing
+    /// sequence ledger is intentionally retained across tabs.
+    pub async fn rebind(&self, websocket_url: &str) -> anyhow::Result<()> {
+        Self::require_loopback_websocket(websocket_url)?;
+        if self.websocket_url.read().await.as_str() == websocket_url {
+            return Ok(());
+        }
+        self.release_all().await?;
+        *self.websocket_url.write().await = websocket_url.to_owned();
+        Ok(())
+    }
+
+    fn require_loopback_websocket(websocket_url: &str) -> anyhow::Result<()> {
+        let url = reqwest::Url::parse(websocket_url)?;
+        anyhow::ensure!(url.scheme() == "ws", "CDP websocket must use ws");
+        let host = url
+            .host_str()
+            .ok_or_else(|| anyhow::anyhow!("CDP websocket host is unavailable"))?;
+        let loopback = host.eq_ignore_ascii_case("localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .map(|address| address.is_loopback())
+                .unwrap_or(false);
+        anyhow::ensure!(loopback, "CDP websocket must use the Browser Node loopback");
+        Ok(())
     }
 
     pub async fn ledger_snapshot(&self) -> InputLedger {
@@ -280,9 +311,10 @@ impl CdpDesktopInput {
     }
 
     async fn send(&self, method: &str, params: serde_json::Value) -> anyhow::Result<()> {
+        let websocket_url = self.websocket_url.read().await.clone();
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
-            tokio_tungstenite::connect_async(&self.websocket_url),
+            tokio_tungstenite::connect_async(&websocket_url),
         )
         .await
         .map_err(|_| anyhow::anyhow!("CDP input connection timed out"))??;
@@ -749,6 +781,80 @@ mod tests {
 
         websocket_task.await.unwrap();
         http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn rebinds_input_to_the_authoritative_active_page_and_releases_old_page_state() {
+        let old_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let old_address = old_listener.local_addr().unwrap();
+        let (old_sender, mut old_receiver) = mpsc::channel(2);
+        let old_task = tokio::spawn(async move {
+            for _ in 0..2 {
+                let (stream, _) = old_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected old-page CDP command");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                old_sender.send(request.clone()).await.unwrap();
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": request["id"], "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+        let new_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let new_address = new_listener.local_addr().unwrap();
+        let (new_sender, mut new_receiver) = mpsc::channel(1);
+        let new_task = tokio::spawn(async move {
+            let (stream, _) = new_listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                panic!("expected new-page CDP command");
+            };
+            let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+            new_sender.send(request.clone()).await.unwrap();
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"id": request["id"], "result": {}}).to_string(),
+                ))
+                .await
+                .unwrap();
+        });
+
+        let input = CdpDesktopInput {
+            websocket_url: Arc::new(RwLock::new(format!("ws://{old_address}/devtools/page/old"))),
+            ledger: Arc::new(Mutex::new(InputLedger::default())),
+            last_activity: Arc::new(Mutex::new(Instant::now())),
+        };
+        input.key_down(InputKey::Shift, 1).await.unwrap();
+        input
+            .rebind(&format!("ws://{new_address}/devtools/page/new"))
+            .await
+            .unwrap();
+        input.insert_text("next tab", 2).await.unwrap();
+        assert!(input
+            .rebind("ws://example.com/devtools/page/remote")
+            .await
+            .is_err());
+
+        assert_eq!(
+            old_receiver.recv().await.unwrap()["params"]["type"],
+            "keyDown"
+        );
+        assert_eq!(
+            old_receiver.recv().await.unwrap()["params"]["type"],
+            "keyUp"
+        );
+        assert_eq!(
+            new_receiver.recv().await.unwrap()["params"]["text"],
+            "next tab"
+        );
+        assert!(!input.ledger_snapshot().await.has_any_input());
+        old_task.await.unwrap();
+        new_task.await.unwrap();
     }
 
     #[tokio::test]

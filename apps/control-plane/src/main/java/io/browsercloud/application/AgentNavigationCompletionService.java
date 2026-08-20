@@ -161,6 +161,23 @@ public class AgentNavigationCompletionService {
                 .equals(step.input().actions().stream().map(ActionInput::actionId).toList()))) {
       return "BATCH_ACTION_OUTCOMES_INVALID";
     }
+    if (step.toolId() == ToolId.OPEN_TAB
+        && (state.activeTabId().isBlank()
+            || state.tabs().stream()
+                .noneMatch(
+                    tab ->
+                        tab.active()
+                            && tab.tabId().equals(state.activeTabId())
+                            && allowedDomains(task).contains(stateDomain(tab.url()))))) {
+      return "OPEN_TAB_NOT_AUTHORITATIVE";
+    }
+    if (step.toolId() == ToolId.SWITCH_TAB && !state.activeTabId().equals(step.input().tabId())) {
+      return "SWITCH_TAB_NOT_AUTHORITATIVE";
+    }
+    if (step.toolId() == ToolId.CLOSE_TAB
+        && state.tabs().stream().anyMatch(tab -> tab.tabId().equals(step.input().tabId()))) {
+      return "CLOSE_TAB_NOT_AUTHORITATIVE";
+    }
     return null;
   }
 

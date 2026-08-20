@@ -31,6 +31,8 @@ class AgentBrowserPerceptionServiceTest {
     var snapshot = service.snapshot("ses_1234567890abcdef", "tenant-test");
     assertThat(snapshot.stateCursor()).isEqualTo("9:4:" + "a".repeat(64));
     assertThat(snapshot.state().targets().getFirst().elementId()).isEqualTo("e12");
+    assertThat(snapshot.tabs()).extracting(TabView::tabId).containsExactly("tab-login");
+    assertThat(snapshot.activeTab().tabId()).isEqualTo("tab-login");
 
     var inspected =
         service.inspect(
@@ -87,7 +89,11 @@ class AgentBrowserPerceptionServiceTest {
         true,
         List.of(
             target("target:4:one", "e12", "button", "Sign in", true, null),
-            target("target:4:two", "e13", "button", "Hidden action", false, "DISPLAY_NONE")));
+            target("target:4:two", "e13", "button", "Hidden action", false, "DISPLAY_NONE")),
+        List.of(
+            new BrowserStateView.BrowserTabView(
+                "tab-login", "https://example.test/login", "Login", true)),
+        "tab-login");
   }
 
   private static BrowserStateView.InteractiveTargetView target(

@@ -51,6 +51,7 @@ import os
 import signal
 import struct
 import sys
+import threading
 import time
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -89,6 +90,14 @@ pointer_y = 0.0
 focused_control = None
 control_pressed = False
 select_all = False
+pages_lock = threading.Lock()
+pages = {
+    "page-1": {
+        "title": "Browser Cloud Test Page",
+        "url": "https://example.test/runtime",
+    }
+}
+active_page_id = "page-1"
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -104,13 +113,16 @@ class Handler(BaseHTTPRequestHandler):
                 "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/browser/fake",
             }
         elif self.path in ("/json", "/json/list"):
-            payload = [{
-                "id": "page-1",
-                "type": "page",
-                "title": "Browser Cloud Test Page",
-                "url": "about:blank",
-                "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/page-1",
-            }]
+            with pages_lock:
+                payload = [{
+                    "id": page_id,
+                    "type": "page",
+                    "title": page["title"],
+                    "url": page["url"],
+                    "webSocketDebuggerUrl": (
+                        f"ws://127.0.0.1:{port}/devtools/page/{page_id}"
+                    ),
+                } for page_id, page in pages.items()]
             payload.extend({
                 "id": f"extension-{extension_id}",
                 "type": "service_worker",
@@ -134,6 +146,7 @@ class Handler(BaseHTTPRequestHandler):
         global evaluation_count, business_recovery_completed
         global public_note_value, checkbox_checked, pointer_x, pointer_y
         global focused_control, control_pressed, select_all
+        global active_page_id
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
             hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
@@ -168,6 +181,21 @@ class Handler(BaseHTTPRequestHandler):
                         }
                 else:
                     expression = command.get("params", {}).get("expression", "")
+                    if expression == "document.visibilityState":
+                        page_id = self.path.rsplit("/", 1)[-1]
+                        response = {
+                            "id": command["id"],
+                            "result": {
+                                "result": {
+                                    "type": "string",
+                                    "value": (
+                                        "visible" if page_id == active_page_id else "hidden"
+                                    ),
+                                }
+                            },
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
                     if "redactedRegionCount: count" in expression:
                         response = {
                             "id": command["id"],
@@ -218,9 +246,12 @@ class Handler(BaseHTTPRequestHandler):
                         if mutate_after > 0 and evaluation_count >= mutate_after
                         else "Run integration"
                     )
+                    page_id = self.path.rsplit("/", 1)[-1]
+                    with pages_lock:
+                        page = pages.get(page_id, pages["page-1"]).copy()
                     result = {
-                        "url": "https://example.test/runtime",
-                        "title": "Browser Cloud Test Page",
+                        "url": page["url"],
+                        "title": page["title"],
                         "documentReadyState": "complete",
                         "targets": [{
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(1)",
@@ -300,6 +331,38 @@ class Handler(BaseHTTPRequestHandler):
                         ]
                     },
                 }
+            elif method == "Target.createTarget":
+                with pages_lock:
+                    page_id = f"page-{len(pages) + 1}"
+                    pages[page_id] = {
+                        "title": "Agent opened tab",
+                        "url": command.get("params", {}).get("url", "about:blank"),
+                    }
+                    active_page_id = page_id
+                response = {"id": command["id"], "result": {"targetId": page_id}}
+            elif method == "Target.activateTarget":
+                page_id = command.get("params", {}).get("targetId")
+                with pages_lock:
+                    exists = page_id in pages
+                    if exists:
+                        active_page_id = page_id
+                response = (
+                    {"id": command["id"], "result": {}}
+                    if exists
+                    else {
+                        "id": command["id"],
+                        "error": {"code": -32602, "message": "unknown target"},
+                    }
+                )
+            elif method == "Target.closeTarget":
+                page_id = command.get("params", {}).get("targetId")
+                with pages_lock:
+                    success = page_id in pages and len(pages) > 1
+                    if success:
+                        del pages[page_id]
+                        if active_page_id == page_id:
+                            active_page_id = next(iter(pages))
+                response = {"id": command["id"], "result": {"success": success}}
             elif method == "Performance.getMetrics":
                 response = {
                     "id": command["id"],

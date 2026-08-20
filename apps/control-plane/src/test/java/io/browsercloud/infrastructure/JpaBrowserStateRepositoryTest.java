@@ -35,9 +35,16 @@ class JpaBrowserStateRepositoryTest {
             3,
             "https://example.test/app",
             "App",
+            List.of(new NodeEvent.BrowserTab("tab-app", "https://example.test/app", "App", true)),
+            "tab-app",
             "hash-7",
             "COMPLETE",
-            List.of(outside, oldInside)));
+            List.of(outside, oldInside),
+            "complete",
+            1_000,
+            true,
+            "FULL",
+            ""));
 
     var saved = ArgumentCaptor.forClass(BrowserStateEntity.class);
     verify(jpa).save(saved.capture());
@@ -55,6 +62,9 @@ class JpaBrowserStateRepositoryTest {
                 3,
                 "https://example.test/app",
                 "App",
+                List.of(
+                    new NodeEvent.BrowserTab("tab-app", "https://example.test/app", "App", true)),
+                "tab-app",
                 "hash-8",
                 "COMPLETE",
                 "complete",
@@ -69,6 +79,11 @@ class JpaBrowserStateRepositoryTest {
     var merged = objectMapper.readValue(entity.getStateJson(), NodeEvent.StateUpdated.class);
     assertThat(merged.stateVersion()).isEqualTo(8);
     assertThat(merged.targetRevision()).isEqualTo(3);
+    assertThat(merged.activeTabId()).isEqualTo("tab-app");
+    assertThat(merged.tabs())
+        .singleElement()
+        .extracting(NodeEvent.BrowserTab::active)
+        .isEqualTo(true);
     assertThat(merged.targets()).containsExactly(outside, replacement);
     assertThat(merged.snapshotKind()).isEqualTo("REGION_RESYNC");
     assertThat(merged.requestedRootRef()).isEqualTo("#app");

@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserTab } from './AgentBrowserTab.js';
 import type { InteractiveTarget } from './InteractiveTarget.js';
 export type BrowserState = {
     sessionId: string;
@@ -25,4 +26,12 @@ export type BrowserState = {
      */
     networkEvidenceFresh: boolean;
     targets: Array<InteractiveTarget>;
+    /**
+     * Browser-level Page Targets. Empty only while an N-1 Browser Node has not projected tab authority.
+     */
+    tabs: Array<AgentBrowserTab>;
+    /**
+     * ID of the one active tab; empty only when tabs is empty during rolling compatibility.
+     */
+    activeTabId: string;
 };

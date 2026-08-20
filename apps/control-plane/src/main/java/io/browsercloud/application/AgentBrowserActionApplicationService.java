@@ -9,6 +9,7 @@ import io.browsercloud.domain.agent.AgentModels.TaskState;
 import io.browsercloud.domain.agent.AgentModels.ToolId;
 import java.net.IDN;
 import java.net.URI;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,17 @@ public class AgentBrowserActionApplicationService {
       throw new AgentBrowserActionRejectedException("STATE_CURSOR_STALE");
     }
     var domain = domain(snapshot.state().url());
+    var domains = new LinkedHashSet<String>();
+    domains.add(domain);
+    snapshot.tabs().stream()
+        .map(tab -> domainOrNull(tab.url()))
+        .filter(java.util.Objects::nonNull)
+        .forEach(domains::add);
+    request.actions().stream()
+        .filter(action -> action.toolId() == ToolId.OPEN_TAB)
+        .map(CreateAgentTaskRequest.BatchActionRequest::tabUrl)
+        .map(AgentBrowserActionApplicationService::domain)
+        .forEach(domains::add);
     var batch =
         new CreateAgentTaskRequest.ActionRequest(
             ToolId.EXECUTE_ACTIONS,
@@ -65,7 +77,7 @@ public class AgentBrowserActionApplicationService {
         new CreateAgentTaskRequest(
             request.goal(),
             null,
-            List.of(domain),
+            List.copyOf(domains),
             Math.min(20, request.actions().size() + 3),
             0,
             List.of(),
@@ -101,6 +113,14 @@ public class AgentBrowserActionApplicationService {
       return IDN.toASCII(host, IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
     } catch (IllegalArgumentException exception) {
       throw new AgentBrowserActionRejectedException("STATE_URL_INVALID");
+    }
+  }
+
+  private static String domainOrNull(String url) {
+    try {
+      return domain(url);
+    } catch (AgentBrowserActionRejectedException exception) {
+      return null;
     }
   }
 

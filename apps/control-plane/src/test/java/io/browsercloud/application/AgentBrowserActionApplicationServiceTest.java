@@ -49,7 +49,11 @@ class AgentBrowserActionApplicationServiceTest {
             "complete",
             500,
             true,
-            List.of());
+            List.of(),
+            List.of(
+                new BrowserStateView.BrowserTabView(
+                    "tab-login", "https://example.com/login", "Login", true)),
+            "tab-login");
     lenient()
         .when(perception.snapshot("ses_1234567890abcdef", "tenant-test"))
         .thenReturn(new SnapshotView("9:2:" + "a".repeat(64), state));
@@ -92,6 +96,43 @@ class AgentBrowserActionApplicationServiceTest {
             AgentBrowserActionApplicationService.AgentBrowserActionRejectedException.class)
         .hasMessage("STATE_CURSOR_STALE");
     verifyNoInteractions(tasks, execution, reviewer, externalWorker, routing);
+  }
+
+  @Test
+  void includesExplicitOpenTabDomainsWithoutAddingNavigation() {
+    var task = mock(AgentTaskView.class);
+    when(task.state()).thenReturn(TaskState.AWAITING_CONFIRMATION);
+    when(tasks.create(eq("ses_1234567890abcdef"), eq("tenant-test"), any(), eq("idem:create")))
+        .thenReturn(task);
+    var request =
+        new ExecuteActionsRequest(
+            "Open support",
+            "9:2:" + "a".repeat(64),
+            List.of(
+                new CreateAgentTaskRequest.BatchActionRequest(
+                    ToolId.OPEN_TAB,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "https://support.example.net/ticket")),
+            true);
+
+    service.execute("ses_1234567890abcdef", "tenant-test", "idem", request);
+
+    var create = ArgumentCaptor.forClass(CreateAgentTaskRequest.class);
+    verify(tasks)
+        .create(eq("ses_1234567890abcdef"), eq("tenant-test"), create.capture(), eq("idem:create"));
+    org.assertj.core.api.Assertions.assertThat(create.getValue().allowedDomains())
+        .containsExactly("example.com", "support.example.net");
+    org.assertj.core.api.Assertions.assertThat(
+            create.getValue().actions().getFirst().actions().getFirst().tabUrl())
+        .isEqualTo("https://support.example.net/ticket");
   }
 
   @Test

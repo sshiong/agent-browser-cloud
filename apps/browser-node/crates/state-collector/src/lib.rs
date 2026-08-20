@@ -65,6 +65,15 @@ pub struct Bounds {
     pub height: f64,
 }
 
+/// Browser-level Page Target exposed to the Agent as one stable tab.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BrowserTab {
+    pub tab_id: String,
+    pub url: String,
+    pub title: String,
+    pub active: bool,
+}
+
 /// 状态质量。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StateQuality {
@@ -88,6 +97,12 @@ pub struct CurrentState {
     pub url: String,
     /// 标题
     pub title: String,
+    /// Browser-level Page Targets. Exactly one entry is active.
+    #[serde(default)]
+    pub tabs: Vec<BrowserTab>,
+    /// Active Page Target ID. Empty only for an older serialized state.
+    #[serde(default)]
+    pub active_tab_id: String,
     /// 交互目标列表
     pub targets: Vec<InteractiveTarget>,
     /// 状态质量
@@ -113,6 +128,10 @@ pub struct StateDiff {
     pub target_revision: u64,
     pub url: String,
     pub title: String,
+    #[serde(default)]
+    pub tabs: Vec<BrowserTab>,
+    #[serde(default)]
+    pub active_tab_id: String,
     pub quality: StateQuality,
     pub content_hash: String,
     #[serde(default)]
@@ -141,7 +160,7 @@ pub struct DiffTruncated {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiffOutcome {
-    Diff(StateDiff),
+    Diff(Box<StateDiff>),
     Truncated(DiffTruncated),
 }
 
@@ -184,6 +203,8 @@ pub fn diff_states(
         target_revision: current.target_revision,
         url: current.url.clone(),
         title: current.title.clone(),
+        tabs: current.tabs.clone(),
+        active_tab_id: current.active_tab_id.clone(),
         quality: current.quality.clone(),
         content_hash: current.content_hash.clone(),
         document_ready_state: current.document_ready_state.clone(),
@@ -210,7 +231,7 @@ pub fn diff_states(
             estimated_targets: current.targets.len(),
         }));
     }
-    Ok(DiffOutcome::Diff(diff))
+    Ok(DiffOutcome::Diff(Box::new(diff)))
 }
 
 /// 浏览器状态采集器 trait。
@@ -248,6 +269,8 @@ struct CdpTarget {
     #[serde(default)]
     url: String,
     #[serde(default)]
+    title: String,
+    #[serde(default)]
     web_socket_debugger_url: Option<String>,
 }
 
@@ -255,6 +278,13 @@ struct CdpTarget {
 #[serde(rename_all = "camelCase")]
 struct CdpVersion {
     web_socket_debugger_url: String,
+}
+
+#[derive(Debug, Clone)]
+struct TabSnapshot {
+    tabs: Vec<BrowserTab>,
+    active_tab_id: String,
+    active_websocket_url: String,
 }
 
 /// 从 Chromium CDP 权威接口读取的轻量 Session 资源指标。
@@ -364,6 +394,7 @@ struct CollectorCursor {
     url: String,
     target_fingerprint: String,
     content_hash: String,
+    active_tab_id: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -432,6 +463,7 @@ impl CdpStateCollector {
             // Revision so no pre-crash target reference can become actionable again.
             cursor.url.clear();
             cursor.target_fingerprint.clear();
+            cursor.active_tab_id.clear();
         }
         self.target_registries.lock().await.remove(session_id);
         self.collection_locks.lock().await.remove(session_id);
@@ -669,14 +701,261 @@ impl CdpStateCollector {
         )
     }
 
-    async fn target_websocket(&self, session_id: &str) -> anyhow::Result<String> {
+    async fn tab_snapshot(&self, session_id: &str) -> anyhow::Result<TabSnapshot> {
+        let endpoint = self.endpoint(session_id).await?;
+        let page_targets = Self::list_targets(&endpoint)
+            .await?
+            .into_iter()
+            .filter(|target| target.target_type == "page")
+            .collect::<Vec<_>>();
+        anyhow::ensure!(!page_targets.is_empty(), "CDP has no page target");
+        anyhow::ensure!(
+            page_targets.len() <= 100,
+            "CDP page target count exceeds 100"
+        );
+        anyhow::ensure!(
+            page_targets.iter().all(|target| {
+                !target.id.is_empty() && target.web_socket_debugger_url.is_some()
+            }),
+            "CDP Page Target identity is incomplete"
+        );
+
+        let previous_active = self
+            .cursors
+            .lock()
+            .await
+            .get(session_id)
+            .map(|cursor| cursor.active_tab_id.clone())
+            .unwrap_or_default();
+        let active_tab_id = if page_targets.len() == 1 {
+            page_targets[0].id.clone()
+        } else {
+            let observations = futures_util::future::join_all(page_targets.iter().map(|target| {
+                let target_id = target.id.clone();
+                let websocket = target
+                    .web_socket_debugger_url
+                    .clone()
+                    .expect("Page Target websocket was validated");
+                async move {
+                    let visibility = Self::page_visibility_state(&websocket).await;
+                    (target_id, visibility)
+                }
+            }))
+            .await;
+            let visible = observations
+                .iter()
+                .filter(|(_, visibility)| visibility.as_deref() == Some("visible"))
+                .map(|(target_id, _)| target_id.clone())
+                .collect::<Vec<_>>();
+            if visible.len() == 1 {
+                visible[0].clone()
+            } else if !previous_active.is_empty()
+                && page_targets
+                    .iter()
+                    .any(|target| target.id == previous_active)
+                && (visible.is_empty() || visible.iter().any(|id| id == &previous_active))
+            {
+                previous_active
+            } else {
+                anyhow::bail!("CDP active Page Target is ambiguous")
+            }
+        };
+        let active_websocket_url = page_targets
+            .iter()
+            .find(|target| target.id == active_tab_id)
+            .and_then(|target| target.web_socket_debugger_url.clone())
+            .ok_or_else(|| anyhow::anyhow!("CDP active Page Target disappeared"))?;
+        let tabs = page_targets
+            .into_iter()
+            .map(|target| BrowserTab {
+                active: target.id == active_tab_id,
+                tab_id: target.id,
+                url: target.url,
+                title: target.title,
+            })
+            .collect();
+        Ok(TabSnapshot {
+            tabs,
+            active_tab_id,
+            active_websocket_url,
+        })
+    }
+
+    async fn page_visibility_state(websocket_url: &str) -> Option<String> {
+        Self::cdp_command_with_params(
+            websocket_url,
+            "Runtime.evaluate",
+            401,
+            serde_json::json!({
+                "expression": "document.visibilityState",
+                "returnByValue": true,
+                "awaitPromise": false
+            }),
+        )
+        .await
+        .ok()
+        .and_then(|result| {
+            result
+                .pointer("/result/value")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+    }
+
+    pub async fn active_page_websocket(&self, session_id: &str) -> anyhow::Result<String> {
+        Ok(self.tab_snapshot(session_id).await?.active_websocket_url)
+    }
+
+    pub async fn open_tab(&self, session_id: &str, url: &str) -> anyhow::Result<String> {
+        let endpoint = self.endpoint(session_id).await?;
+        let resource_policy = self
+            .tab_resource_policies
+            .read()
+            .await
+            .get(session_id)
+            .map(|state| state.policy.clone());
+        if let Some(policy) = resource_policy {
+            anyhow::ensure!(
+                !policy.block_new_tabs,
+                "new Page Targets are blocked by the active resource policy"
+            );
+            let page_count = Self::list_targets(&endpoint)
+                .await?
+                .into_iter()
+                .filter(|target| target.target_type == "page")
+                .count();
+            anyhow::ensure!(
+                page_count < policy.tab_budget as usize,
+                "Page Target budget is exhausted"
+            );
+        }
+        let browser = Self::browser_websocket(&endpoint).await?;
+        let result = Self::cdp_command_with_params(
+            &browser,
+            "Target.createTarget",
+            402,
+            serde_json::json!({"url": url, "newWindow": false, "background": false}),
+        )
+        .await?;
+        let tab_id = result
+            .get("targetId")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.is_empty() && value.chars().count() <= 128)
+            .ok_or_else(|| anyhow::anyhow!("CDP Target.createTarget returned no targetId"))?
+            .to_owned();
+        self.activate_tab(session_id, &tab_id).await?;
+        Ok(tab_id)
+    }
+
+    pub async fn activate_tab(&self, session_id: &str, tab_id: &str) -> anyhow::Result<()> {
+        Self::validate_tab_id(tab_id)?;
         let endpoint = self.endpoint(session_id).await?;
         let targets = Self::list_targets(&endpoint).await?;
-        targets
+        anyhow::ensure!(
+            targets
+                .iter()
+                .any(|target| target.target_type == "page" && target.id == tab_id),
+            "Page Target is stale or unknown"
+        );
+        let browser = Self::browser_websocket(&endpoint).await?;
+        Self::cdp_command_with_params(
+            &browser,
+            "Target.activateTarget",
+            403,
+            serde_json::json!({"targetId": tab_id}),
+        )
+        .await?;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            let targets = Self::list_targets(&endpoint).await?;
+            let active = targets
+                .iter()
+                .find(|target| target.target_type == "page" && target.id == tab_id)
+                .and_then(|target| target.web_socket_debugger_url.as_deref());
+            if let Some(websocket) = active {
+                if Self::page_visibility_state(websocket).await.as_deref() == Some("visible") {
+                    break;
+                }
+            } else {
+                anyhow::bail!("activated Page Target disappeared");
+            }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                "Page Target activation did not become visible"
+            );
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        if let Some(cursor) = self.cursors.lock().await.get_mut(session_id) {
+            cursor.active_tab_id = tab_id.to_owned();
+        }
+        Ok(())
+    }
+
+    pub async fn close_tab(&self, session_id: &str, tab_id: &str) -> anyhow::Result<()> {
+        Self::validate_tab_id(tab_id)?;
+        let endpoint = self.endpoint(session_id).await?;
+        let page_targets = Self::list_targets(&endpoint)
+            .await?
             .into_iter()
-            .find(|target| target.target_type == "page")
-            .and_then(|target| target.web_socket_debugger_url)
-            .ok_or_else(|| anyhow::anyhow!("CDP has no page target"))
+            .filter(|target| target.target_type == "page")
+            .collect::<Vec<_>>();
+        anyhow::ensure!(page_targets.len() > 1, "cannot close the last Page Target");
+        anyhow::ensure!(
+            page_targets.iter().any(|target| target.id == tab_id),
+            "Page Target is stale or unknown"
+        );
+        let fallback = page_targets
+            .iter()
+            .find(|target| target.id != tab_id)
+            .map(|target| target.id.clone())
+            .expect("more than one Page Target was validated");
+        let browser = Self::browser_websocket(&endpoint).await?;
+        let result = Self::cdp_command_with_params(
+            &browser,
+            "Target.closeTarget",
+            404,
+            serde_json::json!({"targetId": tab_id}),
+        )
+        .await?;
+        anyhow::ensure!(
+            result.get("success").and_then(serde_json::Value::as_bool) == Some(true),
+            "CDP Target.closeTarget did not close the Page Target"
+        );
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+        loop {
+            let still_present = Self::list_targets(&endpoint)
+                .await?
+                .iter()
+                .any(|target| target.target_type == "page" && target.id == tab_id);
+            if !still_present {
+                break;
+            }
+            anyhow::ensure!(
+                tokio::time::Instant::now() < deadline,
+                "closed Page Target is still present"
+            );
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        let was_active = self
+            .cursors
+            .lock()
+            .await
+            .get(session_id)
+            .is_some_and(|cursor| cursor.active_tab_id == tab_id);
+        if was_active {
+            self.activate_tab(session_id, &fallback).await?;
+        }
+        Ok(())
+    }
+
+    fn validate_tab_id(tab_id: &str) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !tab_id.is_empty()
+                && tab_id.chars().count() <= 128
+                && !tab_id.chars().any(char::is_control),
+            "Page Target ID is invalid"
+        );
+        Ok(())
     }
 
     async fn endpoint(&self, session_id: &str) -> anyhow::Result<String> {
@@ -1418,7 +1697,7 @@ impl CdpStateCollector {
             url.starts_with("http://") || url.starts_with("https://") || url == "about:blank",
             "navigation URL scheme is not allowed"
         );
-        let websocket_url = self.target_websocket(session_id).await?;
+        let websocket_url = self.active_page_websocket(session_id).await?;
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(websocket_url),
@@ -1462,7 +1741,7 @@ impl CdpStateCollector {
     }
 
     pub async fn reload(&self, session_id: &str, ignore_cache: bool) -> anyhow::Result<()> {
-        let websocket_url = self.target_websocket(session_id).await?;
+        let websocket_url = self.active_page_websocket(session_id).await?;
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(websocket_url),
@@ -1629,7 +1908,7 @@ impl CdpStateCollector {
 
     /// Returns the current CSS viewport used by CDP input coordinates.
     pub async fn viewport_size(&self, session_id: &str) -> anyhow::Result<(f64, f64)> {
-        let websocket_url = self.target_websocket(session_id).await?;
+        let websocket_url = self.active_page_websocket(session_id).await?;
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(websocket_url),
@@ -1687,7 +1966,7 @@ impl CdpStateCollector {
             (100..=2000).contains(&delta_y.abs()),
             "scroll delta must be between 100 and 2000 pixels"
         );
-        let websocket_url = self.target_websocket(session_id).await?;
+        let websocket_url = self.active_page_websocket(session_id).await?;
         let (mut socket, _) = timeout(
             Duration::from_secs(3),
             tokio_tungstenite::connect_async(websocket_url),
@@ -1810,22 +2089,22 @@ impl CdpStateCollector {
     }
 
     fn state_hash(
-        url: &str,
-        title: &str,
-        evaluated_targets: &[EvaluatedTarget],
+        page: &EvaluatedPageState,
+        tab_snapshot: &TabSnapshot,
         truncated: bool,
-        document_ready_state: &str,
         network_readiness_hash_bucket: u64,
     ) -> anyhow::Result<(String, String)> {
-        let serialized_targets = serde_json::to_string(evaluated_targets)?;
+        let serialized_targets = serde_json::to_string(&page.targets)?;
         let content_hash = hex_sha256(
             format!(
-                "{}\n{}\n{}\n{}\n{}\n{}",
-                url,
-                title,
+                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                page.url,
+                page.title,
+                serde_json::to_string(&tab_snapshot.tabs)?,
+                tab_snapshot.active_tab_id,
                 serialized_targets,
                 truncated,
-                document_ready_state,
+                page.document_ready_state,
                 network_readiness_hash_bucket
             )
             .as_bytes(),
@@ -1841,8 +2120,18 @@ impl CdpStateCollector {
     ) -> anyhow::Result<CurrentState> {
         let collection_lock = self.collection_lock(session_id).await?;
         let _collection_guard = collection_lock.lock().await;
-        let websocket_url = self.target_websocket(session_id).await?;
-        let mut page = self.evaluate_page(&websocket_url).await?;
+        let mut tab_snapshot = self.tab_snapshot(session_id).await?;
+        let mut page = self
+            .evaluate_page(&tab_snapshot.active_websocket_url)
+            .await?;
+        if let Some(active) = tab_snapshot
+            .tabs
+            .iter_mut()
+            .find(|tab| tab.tab_id == tab_snapshot.active_tab_id)
+        {
+            active.url = page.url.clone();
+            active.title = page.title.clone();
+        }
         page.targets
             .sort_by(|left, right| left.path.cmp(&right.path));
         let network_observation = self.browser_safety_observation(session_id).await;
@@ -1850,11 +2139,9 @@ impl CdpStateCollector {
         let network_readiness_hash_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let (serialized_targets, content_hash) = Self::state_hash(
-            &page.url,
-            &page.title,
-            &page.targets,
+            &page,
+            &tab_snapshot,
             page.truncated,
-            &page.document_ready_state,
             network_readiness_hash_bucket,
         )?;
         let target_fingerprint = hex_sha256(serialized_targets.as_bytes());
@@ -1873,12 +2160,14 @@ impl CdpStateCollector {
             }
             if cursor.target_revision == 0
                 || cursor.url != page.url
+                || cursor.active_tab_id != tab_snapshot.active_tab_id
                 || cursor.target_fingerprint != target_fingerprint
                 || force_target_revision
             {
                 cursor.target_revision += 1;
             }
             cursor.url = page.url.clone();
+            cursor.active_tab_id = tab_snapshot.active_tab_id.clone();
             cursor.target_fingerprint = target_fingerprint;
             cursor.content_hash = content_hash.clone();
             (cursor.state_version, cursor.target_revision)
@@ -1910,6 +2199,8 @@ impl CdpStateCollector {
             target_revision,
             url: page.url,
             title: page.title,
+            tabs: tab_snapshot.tabs,
+            active_tab_id: tab_snapshot.active_tab_id,
             targets,
             quality: if page.truncated {
                 StateQuality::DepthLimited
@@ -1989,8 +2280,22 @@ impl CdpStateCollector {
         } else {
             root_ref.to_owned()
         };
-        let websocket_url = self.target_websocket(session_id).await?;
-        let mut page = self.evaluate_region(&websocket_url, &root_selector).await?;
+        let mut tab_snapshot = self.tab_snapshot(session_id).await?;
+        anyhow::ensure!(
+            tab_snapshot.active_tab_id == baseline.active_tab_id,
+            "Region active Page Target changed during collection"
+        );
+        let mut page = self
+            .evaluate_region(&tab_snapshot.active_websocket_url, &root_selector)
+            .await?;
+        if let Some(active) = tab_snapshot
+            .tabs
+            .iter_mut()
+            .find(|tab| tab.tab_id == tab_snapshot.active_tab_id)
+        {
+            active.url = page.url.clone();
+            active.title = page.title.clone();
+        }
         anyhow::ensure!(
             page.url == baseline.url,
             "Region page URL changed during collection"
@@ -2025,7 +2330,7 @@ impl CdpStateCollector {
             "Region result exceeds the bounded state target limit; request FULL resync"
         );
         let canonical = Self::canonical_targets(&registry);
-        let evaluated_targets = canonical
+        page.targets = canonical
             .iter()
             .map(|(_, evaluated, _)| evaluated.clone())
             .collect::<Vec<_>>();
@@ -2038,14 +2343,8 @@ impl CdpStateCollector {
         let readiness_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let truncated = page.truncated || matches!(baseline.quality, StateQuality::DepthLimited);
-        let (serialized_targets, content_hash) = Self::state_hash(
-            &page.url,
-            &page.title,
-            &evaluated_targets,
-            truncated,
-            &page.document_ready_state,
-            readiness_bucket,
-        )?;
+        let (serialized_targets, content_hash) =
+            Self::state_hash(&page, &tab_snapshot, truncated, readiness_bucket)?;
         let state_version = baseline.state_version.saturating_add(1);
         anyhow::ensure!(
             state_version > baseline.state_version,
@@ -2063,6 +2362,7 @@ impl CdpStateCollector {
             );
             current.state_version = state_version;
             current.url = page.url.clone();
+            current.active_tab_id = tab_snapshot.active_tab_id.clone();
             current.target_fingerprint = hex_sha256(serialized_targets.as_bytes());
             current.content_hash = content_hash.clone();
         }
@@ -2077,6 +2377,8 @@ impl CdpStateCollector {
             target_revision: baseline.target_revision,
             url: page.url,
             title: page.title,
+            tabs: tab_snapshot.tabs,
+            active_tab_id: tab_snapshot.active_tab_id,
             targets,
             quality: if truncated {
                 StateQuality::DepthLimited
@@ -2587,6 +2889,90 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn resolves_the_single_visible_page_as_the_authoritative_active_tab() {
+        async fn visibility_server(value: &'static str) -> (std::net::SocketAddr, JoinHandle<()>) {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let task = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected visibility command");
+                };
+                let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+                assert_eq!(request["method"], "Runtime.evaluate");
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({
+                            "id": request["id"],
+                            "result": {"result": {"value": value}}
+                        })
+                        .to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            });
+            (address, task)
+        }
+
+        let (hidden_address, hidden_task) = visibility_server("hidden").await;
+        let (visible_address, visible_task) = visibility_server("visible").await;
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let body = serde_json::json!([
+                {
+                    "id": "tab-hidden",
+                    "type": "page",
+                    "url": "https://hidden.example.test",
+                    "title": "Hidden",
+                    "webSocketDebuggerUrl": format!("ws://{hidden_address}/devtools/page/hidden")
+                },
+                {
+                    "id": "tab-visible",
+                    "type": "page",
+                    "url": "https://visible.example.test",
+                    "title": "Visible",
+                    "webSocketDebuggerUrl": format!("ws://{visible_address}/devtools/page/visible")
+                }
+            ])
+            .to_string();
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(), body
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        });
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_tabs", &format!("http://{http_address}"))
+            .await
+            .unwrap();
+
+        let snapshot = collector.tab_snapshot("ses_tabs").await.unwrap();
+        assert_eq!(snapshot.active_tab_id, "tab-visible");
+        assert_eq!(snapshot.tabs.len(), 2);
+        assert!(snapshot.tabs[1].active);
+        assert_eq!(
+            snapshot.active_websocket_url,
+            format!("ws://{visible_address}/devtools/page/visible")
+        );
+
+        hidden_task.await.unwrap();
+        visible_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn preserves_monotonic_state_version_but_rotates_page_identity_after_runtime_unregister()
     {
         let collector = CdpStateCollector::new();
@@ -2602,6 +2988,7 @@ mod tests {
                 url: "https://example.test/app".to_owned(),
                 target_fingerprint: "fingerprint".to_owned(),
                 content_hash: "content-hash".to_owned(),
+                active_tab_id: "tab-1".to_owned(),
             },
         );
 
@@ -2613,6 +3000,7 @@ mod tests {
         assert_eq!(cursor.target_revision, 3);
         assert!(cursor.url.is_empty());
         assert!(cursor.target_fingerprint.is_empty());
+        assert!(cursor.active_tab_id.is_empty());
         drop(cursors);
         assert!(!collector
             .collection_locks
@@ -3106,6 +3494,13 @@ mod tests {
             target_revision: 1,
             url: "https://example.test".to_owned(),
             title: "Example".to_owned(),
+            tabs: vec![BrowserTab {
+                tab_id: "tab-1".to_owned(),
+                url: "https://example.test".to_owned(),
+                title: "Example".to_owned(),
+                active: true,
+            }],
+            active_tab_id: "tab-1".to_owned(),
             targets: vec![target("target:1:a", "A"), target("target:1:b", "B")],
             quality: StateQuality::Complete,
             content_hash: "old".to_owned(),
@@ -3206,7 +3601,7 @@ mod tests {
         let mut ready = false;
         for _ in 0..100 {
             if collector
-                .target_websocket("ses_real_chromium")
+                .active_page_websocket("ses_real_chromium")
                 .await
                 .is_ok()
             {
@@ -3269,6 +3664,97 @@ mod tests {
         let _ = child.start_kill();
         let _ = child.wait().await;
         page_task.abort();
+        let _ = tokio::fs::remove_dir_all(profile).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires REAL_CHROMIUM_PATH and launches a local browser"]
+    async fn manages_tabs_against_a_real_browser_runtime() {
+        let chromium = std::env::var("REAL_CHROMIUM_PATH")
+            .expect("REAL_CHROMIUM_PATH must point to Chromium or the integration fixture");
+        let port_reservation = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let cdp_port = port_reservation.local_addr().unwrap().port();
+        drop(port_reservation);
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let profile = std::env::temp_dir().join(format!("browsercloud-tab-cdp-{nonce}"));
+        tokio::fs::create_dir_all(&profile).await.unwrap();
+        let mut child = tokio::process::Command::new(PathBuf::from(chromium))
+            .arg("--headless=new")
+            .arg("--no-first-run")
+            .arg("--no-default-browser-check")
+            .arg("--disable-background-networking")
+            .arg(format!("--user-data-dir={}", profile.display()))
+            .arg(format!("--remote-debugging-port={cdp_port}"))
+            .arg("--remote-debugging-address=127.0.0.1")
+            .arg("about:blank")
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let collector = CdpStateCollector::new();
+        collector
+            .register_runtime("ses_real_tabs", &format!("http://127.0.0.1:{cdp_port}"))
+            .await
+            .unwrap();
+        let mut initial = None;
+        for _ in 0..100 {
+            if let Ok(snapshot) = collector.tab_snapshot("ses_real_tabs").await {
+                initial = Some(snapshot);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        let initial = initial.expect("Browser tab authority did not become ready");
+        let original_tab = initial.active_tab_id;
+        collector
+            .start_safety_monitor("ses_real_tabs", BrowserTransactionPolicy::default())
+            .await
+            .unwrap();
+        collector
+            .set_tab_resource_policy(
+                "ses_real_tabs",
+                TabResourcePolicy {
+                    tab_budget: 8,
+                    freeze_background_tabs: false,
+                    block_new_tabs: false,
+                    paused_extension_ids: Vec::new(),
+                },
+            )
+            .await
+            .unwrap();
+        collector
+            .collect_current_state("ses_real_tabs")
+            .await
+            .unwrap();
+        let opened_tab = collector
+            .open_tab("ses_real_tabs", "https://support.example.test/ticket")
+            .await
+            .unwrap();
+        let opened = collector.tab_snapshot("ses_real_tabs").await.unwrap();
+        assert_eq!(opened.active_tab_id, opened_tab);
+        assert_eq!(opened.tabs.len(), 2);
+        let confirmed = collector
+            .collect_action_confirmation("ses_real_tabs")
+            .await
+            .unwrap();
+        assert_eq!(confirmed.active_tab_id, opened_tab);
+        collector
+            .activate_tab("ses_real_tabs", &original_tab)
+            .await
+            .unwrap();
+        collector
+            .close_tab("ses_real_tabs", &opened_tab)
+            .await
+            .unwrap();
+        let closed = collector.tab_snapshot("ses_real_tabs").await.unwrap();
+        assert_eq!(closed.active_tab_id, original_tab);
+        assert_eq!(closed.tabs.len(), 1);
+
+        collector.unregister_runtime("ses_real_tabs").await;
+        let _ = child.start_kill();
+        let _ = child.wait().await;
         let _ = tokio::fs::remove_dir_all(profile).await;
     }
 }

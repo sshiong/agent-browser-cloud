@@ -55,9 +55,9 @@ public final class Models {
 
   public record CreateAgentTaskRequest(String goal, String startUrl, List<String> allowedDomains, Integer maxActions, Integer replanBudget, List<AgentInstructionSource> contextSources, List<AgentActionRequest> actions) {}
 
-  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
+  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
 
-  public record AgentBatchActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs) {}
+  public record AgentBatchActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, String tabId, String tabUrl) {}
 
   public record AgentInstructionSource(String sourceId, String sourceType, String classification, String content) {}
 
@@ -153,9 +153,9 @@ public final class Models {
 
   public record AgentPlanStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetUrl, AgentStepInput input, String rationale, List<String> supportingSources, String trustFloor, List<String> taintLabels, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification, String capabilityTokenId) {}
 
-  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, List<AgentBatchActionInput> actions, Boolean stopOnError) {}
+  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, List<AgentBatchActionInput> actions, Boolean stopOnError, Object tabId, Object tabUrl) {}
 
-  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object elementId, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts) {}
+  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object elementId, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, Object tabId, Object tabUrl) {}
 
   public enum AgentRiskClass { R0READONLY, R1LOWRISKCHANGE, R2DATACHANGE, R3ACCOUNTCHANGE, R4FINANCIAL, R5SECURITY }
 
@@ -231,11 +231,11 @@ public final class Models {
 
   public record BrowserPlacement(String sessionId, String tenantId, String nodeId, ResourceTemplate requestedTemplate, ResourceTemplate resolvedTemplate, List<String> extensionIds, Integer unknownExtensionCount, Integer cpuMillis, Integer memoryRequestMib, Integer memoryLimitMib, Integer pidLimit, Integer tabBudget, Integer stateCollectorBudgetPercent, Integer remoteDesktopBitrateKbps, Integer extensionCpuWeight, Boolean requiresDesktop, Boolean requiresGpu, Boolean requiresNativeOs, Boolean requiresIsolation, Boolean requiresMedia, Integer mediaSlots, Integer mediaEncoderSlots, Boolean backgroundTabsFrozen, Boolean newTabsBlocked, List<String> pausedExtensionIds, Integer successTraceSamplePercent, Integer successScreenshotSamplePercent, Integer observerFrameRateFps, Boolean videoRecordingRequested, Boolean videoRecordingEnabled, Integer mediaBitrateKbps, Integer placementScore, String state, List<String> reasonCodes, String reservedAt, Object activatedAt, Object releasedAt) {}
 
-  public record BrowserState(String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, String url, String title, String stateHash, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, List<InteractiveTarget> targets) {}
+  public record BrowserState(String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, String url, String title, String stateHash, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, List<InteractiveTarget> targets, List<AgentBrowserTab> tabs, String activeTabId) {}
 
-  public record AgentBrowserSnapshot(String stateCursor, BrowserState state, String visibleTextSummary, AgentBrowserTab activeTab, Object focusedElementId, List<String> formControlElementIds, List<String> dialogElementIds, String pageLoadingState, String challengeState, Boolean visionRecommended) {}
+  public record AgentBrowserSnapshot(String stateCursor, BrowserState state, String visibleTextSummary, List<AgentBrowserTab> tabs, AgentBrowserTab activeTab, Object focusedElementId, List<String> formControlElementIds, List<String> dialogElementIds, String pageLoadingState, String challengeState, Boolean visionRecommended) {}
 
-  public record AgentBrowserTab(String url, String title, Boolean active) {}
+  public record AgentBrowserTab(String tabId, String url, String title, Boolean active) {}
 
   public record AgentBrowserInspectRequest(String stateCursor, List<String> elementIds) {}
 

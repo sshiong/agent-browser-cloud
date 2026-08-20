@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type AgentBrowserTab = {
+    tabId: string;
     url: string;
     title: string;
     active: boolean;

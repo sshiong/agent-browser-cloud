@@ -14,7 +14,7 @@ use node_contracts::proto::{
     AgentActionPrimitive, AgentNavigateCommand, AgentNavigationFailedEvent,
     BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
     BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
-    BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
+    BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
     CaptureObserverScreenshotCommand, ChallengeAutomationActionCommand,
     ChallengeAutomationFailedEvent, ChallengeVisualAction, CommandAck, CommandEnvelope,
     DiffTruncatedEvent, DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope,
@@ -80,7 +80,20 @@ fn rebound_action_target(
 
 fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
-    if message.contains("revision is stale") || message.contains("state cursor is stale") {
+    if matches!(tool_id, "OPEN_TAB" | "SWITCH_TAB" | "CLOSE_TAB")
+        && (message.contains("stale or unknown") || message.contains("disappeared"))
+    {
+        "TAB_NOT_FOUND"
+    } else if tool_id == "CLOSE_TAB" && message.contains("last page target") {
+        "LAST_TAB_CLOSE_FORBIDDEN"
+    } else if tool_id == "OPEN_TAB"
+        && (message.contains("blocked by the active resource policy")
+            || message.contains("budget is exhausted"))
+    {
+        "TAB_POLICY_BLOCKED"
+    } else if tool_id == "SWITCH_TAB" && message.contains("activation did not become visible") {
+        "TAB_ACTIVATION_FAILED"
+    } else if message.contains("revision is stale") || message.contains("state cursor is stale") {
         "STATE_STALE"
     } else if message.contains("stale, unknown")
         || message.contains("target registry is unavailable")
@@ -1255,6 +1268,22 @@ impl NodeControlService {
         })
     }
 
+    async fn active_input_broker(&self, session_id: &str) -> anyhow::Result<Arc<CdpDesktopInput>> {
+        let input = self
+            .input_brokers
+            .lock()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("input broker is unavailable"))?;
+        let websocket = self
+            .state_collector
+            .active_page_websocket(session_id)
+            .await?;
+        input.rebind(&websocket).await?;
+        Ok(input)
+    }
+
     fn defer_for_human_input(command: &CommandEnvelope) -> CommandResult {
         Self::result(
             Self::ack(
@@ -1606,6 +1635,17 @@ impl NodeControlService {
             network_quiet_millis: state.network_quiet_millis,
             network_evidence_fresh: state.network_evidence_fresh,
             action_outcomes: Vec::new(),
+            tabs: state
+                .tabs
+                .into_iter()
+                .map(|tab| BrowserTabState {
+                    tab_id: tab.tab_id,
+                    url: tab.url,
+                    title: tab.title,
+                    active: tab.active,
+                })
+                .collect(),
+            active_tab_id: state.active_tab_id,
         }
     }
 
@@ -1669,6 +1709,17 @@ impl NodeControlService {
             requested_root_ref: diff.requested_root_ref,
             resync_request_id: String::new(),
             collection_cpu_millis: None,
+            tabs: diff
+                .tabs
+                .into_iter()
+                .map(|tab| BrowserTabState {
+                    tab_id: tab.tab_id,
+                    url: tab.url,
+                    title: tab.title,
+                    active: tab.active,
+                })
+                .collect(),
+            active_tab_id: diff.active_tab_id,
         }
     }
 
@@ -2780,6 +2831,8 @@ impl NodeControlService {
                 && payload.target_revision == 0
                 && payload.text.is_empty()
                 && payload.sealed_text.is_empty()
+                && payload.tab_id.is_empty()
+                && payload.tab_url.is_empty()
                 && (1..=20).contains(&payload.actions.len()),
             "agent action batch payload is invalid"
         );
@@ -2807,6 +2860,9 @@ impl NodeControlService {
                             | "CLEAR_TARGET"
                             | "CHECK_TARGET"
                             | "UNCHECK_TARGET"
+                            | "OPEN_TAB"
+                            | "SWITCH_TAB"
+                            | "CLOSE_TAB"
                             | "TYPE_TEXT"
                             | "FILL"
                             | "PASTE_AGENT_CLIPBOARD"
@@ -2850,6 +2906,8 @@ impl NodeControlService {
                 maximum_attempts: action.maximum_attempts,
                 actions: Vec::new(),
                 stop_on_error: true,
+                tab_id: action.tab_id.clone(),
+                tab_url: action.tab_url.clone(),
             };
             match Box::pin(self.execute_agent_action(&single)).await {
                 Ok(state) => {
@@ -2895,6 +2953,15 @@ impl NodeControlService {
         &self,
         payload: &AgentActionCommand,
     ) -> anyhow::Result<CurrentState> {
+        if !matches!(
+            payload.tool_id.as_str(),
+            "OPEN_TAB" | "SWITCH_TAB" | "CLOSE_TAB"
+        ) {
+            anyhow::ensure!(
+                payload.tab_id.is_empty() && payload.tab_url.is_empty(),
+                "non-tab action contains tab fields"
+            );
+        }
         let mut checked_verification: Option<(String, bool)> = None;
         match payload.tool_id.as_str() {
             "CLICK_TARGET"
@@ -2983,13 +3050,7 @@ impl NodeControlService {
                         && center_y <= i32::MAX as f64,
                     "target center is outside the input coordinate range"
                 );
-                let input = self
-                    .input_brokers
-                    .lock()
-                    .await
-                    .get(&payload.session_id)
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("input broker is unavailable"))?;
+                let input = self.active_input_broker(&payload.session_id).await?;
                 let maximum_attempts = if matches!(payload.tool_id.as_str(), "TYPE_TEXT" | "FILL") {
                     if payload.maximum_attempts == 0 {
                         1
@@ -3087,6 +3148,53 @@ impl NodeControlService {
                 );
                 self.state_collector
                     .scroll(&payload.session_id, payload.scroll_delta_y)
+                    .await?;
+            }
+            "OPEN_TAB" => {
+                anyhow::ensure!(
+                    payload.target_ref.is_empty()
+                        && payload.target_revision == 0
+                        && payload.tab_id.is_empty()
+                        && payload.text.is_empty()
+                        && payload.sealed_text.is_empty(),
+                    "open tab action contains unsupported fields"
+                );
+                let target = reqwest::Url::parse(&payload.tab_url)?;
+                anyhow::ensure!(
+                    matches!(target.scheme(), "http" | "https")
+                        && target.host_str().is_some()
+                        && target.username().is_empty()
+                        && target.password().is_none(),
+                    "open tab URL is invalid"
+                );
+                self.state_collector
+                    .open_tab(&payload.session_id, target.as_str())
+                    .await?;
+            }
+            "SWITCH_TAB" => {
+                anyhow::ensure!(
+                    payload.target_ref.is_empty()
+                        && payload.target_revision == 0
+                        && payload.tab_url.is_empty()
+                        && payload.text.is_empty()
+                        && payload.sealed_text.is_empty(),
+                    "switch tab action contains unsupported fields"
+                );
+                self.state_collector
+                    .activate_tab(&payload.session_id, &payload.tab_id)
+                    .await?;
+            }
+            "CLOSE_TAB" => {
+                anyhow::ensure!(
+                    payload.target_ref.is_empty()
+                        && payload.target_revision == 0
+                        && payload.tab_url.is_empty()
+                        && payload.text.is_empty()
+                        && payload.sealed_text.is_empty(),
+                    "close tab action contains unsupported fields"
+                );
+                self.state_collector
+                    .close_tab(&payload.session_id, &payload.tab_id)
                     .await?;
             }
             "WAIT_FOR" => {
@@ -4475,17 +4583,9 @@ impl NodeControlService {
                             anyhow::anyhow!("input payload session_id does not match envelope"),
                         );
                     }
-                    let input = self
-                        .input_brokers
-                        .lock()
-                        .await
-                        .get(&command.session_id)
-                        .cloned();
-                    let Some(input) = input else {
-                        return self.failed(
-                            command,
-                            anyhow::anyhow!("input broker is not available for session"),
-                        );
+                    let input = match self.active_input_broker(&command.session_id).await {
+                        Ok(input) => input,
+                        Err(error) => return self.failed(command, error),
                     };
                     let result = match payload.action {
                         Some(node_contracts::proto::execute_input_command::Action::MouseMove(
@@ -4645,7 +4745,7 @@ impl NodeControlService {
                                 Ok(sequence) => sequence,
                                 Err(error) => return self.failed(command, error),
                             };
-                            let mut event_payload = Self::state_diff_payload(diff);
+                            let mut event_payload = Self::state_diff_payload(*diff);
                             event_payload.resync_request_id = command.message_id.clone();
                             event_payload.collection_cpu_millis = collection_cpu_millis;
                             let event =
@@ -4913,6 +5013,9 @@ impl NodeControlService {
                                 | "CLEAR_TARGET"
                                 | "CHECK_TARGET"
                                 | "UNCHECK_TARGET"
+                                | "OPEN_TAB"
+                                | "SWITCH_TAB"
+                                | "CLOSE_TAB"
                                 | "TYPE_TEXT"
                                 | "FILL"
                                 | "PASTE_AGENT_CLIPBOARD"
@@ -4951,6 +5054,7 @@ impl NodeControlService {
                                 step_id = payload.step_id,
                                 tool_id = payload.tool_id,
                                 error = %error,
+                                error_chain = ?error,
                                 "Agent action failed"
                             );
                             let code = agent_action_error_code(&payload.tool_id, &error);
@@ -5108,15 +5212,9 @@ impl NodeControlService {
                                     .await
                             }
                         };
-                        let input = match self
-                            .input_brokers
-                            .lock()
-                            .await
-                            .get(&command.session_id)
-                            .cloned()
-                        {
-                            Some(input) => input,
-                            None => {
+                        let input = match self.active_input_broker(&command.session_id).await {
+                            Ok(input) => input,
+                            Err(_) => {
                                 return self
                                     .challenge_automation_failed(
                                         command,
@@ -5467,6 +5565,8 @@ impl NodeControlService {
                             maximum_attempts: 1,
                             actions: Vec::new(),
                             stop_on_error: true,
+                            tab_id: String::new(),
+                            tab_url: String::new(),
                         };
                         let state = match self.execute_agent_action(&click).await {
                             Ok(state) => state,
@@ -5913,7 +6013,7 @@ impl NodeControlService {
                                                                 &session_id,
                                                                 coordinator_term,
                                                                 running_context_epoch,
-                                                                diff,
+                                                                *diff,
                                                             )
                                                             .await
                                                     }
@@ -8059,6 +8159,13 @@ mod tests {
             target_revision: 2,
             url: "https://example.test/".to_owned(),
             title: "Example".to_owned(),
+            tabs: vec![state_collector::BrowserTab {
+                tab_id: "tab-1".to_owned(),
+                url: "https://example.test/".to_owned(),
+                title: "Example".to_owned(),
+                active: true,
+            }],
+            active_tab_id: "tab-1".to_owned(),
             targets: Vec::new(),
             quality: StateQuality::Complete,
             content_hash: format!("hash-{version}"),

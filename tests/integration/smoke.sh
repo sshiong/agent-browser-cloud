@@ -4160,6 +4160,144 @@ curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
   'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); checkbox=next(item for item in state["targets"] if item["role"] == "checkbox"); assert textbox["value"] == ""; assert checkbox["checked"] is False'
+tab_session_created="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'Idempotency-Key: smoke-agent-browser-tab-session-001' \
+  -d '{"tenantId":"tenant-integration","profileId":"profile-agent-browser-tabs","runtimeBuildId":"runtime_local_chromium","region":"local","resourcePolicy":{"mode":"AUTO"},"requestedTabs":2,"agentActionsPerMinute":60,"agentPolicy":"INTERACTIVE","metadata":{"displayName":"Agent Browser tab integration"}}')"
+tab_session="$(printf '%s' "$tab_session_created" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["sessionId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}:start" \
+  -H 'X-Tenant-Id: tenant-integration' >/dev/null
+tab_session_state=""
+for _ in $(seq 1 80); do
+  tab_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$tab_session_state" = "RUNNING" ]]; then break; fi
+  sleep 0.25
+done
+test "$tab_session_state" = "RUNNING"
+tab_snapshot_status=""
+for _ in $(seq 1 80); do
+  tab_snapshot_status="$(curl -sS -o "$temp_dir/tab-open-snapshot.json" -w '%{http_code}' \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  if [[ "$tab_snapshot_status" = "200" ]]; then break; fi
+  sleep 0.25
+done
+test "$tab_snapshot_status" = "200"
+tab_open_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+tab_open_request="$(python3 - "$tab_open_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+assert len(snapshot["tabs"]) == 1
+assert snapshot["activeTab"]["tabId"] == snapshot["state"]["activeTabId"]
+print(json.dumps({
+    "goal": "Open the allowlisted support page in a new tab",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "actions": [{"toolId": "OPEN_TAB", "tabUrl": "https://support.example.test/ticket"}],
+    "stopOnError": True,
+}, separators=(",", ":")))
+PY
+)"
+tab_open_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/execute-actions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-tab-open-001' \
+  -d "$tab_open_request")"
+tab_open_task_id="$(printf '%s' "$tab_open_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+for _ in $(seq 1 80); do
+  tab_open_task="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${tab_open_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  tab_open_state="$(printf '%s' "$tab_open_task" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$tab_open_state" = "COMPLETED" ]]; then break; fi
+  if [[ "$tab_open_state" = "FAILED" || "$tab_open_state" = "BLOCKED" ]]; then
+    echo "Tab open task terminated: $tab_open_task" >&2
+    break
+  fi
+  sleep 0.25
+done
+test "$tab_open_state" = "COMPLETED"
+tab_lifecycle_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+tab_lifecycle_request="$(python3 - "$tab_lifecycle_snapshot" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+assert len(snapshot["tabs"]) == 2
+opened = next(tab for tab in snapshot["tabs"] if tab["url"].startswith("https://support.example.test/"))
+main = next(tab for tab in snapshot["tabs"] if tab["tabId"] != opened["tabId"])
+assert opened["active"] and snapshot["activeTab"]["tabId"] == opened["tabId"]
+print(json.dumps({
+    "goal": "Switch between the authoritative tabs and close the support tab",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "actions": [
+        {"toolId": "SWITCH_TAB", "tabId": main["tabId"]},
+        {"toolId": "SWITCH_TAB", "tabId": opened["tabId"]},
+        {"toolId": "CLOSE_TAB", "tabId": opened["tabId"]},
+    ],
+    "stopOnError": True,
+}, separators=(",", ":")))
+PY
+)"
+tab_lifecycle_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/execute-actions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-tab-lifecycle-001' \
+  -d "$tab_lifecycle_request")"
+tab_lifecycle_task_id="$(printf '%s' "$tab_lifecycle_task" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+for _ in $(seq 1 80); do
+  tab_lifecycle_task="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${tab_lifecycle_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  tab_lifecycle_state="$(printf '%s' "$tab_lifecycle_task" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$tab_lifecycle_state" = "COMPLETED" ]]; then break; fi
+  if [[ "$tab_lifecycle_state" = "FAILED" || "$tab_lifecycle_state" = "BLOCKED" ]]; then
+    echo "Tab lifecycle task terminated: $tab_lifecycle_task" >&2
+    break
+  fi
+  sleep 0.25
+done
+test "$tab_lifecycle_state" = "COMPLETED"
+printf '%s' "$tab_lifecycle_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); assert batch["output"]["completedActions"] == 3; assert all(item["status"] == "SUCCEEDED" for item in batch["output"]["actions"])'
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+  'import json,sys; snapshot=json.load(sys.stdin); assert len(snapshot["tabs"]) == 1; assert snapshot["tabs"][0]["active"]; assert snapshot["activeTab"]["tabId"] == snapshot["state"]["activeTabId"]'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}:terminate" \
+  -H 'X-Tenant-Id: tenant-integration' >/dev/null
+for _ in $(seq 1 80); do
+  tab_session_state="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}" \
+    -H 'X-Tenant-Id: tenant-integration' | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$tab_session_state" = "TERMINATED" ]]; then break; fi
+  sleep 0.25
+done
+test "$tab_session_state" = "TERMINATED"
 read_agent_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
   -H 'Content-Type: application/json' \
@@ -5087,7 +5225,7 @@ printf '%s' "$proxy_after_terminate" | python3 -c \
 profile_list="$(curl -fsS "http://localhost:${control_port}/api/v1/profiles" \
   -H 'X-Tenant-Id: tenant-integration')"
 printf '%s' "$profile_list" | python3 -c \
-  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 9; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-reviewer-worker","profile-rebind","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
+  'import json,sys; result=json.load(sys.stdin); assert result["total"] == 10; assert {item["profileId"] for item in result["items"]} == {"profile-integration","profile-agent-browser-tabs","profile-reviewer-worker","profile-rebind","profile-auto-recovery","profile-lifecycle-failover","profile-stopping-failover","profile-recovering-failover","profile-barrier-preparing","profile-barrier-completing"}'
 profile_forbidden_status="$(curl -sS -o "$temp_dir/profile-forbidden.json" -w '%{http_code}' \
   "http://localhost:${control_port}/api/v1/profiles/profile-integration" \
   -H 'X-Tenant-Id: different-tenant')"
@@ -5157,10 +5295,10 @@ printf '%s' "$profile_after_restore" | python3 -c \
 
 completed_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from durable_workflows where tenant_id='tenant-integration' and state='COMPLETED' and length(commit_marker)=64")"
-test "$completed_workflows" = "17"
+test "$completed_workflows" = "19"
 linked_workflows="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations operation join sessions session on session.id=operation.session_id where operation.workflow_id is not null and session.tenant_id='tenant-integration'")"
-test "$linked_workflows" = "19"
+test "$linked_workflows" = "21"
 
 kill -TERM "$network_helper_pid"
 wait "$network_helper_pid" 2>/dev/null || true

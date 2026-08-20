@@ -14,7 +14,11 @@ export type AgentBrowserSnapshot = {
      * Bounded non-sensitive summary; never contains password or OTP values.
      */
     visibleTextSummary: string;
-    activeTab: AgentBrowserTab;
+    tabs: Array<AgentBrowserTab>;
+    /**
+     * Null only while an N-1 Browser Node has not projected Browser-level tab authority.
+     */
+    activeTab: (AgentBrowserTab | null);
     focusedElementId: string | null;
     formControlElementIds: Array<string>;
     dialogElementIds: Array<string>;

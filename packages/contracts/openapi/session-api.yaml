@@ -6130,6 +6130,9 @@ components:
             - PASTE_AGENT_CLIPBOARD
             - SCROLL
             - WAIT_FOR
+            - OPEN_TAB
+            - SWITCH_TAB
+            - CLOSE_TAB
             - EXECUTE_ACTIONS
             - REQUEST_HUMAN_TAKEOVER
         targetRef:
@@ -6161,6 +6164,12 @@ components:
           type: integer
           minimum: 100
           maximum: 10000
+        tabId:
+          type: string
+          maxLength: 128
+        tabUrl:
+          type: string
+          maxLength: 8192
         actions:
           type: array
           minItems: 1
@@ -6177,7 +6186,7 @@ components:
       properties:
         toolId:
           type: string
-          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB]
         targetRef:
           type: string
           maxLength: 128
@@ -6206,6 +6215,12 @@ components:
           type: integer
           minimum: 100
           maximum: 10000
+        tabId:
+          type: string
+          maxLength: 128
+        tabUrl:
+          type: string
+          maxLength: 8192
     AgentInstructionSource:
       type: object
       additionalProperties: false
@@ -7327,7 +7342,7 @@ components:
           type: string
         toolId:
           type: string
-          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         targetOrigin:
@@ -7699,6 +7714,9 @@ components:
             - PASTE_AGENT_CLIPBOARD
             - SCROLL
             - WAIT_FOR
+            - OPEN_TAB
+            - SWITCH_TAB
+            - CLOSE_TAB
             - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
@@ -7758,6 +7776,8 @@ components:
         - maximumAttempts
         - actions
         - stopOnError
+        - tabId
+        - tabUrl
       properties:
         targetRef:
           type: [string, "null"]
@@ -7790,6 +7810,12 @@ components:
             $ref: "#/components/schemas/AgentBatchActionInput"
         stopOnError:
           type: boolean
+        tabId:
+          type: [string, "null"]
+          maxLength: 128
+        tabUrl:
+          type: [string, "null"]
+          maxLength: 8192
     AgentBatchActionInput:
       type: object
       additionalProperties: false
@@ -7807,13 +7833,15 @@ components:
         - timeoutMs
         - sensitiveTargetAuthorized
         - maximumAttempts
+        - tabId
+        - tabUrl
       properties:
         actionId:
           type: string
           pattern: "^action_[1-9][0-9]?$"
         toolId:
           type: string
-          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB]
         targetRef:
           type: [string, "null"]
         elementId:
@@ -7841,6 +7869,12 @@ components:
           type: integer
           minimum: 1
           maximum: 10
+        tabId:
+          type: [string, "null"]
+          maxLength: 128
+        tabUrl:
+          type: [string, "null"]
+          maxLength: 8192
     AgentRiskClass:
       type: string
       enum:
@@ -7889,6 +7923,9 @@ components:
             - PASTE_AGENT_CLIPBOARD
             - SCROLL
             - WAIT_FOR
+            - OPEN_TAB
+            - SWITCH_TAB
+            - CLOSE_TAB
             - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
@@ -9280,6 +9317,8 @@ components:
         - networkQuietMillis
         - networkEvidenceFresh
         - targets
+        - tabs
+        - activeTabId
       properties:
         sessionId:
           type: string
@@ -9325,10 +9364,20 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/InteractiveTarget"
+        tabs:
+          type: array
+          maxItems: 100
+          description: Browser-level Page Targets. Empty only while an N-1 Browser Node has not projected tab authority.
+          items:
+            $ref: "#/components/schemas/AgentBrowserTab"
+        activeTabId:
+          type: string
+          maxLength: 128
+          description: ID of the one active tab; empty only when tabs is empty during rolling compatibility.
     AgentBrowserSnapshot:
       type: object
       additionalProperties: false
-      required: [stateCursor, state, visibleTextSummary, activeTab, focusedElementId, formControlElementIds, dialogElementIds, pageLoadingState, challengeState, visionRecommended]
+      required: [stateCursor, state, visibleTextSummary, tabs, activeTab, focusedElementId, formControlElementIds, dialogElementIds, pageLoadingState, challengeState, visionRecommended]
       properties:
         stateCursor:
           type: string
@@ -9340,8 +9389,16 @@ components:
           type: string
           maxLength: 4000
           description: Bounded non-sensitive summary; never contains password or OTP values.
+        tabs:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AgentBrowserTab"
         activeTab:
-          $ref: "#/components/schemas/AgentBrowserTab"
+          anyOf:
+            - $ref: "#/components/schemas/AgentBrowserTab"
+            - type: "null"
+          description: Null only while an N-1 Browser Node has not projected Browser-level tab authority.
         focusedElementId:
           type: [string, "null"]
         formControlElementIds:
@@ -9365,10 +9422,11 @@ components:
     AgentBrowserTab:
       type: object
       additionalProperties: false
-      required: [url, title, active]
+      required: [tabId, url, title, active]
       properties:
-        url: {type: string}
-        title: {type: string}
+        tabId: {type: string, maxLength: 128}
+        url: {type: string, maxLength: 8192}
+        title: {type: string, maxLength: 2048}
         active: {type: boolean}
     AgentBrowserInspectRequest:
       type: object

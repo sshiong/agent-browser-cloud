@@ -10,11 +10,20 @@ export type AgentToolId =
   | 'NAVIGATE'
   | 'GET_CURRENT_STATE'
   | 'CLICK_TARGET'
+  | 'DOUBLE_CLICK_TARGET'
+  | 'RIGHT_CLICK_TARGET'
+  | 'HOVER_TARGET'
+  | 'CLEAR_TARGET'
+  | 'CHECK_TARGET'
+  | 'UNCHECK_TARGET'
   | 'TYPE_TEXT'
   | 'FILL'
   | 'PASTE_AGENT_CLIPBOARD'
   | 'SCROLL'
   | 'WAIT_FOR'
+  | 'OPEN_TAB'
+  | 'SWITCH_TAB'
+  | 'CLOSE_TAB'
   | 'EXECUTE_ACTIONS'
   | 'GET_URL'
   | 'GET_PAGE_SUMMARY'
@@ -34,11 +43,20 @@ export type AgentWaitCondition =
 export interface AgentBatchActionRequest {
   toolId:
     | 'CLICK_TARGET'
+    | 'DOUBLE_CLICK_TARGET'
+    | 'RIGHT_CLICK_TARGET'
+    | 'HOVER_TARGET'
+    | 'CLEAR_TARGET'
+    | 'CHECK_TARGET'
+    | 'UNCHECK_TARGET'
     | 'TYPE_TEXT'
     | 'FILL'
     | 'PASTE_AGENT_CLIPBOARD'
     | 'SCROLL'
-    | 'WAIT_FOR';
+    | 'WAIT_FOR'
+    | 'OPEN_TAB'
+    | 'SWITCH_TAB'
+    | 'CLOSE_TAB';
   targetRef?: string;
   targetRevision?: number;
   value?: string;
@@ -47,6 +65,8 @@ export interface AgentBatchActionRequest {
   scrollDeltaY?: number;
   waitCondition?: AgentWaitCondition;
   timeoutMs?: number;
+  tabId?: string;
+  tabUrl?: string;
 }
 
 export interface CreateAgentActionRequest extends Omit<
@@ -72,7 +92,13 @@ export interface AgentBrowserSnapshot {
   stateCursor: string;
   state: import('./session').BrowserStateView;
   visibleTextSummary: string;
-  activeTab: { url: string; title: string; active: true };
+  tabs: Array<{ tabId: string; url: string; title: string; active: boolean }>;
+  activeTab: {
+    tabId: string;
+    url: string;
+    title: string;
+    active: boolean;
+  } | null;
   focusedElementId?: string;
   formControlElementIds: string[];
   dialogElementIds: string[];

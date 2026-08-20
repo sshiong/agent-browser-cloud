@@ -14,11 +14,47 @@ public record BrowserStateView(
     String documentReadyState,
     long networkQuietMillis,
     boolean networkEvidenceFresh,
-    List<InteractiveTargetView> targets) {
+    List<InteractiveTargetView> targets,
+    List<BrowserTabView> tabs,
+    String activeTabId) {
 
   public BrowserStateView {
     targets = List.copyOf(targets);
+    tabs = tabs == null ? List.of() : List.copyOf(tabs);
+    activeTabId = activeTabId == null ? "" : activeTabId;
   }
+
+  public BrowserStateView(
+      String sessionId,
+      long contextEpoch,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
+      List<InteractiveTargetView> targets) {
+    this(
+        sessionId,
+        contextEpoch,
+        stateVersion,
+        targetRevision,
+        url,
+        title,
+        stateHash,
+        stateQuality,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        targets,
+        List.of(),
+        "");
+  }
+
+  public record BrowserTabView(String tabId, String url, String title, boolean active) {}
 
   public record InteractiveTargetView(
       String targetRef,

@@ -11,6 +11,7 @@ import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotChunkEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotCommitEvent;
+import io.browsercloud.proto.node.v1.BrowserTabState;
 import io.browsercloud.proto.node.v1.ChallengeAutomationFailedEvent;
 import io.browsercloud.proto.node.v1.DiffTruncatedEvent;
 import io.browsercloud.proto.node.v1.EventEnvelope;
@@ -453,6 +454,7 @@ public class NodeEventMapper {
           validateCollectionCpuMillis(collectionCpuMillis);
           var upsertedTargets =
               payload.getUpsertedTargetsList().stream().map(this::target).toList();
+          var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
           validateReadinessEvidence(
               payload.getDocumentReadyState(), payload.getNetworkQuietMillis());
           yield new NodeEvent.StateDiff(
@@ -462,6 +464,8 @@ public class NodeEventMapper {
               payload.getTargetRevision(),
               payload.getUrl(),
               payload.getTitle(),
+              tabs,
+              payload.getActiveTabId(),
               payload.getContentHash(),
               payload.getStateQuality(),
               payload.getDocumentReadyState(),
@@ -810,6 +814,7 @@ public class NodeEventMapper {
       throw new IllegalArgumentException("Browser State target count exceeds 500");
     }
     var targets = payload.getTargetsList().stream().map(this::target).toList();
+    var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
     if (payload.getActionOutcomesCount() > 20) {
       throw new IllegalArgumentException("Agent action outcome count exceeds 20");
     }
@@ -838,6 +843,8 @@ public class NodeEventMapper {
         payload.getTargetRevision(),
         payload.getUrl(),
         payload.getTitle(),
+        tabs,
+        payload.getActiveTabId(),
         payload.getContentHash(),
         payload.getStateQuality(),
         targets,
@@ -847,6 +854,42 @@ public class NodeEventMapper {
         payload.getSnapshotKind(),
         payload.getRequestedRootRef(),
         actionOutcomes);
+  }
+
+  private List<NodeEvent.BrowserTab> tabs(List<BrowserTabState> payloadTabs, String activeTabId) {
+    if (payloadTabs.size() > 100) {
+      throw new IllegalArgumentException("Browser tab count exceeds 100");
+    }
+    var tabs =
+        payloadTabs.stream()
+            .map(
+                tab -> {
+                  requireText(tab.getTabId(), "tab_id");
+                  if (tab.getTabId().length() > 128
+                      || tab.getTabId().chars().anyMatch(Character::isISOControl)
+                      || tab.getUrl().length() > 8_192
+                      || tab.getUrl().chars().anyMatch(Character::isISOControl)
+                      || tab.getTitle().length() > 2_048
+                      || tab.getTitle().chars().anyMatch(Character::isISOControl)) {
+                    throw new IllegalArgumentException("Browser tab metadata is invalid");
+                  }
+                  return new NodeEvent.BrowserTab(
+                      tab.getTabId(), tab.getUrl(), tab.getTitle(), tab.getActive());
+                })
+            .toList();
+    if (tabs.isEmpty()) {
+      if (!activeTabId.isEmpty()) {
+        throw new IllegalArgumentException("active_tab_id requires Browser tabs");
+      }
+      return tabs;
+    }
+    requireText(activeTabId, "active_tab_id");
+    if (tabs.stream().map(NodeEvent.BrowserTab::tabId).distinct().count() != tabs.size()
+        || tabs.stream().filter(NodeEvent.BrowserTab::active).count() != 1
+        || tabs.stream().noneMatch(tab -> tab.active() && tab.tabId().equals(activeTabId))) {
+      throw new IllegalArgumentException("Browser active tab metadata is inconsistent");
+    }
+    return tabs;
   }
 
   private void validateSnapshotManifest(

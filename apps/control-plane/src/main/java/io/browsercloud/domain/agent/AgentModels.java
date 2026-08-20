@@ -76,6 +76,9 @@ public final class AgentModels {
     PASTE_AGENT_CLIPBOARD,
     SCROLL,
     WAIT_FOR,
+    OPEN_TAB,
+    SWITCH_TAB,
+    CLOSE_TAB,
     EXECUTE_ACTIONS,
     GET_URL,
     GET_PAGE_SUMMARY,
@@ -120,7 +123,9 @@ public final class AgentModels {
       boolean allowSensitiveTarget,
       int maximumAttempts,
       List<ActionInput> actions,
-      boolean stopOnError) {
+      boolean stopOnError,
+      String tabId,
+      String tabUrl) {
     public StepInput(
         String targetRef,
         Long targetRevision,
@@ -146,7 +151,41 @@ public final class AgentModels {
           allowSensitiveTarget,
           maximumAttempts,
           List.of(),
-          true);
+          true,
+          null,
+          null);
+    }
+
+    public StepInput(
+        String targetRef,
+        Long targetRevision,
+        String sealedPayload,
+        String payloadHash,
+        Integer payloadLength,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        boolean allowSensitiveTarget,
+        int maximumAttempts,
+        List<ActionInput> actions,
+        boolean stopOnError) {
+      this(
+          targetRef,
+          targetRevision,
+          sealedPayload,
+          payloadHash,
+          payloadLength,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          allowSensitiveTarget,
+          maximumAttempts,
+          actions,
+          stopOnError,
+          null,
+          null);
     }
 
     public StepInput {
@@ -169,7 +208,43 @@ public final class AgentModels {
       WaitCondition waitCondition,
       Integer timeoutMs,
       boolean allowSensitiveTarget,
-      int maximumAttempts) {}
+      int maximumAttempts,
+      String tabId,
+      String tabUrl) {
+    public ActionInput(
+        String actionId,
+        ToolId toolId,
+        String targetRef,
+        String elementId,
+        Long targetRevision,
+        String sealedPayload,
+        String payloadHash,
+        Integer payloadLength,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        boolean allowSensitiveTarget,
+        int maximumAttempts) {
+      this(
+          actionId,
+          toolId,
+          targetRef,
+          elementId,
+          targetRevision,
+          sealedPayload,
+          payloadHash,
+          payloadLength,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          allowSensitiveTarget,
+          maximumAttempts,
+          null,
+          null);
+    }
+  }
 
   public record InstructionSource(
       String sourceId,

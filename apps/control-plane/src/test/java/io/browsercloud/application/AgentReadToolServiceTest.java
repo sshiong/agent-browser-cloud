@@ -16,6 +16,7 @@ import io.browsercloud.persistence.ToolCapabilityUseJpaRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,8 +62,10 @@ class AgentReadToolServiceTest {
                                 true,
                                 true,
                                 false))))));
-    when(capabilityUses.claim(
-            anyString(), anyString(), anyString(), anyString(), anyString(), any()))
+    org.mockito.Mockito.lenient()
+        .when(
+            capabilityUses.claim(
+                anyString(), anyString(), anyString(), anyString(), anyString(), any()))
         .thenReturn(1);
   }
 
@@ -100,7 +103,13 @@ class AgentReadToolServiceTest {
 
     var result =
         service.execute(
-            "tenant-test", session(), "agt_1234567890abcdef", "int_1234567890abcdef", step, now);
+            "tenant-test",
+            session(),
+            "agt_1234567890abcdef",
+            "int_1234567890abcdef",
+            step,
+            Set.of("example.com"),
+            now);
 
     assertThat(result.status()).isEqualTo("VERIFIED");
     assertThat(result.output().get("url")).isEqualTo("https://example.com/form");
@@ -151,9 +160,130 @@ class AgentReadToolServiceTest {
                     "agt_1234567890abcdef",
                     "int_1234567890abcdef",
                     step,
+                    Set.of("example.com"),
                     now))
         .isInstanceOf(AgentReadToolService.ToolExecutionException.class)
         .hasMessage("CAPABILITY_TOKEN_REPLAYED");
+  }
+
+  @Test
+  void acceptsReadCompletionOnAnotherPersistedAllowedDomain() {
+    var now = Instant.parse("2026-07-26T00:00:00Z");
+    when(stateRepository.find("ses_1234567890abcdef"))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    3,
+                    new NodeEvent.StateUpdated(
+                        "ses_1234567890abcdef",
+                        10,
+                        3,
+                        "https://support.example.com/ticket",
+                        "Support",
+                        "state-hash-2",
+                        "COMPLETE",
+                        List.of()))));
+    var issued =
+        tokenService.issue(
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "int_1234567890abcdef",
+            "agt_1234567890abcdef",
+            ToolId.GET_URL,
+            "example.com",
+            "BROWSER_STATE_METADATA",
+            RiskClass.R0_READ_ONLY,
+            now.plusSeconds(60));
+    var step =
+        new PlanStep(
+            "step-1",
+            ToolId.GET_URL,
+            RiskClass.R0_READ_ONLY,
+            null,
+            null,
+            "url",
+            List.of("user_goal"),
+            TrustLevel.TRUSTED,
+            List.of(),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "COMPLETE",
+            "URL_HOST_EQUALS_ALLOWED_DOMAIN",
+            issued.tokenId(),
+            issued.token());
+
+    var result =
+        service.execute(
+            "tenant-test",
+            session(),
+            "agt_1234567890abcdef",
+            "int_1234567890abcdef",
+            step,
+            Set.of("example.com", "support.example.com"),
+            now);
+
+    assertThat(result.output().get("domain")).isEqualTo("support.example.com");
+  }
+
+  @Test
+  void rejectsReadCompletionOutsidePersistedAllowedDomains() {
+    var now = Instant.parse("2026-07-26T00:00:00Z");
+    when(stateRepository.find("ses_1234567890abcdef"))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    3,
+                    new NodeEvent.StateUpdated(
+                        "ses_1234567890abcdef",
+                        10,
+                        3,
+                        "https://untrusted.example.net/",
+                        "Untrusted",
+                        "state-hash-3",
+                        "COMPLETE",
+                        List.of()))));
+    var issued =
+        tokenService.issue(
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "int_1234567890abcdef",
+            "agt_1234567890abcdef",
+            ToolId.GET_URL,
+            "example.com",
+            "BROWSER_STATE_METADATA",
+            RiskClass.R0_READ_ONLY,
+            now.plusSeconds(60));
+    var step =
+        new PlanStep(
+            "step-1",
+            ToolId.GET_URL,
+            RiskClass.R0_READ_ONLY,
+            null,
+            null,
+            "url",
+            List.of("user_goal"),
+            TrustLevel.TRUSTED,
+            List.of(),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "COMPLETE",
+            "URL_HOST_EQUALS_ALLOWED_DOMAIN",
+            issued.tokenId(),
+            issued.token());
+
+    assertThatThrownBy(
+            () ->
+                service.execute(
+                    "tenant-test",
+                    session(),
+                    "agt_1234567890abcdef",
+                    "int_1234567890abcdef",
+                    step,
+                    Set.of("example.com", "support.example.com"),
+                    now))
+        .isInstanceOf(AgentCapabilityTokenService.InvalidCapabilityTokenException.class);
   }
 
   private static SessionContext session() {

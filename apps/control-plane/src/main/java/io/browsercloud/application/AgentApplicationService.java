@@ -331,7 +331,8 @@ public class AgentApplicationService {
         }
       }
       var actionError =
-          validateRequestedActions(actions, snapshot.orElseThrow().state(), controlPolicy);
+          validateRequestedActions(
+              actions, snapshot.orElseThrow().state(), controlPolicy, allowedDomains);
       if (!actionError.isBlank()) {
         return actionError;
       }
@@ -346,7 +347,8 @@ public class AgentApplicationService {
   private String validateRequestedActions(
       List<CreateAgentTaskRequest.ActionRequest> actions,
       io.browsercloud.coordinator.NodeEvent.StateUpdated state,
-      AgentControlPolicyService.Policy controlPolicy) {
+      AgentControlPolicyService.Policy controlPolicy,
+      List<String> allowedDomains) {
     var handoffCount =
         actions.stream().filter(action -> action.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER).count();
     if (handoffCount > 1
@@ -365,7 +367,9 @@ public class AgentApplicationService {
             TYPE_TEXT,
             FILL,
             PASTE_AGENT_CLIPBOARD -> {
-          if (action.targetRef() == null
+          if (action.tabId() != null
+              || action.tabUrl() != null
+              || action.targetRef() == null
               || action.targetRef().isBlank()
               || action.targetRevision() == null
               || action.targetRevision() != state.targetRevision()) {
@@ -433,14 +437,18 @@ public class AgentApplicationService {
           }
         }
         case SCROLL -> {
-          if (action.scrollDeltaY() == null
+          if (action.tabId() != null
+              || action.tabUrl() != null
+              || action.scrollDeltaY() == null
               || Math.abs(action.scrollDeltaY()) < 100
               || Math.abs(action.scrollDeltaY()) > 2_000) {
             return "SCROLL_DELTA_INVALID";
           }
         }
         case WAIT_FOR -> {
-          if (action.waitCondition() == null
+          if (action.tabId() != null
+              || action.tabUrl() != null
+              || action.waitCondition() == null
               || action.timeoutMs() == null
               || action.timeoutMs() < 100
               || action.timeoutMs() > 10_000) {
@@ -449,6 +457,29 @@ public class AgentApplicationService {
           if (action.waitCondition() == WaitCondition.TARGET_PRESENT
               && (action.targetRef() == null || action.targetRef().isBlank())) {
             return "WAIT_TARGET_REQUIRED";
+          }
+        }
+        case OPEN_TAB -> {
+          var tabDomain = domainOf(action.tabUrl());
+          if (action.tabId() != null
+              || tabDomain == null
+              || !allowedDomains.contains(tabDomain)
+              || hasNonTabInput(action)) {
+            return tabDomain != null && !allowedDomains.contains(tabDomain)
+                ? "DOMAIN_NOT_ALLOWED"
+                : "OPEN_TAB_INPUT_INVALID";
+          }
+        }
+        case SWITCH_TAB, CLOSE_TAB -> {
+          if (action.tabId() == null
+              || action.tabId().isBlank()
+              || action.tabUrl() != null
+              || hasNonTabInput(action)
+              || state.tabs().stream().noneMatch(tab -> tab.tabId().equals(action.tabId()))) {
+            return "TAB_BINDING_INVALID";
+          }
+          if (action.toolId() == ToolId.CLOSE_TAB && state.tabs().size() <= 1) {
+            return "LAST_TAB_CLOSE_FORBIDDEN";
           }
         }
         case EXECUTE_ACTIONS -> {
@@ -460,6 +491,8 @@ public class AgentApplicationService {
               || action.scrollDeltaY() != null
               || action.waitCondition() != null
               || action.timeoutMs() != null
+              || action.tabId() != null
+              || action.tabUrl() != null
               || action.actions().isEmpty()) {
             return "BATCH_ACTION_INPUT_INVALID";
           }
@@ -476,7 +509,11 @@ public class AgentApplicationService {
                               primitive.dataClass(),
                               primitive.scrollDeltaY(),
                               primitive.waitCondition(),
-                              primitive.timeoutMs()))
+                              primitive.timeoutMs(),
+                              List.of(),
+                              true,
+                              primitive.tabId(),
+                              primitive.tabUrl()))
                   .toList();
           if (primitives.stream()
               .anyMatch(
@@ -493,11 +530,15 @@ public class AgentApplicationService {
                               ToolId.FILL,
                               ToolId.PASTE_AGENT_CLIPBOARD,
                               ToolId.SCROLL,
-                              ToolId.WAIT_FOR)
+                              ToolId.WAIT_FOR,
+                              ToolId.OPEN_TAB,
+                              ToolId.SWITCH_TAB,
+                              ToolId.CLOSE_TAB)
                           .contains(primitive.toolId()))) {
             return "BATCH_ACTION_TOOL_FORBIDDEN";
           }
-          var primitiveError = validateRequestedActions(primitives, state, controlPolicy);
+          var primitiveError =
+              validateRequestedActions(primitives, state, controlPolicy, allowedDomains);
           if (!primitiveError.isBlank()) {
             return primitiveError;
           }
@@ -510,7 +551,9 @@ public class AgentApplicationService {
               || action.dataClass() != null
               || action.scrollDeltaY() != null
               || action.waitCondition() != null
-              || action.timeoutMs() != null) {
+              || action.timeoutMs() != null
+              || action.tabId() != null
+              || action.tabUrl() != null) {
             return "HUMAN_HANDOFF_INPUT_FORBIDDEN";
           }
         }
@@ -520,6 +563,18 @@ public class AgentApplicationService {
       }
     }
     return "";
+  }
+
+  private static boolean hasNonTabInput(CreateAgentTaskRequest.ActionRequest action) {
+    return action.targetRef() != null
+        || action.targetRevision() != null
+        || action.value() != null
+        || action.secretId() != null
+        || action.dataClass() != null
+        || action.scrollDeltaY() != null
+        || action.waitCondition() != null
+        || action.timeoutMs() != null
+        || !action.actions().isEmpty();
   }
 
   private AgentPlan buildPlan(
@@ -691,6 +746,8 @@ public class AgentApplicationService {
                   UNCHECK_TARGET,
                   SCROLL ->
               RiskClass.R1_LOW_RISK_CHANGE;
+          case OPEN_TAB, SWITCH_TAB -> RiskClass.R1_LOW_RISK_CHANGE;
+          case CLOSE_TAB -> RiskClass.R2_DATA_CHANGE;
           case WAIT_FOR, REQUEST_HUMAN_TAKEOVER -> RiskClass.R0_READ_ONLY;
           case EXECUTE_ACTIONS ->
               request.actions().stream()
@@ -698,9 +755,11 @@ public class AgentApplicationService {
                       action ->
                           isTextInput(action.toolId()) || action.toolId() == ToolId.CLEAR_TARGET
                               ? RiskClass.R2_DATA_CHANGE
-                              : action.toolId() == ToolId.WAIT_FOR
-                                  ? RiskClass.R0_READ_ONLY
-                                  : RiskClass.R1_LOW_RISK_CHANGE)
+                              : action.toolId() == ToolId.CLOSE_TAB
+                                  ? RiskClass.R2_DATA_CHANGE
+                                  : action.toolId() == ToolId.WAIT_FOR
+                                      ? RiskClass.R0_READ_ONLY
+                                      : RiskClass.R1_LOW_RISK_CHANGE)
                   .reduce(RiskClass.R0_READ_ONLY, AgentApplicationService::maxRisk);
           default -> RiskClass.R5_SECURITY;
         };
@@ -775,7 +834,11 @@ public class AgentApplicationService {
         isSecretInput(request.toolId()) && sensitiveInput && controlPolicy.autonomous(),
         isSecretInput(request.toolId()) && sensitiveInput
             ? controlPolicy.sensitiveInputMaximumAttempts()
-            : 1);
+            : 1,
+        List.of(),
+        true,
+        request.tabId(),
+        request.tabUrl());
   }
 
   private StepInput batchInput(
@@ -829,7 +892,9 @@ public class AgentApplicationService {
               isSecretInput(action.toolId()) && sensitive && controlPolicy.autonomous(),
               isSecretInput(action.toolId()) && sensitive
                   ? controlPolicy.sensitiveInputMaximumAttempts()
-                  : 1));
+                  : 1,
+              action.tabId(),
+              action.tabUrl()));
     }
     return new StepInput(
         null,
@@ -844,7 +909,9 @@ public class AgentApplicationService {
         false,
         1,
         actions,
-        request.stopOnError() == null || request.stopOnError());
+        request.stopOnError() == null || request.stopOnError(),
+        null,
+        null);
   }
 
   private static String stableElementId(
@@ -880,6 +947,8 @@ public class AgentApplicationService {
               };
       case SCROLL -> "VIEWPORT_ACTION";
       case WAIT_FOR -> "STATE_OBSERVATION";
+      case OPEN_TAB -> "TAB_OPEN:" + PromptSecurityService.sha256(input.tabUrl());
+      case SWITCH_TAB, CLOSE_TAB -> "TAB_TARGET:" + PromptSecurityService.sha256(input.tabId());
       case EXECUTE_ACTIONS -> "BATCH_ACTIONS";
       case REQUEST_HUMAN_TAKEOVER -> "HUMAN_HANDOFF";
       default -> "BROWSER_STATE_METADATA";
@@ -901,6 +970,9 @@ public class AgentApplicationService {
           "Paste the isolated AgentClipboard into the exact authorized target";
       case SCROLL -> "Scroll the current page by a bounded amount";
       case WAIT_FOR -> "Wait for a bounded browser-state condition";
+      case OPEN_TAB -> "Open an allowlisted URL in a new Browser Page Target";
+      case SWITCH_TAB -> "Activate an existing authoritative Browser Page Target";
+      case CLOSE_TAB -> "Close an existing authoritative Browser Page Target";
       case EXECUTE_ACTIONS -> "Execute an ordered, state-fenced browser action batch";
       case REQUEST_HUMAN_TAKEOVER -> "Pause the Agent and request an explicit human takeover";
       default -> "Execute the authorized action";
@@ -918,6 +990,9 @@ public class AgentApplicationService {
           "POST_ACTION_STATE_ADVANCED_AND_PAYLOAD_HASH_BOUND";
       case SCROLL -> "POST_SCROLL_STATE_COLLECTED";
       case WAIT_FOR -> "WAIT_CONDITION_SATISFIED";
+      case OPEN_TAB -> "NEW_TAB_PROJECTED_AND_ACTIVE";
+      case SWITCH_TAB -> "REQUESTED_TAB_PROJECTED_AS_ACTIVE";
+      case CLOSE_TAB -> "REQUESTED_TAB_ABSENT_FROM_AUTHORITATIVE_STATE";
       case EXECUTE_ACTIONS -> "BATCH_ACTIONS_VERIFIED_WITH_FINAL_STATE";
       case REQUEST_HUMAN_TAKEOVER -> "HUMAN_HANDOFF_REQUEST_RECORDED";
       default -> "RESULT_VERIFIED";
@@ -968,9 +1043,13 @@ public class AgentApplicationService {
                                                 action.waitCondition(),
                                                 action.timeoutMs(),
                                                 action.allowSensitiveTarget(),
-                                                action.maximumAttempts()))
+                                                action.maximumAttempts(),
+                                                action.tabId(),
+                                                action.tabUrl()))
                                     .toList(),
-                                step.input().stopOnError()),
+                                step.input().stopOnError(),
+                                step.input().tabId(),
+                                step.input().tabUrl()),
                         step.rationale(),
                         step.supportingSources(),
                         step.trustFloor(),
@@ -1137,8 +1216,11 @@ public class AgentApplicationService {
                     HOVER_TARGET,
                     CHECK_TARGET,
                     UNCHECK_TARGET,
-                    SCROLL ->
+                    SCROLL,
+                    OPEN_TAB,
+                    SWITCH_TAB ->
                 RiskClass.R1_LOW_RISK_CHANGE;
+            case CLOSE_TAB -> RiskClass.R2_DATA_CHANGE;
             case WAIT_FOR, REQUEST_HUMAN_TAKEOVER -> RiskClass.R0_READ_ONLY;
             case EXECUTE_ACTIONS ->
                 action.actions().stream()
@@ -1146,9 +1228,11 @@ public class AgentApplicationService {
                         item ->
                             isTextInput(item.toolId()) || item.toolId() == ToolId.CLEAR_TARGET
                                 ? RiskClass.R2_DATA_CHANGE
-                                : item.toolId() == ToolId.WAIT_FOR
-                                    ? RiskClass.R0_READ_ONLY
-                                    : RiskClass.R1_LOW_RISK_CHANGE)
+                                : item.toolId() == ToolId.CLOSE_TAB
+                                    ? RiskClass.R2_DATA_CHANGE
+                                    : item.toolId() == ToolId.WAIT_FOR
+                                        ? RiskClass.R0_READ_ONLY
+                                        : RiskClass.R1_LOW_RISK_CHANGE)
                     .reduce(RiskClass.R0_READ_ONLY, AgentApplicationService::maxRisk);
             default -> RiskClass.R5_SECURITY;
           };

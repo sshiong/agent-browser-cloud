@@ -218,6 +218,8 @@ type AgentActionRequest struct {
 	ScrollDeltaY   int                       `json:"scrollDeltaY,omitempty"`
 	WaitCondition  string                    `json:"waitCondition,omitempty"`
 	TimeoutMs      int                       `json:"timeoutMs,omitempty"`
+	TabId          string                    `json:"tabId,omitempty"`
+	TabUrl         string                    `json:"tabUrl,omitempty"`
 	Actions        []AgentBatchActionRequest `json:"actions,omitempty"`
 	StopOnError    bool                      `json:"stopOnError,omitempty"`
 }
@@ -232,6 +234,8 @@ type AgentBatchActionRequest struct {
 	ScrollDeltaY   int    `json:"scrollDeltaY,omitempty"`
 	WaitCondition  string `json:"waitCondition,omitempty"`
 	TimeoutMs      int    `json:"timeoutMs,omitempty"`
+	TabId          string `json:"tabId,omitempty"`
+	TabUrl         string `json:"tabUrl,omitempty"`
 }
 
 type AgentInstructionSource struct {
@@ -754,6 +758,8 @@ type AgentStepInput struct {
 	MaximumAttempts           int                     `json:"maximumAttempts,omitempty"`
 	Actions                   []AgentBatchActionInput `json:"actions,omitempty"`
 	StopOnError               bool                    `json:"stopOnError,omitempty"`
+	TabId                     any                     `json:"tabId,omitempty"`
+	TabUrl                    any                     `json:"tabUrl,omitempty"`
 }
 
 type AgentBatchActionInput struct {
@@ -770,6 +776,8 @@ type AgentBatchActionInput struct {
 	TimeoutMs                 any    `json:"timeoutMs,omitempty"`
 	SensitiveTargetAuthorized bool   `json:"sensitiveTargetAuthorized,omitempty"`
 	MaximumAttempts           int    `json:"maximumAttempts,omitempty"`
+	TabId                     any    `json:"tabId,omitempty"`
+	TabUrl                    any    `json:"tabUrl,omitempty"`
 }
 
 type AgentRiskClass string
@@ -1277,22 +1285,26 @@ type BrowserState struct {
 	NetworkQuietMillis   int64               `json:"networkQuietMillis,omitempty"`
 	NetworkEvidenceFresh bool                `json:"networkEvidenceFresh,omitempty"`
 	Targets              []InteractiveTarget `json:"targets,omitempty"`
+	Tabs                 []AgentBrowserTab   `json:"tabs,omitempty"`
+	ActiveTabId          string              `json:"activeTabId,omitempty"`
 }
 
 type AgentBrowserSnapshot struct {
-	StateCursor           string          `json:"stateCursor,omitempty"`
-	State                 BrowserState    `json:"state,omitempty"`
-	VisibleTextSummary    string          `json:"visibleTextSummary,omitempty"`
-	ActiveTab             AgentBrowserTab `json:"activeTab,omitempty"`
-	FocusedElementId      any             `json:"focusedElementId,omitempty"`
-	FormControlElementIds []string        `json:"formControlElementIds,omitempty"`
-	DialogElementIds      []string        `json:"dialogElementIds,omitempty"`
-	PageLoadingState      string          `json:"pageLoadingState,omitempty"`
-	ChallengeState        string          `json:"challengeState,omitempty"`
-	VisionRecommended     bool            `json:"visionRecommended,omitempty"`
+	StateCursor           string            `json:"stateCursor,omitempty"`
+	State                 BrowserState      `json:"state,omitempty"`
+	VisibleTextSummary    string            `json:"visibleTextSummary,omitempty"`
+	Tabs                  []AgentBrowserTab `json:"tabs,omitempty"`
+	ActiveTab             *AgentBrowserTab  `json:"activeTab,omitempty"`
+	FocusedElementId      any               `json:"focusedElementId,omitempty"`
+	FormControlElementIds []string          `json:"formControlElementIds,omitempty"`
+	DialogElementIds      []string          `json:"dialogElementIds,omitempty"`
+	PageLoadingState      string            `json:"pageLoadingState,omitempty"`
+	ChallengeState        string            `json:"challengeState,omitempty"`
+	VisionRecommended     bool              `json:"visionRecommended,omitempty"`
 }
 
 type AgentBrowserTab struct {
+	TabId  string `json:"tabId,omitempty"`
 	Url    string `json:"url,omitempty"`
 	Title  string `json:"title,omitempty"`
 	Active bool   `json:"active,omitempty"`

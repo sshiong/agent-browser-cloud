@@ -40,6 +40,9 @@ public class AgentActionToolService {
           ToolId.PASTE_AGENT_CLIPBOARD,
           ToolId.SCROLL,
           ToolId.WAIT_FOR,
+          ToolId.OPEN_TAB,
+          ToolId.SWITCH_TAB,
+          ToolId.CLOSE_TAB,
           ToolId.EXECUTE_ACTIONS);
 
   private final BrowserStateRepository stateRepository;
@@ -123,7 +126,9 @@ public class AgentActionToolService {
           TYPE_TEXT,
           FILL,
           PASTE_AGENT_CLIPBOARD -> {
-        if (input.targetRef() == null
+        if (input.tabId() != null
+            || input.tabUrl() != null
+            || input.targetRef() == null
             || input.targetRef().isBlank()
             || input.targetRevision() == null
             || input.targetRevision() != state.targetRevision()) {
@@ -183,14 +188,18 @@ public class AgentActionToolService {
         }
       }
       case SCROLL -> {
-        if (input.scrollDeltaY() == null
+        if (input.tabId() != null
+            || input.tabUrl() != null
+            || input.scrollDeltaY() == null
             || Math.abs(input.scrollDeltaY()) < 100
             || Math.abs(input.scrollDeltaY()) > 2_000) {
           throw new ActionToolException("SCROLL_DELTA_INVALID");
         }
       }
       case WAIT_FOR -> {
-        if (input.waitCondition() == null
+        if (input.tabId() != null
+            || input.tabUrl() != null
+            || input.waitCondition() == null
             || input.timeoutMs() == null
             || input.timeoutMs() < 100
             || input.timeoutMs() > 10_000) {
@@ -199,6 +208,23 @@ public class AgentActionToolService {
         if (input.waitCondition() == WaitCondition.TARGET_PRESENT
             && (input.targetRef() == null || input.targetRef().isBlank())) {
           throw new ActionToolException("WAIT_TARGET_REQUIRED");
+        }
+      }
+      case OPEN_TAB -> {
+        if (input.tabId() != null || invalidTabUrl(input.tabUrl()) || hasNonTabPayload(input)) {
+          throw new ActionToolException("OPEN_TAB_INPUT_INVALID");
+        }
+      }
+      case SWITCH_TAB, CLOSE_TAB -> {
+        if (input.tabId() == null
+            || input.tabId().isBlank()
+            || input.tabUrl() != null
+            || hasNonTabPayload(input)
+            || state.tabs().stream().noneMatch(tab -> tab.tabId().equals(input.tabId()))) {
+          throw new ActionToolException("TAB_BINDING_INVALID");
+        }
+        if (step.toolId() == ToolId.CLOSE_TAB && state.tabs().size() <= 1) {
+          throw new ActionToolException("LAST_TAB_CLOSE_FORBIDDEN");
         }
       }
       case EXECUTE_ACTIONS -> {
@@ -232,7 +258,10 @@ public class AgentActionToolService {
             ToolId.FILL,
             ToolId.PASTE_AGENT_CLIPBOARD,
             ToolId.SCROLL,
-            ToolId.WAIT_FOR)
+            ToolId.WAIT_FOR,
+            ToolId.OPEN_TAB,
+            ToolId.SWITCH_TAB,
+            ToolId.CLOSE_TAB)
         .contains(input.toolId())) {
       throw new ActionToolException("BATCH_ACTION_TOOL_FORBIDDEN");
     }
@@ -248,7 +277,11 @@ public class AgentActionToolService {
             input.waitCondition(),
             input.timeoutMs(),
             input.allowSensitiveTarget(),
-            input.maximumAttempts());
+            input.maximumAttempts(),
+            java.util.List.of(),
+            true,
+            input.tabId(),
+            input.tabUrl());
     var step =
         new PlanStep(
             input.actionId(),
@@ -288,9 +321,38 @@ public class AgentActionToolService {
           };
       case SCROLL -> "VIEWPORT_ACTION";
       case WAIT_FOR -> "STATE_OBSERVATION";
+      case OPEN_TAB -> "TAB_OPEN:" + PromptSecurityService.sha256(step.input().tabUrl());
+      case SWITCH_TAB, CLOSE_TAB ->
+          "TAB_TARGET:" + PromptSecurityService.sha256(step.input().tabId());
       case EXECUTE_ACTIONS -> "BATCH_ACTIONS";
       default -> throw new ActionToolException("ACTION_STEP_INVALID");
     };
+  }
+
+  private static boolean invalidTabUrl(String value) {
+    if (value == null || value.isBlank()) return true;
+    try {
+      var uri = URI.create(value);
+      return uri.getHost() == null
+          || uri.getUserInfo() != null
+          || !("http".equalsIgnoreCase(uri.getScheme())
+              || "https".equalsIgnoreCase(uri.getScheme()));
+    } catch (IllegalArgumentException exception) {
+      return true;
+    }
+  }
+
+  private static boolean hasNonTabPayload(StepInput input) {
+    return input.targetRef() != null
+        || input.targetRevision() != null
+        || input.sealedPayload() != null
+        || input.payloadHash() != null
+        || input.payloadLength() != null
+        || input.dataClass() != null
+        || input.scrollDeltaY() != null
+        || input.waitCondition() != null
+        || input.timeoutMs() != null
+        || !input.actions().isEmpty();
   }
 
   private static String domainOf(String value) {

@@ -41,7 +41,9 @@ public record CreateAgentTaskRequest(
       WaitCondition waitCondition,
       @Min(100) @Max(10_000) Integer timeoutMs,
       @Valid @Size(max = 20) List<BatchActionRequest> actions,
-      Boolean stopOnError) {
+      Boolean stopOnError,
+      @Size(max = 128) String tabId,
+      @Size(max = 8_192) String tabUrl) {
     public ActionRequest(
         ToolId toolId,
         String targetRef,
@@ -63,7 +65,37 @@ public record CreateAgentTaskRequest(
           waitCondition,
           timeoutMs,
           List.of(),
-          true);
+          true,
+          null,
+          null);
+    }
+
+    public ActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        List<BatchActionRequest> actions,
+        Boolean stopOnError) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          actions,
+          stopOnError,
+          null,
+          null);
     }
 
     public ActionRequest {
@@ -80,5 +112,31 @@ public record CreateAgentTaskRequest(
       ActionDataClass dataClass,
       @Min(-2_000) @Max(2_000) Integer scrollDeltaY,
       WaitCondition waitCondition,
-      @Min(100) @Max(10_000) Integer timeoutMs) {}
+      @Min(100) @Max(10_000) Integer timeoutMs,
+      @Size(max = 128) String tabId,
+      @Size(max = 8_192) String tabUrl) {
+    public BatchActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          null,
+          null);
+    }
+  }
 }

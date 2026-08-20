@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-20
 > 基准分支：`main`
-> 编写时基准提交：`54b28ea fix: rebind autonomous action batches`
+> 编写时基准提交：`9643cef docs: record extended action workflow gates`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -161,6 +161,10 @@ Rust Browser Node
 - [已确认] 同一 Batch 已增加真实 CDP 双击、右键、悬停、清空、勾选和取消勾选；
   Check/Uncheck 会在动作后重采并验证结构化 checked 状态，非文本动作不得夹带 Secret/Value，
   见 progress 151。
+- [已确认] Browser Node 已从真实 Chromium Page Target 投影完整 `tabs/activeTabId`，活动页
+  证据歧义时 fail-closed；Input Broker 随活动 Page 安全重绑定。统一 Batch 已支持
+  OPEN/SWITCH/CLOSE Tab，并重验允许域、Capability、State/Target Revision、Tab Resource
+  Policy 和最后 Tab 保护，见 progress 152。
 - [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
   每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
   PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
@@ -176,6 +180,11 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Agent Browser 权威多标签页切片本地 Control Plane 462 项、Rust/Web 定向测试、
+  OpenAPI/四 SDK、N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；
+  Integration 显式覆盖 open/switch/close、跨允许域收尾、Profile 精确集合及 19 个持久
+  Workflow。GitHub `ci/desktop` 待本切片提交推送后检查，见 progress 152。
 
 - Agent Browser 扩展指针/表单动作切片本地 Control Plane 457 项、Rust Workspace、Web
   115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
@@ -239,9 +248,9 @@ Rust Browser Node
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
-- 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和 Select/Press/
-  Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见 progress 149、151；稳定 Element
-  ID 重绑定与扩展指针/表单动作已通过完整本地与 GitHub Gate。
+- 当前继续收口原生 Dialog/File/局部 Screenshot/受治理 JS Evaluate 和 Select/Press/
+  Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见 progress 149、151、152；稳定
+  Element ID 重绑定、扩展指针/表单动作和权威 Tab 已通过完整本地 Gate。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -293,7 +302,7 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
-6. Agent Browser Dialog/Tab/File、局部 Screenshot、受治理 JS Evaluate、Select/Press/
+6. Agent Browser 原生 Dialog/File、局部 Screenshot、受治理 JS Evaluate、Select/Press/
    Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Action Primitive 和
    AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
    已完成粗粒度 Agent Gateway 契约。
@@ -375,8 +384,8 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 按 progress 149、151 的保留边界继续收口 Dialog/Tab/File/Screenshot/Evaluate 与高级
-   Action Primitive；基础结构化感知/Batch/Identity/Clipboard 切片不得重做。
+1. 按 progress 149、151、152 的保留边界继续收口原生 Dialog/File/Screenshot/Evaluate 与
+   高级 Action Primitive；基础结构化感知/Batch/Identity/Clipboard/Tab 切片不得重做。
 2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。

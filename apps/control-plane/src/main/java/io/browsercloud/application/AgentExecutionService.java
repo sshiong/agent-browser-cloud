@@ -53,6 +53,9 @@ public class AgentExecutionService {
           ToolId.PASTE_AGENT_CLIPBOARD,
           ToolId.SCROLL,
           ToolId.WAIT_FOR,
+          ToolId.OPEN_TAB,
+          ToolId.SWITCH_TAB,
+          ToolId.CLOSE_TAB,
           ToolId.EXECUTE_ACTIONS);
 
   private final AgentTaskJpaRepository taskRepository;
@@ -478,7 +481,13 @@ public class AgentExecutionService {
         }
         results.add(
             readToolService.execute(
-                task.getTenantId(), session, task.getTaskId(), plan.intentId(), step, now));
+                task.getTenantId(),
+                session,
+                task.getTaskId(),
+                plan.intentId(),
+                step,
+                readAllowedDomains(task),
+                now));
         task.checkpoint(index + 1, write(results), executorId, leaseUntil(now), now);
         taskRepository.save(task);
       }
@@ -567,6 +576,14 @@ public class AgentExecutionService {
           objectMapper.readValue(value, new TypeReference<List<ToolExecutionResult>>() {}));
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("Failed to read Agent results", exception);
+    }
+  }
+
+  private Set<String> readAllowedDomains(AgentTaskEntity task) {
+    try {
+      return Set.of(objectMapper.readValue(task.getAllowedDomains(), String[].class));
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Failed to read Agent allowed domains", exception);
     }
   }
 

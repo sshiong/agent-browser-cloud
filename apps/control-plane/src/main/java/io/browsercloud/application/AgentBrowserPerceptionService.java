@@ -62,11 +62,21 @@ public class AgentBrowserPerceptionService {
     var visionRecommended =
         state.stateQuality().equals("DEPTH_LIMITED")
             || state.targets().stream().anyMatch(target -> target.visible() && target.occluded());
+    var tabs =
+        state.tabs().stream()
+            .map(tab -> new TabView(tab.tabId(), tab.url(), tab.title(), tab.active()))
+            .toList();
+    var activeTab =
+        tabs.stream()
+            .filter(tab -> tab.active() && tab.tabId().equals(state.activeTabId()))
+            .findFirst()
+            .orElse(null);
     return new SnapshotView(
         cursor(state),
         state,
         visibleText,
-        new TabView(state.url(), state.title(), true),
+        tabs,
+        activeTab,
         focused,
         formControls,
         dialogs,
@@ -134,6 +144,19 @@ public class AgentBrowserPerceptionService {
   private static void requireExecutable(BrowserStateView state) {
     if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())) {
       throw new PerceptionException("BROWSER_STATE_NOT_EXECUTABLE");
+    }
+    if (state.tabs().isEmpty()) {
+      if (!state.activeTabId().isEmpty()) {
+        throw new PerceptionException("BROWSER_TAB_STATE_INVALID");
+      }
+      return;
+    }
+    if (state.tabs().stream().map(BrowserStateView.BrowserTabView::tabId).distinct().count()
+            != state.tabs().size()
+        || state.tabs().stream().filter(BrowserStateView.BrowserTabView::active).count() != 1
+        || state.tabs().stream()
+            .noneMatch(tab -> tab.active() && tab.tabId().equals(state.activeTabId()))) {
+      throw new PerceptionException("BROWSER_TAB_STATE_INVALID");
     }
   }
 

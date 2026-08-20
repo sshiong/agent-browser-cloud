@@ -610,6 +610,13 @@ message KeyInput {
   string key = 1;
 }
 
+message BrowserTabState {
+  string tab_id = 1;
+  string url = 2;
+  string title = 3;
+  bool active = 4;
+}
+
 message BrowserStateEvent {
   string session_id = 1;
   uint64 state_version = 2;
@@ -630,6 +637,9 @@ message BrowserStateEvent {
   bool network_evidence_fresh = 13;
   // Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
   repeated AgentActionOutcome action_outcomes = 14;
+  // Browser-level Page Target projection. N-1 Nodes leave both fields empty.
+  repeated BrowserTabState tabs = 15;
+  string active_tab_id = 16;
 }
 
 // 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
@@ -726,6 +736,8 @@ message AgentActionCommand {
   // Ordered coarse execute_actions payload. Empty for legacy single-action commands.
   repeated AgentActionPrimitive actions = 16;
   bool stop_on_error = 17;
+  string tab_id = 18;
+  string tab_url = 19;
 }
 
 message AgentActionPrimitive {
@@ -744,6 +756,8 @@ message AgentActionPrimitive {
   // rebinds this identity against the latest target_revision before every primitive so a prior
   // mutation in the same batch cannot stale the following action. N-1 Nodes ignore this field.
   string element_id = 12;
+  string tab_id = 13;
+  string tab_url = 14;
 }
 
 message AgentActionOutcome {
@@ -893,6 +907,8 @@ message BrowserStateDiffEvent {
   // N-1 Node 留空时，Control Plane 只接受可由 evt_cmd_* Event ID 安全恢复的请求 ID。
   string resync_request_id = 16;
   optional uint64 collection_cpu_millis = 17;
+  repeated BrowserTabState tabs = 18;
+  string active_tab_id = 19;
 }
 
 message DiffTruncatedEvent {

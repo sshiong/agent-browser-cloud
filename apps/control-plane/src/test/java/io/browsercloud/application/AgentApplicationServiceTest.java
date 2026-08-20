@@ -87,6 +87,12 @@ class AgentApplicationServiceTest {
                         2,
                         "https://example.com/current",
                         "Example",
+                        List.of(
+                            new NodeEvent.BrowserTab(
+                                "tab-main", "https://example.com/current", "Example", true),
+                            new NodeEvent.BrowserTab(
+                                "tab-secondary", "https://example.com/help", "Help", false)),
+                        "tab-main",
                         "hash",
                         "COMPLETE",
                         List.of(
@@ -105,7 +111,12 @@ class AgentApplicationServiceTest {
                                 new NodeEvent.Bounds(200, 20, 80, 32),
                                 true,
                                 true,
-                                false))))));
+                                false)),
+                        "complete",
+                        500,
+                        true,
+                        "FULL",
+                        ""))));
   }
 
   @Test
@@ -260,6 +271,83 @@ class AgentApplicationServiceTest {
         .containsExactly("target:2:0", "target:2:1");
     assertThat(batch.input().stopOnError()).isTrue();
     assertThat(view.toString()).doesNotContain("Quarterly note", "v1.");
+  }
+
+  @Test
+  void plansAllowlistedAuthoritativeTabLifecycleWithoutHumanHandoff() {
+    var request =
+        new CreateAgentTaskRequest(
+            "Open support, inspect the help tab, and close it",
+            null,
+            List.of("example.com", "support.example.net"),
+            10,
+            0,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.EXECUTE_ACTIONS,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new CreateAgentTaskRequest.BatchActionRequest(
+                            ToolId.OPEN_TAB,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            "https://support.example.net/ticket"),
+                        new CreateAgentTaskRequest.BatchActionRequest(
+                            ToolId.SWITCH_TAB,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            "tab-secondary",
+                            null),
+                        new CreateAgentTaskRequest.BatchActionRequest(
+                            ToolId.CLOSE_TAB,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            "tab-secondary",
+                            null)),
+                    true)));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-tabs");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var actions =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.EXECUTE_ACTIONS)
+            .findFirst()
+            .orElseThrow()
+            .input()
+            .actions();
+    assertThat(actions)
+        .extracting(action -> action.toolId())
+        .containsExactly(ToolId.OPEN_TAB, ToolId.SWITCH_TAB, ToolId.CLOSE_TAB);
+    assertThat(actions.getFirst().tabUrl()).isEqualTo("https://support.example.net/ticket");
+    assertThat(actions.get(1).tabId()).isEqualTo("tab-secondary");
   }
 
   @Test

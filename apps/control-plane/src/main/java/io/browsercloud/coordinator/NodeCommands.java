@@ -586,7 +586,9 @@ public final class NodeCommands {
             .setBaseContentHash(baseContentHash)
             .setAllowSensitiveTarget(input != null && input.allowSensitiveTarget())
             .setMaximumAttempts(input == null ? 1 : input.maximumAttempts())
-            .setStopOnError(input == null || input.stopOnError());
+            .setStopOnError(input == null || input.stopOnError())
+            .setTabId(input == null || input.tabId() == null ? "" : input.tabId())
+            .setTabUrl(input == null || input.tabUrl() == null ? "" : input.tabUrl());
     if (input != null && !input.actions().isEmpty()) {
       builder.addAllActions(
           input.actions().stream()
@@ -608,6 +610,8 @@ public final class NodeCommands {
                           .setTimeoutMs(action.timeoutMs() == null ? 0 : action.timeoutMs())
                           .setAllowSensitiveTarget(action.allowSensitiveTarget())
                           .setMaximumAttempts(action.maximumAttempts())
+                          .setTabId(action.tabId() == null ? "" : action.tabId())
+                          .setTabUrl(action.tabUrl() == null ? "" : action.tabUrl())
                           .build())
               .toList());
     }

@@ -855,6 +855,15 @@ export interface BrowserStateView {
   networkQuietMillis: number;
   networkEvidenceFresh: boolean;
   targets: InteractiveTargetView[];
+  tabs: BrowserTabView[];
+  activeTabId: string;
+}
+
+export interface BrowserTabView {
+  tabId: string;
+  url: string;
+  title: string;
+  active: boolean;
 }
 
 export interface StateResyncRequest {

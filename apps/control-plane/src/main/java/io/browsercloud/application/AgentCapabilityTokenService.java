@@ -10,6 +10,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Set;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -89,6 +90,47 @@ public final class AgentCapabilityTokenService {
       String targetDomain,
       String dataScope,
       Instant now) {
+    var claims = verifiedClaims(token);
+    var domain = targetDomain == null ? "" : targetDomain;
+    requireBindings(claims, tenantId, sessionId, intentId, operationId, toolId, dataScope, now);
+    if (!claims.allowedDomain().equals(domain)) {
+      throw new InvalidCapabilityTokenException();
+    }
+    return claims;
+  }
+
+  /**
+   * Verifies a read capability after an allowed cross-domain browser transition.
+   *
+   * <p>The capability remains bound to the immutable Task/Intent and to one domain that was
+   * authorized when the plan was created. The current page and that original binding must both
+   * remain inside the persisted Task allowlist. This preserves old tokens while allowing an
+   * OPEN_TAB or an ordinary allowlisted navigation to finish on another authorized domain.
+   */
+  public CapabilityClaims verifyWithinAllowedDomains(
+      String token,
+      String tenantId,
+      String sessionId,
+      String intentId,
+      String operationId,
+      ToolId toolId,
+      String targetDomain,
+      Set<String> allowedDomains,
+      String dataScope,
+      Instant now) {
+    var claims = verifiedClaims(token);
+    var domain = targetDomain == null ? "" : targetDomain;
+    requireBindings(claims, tenantId, sessionId, intentId, operationId, toolId, dataScope, now);
+    if (domain.isBlank()
+        || claims.allowedDomain().isBlank()
+        || !allowedDomains.contains(domain)
+        || !allowedDomains.contains(claims.allowedDomain())) {
+      throw new InvalidCapabilityTokenException();
+    }
+    return claims;
+  }
+
+  private CapabilityClaims verifiedClaims(String token) {
     try {
       var parts = token.split("\\.", -1);
       if (parts.length != 2
@@ -99,21 +141,30 @@ public final class AgentCapabilityTokenService {
       }
       var claims =
           objectMapper.readValue(Base64.getUrlDecoder().decode(parts[0]), CapabilityClaims.class);
-      var domain = targetDomain == null ? "" : targetDomain;
-      if (!claims.tenantId().equals(tenantId)
-          || !claims.sessionId().equals(sessionId)
-          || !claims.intentId().equals(intentId)
-          || !claims.operationId().equals(operationId)
-          || claims.toolId() != toolId
-          || !claims.allowedAction().equals(toolId.name())
-          || !claims.allowedDomain().equals(domain)
-          || !claims.dataScope().equals(dataScope)
-          || claims.maxCalls() != 1
-          || !claims.expiresAt().isAfter(now)) {
-        throw new InvalidCapabilityTokenException();
-      }
       return claims;
     } catch (IllegalArgumentException | IOException exception) {
+      throw new InvalidCapabilityTokenException();
+    }
+  }
+
+  private static void requireBindings(
+      CapabilityClaims claims,
+      String tenantId,
+      String sessionId,
+      String intentId,
+      String operationId,
+      ToolId toolId,
+      String dataScope,
+      Instant now) {
+    if (!claims.tenantId().equals(tenantId)
+        || !claims.sessionId().equals(sessionId)
+        || !claims.intentId().equals(intentId)
+        || !claims.operationId().equals(operationId)
+        || claims.toolId() != toolId
+        || !claims.allowedAction().equals(toolId.name())
+        || !claims.dataScope().equals(dataScope)
+        || claims.maxCalls() != 1
+        || !claims.expiresAt().isAfter(now)) {
       throw new InvalidCapabilityTokenException();
     }
   }

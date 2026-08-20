@@ -222,6 +222,8 @@ public sealed interface NodeEvent
       long targetRevision,
       String url,
       String title,
+      List<BrowserTab> tabs,
+      String activeTabId,
       String stateHash,
       String stateQuality,
       List<InteractiveTarget> targets,
@@ -233,8 +235,79 @@ public sealed interface NodeEvent
       List<AgentActionOutcome> actionOutcomes)
       implements NodeEvent {
     public StateUpdated {
+      tabs = tabs == null ? List.of() : List.copyOf(tabs);
+      activeTabId = activeTabId == null ? "" : activeTabId;
       targets = List.copyOf(targets);
       actionOutcomes = actionOutcomes == null ? List.of() : List.copyOf(actionOutcomes);
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          List.of());
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef,
+        List<AgentActionOutcome> actionOutcomes) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          List.of(),
+          "",
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          actionOutcomes);
     }
 
     public StateUpdated(
@@ -257,6 +330,8 @@ public sealed interface NodeEvent
           targetRevision,
           url,
           title,
+          List.of(),
+          "",
           stateHash,
           stateQuality,
           targets,
@@ -283,6 +358,8 @@ public sealed interface NodeEvent
           targetRevision,
           url,
           title,
+          List.of(),
+          "",
           stateHash,
           stateQuality,
           targets,
@@ -311,6 +388,8 @@ public sealed interface NodeEvent
           targetRevision,
           url,
           title,
+          List.of(),
+          "",
           stateHash,
           stateQuality,
           targets,
@@ -322,6 +401,8 @@ public sealed interface NodeEvent
           List.of());
     }
   }
+
+  record BrowserTab(String tabId, String url, String title, boolean active) {}
 
   record AgentActionOutcome(
       String actionId, String status, String errorCode, long stateVersion, long targetRevision) {}
@@ -388,6 +469,8 @@ public sealed interface NodeEvent
       long targetRevision,
       String url,
       String title,
+      List<BrowserTab> tabs,
+      String activeTabId,
       String stateHash,
       String stateQuality,
       String documentReadyState,
@@ -402,8 +485,93 @@ public sealed interface NodeEvent
       Long collectionCpuMillis)
       implements NodeEvent {
     public StateDiff {
+      tabs = tabs == null ? List.of() : List.copyOf(tabs);
+      activeTabId = activeTabId == null ? "" : activeTabId;
       upsertedTargets = List.copyOf(upsertedTargets);
       removedTargetRefs = List.copyOf(removedTargetRefs);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          "",
+          0,
+          null);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef,
+        String resyncRequestId,
+        long snapshotBytes,
+        Long collectionCpuMillis) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          List.of(),
+          "",
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          resyncRequestId,
+          snapshotBytes,
+          collectionCpuMillis);
     }
 
     public StateDiff(
@@ -429,6 +597,8 @@ public sealed interface NodeEvent
           targetRevision,
           url,
           title,
+          List.of(),
+          "",
           stateHash,
           stateQuality,
           documentReadyState,
@@ -464,6 +634,8 @@ public sealed interface NodeEvent
           targetRevision,
           url,
           title,
+          List.of(),
+          "",
           stateHash,
           stateQuality,
           documentReadyState,
@@ -496,6 +668,8 @@ public sealed interface NodeEvent
           targetRevision,
           url,
           title,
+          List.of(),
+          "",
           stateHash,
           stateQuality,
           "",

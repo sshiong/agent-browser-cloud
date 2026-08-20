@@ -179,7 +179,9 @@ Rust Browser Node
 
 - Agent Browser 扩展指针/表单动作切片本地 Control Plane 457 项、Rust Workspace、Web
   115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
-  PostgreSQL/mTLS/Chromium Integration 已通过；GitHub `ci/desktop` 待提交推送后确认，
+  PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `de8b87a` 的 GitHub `ci`
+  run `32374772306`（含供应链、Integration、Object Storage/Recording GameDay 与
+  Kubernetes Operator E2E）和 `desktop` run `32374772298`（Windows/macOS）均通过，
   见 progress 151。
 
 - Agent Browser Batch 稳定重绑定切片实现提交 `54b28ea`；本地 Control Plane 456 项、Rust Workspace、Web
@@ -239,7 +241,7 @@ Rust Browser Node
   `32363001455` 也均通过；
 - 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和 Select/Press/
   Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见 progress 149、151；稳定 Element
-  ID 重绑定与扩展指针/表单动作已通过完整本地 Gate，后者 GitHub Workflow 待推送确认。
+  ID 重绑定与扩展指针/表单动作已通过完整本地与 GitHub Gate。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 

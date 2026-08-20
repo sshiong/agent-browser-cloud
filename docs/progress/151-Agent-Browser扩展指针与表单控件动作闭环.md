@@ -1,7 +1,7 @@
 # Agent Browser 扩展指针与表单控件动作闭环
 
 > 日期：2026-08-20
-> 状态：仓库内实现与本地全量 Gate 已通过；GitHub `ci/desktop` 待提交推送后确认
+> 状态：仓库内实现、本地全量 Gate 与 GitHub `ci/desktop` 均已通过
 
 ## 目标与边界
 
@@ -70,6 +70,9 @@ Select/Press/Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch 和显式 Clipboard Bri
 - `make test-upgrade-compatibility`：通过；
 - `make test-integration`：完整 PostgreSQL、Redis、MinIO、mTLS、Chromium CDP、Coordinator
   Failover、N/N−1 Runtime、Challenge、资源治理与六动作 Batch 验证通过。
+- 实现提交 `de8b87a` 的 GitHub `ci` run `32374772306`（含供应链、完整
+  Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和
+  `desktop` run `32374772298`（Windows/macOS）均通过。
 
 ## 剩余边界
 

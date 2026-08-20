@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-20
 > 基准分支：`main`
-> 编写时基准提交：`9643cef docs: record extended action workflow gates`
+> 编写时基准提交：`66d0fef feat: add authoritative browser tabs`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -184,7 +184,9 @@ Rust Browser Node
 - Agent Browser 权威多标签页切片本地 Control Plane 462 项、Rust/Web 定向测试、
   OpenAPI/四 SDK、N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；
   Integration 显式覆盖 open/switch/close、跨允许域收尾、Profile 精确集合及 19 个持久
-  Workflow。GitHub `ci/desktop` 待本切片提交推送后检查，见 progress 152。
+  Workflow。实现提交 `66d0fef` 的 GitHub `ci` run `32386875084`（含供应链、Integration、
+  Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop` run
+  `32386874924`（Windows/macOS）均通过，见 progress 152。
 
 - Agent Browser 扩展指针/表单动作切片本地 Control Plane 457 项、Rust Workspace、Web
   115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与

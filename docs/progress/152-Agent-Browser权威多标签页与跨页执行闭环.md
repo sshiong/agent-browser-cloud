@@ -1,7 +1,7 @@
 # Agent Browser 权威多标签页与跨页执行闭环
 
 > 日期：2026-08-20
-> 状态：仓库内实现与本地完整 Gate 已通过，GitHub Gate 待提交后验证
+> 状态：仓库内实现、本地完整 Gate 与 GitHub CI/Desktop Gate 均已通过
 
 ## 目标与边界
 
@@ -72,7 +72,9 @@ Screenshot、受治理 Evaluate 和其他剩余高级 Primitive。
   字节级漂移检查、N−1 Gate 均通过；
 - 完整 PostgreSQL、Redis、MinIO、mTLS、Chromium CDP Integration 通过；显式验证真实
   open/switch/close、Profile 精确集合，以及 `durable_workflows=19` 的持久工作流闭环；
-- GitHub `ci/desktop` 必须在提交推送后另行检查，未通过前不写成已通过。
+- 实现提交 `66d0fef` 的 GitHub `ci` run `32386875084` 已通过，包括 Verify、供应链、完整
+  Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E；`desktop`
+  run `32386874924` 的 Windows/macOS 均通过。
 
 ## 剩余边界
 

@@ -88,7 +88,7 @@ Snapshot Cursor、稳定 Element ID、Inspect/Find 在当前真实页面上的�
 Integration 在收口过程中真实发现并修复三项仅靠 Mock/编译不会暴露的问题：JPA Session
 父行必须在 JDBC Identity 投影前 flush；V106 Motion 字段必须对旧请求保持 additive 默认值；
 非 Batch Action 不得因新增 `actions` 字段被 Bean Validation 错误拒绝。Integration 的关键
-Takeover 请求也增加 20 秒硬超时，基础设施异常不再无限阻塞 Gate。实现提交 `0d99342` 的
+Takeover 请求也增加 20 秒硬超时，基础设施异常不再无限阻塞 Gate。实现提交 `a14e5f1` 的
 GitHub `ci` run `32363001442`（含供应链、Integration、Object Storage/Recording GameDay、
 Kubernetes Operator E2E）和 `desktop` run `32363001455`（Windows/macOS）均已通过。
 

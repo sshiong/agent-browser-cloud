@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-20
 > 基准分支：`main`
-> 编写时基准提交：`0d99342 feat: add structured agent browser execution`
+> 编写时基准提交：`a14e5f1 feat: add structured agent browser execution`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -176,27 +176,27 @@ Rust Browser Node
   Web 115 项、Rust Workspace、Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、
   OpenAPI/四 SDK、供应链、Operator、50k Coordinator Capacity、N/N−1 与完整
   PostgreSQL/mTLS/Chromium Integration 已通过；Integration 显式覆盖 Identity 锁定/审批
-  应用、AgentClipboard RBAC/清除及 Snapshot/Inspect/Find 一致性。提交 `0d99342` 的
+  应用、AgentClipboard RBAC/清除及 Snapshot/Inspect/Find 一致性。提交 `a14e5f1` 的
   GitHub `ci`（run `32363001442`，含供应链、Integration、Object Storage/Recording
   GameDay 与 Kubernetes Operator E2E）和 `desktop`（run `32363001455`，Windows/macOS）
   均通过，见 progress 149。
 - AUTONOMOUS 按需人工协助切片本地 Control Plane 446 项、Web 115 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N-1 与
-  完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `941bf5b` 的 GitHub `ci`
+  完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `dde38da` 的 GitHub `ci`
   （run `32159504238`）和 `desktop`（run `32159504071`，Windows/macOS）均通过，见
   progress 148。
 
 - Agent SAFE/AUTONOMOUS 切片本地 Control Plane 442 项、Web 114 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、
   N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过。
-- 最终功能提交 `0b14702` 的 GitHub `ci`（run `32149210380`，含 Verify、供应链、
+- 最终功能提交 `0ee151a` 的 GitHub `ci`（run `32149210380`，含 Verify、供应链、
   Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop`
   （run `32149210343`，Windows/macOS）均通过。
-- 上一基准提交 `a8e2268` 时工作区干净，`main == origin/main`。
+- 上一基准提交 `bcedd5d` 时工作区干净，`main == origin/main`。
 - Challenge 视觉自动化切片本地 Java 439 项、Web 113 项、Rust Workspace、Python Worker、
   Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/Protobuf、四 SDK、N/N-1、Operator
   和完整 PostgreSQL/mTLS/Chromium Integration 已通过。
-- 提交 `a8e2268` 的 GitHub `ci`（run `32139754379`，含 Verify、供应链、Integration、
+- 提交 `bcedd5d` 的 GitHub `ci`（run `32139754379`，含 Verify、供应链、Integration、
   Object Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop`
   （run `32139754412`，Windows/macOS）均通过。
 - Enterprise Overview 切片本地 Java 437 项、Web 112 项、全量 Test/Lint/Build、Desktop、SDK、N/N-1 与完整 PostgreSQL/mTLS/Chromium Integration 已通过。
@@ -217,7 +217,7 @@ Rust Browser Node
   独立 AgentClipboard 和 OpenAPI/四 SDK 已完成开发；
 - Java 456 项、Rust/Web/Worker/Provider、Test/Lint/Build、四 SDK、Desktop、供应链、
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
-  已通过；提交 `0d99342` 的 GitHub `ci` run `32363001442` 与 `desktop` run
+  已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
 - 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和其余高级 Action
   Primitive，见 progress 149。

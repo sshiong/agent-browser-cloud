@@ -2,8 +2,8 @@
 
 > 日期：2026-08-18
 > 状态：仓库实现、本地全量验证与远端 Workflow 全部完成。
-> 实现提交：`04568d0 feat: add autonomous agent sensitive inputs`
-> 最终功能提交：`0b14702 test: update generated sdk operation counts`
+> 实现提交：`46e99e0 feat: add autonomous agent sensitive inputs`
+> 最终功能提交：`0ee151a test: update generated sdk operation counts`
 
 ## 目标与模式语义
 

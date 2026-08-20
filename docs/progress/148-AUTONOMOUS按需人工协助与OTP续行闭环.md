@@ -2,7 +2,7 @@
 
 > 日期：2026-08-19
 > 状态：仓库实现、本地全量验证与远端 Workflow 全部完成。
-> 实现提交：`941bf5b feat: resume autonomous agents with human otp`
+> 实现提交：`dde38da feat: resume autonomous agents with human otp`
 
 ## 问题与最终语义
 

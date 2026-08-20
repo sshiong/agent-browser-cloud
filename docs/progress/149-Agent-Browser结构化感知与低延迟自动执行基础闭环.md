@@ -1,7 +1,7 @@
 # Agent Browser 结构化感知与低延迟自动执行基础闭环
 
 > 日期：2026-08-20
-> 状态：仓库实现与完整本地 Gate 已通过，GitHub Gate 待提交后验证
+> 状态：仓库实现、完整本地 Gate 与 GitHub `ci/desktop` 均已通过
 
 ## 1. 本轮边界
 
@@ -88,8 +88,9 @@ Snapshot Cursor、稳定 Element ID、Inspect/Find 在当前真实页面上的�
 Integration 在收口过程中真实发现并修复三项仅靠 Mock/编译不会暴露的问题：JPA Session
 父行必须在 JDBC Identity 投影前 flush；V106 Motion 字段必须对旧请求保持 additive 默认值；
 非 Batch Action 不得因新增 `actions` 字段被 Bean Validation 错误拒绝。Integration 的关键
-Takeover 请求也增加 20 秒硬超时，基础设施异常不再无限阻塞 Gate。GitHub `ci` 与
-`desktop` 需在提交推送后检查，通过前不写成完成。
+Takeover 请求也增加 20 秒硬超时，基础设施异常不再无限阻塞 Gate。实现提交 `0d99342` 的
+GitHub `ci` run `32363001442`（含供应链、Integration、Object Storage/Recording GameDay、
+Kubernetes Operator E2E）和 `desktop` run `32363001455`（Windows/macOS）均已通过。
 
 本轮尚未把 Dialog、Tab、File、局部 Screenshot、受治理 JS Evaluate、完整
 double/right-click/hover/select/check/drag/drop/高级键鼠 Primitive 收敛进新的粗粒度 Agent

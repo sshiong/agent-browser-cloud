@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-20
 > 基准分支：`main`
-> 编写时基准提交：`6f523b6 docs: record verified autonomous agent workflows`
+> 编写时基准提交：`0d99342 feat: add structured agent browser execution`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -176,8 +176,10 @@ Rust Browser Node
   Web 115 项、Rust Workspace、Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、
   OpenAPI/四 SDK、供应链、Operator、50k Coordinator Capacity、N/N−1 与完整
   PostgreSQL/mTLS/Chromium Integration 已通过；Integration 显式覆盖 Identity 锁定/审批
-  应用、AgentClipboard RBAC/清除及 Snapshot/Inspect/Find 一致性；GitHub `ci/desktop` 待提交后确认，见
-  progress 149。
+  应用、AgentClipboard RBAC/清除及 Snapshot/Inspect/Find 一致性。提交 `0d99342` 的
+  GitHub `ci`（run `32363001442`，含供应链、Integration、Object Storage/Recording
+  GameDay 与 Kubernetes Operator E2E）和 `desktop`（run `32363001455`，Windows/macOS）
+  均通过，见 progress 149。
 - AUTONOMOUS 按需人工协助切片本地 Control Plane 446 项、Web 115 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N-1 与
   完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `941bf5b` 的 GitHub `ci`
@@ -205,7 +207,7 @@ Rust Browser Node
 
 最近切片与当前最高优先级开发任务：
 
-### Agent Browser 结构化感知与低延迟执行（基础切片本地闭环）
+### Agent Browser 结构化感知与低延迟执行（基础切片已闭环）
 
 - Snapshot/Inspect/Find、精确 State Cursor、稳定 Element ID、可见/可操作性判定和同源
   iframe/open Shadow DOM 已完成开发；
@@ -215,8 +217,10 @@ Rust Browser Node
   独立 AgentClipboard 和 OpenAPI/四 SDK 已完成开发；
 - Java 456 项、Rust/Web/Worker/Provider、Test/Lint/Build、四 SDK、Desktop、供应链、
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
-  已通过；GitHub Gate 待提交后确认。Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate
-  和其余高级 Action Primitive 仍是后续明确缺口，见 progress 149。
+  已通过；提交 `0d99342` 的 GitHub `ci` run `32363001442` 与 `desktop` run
+  `32363001455` 也均通过；
+- 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和其余高级 Action
+  Primitive，见 progress 149。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -349,8 +353,8 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 完成 Agent Browser 当前切片的全量 Gate、提交、GitHub `ci/desktop`，再按 progress 149
-   的保留边界收口 Dialog/Tab/File/Screenshot/Evaluate 与高级 Action Primitive。
+1. 按 progress 149 的保留边界继续收口 Dialog/Tab/File/Screenshot/Evaluate 与高级
+   Action Primitive；基础结构化感知/Batch/Identity/Clipboard 切片不得重做。
 2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。

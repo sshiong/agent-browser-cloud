@@ -155,7 +155,7 @@ public final class Models {
 
   public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, List<AgentBatchActionInput> actions, Boolean stopOnError) {}
 
-  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts) {}
+  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object elementId, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts) {}
 
   public enum AgentRiskClass { R0READONLY, R1LOWRISKCHANGE, R2DATACHANGE, R3ACCOUNTCHANGE, R4FINANCIAL, R5SECURITY }
 

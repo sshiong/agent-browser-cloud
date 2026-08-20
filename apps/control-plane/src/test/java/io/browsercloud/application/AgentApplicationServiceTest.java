@@ -255,6 +255,9 @@ class AgentApplicationServiceTest {
     assertThat(batch.input().actions())
         .extracting(action -> action.toolId())
         .containsExactly(ToolId.FILL, ToolId.CLICK_TARGET);
+    assertThat(batch.input().actions())
+        .extracting(action -> action.elementId())
+        .containsExactly("target:2:0", "target:2:1");
     assertThat(batch.input().stopOnError()).isTrue();
     assertThat(view.toString()).doesNotContain("Quarterly note", "v1.");
   }

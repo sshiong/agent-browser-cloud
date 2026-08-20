@@ -740,6 +740,10 @@ message AgentActionPrimitive {
   uint32 timeout_ms = 9;
   bool allow_sensitive_target = 10;
   uint32 maximum_attempts = 11;
+  // Stable semantic identity captured from the authoritative Browser State. An upgraded Node
+  // rebinds this identity against the latest target_revision before every primitive so a prior
+  // mutation in the same batch cannot stale the following action. N-1 Nodes ignore this field.
+  string element_id = 12;
 }
 
 message AgentActionOutcome {

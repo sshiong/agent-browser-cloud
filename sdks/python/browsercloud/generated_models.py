@@ -665,6 +665,7 @@ class AgentBatchActionInput(TypedDict, total=False):
     actionId: str
     toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
     targetRef: Any
+    elementId: Any
     targetRevision: Any
     payloadHash: Any
     payloadLength: Any

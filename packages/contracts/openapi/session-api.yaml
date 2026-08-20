@@ -7785,6 +7785,7 @@ components:
         - actionId
         - toolId
         - targetRef
+        - elementId
         - targetRevision
         - payloadHash
         - payloadLength
@@ -7803,6 +7804,10 @@ components:
           enum: [CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
         targetRef:
           type: [string, "null"]
+        elementId:
+          type: [string, "null"]
+          maxLength: 256
+          description: Stable structured identity used to rebind this primitive after earlier actions advance targetRevision.
         targetRevision:
           type: [integer, "null"]
           format: int64

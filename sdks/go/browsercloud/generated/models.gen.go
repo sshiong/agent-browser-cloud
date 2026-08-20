@@ -760,6 +760,7 @@ type AgentBatchActionInput struct {
 	ActionId                  string `json:"actionId,omitempty"`
 	ToolId                    string `json:"toolId,omitempty"`
 	TargetRef                 any    `json:"targetRef,omitempty"`
+	ElementId                 any    `json:"elementId,omitempty"`
 	TargetRevision            any    `json:"targetRevision,omitempty"`
 	PayloadHash               any    `json:"payloadHash,omitempty"`
 	PayloadLength             any    `json:"payloadLength,omitempty"`

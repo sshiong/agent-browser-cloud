@@ -153,6 +153,7 @@ public final class AgentModels {
       String actionId,
       ToolId toolId,
       String targetRef,
+      String elementId,
       Long targetRevision,
       String sealedPayload,
       String payloadHash,

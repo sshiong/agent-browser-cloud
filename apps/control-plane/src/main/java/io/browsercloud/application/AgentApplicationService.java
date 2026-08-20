@@ -753,6 +753,12 @@ public class AgentApplicationService {
       CreateAgentTaskRequest.ActionRequest request,
       AgentControlPolicyService.Policy controlPolicy) {
     var actions = new ArrayList<ActionInput>();
+    var currentState =
+        stateRepository
+            .find(sessionId)
+            .filter(snapshot -> snapshot.tenantId().equals(tenantId))
+            .map(BrowserStateRepository.Snapshot::state)
+            .orElseThrow(() -> new IllegalStateException("STATE_UNAVAILABLE"));
     for (int index = 0; index < request.actions().size(); index++) {
       var action = request.actions().get(index);
       var actionId = "action_" + (index + 1);
@@ -770,11 +776,13 @@ public class AgentApplicationService {
           isTextInput(action.toolId())
               ? actionPayloadService.seal(tenantId, taskId, stepId + ":" + actionId, plaintext)
               : null;
+      var elementId = stableElementId(currentState, action.targetRef());
       actions.add(
           new ActionInput(
               actionId,
               action.toolId(),
               action.targetRef(),
+              elementId,
               action.targetRevision(),
               sealed,
               isTextInput(action.toolId())
@@ -804,6 +812,17 @@ public class AgentApplicationService {
         1,
         actions,
         request.stopOnError() == null || request.stopOnError());
+  }
+
+  private static String stableElementId(
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state, String targetRef) {
+    if (targetRef == null || targetRef.isBlank()) return null;
+    return state.targets().stream()
+        .filter(
+            target -> targetRef.equals(target.targetRef()) || targetRef.equals(target.elementId()))
+        .map(target -> target.elementId() == null ? target.targetRef() : target.elementId())
+        .findFirst()
+        .orElse(null);
   }
 
   private static String dataScope(ToolId toolId, StepInput input) {
@@ -890,6 +909,7 @@ public class AgentApplicationService {
                                                 action.actionId(),
                                                 action.toolId(),
                                                 action.targetRef(),
+                                                action.elementId(),
                                                 action.targetRevision(),
                                                 action.payloadHash(),
                                                 action.payloadLength(),

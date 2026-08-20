@@ -155,7 +155,9 @@ Rust Browser Node
   Screenshot/Vision 只作为 Challenge 或结构化感知失败的 fallback。
 - [已确认] Target 已具备稳定 Element ID、iframe/open Shadow Root 上下文、
   Focus/Form State，以及隐藏、离屏、遮挡和不可交互判定；Action Executor 以一个持久 Batch
-  顺序执行 CLICK/TYPE/FILL/AgentClipboard/SCROLL/WAIT，每步重读真实状态并支持 stop-on-error。
+  顺序执行 CLICK/TYPE/FILL/AgentClipboard/SCROLL/WAIT，每步重读真实状态并支持 stop-on-error；
+  Batch Primitive 已以 additive `element_id` 在每步后按最新 Target Revision 稳定重绑定，
+  N−1/历史命令保持原围栏并 fail-closed，见 progress 150。
 - [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
   每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
   PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
@@ -171,6 +173,11 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Agent Browser Batch 稳定重绑定切片本地 Control Plane 456 项、Rust Workspace、Web
+  115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
+  PostgreSQL/mTLS/真实 Chromium Integration 已通过；提交与 GitHub `ci/desktop` 待执行，
+  见 progress 150。
 
 - Agent Browser 结构化感知/Batch/Identity/Clipboard 基础切片本地 Control Plane 456 项、
   Web 115 项、Rust Workspace、Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、
@@ -220,7 +227,8 @@ Rust Browser Node
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
 - 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和其余高级 Action
-  Primitive，见 progress 149。
+  Primitive，见 progress 149；稳定 Element ID 的逐 Primitive 重绑定已完成定向验证，
+  且完整本地 Gate 已通过；提交和远端 Workflow 待执行，见 progress 150。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 

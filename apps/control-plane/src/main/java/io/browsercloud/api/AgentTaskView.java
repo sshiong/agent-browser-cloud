@@ -104,6 +104,7 @@ public record AgentTaskView(
       String actionId,
       ToolId toolId,
       String targetRef,
+      String elementId,
       Long targetRevision,
       String payloadHash,
       Integer payloadLength,

@@ -11,9 +11,10 @@ use node_contracts::proto::node_control_service_server::{
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent, AgentActionOutcome,
-    AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
-    BrowserStateDiffEvent, BrowserStateEvent, BrowserStateSnapshotBeginEvent,
-    BrowserStateSnapshotChunkEvent, BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
+    AgentActionPrimitive, AgentNavigateCommand, AgentNavigationFailedEvent,
+    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
+    BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
+    BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
     CaptureObserverScreenshotCommand, ChallengeAutomationActionCommand,
     ChallengeAutomationFailedEvent, ChallengeVisualAction, CommandAck, CommandEnvelope,
     DiffTruncatedEvent, DispatchRequest, DispatchResponse, EndHumanTakeoverCommand, EventEnvelope,
@@ -65,6 +66,17 @@ const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
 const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
 const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
 const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
+
+fn rebound_action_target(
+    action: &AgentActionPrimitive,
+    current_target_revision: u64,
+) -> (String, u64) {
+    if action.element_id.is_empty() {
+        (action.target_ref.clone(), action.target_revision)
+    } else {
+        (action.element_id.clone(), current_target_revision)
+    }
+}
 
 fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
@@ -2810,13 +2822,17 @@ impl NodeControlService {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
 
+            let (target_ref, target_revision) =
+                rebound_action_target(action, current.target_revision);
             let single = AgentActionCommand {
                 session_id: payload.session_id.clone(),
                 task_id: payload.task_id.clone(),
                 step_id: format!("{}:{}", payload.step_id, action.action_id),
                 tool_id: action.tool_id.clone(),
-                target_ref: action.target_ref.clone(),
-                target_revision: action.target_revision,
+                // Rebind a stable semantic Element ID to the state produced by the previous
+                // primitive. Legacy batches without element_id retain their original fencing.
+                target_ref,
+                target_revision,
                 sealed_text: action.sealed_text.clone(),
                 text: action.text.clone(),
                 scroll_delta_y: action.scroll_delta_y,
@@ -7780,6 +7796,37 @@ mod tests {
     };
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
+
+    #[test]
+    fn batch_primitive_rebinds_stable_element_to_latest_target_revision() {
+        let action = AgentActionPrimitive {
+            action_id: "action_2".into(),
+            tool_id: "CLICK_TARGET".into(),
+            target_ref: "target:2:1".into(),
+            target_revision: 2,
+            element_id: "e-submit".into(),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            rebound_action_target(&action, 7),
+            ("e-submit".to_owned(), 7)
+        );
+    }
+
+    #[test]
+    fn legacy_batch_primitive_keeps_original_target_fence() {
+        let action = AgentActionPrimitive {
+            target_ref: "target:2:1".into(),
+            target_revision: 2,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            rebound_action_target(&action, 7),
+            ("target:2:1".to_owned(), 2)
+        );
+    }
 
     #[test]
     fn resource_danger_requires_an_oom_counter_increase() {

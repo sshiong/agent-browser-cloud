@@ -1,6 +1,6 @@
 {
   "contract": "session-api.yaml",
-  "contractSha256": "95a9759a6781b62ab831fc408dd2a60611e7ca7b83f2cf9fc40fe733259c260d",
+  "contractSha256": "fe577befea20616d15b4e2ad1e8071d6e542e0f6f9978c26d22a7e22874e1cd5",
   "files": {
     "BrowserCloudGeneratedClient.ts": "9af238a7342b4202ace30c93c8fac304d101b48a600224c76ce2d59908979c4c",
     "core/ApiError.ts": "1340dca2bdae61fcf8c1d1a52004c43fb070eb6f084a20c56423ee00f9d3a798",
@@ -14,7 +14,7 @@
     "index.ts": "ce6695fda2ede1c87ffc325ed0657711583bad8e81a9b27f20a836ba1192da19",
     "models/ActorId.ts": "a6b9a2f1d3ae13603cf93ec6584983bc6798012e98e4870d7cd838778fb4c620",
     "models/AgentActionRequest.ts": "c435a1415580cfbfadfa3c8efd24c71901606fcee421e3a2d0e60f272a651614",
-    "models/AgentBatchActionInput.ts": "418adc3505de25f176daeccd81a9cb6d067016c030268d559b55ebdbabc1a155",
+    "models/AgentBatchActionInput.ts": "455cf325d604617ffc8ee5a56b3aa7452761f106aeacd397694152e7ecae5f26",
     "models/AgentBatchActionRequest.ts": "b560e32f047b12bfb5b76252074acbfd3aee61ba58e367221068c5fd8b8101a9",
     "models/AgentBrowserFindRequest.ts": "59f170406f27254f3c373cdf253d96c3882b7e87d8aee0b97f986629db2151f0",
     "models/AgentBrowserInspectRequest.ts": "0643ec0d5e6ecc5e1c6b0aa3a46df863853a8775644f679e07bafb7c1a84fa7b",

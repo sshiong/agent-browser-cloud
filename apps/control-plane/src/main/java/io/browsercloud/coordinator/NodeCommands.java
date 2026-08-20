@@ -598,6 +598,7 @@ public final class NodeCommands {
                           .setTargetRef(action.targetRef() == null ? "" : action.targetRef())
                           .setTargetRevision(
                               action.targetRevision() == null ? 0 : action.targetRevision())
+                          .setElementId(action.elementId() == null ? "" : action.elementId())
                           .setSealedText(
                               action.sealedPayload() == null ? "" : action.sealedPayload())
                           .setScrollDeltaY(

@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-20
 > 基准分支：`main`
-> 编写时基准提交：`a14e5f1 feat: add structured agent browser execution`
+> 编写时基准提交：`54b28ea fix: rebind autonomous action batches`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -174,9 +174,9 @@ Rust Browser Node
 
 ### 最近验证状态
 
-- Agent Browser Batch 稳定重绑定切片本地 Control Plane 456 项、Rust Workspace、Web
+- Agent Browser Batch 稳定重绑定切片实现提交 `54b28ea`；本地 Control Plane 456 项、Rust Workspace、Web
   115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
-  PostgreSQL/mTLS/真实 Chromium Integration 已通过；提交与 GitHub `ci/desktop` 待执行，
+  PostgreSQL/mTLS/真实 Chromium Integration 已通过；GitHub `ci/desktop` 待执行，
   见 progress 150。
 
 - Agent Browser 结构化感知/Batch/Identity/Clipboard 基础切片本地 Control Plane 456 项、
@@ -228,7 +228,7 @@ Rust Browser Node
   `32363001455` 也均通过；
 - 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和其余高级 Action
   Primitive，见 progress 149；稳定 Element ID 的逐 Primitive 重绑定已完成定向验证，
-  且完整本地 Gate 已通过；提交和远端 Workflow 待执行，见 progress 150。
+  且完整本地 Gate 已通过；实现提交 `54b28ea`，远端 Workflow 待执行，见 progress 150。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 

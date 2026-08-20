@@ -110,7 +110,10 @@ public class JpaSessionRepository implements SessionRepository {
             serialize(extensionIds),
             context.updatedAt());
     entity.setGroupId(groupId);
-    sessionJpa.save(entity);
+    // Session creation immediately fans out to JDBC-backed PostgreSQL projections (identity,
+    // resource policy, routing, and imports) in the same transaction. Flush the FK parent before
+    // those services execute; JpaRepository.save() alone may defer the INSERT until commit.
+    sessionJpa.saveAndFlush(entity);
 
     // 插入初始 Context
     var contextEntity = new SessionContextEntity();

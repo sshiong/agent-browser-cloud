@@ -514,7 +514,14 @@ public class NodeEventMapper {
           requireText(payload.getStepId(), "step_id");
           requireText(payload.getToolId(), "tool_id");
           requireText(payload.getErrorCode(), "error_code");
-          if (!java.util.Set.of("CLICK_TARGET", "TYPE_TEXT", "SCROLL", "WAIT_FOR")
+          if (!java.util.Set.of(
+                  "CLICK_TARGET",
+                  "TYPE_TEXT",
+                  "FILL",
+                  "PASTE_AGENT_CLIPBOARD",
+                  "SCROLL",
+                  "WAIT_FOR",
+                  "EXECUTE_ACTIONS")
               .contains(payload.getToolId())) {
             throw new IllegalArgumentException("unsupported Agent Action tool_id");
           }
@@ -803,6 +810,27 @@ public class NodeEventMapper {
       throw new IllegalArgumentException("Browser State target count exceeds 500");
     }
     var targets = payload.getTargetsList().stream().map(this::target).toList();
+    if (payload.getActionOutcomesCount() > 20) {
+      throw new IllegalArgumentException("Agent action outcome count exceeds 20");
+    }
+    var actionOutcomes =
+        payload.getActionOutcomesList().stream()
+            .map(
+                outcome -> {
+                  if (!outcome.getActionId().matches("^action_[1-9][0-9]?$")) {
+                    throw new IllegalArgumentException("Agent action outcome ID is invalid");
+                  }
+                  if (!java.util.Set.of("SUCCEEDED", "FAILED").contains(outcome.getStatus())) {
+                    throw new IllegalArgumentException("Agent action outcome status is invalid");
+                  }
+                  return new NodeEvent.AgentActionOutcome(
+                      outcome.getActionId(),
+                      outcome.getStatus(),
+                      outcome.getErrorCode(),
+                      outcome.getStateVersion(),
+                      outcome.getTargetRevision());
+                })
+            .toList();
     validateReadinessEvidence(payload.getDocumentReadyState(), payload.getNetworkQuietMillis());
     return new NodeEvent.StateUpdated(
         payload.getSessionId(),
@@ -817,7 +845,8 @@ public class NodeEventMapper {
         payload.getNetworkQuietMillis(),
         payload.getNetworkEvidenceFresh(),
         payload.getSnapshotKind(),
-        payload.getRequestedRootRef());
+        payload.getRequestedRootRef(),
+        actionOutcomes);
   }
 
   private void validateSnapshotManifest(
@@ -925,6 +954,7 @@ public class NodeEventMapper {
       io.browsercloud.proto.node.v1.InteractiveTargetState target) {
     requireText(target.getTargetRef(), "target_ref");
     requireText(target.getRole(), "target_role");
+    var legacyStructuredFields = target.getElementId().isBlank();
     return new NodeEvent.InteractiveTarget(
         target.getTargetRef(),
         target.getRole(),
@@ -938,7 +968,22 @@ public class NodeEventMapper {
             : null,
         target.getEnabled(),
         target.getVisible(),
-        target.getSensitive());
+        target.getSensitive(),
+        target.getElementId().isBlank() ? target.getTargetRef() : target.getElementId(),
+        target.hasValue() ? target.getValue() : null,
+        target.hasControlType() ? target.getControlType() : null,
+        target.getFocused(),
+        target.hasChecked() ? target.getChecked() : null,
+        target.hasSelected() ? target.getSelected() : null,
+        legacyStructuredFields || target.getInteractive(),
+        target.getFrameId().isBlank() ? "main" : target.getFrameId(),
+        legacyStructuredFields ? target.getVisible() : target.getInViewport(),
+        target.getOccluded(),
+        target.hasVisibilityReason()
+            ? target.getVisibilityReason()
+            : (!target.getVisible() && legacyStructuredFields
+                ? "LEGACY_VISIBILITY_UNKNOWN"
+                : null));
   }
 
   private static boolean isLowerHex(int character) {

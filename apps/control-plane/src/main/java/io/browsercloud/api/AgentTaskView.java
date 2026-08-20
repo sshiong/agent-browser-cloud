@@ -96,6 +96,22 @@ public record AgentTaskView(
       WaitCondition waitCondition,
       Integer timeoutMs,
       boolean sensitiveTargetAuthorized,
+      int maximumAttempts,
+      List<BatchActionInputView> actions,
+      boolean stopOnError) {}
+
+  public record BatchActionInputView(
+      String actionId,
+      ToolId toolId,
+      String targetRef,
+      Long targetRevision,
+      String payloadHash,
+      Integer payloadLength,
+      ActionDataClass dataClass,
+      Integer scrollDeltaY,
+      WaitCondition waitCondition,
+      Integer timeoutMs,
+      boolean sensitiveTargetAuthorized,
       int maximumAttempts) {}
 
   public record SecurityEventView(

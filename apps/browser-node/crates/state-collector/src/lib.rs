@@ -24,10 +24,16 @@ const MAX_NETWORK_QUIET_POLICY_MILLIS: u64 = 30_000;
 pub struct InteractiveTarget {
     /// 目标引用
     pub target_ref: String,
+    /// 跨 State/Target Revision 稳定的结构化元素 ID；target_ref 仍保留版本 fencing。
+    pub element_id: String,
     /// 角色
     pub role: String,
     /// 名称
     pub name: Option<String>,
+    /// 非敏感控件的当前值；敏感控件始终为空。
+    pub value: Option<String>,
+    /// DOM 控件类型（例如 text、submit、select-one）。
+    pub control_type: Option<String>,
     /// 边界
     pub bounds: Option<Bounds>,
     /// 是否启用
@@ -36,6 +42,18 @@ pub struct InteractiveTarget {
     pub visible: bool,
     /// 是否为 Password/OTP 等敏感输入目标
     pub sensitive: bool,
+    /// 当前焦点、选择和值状态。
+    pub focused: bool,
+    pub checked: Option<bool>,
+    pub selected: Option<bool>,
+    /// 是否属于结构化可交互集合。
+    pub interactive: bool,
+    /// 主文档为 main；同源 iframe 使用稳定 frame path。
+    pub frame_id: String,
+    /// 可见性细分，供 Agent 避免点击离屏或被遮挡目标。
+    pub in_viewport: bool,
+    pub occluded: bool,
+    pub visibility_reason: Option<String>,
 }
 
 /// 边界。
@@ -287,16 +305,40 @@ struct EvaluatedPageState {
     error: Option<String>,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EvaluatedTarget {
     path: String,
     role: String,
     name: Option<String>,
+    #[serde(default)]
+    value: Option<String>,
+    #[serde(default, rename = "controlType")]
+    control_type: Option<String>,
     bounds: Option<Bounds>,
     enabled: bool,
     visible: bool,
     #[serde(default)]
     sensitive: bool,
+    #[serde(default)]
+    focused: bool,
+    #[serde(default)]
+    checked: Option<bool>,
+    #[serde(default)]
+    selected: Option<bool>,
+    #[serde(default)]
+    interactive: bool,
+    #[serde(default, rename = "frameId")]
+    frame_id: String,
+    #[serde(default = "default_true", rename = "inViewport")]
+    in_viewport: bool,
+    #[serde(default)]
+    occluded: bool,
+    #[serde(default, rename = "visibilityReason")]
+    visibility_reason: Option<String>,
 }
 
 /// 基于真实 Chrome DevTools Protocol 的基础 State Collector。
@@ -344,6 +386,8 @@ pub struct ResolvedTarget {
     pub enabled: bool,
     pub visible: bool,
     pub sensitive: bool,
+    pub in_viewport: bool,
+    pub occluded: bool,
 }
 
 impl CdpStateCollector {
@@ -1078,13 +1122,27 @@ impl CdpStateCollector {
             (() => {
               const requestedRoot = __REQUESTED_ROOT__;
               const selector = [
-                'a[href]', 'button', 'input', 'select', 'textarea',
+                'a[href]', 'button', 'input', 'select', 'textarea', 'summary',
+                '[contenteditable]:not([contenteditable="false"])',
                 '[role="button"]', '[role="link"]', '[role="checkbox"]',
-                '[role="radio"]', '[role="textbox"]', '[role="alert"]',
+                '[role="radio"]', '[role="textbox"]', '[role="combobox"]',
+                '[role="switch"]', '[role="slider"]', '[role="option"]',
+                '[role="menuitem"]', '[role="tab"]', '[role="alert"]',
                 '[role="status"]', '[role="dialog"]', '[role="alertdialog"]',
                 '[tabindex]'
               ].join(',');
+              const accessibilityFor = (element) => {
+                try {
+                  const node = element.ownerDocument.defaultView
+                    .getComputedAccessibleNode?.(element);
+                  return node ? {role: node.role || null, name: node.name || null} : null;
+                } catch (_) {
+                  return null;
+                }
+              };
               const roleFor = (element) => {
+                const accessibility = accessibilityFor(element);
+                if (accessibility?.role) return String(accessibility.role).slice(0, 64);
                 const explicit = element.getAttribute('role');
                 if (explicit) return explicit.slice(0, 64);
                 const tag = element.tagName.toLowerCase();
@@ -1102,11 +1160,26 @@ impl CdpStateCollector {
                 return 'generic';
               };
               const nameFor = (element) => {
+                const accessibility = accessibilityFor(element);
+                if (accessibility?.name) return String(accessibility.name).slice(0, 256);
                 const aria = element.getAttribute('aria-label');
                 if (aria) return aria.slice(0, 256);
+                const labelledBy = element.getAttribute('aria-labelledby');
+                if (labelledBy) {
+                  const labelled = labelledBy.split(/\s+/)
+                    .map((id) => element.ownerDocument.getElementById(id)?.textContent || '')
+                    .join(' ').trim();
+                  if (labelled) return labelled.slice(0, 256);
+                }
+                if (element.labels?.length) {
+                  const labelled = Array.from(element.labels)
+                    .map((label) => label.textContent || '').join(' ').trim();
+                  if (labelled) return labelled.slice(0, 256);
+                }
                 const type = (element.getAttribute('type') || '').toLowerCase();
                 if (type === 'password') return null;
-                const text = element.innerText || element.getAttribute('placeholder') || '';
+                const text = element.innerText || element.getAttribute('alt')
+                  || element.getAttribute('title') || element.getAttribute('placeholder') || '';
                 return text.trim().slice(0, 256) || null;
               };
               const sensitiveFor = (element) => {
@@ -1148,9 +1221,61 @@ impl CdpStateCollector {
                     sibling = sibling.previousElementSibling;
                   }
                   parts.unshift(`${tag}:nth-of-type(${index})`);
-                  current = current.parentElement;
+                  const parent = current.parentElement;
+                  if (parent) {
+                    current = parent;
+                  } else {
+                    const root = current.getRootNode?.();
+                    if (root instanceof ShadowRoot) {
+                      parts.unshift('>>shadow>>');
+                      current = root.host;
+                    } else {
+                      current = null;
+                    }
+                  }
                 }
                 return parts.join('>');
+              };
+              const visibilityFor = (element, rect, frameOffsetX, frameOffsetY) => {
+                let current = element;
+                let reason = null;
+                while (current && current.nodeType === Node.ELEMENT_NODE) {
+                  const style = current.ownerDocument.defaultView.getComputedStyle(current);
+                  if (current.hidden) { reason = 'HIDDEN_ATTRIBUTE'; break; }
+                  if (current.getAttribute('aria-hidden') === 'true') { reason = 'ARIA_HIDDEN'; break; }
+                  if (style.display === 'none') { reason = 'DISPLAY_NONE'; break; }
+                  if (style.visibility === 'hidden' || style.visibility === 'collapse') {
+                    reason = 'VISIBILITY_HIDDEN'; break;
+                  }
+                  if (Number.parseFloat(style.opacity || '1') <= 0.01) {
+                    reason = 'OPACITY_ZERO'; break;
+                  }
+                  if (style.pointerEvents === 'none') { reason = 'POINTER_EVENTS_NONE'; break; }
+                  if (current.tagName === 'DETAILS' && !current.open
+                      && element !== current.querySelector(':scope > summary')) {
+                    reason = 'COLLAPSED'; break;
+                  }
+                  current = current.parentElement || current.getRootNode?.()?.host || null;
+                }
+                if (!reason && (rect.width <= 0 || rect.height <= 0)) reason = 'ZERO_SIZE';
+                const global = {
+                  x: rect.x + frameOffsetX, y: rect.y + frameOffsetY,
+                  width: rect.width, height: rect.height
+                };
+                const inViewport = global.x + global.width > 0 && global.y + global.height > 0
+                  && global.x < window.innerWidth && global.y < window.innerHeight;
+                if (!reason && !inViewport) reason = 'OUTSIDE_VIEWPORT';
+                let occluded = false;
+                if (!reason) {
+                  const x = Math.max(0, Math.min(rect.x + rect.width / 2,
+                    element.ownerDocument.defaultView.innerWidth - 1));
+                  const y = Math.max(0, Math.min(rect.y + rect.height / 2,
+                    element.ownerDocument.defaultView.innerHeight - 1));
+                  const hit = element.ownerDocument.elementFromPoint(x, y);
+                  occluded = !!hit && hit !== element && !element.contains(hit) && !hit.contains(element);
+                  if (occluded) reason = 'OCCLUDED';
+                }
+                return { visible: reason === null, reason, inViewport, occluded, global };
               };
               let root = document;
               if (requestedRoot !== null) {
@@ -1177,29 +1302,63 @@ impl CdpStateCollector {
                   };
                 }
               }
-              const candidates = root === document
-                ? Array.from(document.querySelectorAll(selector))
-                : [
-                    ...(root.matches(selector) ? [root] : []),
-                    ...Array.from(root.querySelectorAll(selector))
-                  ];
+              const candidates = [];
+              const visited = new Set();
+              const walk = (walkRoot, frameId = 'main', offsetX = 0, offsetY = 0, prefix = '') => {
+                const elements = walkRoot === document
+                  ? Array.from(document.querySelectorAll('*'))
+                  : [
+                      ...(walkRoot.matches?.('*') ? [walkRoot] : []),
+                      ...Array.from(walkRoot.querySelectorAll?.('*') || [])
+                    ];
+                for (const element of elements) {
+                  const path = `${prefix}${pathFor(element)}`;
+                  if (element.matches?.(selector) && !visited.has(`${frameId}:${path}`)) {
+                    visited.add(`${frameId}:${path}`);
+                    candidates.push({ element, path, frameId, offsetX, offsetY });
+                  }
+                  if (element.shadowRoot) {
+                    walk(element.shadowRoot, frameId, offsetX, offsetY, `${path}>>>`);
+                  }
+                  if (element.tagName === 'IFRAME') {
+                    try {
+                      const frameDocument = element.contentDocument;
+                      if (frameDocument?.documentElement) {
+                        const frameRect = element.getBoundingClientRect();
+                        walk(frameDocument, `frame:${path}`, offsetX + frameRect.x,
+                          offsetY + frameRect.y, `${path}::frame::`);
+                      }
+                    } catch (_) { /* cross-origin frames remain explicit Browser State boundaries */ }
+                  }
+                }
+              };
+              walk(root);
               const targets = candidates
-                .slice(0, 40)
-                .map((element) => {
+                .slice(0, 200)
+                .map(({ element, path, frameId, offsetX, offsetY }) => {
                   const rect = element.getBoundingClientRect();
-                  const style = window.getComputedStyle(element);
-                  const visible = rect.width > 0 && rect.height > 0
-                    && style.visibility !== 'hidden' && style.display !== 'none';
+                  const visibility = visibilityFor(element, rect, offsetX, offsetY);
+                  const sensitive = sensitiveFor(element);
+                  const rawValue = !sensitive && 'value' in element
+                    ? String(element.value ?? '').slice(0, 512) : null;
                   return {
-                    path: pathFor(element),
+                    path,
                     role: roleFor(element),
-                    name: nameFor(element),
-                    bounds: visible ? {
-                      x: rect.x, y: rect.y, width: rect.width, height: rect.height
-                    } : null,
+                    name: sensitive ? null : nameFor(element),
+                    value: rawValue || null,
+                    controlType: (element.getAttribute('type') || element.type || '').slice(0, 64) || null,
+                    bounds: rect.width > 0 && rect.height > 0 ? visibility.global : null,
                     enabled: !element.disabled && element.getAttribute('aria-disabled') !== 'true',
-                    visible,
-                    sensitive: sensitiveFor(element)
+                    visible: visibility.visible,
+                    sensitive,
+                    focused: element.ownerDocument.activeElement === element,
+                    checked: 'checked' in element ? !!element.checked : null,
+                    selected: 'selected' in element ? !!element.selected : null,
+                    interactive: element.matches(selector),
+                    frameId,
+                    inViewport: visibility.inViewport,
+                    occluded: visibility.occluded,
+                    visibilityReason: visibility.reason
                   };
                 });
               return {
@@ -1207,7 +1366,7 @@ impl CdpStateCollector {
                 title: document.title.slice(0, 1024),
                 documentReadyState: document.readyState,
                 targets,
-                truncated: candidates.length > 40,
+                truncated: candidates.length > 200,
                 rootPath: requestedRoot === null ? null : pathFor(root)
               };
             })()
@@ -1445,12 +1604,20 @@ impl CdpStateCollector {
         let target = registry
             .targets
             .get(target_ref)
+            .or_else(|| {
+                registry
+                    .targets
+                    .values()
+                    .find(|target| target.interactive.element_id == target_ref)
+            })
             .and_then(|target| target.resolved.clone())
             .ok_or_else(|| {
                 anyhow::anyhow!("target reference is stale, unknown, or not actionable")
             })?;
         anyhow::ensure!(target.visible, "target is not visible");
         anyhow::ensure!(target.enabled, "target is not enabled");
+        anyhow::ensure!(target.in_viewport, "target is outside viewport");
+        anyhow::ensure!(!target.occluded, "target is occluded");
         anyhow::ensure!(
             target.bounds.width > 0.0 && target.bounds.height > 0.0,
             "target bounds are not actionable"
@@ -1570,6 +1737,10 @@ impl CdpStateCollector {
         )
     }
 
+    fn element_id(path: &str) -> String {
+        format!("e{}", &hex_sha256(path.as_bytes())[..12])
+    }
+
     fn registered_target(target_revision: u64, evaluated: EvaluatedTarget) -> RegisteredTarget {
         let target_ref = Self::target_ref(target_revision, &evaluated.path);
         let resolved = evaluated.bounds.clone().map(|bounds| ResolvedTarget {
@@ -1578,17 +1749,36 @@ impl CdpStateCollector {
             enabled: evaluated.enabled,
             visible: evaluated.visible,
             sensitive: evaluated.sensitive,
+            in_viewport: evaluated.in_viewport,
+            occluded: evaluated.occluded,
         });
         let interactive = InteractiveTarget {
             target_ref,
+            element_id: Self::element_id(&evaluated.path),
             role: evaluated.role.clone(),
             name: (!evaluated.sensitive)
                 .then_some(evaluated.name.clone())
                 .flatten(),
+            value: (!evaluated.sensitive)
+                .then_some(evaluated.value.clone())
+                .flatten(),
+            control_type: evaluated.control_type.clone(),
             bounds: evaluated.bounds.clone(),
             enabled: evaluated.enabled,
             visible: evaluated.visible,
             sensitive: evaluated.sensitive,
+            focused: evaluated.focused,
+            checked: evaluated.checked,
+            selected: evaluated.selected,
+            interactive: evaluated.interactive,
+            frame_id: if evaluated.frame_id.is_empty() {
+                "main".to_owned()
+            } else {
+                evaluated.frame_id.clone()
+            },
+            in_viewport: evaluated.in_viewport,
+            occluded: evaluated.occluded,
+            visibility_reason: evaluated.visibility_reason.clone(),
         };
         RegisteredTarget {
             evaluated,
@@ -2103,7 +2293,9 @@ mod tests {
                 let expression = request["params"]["expression"].as_str().unwrap();
                 if index == 1 {
                     assert!(expression.contains("const requestedRoot = \"#app\";"));
-                    assert!(expression.contains("root.querySelectorAll(selector)"));
+                    assert!(expression.contains("walk(root)"));
+                    assert!(expression.contains("element.shadowRoot"));
+                    assert!(expression.contains("element.contentDocument"));
                 } else {
                     assert!(expression.contains("const requestedRoot = null;"));
                 }
@@ -2886,12 +3078,23 @@ mod tests {
     fn creates_bounded_diff_and_reports_truncation() {
         let target = |target_ref: &str, name: &str| InteractiveTarget {
             target_ref: target_ref.to_owned(),
+            element_id: format!("e{name}"),
             role: "button".to_owned(),
             name: Some(name.to_owned()),
+            value: None,
+            control_type: Some("button".to_owned()),
             bounds: None,
             enabled: true,
             visible: true,
             sensitive: false,
+            focused: false,
+            checked: None,
+            selected: None,
+            interactive: true,
+            frame_id: "main".to_owned(),
+            in_viewport: true,
+            occluded: false,
+            visibility_reason: None,
         };
         let previous = CurrentState {
             session_id: "ses_state".to_owned(),

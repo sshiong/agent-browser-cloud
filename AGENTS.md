@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-08-19
+> 更新日期：2026-08-20
 > 基准分支：`main`
-> 编写时基准提交：`941bf5b feat: resume autonomous agents with human otp`
+> 编写时基准提交：`6f523b6 docs: record verified autonomous agent workflows`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -148,6 +148,21 @@ Rust Browser Node
 - 支付、转账、购买、修改密码、删除账号等决策仍需独立高风险确认；自动登录不等于绕过安全门禁。人工 VNC 是随时可加入的协作能力，不是 Agent 的必经步骤。
 - 证据见 `docs/progress/148-AUTONOMOUS按需人工协助与OTP续行闭环.md`、147、146、139 及 115、117、123—126、131—132。
 
+### Agent Browser 结构化感知与低延迟执行
+
+- [已确认] 新的粗粒度 `snapshot/inspect/find/execute-actions` 复用现有
+  Browser State、Operation、Reviewer 和 Capability；普通页面以 DOM/A11y/Layout 为主，
+  Screenshot/Vision 只作为 Challenge 或结构化感知失败的 fallback。
+- [已确认] Target 已具备稳定 Element ID、iframe/open Shadow Root 上下文、
+  Focus/Form State，以及隐藏、离屏、遮挡和不可交互判定；Action Executor 以一个持久 Batch
+  顺序执行 CLICK/TYPE/FILL/AgentClipboard/SCROLL/WAIT，每步重读真实状态并支持 stop-on-error。
+- [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
+  每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
+  PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
+- 自动模式普通操作和有界失败重试保持静默；只在 OTP/设备确认/高风险决定等真人信息缺失，
+  或低风险 Challenge 自动预算确实耗尽时通知一次。操作员可发 OTP 由 Agent 代填或自愿进入
+  VNC，系统不得把人工接管设为普通自动化的必经步骤。
+
 ### 事件流与录制
 
 - [已确认] Session/Resource/State/Operation/Agent Task、Workspace Overview、通知和租户审计已使用 PostgreSQL 单调游标、`Last-Event-ID`、Reset/Replay 的可续传 SSE。
@@ -157,6 +172,12 @@ Rust Browser Node
 
 ### 最近验证状态
 
+- Agent Browser 结构化感知/Batch/Identity/Clipboard 基础切片本地 Control Plane 456 项、
+  Web 115 项、Rust Workspace、Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、
+  OpenAPI/四 SDK、供应链、Operator、50k Coordinator Capacity、N/N−1 与完整
+  PostgreSQL/mTLS/Chromium Integration 已通过；Integration 显式覆盖 Identity 锁定/审批
+  应用、AgentClipboard RBAC/清除及 Snapshot/Inspect/Find 一致性；GitHub `ci/desktop` 待提交后确认，见
+  progress 149。
 - AUTONOMOUS 按需人工协助切片本地 Control Plane 446 项、Web 115 项、Rust Workspace、
   Python Worker、Go Provider、全量 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N-1 与
   完整 PostgreSQL/mTLS/Chromium Integration 已通过；实现提交 `941bf5b` 的 GitHub `ci`
@@ -183,6 +204,19 @@ Rust Browser Node
 ## 7. 当前正在处理的任务
 
 最近切片与当前最高优先级开发任务：
+
+### Agent Browser 结构化感知与低延迟执行（基础切片本地闭环）
+
+- Snapshot/Inspect/Find、精确 State Cursor、稳定 Element ID、可见/可操作性判定和同源
+  iframe/open Shadow DOM 已完成开发；
+- 统一 Batch/Fast Path 已支持 CLICK、TYPE、FILL、AgentClipboard Paste、SCROLL、WAIT，
+  每步重验真实状态，VNC 真人输入优先后续行同一 Batch；
+- Challenge Human-like 轨迹、Session Identity 创建时锁定/Change Request/Runtime 应用、
+  独立 AgentClipboard 和 OpenAPI/四 SDK 已完成开发；
+- Java 456 项、Rust/Web/Worker/Provider、Test/Lint/Build、四 SDK、Desktop、供应链、
+  Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
+  已通过；GitHub Gate 待提交后确认。Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate
+  和其余高级 Action Primitive 仍是后续明确缺口，见 progress 149。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -217,9 +251,10 @@ Enterprise Overview、Challenge 视觉自动化与 Agent SAFE/AUTONOMOUS 基线�
 且对应 GitHub `ci`/`desktop` 通过；V105 按需人工协助续行切片的本地 Gate 与 GitHub
 `ci`/`desktop` 也已通过。
 
-### Recording 播放授权与对象治理（下一开发切片）
+### Recording 播放授权与对象治理（后续开发切片）
 
-当前仓库级最高优先任务已切换为 Recording purpose-bound 一次性播放 Grant、目标 Bucket
+Agent Browser 当前切片全量验证和剩余高级 Tool 收口后，下一仓库级任务为 Recording
+purpose-bound 一次性播放 Grant、目标 Bucket
 Object Lock/WORM 与到期删除 Worker；实施前必须先复核现有 Manifest、Retention、Legal
 Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删除投影冒充对象已经
 物理删除。
@@ -233,6 +268,9 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
+6. Agent Browser Dialog/Tab/File、局部 Screenshot、受治理 JS Evaluate、完整高级键鼠
+   Action Primitive 和 AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
+   已完成粗粒度 Agent Gateway 契约。
 
 ### P1/P2：目标环境与外部集成 Gate
 
@@ -301,6 +339,7 @@ make test-desktop
 
 | 优先级 | 任务 | 原因 |
 | --- | --- | --- |
+| P0 | Agent Browser 当前切片全量 Gate 与剩余粗粒度 Tool | 决定自主 Agent 是否能低延迟、可靠地长期操作真实页面 |
 | P1 | Recording 播放授权、WORM/删除 Worker 和对象治理 | 涉及敏感浏览器证据、Retention/Legal Hold 的生产闭环 |
 | P1 | Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore | Profile 一致性和迁移恢复的主要剩余代码缺口 |
 | P1 | 目标 Provider/Secret/Proxy Adapter | 真实客户业务接入的前提 |
@@ -310,9 +349,12 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 从 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与到期删除 Worker 开始；实施前复核对象存储和 Retention/Legal Hold 当前边界。
-2. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
-3. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
+1. 完成 Agent Browser 当前切片的全量 Gate、提交、GitHub `ci/desktop`，再按 progress 149
+   的保留边界收口 Dialog/Tab/File/Screenshot/Evaluate 与高级 Action Primitive。
+2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
+   到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
+3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。
+4. 持续补齐目标 Linux/云/多 Region/桌面签名长稳和组织安全发布 Gate；仓库测试通过不等同于允许处理真实客户数据。
 
 ## 14. 何时必须更新本文件
 

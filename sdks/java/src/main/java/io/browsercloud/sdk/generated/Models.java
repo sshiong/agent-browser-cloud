@@ -55,7 +55,9 @@ public final class Models {
 
   public record CreateAgentTaskRequest(String goal, String startUrl, List<String> allowedDomains, Integer maxActions, Integer replanBudget, List<AgentInstructionSource> contextSources, List<AgentActionRequest> actions) {}
 
-  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs) {}
+  public record AgentActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
+
+  public record AgentBatchActionRequest(String toolId, String targetRef, Long targetRevision, String value, String secretId, String dataClass, Integer scrollDeltaY, String waitCondition, Integer timeoutMs) {}
 
   public record AgentInstructionSource(String sourceId, String sourceType, String classification, String content) {}
 
@@ -67,9 +69,9 @@ public final class Models {
 
   public record AgentTaskSummary(String taskId, String sessionId, String goal, String state, String riskClass, String intentDecision, Object blockedReason, String agentPolicy, Integer currentStep, Integer totalSteps, Integer securityEventCount, Object executionWaitReason, Object executionWaitSince, String createdAt, String updatedAt) {}
 
-  public record ChallengeAutomationPolicy(String sessionId, String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, String updatedAt) {}
+  public record ChallengeAutomationPolicy(String sessionId, String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, Integer motionMinimumSteps, Integer motionMaximumSteps, Integer motionMinimumDelayMs, Integer motionMaximumDelayMs, Double targetOffsetRatio, String updatedAt) {}
 
-  public record UpdateChallengeAutomationPolicyRequest(String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide) {}
+  public record UpdateChallengeAutomationPolicyRequest(String controlMode, Integer sensitiveInputMaximumAttempts, Boolean enabled, Integer maximumAttempts, Double minimumConfidence, Boolean allowMultiClick, Boolean allowSlide, Integer motionMinimumSteps, Integer motionMaximumSteps, Integer motionMinimumDelayMs, Integer motionMaximumDelayMs, Double targetOffsetRatio) {}
 
   public record CreateAgentInputSecretRequest(String purpose, String value, String expiresAt) {}
 
@@ -127,7 +129,7 @@ public final class Models {
 
   public record FailAgentReviewJobRequest(String claimToken, String failureCode, Boolean retryable) {}
 
-  public record AgentReviewStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetOrigin, Object targetRefHash, Object dataClass, Object payloadLength, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification) {}
+  public record AgentReviewStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetOrigin, Object targetRefHash, Object dataClass, Object payloadLength, Integer batchActionCount, Object batchActionHash, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification) {}
 
   public record AgentReviewPayload(String taskId, String goal, AgentRiskClass riskClass, List<String> allowedDomains, Integer maximumActions, Integer replanBudget, List<AgentReviewStep> steps, String planHash, String dataPolicy) {}
 
@@ -151,7 +153,9 @@ public final class Models {
 
   public record AgentPlanStep(String stepId, String toolId, AgentRiskClass riskClass, Object targetUrl, AgentStepInput input, String rationale, List<String> supportingSources, String trustFloor, List<String> taintLabels, Boolean requiredConfirmation, String strategy, String requiredStateQuality, String verification, String capabilityTokenId) {}
 
-  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts) {}
+  public record AgentStepInput(Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts, List<AgentBatchActionInput> actions, Boolean stopOnError) {}
+
+  public record AgentBatchActionInput(String actionId, String toolId, Object targetRef, Object targetRevision, Object payloadHash, Object payloadLength, Object dataClass, Object scrollDeltaY, Object waitCondition, Object timeoutMs, Boolean sensitiveTargetAuthorized, Integer maximumAttempts) {}
 
   public enum AgentRiskClass { R0READONLY, R1LOWRISKCHANGE, R2DATACHANGE, R3ACCOUNTCHANGE, R4FINANCIAL, R5SECURITY }
 
@@ -229,11 +233,21 @@ public final class Models {
 
   public record BrowserState(String sessionId, Long contextEpoch, Long stateVersion, Long targetRevision, String url, String title, String stateHash, String stateQuality, String documentReadyState, Long networkQuietMillis, Boolean networkEvidenceFresh, List<InteractiveTarget> targets) {}
 
+  public record AgentBrowserSnapshot(String stateCursor, BrowserState state, String visibleTextSummary, AgentBrowserTab activeTab, Object focusedElementId, List<String> formControlElementIds, List<String> dialogElementIds, String pageLoadingState, String challengeState, Boolean visionRecommended) {}
+
+  public record AgentBrowserTab(String url, String title, Boolean active) {}
+
+  public record AgentBrowserInspectRequest(String stateCursor, List<String> elementIds) {}
+
+  public record AgentBrowserFindRequest(String query, List<String> roles, Boolean includeHidden, Object limit) {}
+
+  public record AgentBrowserTargetList(String stateCursor, List<InteractiveTarget> targets, Boolean truncated) {}
+
   public record StateResyncRequest(String mode, Object rootRef, Object reason) {}
 
   public record StateResyncResponse(String requestId, String mode, String state) {}
 
-  public record InteractiveTarget(String targetRef, String role, Object name, TargetBounds bounds, Boolean enabled, Boolean visible) {}
+  public record InteractiveTarget(String targetRef, String elementId, String role, Object name, Object value, Object controlType, TargetBounds bounds, Boolean enabled, Boolean visible, Boolean sensitive, Boolean focused, Object checked, Object selected, Boolean interactive, String frameId, Boolean inViewport, Boolean occluded, Object visibilityReason) {}
 
   public record TargetBounds(Double x, Double y, Double width, Double height) {}
 
@@ -273,7 +287,21 @@ public final class Models {
 
   public record ProviderEvidenceListResponse(List<ProviderEvidence> items, Long total) {}
 
-  public record CreateSessionRequest(String tenantId, String profileId, String runtimeBuildId, String applicationId, String groupId, List<String> tagIds, String region, String proxyBindingProfileId, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Boolean humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, List<String> extensionIds, Map<String, String> metadata) {}
+  public record ExecuteAgentBrowserActionsRequest(String goal, String expectedStateCursor, List<AgentBatchActionRequest> actions, Boolean stopOnError) {}
+
+  public record AgentClipboard(String sessionId, Long version, Object contentHash, Integer valueLength, Object value, Object updatedAt) {}
+
+  public record WriteAgentClipboardRequest(String value, Long expectedVersion) {}
+
+  public record SessionIdentitySpecInput(Object userAgent, Object timezone, Object locale, List<String> languages, Object webRtcPolicy, Object dnsPolicy, Object viewportWidth, Object viewportHeight, Object screenWidth, Object screenHeight, Object deviceScaleFactor, Object fingerprintProfile, Object operatingSystemProfile) {}
+
+  public record SessionIdentitySpec(String sessionId, Long version, String specHash, Boolean locked, SessionIdentitySpecInput spec, String lockedAt, String updatedAt) {}
+
+  public record CreateSessionIdentityChangeRequest(Long expectedVersion, SessionIdentitySpecInput proposedSpec, String reason) {}
+
+  public record SessionIdentityChangeRequest(String requestId, String sessionId, Long expectedVersion, String proposedSpecHash, SessionIdentitySpecInput proposedSpec, String reason, String state, String createdBy, Object decidedBy, String createdAt, Object decidedAt, Object appliedAt) {}
+
+  public record CreateSessionRequest(String tenantId, String profileId, String runtimeBuildId, String applicationId, String groupId, List<String> tagIds, String region, String proxyBindingProfileId, ResourcePolicyRequest resourcePolicy, Integer requestedTabs, Integer agentActionsPerMinute, Boolean remoteDesktop, Boolean humanTakeoverEnabled, AgentPolicy agentPolicy, Boolean web3Workload, Boolean mediaWorkload, Integer requestedMediaStreams, Integer mediaBitrateKbps, Boolean videoRecording, List<String> extensionIds, Map<String, String> metadata, SessionIdentitySpecInput identitySpec) {}
 
   public record CreateSessionResponse(String sessionId, Object operationId, String state, ResourcePolicy resourcePolicy, SessionContext context) {}
 

@@ -39,6 +39,11 @@ public final class ChallengeAutomationModels {
       BigDecimal minimumConfidence,
       boolean allowMultiClick,
       boolean allowSlide,
+      int motionMinimumSteps,
+      int motionMaximumSteps,
+      int motionMinimumDelayMs,
+      int motionMaximumDelayMs,
+      BigDecimal targetOffsetRatio,
       Instant updatedAt) {}
 
   public record UpdateChallengeAutomationPolicyRequest(
@@ -48,7 +53,43 @@ public final class ChallengeAutomationModels {
       @Min(0) @Max(10) int maximumAttempts,
       @NotNull @DecimalMin("0.5") @DecimalMax("1.0") BigDecimal minimumConfidence,
       boolean allowMultiClick,
-      boolean allowSlide) {}
+      boolean allowSlide,
+      @Min(4) @Max(32) Integer motionMinimumSteps,
+      @Min(4) @Max(40) Integer motionMaximumSteps,
+      @Min(5) @Max(100) Integer motionMinimumDelayMs,
+      @Min(5) @Max(150) Integer motionMaximumDelayMs,
+      @NotNull @DecimalMin("0.0") @DecimalMax("0.35") BigDecimal targetOffsetRatio) {
+    public UpdateChallengeAutomationPolicyRequest {
+      motionMinimumSteps = motionMinimumSteps == null ? 8 : motionMinimumSteps;
+      motionMaximumSteps = motionMaximumSteps == null ? 18 : motionMaximumSteps;
+      motionMinimumDelayMs = motionMinimumDelayMs == null ? 12 : motionMinimumDelayMs;
+      motionMaximumDelayMs = motionMaximumDelayMs == null ? 45 : motionMaximumDelayMs;
+      targetOffsetRatio = targetOffsetRatio == null ? new BigDecimal("0.15") : targetOffsetRatio;
+    }
+
+    public UpdateChallengeAutomationPolicyRequest(
+        AgentControlMode controlMode,
+        Integer sensitiveInputMaximumAttempts,
+        boolean enabled,
+        int maximumAttempts,
+        BigDecimal minimumConfidence,
+        boolean allowMultiClick,
+        boolean allowSlide) {
+      this(
+          controlMode,
+          sensitiveInputMaximumAttempts,
+          enabled,
+          maximumAttempts,
+          minimumConfidence,
+          allowMultiClick,
+          allowSlide,
+          8,
+          18,
+          12,
+          45,
+          new BigDecimal("0.15"));
+    }
+  }
 
   public record ChallengeAutomationRunView(
       String runId,

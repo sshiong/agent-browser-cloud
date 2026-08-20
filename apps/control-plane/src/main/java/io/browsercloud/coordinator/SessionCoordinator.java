@@ -44,6 +44,7 @@ public final class SessionCoordinator {
   private final RuntimeResourceLimitsRepository resourceLimitsRepository;
   private final ProxyRuntimeBindingRepository proxyBindingRepository;
   private final BrowserTransactionPolicyRepository browserTransactionPolicyRepository;
+  private final BrowserIdentitySpecRepository browserIdentitySpecRepository;
   private final CoordinatorRouteAuthority routeAuthority;
   private final CoordinatorShardLocality shardLocality;
 
@@ -57,6 +58,7 @@ public final class SessionCoordinator {
       RuntimeResourceLimitsRepository resourceLimitsRepository,
       ProxyRuntimeBindingRepository proxyBindingRepository,
       BrowserTransactionPolicyRepository browserTransactionPolicyRepository,
+      BrowserIdentitySpecRepository browserIdentitySpecRepository,
       CoordinatorRouteAuthority routeAuthority,
       CoordinatorShardLocality shardLocality) {
     this.sessionRepository = sessionRepository;
@@ -68,8 +70,37 @@ public final class SessionCoordinator {
     this.resourceLimitsRepository = resourceLimitsRepository;
     this.proxyBindingRepository = proxyBindingRepository;
     this.browserTransactionPolicyRepository = browserTransactionPolicyRepository;
+    this.browserIdentitySpecRepository = browserIdentitySpecRepository;
     this.routeAuthority = routeAuthority;
     this.shardLocality = shardLocality;
+  }
+
+  /** N-1 source compatibility for callers that predate Browser transaction Site Policy. */
+  public SessionCoordinator(
+      SessionRepository sessionRepository,
+      OperationRepository operationRepository,
+      NodeCommandGateway nodeCommandGateway,
+      OutboxPublisher outboxPublisher,
+      CoordinatorOwnershipService ownershipService,
+      CoordinatorReconciliationMetrics reconciliationMetrics,
+      RuntimeResourceLimitsRepository resourceLimitsRepository,
+      ProxyRuntimeBindingRepository proxyBindingRepository,
+      BrowserTransactionPolicyRepository browserTransactionPolicyRepository,
+      CoordinatorRouteAuthority routeAuthority,
+      CoordinatorShardLocality shardLocality) {
+    this(
+        sessionRepository,
+        operationRepository,
+        nodeCommandGateway,
+        outboxPublisher,
+        ownershipService,
+        reconciliationMetrics,
+        resourceLimitsRepository,
+        proxyBindingRepository,
+        browserTransactionPolicyRepository,
+        (sessionId, tenantId) -> BrowserIdentitySpec.empty(),
+        routeAuthority,
+        shardLocality);
   }
 
   /** N-1 source compatibility for callers that predate Browser transaction Site Policy. */
@@ -94,6 +125,7 @@ public final class SessionCoordinator {
         resourceLimitsRepository,
         proxyBindingRepository,
         (sessionId, tenantId) -> BrowserTransactionPolicy.empty(),
+        (sessionId, tenantId) -> BrowserIdentitySpec.empty(),
         routeAuthority,
         shardLocality);
   }
@@ -118,6 +150,7 @@ public final class SessionCoordinator {
         resourceLimitsRepository,
         (sessionId, bindingId) -> Optional.empty(),
         (sessionId, tenantId) -> BrowserTransactionPolicy.empty(),
+        (sessionId, tenantId) -> BrowserIdentitySpec.empty(),
         routeAuthority,
         ignored -> true);
   }
@@ -143,6 +176,7 @@ public final class SessionCoordinator {
         resourceLimitsRepository,
         (sessionId, bindingId) -> Optional.empty(),
         (sessionId, tenantId) -> BrowserTransactionPolicy.empty(),
+        (sessionId, tenantId) -> BrowserIdentitySpec.empty(),
         routeAuthority,
         shardLocality);
   }
@@ -330,7 +364,8 @@ public final class SessionCoordinator {
             command.resourceLimits(),
             command.profileCheckpointId(),
             proxyBindingRepository.find(session.sessionId(), session.proxyBindingId()).orElse(null),
-            browserTransactionPolicyRepository.find(session.sessionId(), session.tenantId())));
+            browserTransactionPolicyRepository.find(session.sessionId(), session.tenantId()),
+            browserIdentitySpecRepository.require(session.sessionId(), session.tenantId())));
     outboxPublisher.append(new SessionStateChanged(session.sessionId(), SessionState.STARTING));
 
     log.info(
@@ -670,7 +705,8 @@ public final class SessionCoordinator {
                 proxyBindingRepository
                     .find(session.sessionId(), session.proxyBindingId())
                     .orElse(null),
-                browserTransactionPolicyRepository.find(session.sessionId(), session.tenantId())));
+                browserTransactionPolicyRepository.find(session.sessionId(), session.tenantId()),
+                browserIdentitySpecRepository.require(session.sessionId(), session.tenantId())));
         outboxPublisher.append(
             new SessionStateChanged(session.sessionId(), SessionState.RECOVERING));
 

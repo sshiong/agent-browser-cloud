@@ -161,6 +161,68 @@ export interface CreateSessionRequest {
   videoRecording?: boolean;
   extensionIds?: string[];
   metadata?: Record<string, string>;
+  identitySpec?: SessionIdentitySpecInput;
+}
+
+export interface SessionIdentitySpecInput {
+  userAgent?: string;
+  timezone?: string;
+  locale?: string;
+  languages?: string[];
+  webRtcPolicy?: 'DEFAULT' | 'DISABLED' | 'PROXY_ONLY';
+  dnsPolicy?: 'SYSTEM' | 'PROXY';
+  viewportWidth?: number;
+  viewportHeight?: number;
+  screenWidth?: number;
+  screenHeight?: number;
+  deviceScaleFactor?: number;
+  fingerprintProfile?: string;
+  operatingSystemProfile?: string;
+}
+
+export interface SessionIdentitySpecView {
+  sessionId: string;
+  version: number;
+  specHash: string;
+  locked: true;
+  spec: SessionIdentitySpecInput;
+  lockedAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSessionIdentityChangeRequest {
+  expectedVersion: number;
+  proposedSpec: SessionIdentitySpecInput;
+  reason: string;
+}
+
+export interface SessionIdentityChangeRequestView {
+  requestId: string;
+  sessionId: string;
+  expectedVersion: number;
+  proposedSpecHash: string;
+  proposedSpec: SessionIdentitySpecInput;
+  reason: string;
+  state: 'PENDING' | 'APPROVED' | 'REJECTED' | 'APPLIED' | 'STALE';
+  createdBy: string;
+  decidedBy?: string;
+  createdAt: string;
+  decidedAt?: string;
+  appliedAt?: string;
+}
+
+export interface AgentClipboardView {
+  sessionId: string;
+  version: number;
+  contentHash?: string;
+  valueLength: number;
+  value?: string;
+  updatedAt?: string;
+}
+
+export interface WriteAgentClipboardRequest {
+  value: string;
+  expectedVersion: number;
 }
 
 export interface RecoveryTargetIndicator {
@@ -972,6 +1034,11 @@ export interface ChallengeAutomationPolicyView {
   minimumConfidence: number;
   allowMultiClick: boolean;
   allowSlide: boolean;
+  motionMinimumSteps: number;
+  motionMaximumSteps: number;
+  motionMinimumDelayMs: number;
+  motionMaximumDelayMs: number;
+  targetOffsetRatio: number;
   updatedAt: string;
 }
 
@@ -983,6 +1050,11 @@ export interface UpdateChallengeAutomationPolicyRequest {
   minimumConfidence: number;
   allowMultiClick: boolean;
   allowSlide: boolean;
+  motionMinimumSteps: number;
+  motionMaximumSteps: number;
+  motionMinimumDelayMs: number;
+  motionMaximumDelayMs: number;
+  targetOffsetRatio: number;
 }
 
 export interface CreateAgentInputSecretRequest {

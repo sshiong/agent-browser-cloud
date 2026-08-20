@@ -229,10 +229,43 @@ public sealed interface NodeEvent
       long networkQuietMillis,
       boolean networkEvidenceFresh,
       String snapshotKind,
-      String requestedRootRef)
+      String requestedRootRef,
+      List<AgentActionOutcome> actionOutcomes)
       implements NodeEvent {
     public StateUpdated {
       targets = List.copyOf(targets);
+      actionOutcomes = actionOutcomes == null ? List.of() : List.copyOf(actionOutcomes);
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          List.of());
     }
 
     public StateUpdated(
@@ -257,7 +290,8 @@ public sealed interface NodeEvent
           0,
           false,
           "",
-          "");
+          "",
+          List.of());
     }
 
     public StateUpdated(
@@ -284,9 +318,13 @@ public sealed interface NodeEvent
           0,
           false,
           snapshotKind,
-          requestedRootRef);
+          requestedRootRef,
+          List.of());
     }
   }
+
+  record AgentActionOutcome(
+      String actionId, String status, String errorCode, long stateVersion, long targetRevision) {}
 
   record StateSnapshotBegin(
       String sessionId,
@@ -544,7 +582,48 @@ public sealed interface NodeEvent
       Bounds bounds,
       boolean enabled,
       boolean visible,
-      boolean sensitive) {}
+      boolean sensitive,
+      String elementId,
+      String value,
+      String controlType,
+      boolean focused,
+      Boolean checked,
+      Boolean selected,
+      boolean interactive,
+      String frameId,
+      boolean inViewport,
+      boolean occluded,
+      String visibilityReason) {
+    /** Additive N/N-1 constructor for Browser State persisted by older Nodes. */
+    public InteractiveTarget(
+        String targetRef,
+        String role,
+        String name,
+        Bounds bounds,
+        boolean enabled,
+        boolean visible,
+        boolean sensitive) {
+      this(
+          targetRef,
+          role,
+          name,
+          bounds,
+          enabled,
+          visible,
+          sensitive,
+          targetRef,
+          null,
+          null,
+          false,
+          null,
+          null,
+          true,
+          "main",
+          visible,
+          false,
+          visible ? null : "LEGACY_VISIBILITY_UNKNOWN");
+    }
+  }
 
   record Bounds(double x, double y, double width, double height) {}
 

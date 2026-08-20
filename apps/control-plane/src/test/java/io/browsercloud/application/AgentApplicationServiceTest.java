@@ -40,6 +40,7 @@ class AgentApplicationServiceTest {
   @Mock private AuditApplicationService auditService;
   @Mock private AgentControlPolicyService controlPolicyService;
   @Mock private AgentInputSecretApplicationService inputSecrets;
+  @Mock private AgentClipboardApplicationService agentClipboard;
 
   private AgentApplicationService service;
 
@@ -59,6 +60,7 @@ class AgentApplicationServiceTest {
                 "test-agent-action-payload-secret-with-more-than-32-bytes", "test"),
             controlPolicyService,
             inputSecrets,
+            agentClipboard,
             auditService,
             mapper);
     when(controlPolicyService.require(anyString(), anyString()))
@@ -93,6 +95,14 @@ class AgentApplicationServiceTest {
                                 "textbox",
                                 "Public note",
                                 new NodeEvent.Bounds(10, 20, 180, 32),
+                                true,
+                                true,
+                                false),
+                            new NodeEvent.InteractiveTarget(
+                                "target:2:1",
+                                "button",
+                                "Submit",
+                                new NodeEvent.Bounds(200, 20, 80, 32),
                                 true,
                                 true,
                                 false))))));
@@ -187,6 +197,111 @@ class AgentApplicationServiceTest {
     assertThat(typeStep.input().payloadLength()).isEqualTo(14);
     assertThat(typeStep.input().payloadHash()).hasSize(64);
     assertThat(view.toString()).doesNotContain("Quarterly note", "v1.");
+  }
+
+  @Test
+  void createsOneStateFencedBatchStepForFastFillAndSubmit() {
+    var request =
+        new CreateAgentTaskRequest(
+            "填写公开字段并提交",
+            null,
+            List.of("example.com"),
+            8,
+            1,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.EXECUTE_ACTIONS,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new CreateAgentTaskRequest.BatchActionRequest(
+                            ToolId.FILL,
+                            "target:2:0",
+                            2L,
+                            "Quarterly note",
+                            null,
+                            ActionDataClass.PUBLIC,
+                            null,
+                            null,
+                            null),
+                        new CreateAgentTaskRequest.BatchActionRequest(
+                            ToolId.CLICK_TARGET,
+                            "target:2:1",
+                            2L,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null)),
+                    true)));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-batch");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var batch =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.EXECUTE_ACTIONS)
+            .findFirst()
+            .orElseThrow();
+    assertThat(batch.input().actions()).hasSize(2);
+    assertThat(batch.input().actions())
+        .extracting(action -> action.toolId())
+        .containsExactly(ToolId.FILL, ToolId.CLICK_TARGET);
+    assertThat(batch.input().stopOnError()).isTrue();
+    assertThat(view.toString()).doesNotContain("Quarterly note", "v1.");
+  }
+
+  @Test
+  void sealsIsolatedAgentClipboardIntoBatchWithoutReadingUserClipboard() {
+    when(agentClipboard.materializeForPaste("ses_1234567890abcdef", "tenant-test"))
+        .thenReturn("clipboard note");
+    var request =
+        new CreateAgentTaskRequest(
+            "Fill the public note field",
+            null,
+            List.of("example.com"),
+            8,
+            0,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.EXECUTE_ACTIONS,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of(
+                        new CreateAgentTaskRequest.BatchActionRequest(
+                            ToolId.PASTE_AGENT_CLIPBOARD,
+                            "target:2:0",
+                            2L,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null)),
+                    true)));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-paste");
+
+    assertThat(view.state())
+        .withFailMessage("blocked reason: %s", view.blockedReason())
+        .isEqualTo(TaskState.PLANNED);
+    assertThat(view.toString()).doesNotContain("clipboard note", "v1.");
+    verify(agentClipboard).materializeForPaste("ses_1234567890abcdef", "tenant-test");
   }
 
   @Test

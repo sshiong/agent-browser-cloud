@@ -55,6 +55,19 @@ OPERATIONS: dict[str, Operation] = {
     'createSession': Operation('createSession', 'POST', '/api/v1/sessions', (), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateSessionRequest', True, 'CreateSessionResponse'),
     'getSession': Operation('getSession', 'GET', '/api/v1/sessions/{sessionId}', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionView'),
     'getBrowserState': Operation('getBrowserState', 'GET', '/api/v1/sessions/{sessionId}/state', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'BrowserState'),
+    'getAgentBrowserSnapshot': Operation('getAgentBrowserSnapshot', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/snapshot', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentBrowserSnapshot'),
+    'inspectAgentBrowserElements': Operation('inspectAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/inspect', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserInspectRequest', True, 'AgentBrowserTargetList'),
+    'findAgentBrowserElements': Operation('findAgentBrowserElements', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/find', ('sessionId',), (), ('X-Tenant-Id',), 'AgentBrowserFindRequest', True, 'AgentBrowserTargetList'),
+    'executeAgentBrowserActions': Operation('executeAgentBrowserActions', 'POST', '/api/v1/sessions/{sessionId}/agent-browser/execute-actions', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'ExecuteAgentBrowserActionsRequest', True, 'AgentTask'),
+    'readAgentClipboard': Operation('readAgentClipboard', 'GET', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
+    'writeAgentClipboard': Operation('writeAgentClipboard', 'PUT', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), (), ('X-Tenant-Id',), 'WriteAgentClipboardRequest', True, 'AgentClipboard'),
+    'clearAgentClipboard': Operation('clearAgentClipboard', 'DELETE', '/api/v1/sessions/{sessionId}/agent-browser/clipboard', ('sessionId',), ('expectedVersion',), ('X-Tenant-Id',), '', False, 'AgentClipboard'),
+    'getSessionIdentitySpec': Operation('getSessionIdentitySpec', 'GET', '/api/v1/sessions/{sessionId}/identity-spec', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionIdentitySpec'),
+    'rejectDirectSessionIdentityMutation': Operation('rejectDirectSessionIdentityMutation', 'PUT', '/api/v1/sessions/{sessionId}/identity-spec', ('sessionId',), (), ('X-Tenant-Id',), 'SessionIdentitySpecInput', True, ''),
+    'createSessionIdentityChangeRequest': Operation('createSessionIdentityChangeRequest', 'POST', '/api/v1/sessions/{sessionId}/identity-change-requests', ('sessionId',), (), ('Idempotency-Key', 'X-Tenant-Id'), 'CreateSessionIdentityChangeRequest', True, 'SessionIdentityChangeRequest'),
+    'approveSessionIdentityChangeRequest': Operation('approveSessionIdentityChangeRequest', 'POST', '/api/v1/session-identity-change-requests/{requestId}:approve', ('requestId',), (), ('X-Tenant-Id',), '', False, 'SessionIdentityChangeRequest'),
+    'rejectSessionIdentityChangeRequest': Operation('rejectSessionIdentityChangeRequest', 'POST', '/api/v1/session-identity-change-requests/{requestId}:reject', ('requestId',), (), ('X-Tenant-Id',), '', False, 'SessionIdentityChangeRequest'),
+    'applySessionIdentityChangeRequest': Operation('applySessionIdentityChangeRequest', 'POST', '/api/v1/session-identity-change-requests/{requestId}:apply', ('requestId',), (), ('X-Tenant-Id',), '', False, 'SessionIdentityChangeRequest'),
     'getSessionResources': Operation('getSessionResources', 'GET', '/api/v1/sessions/{sessionId}/resources', ('sessionId',), (), ('X-Tenant-Id',), '', False, 'SessionResource'),
     'listSessionResourceEvents': Operation('listSessionResourceEvents', 'GET', '/api/v1/sessions/{sessionId}/resource-events', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'ResourceEventList'),
     'listSessionEvidence': Operation('listSessionEvidence', 'GET', '/api/v1/sessions/{sessionId}/evidence', ('sessionId',), ('limit', 'offset'), ('X-Tenant-Id',), '', False, 'EvidenceList'),
@@ -365,6 +378,45 @@ class BrowserCloudGeneratedClient:
 
     def getBrowserState(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getBrowserState', path=path, query=query, body=body, headers=headers)
+
+    def getAgentBrowserSnapshot(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getAgentBrowserSnapshot', path=path, query=query, body=body, headers=headers)
+
+    def inspectAgentBrowserElements(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('inspectAgentBrowserElements', path=path, query=query, body=body, headers=headers)
+
+    def findAgentBrowserElements(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('findAgentBrowserElements', path=path, query=query, body=body, headers=headers)
+
+    def executeAgentBrowserActions(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('executeAgentBrowserActions', path=path, query=query, body=body, headers=headers)
+
+    def readAgentClipboard(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('readAgentClipboard', path=path, query=query, body=body, headers=headers)
+
+    def writeAgentClipboard(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('writeAgentClipboard', path=path, query=query, body=body, headers=headers)
+
+    def clearAgentClipboard(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('clearAgentClipboard', path=path, query=query, body=body, headers=headers)
+
+    def getSessionIdentitySpec(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('getSessionIdentitySpec', path=path, query=query, body=body, headers=headers)
+
+    def rejectDirectSessionIdentityMutation(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('rejectDirectSessionIdentityMutation', path=path, query=query, body=body, headers=headers)
+
+    def createSessionIdentityChangeRequest(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('createSessionIdentityChangeRequest', path=path, query=query, body=body, headers=headers)
+
+    def approveSessionIdentityChangeRequest(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('approveSessionIdentityChangeRequest', path=path, query=query, body=body, headers=headers)
+
+    def rejectSessionIdentityChangeRequest(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('rejectSessionIdentityChangeRequest', path=path, query=query, body=body, headers=headers)
+
+    def applySessionIdentityChangeRequest(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
+        return self.call('applySessionIdentityChangeRequest', path=path, query=query, body=body, headers=headers)
 
     def getSessionResources(self, *, path: Mapping[str, Any] | None = None, query: Mapping[str, Any] | None = None, body: Any = None, headers: Mapping[str, str] | None = None) -> Any:
         return self.call('getSessionResources', path=path, query=query, body=body, headers=headers)

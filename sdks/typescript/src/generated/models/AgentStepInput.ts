@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBatchActionInput } from './AgentBatchActionInput.js';
 export type AgentStepInput = {
     targetRef: string | null;
     targetRevision: number | null;
@@ -16,4 +17,6 @@ export type AgentStepInput = {
     timeoutMs: number | null;
     sensitiveTargetAuthorized: boolean;
     maximumAttempts: number;
+    actions: Array<AgentBatchActionInput>;
+    stopOnError: boolean;
 };

@@ -616,6 +616,34 @@ public class AgentReviewerApplicationService {
                             ? null
                             : step.input().dataClass().name(),
                         step.input() == null ? null : step.input().payloadLength(),
+                        step.input() == null ? 0 : step.input().actions().size(),
+                        step.input() == null || step.input().actions().isEmpty()
+                            ? null
+                            : sha256(
+                                write(
+                                    step.input().actions().stream()
+                                        .map(
+                                            action ->
+                                                java.util.Map.of(
+                                                    "actionId",
+                                                    action.actionId(),
+                                                    "toolId",
+                                                    action.toolId().name(),
+                                                    "targetRefHash",
+                                                    action.targetRef() == null
+                                                        ? ""
+                                                        : sha256(action.targetRef()),
+                                                    "dataClass",
+                                                    action.dataClass() == null
+                                                        ? ""
+                                                        : action.dataClass().name(),
+                                                    "payloadLength",
+                                                    action.payloadLength() == null
+                                                        ? 0
+                                                        : action.payloadLength(),
+                                                    "sensitiveTargetAuthorized",
+                                                    action.allowSensitiveTarget()))
+                                        .toList())),
                         step.requiredConfirmation(),
                         step.strategy(),
                         step.requiredStateQuality(),

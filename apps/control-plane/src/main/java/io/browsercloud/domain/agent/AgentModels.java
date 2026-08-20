@@ -66,8 +66,11 @@ public final class AgentModels {
     GET_CURRENT_STATE,
     CLICK_TARGET,
     TYPE_TEXT,
+    FILL,
+    PASTE_AGENT_CLIPBOARD,
     SCROLL,
     WAIT_FOR,
+    EXECUTE_ACTIONS,
     GET_URL,
     GET_PAGE_SUMMARY,
     REQUEST_HUMAN_TAKEOVER
@@ -99,6 +102,56 @@ public final class AgentModels {
    * Tool 的结构化输入。sealedPayload 只保存平台加密密文，API View 必须剔除；Target 与 Revision 用于执行前再次绑定权威 Browser State。
    */
   public record StepInput(
+      String targetRef,
+      Long targetRevision,
+      String sealedPayload,
+      String payloadHash,
+      Integer payloadLength,
+      ActionDataClass dataClass,
+      Integer scrollDeltaY,
+      WaitCondition waitCondition,
+      Integer timeoutMs,
+      boolean allowSensitiveTarget,
+      int maximumAttempts,
+      List<ActionInput> actions,
+      boolean stopOnError) {
+    public StepInput(
+        String targetRef,
+        Long targetRevision,
+        String sealedPayload,
+        String payloadHash,
+        Integer payloadLength,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        boolean allowSensitiveTarget,
+        int maximumAttempts) {
+      this(
+          targetRef,
+          targetRevision,
+          sealedPayload,
+          payloadHash,
+          payloadLength,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          allowSensitiveTarget,
+          maximumAttempts,
+          List.of(),
+          true);
+    }
+
+    public StepInput {
+      actions = actions == null ? List.of() : List.copyOf(actions);
+    }
+  }
+
+  /** One ordered primitive inside EXECUTE_ACTIONS. */
+  public record ActionInput(
+      String actionId,
+      ToolId toolId,
       String targetRef,
       Long targetRevision,
       String sealedPayload,

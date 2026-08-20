@@ -5,6 +5,7 @@
 import type { BaseHttpRequest } from './core/BaseHttpRequest.js';
 import type { OpenAPIConfig } from './core/OpenAPI.js';
 import { FetchHttpRequest } from './core/FetchHttpRequest.js';
+import { AdministrationService } from './services/AdministrationService.js';
 import { AgentService } from './services/AgentService.js';
 import { AgentSafetyService } from './services/AgentSafetyService.js';
 import { AgentToolService } from './services/AgentToolService.js';
@@ -42,6 +43,7 @@ import { UserPreferenceService } from './services/UserPreferenceService.js';
 import { WorkspaceOverviewService } from './services/WorkspaceOverviewService.js';
 type HttpRequestConstructor = new (config: OpenAPIConfig) => BaseHttpRequest;
 export class BrowserCloudGeneratedClient {
+    public readonly administration: AdministrationService;
     public readonly agent: AgentService;
     public readonly agentSafety: AgentSafetyService;
     public readonly agentTool: AgentToolService;
@@ -91,6 +93,7 @@ export class BrowserCloudGeneratedClient {
             ENCODE_PATH: config?.ENCODE_PATH,
             FETCH: config?.FETCH,
         });
+        this.administration = new AdministrationService(this.request);
         this.agent = new AgentService(this.request);
         this.agentSafety = new AgentSafetyService(this.request);
         this.agentTool = new AgentToolService(this.request);

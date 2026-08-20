@@ -358,6 +358,23 @@ message StartRuntimeCommand {
   repeated string critical_transaction_route_prefixes = 36;
   string browser_transaction_policy_hash = 37;
   uint64 browser_transaction_policy_version = 38;
+  // Immutable Session identity projection. N-1 Nodes ignore these additive fields; upgraded
+  // Nodes validate the complete cross-field set before spawning Chromium.
+  string identity_user_agent = 39;
+  string identity_timezone = 40;
+  string identity_locale = 41;
+  repeated string identity_languages = 42;
+  string identity_webrtc_policy = 43;
+  string identity_dns_policy = 44;
+  uint32 identity_viewport_width = 45;
+  uint32 identity_viewport_height = 46;
+  uint32 identity_screen_width = 47;
+  uint32 identity_screen_height = 48;
+  double identity_device_scale_factor = 49;
+  string identity_fingerprint_profile = 50;
+  string identity_operating_system_profile = 51;
+  uint64 identity_spec_version = 52;
+  string identity_spec_hash = 53;
 }
 
 // Runtime 启动事件
@@ -611,6 +628,8 @@ message BrowserStateEvent {
   uint64 network_quiet_millis = 12;
   // 仅当本 Runtime 代持续 Network 观察从未断线时为 true。
   bool network_evidence_fresh = 13;
+  // Present only for an EXECUTE_ACTIONS confirmation; ordinary/legacy state events leave empty.
+  repeated AgentActionOutcome action_outcomes = 14;
 }
 
 // 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
@@ -704,6 +723,31 @@ message AgentActionCommand {
   bool allow_sensitive_target = 14;
   // Browser-local bounded retry budget. Old Nodes default to zero and remain fail-closed.
   uint32 maximum_attempts = 15;
+  // Ordered coarse execute_actions payload. Empty for legacy single-action commands.
+  repeated AgentActionPrimitive actions = 16;
+  bool stop_on_error = 17;
+}
+
+message AgentActionPrimitive {
+  string action_id = 1;
+  string tool_id = 2;
+  string target_ref = 3;
+  uint64 target_revision = 4;
+  string sealed_text = 5;
+  string text = 6;
+  int32 scroll_delta_y = 7;
+  string wait_condition = 8;
+  uint32 timeout_ms = 9;
+  bool allow_sensitive_target = 10;
+  uint32 maximum_attempts = 11;
+}
+
+message AgentActionOutcome {
+  string action_id = 1;
+  string status = 2;
+  string error_code = 3;
+  uint64 state_version = 4;
+  uint64 target_revision = 5;
 }
 
 message AgentActionFailedEvent {
@@ -760,6 +804,11 @@ message ChallengeAutomationActionCommand {
   uint64 base_state_version = 6;
   string base_content_hash = 7;
   repeated ChallengeVisualAction actions = 8;
+  uint32 motion_min_steps = 9;
+  uint32 motion_max_steps = 10;
+  uint32 motion_min_delay_ms = 11;
+  uint32 motion_max_delay_ms = 12;
+  double target_offset_ratio = 13;
 }
 
 message ChallengeAutomationFailedEvent {
@@ -860,6 +909,19 @@ message InteractiveTargetState {
   bool visible = 6;
   // Password/OTP 等目标只暴露敏感标志，不暴露名称或值。
   bool sensitive = 7;
+  // Stable across State/Target revisions for the same DOM/shadow/frame path. target_ref remains
+  // the version-fenced execution reference for N/N-1 callers.
+  string element_id = 8;
+  optional string value = 9;
+  optional string control_type = 10;
+  bool focused = 11;
+  optional bool checked = 12;
+  optional bool selected = 13;
+  bool interactive = 14;
+  string frame_id = 15;
+  bool in_viewport = 16;
+  bool occluded = 17;
+  optional string visibility_reason = 18;
 }
 
 message TargetBounds {

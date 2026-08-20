@@ -9,7 +9,12 @@ import type {
   AgentTaskListResponse,
   AgentTaskSummaryListResponse,
   AgentTaskView,
+  AgentBrowserFindRequest,
+  AgentBrowserInspectRequest,
+  AgentBrowserSnapshot,
+  AgentBrowserTargetList,
   CreateAgentTaskRequest,
+  ExecuteAgentBrowserActionsRequest,
 } from '@/types/agent';
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -87,6 +92,63 @@ export function createAgentTask(
 ) {
   return request<AgentTaskView>(
     `/sessions/${encodeURIComponent(sessionId)}/agent-tasks`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
+    tenantId
+  );
+}
+
+export function getAgentBrowserSnapshot(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserSnapshot>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/snapshot`,
+    { signal },
+    tenantId
+  );
+}
+
+export function inspectAgentBrowserElements(
+  sessionId: string,
+  data: AgentBrowserInspectRequest,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserTargetList>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/inspect`,
+    { method: 'POST', body: JSON.stringify(data), signal },
+    tenantId
+  );
+}
+
+export function findAgentBrowserElements(
+  sessionId: string,
+  data: AgentBrowserFindRequest,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentBrowserTargetList>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/find`,
+    { method: 'POST', body: JSON.stringify(data), signal },
+    tenantId
+  );
+}
+
+export function executeAgentBrowserActions(
+  sessionId: string,
+  data: ExecuteAgentBrowserActionsRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+) {
+  return request<AgentTaskView>(
+    `/sessions/${encodeURIComponent(sessionId)}/agent-browser/execute-actions`,
     {
       method: 'POST',
       body: JSON.stringify(data),

@@ -54,6 +54,12 @@ import type {
   AgentInputSecretView,
   SubmitChallengeInputResponseRequest,
   ChallengeInputResponseView,
+  AgentClipboardView,
+  WriteAgentClipboardRequest,
+  SessionIdentitySpecInput,
+  SessionIdentitySpecView,
+  CreateSessionIdentityChangeRequest,
+  SessionIdentityChangeRequestView,
 } from '../types/session';
 import type {
   ProxyRebindOperation,
@@ -991,6 +997,113 @@ export async function getChallengeAutomationPolicy(
     `/sessions/${sessionId}/challenge-automation/policy`,
     { signal },
     tenantId
+  );
+}
+
+export async function readAgentClipboard(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<AgentClipboardView> {
+  return request<AgentClipboardView>(
+    `/sessions/${sessionId}/agent-browser/clipboard`,
+    { signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function writeAgentClipboard(
+  sessionId: string,
+  body: WriteAgentClipboardRequest,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<AgentClipboardView> {
+  return request<AgentClipboardView>(
+    `/sessions/${sessionId}/agent-browser/clipboard`,
+    { method: 'PUT', body: JSON.stringify(body), signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function clearAgentClipboard(
+  sessionId: string,
+  expectedVersion: number,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<AgentClipboardView> {
+  return request<AgentClipboardView>(
+    `/sessions/${sessionId}/agent-browser/clipboard?expectedVersion=${expectedVersion}`,
+    { method: 'DELETE', signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function getSessionIdentitySpec(
+  sessionId: string,
+  tenantId = DEFAULT_TENANT_ID,
+  signal?: AbortSignal
+): Promise<SessionIdentitySpecView> {
+  return request<SessionIdentitySpecView>(
+    `/sessions/${sessionId}/identity-spec`,
+    { signal },
+    tenantId
+  );
+}
+
+export async function rejectDirectSessionIdentityMutation(
+  sessionId: string,
+  body: SessionIdentitySpecInput,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<never> {
+  return request<never>(
+    `/sessions/${sessionId}/identity-spec`,
+    { method: 'PUT', body: JSON.stringify(body), signal },
+    tenantId,
+    actorId
+  );
+}
+
+export async function createSessionIdentityChangeRequest(
+  sessionId: string,
+  body: CreateSessionIdentityChangeRequest,
+  idempotencyKey: string,
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<SessionIdentityChangeRequestView> {
+  return request<SessionIdentityChangeRequestView>(
+    `/sessions/${sessionId}/identity-change-requests`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'Idempotency-Key': idempotencyKey },
+      signal,
+    },
+    tenantId,
+    actorId
+  );
+}
+
+export async function decideSessionIdentityChangeRequest(
+  requestId: string,
+  decision: 'approve' | 'reject' | 'apply',
+  tenantId = DEFAULT_TENANT_ID,
+  actorId = currentActorId(),
+  signal?: AbortSignal
+): Promise<SessionIdentityChangeRequestView> {
+  return request<SessionIdentityChangeRequestView>(
+    `/session-identity-change-requests/${requestId}:${decision}`,
+    { method: 'POST', signal },
+    tenantId,
+    actorId
   );
 }
 

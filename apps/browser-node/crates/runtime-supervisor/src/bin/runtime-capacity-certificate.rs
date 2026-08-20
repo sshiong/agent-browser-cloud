@@ -1,6 +1,7 @@
 use anyhow::Context;
 use runtime_supervisor::{
-    ChromiumRuntimeSupervisor, RuntimeHealth, RuntimeResourceLimits, RuntimeSpec, RuntimeSupervisor,
+    BrowserIdentitySpec, ChromiumRuntimeSupervisor, RuntimeHealth, RuntimeResourceLimits,
+    RuntimeSpec, RuntimeSupervisor,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -382,6 +383,7 @@ async fn run_batch(
                     vnc_port: None,
                     extension_dirs: Vec::new(),
                     resource_limits: RuntimeResourceLimits::local_test_default(),
+                    browser_identity: BrowserIdentitySpec::default(),
                 })
                 .await
                 .with_context(|| format!("cycle {cycle} failed to start"))?;

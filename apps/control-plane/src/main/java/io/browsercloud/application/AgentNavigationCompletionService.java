@@ -99,7 +99,7 @@ public class AgentNavigationCompletionService {
     var nextIndex = task.getCurrentStep() + 1;
     if (nextIndex >= plan.steps().size()) return false;
     var next = plan.steps().get(nextIndex);
-    return next.toolId() == ToolId.TYPE_TEXT
+    return (next.toolId() == ToolId.TYPE_TEXT || next.toolId() == ToolId.FILL)
         && next.input() != null
         && next.input().allowSensitiveTarget()
         && java.util.Set.of(ActionDataClass.CREDENTIAL, ActionDataClass.OTP)
@@ -152,6 +152,15 @@ public class AgentNavigationCompletionService {
         && (stateDomain == null || !allowedDomains(task).contains(stateDomain))) {
       return "POST_ACTION_DOMAIN_NOT_ALLOWED";
     }
+    if (step.toolId() == ToolId.EXECUTE_ACTIONS
+        && (step.input() == null
+            || state.actionOutcomes().size() != step.input().actions().size()
+            || !state.actionOutcomes().stream()
+                .map(NodeEvent.AgentActionOutcome::actionId)
+                .toList()
+                .equals(step.input().actions().stream().map(ActionInput::actionId).toList()))) {
+      return "BATCH_ACTION_OUTCOMES_INVALID";
+    }
     return null;
   }
 
@@ -187,6 +196,25 @@ public class AgentNavigationCompletionService {
       output.put("inputHash", step.input().payloadHash());
       output.put("inputLength", step.input().payloadLength());
       output.put("inputDataClass", step.input().dataClass().name());
+    }
+    if (step.toolId() == ToolId.EXECUTE_ACTIONS) {
+      output.put(
+          "actions",
+          state.actionOutcomes().stream()
+              .map(
+                  action ->
+                      java.util.Map.of(
+                          "actionId", action.actionId(),
+                          "status", action.status(),
+                          "errorCode", action.errorCode(),
+                          "stateVersion", action.stateVersion(),
+                          "targetRevision", action.targetRevision()))
+              .toList());
+      output.put(
+          "completedActions",
+          state.actionOutcomes().stream()
+              .filter(action -> action.status().equals("SUCCEEDED"))
+              .count());
     }
     var hash = PromptSecurityService.sha256(write(output));
     return new ToolExecutionResult(

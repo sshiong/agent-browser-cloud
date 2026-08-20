@@ -45,6 +45,19 @@ public final class BrowserCloudGeneratedClient {
     operation("createSession", "POST", "/api/v1/sessions", List.of(), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateSessionRequest", true, "CreateSessionResponse"),
     operation("getSession", "GET", "/api/v1/sessions/{sessionId}", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionView"),
     operation("getBrowserState", "GET", "/api/v1/sessions/{sessionId}/state", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "BrowserState"),
+    operation("getAgentBrowserSnapshot", "GET", "/api/v1/sessions/{sessionId}/agent-browser/snapshot", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentBrowserSnapshot"),
+    operation("inspectAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/inspect", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserInspectRequest", true, "AgentBrowserTargetList"),
+    operation("findAgentBrowserElements", "POST", "/api/v1/sessions/{sessionId}/agent-browser/find", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "AgentBrowserFindRequest", true, "AgentBrowserTargetList"),
+    operation("executeAgentBrowserActions", "POST", "/api/v1/sessions/{sessionId}/agent-browser/execute-actions", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "ExecuteAgentBrowserActionsRequest", true, "AgentTask"),
+    operation("readAgentClipboard", "GET", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
+    operation("writeAgentClipboard", "PUT", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "WriteAgentClipboardRequest", true, "AgentClipboard"),
+    operation("clearAgentClipboard", "DELETE", "/api/v1/sessions/{sessionId}/agent-browser/clipboard", List.of("sessionId"), List.of("expectedVersion"), List.of("X-Tenant-Id"), "", false, "AgentClipboard"),
+    operation("getSessionIdentitySpec", "GET", "/api/v1/sessions/{sessionId}/identity-spec", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionIdentitySpec"),
+    operation("rejectDirectSessionIdentityMutation", "PUT", "/api/v1/sessions/{sessionId}/identity-spec", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "SessionIdentitySpecInput", true, ""),
+    operation("createSessionIdentityChangeRequest", "POST", "/api/v1/sessions/{sessionId}/identity-change-requests", List.of("sessionId"), List.of(), List.of("Idempotency-Key", "X-Tenant-Id"), "CreateSessionIdentityChangeRequest", true, "SessionIdentityChangeRequest"),
+    operation("approveSessionIdentityChangeRequest", "POST", "/api/v1/session-identity-change-requests/{requestId}:approve", List.of("requestId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionIdentityChangeRequest"),
+    operation("rejectSessionIdentityChangeRequest", "POST", "/api/v1/session-identity-change-requests/{requestId}:reject", List.of("requestId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionIdentityChangeRequest"),
+    operation("applySessionIdentityChangeRequest", "POST", "/api/v1/session-identity-change-requests/{requestId}:apply", List.of("requestId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionIdentityChangeRequest"),
     operation("getSessionResources", "GET", "/api/v1/sessions/{sessionId}/resources", List.of("sessionId"), List.of(), List.of("X-Tenant-Id"), "", false, "SessionResource"),
     operation("listSessionResourceEvents", "GET", "/api/v1/sessions/{sessionId}/resource-events", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "ResourceEventList"),
     operation("listSessionEvidence", "GET", "/api/v1/sessions/{sessionId}/evidence", List.of("sessionId"), List.of("limit", "offset"), List.of("X-Tenant-Id"), "", false, "EvidenceList"),
@@ -290,6 +303,19 @@ public final class BrowserCloudGeneratedClient {
   public Response createSession(Request request) { return call("createSession", request); }
   public Response getSession(Request request) { return call("getSession", request); }
   public Response getBrowserState(Request request) { return call("getBrowserState", request); }
+  public Response getAgentBrowserSnapshot(Request request) { return call("getAgentBrowserSnapshot", request); }
+  public Response inspectAgentBrowserElements(Request request) { return call("inspectAgentBrowserElements", request); }
+  public Response findAgentBrowserElements(Request request) { return call("findAgentBrowserElements", request); }
+  public Response executeAgentBrowserActions(Request request) { return call("executeAgentBrowserActions", request); }
+  public Response readAgentClipboard(Request request) { return call("readAgentClipboard", request); }
+  public Response writeAgentClipboard(Request request) { return call("writeAgentClipboard", request); }
+  public Response clearAgentClipboard(Request request) { return call("clearAgentClipboard", request); }
+  public Response getSessionIdentitySpec(Request request) { return call("getSessionIdentitySpec", request); }
+  public Response rejectDirectSessionIdentityMutation(Request request) { return call("rejectDirectSessionIdentityMutation", request); }
+  public Response createSessionIdentityChangeRequest(Request request) { return call("createSessionIdentityChangeRequest", request); }
+  public Response approveSessionIdentityChangeRequest(Request request) { return call("approveSessionIdentityChangeRequest", request); }
+  public Response rejectSessionIdentityChangeRequest(Request request) { return call("rejectSessionIdentityChangeRequest", request); }
+  public Response applySessionIdentityChangeRequest(Request request) { return call("applySessionIdentityChangeRequest", request); }
   public Response getSessionResources(Request request) { return call("getSessionResources", request); }
   public Response listSessionResourceEvents(Request request) { return call("listSessionResourceEvents", request); }
   public Response listSessionEvidence(Request request) { return call("listSessionEvidence", request); }

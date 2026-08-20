@@ -11,6 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.browsercloud.coordinator.CoordinatorOwnershipService;
 import io.browsercloud.coordinator.SessionListFilter;
 import io.browsercloud.domain.agent.AgentPolicy;
+import io.browsercloud.domain.session.ResourceClass;
+import io.browsercloud.domain.session.SessionContext;
+import io.browsercloud.domain.session.SessionState;
 import io.browsercloud.persistence.SessionContextEntity;
 import io.browsercloud.persistence.SessionEntity;
 import io.browsercloud.persistence.SessionJpaRepository;
@@ -70,6 +73,34 @@ class JpaSessionRepositoryTest {
     verify(contexts, never())
         .findTopBySessionIdOrderByContextEpochDesc(org.mockito.ArgumentMatchers.anyString());
     verify(ownership, never()).getCurrentTerm(org.mockito.ArgumentMatchers.anyString());
+  }
+
+  @Test
+  void flushesSessionParentBeforeSavingDependentContextAndJdbcProjections() {
+    var now = Instant.parse("2026-08-20T00:00:00Z");
+    var context =
+        new SessionContext(
+            "ses_parent",
+            "tenant-test",
+            "profile-test",
+            null,
+            "runtime-test",
+            null,
+            null,
+            0,
+            0,
+            0,
+            0,
+            ResourceClass.L2,
+            SessionState.CREATED,
+            "",
+            now,
+            now);
+
+    repository.insert(context, "local", Map.of(), null, true, AgentPolicy.BALANCED, List.of());
+
+    verify(sessions).saveAndFlush(any(SessionEntity.class));
+    verify(contexts).save(any(SessionContextEntity.class));
   }
 
   private SessionEntity session(String sessionId, String displayName, Instant createdAt) {

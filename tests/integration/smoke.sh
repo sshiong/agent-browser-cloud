@@ -1549,7 +1549,7 @@ duplicate_extension_status="$(curl -sS -o "$temp_dir/duplicate-extension.json" -
   -d '{"tenantId":"tenant-integration","profileId":"profile-duplicate-extension","extensionIds":["jdgnleokimdbblcflcfcohbinohmmmlb","jdgnleokimdbblcflcfcohbinohmmmlb"]}')"
 test "$duplicate_extension_status" = "400"
 
-request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_binding_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"metadata\":{\"displayName\":\"Integration browser\"}}"
+request_body="{\"tenantId\":\"tenant-integration\",\"profileId\":\"profile-integration\",\"runtimeBuildId\":\"runtime_local_chromium\",\"applicationId\":\"crm.integration\",\"groupId\":\"${workspace_group_id}\",\"tagIds\":[\"${workspace_tag_id}\"],\"region\":\"local\",\"proxyBindingProfileId\":\"${proxy_binding_id}\",\"resourcePolicy\":{\"mode\":\"AUTO\"},\"requestedTabs\":2,\"agentActionsPerMinute\":60,\"humanTakeoverEnabled\":true,\"agentPolicy\":\"INTERACTIVE\",\"extensionIds\":[\"jdgnleokimdbblcflcfcohbinohmmmlb\"],\"identitySpec\":{\"timezone\":\"UTC\",\"locale\":\"en-US\",\"languages\":[\"en-US\"],\"webRtcPolicy\":\"DISABLED\",\"dnsPolicy\":\"SYSTEM\",\"viewportWidth\":1280,\"viewportHeight\":720,\"screenWidth\":1920,\"screenHeight\":1080,\"deviceScaleFactor\":1,\"fingerprintProfile\":\"chromium-standard-v1\",\"operatingSystemProfile\":\"linux-desktop-v1\"},\"metadata\":{\"displayName\":\"Integration browser\"}}"
 curl -fsS -X POST "http://localhost:${control_port}/api/v1/sessions" \
   -H 'Content-Type: application/json' \
   -H 'X-Tenant-Id: tenant-integration' \
@@ -1571,6 +1571,72 @@ session_two="$(printf '%s' "$created_two" | python3 -c 'import json,sys; print(j
 test "$session_one" = "$session_two"
 printf '%s' "$created_one" | python3 -c \
   'import json,sys; item=json.load(sys.stdin); assert item["resourcePolicy"]["minimumTemplate"] == "standard-v1"; assert item["resourcePolicy"]["resolvedTemplate"] == "standard-v1"'
+
+session_identity="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/identity-spec" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+printf '%s' "$session_identity" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["locked"] is True; assert value["version"] == 1; assert value["spec"]["timezone"] == "UTC"; assert value["spec"]["fingerprintProfile"] == "chromium-standard-v1"'
+identity_direct_status="$(curl -sS -o "$temp_dir/identity-direct.json" -w '%{http_code}' \
+  -X PUT "http://localhost:${control_port}/api/v1/sessions/${session_one}/identity-spec" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"timezone":"Asia/Shanghai"}')"
+test "$identity_direct_status" = "409"
+
+identity_change="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/identity-change-requests" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: identity-requester' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-session-identity-change-001' \
+  -d '{"expectedVersion":1,"reason":"Exercise the approved safe restart boundary","proposedSpec":{"timezone":"Asia/Shanghai","locale":"en-US","languages":["en-US"],"webRtcPolicy":"DISABLED","dnsPolicy":"SYSTEM","viewportWidth":1280,"viewportHeight":720,"screenWidth":1920,"screenHeight":1080,"deviceScaleFactor":1,"fingerprintProfile":"chromium-standard-v1","operatingSystemProfile":"linux-desktop-v1"}}')"
+identity_change_id="$(printf '%s' "$identity_change" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["state"] == "PENDING"; print(value["requestId"])')"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/session-identity-change-requests/${identity_change_id}:approve" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: identity-approver' \
+  -H 'X-Roles: TENANT_ADMIN' | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["state"] == "APPROVED"'
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/session-identity-change-requests/${identity_change_id}:apply" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: identity-applier' \
+  -H 'X-Roles: TENANT_ADMIN' | python3 -c \
+  'import json,sys; assert json.load(sys.stdin)["state"] == "APPLIED"'
+curl -fsS "http://localhost:${control_port}/api/v1/sessions/${session_one}/identity-spec" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["version"] == 2; assert value["spec"]["timezone"] == "Asia/Shanghai"'
+
+clipboard_viewer_status="$(curl -sS -o "$temp_dir/agent-clipboard-viewer.json" -w '%{http_code}' \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/clipboard" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+test "$clipboard_viewer_status" = "403"
+agent_clipboard="$(curl -fsS -X PUT \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/clipboard" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: clipboard-agent' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -d '{"value":"isolated agent clipboard","expectedVersion":0}')"
+printf '%s' "$agent_clipboard" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["version"] == 1; assert value["value"] is None; assert value["valueLength"] == 24'
+curl -fsS "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/clipboard" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["version"] == 1; assert value["value"] == "isolated agent clipboard"'
+curl -fsS -X DELETE \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/clipboard?expectedVersion=1" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Actor-Id: clipboard-agent' \
+  -H 'X-Roles: TENANT_OPERATOR' | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["version"] == 2; assert value["value"] is None; assert value["valueLength"] == 0'
 
 challenge_automation_policy="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/challenge-automation/policy" \
@@ -3274,7 +3340,7 @@ tab_resource_events="$(docker exec "$postgres_name" psql -U browsercloud -d brow
      and result='COMMITTED'")"
 test "$tab_resource_events" = "1"
 
-inflight_takeover="$(curl -fsS -X POST \
+inflight_takeover="$(curl -fsS --max-time 20 -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}:takeover" \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Actor-Id: coordinator-failover-test')"
@@ -3773,6 +3839,26 @@ fi
 side_effect_state="$(curl -fsS \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/state" \
   -H 'X-Tenant-Id: tenant-integration')"
+agent_browser_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+read -r perception_cursor perception_element_id perception_role < <(printf '%s' "$agent_browser_snapshot" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); assert value["stateCursor"].count(":") == 2; assert value["state"]["targets"]; target=next(item for item in value["state"]["targets"] if item["visible"] and item["elementId"] and item["role"]); print(value["stateCursor"], target["elementId"], target["role"])')
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/inspect" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -d "{\"stateCursor\":\"${perception_cursor}\",\"elementIds\":[\"${perception_element_id}\"]}" | python3 -c \
+  'import json,sys; expected=sys.argv[1]; value=json.load(sys.stdin); assert len(value["targets"]) == 1; target=value["targets"][0]; assert target["elementId"] == expected; assert isinstance(target["interactive"], bool); assert isinstance(target["inViewport"], bool); assert isinstance(target["occluded"], bool)' "$perception_element_id"
+curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/find" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' \
+  -d "{\"query\":\"${perception_role}\",\"roles\":[\"${perception_role}\"],\"includeHidden\":false,\"limit\":10}" | python3 -c \
+  'import json,sys; expected=sys.argv[1]; value=json.load(sys.stdin); assert value["targets"]; assert all(item["visible"] and item["role"] == expected for item in value["targets"])' "$perception_role"
 side_effect_request="$(python3 - "$side_effect_state" <<'PY'
 import json
 import sys

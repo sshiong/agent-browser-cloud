@@ -22,12 +22,23 @@ public record BrowserStateView(
 
   public record InteractiveTargetView(
       String targetRef,
+      String elementId,
       String role,
       String name,
+      String value,
+      String controlType,
       BoundsView bounds,
       boolean enabled,
       boolean visible,
-      boolean sensitive) {}
+      boolean sensitive,
+      boolean focused,
+      Boolean checked,
+      Boolean selected,
+      boolean interactive,
+      String frameId,
+      boolean inViewport,
+      boolean occluded,
+      String visibilityReason) {}
 
   public record BoundsView(double x, double y, double width, double height) {}
 }

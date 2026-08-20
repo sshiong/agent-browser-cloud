@@ -10,7 +10,7 @@ use node_contracts::proto::node_control_service_server::{
 };
 use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
-    AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent,
+    AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent, AgentActionOutcome,
     AgentNavigateCommand, AgentNavigationFailedEvent, BeginHumanTakeoverCommand, BrowserCrashEvent,
     BrowserStateDiffEvent, BrowserStateEvent, BrowserStateSnapshotBeginEvent,
     BrowserStateSnapshotChunkEvent, BrowserStateSnapshotCommitEvent, BusinessRecoveryActionCommand,
@@ -38,8 +38,8 @@ use remote_desktop_gateway::{
     DisconnectHandler, RemoteDesktopGateway, RemoteDesktopTicketClaims, RemoteDesktopUsageCounters,
 };
 use runtime_supervisor::{
-    CgroupV2Config, ChromiumRuntimeSupervisor, DesktopRuntimeConfig, RuntimeResourceLimits,
-    RuntimeSpec, RuntimeSupervisor,
+    BrowserIdentitySpec, CgroupV2Config, ChromiumRuntimeSupervisor, DesktopRuntimeConfig,
+    RuntimeResourceLimits, RuntimeSpec, RuntimeSupervisor,
 };
 use session_recorder::{
     EvidenceCapture, EvidenceSpec, RecordingSpec, RecordingSummary, SessionEvidenceRegistry,
@@ -65,6 +65,36 @@ const HUMAN_INPUT_PRIORITY_IDLE: Duration = Duration::from_secs(2);
 const STATE_SNAPSHOT_CHUNK_BYTES: usize = 16 * 1024;
 const STATE_SNAPSHOT_MAX_CHUNKS: usize = 32;
 const STATE_SNAPSHOT_MAX_BYTES: usize = STATE_SNAPSHOT_CHUNK_BYTES * STATE_SNAPSHOT_MAX_CHUNKS;
+
+fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str {
+    let message = error.to_string().to_ascii_lowercase();
+    if message.contains("revision is stale") || message.contains("state cursor is stale") {
+        "STATE_STALE"
+    } else if message.contains("stale, unknown")
+        || message.contains("target registry is unavailable")
+    {
+        "ELEMENT_NOT_FOUND"
+    } else if message.contains("not visible") || message.contains("outside viewport") {
+        "ELEMENT_NOT_VISIBLE"
+    } else if message.contains("occluded") {
+        "ELEMENT_OCCLUDED"
+    } else if message.contains("not enabled")
+        || message.contains("role is not supported")
+        || message.contains("not actionable")
+    {
+        "ELEMENT_NOT_INTERACTIVE"
+    } else if message.contains("sensitive") || message.contains("forbidden") {
+        "PERMISSION_DENIED"
+    } else if tool_id == "WAIT_FOR" {
+        "WAIT_CONDITION_FAILED"
+    } else if message.contains("timed out") || message.contains("timeout") {
+        "ACTION_TIMEOUT"
+    } else if message.contains("cdp") {
+        "CDP_ERROR"
+    } else {
+        "ACTION_EXECUTION_FAILED"
+    }
+}
 
 fn challenge_visual_action_budget(actions: &[ChallengeVisualAction]) -> Option<u32> {
     if actions.is_empty() || actions.len() > 8 {
@@ -186,6 +216,14 @@ struct ActualResourceAllocationReadback {
     observer_frame_rate_fps: u32,
     video_recording_enabled: bool,
     success_screenshot_sample_percent: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ChallengeMotionBounds {
+    min_steps: u32,
+    max_steps: u32,
+    min_delay_ms: u32,
+    max_delay_ms: u32,
 }
 
 fn classify_proxy_probe_error(error: &anyhow::Error) -> &'static str {
@@ -1555,6 +1593,7 @@ impl NodeControlService {
             document_ready_state: state.document_ready_state,
             network_quiet_millis: state.network_quiet_millis,
             network_evidence_fresh: state.network_evidence_fresh,
+            action_outcomes: Vec::new(),
         }
     }
 
@@ -1574,6 +1613,17 @@ impl NodeControlService {
             enabled: target.enabled,
             visible: target.visible,
             sensitive: target.sensitive,
+            element_id: target.element_id,
+            value: target.value,
+            control_type: target.control_type,
+            focused: target.focused,
+            checked: target.checked,
+            selected: target.selected,
+            interactive: target.interactive,
+            frame_id: target.frame_id,
+            in_viewport: target.in_viewport,
+            occluded: target.occluded,
+            visibility_reason: target.visibility_reason,
         }
     }
 
@@ -2653,12 +2703,178 @@ impl NodeControlService {
         .await
     }
 
+    fn challenge_motion_fraction(seed: &str, index: u32) -> f64 {
+        let digest = Sha256::digest(format!("{seed}:{index}").as_bytes());
+        let mut bytes = [0_u8; 8];
+        bytes.copy_from_slice(&digest[..8]);
+        u64::from_be_bytes(bytes) as f64 / u64::MAX as f64
+    }
+
+    async fn challenge_move_human_path(
+        input: &CdpDesktopInput,
+        next_sequence: &mut u64,
+        start: (f64, f64),
+        end: (f64, f64),
+        seed: &str,
+        motion: ChallengeMotionBounds,
+    ) -> anyhow::Result<()> {
+        let (start_x, start_y) = start;
+        let (end_x, end_y) = end;
+        let step_span = motion.max_steps - motion.min_steps;
+        let steps = motion.min_steps
+            + (Self::challenge_motion_fraction(seed, 0) * f64::from(step_span + 1)).floor() as u32;
+        let dx = end_x - start_x;
+        let dy = end_y - start_y;
+        let distance = (dx * dx + dy * dy).sqrt();
+        let normal_x = if distance > 0.0 { -dy / distance } else { 0.0 };
+        let normal_y = if distance > 0.0 { dx / distance } else { 0.0 };
+        let bend = (Self::challenge_motion_fraction(seed, 1) - 0.5) * distance.min(120.0) * 0.5;
+        let control1_x = start_x + dx * 0.32 + normal_x * bend;
+        let control1_y = start_y + dy * 0.32 + normal_y * bend;
+        let control2_x = start_x + dx * 0.72 - normal_x * bend * 0.45;
+        let control2_y = start_y + dy * 0.72 - normal_y * bend * 0.45;
+        for step in 1..=steps {
+            let t = f64::from(step) / f64::from(steps);
+            let inverse = 1.0 - t;
+            let x = inverse.powi(3) * start_x
+                + 3.0 * inverse.powi(2) * t * control1_x
+                + 3.0 * inverse * t.powi(2) * control2_x
+                + t.powi(3) * end_x;
+            let y = inverse.powi(3) * start_y
+                + 3.0 * inverse.powi(2) * t * control1_y
+                + 3.0 * inverse * t.powi(2) * control2_y
+                + t.powi(3) * end_y;
+            *next_sequence = next_sequence
+                .checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
+            input
+                .mouse_move(x.round() as i32, y.round() as i32, *next_sequence)
+                .await?;
+            let delay_span = motion.max_delay_ms - motion.min_delay_ms;
+            let delay = motion.min_delay_ms
+                + (Self::challenge_motion_fraction(seed, step + 2) * f64::from(delay_span + 1))
+                    .floor() as u32;
+            tokio::time::sleep(Duration::from_millis(u64::from(delay))).await;
+        }
+        Ok(())
+    }
+
+    async fn execute_agent_action_batch(
+        &self,
+        payload: &AgentActionCommand,
+    ) -> anyhow::Result<(CurrentState, Vec<AgentActionOutcome>)> {
+        anyhow::ensure!(
+            payload.target_ref.is_empty()
+                && payload.target_revision == 0
+                && payload.text.is_empty()
+                && payload.sealed_text.is_empty()
+                && (1..=20).contains(&payload.actions.len()),
+            "agent action batch payload is invalid"
+        );
+        let mut current = self
+            .state_collector
+            .collect_current_state(&payload.session_id)
+            .await?;
+        anyhow::ensure!(
+            current.state_version >= payload.base_state_version
+                && (current.state_version != payload.base_state_version
+                    || current.content_hash == payload.base_content_hash),
+            "agent action batch state cursor is stale"
+        );
+        let mut outcomes = Vec::with_capacity(payload.actions.len());
+        for action in &payload.actions {
+            anyhow::ensure!(
+                action.action_id.starts_with("action_")
+                    && action.action_id.len() <= 32
+                    && matches!(
+                        action.tool_id.as_str(),
+                        "CLICK_TARGET"
+                            | "TYPE_TEXT"
+                            | "FILL"
+                            | "PASTE_AGENT_CLIPBOARD"
+                            | "SCROLL"
+                            | "WAIT_FOR"
+                    ),
+                "agent action batch primitive is invalid"
+            );
+
+            // A real VNC input burst always wins. The same batch remains suspended and resumes
+            // after collaboration priority expires; it does not force or request a takeover.
+            let human_wait_deadline = tokio::time::Instant::now() + Duration::from_secs(30 * 60);
+            while action.tool_id != "WAIT_FOR" && self.human_input_has_priority(&payload.session_id)
+            {
+                anyhow::ensure!(
+                    tokio::time::Instant::now() < human_wait_deadline,
+                    "human input priority wait exceeded"
+                );
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+
+            let single = AgentActionCommand {
+                session_id: payload.session_id.clone(),
+                task_id: payload.task_id.clone(),
+                step_id: format!("{}:{}", payload.step_id, action.action_id),
+                tool_id: action.tool_id.clone(),
+                target_ref: action.target_ref.clone(),
+                target_revision: action.target_revision,
+                sealed_text: action.sealed_text.clone(),
+                text: action.text.clone(),
+                scroll_delta_y: action.scroll_delta_y,
+                wait_condition: action.wait_condition.clone(),
+                timeout_ms: action.timeout_ms,
+                base_state_version: current.state_version,
+                base_content_hash: current.content_hash.clone(),
+                allow_sensitive_target: action.allow_sensitive_target,
+                maximum_attempts: action.maximum_attempts,
+                actions: Vec::new(),
+                stop_on_error: true,
+            };
+            match Box::pin(self.execute_agent_action(&single)).await {
+                Ok(state) => {
+                    current = state;
+                    outcomes.push(AgentActionOutcome {
+                        action_id: action.action_id.clone(),
+                        status: "SUCCEEDED".to_owned(),
+                        error_code: String::new(),
+                        state_version: current.state_version,
+                        target_revision: current.target_revision,
+                    });
+                }
+                Err(error) => {
+                    let error_code = if error.to_string().contains("target")
+                        || error.to_string().contains("sensitive")
+                    {
+                        "ACTION_PRECONDITION_FAILED"
+                    } else if action.tool_id == "WAIT_FOR" {
+                        "WAIT_CONDITION_FAILED"
+                    } else {
+                        "ACTION_EXECUTION_FAILED"
+                    };
+                    outcomes.push(AgentActionOutcome {
+                        action_id: action.action_id.clone(),
+                        status: "FAILED".to_owned(),
+                        error_code: error_code.to_owned(),
+                        state_version: current.state_version,
+                        target_revision: current.target_revision,
+                    });
+                    if payload.stop_on_error {
+                        return Err(error.context(format!(
+                            "batch stopped at {} ({error_code})",
+                            action.action_id
+                        )));
+                    }
+                }
+            }
+        }
+        Ok((current, outcomes))
+    }
+
     async fn execute_agent_action(
         &self,
         payload: &AgentActionCommand,
     ) -> anyhow::Result<CurrentState> {
         match payload.tool_id.as_str() {
-            "CLICK_TARGET" | "TYPE_TEXT" => {
+            "CLICK_TARGET" | "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" => {
                 let target = self
                     .state_collector
                     .resolve_target(
@@ -2667,7 +2883,10 @@ impl NodeControlService {
                         payload.target_revision,
                     )
                     .await?;
-                if payload.tool_id == "TYPE_TEXT" {
+                if matches!(
+                    payload.tool_id.as_str(),
+                    "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD"
+                ) {
                     anyhow::ensure!(
                         !target.sensitive || payload.allow_sensitive_target,
                         "sensitive target is forbidden"
@@ -2713,7 +2932,7 @@ impl NodeControlService {
                     .get(&payload.session_id)
                     .cloned()
                     .ok_or_else(|| anyhow::anyhow!("input broker is unavailable"))?;
-                let maximum_attempts = if payload.tool_id == "TYPE_TEXT" {
+                let maximum_attempts = if matches!(payload.tool_id.as_str(), "TYPE_TEXT" | "FILL") {
                     if payload.maximum_attempts == 0 {
                         1
                     } else {
@@ -2739,16 +2958,22 @@ impl NodeControlService {
                             .await?;
                         input.mouse_down(0, sequence(2)?).await?;
                         input.mouse_up(0, sequence(3)?).await?;
-                        if payload.tool_id == "TYPE_TEXT" {
-                            // Every retry replaces the field value; it never appends a password/OTP twice.
-                            input.key_down(InputKey::Control, sequence(4)?).await?;
-                            input
-                                .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
-                                .await?;
-                            input
-                                .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
-                                .await?;
-                            input.key_up(InputKey::Control, sequence(7)?).await?;
+                        if matches!(
+                            payload.tool_id.as_str(),
+                            "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD"
+                        ) {
+                            // FILL and Clipboard paste replace the field. Sensitive TYPE_TEXT also
+                            // replaces on every retry so a password or OTP is never appended twice.
+                            if payload.tool_id != "TYPE_TEXT" || payload.allow_sensitive_target {
+                                input.key_down(InputKey::Control, sequence(4)?).await?;
+                                input
+                                    .key_down(InputKey::Character("a".to_owned()), sequence(5)?)
+                                    .await?;
+                                input
+                                    .key_up(InputKey::Character("a".to_owned()), sequence(6)?)
+                                    .await?;
+                                input.key_up(InputKey::Control, sequence(7)?).await?;
+                            }
                             input.insert_text(&payload.text, sequence(8)?).await?;
                         }
                         Ok(())
@@ -3066,6 +3291,32 @@ impl NodeControlService {
                                     gpu_required: payload.gpu_required,
                                     native_os_required: payload.native_os_required,
                                     isolation_required: payload.isolation_required,
+                                },
+                                browser_identity: BrowserIdentitySpec {
+                                    user_agent: payload.identity_user_agent,
+                                    timezone: payload.identity_timezone,
+                                    locale: payload.identity_locale,
+                                    languages: payload.identity_languages,
+                                    webrtc_policy: if payload.identity_webrtc_policy.is_empty() {
+                                        "DEFAULT".to_owned()
+                                    } else {
+                                        payload.identity_webrtc_policy
+                                    },
+                                    dns_policy: if payload.identity_dns_policy.is_empty() {
+                                        "SYSTEM".to_owned()
+                                    } else {
+                                        payload.identity_dns_policy
+                                    },
+                                    viewport_width: payload.identity_viewport_width,
+                                    viewport_height: payload.identity_viewport_height,
+                                    screen_width: payload.identity_screen_width,
+                                    screen_height: payload.identity_screen_height,
+                                    device_scale_factor: payload.identity_device_scale_factor,
+                                    fingerprint_profile: payload.identity_fingerprint_profile,
+                                    operating_system_profile: payload
+                                        .identity_operating_system_profile,
+                                    version: payload.identity_spec_version,
+                                    spec_hash: payload.identity_spec_hash,
                                 },
                             })
                             .await
@@ -4563,7 +4814,13 @@ impl NodeControlService {
                         || payload.step_id.chars().count() > 128
                         || !matches!(
                             payload.tool_id.as_str(),
-                            "CLICK_TARGET" | "TYPE_TEXT" | "SCROLL" | "WAIT_FOR"
+                            "CLICK_TARGET"
+                                | "TYPE_TEXT"
+                                | "FILL"
+                                | "PASTE_AGENT_CLIPBOARD"
+                                | "SCROLL"
+                                | "WAIT_FOR"
+                                | "EXECUTE_ACTIONS"
                         )
                     {
                         return self
@@ -4575,15 +4832,21 @@ impl NodeControlService {
                         return Self::defer_for_human_input(command);
                     }
                     let action_started = Instant::now();
-                    let action_result = self.execute_agent_action(&payload).await;
+                    let action_result = if payload.tool_id == "EXECUTE_ACTIONS" {
+                        self.execute_agent_action_batch(&payload).await
+                    } else {
+                        self.execute_agent_action(&payload)
+                            .await
+                            .map(|state| (state, Vec::new()))
+                    };
                     self.agent_action_latencies
                         .lock()
                         .await
                         .entry(command.session_id.clone())
                         .or_default()
                         .record(action_started.elapsed());
-                    let state = match action_result {
-                        Ok(state) => state,
+                    let (state, outcomes) = match action_result {
+                        Ok(result) => result,
                         Err(error) => {
                             tracing::warn!(
                                 task_id = payload.task_id,
@@ -4592,15 +4855,7 @@ impl NodeControlService {
                                 error = %error,
                                 "Agent action failed"
                             );
-                            let code = if payload.tool_id == "WAIT_FOR" {
-                                "WAIT_CONDITION_FAILED"
-                            } else if error.to_string().contains("target")
-                                || error.to_string().contains("sensitive")
-                            {
-                                "ACTION_PRECONDITION_FAILED"
-                            } else {
-                                "ACTION_EXECUTION_FAILED"
-                            };
+                            let code = agent_action_error_code(&payload.tool_id, &error);
                             return self.agent_action_failed(command, &payload, code).await;
                         }
                     };
@@ -4610,6 +4865,7 @@ impl NodeControlService {
                     };
                     let mut state_payload = Self::browser_state_payload(state.clone());
                     state_payload.snapshot_kind = format!("AGENT_{}", payload.tool_id);
+                    state_payload.action_outcomes = outcomes;
                     let event =
                         Self::event(command, "BrowserStateUpdated", sequence, state_payload);
                     Self::state_result(Self::ack(&command.message_id, true, "", ""), event, state)
@@ -4619,6 +4875,36 @@ impl NodeControlService {
             "ChallengeAutomationAction" => {
                 match ChallengeAutomationActionCommand::decode(command.payload.as_slice()) {
                     Ok(payload) => {
+                        let legacy_motion = payload.motion_min_steps == 0
+                            && payload.motion_max_steps == 0
+                            && payload.motion_min_delay_ms == 0
+                            && payload.motion_max_delay_ms == 0
+                            && payload.target_offset_ratio == 0.0;
+                        let motion_min_steps = if legacy_motion {
+                            8
+                        } else {
+                            payload.motion_min_steps
+                        };
+                        let motion_max_steps = if legacy_motion {
+                            18
+                        } else {
+                            payload.motion_max_steps
+                        };
+                        let motion_min_delay_ms = if legacy_motion {
+                            12
+                        } else {
+                            payload.motion_min_delay_ms
+                        };
+                        let motion_max_delay_ms = if legacy_motion {
+                            45
+                        } else {
+                            payload.motion_max_delay_ms
+                        };
+                        let target_offset_ratio = if legacy_motion {
+                            0.15
+                        } else {
+                            payload.target_offset_ratio
+                        };
                         if payload.session_id != command.session_id
                             || !payload.run_id.starts_with("car_")
                             || payload.run_id.chars().count() != 24
@@ -4634,6 +4920,12 @@ impl NodeControlService {
                             })
                             || payload.actions.is_empty()
                             || payload.actions.len() > 8
+                            || !(4..=32).contains(&motion_min_steps)
+                            || !(motion_min_steps..=40).contains(&motion_max_steps)
+                            || !(5..=100).contains(&motion_min_delay_ms)
+                            || !(motion_min_delay_ms..=150).contains(&motion_max_delay_ms)
+                            || !target_offset_ratio.is_finite()
+                            || !(0.0..=0.35).contains(&target_offset_ratio)
                         {
                             return self.failed(
                                 command,
@@ -4736,9 +5028,23 @@ impl NodeControlService {
                                     .await
                             }
                         };
-                        let mut next_sequence = input.ledger_snapshot().await.last_sequence;
-                        let execution: anyhow::Result<()> = async {
-                            for action in &payload.actions {
+                        let ledger = input.ledger_snapshot().await;
+                        let mut next_sequence = ledger.last_sequence;
+                        let mut pointer_x = f64::from(ledger.pointer_x);
+                        let mut pointer_y = f64::from(ledger.pointer_y);
+                        let motion = ChallengeMotionBounds {
+                            min_steps: motion_min_steps,
+                            max_steps: motion_max_steps,
+                            min_delay_ms: motion_min_delay_ms,
+                            max_delay_ms: motion_max_delay_ms,
+                        };
+                        let execution: anyhow::Result<CurrentState> = async {
+                            let mut confirmed = current.clone();
+                            for (action_index, action) in payload.actions.iter().enumerate() {
+                                anyhow::ensure!(
+                                    !self.human_input_has_priority(&command.session_id),
+                                    "human input has priority"
+                                );
                                 anyhow::ensure!(
                                     action.x.is_finite()
                                         && action.y.is_finite()
@@ -4748,12 +5054,35 @@ impl NodeControlService {
                                 );
                                 let max_x = (viewport_width - 1.0).max(0.0);
                                 let max_y = (viewport_height - 1.0).max(0.0);
-                                let start_x = (action.x * max_x).round() as i32;
-                                let start_y = (action.y * max_y).round() as i32;
-                                next_sequence = next_sequence
-                                    .checked_add(1)
-                                    .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
-                                input.mouse_move(start_x, start_y, next_sequence).await?;
+                                let seed = format!(
+                                    "{}:{}:{}:{}",
+                                    payload.run_id,
+                                    payload.job_id,
+                                    action_index,
+                                    wall_clock_millis()
+                                );
+                                let offset_pixels = target_offset_ratio * 8.0;
+                                let start_x = (action.x * max_x
+                                    + (Self::challenge_motion_fraction(&seed, 40) - 0.5)
+                                        * 2.0
+                                        * offset_pixels)
+                                    .clamp(0.0, max_x);
+                                let start_y = (action.y * max_y
+                                    + (Self::challenge_motion_fraction(&seed, 41) - 0.5)
+                                        * 2.0
+                                        * offset_pixels)
+                                    .clamp(0.0, max_y);
+                                Self::challenge_move_human_path(
+                                    input.as_ref(),
+                                    &mut next_sequence,
+                                    (pointer_x, pointer_y),
+                                    (start_x, start_y),
+                                    &format!("{seed}:approach"),
+                                    motion,
+                                )
+                                .await?;
+                                pointer_x = start_x;
+                                pointer_y = start_y;
                                 match action.action_type.as_str() {
                                     "CLICK" => {
                                         anyhow::ensure!(
@@ -4791,69 +5120,77 @@ impl NodeControlService {
                                                 anyhow::anyhow!("input sequence overflow")
                                             })?;
                                         input.mouse_down(0, next_sequence).await?;
-                                        let end_x = action.end_x * max_x;
-                                        let end_y = action.end_y * max_y;
-                                        for step in 1..=10 {
-                                            let progress = f64::from(step) / 10.0;
-                                            let x = f64::from(start_x)
-                                                + (end_x - f64::from(start_x)) * progress;
-                                            let y = f64::from(start_y)
-                                                + (end_y - f64::from(start_y)) * progress;
-                                            next_sequence =
-                                                next_sequence.checked_add(1).ok_or_else(|| {
-                                                    anyhow::anyhow!("input sequence overflow")
-                                                })?;
-                                            input
-                                                .mouse_move(
-                                                    x.round() as i32,
-                                                    y.round() as i32,
-                                                    next_sequence,
-                                                )
-                                                .await?;
-                                            tokio::time::sleep(Duration::from_millis(25)).await;
-                                        }
+                                        let end_x = (action.end_x * max_x
+                                            + (Self::challenge_motion_fraction(&seed, 42) - 0.5)
+                                                * 2.0
+                                                * offset_pixels)
+                                            .clamp(0.0, max_x);
+                                        let end_y = (action.end_y * max_y
+                                            + (Self::challenge_motion_fraction(&seed, 43) - 0.5)
+                                                * 2.0
+                                                * offset_pixels)
+                                            .clamp(0.0, max_y);
+                                        Self::challenge_move_human_path(
+                                            input.as_ref(),
+                                            &mut next_sequence,
+                                            (start_x, start_y),
+                                            (end_x, end_y),
+                                            &format!("{seed}:drag"),
+                                            motion,
+                                        )
+                                        .await?;
                                         next_sequence =
                                             next_sequence.checked_add(1).ok_or_else(|| {
                                                 anyhow::anyhow!("input sequence overflow")
                                             })?;
                                         input.mouse_up(0, next_sequence).await?;
+                                        pointer_x = end_x;
+                                        pointer_y = end_y;
                                     }
                                     _ => anyhow::bail!("visual action type is unsupported"),
                                 }
+                                confirmed = self
+                                    .state_collector
+                                    .collect_action_confirmation(&command.session_id)
+                                    .await
+                                    .context("post-action Challenge state is unavailable")?;
+                                anyhow::ensure!(
+                                    matches!(
+                                        confirmed.quality,
+                                        StateQuality::Complete | StateQuality::DepthLimited
+                                    ),
+                                    "post-action Challenge state is not executable"
+                                );
+                                if action_index + 1 < payload.actions.len()
+                                    && (confirmed.url != current.url
+                                        || confirmed.target_revision != current.target_revision)
+                                {
+                                    break;
+                                }
                             }
-                            Ok(())
+                            Ok(confirmed)
                         }
                         .await;
-                        if let Err(error) = execution {
-                            tracing::warn!(
-                                run_id = payload.run_id,
-                                job_id = payload.job_id,
-                                error = %error,
-                                "Challenge automation input failed"
-                            );
-                            let _ = input.release_all().await;
-                            return self
-                                .challenge_automation_failed(
-                                    command,
-                                    &payload,
-                                    "CHALLENGE_AUTOMATION_INPUT_FAILED",
-                                )
-                                .await;
-                        }
-                        let state = match self
-                            .state_collector
-                            .collect_action_confirmation(&command.session_id)
-                            .await
-                        {
+                        let state = match execution {
                             Ok(state) => state,
-                            Err(_) => {
+                            Err(error) => {
+                                tracing::warn!(
+                                    run_id = payload.run_id,
+                                    job_id = payload.job_id,
+                                    error = %error,
+                                    "Challenge automation input failed"
+                                );
+                                let _ = input.release_all().await;
+                                let code = if error.to_string().contains("human input") {
+                                    "HUMAN_INPUT_ACTIVE"
+                                } else if error.to_string().contains("post-action") {
+                                    "POST_ACTION_STATE_UNAVAILABLE"
+                                } else {
+                                    "CHALLENGE_AUTOMATION_INPUT_FAILED"
+                                };
                                 return self
-                                    .challenge_automation_failed(
-                                        command,
-                                        &payload,
-                                        "POST_ACTION_STATE_UNAVAILABLE",
-                                    )
-                                    .await
+                                    .challenge_automation_failed(command, &payload, code)
+                                    .await;
                             }
                         };
                         let sequence = match self.next_event_sequence(&command.session_id).await {
@@ -5030,6 +5367,8 @@ impl NodeControlService {
                             base_content_hash: current.content_hash,
                             allow_sensitive_target: false,
                             maximum_attempts: 1,
+                            actions: Vec::new(),
+                            stop_on_error: true,
                         };
                         let state = match self.execute_agent_action(&click).await {
                             Ok(state) => state,
@@ -7560,6 +7899,26 @@ mod tests {
             classify_proxy_probe_error(&anyhow::anyhow!("credential foo=bar was rejected")),
             "PROBE_FAILED",
             "arbitrary helper text must never cross the Node boundary"
+        );
+    }
+
+    #[test]
+    fn agent_action_errors_use_stable_machine_codes() {
+        assert_eq!(
+            agent_action_error_code("CLICK_TARGET", &anyhow::anyhow!("target is occluded")),
+            "ELEMENT_OCCLUDED"
+        );
+        assert_eq!(
+            agent_action_error_code("TYPE_TEXT", &anyhow::anyhow!("target revision is stale")),
+            "STATE_STALE"
+        );
+        assert_eq!(
+            agent_action_error_code("WAIT_FOR", &anyhow::anyhow!("wait condition timed out")),
+            "WAIT_CONDITION_FAILED"
+        );
+        assert_eq!(
+            agent_action_error_code("CLICK_TARGET", &anyhow::anyhow!("CDP command timed out")),
+            "ACTION_TIMEOUT"
         );
     }
 

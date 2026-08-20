@@ -421,6 +421,271 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/sessions/{sessionId}/agent-browser/snapshot:
+    get:
+      operationId: getAgentBrowserSnapshot
+      summary: Get one PostgreSQL-authoritative structured page snapshot
+      description: Returns DOM/accessibility-derived interactive state. Ordinary pages do not require OCR or screenshots.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Structured snapshot and cursor for subsequent inspect or action calls.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserSnapshot"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/inspect:
+    post:
+      operationId: inspectAgentBrowserElements
+      summary: Inspect structured elements without another Browser Node round trip
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentBrowserInspectRequest"
+      responses:
+        "200":
+          description: Requested elements from the exact state cursor.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserTargetList"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/find:
+    post:
+      operationId: findAgentBrowserElements
+      summary: Find structured elements by semantic name, role, type, stable ID, or visibility reason
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentBrowserFindRequest"
+      responses:
+        "200":
+          description: Bounded semantic matches from the authoritative current state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentBrowserTargetList"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/execute-actions:
+    post:
+      operationId: executeAgentBrowserActions
+      summary: Execute one ordered state-fenced Browser action batch
+      description: >
+        Provides the browser.execute_actions fast path. The gateway validates one authoritative
+        state cursor, persists one auditable Agent Task, executes primitives in order, checks state
+        between actions, honors stopOnError, and yields to real VNC input without forcing takeover.
+      tags: [Session, Agent, State]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteAgentBrowserActionsRequest"
+      responses:
+        "200":
+          description: Persisted task after immediate execution or durable enqueue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /api/v1/sessions/{sessionId}/agent-browser/clipboard:
+    get:
+      operationId: readAgentClipboard
+      summary: Read only the encrypted AgentClipboard
+      description: Never reads or aliases the VNC/X11 UserClipboard.
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Current AgentClipboard; value is null when empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentClipboard"
+    put:
+      operationId: writeAgentClipboard
+      summary: Replace the isolated AgentClipboard using optimistic concurrency
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteAgentClipboardRequest"
+      responses:
+        "200":
+          description: Updated metadata; plaintext is not reflected by write.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentClipboard"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: clearAgentClipboard
+      summary: Clear the isolated AgentClipboard using optimistic concurrency
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - name: expectedVersion
+          in: query
+          required: true
+          schema: {type: integer, format: int64, minimum: 0}
+      responses:
+        "200":
+          description: Cleared AgentClipboard metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentClipboard"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/identity-spec:
+    get:
+      operationId: getSessionIdentitySpec
+      summary: Read the creation-time locked Browser identity specification
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: PostgreSQL-authoritative identity spec applied on every Runtime start.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionIdentitySpec"
+    put:
+      operationId: rejectDirectSessionIdentityMutation
+      summary: Explicitly reject direct post-creation identity mutation
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionIdentitySpecInput"
+      responses:
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/sessions/{sessionId}/identity-change-requests:
+    post:
+      operationId: createSessionIdentityChangeRequest
+      summary: Request an approval-backed identity change for a safe restart boundary
+      tags: [Session, Agent]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionIdentityChangeRequest"
+      responses:
+        "200":
+          description: Durable pending or idempotently replayed change request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionIdentityChangeRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/session-identity-change-requests/{requestId}:approve:
+    post:
+      operationId: approveSessionIdentityChangeRequest
+      summary: Approve a tenant Session identity change
+      tags: [Session, Administration]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^sicr_[A-Za-z0-9]{20}$"}
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Decided change request.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionIdentityChangeRequest"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /api/v1/session-identity-change-requests/{requestId}:reject:
+    post:
+      operationId: rejectSessionIdentityChangeRequest
+      summary: Reject a tenant Session identity change
+      tags: [Session, Administration]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^sicr_[A-Za-z0-9]{20}$"}
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Decided change request.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionIdentityChangeRequest"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /api/v1/session-identity-change-requests/{requestId}:apply:
+    post:
+      operationId: applySessionIdentityChangeRequest
+      summary: Apply an approved identity change while the Runtime is safely stopped
+      tags: [Session, Administration]
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema: {type: string, pattern: "^sicr_[A-Za-z0-9]{20}$"}
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Applied change request.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionIdentityChangeRequest"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /api/v1/sessions/{sessionId}/resources:
     get:
       operationId: getSessionResources
@@ -5855,8 +6120,11 @@ components:
           enum:
             - CLICK_TARGET
             - TYPE_TEXT
+            - FILL
+            - PASTE_AGENT_CLIPBOARD
             - SCROLL
             - WAIT_FOR
+            - EXECUTE_ACTIONS
             - REQUEST_HUMAN_TAKEOVER
         targetRef:
           type: string
@@ -5873,6 +6141,51 @@ components:
           type: string
           pattern: "^ais_[A-Za-z0-9]{20,32}$"
           description: One-time encrypted input reference. AUTONOMOUS mode and CREDENTIAL or OTP dataClass are required.
+        dataClass:
+          type: string
+          enum: [PUBLIC, PII, CREDENTIAL, OTP]
+        scrollDeltaY:
+          type: integer
+          minimum: -2000
+          maximum: 2000
+        waitCondition:
+          type: string
+          enum: [STATE_CHANGED, STATE_STABLE, TARGET_PRESENT]
+        timeoutMs:
+          type: integer
+          minimum: 100
+          maximum: 10000
+        actions:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentBatchActionRequest"
+        stopOnError:
+          type: boolean
+          default: true
+    AgentBatchActionRequest:
+      type: object
+      additionalProperties: false
+      required: [toolId]
+      properties:
+        toolId:
+          type: string
+          enum: [CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
+        targetRef:
+          type: string
+          maxLength: 128
+        targetRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        value:
+          type: string
+          maxLength: 2000
+          writeOnly: true
+        secretId:
+          type: string
+          pattern: "^ais_[A-Za-z0-9]{20,32}$"
         dataClass:
           type: string
           enum: [PUBLIC, PII, CREDENTIAL, OTP]
@@ -6034,7 +6347,7 @@ components:
     ChallengeAutomationPolicy:
       type: object
       additionalProperties: false
-      required: [sessionId, controlMode, sensitiveInputMaximumAttempts, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, updatedAt]
+      required: [sessionId, controlMode, sensitiveInputMaximumAttempts, enabled, maximumAttempts, minimumConfidence, allowMultiClick, allowSlide, motionMinimumSteps, motionMaximumSteps, motionMinimumDelayMs, motionMaximumDelayMs, targetOffsetRatio, updatedAt]
       properties:
         sessionId:
           type: string
@@ -6063,6 +6376,31 @@ components:
           type: boolean
         allowSlide:
           type: boolean
+        motionMinimumSteps:
+          type: integer
+          minimum: 4
+          maximum: 32
+          default: 8
+        motionMaximumSteps:
+          type: integer
+          minimum: 4
+          maximum: 40
+          default: 18
+        motionMinimumDelayMs:
+          type: integer
+          minimum: 5
+          maximum: 100
+          default: 12
+        motionMaximumDelayMs:
+          type: integer
+          minimum: 5
+          maximum: 150
+          default: 45
+        targetOffsetRatio:
+          type: number
+          minimum: 0
+          maximum: 0.35
+          default: 0.15
         updatedAt:
           type: string
           format: date-time
@@ -6092,6 +6430,31 @@ components:
           type: boolean
         allowSlide:
           type: boolean
+        motionMinimumSteps:
+          type: integer
+          minimum: 4
+          maximum: 32
+          default: 8
+        motionMaximumSteps:
+          type: integer
+          minimum: 4
+          maximum: 40
+          default: 18
+        motionMinimumDelayMs:
+          type: integer
+          minimum: 5
+          maximum: 100
+          default: 12
+        motionMaximumDelayMs:
+          type: integer
+          minimum: 5
+          maximum: 150
+          default: 45
+        targetOffsetRatio:
+          type: number
+          minimum: 0
+          maximum: 0.35
+          default: 0.15
     CreateAgentInputSecretRequest:
       type: object
       additionalProperties: false
@@ -6952,13 +7315,13 @@ components:
     AgentReviewStep:
       type: object
       additionalProperties: false
-      required: [stepId, toolId, riskClass, targetOrigin, targetRefHash, dataClass, payloadLength, requiredConfirmation, strategy, requiredStateQuality, verification]
+      required: [stepId, toolId, riskClass, targetOrigin, targetRefHash, dataClass, payloadLength, batchActionCount, batchActionHash, requiredConfirmation, strategy, requiredStateQuality, verification]
       properties:
         stepId:
           type: string
         toolId:
           type: string
-          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, TYPE_TEXT, SCROLL, WAIT_FOR, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         targetOrigin:
@@ -6973,6 +7336,14 @@ components:
         payloadLength:
           type: [integer, "null"]
           minimum: 0
+        batchActionCount:
+          type: integer
+          minimum: 0
+          maximum: 20
+        batchActionHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+          description: Hash of minimized ordered batch metadata; no plaintext or sealed payload is shared.
         requiredConfirmation:
           type: boolean
         strategy:
@@ -7312,8 +7683,11 @@ components:
             - GET_CURRENT_STATE
             - CLICK_TARGET
             - TYPE_TEXT
+            - FILL
+            - PASTE_AGENT_CLIPBOARD
             - SCROLL
             - WAIT_FOR
+            - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
             - REQUEST_HUMAN_TAKEOVER
@@ -7370,6 +7744,8 @@ components:
         - timeoutMs
         - sensitiveTargetAuthorized
         - maximumAttempts
+        - actions
+        - stopOnError
       properties:
         targetRef:
           type: [string, "null"]
@@ -7379,6 +7755,59 @@ components:
         payloadHash:
           type: [string, "null"]
           description: Hash of sealed input; plaintext and ciphertext are never returned.
+        payloadLength:
+          type: [integer, "null"]
+        dataClass:
+          type: [string, "null"]
+        scrollDeltaY:
+          type: [integer, "null"]
+        waitCondition:
+          type: [string, "null"]
+        timeoutMs:
+          type: [integer, "null"]
+        sensitiveTargetAuthorized:
+          type: boolean
+        maximumAttempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+        actions:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentBatchActionInput"
+        stopOnError:
+          type: boolean
+    AgentBatchActionInput:
+      type: object
+      additionalProperties: false
+      required:
+        - actionId
+        - toolId
+        - targetRef
+        - targetRevision
+        - payloadHash
+        - payloadLength
+        - dataClass
+        - scrollDeltaY
+        - waitCondition
+        - timeoutMs
+        - sensitiveTargetAuthorized
+        - maximumAttempts
+      properties:
+        actionId:
+          type: string
+          pattern: "^action_[1-9][0-9]?$"
+        toolId:
+          type: string
+          enum: [CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
+        targetRef:
+          type: [string, "null"]
+        targetRevision:
+          type: [integer, "null"]
+          format: int64
+        payloadHash:
+          type: [string, "null"]
         payloadLength:
           type: [integer, "null"]
         dataClass:
@@ -7433,8 +7862,11 @@ components:
             - GET_CURRENT_STATE
             - CLICK_TARGET
             - TYPE_TEXT
+            - FILL
+            - PASTE_AGENT_CLIPBOARD
             - SCROLL
             - WAIT_FOR
+            - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
             - REQUEST_HUMAN_TAKEOVER
@@ -8870,6 +9302,106 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/InteractiveTarget"
+    AgentBrowserSnapshot:
+      type: object
+      additionalProperties: false
+      required: [stateCursor, state, visibleTextSummary, activeTab, focusedElementId, formControlElementIds, dialogElementIds, pageLoadingState, challengeState, visionRecommended]
+      properties:
+        stateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+          description: Monotonic State/Target revision plus authoritative content hash.
+        state:
+          $ref: "#/components/schemas/BrowserState"
+        visibleTextSummary:
+          type: string
+          maxLength: 4000
+          description: Bounded non-sensitive summary; never contains password or OTP values.
+        activeTab:
+          $ref: "#/components/schemas/AgentBrowserTab"
+        focusedElementId:
+          type: [string, "null"]
+        formControlElementIds:
+          type: array
+          maxItems: 200
+          items: {type: string}
+        dialogElementIds:
+          type: array
+          maxItems: 200
+          items: {type: string}
+        pageLoadingState:
+          type: string
+          enum: [loading, interactive, complete, ""]
+        challengeState:
+          type: string
+          enum: [NOT_EVALUATED]
+          description: Challenge authority remains the dedicated Challenge API; the snapshot does not infer it from DOM text.
+        visionRecommended:
+          type: boolean
+          description: True only when structured perception is depth-limited or a visible target is occluded.
+    AgentBrowserTab:
+      type: object
+      additionalProperties: false
+      required: [url, title, active]
+      properties:
+        url: {type: string}
+        title: {type: string}
+        active: {type: boolean}
+    AgentBrowserInspectRequest:
+      type: object
+      additionalProperties: false
+      required: [stateCursor, elementIds]
+      properties:
+        stateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+        elementIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 256
+    AgentBrowserFindRequest:
+      type: object
+      additionalProperties: false
+      required: [query, includeHidden]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 256
+        roles:
+          type: array
+          maxItems: 16
+          items:
+            type: string
+            maxLength: 64
+        includeHidden:
+          type: boolean
+          default: false
+        limit:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 100
+          default: 20
+    AgentBrowserTargetList:
+      type: object
+      additionalProperties: false
+      required: [stateCursor, targets, truncated]
+      properties:
+        stateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+        targets:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/InteractiveTarget"
+        truncated:
+          type: boolean
     StateResyncRequest:
       type: object
       additionalProperties: false
@@ -8900,17 +9432,39 @@ components:
     InteractiveTarget:
       type: object
       additionalProperties: false
-      required: [targetRef, role, enabled, visible]
+      required:
+        - targetRef
+        - elementId
+        - role
+        - enabled
+        - visible
+        - sensitive
+        - focused
+        - interactive
+        - frameId
+        - inViewport
+        - occluded
       properties:
         targetRef:
           type: string
           maxLength: 256
+        elementId:
+          type: string
+          maxLength: 256
+          description: Stable structured element ID; actions remain fenced by stateCursor/targetRevision.
         role:
           type: string
           maxLength: 128
         name:
           type: [string, "null"]
           maxLength: 256
+        value:
+          type: [string, "null"]
+          maxLength: 512
+          description: Always null for password, OTP, payment and other sensitive controls.
+        controlType:
+          type: [string, "null"]
+          maxLength: 64
         bounds:
           oneOf:
             - $ref: "#/components/schemas/TargetBounds"
@@ -8919,6 +9473,38 @@ components:
           type: boolean
         visible:
           type: boolean
+        sensitive:
+          type: boolean
+        focused:
+          type: boolean
+        checked:
+          type: [boolean, "null"]
+        selected:
+          type: [boolean, "null"]
+        interactive:
+          type: boolean
+        frameId:
+          type: string
+          maxLength: 512
+        inViewport:
+          type: boolean
+        occluded:
+          type: boolean
+        visibilityReason:
+          type: [string, "null"]
+          enum:
+            - HIDDEN_ATTRIBUTE
+            - ARIA_HIDDEN
+            - DISPLAY_NONE
+            - VISIBILITY_HIDDEN
+            - OPACITY_ZERO
+            - POINTER_EVENTS_NONE
+            - COLLAPSED
+            - ZERO_SIZE
+            - OUTSIDE_VIEWPORT
+            - OCCLUDED
+            - LEGACY_VISIBILITY_UNKNOWN
+            - null
     TargetBounds:
       type: object
       additionalProperties: false
@@ -9694,6 +10280,145 @@ components:
           type: integer
           format: int64
           minimum: 0
+    ExecuteAgentBrowserActionsRequest:
+      type: object
+      additionalProperties: false
+      required: [goal, expectedStateCursor, actions]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: User-authorized intent used by the existing risk and confirmation policy.
+        expectedStateCursor:
+          type: string
+          pattern: "^[0-9]+:[0-9]+:[a-f0-9]{64}$"
+        actions:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AgentBatchActionRequest"
+        stopOnError:
+          type: boolean
+          default: true
+    AgentClipboard:
+      type: object
+      additionalProperties: false
+      required: [sessionId, version, contentHash, valueLength, value, updatedAt]
+      properties:
+        sessionId:
+          type: string
+          pattern: "^ses_[a-zA-Z0-9]{16,}$"
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        contentHash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        valueLength:
+          type: integer
+          minimum: 0
+          maximum: 2000
+        value:
+          type: [string, "null"]
+          maxLength: 2000
+          description: AgentClipboard only. This never reflects the VNC/X11 UserClipboard.
+        updatedAt:
+          type: [string, "null"]
+          format: date-time
+    WriteAgentClipboardRequest:
+      type: object
+      additionalProperties: false
+      required: [value, expectedVersion]
+      properties:
+        value:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          writeOnly: true
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+    SessionIdentitySpecInput:
+      type: object
+      additionalProperties: false
+      properties:
+        userAgent: {type: [string, "null"], maxLength: 512}
+        timezone:
+          type: [string, "null"]
+          maxLength: 128
+          pattern: "^(?:UTC|[A-Za-z_+-]+(?:/[A-Za-z0-9_+.-]+)+)$"
+        locale:
+          type: [string, "null"]
+          maxLength: 64
+          pattern: "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+        languages:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 64
+            pattern: "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+        webRtcPolicy:
+          type: [string, "null"]
+          enum: [DEFAULT, DISABLED, PROXY_ONLY, null]
+        dnsPolicy:
+          type: [string, "null"]
+          enum: [SYSTEM, PROXY, null]
+        viewportWidth: {type: [integer, "null"], minimum: 320, maximum: 7680}
+        viewportHeight: {type: [integer, "null"], minimum: 240, maximum: 4320}
+        screenWidth: {type: [integer, "null"], minimum: 320, maximum: 7680}
+        screenHeight: {type: [integer, "null"], minimum: 240, maximum: 4320}
+        deviceScaleFactor: {type: [number, "null"], minimum: 0.5, maximum: 4.0}
+        fingerprintProfile:
+          type: [string, "null"]
+          pattern: "^[A-Za-z0-9._-]{1,128}$"
+          description: Must be installed on the selected Browser Node; chromium-standard-v1 is built in.
+        operatingSystemProfile:
+          type: [string, "null"]
+          pattern: "^[A-Za-z0-9._-]{1,128}$"
+          description: Must match a Node runtime profile; linux-desktop-v1 is built in.
+    SessionIdentitySpec:
+      type: object
+      additionalProperties: false
+      required: [sessionId, version, specHash, locked, spec, lockedAt, updatedAt]
+      properties:
+        sessionId: {type: string}
+        version: {type: integer, format: int64, minimum: 1}
+        specHash: {type: string, pattern: "^[a-f0-9]{64}$"}
+        locked: {type: boolean, const: true}
+        spec: {$ref: "#/components/schemas/SessionIdentitySpecInput"}
+        lockedAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    CreateSessionIdentityChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, proposedSpec, reason]
+      properties:
+        expectedVersion: {type: integer, format: int64, minimum: 1}
+        proposedSpec: {$ref: "#/components/schemas/SessionIdentitySpecInput"}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    SessionIdentityChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [requestId, sessionId, expectedVersion, proposedSpecHash, proposedSpec, reason, state, createdBy, decidedBy, createdAt, decidedAt, appliedAt]
+      properties:
+        requestId: {type: string, pattern: "^sicr_[A-Za-z0-9]{20}$"}
+        sessionId: {type: string}
+        expectedVersion: {type: integer, format: int64, minimum: 1}
+        proposedSpecHash: {type: string, pattern: "^[a-f0-9]{64}$"}
+        proposedSpec: {$ref: "#/components/schemas/SessionIdentitySpecInput"}
+        reason: {type: string, maxLength: 1000}
+        state: {type: string, enum: [PENDING, APPROVED, REJECTED, APPLIED, STALE]}
+        createdBy: {type: string}
+        decidedBy: {type: [string, "null"]}
+        createdAt: {type: string, format: date-time}
+        decidedAt: {type: [string, "null"], format: date-time}
+        appliedAt: {type: [string, "null"], format: date-time}
     CreateSessionRequest:
       type: object
       additionalProperties: false
@@ -9793,6 +10518,9 @@ components:
           additionalProperties:
             type: string
             maxLength: 1024
+        identitySpec:
+          $ref: "#/components/schemas/SessionIdentitySpecInput"
+          description: Creation-time Browser identity. It becomes locked immediately after Session creation.
     CreateSessionResponse:
       type: object
       additionalProperties: false

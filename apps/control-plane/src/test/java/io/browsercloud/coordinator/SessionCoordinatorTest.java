@@ -38,6 +38,7 @@ class SessionCoordinatorTest {
   @Mock private RuntimeResourceLimitsRepository resourceLimitsRepository;
   @Mock private ProxyRuntimeBindingRepository proxyBindingRepository;
   @Mock private BrowserTransactionPolicyRepository browserTransactionPolicyRepository;
+  @Mock private BrowserIdentitySpecRepository browserIdentitySpecRepository;
   @Mock private CoordinatorRouteAuthority routeAuthority;
   @Mock private CoordinatorShardLocality shardLocality;
 
@@ -58,12 +59,16 @@ class SessionCoordinatorTest {
             resourceLimitsRepository,
             proxyBindingRepository,
             browserTransactionPolicyRepository,
+            browserIdentitySpecRepository,
             routeAuthority,
             shardLocality);
     lenient().when(shardLocality.owns(anyInt())).thenReturn(true);
     lenient()
         .when(browserTransactionPolicyRepository.find(anyString(), anyString()))
         .thenReturn(BrowserTransactionPolicy.empty());
+    lenient()
+        .when(browserIdentitySpecRepository.require(anyString(), anyString()))
+        .thenReturn(BrowserIdentitySpec.empty());
     lenient()
         .when(routeAuthority.resolve(anyString()))
         .thenAnswer(
@@ -184,6 +189,43 @@ class SessionCoordinatorTest {
     assertThat(payload.getCriticalTransactionRoutePrefixesList())
         .containsExactly("/cases/finalize");
     assertThat(payload.getBrowserTransactionPolicyHash()).isEqualTo("a".repeat(64));
+  }
+
+  @Test
+  void sendsLockedBrowserIdentityOnEveryRuntimeStart() throws Exception {
+    var session = createSession("ses-1", SessionState.CREATED);
+    when(sessionRepository.requireForUpdate("ses-1")).thenReturn(session);
+    when(operationRepository.nextOperationEpoch("ses-1")).thenReturn(1L);
+    when(browserIdentitySpecRepository.require("ses-1", "tenant-1"))
+        .thenReturn(
+            new BrowserIdentitySpec(
+                "BrowserCloud-Test-UA",
+                "Asia/Shanghai",
+                "zh-CN",
+                java.util.List.of("zh-CN", "en-US"),
+                "PROXY_ONLY",
+                "SYSTEM",
+                1280,
+                720,
+                1920,
+                1080,
+                new java.math.BigDecimal("1.25"),
+                "chromium-standard-v1",
+                "linux-desktop-v1",
+                4,
+                "b".repeat(64)));
+
+    coordinator.handle(new StartSession("ses-1", "runtime-1", "idem-identity"));
+
+    var command = org.mockito.ArgumentCaptor.forClass(NodeCommand.class);
+    verify(nodeCommandGateway).send(command.capture());
+    var payload = StartRuntimeCommand.parseFrom(command.getValue().payload());
+    assertThat(payload.getIdentityUserAgent()).isEqualTo("BrowserCloud-Test-UA");
+    assertThat(payload.getIdentityTimezone()).isEqualTo("Asia/Shanghai");
+    assertThat(payload.getIdentityLanguagesList()).containsExactly("zh-CN", "en-US");
+    assertThat(payload.getIdentityViewportWidth()).isEqualTo(1280);
+    assertThat(payload.getIdentitySpecVersion()).isEqualTo(4);
+    assertThat(payload.getIdentitySpecHash()).isEqualTo("b".repeat(64));
   }
 
   @Test

@@ -40,7 +40,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class AgentExecutionService {
 
   private static final Set<ToolId> ASYNC_ACTIONS =
-      Set.of(ToolId.CLICK_TARGET, ToolId.TYPE_TEXT, ToolId.SCROLL, ToolId.WAIT_FOR);
+      Set.of(
+          ToolId.CLICK_TARGET,
+          ToolId.TYPE_TEXT,
+          ToolId.FILL,
+          ToolId.PASTE_AGENT_CLIPBOARD,
+          ToolId.SCROLL,
+          ToolId.WAIT_FOR,
+          ToolId.EXECUTE_ACTIONS);
 
   private final AgentTaskJpaRepository taskRepository;
   private final SessionCoordinator coordinator;

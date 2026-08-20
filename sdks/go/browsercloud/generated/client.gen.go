@@ -69,6 +69,19 @@ var Operations = map[string]Operation{
 	"createSession":                              {OperationID: "createSession", Method: "POST", Path: "/api/v1/sessions", PathParameters: nil, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateSessionRequest", RequestRequired: true, ResponseSchema: "CreateSessionResponse"},
 	"getSession":                                 {OperationID: "getSession", Method: "GET", Path: "/api/v1/sessions/{sessionId}", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionView"},
 	"getBrowserState":                            {OperationID: "getBrowserState", Method: "GET", Path: "/api/v1/sessions/{sessionId}/state", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "BrowserState"},
+	"getAgentBrowserSnapshot":                    {OperationID: "getAgentBrowserSnapshot", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/snapshot", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentBrowserSnapshot"},
+	"inspectAgentBrowserElements":                {OperationID: "inspectAgentBrowserElements", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/inspect", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentBrowserInspectRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
+	"findAgentBrowserElements":                   {OperationID: "findAgentBrowserElements", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/find", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "AgentBrowserFindRequest", RequestRequired: true, ResponseSchema: "AgentBrowserTargetList"},
+	"executeAgentBrowserActions":                 {OperationID: "executeAgentBrowserActions", Method: "POST", Path: "/api/v1/sessions/{sessionId}/agent-browser/execute-actions", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "ExecuteAgentBrowserActionsRequest", RequestRequired: true, ResponseSchema: "AgentTask"},
+	"readAgentClipboard":                         {OperationID: "readAgentClipboard", Method: "GET", Path: "/api/v1/sessions/{sessionId}/agent-browser/clipboard", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentClipboard"},
+	"writeAgentClipboard":                        {OperationID: "writeAgentClipboard", Method: "PUT", Path: "/api/v1/sessions/{sessionId}/agent-browser/clipboard", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "WriteAgentClipboardRequest", RequestRequired: true, ResponseSchema: "AgentClipboard"},
+	"clearAgentClipboard":                        {OperationID: "clearAgentClipboard", Method: "DELETE", Path: "/api/v1/sessions/{sessionId}/agent-browser/clipboard", PathParameters: []string{"sessionId"}, QueryParameters: []string{"expectedVersion"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "AgentClipboard"},
+	"getSessionIdentitySpec":                     {OperationID: "getSessionIdentitySpec", Method: "GET", Path: "/api/v1/sessions/{sessionId}/identity-spec", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionIdentitySpec"},
+	"rejectDirectSessionIdentityMutation":        {OperationID: "rejectDirectSessionIdentityMutation", Method: "PUT", Path: "/api/v1/sessions/{sessionId}/identity-spec", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "SessionIdentitySpecInput", RequestRequired: true, ResponseSchema: ""},
+	"createSessionIdentityChangeRequest":         {OperationID: "createSessionIdentityChangeRequest", Method: "POST", Path: "/api/v1/sessions/{sessionId}/identity-change-requests", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"Idempotency-Key", "X-Tenant-Id"}, RequestSchema: "CreateSessionIdentityChangeRequest", RequestRequired: true, ResponseSchema: "SessionIdentityChangeRequest"},
+	"approveSessionIdentityChangeRequest":        {OperationID: "approveSessionIdentityChangeRequest", Method: "POST", Path: "/api/v1/session-identity-change-requests/{requestId}:approve", PathParameters: []string{"requestId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionIdentityChangeRequest"},
+	"rejectSessionIdentityChangeRequest":         {OperationID: "rejectSessionIdentityChangeRequest", Method: "POST", Path: "/api/v1/session-identity-change-requests/{requestId}:reject", PathParameters: []string{"requestId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionIdentityChangeRequest"},
+	"applySessionIdentityChangeRequest":          {OperationID: "applySessionIdentityChangeRequest", Method: "POST", Path: "/api/v1/session-identity-change-requests/{requestId}:apply", PathParameters: []string{"requestId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionIdentityChangeRequest"},
 	"getSessionResources":                        {OperationID: "getSessionResources", Method: "GET", Path: "/api/v1/sessions/{sessionId}/resources", PathParameters: []string{"sessionId"}, QueryParameters: nil, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "SessionResource"},
 	"listSessionResourceEvents":                  {OperationID: "listSessionResourceEvents", Method: "GET", Path: "/api/v1/sessions/{sessionId}/resource-events", PathParameters: []string{"sessionId"}, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "ResourceEventList"},
 	"listSessionEvidence":                        {OperationID: "listSessionEvidence", Method: "GET", Path: "/api/v1/sessions/{sessionId}/evidence", PathParameters: []string{"sessionId"}, QueryParameters: []string{"limit", "offset"}, HeaderParameters: []string{"X-Tenant-Id"}, RequestSchema: "", RequestRequired: false, ResponseSchema: "EvidenceList"},
@@ -424,6 +437,45 @@ func (c *Client) GetSession(ctx context.Context, request Request) (any, *http.Re
 }
 func (c *Client) GetBrowserState(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getBrowserState", request)
+}
+func (c *Client) GetAgentBrowserSnapshot(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getAgentBrowserSnapshot", request)
+}
+func (c *Client) InspectAgentBrowserElements(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "inspectAgentBrowserElements", request)
+}
+func (c *Client) FindAgentBrowserElements(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "findAgentBrowserElements", request)
+}
+func (c *Client) ExecuteAgentBrowserActions(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "executeAgentBrowserActions", request)
+}
+func (c *Client) ReadAgentClipboard(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "readAgentClipboard", request)
+}
+func (c *Client) WriteAgentClipboard(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "writeAgentClipboard", request)
+}
+func (c *Client) ClearAgentClipboard(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "clearAgentClipboard", request)
+}
+func (c *Client) GetSessionIdentitySpec(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "getSessionIdentitySpec", request)
+}
+func (c *Client) RejectDirectSessionIdentityMutation(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "rejectDirectSessionIdentityMutation", request)
+}
+func (c *Client) CreateSessionIdentityChangeRequest(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "createSessionIdentityChangeRequest", request)
+}
+func (c *Client) ApproveSessionIdentityChangeRequest(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "approveSessionIdentityChangeRequest", request)
+}
+func (c *Client) RejectSessionIdentityChangeRequest(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "rejectSessionIdentityChangeRequest", request)
+}
+func (c *Client) ApplySessionIdentityChangeRequest(ctx context.Context, request Request) (any, *http.Response, error) {
+	return c.Call(ctx, "applySessionIdentityChangeRequest", request)
 }
 func (c *Client) GetSessionResources(ctx context.Context, request Request) (any, *http.Response, error) {
 	return c.Call(ctx, "getSessionResources", request)

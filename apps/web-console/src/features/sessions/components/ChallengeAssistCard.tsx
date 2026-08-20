@@ -138,6 +138,11 @@ export function ChallengeAssistCard({
                   minimumConfidence: automationPolicy.minimumConfidence,
                   allowMultiClick: automationPolicy.allowMultiClick,
                   allowSlide: automationPolicy.allowSlide,
+                  motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                  motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                  motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                  motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                  targetOffsetRatio: automationPolicy.targetOffsetRatio,
                 })
               }
               className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
@@ -158,6 +163,11 @@ export function ChallengeAssistCard({
                   minimumConfidence: automationPolicy.minimumConfidence,
                   allowMultiClick: automationPolicy.allowMultiClick,
                   allowSlide: automationPolicy.allowSlide,
+                  motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                  motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                  motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                  motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                  targetOffsetRatio: automationPolicy.targetOffsetRatio,
                 })
               }
               className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"
@@ -185,6 +195,11 @@ export function ChallengeAssistCard({
                   minimumConfidence: automationPolicy.minimumConfidence,
                   allowMultiClick: automationPolicy.allowMultiClick,
                   allowSlide: automationPolicy.allowSlide,
+                  motionMinimumSteps: automationPolicy.motionMinimumSteps,
+                  motionMaximumSteps: automationPolicy.motionMaximumSteps,
+                  motionMinimumDelayMs: automationPolicy.motionMinimumDelayMs,
+                  motionMaximumDelayMs: automationPolicy.motionMaximumDelayMs,
+                  targetOffsetRatio: automationPolicy.targetOffsetRatio,
                 });
               }}
               className="h-8 rounded-[6px] border border-border-default bg-surface-1 px-2 font-mono text-[10px] text-text-primary disabled:opacity-40"

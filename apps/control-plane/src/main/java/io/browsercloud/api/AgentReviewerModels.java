@@ -63,6 +63,8 @@ public final class AgentReviewerModels {
       String targetRefHash,
       String dataClass,
       Integer payloadLength,
+      int batchActionCount,
+      String batchActionHash,
       boolean requiredConfirmation,
       ExecutionStrategy strategy,
       String requiredStateQuality,

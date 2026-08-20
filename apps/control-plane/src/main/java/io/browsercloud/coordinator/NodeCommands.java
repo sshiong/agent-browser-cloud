@@ -7,6 +7,7 @@ import io.browsercloud.domain.operation.ExclusiveOperation;
 import io.browsercloud.domain.session.SessionContext;
 import io.browsercloud.proto.node.v1.AdjustRuntimeResourcesCommand;
 import io.browsercloud.proto.node.v1.AgentActionCommand;
+import io.browsercloud.proto.node.v1.AgentActionPrimitive;
 import io.browsercloud.proto.node.v1.AgentNavigateCommand;
 import io.browsercloud.proto.node.v1.BeginHumanTakeoverCommand;
 import io.browsercloud.proto.node.v1.BusinessRecoveryActionCommand;
@@ -76,6 +77,26 @@ public final class NodeCommands {
       String profileCheckpointId,
       ProxyRuntimeBinding proxyBinding,
       BrowserTransactionPolicy browserTransactionPolicy) {
+    return startRuntime(
+        session,
+        operation,
+        requestedRuntimeBuildId,
+        requestedLimits,
+        profileCheckpointId,
+        proxyBinding,
+        browserTransactionPolicy,
+        BrowserIdentitySpec.empty());
+  }
+
+  public static NodeCommand startRuntime(
+      SessionContext session,
+      ExclusiveOperation operation,
+      String requestedRuntimeBuildId,
+      RuntimeResourceLimits requestedLimits,
+      String profileCheckpointId,
+      ProxyRuntimeBinding proxyBinding,
+      BrowserTransactionPolicy browserTransactionPolicy,
+      BrowserIdentitySpec identitySpec) {
     var limits = requestedLimits == null ? defaultLimits(session) : requestedLimits;
     if (limits.resourceClass() != session.resourceClass()) {
       throw new IllegalArgumentException("Runtime limits do not match committed Resource Class");
@@ -120,7 +141,25 @@ public final class NodeCommands {
             .setGpuRequired(limits.gpu())
             .setNativeOsRequired(limits.nativeOs())
             .setIsolationRequired(limits.isolated())
-            .setProfileCheckpointId(profileCheckpointId == null ? "" : profileCheckpointId);
+            .setProfileCheckpointId(profileCheckpointId == null ? "" : profileCheckpointId)
+            .setIdentityUserAgent(value(identitySpec.userAgent()))
+            .setIdentityTimezone(value(identitySpec.timezone()))
+            .setIdentityLocale(value(identitySpec.locale()))
+            .addAllIdentityLanguages(identitySpec.languages())
+            .setIdentityWebrtcPolicy(value(identitySpec.webRtcPolicy()))
+            .setIdentityDnsPolicy(value(identitySpec.dnsPolicy()))
+            .setIdentityViewportWidth(number(identitySpec.viewportWidth()))
+            .setIdentityViewportHeight(number(identitySpec.viewportHeight()))
+            .setIdentityScreenWidth(number(identitySpec.screenWidth()))
+            .setIdentityScreenHeight(number(identitySpec.screenHeight()))
+            .setIdentityDeviceScaleFactor(
+                identitySpec.deviceScaleFactor() == null
+                    ? 0
+                    : identitySpec.deviceScaleFactor().doubleValue())
+            .setIdentityFingerprintProfile(value(identitySpec.fingerprintProfile()))
+            .setIdentityOperatingSystemProfile(value(identitySpec.operatingSystemProfile()))
+            .setIdentitySpecVersion(identitySpec.version())
+            .setIdentitySpecHash(value(identitySpec.specHash()));
     if (proxyBinding != null) {
       if (!proxyBinding.bindingId().equals(session.proxyBindingId())) {
         throw new IllegalArgumentException(
@@ -142,6 +181,14 @@ public final class NodeCommands {
         operation.operationEpoch(),
         operation.operationId(),
         payload.build().toByteArray());
+  }
+
+  private static String value(String value) {
+    return value == null ? "" : value;
+  }
+
+  private static int number(Integer value) {
+    return value == null ? 0 : value;
   }
 
   private static RuntimeResourceLimits defaultLimits(SessionContext session) {
@@ -451,7 +498,12 @@ public final class NodeCommands {
       int attemptNumber,
       long baseStateVersion,
       String baseContentHash,
-      java.util.List<io.browsercloud.api.ChallengeAutomationModels.ChallengeVisualAction> actions) {
+      java.util.List<io.browsercloud.api.ChallengeAutomationModels.ChallengeVisualAction> actions,
+      int motionMinimumSteps,
+      int motionMaximumSteps,
+      int motionMinimumDelayMs,
+      int motionMaximumDelayMs,
+      java.math.BigDecimal targetOffsetRatio) {
     var payload =
         ChallengeAutomationActionCommand.newBuilder()
             .setSessionId(session.sessionId())
@@ -460,7 +512,12 @@ public final class NodeCommands {
             .setChallengeEventId(challengeEventId)
             .setAttemptNumber(attemptNumber)
             .setBaseStateVersion(baseStateVersion)
-            .setBaseContentHash(baseContentHash);
+            .setBaseContentHash(baseContentHash)
+            .setMotionMinSteps(motionMinimumSteps)
+            .setMotionMaxSteps(motionMaximumSteps)
+            .setMotionMinDelayMs(motionMinimumDelayMs)
+            .setMotionMaxDelayMs(motionMaximumDelayMs)
+            .setTargetOffsetRatio(targetOffsetRatio.doubleValue());
     actions.forEach(
         action ->
             payload.addActions(
@@ -509,7 +566,7 @@ public final class NodeCommands {
       long baseStateVersion,
       String baseContentHash) {
     var input = step.input();
-    var payload =
+    var builder =
         AgentActionCommand.newBuilder()
             .setSessionId(session.sessionId())
             .setTaskId(taskId)
@@ -529,8 +586,31 @@ public final class NodeCommands {
             .setBaseContentHash(baseContentHash)
             .setAllowSensitiveTarget(input != null && input.allowSensitiveTarget())
             .setMaximumAttempts(input == null ? 1 : input.maximumAttempts())
-            .build()
-            .toByteArray();
+            .setStopOnError(input == null || input.stopOnError());
+    if (input != null && !input.actions().isEmpty()) {
+      builder.addAllActions(
+          input.actions().stream()
+              .map(
+                  action ->
+                      AgentActionPrimitive.newBuilder()
+                          .setActionId(action.actionId())
+                          .setToolId(action.toolId().name())
+                          .setTargetRef(action.targetRef() == null ? "" : action.targetRef())
+                          .setTargetRevision(
+                              action.targetRevision() == null ? 0 : action.targetRevision())
+                          .setSealedText(
+                              action.sealedPayload() == null ? "" : action.sealedPayload())
+                          .setScrollDeltaY(
+                              action.scrollDeltaY() == null ? 0 : action.scrollDeltaY())
+                          .setWaitCondition(
+                              action.waitCondition() == null ? "" : action.waitCondition().name())
+                          .setTimeoutMs(action.timeoutMs() == null ? 0 : action.timeoutMs())
+                          .setAllowSensitiveTarget(action.allowSensitiveTarget())
+                          .setMaximumAttempts(action.maximumAttempts())
+                          .build())
+              .toList());
+    }
+    var payload = builder.build().toByteArray();
     return command(session, operation, "AgentAction", payload);
   }
 

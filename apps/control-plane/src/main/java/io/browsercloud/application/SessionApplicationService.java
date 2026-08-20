@@ -45,7 +45,55 @@ public class SessionApplicationService {
   private final WorkspaceTagApplicationService workspaceTagService;
   private final WorkspaceSettingsApplicationService workspaceSettingsService;
   private final TenantRouteApplicationService tenantRouteService;
+  private final SessionIdentityApplicationService sessionIdentityService;
 
+  @org.springframework.beans.factory.annotation.Autowired
+  public SessionApplicationService(
+      SessionCoordinator coordinator,
+      SessionRepository sessionRepository,
+      OperationRepository operationRepository,
+      BrowserStateRepository browserStateRepository,
+      IdempotencyService idempotencyService,
+      RemoteDesktopTicketService remoteDesktopTicketService,
+      ProfileApplicationService profileApplicationService,
+      StaticProxyApplicationService proxyApplicationService,
+      AuditApplicationService auditService,
+      DurableWorkflowApplicationService workflowService,
+      RuntimeBuildPolicy runtimeBuildPolicy,
+      CapacityAdmissionService capacityAdmissionService,
+      BrowserCapacityApplicationService browserCapacityService,
+      SessionResourceApplicationService sessionResourceService,
+      ApplicationBusinessRecoveryService businessRecoveryService,
+      WorkspaceGroupApplicationService workspaceGroupService,
+      WorkspaceTagApplicationService workspaceTagService,
+      WorkspaceSettingsApplicationService workspaceSettingsService,
+      TenantRouteApplicationService tenantRouteService,
+      SessionIdentityApplicationService sessionIdentityService) {
+    this.coordinator = coordinator;
+    this.sessionRepository = sessionRepository;
+    this.operationRepository = operationRepository;
+    this.browserStateRepository = browserStateRepository;
+    this.idempotencyService = idempotencyService;
+    this.remoteDesktopTicketService = remoteDesktopTicketService;
+    this.profileApplicationService = profileApplicationService;
+    this.proxyApplicationService = proxyApplicationService;
+    this.auditService = auditService;
+    this.workflowService = workflowService;
+    this.runtimeBuildPolicy = runtimeBuildPolicy;
+    this.capacityAdmissionService = capacityAdmissionService;
+    this.browserCapacityService = browserCapacityService;
+    this.sessionResourceService = sessionResourceService;
+    this.businessRecoveryService = businessRecoveryService;
+    this.workspaceGroupService = workspaceGroupService;
+    this.workspaceTagService = workspaceTagService;
+    this.workspaceSettingsService = workspaceSettingsService;
+    this.tenantRouteService = tenantRouteService;
+    this.sessionIdentityService = sessionIdentityService;
+  }
+
+  /**
+   * Compatibility constructor for isolated unit tests that do not exercise identity persistence.
+   */
   public SessionApplicationService(
       SessionCoordinator coordinator,
       SessionRepository sessionRepository,
@@ -66,25 +114,27 @@ public class SessionApplicationService {
       WorkspaceTagApplicationService workspaceTagService,
       WorkspaceSettingsApplicationService workspaceSettingsService,
       TenantRouteApplicationService tenantRouteService) {
-    this.coordinator = coordinator;
-    this.sessionRepository = sessionRepository;
-    this.operationRepository = operationRepository;
-    this.browserStateRepository = browserStateRepository;
-    this.idempotencyService = idempotencyService;
-    this.remoteDesktopTicketService = remoteDesktopTicketService;
-    this.profileApplicationService = profileApplicationService;
-    this.proxyApplicationService = proxyApplicationService;
-    this.auditService = auditService;
-    this.workflowService = workflowService;
-    this.runtimeBuildPolicy = runtimeBuildPolicy;
-    this.capacityAdmissionService = capacityAdmissionService;
-    this.browserCapacityService = browserCapacityService;
-    this.sessionResourceService = sessionResourceService;
-    this.businessRecoveryService = businessRecoveryService;
-    this.workspaceGroupService = workspaceGroupService;
-    this.workspaceTagService = workspaceTagService;
-    this.workspaceSettingsService = workspaceSettingsService;
-    this.tenantRouteService = tenantRouteService;
+    this(
+        coordinator,
+        sessionRepository,
+        operationRepository,
+        browserStateRepository,
+        idempotencyService,
+        remoteDesktopTicketService,
+        profileApplicationService,
+        proxyApplicationService,
+        auditService,
+        workflowService,
+        runtimeBuildPolicy,
+        capacityAdmissionService,
+        browserCapacityService,
+        sessionResourceService,
+        businessRecoveryService,
+        workspaceGroupService,
+        workspaceTagService,
+        workspaceSettingsService,
+        tenantRouteService,
+        null);
   }
 
   /** 创建 Session。 */
@@ -162,6 +212,10 @@ public class SessionApplicationService {
         humanTakeoverEnabled,
         agentPolicy,
         extensionIds);
+    if (sessionIdentityService != null) {
+      sessionIdentityService.initialize(
+          context.sessionId(), context.tenantId(), request.identitySpec(), now);
+    }
     proxyApplicationService.assignBindingProfile(
         context, request.proxyBindingProfileId(), effectiveRegion, actorId);
     tenantRouteService.bindNewSession(context.sessionId(), context.tenantId());
@@ -588,8 +642,13 @@ public class SessionApplicationService {
                           target ->
                               new BrowserStateView.InteractiveTargetView(
                                   target.targetRef(),
+                                  target.elementId() == null
+                                      ? target.targetRef()
+                                      : target.elementId(),
                                   target.role(),
                                   target.name(),
+                                  target.sensitive() ? null : target.value(),
+                                  target.controlType(),
                                   target.bounds() == null
                                       ? null
                                       : new BrowserStateView.BoundsView(
@@ -599,7 +658,15 @@ public class SessionApplicationService {
                                           target.bounds().height()),
                                   target.enabled(),
                                   target.visible(),
-                                  target.sensitive()))
+                                  target.sensitive(),
+                                  target.focused(),
+                                  target.checked(),
+                                  target.selected(),
+                                  target.interactive(),
+                                  target.frameId() == null ? "main" : target.frameId(),
+                                  target.inViewport(),
+                                  target.occluded(),
+                                  target.visibilityReason()))
                       .toList();
               return new BrowserStateView(
                   state.sessionId(),

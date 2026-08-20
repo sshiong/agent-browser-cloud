@@ -209,6 +209,20 @@ type CreateAgentTaskRequest struct {
 }
 
 type AgentActionRequest struct {
+	ToolId         string                    `json:"toolId,omitempty"`
+	TargetRef      string                    `json:"targetRef,omitempty"`
+	TargetRevision int64                     `json:"targetRevision,omitempty"`
+	Value          string                    `json:"value,omitempty"`
+	SecretId       string                    `json:"secretId,omitempty"`
+	DataClass      string                    `json:"dataClass,omitempty"`
+	ScrollDeltaY   int                       `json:"scrollDeltaY,omitempty"`
+	WaitCondition  string                    `json:"waitCondition,omitempty"`
+	TimeoutMs      int                       `json:"timeoutMs,omitempty"`
+	Actions        []AgentBatchActionRequest `json:"actions,omitempty"`
+	StopOnError    bool                      `json:"stopOnError,omitempty"`
+}
+
+type AgentBatchActionRequest struct {
 	ToolId         string `json:"toolId,omitempty"`
 	TargetRef      string `json:"targetRef,omitempty"`
 	TargetRevision int64  `json:"targetRevision,omitempty"`
@@ -276,6 +290,11 @@ type ChallengeAutomationPolicy struct {
 	MinimumConfidence             float64 `json:"minimumConfidence,omitempty"`
 	AllowMultiClick               bool    `json:"allowMultiClick,omitempty"`
 	AllowSlide                    bool    `json:"allowSlide,omitempty"`
+	MotionMinimumSteps            int     `json:"motionMinimumSteps,omitempty"`
+	MotionMaximumSteps            int     `json:"motionMaximumSteps,omitempty"`
+	MotionMinimumDelayMs          int     `json:"motionMinimumDelayMs,omitempty"`
+	MotionMaximumDelayMs          int     `json:"motionMaximumDelayMs,omitempty"`
+	TargetOffsetRatio             float64 `json:"targetOffsetRatio,omitempty"`
 	UpdatedAt                     string  `json:"updatedAt,omitempty"`
 }
 
@@ -287,6 +306,11 @@ type UpdateChallengeAutomationPolicyRequest struct {
 	MinimumConfidence             float64 `json:"minimumConfidence,omitempty"`
 	AllowMultiClick               bool    `json:"allowMultiClick,omitempty"`
 	AllowSlide                    bool    `json:"allowSlide,omitempty"`
+	MotionMinimumSteps            int     `json:"motionMinimumSteps,omitempty"`
+	MotionMaximumSteps            int     `json:"motionMaximumSteps,omitempty"`
+	MotionMinimumDelayMs          int     `json:"motionMinimumDelayMs,omitempty"`
+	MotionMaximumDelayMs          int     `json:"motionMaximumDelayMs,omitempty"`
+	TargetOffsetRatio             float64 `json:"targetOffsetRatio,omitempty"`
 }
 
 type CreateAgentInputSecretRequest struct {
@@ -578,6 +602,8 @@ type AgentReviewStep struct {
 	TargetRefHash        any            `json:"targetRefHash,omitempty"`
 	DataClass            any            `json:"dataClass,omitempty"`
 	PayloadLength        any            `json:"payloadLength,omitempty"`
+	BatchActionCount     int            `json:"batchActionCount,omitempty"`
+	BatchActionHash      any            `json:"batchActionHash,omitempty"`
 	RequiredConfirmation bool           `json:"requiredConfirmation,omitempty"`
 	Strategy             string         `json:"strategy,omitempty"`
 	RequiredStateQuality string         `json:"requiredStateQuality,omitempty"`
@@ -716,16 +742,33 @@ type AgentPlanStep struct {
 }
 
 type AgentStepInput struct {
-	TargetRef                 any  `json:"targetRef,omitempty"`
-	TargetRevision            any  `json:"targetRevision,omitempty"`
-	PayloadHash               any  `json:"payloadHash,omitempty"`
-	PayloadLength             any  `json:"payloadLength,omitempty"`
-	DataClass                 any  `json:"dataClass,omitempty"`
-	ScrollDeltaY              any  `json:"scrollDeltaY,omitempty"`
-	WaitCondition             any  `json:"waitCondition,omitempty"`
-	TimeoutMs                 any  `json:"timeoutMs,omitempty"`
-	SensitiveTargetAuthorized bool `json:"sensitiveTargetAuthorized,omitempty"`
-	MaximumAttempts           int  `json:"maximumAttempts,omitempty"`
+	TargetRef                 any                     `json:"targetRef,omitempty"`
+	TargetRevision            any                     `json:"targetRevision,omitempty"`
+	PayloadHash               any                     `json:"payloadHash,omitempty"`
+	PayloadLength             any                     `json:"payloadLength,omitempty"`
+	DataClass                 any                     `json:"dataClass,omitempty"`
+	ScrollDeltaY              any                     `json:"scrollDeltaY,omitempty"`
+	WaitCondition             any                     `json:"waitCondition,omitempty"`
+	TimeoutMs                 any                     `json:"timeoutMs,omitempty"`
+	SensitiveTargetAuthorized bool                    `json:"sensitiveTargetAuthorized,omitempty"`
+	MaximumAttempts           int                     `json:"maximumAttempts,omitempty"`
+	Actions                   []AgentBatchActionInput `json:"actions,omitempty"`
+	StopOnError               bool                    `json:"stopOnError,omitempty"`
+}
+
+type AgentBatchActionInput struct {
+	ActionId                  string `json:"actionId,omitempty"`
+	ToolId                    string `json:"toolId,omitempty"`
+	TargetRef                 any    `json:"targetRef,omitempty"`
+	TargetRevision            any    `json:"targetRevision,omitempty"`
+	PayloadHash               any    `json:"payloadHash,omitempty"`
+	PayloadLength             any    `json:"payloadLength,omitempty"`
+	DataClass                 any    `json:"dataClass,omitempty"`
+	ScrollDeltaY              any    `json:"scrollDeltaY,omitempty"`
+	WaitCondition             any    `json:"waitCondition,omitempty"`
+	TimeoutMs                 any    `json:"timeoutMs,omitempty"`
+	SensitiveTargetAuthorized bool   `json:"sensitiveTargetAuthorized,omitempty"`
+	MaximumAttempts           int    `json:"maximumAttempts,omitempty"`
 }
 
 type AgentRiskClass string
@@ -1235,6 +1278,43 @@ type BrowserState struct {
 	Targets              []InteractiveTarget `json:"targets,omitempty"`
 }
 
+type AgentBrowserSnapshot struct {
+	StateCursor           string          `json:"stateCursor,omitempty"`
+	State                 BrowserState    `json:"state,omitempty"`
+	VisibleTextSummary    string          `json:"visibleTextSummary,omitempty"`
+	ActiveTab             AgentBrowserTab `json:"activeTab,omitempty"`
+	FocusedElementId      any             `json:"focusedElementId,omitempty"`
+	FormControlElementIds []string        `json:"formControlElementIds,omitempty"`
+	DialogElementIds      []string        `json:"dialogElementIds,omitempty"`
+	PageLoadingState      string          `json:"pageLoadingState,omitempty"`
+	ChallengeState        string          `json:"challengeState,omitempty"`
+	VisionRecommended     bool            `json:"visionRecommended,omitempty"`
+}
+
+type AgentBrowserTab struct {
+	Url    string `json:"url,omitempty"`
+	Title  string `json:"title,omitempty"`
+	Active bool   `json:"active,omitempty"`
+}
+
+type AgentBrowserInspectRequest struct {
+	StateCursor string   `json:"stateCursor,omitempty"`
+	ElementIds  []string `json:"elementIds,omitempty"`
+}
+
+type AgentBrowserFindRequest struct {
+	Query         string   `json:"query,omitempty"`
+	Roles         []string `json:"roles,omitempty"`
+	IncludeHidden bool     `json:"includeHidden,omitempty"`
+	Limit         any      `json:"limit,omitempty"`
+}
+
+type AgentBrowserTargetList struct {
+	StateCursor string              `json:"stateCursor,omitempty"`
+	Targets     []InteractiveTarget `json:"targets,omitempty"`
+	Truncated   bool                `json:"truncated,omitempty"`
+}
+
 type StateResyncRequest struct {
 	Mode    string `json:"mode,omitempty"`
 	RootRef any    `json:"rootRef,omitempty"`
@@ -1248,12 +1328,24 @@ type StateResyncResponse struct {
 }
 
 type InteractiveTarget struct {
-	TargetRef string        `json:"targetRef,omitempty"`
-	Role      string        `json:"role,omitempty"`
-	Name      any           `json:"name,omitempty"`
-	Bounds    *TargetBounds `json:"bounds,omitempty"`
-	Enabled   bool          `json:"enabled,omitempty"`
-	Visible   bool          `json:"visible,omitempty"`
+	TargetRef        string        `json:"targetRef,omitempty"`
+	ElementId        string        `json:"elementId,omitempty"`
+	Role             string        `json:"role,omitempty"`
+	Name             any           `json:"name,omitempty"`
+	Value            any           `json:"value,omitempty"`
+	ControlType      any           `json:"controlType,omitempty"`
+	Bounds           *TargetBounds `json:"bounds,omitempty"`
+	Enabled          bool          `json:"enabled,omitempty"`
+	Visible          bool          `json:"visible,omitempty"`
+	Sensitive        bool          `json:"sensitive,omitempty"`
+	Focused          bool          `json:"focused,omitempty"`
+	Checked          any           `json:"checked,omitempty"`
+	Selected         any           `json:"selected,omitempty"`
+	Interactive      bool          `json:"interactive,omitempty"`
+	FrameId          string        `json:"frameId,omitempty"`
+	InViewport       bool          `json:"inViewport,omitempty"`
+	Occluded         bool          `json:"occluded,omitempty"`
+	VisibilityReason any           `json:"visibilityReason,omitempty"`
 }
 
 type TargetBounds struct {
@@ -1467,28 +1559,97 @@ type ProviderEvidenceListResponse struct {
 	Total int64              `json:"total,omitempty"`
 }
 
+type ExecuteAgentBrowserActionsRequest struct {
+	Goal                string                    `json:"goal,omitempty"`
+	ExpectedStateCursor string                    `json:"expectedStateCursor,omitempty"`
+	Actions             []AgentBatchActionRequest `json:"actions,omitempty"`
+	StopOnError         bool                      `json:"stopOnError,omitempty"`
+}
+
+type AgentClipboard struct {
+	SessionId   string `json:"sessionId,omitempty"`
+	Version     int64  `json:"version,omitempty"`
+	ContentHash any    `json:"contentHash,omitempty"`
+	ValueLength int    `json:"valueLength,omitempty"`
+	Value       any    `json:"value,omitempty"`
+	UpdatedAt   any    `json:"updatedAt,omitempty"`
+}
+
+type WriteAgentClipboardRequest struct {
+	Value           string `json:"value,omitempty"`
+	ExpectedVersion int64  `json:"expectedVersion,omitempty"`
+}
+
+type SessionIdentitySpecInput struct {
+	UserAgent              any      `json:"userAgent,omitempty"`
+	Timezone               any      `json:"timezone,omitempty"`
+	Locale                 any      `json:"locale,omitempty"`
+	Languages              []string `json:"languages,omitempty"`
+	WebRtcPolicy           any      `json:"webRtcPolicy,omitempty"`
+	DnsPolicy              any      `json:"dnsPolicy,omitempty"`
+	ViewportWidth          any      `json:"viewportWidth,omitempty"`
+	ViewportHeight         any      `json:"viewportHeight,omitempty"`
+	ScreenWidth            any      `json:"screenWidth,omitempty"`
+	ScreenHeight           any      `json:"screenHeight,omitempty"`
+	DeviceScaleFactor      any      `json:"deviceScaleFactor,omitempty"`
+	FingerprintProfile     any      `json:"fingerprintProfile,omitempty"`
+	OperatingSystemProfile any      `json:"operatingSystemProfile,omitempty"`
+}
+
+type SessionIdentitySpec struct {
+	SessionId string                   `json:"sessionId,omitempty"`
+	Version   int64                    `json:"version,omitempty"`
+	SpecHash  string                   `json:"specHash,omitempty"`
+	Locked    bool                     `json:"locked,omitempty"`
+	Spec      SessionIdentitySpecInput `json:"spec,omitempty"`
+	LockedAt  string                   `json:"lockedAt,omitempty"`
+	UpdatedAt string                   `json:"updatedAt,omitempty"`
+}
+
+type CreateSessionIdentityChangeRequest struct {
+	ExpectedVersion int64                    `json:"expectedVersion,omitempty"`
+	ProposedSpec    SessionIdentitySpecInput `json:"proposedSpec,omitempty"`
+	Reason          string                   `json:"reason,omitempty"`
+}
+
+type SessionIdentityChangeRequest struct {
+	RequestId        string                   `json:"requestId,omitempty"`
+	SessionId        string                   `json:"sessionId,omitempty"`
+	ExpectedVersion  int64                    `json:"expectedVersion,omitempty"`
+	ProposedSpecHash string                   `json:"proposedSpecHash,omitempty"`
+	ProposedSpec     SessionIdentitySpecInput `json:"proposedSpec,omitempty"`
+	Reason           string                   `json:"reason,omitempty"`
+	State            string                   `json:"state,omitempty"`
+	CreatedBy        string                   `json:"createdBy,omitempty"`
+	DecidedBy        any                      `json:"decidedBy,omitempty"`
+	CreatedAt        string                   `json:"createdAt,omitempty"`
+	DecidedAt        any                      `json:"decidedAt,omitempty"`
+	AppliedAt        any                      `json:"appliedAt,omitempty"`
+}
+
 type CreateSessionRequest struct {
-	TenantId              string                `json:"tenantId,omitempty"`
-	ProfileId             string                `json:"profileId,omitempty"`
-	RuntimeBuildId        string                `json:"runtimeBuildId,omitempty"`
-	ApplicationId         string                `json:"applicationId,omitempty"`
-	GroupId               string                `json:"groupId,omitempty"`
-	TagIds                []string              `json:"tagIds,omitempty"`
-	Region                string                `json:"region,omitempty"`
-	ProxyBindingProfileId string                `json:"proxyBindingProfileId,omitempty"`
-	ResourcePolicy        ResourcePolicyRequest `json:"resourcePolicy,omitempty"`
-	RequestedTabs         int                   `json:"requestedTabs,omitempty"`
-	AgentActionsPerMinute int                   `json:"agentActionsPerMinute,omitempty"`
-	RemoteDesktop         bool                  `json:"remoteDesktop,omitempty"`
-	HumanTakeoverEnabled  bool                  `json:"humanTakeoverEnabled,omitempty"`
-	AgentPolicy           AgentPolicy           `json:"agentPolicy,omitempty"`
-	Web3Workload          bool                  `json:"web3Workload,omitempty"`
-	MediaWorkload         bool                  `json:"mediaWorkload,omitempty"`
-	RequestedMediaStreams int                   `json:"requestedMediaStreams,omitempty"`
-	MediaBitrateKbps      int                   `json:"mediaBitrateKbps,omitempty"`
-	VideoRecording        bool                  `json:"videoRecording,omitempty"`
-	ExtensionIds          []string              `json:"extensionIds,omitempty"`
-	Metadata              map[string]string     `json:"metadata,omitempty"`
+	TenantId              string                   `json:"tenantId,omitempty"`
+	ProfileId             string                   `json:"profileId,omitempty"`
+	RuntimeBuildId        string                   `json:"runtimeBuildId,omitempty"`
+	ApplicationId         string                   `json:"applicationId,omitempty"`
+	GroupId               string                   `json:"groupId,omitempty"`
+	TagIds                []string                 `json:"tagIds,omitempty"`
+	Region                string                   `json:"region,omitempty"`
+	ProxyBindingProfileId string                   `json:"proxyBindingProfileId,omitempty"`
+	ResourcePolicy        ResourcePolicyRequest    `json:"resourcePolicy,omitempty"`
+	RequestedTabs         int                      `json:"requestedTabs,omitempty"`
+	AgentActionsPerMinute int                      `json:"agentActionsPerMinute,omitempty"`
+	RemoteDesktop         bool                     `json:"remoteDesktop,omitempty"`
+	HumanTakeoverEnabled  bool                     `json:"humanTakeoverEnabled,omitempty"`
+	AgentPolicy           AgentPolicy              `json:"agentPolicy,omitempty"`
+	Web3Workload          bool                     `json:"web3Workload,omitempty"`
+	MediaWorkload         bool                     `json:"mediaWorkload,omitempty"`
+	RequestedMediaStreams int                      `json:"requestedMediaStreams,omitempty"`
+	MediaBitrateKbps      int                      `json:"mediaBitrateKbps,omitempty"`
+	VideoRecording        bool                     `json:"videoRecording,omitempty"`
+	ExtensionIds          []string                 `json:"extensionIds,omitempty"`
+	Metadata              map[string]string        `json:"metadata,omitempty"`
+	IdentitySpec          SessionIdentitySpecInput `json:"identitySpec,omitempty"`
 }
 
 type CreateSessionResponse struct {

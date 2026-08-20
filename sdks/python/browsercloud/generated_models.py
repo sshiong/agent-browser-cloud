@@ -164,7 +164,20 @@ class CreateAgentTaskRequest(TypedDict, total=False):
     actions: list[AgentActionRequest]
 
 class AgentActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'SCROLL', 'WAIT_FOR', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
+    targetRef: str
+    targetRevision: int
+    value: str
+    secretId: str
+    dataClass: Literal['PUBLIC', 'PII', 'CREDENTIAL', 'OTP']
+    scrollDeltaY: int
+    waitCondition: Literal['STATE_CHANGED', 'STATE_STABLE', 'TARGET_PRESENT']
+    timeoutMs: int
+    actions: list[AgentBatchActionRequest]
+    stopOnError: bool
+
+class AgentBatchActionRequest(TypedDict, total=False):
+    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
     targetRef: str
     targetRevision: int
     value: str
@@ -225,6 +238,11 @@ class ChallengeAutomationPolicy(TypedDict, total=False):
     minimumConfidence: float
     allowMultiClick: bool
     allowSlide: bool
+    motionMinimumSteps: int
+    motionMaximumSteps: int
+    motionMinimumDelayMs: int
+    motionMaximumDelayMs: int
+    targetOffsetRatio: float
     updatedAt: str
 
 class UpdateChallengeAutomationPolicyRequest(TypedDict, total=False):
@@ -235,6 +253,11 @@ class UpdateChallengeAutomationPolicyRequest(TypedDict, total=False):
     minimumConfidence: float
     allowMultiClick: bool
     allowSlide: bool
+    motionMinimumSteps: int
+    motionMaximumSteps: int
+    motionMinimumDelayMs: int
+    motionMaximumDelayMs: int
+    targetOffsetRatio: float
 
 class CreateAgentInputSecretRequest(TypedDict, total=False):
     purpose: Literal['USERNAME', 'PASSWORD', 'OTP']
@@ -491,12 +514,14 @@ class FailAgentReviewJobRequest(TypedDict, total=False):
 
 class AgentReviewStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'SCROLL', 'WAIT_FOR', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetOrigin: Any
     targetRefHash: Any
     dataClass: Literal['PUBLIC', 'PII', None]
     payloadLength: Any
+    batchActionCount: int
+    batchActionHash: Any
     requiredConfirmation: bool
     strategy: Literal['SEMANTIC_DOM', 'ACCESSIBILITY', 'DESKTOP_INPUT', 'VISION_DESKTOP', 'HUMAN_ASSIST', 'HUMAN_TAKEOVER']
     requiredStateQuality: str
@@ -608,7 +633,7 @@ class AgentPlan(TypedDict, total=False):
 
 class AgentPlanStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'SCROLL', 'WAIT_FOR', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetUrl: Any
     input: AgentStepInput | None
@@ -633,6 +658,22 @@ class AgentStepInput(TypedDict, total=False):
     timeoutMs: Any
     sensitiveTargetAuthorized: bool
     maximumAttempts: int
+    actions: list[AgentBatchActionInput]
+    stopOnError: bool
+
+class AgentBatchActionInput(TypedDict, total=False):
+    actionId: str
+    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
+    targetRef: Any
+    targetRevision: Any
+    payloadHash: Any
+    payloadLength: Any
+    dataClass: Any
+    scrollDeltaY: Any
+    waitCondition: Any
+    timeoutMs: Any
+    sensitiveTargetAuthorized: bool
+    maximumAttempts: int
 
 AgentRiskClass = Literal['R0_READ_ONLY', 'R1_LOW_RISK_CHANGE', 'R2_DATA_CHANGE', 'R3_ACCOUNT_CHANGE', 'R4_FINANCIAL', 'R5_SECURITY']
 
@@ -640,7 +681,7 @@ AgentPolicy = Literal['DISABLED', 'RESTRICTED', 'BALANCED', 'INTERACTIVE']
 
 class AgentToolExecutionResult(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'SCROLL', 'WAIT_FOR', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     status: Literal['VERIFIED', 'WAITING_FOR_HUMAN', 'ACCEPTED']
     resultHash: str
     output: dict[str, Any]
@@ -1057,6 +1098,38 @@ class BrowserState(TypedDict, total=False):
     networkEvidenceFresh: bool
     targets: list[InteractiveTarget]
 
+class AgentBrowserSnapshot(TypedDict, total=False):
+    stateCursor: str
+    state: BrowserState
+    visibleTextSummary: str
+    activeTab: AgentBrowserTab
+    focusedElementId: Any
+    formControlElementIds: list[str]
+    dialogElementIds: list[str]
+    pageLoadingState: Literal['loading', 'interactive', 'complete', '']
+    challengeState: Literal['NOT_EVALUATED']
+    visionRecommended: bool
+
+class AgentBrowserTab(TypedDict, total=False):
+    url: str
+    title: str
+    active: bool
+
+class AgentBrowserInspectRequest(TypedDict, total=False):
+    stateCursor: str
+    elementIds: list[str]
+
+class AgentBrowserFindRequest(TypedDict, total=False):
+    query: str
+    roles: list[str]
+    includeHidden: bool
+    limit: Any
+
+class AgentBrowserTargetList(TypedDict, total=False):
+    stateCursor: str
+    targets: list[InteractiveTarget]
+    truncated: bool
+
 class StateResyncRequest(TypedDict, total=False):
     mode: Literal['FULL', 'REGION']
     rootRef: Any
@@ -1069,11 +1142,23 @@ class StateResyncResponse(TypedDict, total=False):
 
 class InteractiveTarget(TypedDict, total=False):
     targetRef: str
+    elementId: str
     role: str
     name: Any
+    value: Any
+    controlType: Any
     bounds: TargetBounds | None
     enabled: bool
     visible: bool
+    sensitive: bool
+    focused: bool
+    checked: Any
+    selected: Any
+    interactive: bool
+    frameId: str
+    inViewport: bool
+    occluded: bool
+    visibilityReason: Literal['HIDDEN_ATTRIBUTE', 'ARIA_HIDDEN', 'DISPLAY_NONE', 'VISIBILITY_HIDDEN', 'OPACITY_ZERO', 'POINTER_EVENTS_NONE', 'COLLAPSED', 'ZERO_SIZE', 'OUTSIDE_VIEWPORT', 'OCCLUDED', 'LEGACY_VISIBILITY_UNKNOWN', None]
 
 class TargetBounds(TypedDict, total=False):
     x: float
@@ -1267,6 +1352,67 @@ class ProviderEvidenceListResponse(TypedDict, total=False):
     items: list[ProviderEvidence]
     total: int
 
+class ExecuteAgentBrowserActionsRequest(TypedDict, total=False):
+    goal: str
+    expectedStateCursor: str
+    actions: list[AgentBatchActionRequest]
+    stopOnError: bool
+
+class AgentClipboard(TypedDict, total=False):
+    sessionId: str
+    version: int
+    contentHash: Any
+    valueLength: int
+    value: Any
+    updatedAt: Any
+
+class WriteAgentClipboardRequest(TypedDict, total=False):
+    value: str
+    expectedVersion: int
+
+class SessionIdentitySpecInput(TypedDict, total=False):
+    userAgent: Any
+    timezone: Any
+    locale: Any
+    languages: list[str]
+    webRtcPolicy: Literal['DEFAULT', 'DISABLED', 'PROXY_ONLY', None]
+    dnsPolicy: Literal['SYSTEM', 'PROXY', None]
+    viewportWidth: Any
+    viewportHeight: Any
+    screenWidth: Any
+    screenHeight: Any
+    deviceScaleFactor: Any
+    fingerprintProfile: Any
+    operatingSystemProfile: Any
+
+class SessionIdentitySpec(TypedDict, total=False):
+    sessionId: str
+    version: int
+    specHash: str
+    locked: bool
+    spec: SessionIdentitySpecInput
+    lockedAt: str
+    updatedAt: str
+
+class CreateSessionIdentityChangeRequest(TypedDict, total=False):
+    expectedVersion: int
+    proposedSpec: SessionIdentitySpecInput
+    reason: str
+
+class SessionIdentityChangeRequest(TypedDict, total=False):
+    requestId: str
+    sessionId: str
+    expectedVersion: int
+    proposedSpecHash: str
+    proposedSpec: SessionIdentitySpecInput
+    reason: str
+    state: Literal['PENDING', 'APPROVED', 'REJECTED', 'APPLIED', 'STALE']
+    createdBy: str
+    decidedBy: Any
+    createdAt: str
+    decidedAt: Any
+    appliedAt: Any
+
 class CreateSessionRequest(TypedDict, total=False):
     tenantId: str
     profileId: str
@@ -1289,6 +1435,7 @@ class CreateSessionRequest(TypedDict, total=False):
     videoRecording: bool
     extensionIds: list[str]
     metadata: dict[str, str]
+    identitySpec: SessionIdentitySpecInput
 
 class CreateSessionResponse(TypedDict, total=False):
     sessionId: str
@@ -2701,4 +2848,4 @@ class Error(TypedDict, total=False):
     requestId: str
     timestamp: str
 
-__all__ = ['WorkspaceOverview', 'WorkspaceSessionSummary', 'WorkspaceOperationSummary', 'WorkspaceBrowserNodeSummary', 'WorkspaceProxySummary', 'WorkspaceAgentSummary', 'WorkspaceCostSummary', 'WorkspaceSecuritySummary', 'SearchResourceType', 'GlobalSearchResult', 'GlobalSearchResponse', 'NotificationCategory', 'NotificationSeverity', 'WorkspaceNotification', 'WorkspaceNotificationListResponse', 'UpdateNotificationReadCursorRequest', 'WorkspaceNotificationReadState', 'ThemeMode', 'UpdateUserPreferencesRequest', 'UserPreferences', 'TenantRoute', 'RequestTenantRouteMigration', 'TenantRouteMigration', 'CreateAgentTaskRequest', 'AgentActionRequest', 'AgentInstructionSource', 'AgentTaskListResponse', 'AgentTaskSummaryListResponse', 'AgentTaskSummaryMetrics', 'AgentTaskSummary', 'ChallengeAutomationPolicy', 'UpdateChallengeAutomationPolicyRequest', 'CreateAgentInputSecretRequest', 'AgentInputSecret', 'ChallengeAutomationRun', 'ClaimChallengeVisualJobRequest', 'ChallengeVisualJobClaimRequest', 'ChallengeVisualAction', 'CompleteChallengeVisualJobRequest', 'FailChallengeVisualJobRequest', 'ChallengeVisualJob', 'ChallengeVisualJobClaim', 'ChallengeRegion', 'ChallengeEvent', 'ChallengeEventListResponse', 'ChallengePreview', 'AuthorizeHumanAssistRequest', 'HumanAssistIntent', 'SubmitChallengeInputResponseRequest', 'ChallengeInputResponse', 'AgentTask', 'ClaimAgentExecutionJobRequest', 'AgentExecutionJobClaimRequest', 'FailAgentExecutionJobRequest', 'AgentExecutionJob', 'AgentExecutionJobClaim', 'ClaimAgentReviewJobRequest', 'AgentReviewJobClaimRequest', 'CompleteAgentReviewJobRequest', 'FailAgentReviewJobRequest', 'AgentReviewStep', 'AgentReviewPayload', 'ReviewerModelDeployment', 'AgentReviewJob', 'AgentReviewJobClaim', 'AgentReview', 'AgentStepExecution', 'AgentExecutionWait', 'AgentConfirmation', 'AgentHumanHandoff', 'AgentPlan', 'AgentPlanStep', 'AgentStepInput', 'AgentRiskClass', 'AgentPolicy', 'AgentToolExecutionResult', 'PromptSecurityEvent', 'CreateProfileRequest', 'CreateProfileExportGrantRequest', 'ProfileExportPurpose', 'ProfileExportGrant', 'RedeemProfileExportResponse', 'Profile', 'ProfileListResponse', 'ProfileWarmTierStatus', 'ProfileImport', 'ProfileImportListResponse', 'ProxyProvider', 'ProxyAllocation', 'ProxyOverview', 'ProxyBindingHealth', 'ProxyBindingRequest', 'ProxyBinding', 'ProxyBindingList', 'ProxyRoutingCandidateScore', 'ProxyRoutingDecision', 'ProxyRebindRequest', 'ProxyRebindOperation', 'ProxyRebind', 'SessionState', 'ResourceTemplate', 'RegisterBrowserNodeRequest', 'RecordNodePressureRequest', 'BrowserNode', 'BrowserNodeListResponse', 'UpsertExtensionProfileRequest', 'ExtensionProfile', 'RecordExtensionSampleRequest', 'ExtensionProfileListResponse', 'BrowserPlacement', 'BrowserState', 'StateResyncRequest', 'StateResyncResponse', 'InteractiveTarget', 'TargetBounds', 'RecoveryTargetIndicator', 'ProviderEvidenceRequirement', 'UpsertRecoveryContractRequest', 'RecoveryContract', 'RecoveryContractListResponse', 'RecoveryContractRevisionListResponse', 'RecoveryContractFieldChange', 'RecoveryContractDiff', 'RestoreRecoveryContractRevisionRequest', 'RequestRecoveryContractApprovalRequest', 'RecoveryContractApproval', 'SessionApplicationBinding', 'RebindSessionApplicationRequest', 'SessionApplicationRebind', 'BusinessRecoveryValidation', 'SubmitProviderEvidenceRequest', 'ProviderEvidence', 'ProviderEvidenceListResponse', 'CreateSessionRequest', 'CreateSessionResponse', 'ResourcePolicyRequest', 'ResourcePolicy', 'ExecutionEnvironment', 'MaximumReachedPolicy', 'ResourcePolicyStatus', 'ResourceAdjustment', 'SessionResource', 'ResourceEventList', 'Evidence', 'EvidenceList', 'Recording', 'RecordingList', 'EvidencePurpose', 'CaptureEvidenceRequest', 'EvidenceCapture', 'CreateEvidenceAccessGrantRequest', 'EvidenceAccessGrant', 'RedeemEvidenceAccessResponse', 'SessionSafePoint', 'SafePointBlocker', 'CreateSafetyLeaseRequest', 'RenewSafetyLeaseRequest', 'SafetyLease', 'SafetyLeaseList', 'SessionMigration', 'BusinessRecoveryAction', 'ResourcePolicyOperation', 'SessionContext', 'SessionView', 'EnvironmentSavedViewScope', 'EnvironmentPrimaryView', 'EnvironmentSavedViewTagMatch', 'CreateEnvironmentSavedViewRequest', 'UpdateEnvironmentSavedViewRequest', 'EnvironmentSavedView', 'EnvironmentSavedViewListResponse', 'EnvironmentImportState', 'EnvironmentImportValidationState', 'EnvironmentImportExecutionState', 'EnvironmentImportSpec', 'PreviewEnvironmentImportRequest', 'CommitEnvironmentImportRequest', 'EnvironmentImportItem', 'EnvironmentImport', 'EnvironmentImportListItem', 'EnvironmentImportListResponse', 'WorkspaceGroupRequest', 'WorkspaceGroupSession', 'WorkspaceGroup', 'WorkspaceGroupListResponse', 'WorkspaceTagRequest', 'WorkspaceTagSummary', 'WorkspaceTagSession', 'WorkspaceTag', 'WorkspaceTagListResponse', 'WorkspaceBatchAction', 'WorkspaceBatchState', 'WorkspaceBatchItemState', 'WorkspaceBatchSelector', 'CreateWorkspaceBatchOperationRequest', 'CancelWorkspaceBatchOperationRequest', 'WorkspaceBatchOperationItem', 'WorkspaceBatchOperation', 'WorkspaceBatchOperationListResponse', 'WorkspaceMetadataBatchAction', 'WorkspaceMetadataBatchSelector', 'WorkspaceMetadataBatchTarget', 'CreateWorkspaceMetadataBatchOperationRequest', 'WorkspaceMetadataBatchOperationItem', 'WorkspaceMetadataBatchOperation', 'WorkspaceMetadataBatchOperationListResponse', 'WorkspaceSettingsRequest', 'WorkspaceSettings', 'SessionListResponse', 'OperationResponse', 'OperationView', 'RemoteDesktopConnection', 'RemoteDesktopParticipantList', 'RemoteDesktopParticipantHistoryPage', 'RemoteDesktopParticipant', 'AuditEvent', 'AuditEventListResponse', 'RuntimeBuild', 'RuntimeBuildListResponse', 'CreateRuntimeReleaseRequest', 'CreateRuntimeDisableRequest', 'RuntimeReleaseRequest', 'RuntimeReleaseRequestListResponse', 'CreateKeyRotationRequest', 'CompleteKeyRotationRequest', 'KeyRotationRequest', 'KeyRotationRequestListResponse', 'CreateBreakGlassRequest', 'BreakGlassRequest', 'BreakGlassRequestListResponse', 'SecureDebugSession', 'SecureDebugSessionListResponse', 'SecureDebugSnapshot', 'StartRuntimeValidationRequest', 'RuntimeValidationMatrixCellRequest', 'StartRuntimeValidationMatrixRequest', 'CompleteRuntimeValidationRequest', 'RuntimeValidation', 'RuntimeValidationJob', 'ClaimRuntimeValidationJobRequest', 'RuntimeValidationJobClaimRequest', 'RuntimeValidationJobClaim', 'CompleteRuntimeValidationJobRequest', 'FailRuntimeValidationJobRequest', 'CreateCostRateRequest', 'CostRate', 'SessionCostExplanation', 'UpsertMediaQuotaRequest', 'MediaQuota', 'UpsertSloPolicyRequest', 'RecordServiceLevelEventRequest', 'UpsertSlaExclusionRequest', 'SlaExclusion', 'ErrorBudget', 'ReleaseFreeze', 'UpsertRetentionPolicyRequest', 'RetentionPolicy', 'CreateDeletionReceiptRequest', 'DeletionReceipt', 'UpsertLicenseInventoryRequest', 'LicenseInventory', 'AuditExportManifest', 'UpsertRegionRequest', 'EnterpriseRegion', 'StartRecoveryGameDayRequest', 'RecoveryGameDayBlastRadius', 'CompleteRecoveryGameDayRequest', 'ClaimRecoveryGameDayJobRequest', 'RecoveryGameDayJobClaimRequest', 'UpdateRecoveryGameDayStageRequest', 'CompleteRecoveryGameDayJobRequest', 'FailRecoveryGameDayJobRequest', 'RecoveryGameDayJob', 'RecoveryGameDayJobClaim', 'RecoveryGameDay', 'RecoveryGameDayEvent', 'RecoveryGameDayEventPage', 'RecoveryGameDayTrend', 'RecoveryGameDayReportExport', 'UpdateRecoveryGameDayRemediationRequest', 'RecoveryGameDayRemediation', 'ComplianceSnapshot', 'EnterpriseOverview', 'EnterpriseOverviewStreamControl', 'EnterpriseOverviewStreamChange', 'BooleanMap', 'Error']
+__all__ = ['WorkspaceOverview', 'WorkspaceSessionSummary', 'WorkspaceOperationSummary', 'WorkspaceBrowserNodeSummary', 'WorkspaceProxySummary', 'WorkspaceAgentSummary', 'WorkspaceCostSummary', 'WorkspaceSecuritySummary', 'SearchResourceType', 'GlobalSearchResult', 'GlobalSearchResponse', 'NotificationCategory', 'NotificationSeverity', 'WorkspaceNotification', 'WorkspaceNotificationListResponse', 'UpdateNotificationReadCursorRequest', 'WorkspaceNotificationReadState', 'ThemeMode', 'UpdateUserPreferencesRequest', 'UserPreferences', 'TenantRoute', 'RequestTenantRouteMigration', 'TenantRouteMigration', 'CreateAgentTaskRequest', 'AgentActionRequest', 'AgentBatchActionRequest', 'AgentInstructionSource', 'AgentTaskListResponse', 'AgentTaskSummaryListResponse', 'AgentTaskSummaryMetrics', 'AgentTaskSummary', 'ChallengeAutomationPolicy', 'UpdateChallengeAutomationPolicyRequest', 'CreateAgentInputSecretRequest', 'AgentInputSecret', 'ChallengeAutomationRun', 'ClaimChallengeVisualJobRequest', 'ChallengeVisualJobClaimRequest', 'ChallengeVisualAction', 'CompleteChallengeVisualJobRequest', 'FailChallengeVisualJobRequest', 'ChallengeVisualJob', 'ChallengeVisualJobClaim', 'ChallengeRegion', 'ChallengeEvent', 'ChallengeEventListResponse', 'ChallengePreview', 'AuthorizeHumanAssistRequest', 'HumanAssistIntent', 'SubmitChallengeInputResponseRequest', 'ChallengeInputResponse', 'AgentTask', 'ClaimAgentExecutionJobRequest', 'AgentExecutionJobClaimRequest', 'FailAgentExecutionJobRequest', 'AgentExecutionJob', 'AgentExecutionJobClaim', 'ClaimAgentReviewJobRequest', 'AgentReviewJobClaimRequest', 'CompleteAgentReviewJobRequest', 'FailAgentReviewJobRequest', 'AgentReviewStep', 'AgentReviewPayload', 'ReviewerModelDeployment', 'AgentReviewJob', 'AgentReviewJobClaim', 'AgentReview', 'AgentStepExecution', 'AgentExecutionWait', 'AgentConfirmation', 'AgentHumanHandoff', 'AgentPlan', 'AgentPlanStep', 'AgentStepInput', 'AgentBatchActionInput', 'AgentRiskClass', 'AgentPolicy', 'AgentToolExecutionResult', 'PromptSecurityEvent', 'CreateProfileRequest', 'CreateProfileExportGrantRequest', 'ProfileExportPurpose', 'ProfileExportGrant', 'RedeemProfileExportResponse', 'Profile', 'ProfileListResponse', 'ProfileWarmTierStatus', 'ProfileImport', 'ProfileImportListResponse', 'ProxyProvider', 'ProxyAllocation', 'ProxyOverview', 'ProxyBindingHealth', 'ProxyBindingRequest', 'ProxyBinding', 'ProxyBindingList', 'ProxyRoutingCandidateScore', 'ProxyRoutingDecision', 'ProxyRebindRequest', 'ProxyRebindOperation', 'ProxyRebind', 'SessionState', 'ResourceTemplate', 'RegisterBrowserNodeRequest', 'RecordNodePressureRequest', 'BrowserNode', 'BrowserNodeListResponse', 'UpsertExtensionProfileRequest', 'ExtensionProfile', 'RecordExtensionSampleRequest', 'ExtensionProfileListResponse', 'BrowserPlacement', 'BrowserState', 'AgentBrowserSnapshot', 'AgentBrowserTab', 'AgentBrowserInspectRequest', 'AgentBrowserFindRequest', 'AgentBrowserTargetList', 'StateResyncRequest', 'StateResyncResponse', 'InteractiveTarget', 'TargetBounds', 'RecoveryTargetIndicator', 'ProviderEvidenceRequirement', 'UpsertRecoveryContractRequest', 'RecoveryContract', 'RecoveryContractListResponse', 'RecoveryContractRevisionListResponse', 'RecoveryContractFieldChange', 'RecoveryContractDiff', 'RestoreRecoveryContractRevisionRequest', 'RequestRecoveryContractApprovalRequest', 'RecoveryContractApproval', 'SessionApplicationBinding', 'RebindSessionApplicationRequest', 'SessionApplicationRebind', 'BusinessRecoveryValidation', 'SubmitProviderEvidenceRequest', 'ProviderEvidence', 'ProviderEvidenceListResponse', 'ExecuteAgentBrowserActionsRequest', 'AgentClipboard', 'WriteAgentClipboardRequest', 'SessionIdentitySpecInput', 'SessionIdentitySpec', 'CreateSessionIdentityChangeRequest', 'SessionIdentityChangeRequest', 'CreateSessionRequest', 'CreateSessionResponse', 'ResourcePolicyRequest', 'ResourcePolicy', 'ExecutionEnvironment', 'MaximumReachedPolicy', 'ResourcePolicyStatus', 'ResourceAdjustment', 'SessionResource', 'ResourceEventList', 'Evidence', 'EvidenceList', 'Recording', 'RecordingList', 'EvidencePurpose', 'CaptureEvidenceRequest', 'EvidenceCapture', 'CreateEvidenceAccessGrantRequest', 'EvidenceAccessGrant', 'RedeemEvidenceAccessResponse', 'SessionSafePoint', 'SafePointBlocker', 'CreateSafetyLeaseRequest', 'RenewSafetyLeaseRequest', 'SafetyLease', 'SafetyLeaseList', 'SessionMigration', 'BusinessRecoveryAction', 'ResourcePolicyOperation', 'SessionContext', 'SessionView', 'EnvironmentSavedViewScope', 'EnvironmentPrimaryView', 'EnvironmentSavedViewTagMatch', 'CreateEnvironmentSavedViewRequest', 'UpdateEnvironmentSavedViewRequest', 'EnvironmentSavedView', 'EnvironmentSavedViewListResponse', 'EnvironmentImportState', 'EnvironmentImportValidationState', 'EnvironmentImportExecutionState', 'EnvironmentImportSpec', 'PreviewEnvironmentImportRequest', 'CommitEnvironmentImportRequest', 'EnvironmentImportItem', 'EnvironmentImport', 'EnvironmentImportListItem', 'EnvironmentImportListResponse', 'WorkspaceGroupRequest', 'WorkspaceGroupSession', 'WorkspaceGroup', 'WorkspaceGroupListResponse', 'WorkspaceTagRequest', 'WorkspaceTagSummary', 'WorkspaceTagSession', 'WorkspaceTag', 'WorkspaceTagListResponse', 'WorkspaceBatchAction', 'WorkspaceBatchState', 'WorkspaceBatchItemState', 'WorkspaceBatchSelector', 'CreateWorkspaceBatchOperationRequest', 'CancelWorkspaceBatchOperationRequest', 'WorkspaceBatchOperationItem', 'WorkspaceBatchOperation', 'WorkspaceBatchOperationListResponse', 'WorkspaceMetadataBatchAction', 'WorkspaceMetadataBatchSelector', 'WorkspaceMetadataBatchTarget', 'CreateWorkspaceMetadataBatchOperationRequest', 'WorkspaceMetadataBatchOperationItem', 'WorkspaceMetadataBatchOperation', 'WorkspaceMetadataBatchOperationListResponse', 'WorkspaceSettingsRequest', 'WorkspaceSettings', 'SessionListResponse', 'OperationResponse', 'OperationView', 'RemoteDesktopConnection', 'RemoteDesktopParticipantList', 'RemoteDesktopParticipantHistoryPage', 'RemoteDesktopParticipant', 'AuditEvent', 'AuditEventListResponse', 'RuntimeBuild', 'RuntimeBuildListResponse', 'CreateRuntimeReleaseRequest', 'CreateRuntimeDisableRequest', 'RuntimeReleaseRequest', 'RuntimeReleaseRequestListResponse', 'CreateKeyRotationRequest', 'CompleteKeyRotationRequest', 'KeyRotationRequest', 'KeyRotationRequestListResponse', 'CreateBreakGlassRequest', 'BreakGlassRequest', 'BreakGlassRequestListResponse', 'SecureDebugSession', 'SecureDebugSessionListResponse', 'SecureDebugSnapshot', 'StartRuntimeValidationRequest', 'RuntimeValidationMatrixCellRequest', 'StartRuntimeValidationMatrixRequest', 'CompleteRuntimeValidationRequest', 'RuntimeValidation', 'RuntimeValidationJob', 'ClaimRuntimeValidationJobRequest', 'RuntimeValidationJobClaimRequest', 'RuntimeValidationJobClaim', 'CompleteRuntimeValidationJobRequest', 'FailRuntimeValidationJobRequest', 'CreateCostRateRequest', 'CostRate', 'SessionCostExplanation', 'UpsertMediaQuotaRequest', 'MediaQuota', 'UpsertSloPolicyRequest', 'RecordServiceLevelEventRequest', 'UpsertSlaExclusionRequest', 'SlaExclusion', 'ErrorBudget', 'ReleaseFreeze', 'UpsertRetentionPolicyRequest', 'RetentionPolicy', 'CreateDeletionReceiptRequest', 'DeletionReceipt', 'UpsertLicenseInventoryRequest', 'LicenseInventory', 'AuditExportManifest', 'UpsertRegionRequest', 'EnterpriseRegion', 'StartRecoveryGameDayRequest', 'RecoveryGameDayBlastRadius', 'CompleteRecoveryGameDayRequest', 'ClaimRecoveryGameDayJobRequest', 'RecoveryGameDayJobClaimRequest', 'UpdateRecoveryGameDayStageRequest', 'CompleteRecoveryGameDayJobRequest', 'FailRecoveryGameDayJobRequest', 'RecoveryGameDayJob', 'RecoveryGameDayJobClaim', 'RecoveryGameDay', 'RecoveryGameDayEvent', 'RecoveryGameDayEventPage', 'RecoveryGameDayTrend', 'RecoveryGameDayReportExport', 'UpdateRecoveryGameDayRemediationRequest', 'RecoveryGameDayRemediation', 'ComplianceSnapshot', 'EnterpriseOverview', 'EnterpriseOverviewStreamControl', 'EnterpriseOverviewStreamChange', 'BooleanMap', 'Error']

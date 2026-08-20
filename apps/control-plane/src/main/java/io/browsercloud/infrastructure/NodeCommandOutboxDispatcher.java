@@ -319,7 +319,37 @@ public class NodeCommandOutboxDispatcher {
     }
     try {
       var payload = AgentActionCommand.parseFrom(command.payload());
-      if (!payload.getToolId().equals("TYPE_TEXT")) {
+      if (payload.getToolId().equals("EXECUTE_ACTIONS")) {
+        if (!payload.getSealedText().isBlank()
+            || !payload.getText().isBlank()
+            || payload.getActionsCount() < 1
+            || payload.getActionsCount() > 20) {
+          throw new IllegalArgumentException("Agent action batch envelope is invalid");
+        }
+        var materialized = payload.toBuilder().clearActions();
+        for (var action : payload.getActionsList()) {
+          if (isTextInput(action.getToolId())) {
+            if (action.getSealedText().isBlank() || !action.getText().isBlank()) {
+              throw new IllegalArgumentException("Agent batch TypeText envelope is invalid");
+            }
+            var plaintext =
+                actionPayloadService.unseal(
+                    command.tenantId(),
+                    payload.getTaskId(),
+                    payload.getStepId() + ":" + action.getActionId(),
+                    action.getSealedText());
+            materialized.addActions(
+                action.toBuilder().clearSealedText().setText(plaintext).build());
+          } else {
+            if (!action.getSealedText().isBlank() || !action.getText().isBlank()) {
+              throw new IllegalArgumentException("Agent batch non-text action carries text");
+            }
+            materialized.addActions(action);
+          }
+        }
+        return materialized.build().toByteArray();
+      }
+      if (!isTextInput(payload.getToolId())) {
         return command.payload();
       }
       if (payload.getSealedText().isBlank() || !payload.getText().isBlank()) {
@@ -335,6 +365,12 @@ public class NodeCommandOutboxDispatcher {
     } catch (com.google.protobuf.InvalidProtocolBufferException exception) {
       throw new IllegalArgumentException("Agent action payload is invalid protobuf", exception);
     }
+  }
+
+  private static boolean isTextInput(String toolId) {
+    return toolId.equals("TYPE_TEXT")
+        || toolId.equals("FILL")
+        || toolId.equals("PASTE_AGENT_CLIPBOARD");
   }
 
   private void failEvidenceCaptureIfDeadLettered(

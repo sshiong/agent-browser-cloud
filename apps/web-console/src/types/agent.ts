@@ -11,8 +11,11 @@ export type AgentToolId =
   | 'GET_CURRENT_STATE'
   | 'CLICK_TARGET'
   | 'TYPE_TEXT'
+  | 'FILL'
+  | 'PASTE_AGENT_CLIPBOARD'
   | 'SCROLL'
   | 'WAIT_FOR'
+  | 'EXECUTE_ACTIONS'
   | 'GET_URL'
   | 'GET_PAGE_SUMMARY'
   | 'REQUEST_HUMAN_TAKEOVER';
@@ -28,13 +31,14 @@ export type AgentActionDataClass = 'PUBLIC' | 'PII' | 'CREDENTIAL' | 'OTP';
 export type AgentWaitCondition =
   'STATE_CHANGED' | 'STATE_STABLE' | 'TARGET_PRESENT';
 
-export interface CreateAgentActionRequest {
+export interface AgentBatchActionRequest {
   toolId:
     | 'CLICK_TARGET'
     | 'TYPE_TEXT'
+    | 'FILL'
+    | 'PASTE_AGENT_CLIPBOARD'
     | 'SCROLL'
-    | 'WAIT_FOR'
-    | 'REQUEST_HUMAN_TAKEOVER';
+    | 'WAIT_FOR';
   targetRef?: string;
   targetRevision?: number;
   value?: string;
@@ -43,6 +47,56 @@ export interface CreateAgentActionRequest {
   scrollDeltaY?: number;
   waitCondition?: AgentWaitCondition;
   timeoutMs?: number;
+}
+
+export interface CreateAgentActionRequest extends Omit<
+  AgentBatchActionRequest,
+  'toolId'
+> {
+  toolId:
+    | AgentBatchActionRequest['toolId']
+    | 'EXECUTE_ACTIONS'
+    | 'REQUEST_HUMAN_TAKEOVER';
+  actions?: AgentBatchActionRequest[];
+  stopOnError?: boolean;
+}
+
+export interface ExecuteAgentBrowserActionsRequest {
+  goal: string;
+  expectedStateCursor: string;
+  actions: AgentBatchActionRequest[];
+  stopOnError?: boolean;
+}
+
+export interface AgentBrowserSnapshot {
+  stateCursor: string;
+  state: import('./session').BrowserStateView;
+  visibleTextSummary: string;
+  activeTab: { url: string; title: string; active: true };
+  focusedElementId?: string;
+  formControlElementIds: string[];
+  dialogElementIds: string[];
+  pageLoadingState: 'loading' | 'interactive' | 'complete' | '';
+  challengeState: 'NOT_EVALUATED';
+  visionRecommended: boolean;
+}
+
+export interface AgentBrowserInspectRequest {
+  stateCursor: string;
+  elementIds: string[];
+}
+
+export interface AgentBrowserFindRequest {
+  query: string;
+  roles?: string[];
+  includeHidden?: boolean;
+  limit?: number;
+}
+
+export interface AgentBrowserTargetList {
+  stateCursor: string;
+  targets: import('./session').InteractiveTargetView[];
+  truncated: boolean;
 }
 
 export interface CreateAgentTaskRequest {
@@ -175,6 +229,21 @@ export interface AgentPlanStep {
     timeoutMs?: number;
     sensitiveTargetAuthorized?: boolean;
     maximumAttempts?: number;
+    actions?: Array<{
+      actionId: string;
+      toolId: AgentBatchActionRequest['toolId'];
+      targetRef?: string;
+      targetRevision?: number;
+      payloadHash?: string;
+      payloadLength?: number;
+      dataClass?: AgentActionDataClass;
+      scrollDeltaY?: number;
+      waitCondition?: AgentWaitCondition;
+      timeoutMs?: number;
+      sensitiveTargetAuthorized?: boolean;
+      maximumAttempts?: number;
+    }>;
+    stopOnError?: boolean;
   };
   rationale: string;
   supportingSources: string[];

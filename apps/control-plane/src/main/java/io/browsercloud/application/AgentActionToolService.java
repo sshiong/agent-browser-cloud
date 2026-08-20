@@ -27,7 +27,14 @@ public class AgentActionToolService {
   private static final Duration COLLABORATIVE_INPUT_WAIT = Duration.ofMinutes(30);
 
   private static final Set<ToolId> SUPPORTED =
-      Set.of(ToolId.CLICK_TARGET, ToolId.TYPE_TEXT, ToolId.SCROLL, ToolId.WAIT_FOR);
+      Set.of(
+          ToolId.CLICK_TARGET,
+          ToolId.TYPE_TEXT,
+          ToolId.FILL,
+          ToolId.PASTE_AGENT_CLIPBOARD,
+          ToolId.SCROLL,
+          ToolId.WAIT_FOR,
+          ToolId.EXECUTE_ACTIONS);
 
   private final BrowserStateRepository stateRepository;
   private final ToolCapabilityUseJpaRepository capabilityUses;
@@ -100,7 +107,7 @@ public class AgentActionToolService {
       AgentControlPolicyService.Policy policy) {
     var input = step.input();
     switch (step.toolId()) {
-      case CLICK_TARGET, TYPE_TEXT -> {
+      case CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> {
         if (input.targetRef() == null
             || input.targetRef().isBlank()
             || input.targetRevision() == null
@@ -109,13 +116,19 @@ public class AgentActionToolService {
         }
         var target =
             state.targets().stream()
-                .filter(candidate -> candidate.targetRef().equals(input.targetRef()))
+                .filter(
+                    candidate ->
+                        candidate.targetRef().equals(input.targetRef())
+                            || input.targetRef().equals(candidate.elementId()))
                 .findFirst()
                 .orElseThrow(() -> new ActionToolException("TARGET_NOT_FOUND"));
-        if (!target.visible() || !target.enabled() || target.bounds() == null) {
+        if (!target.visible()
+            || !target.enabled()
+            || target.bounds() == null
+            || (target.elementId() != null && (target.occluded() || !target.inViewport()))) {
           throw new ActionToolException("TARGET_NOT_ACTIONABLE");
         }
-        if (step.toolId() == ToolId.TYPE_TEXT) {
+        if (isTextInput(step.toolId())) {
           var sensitiveData =
               input.dataClass() == ActionDataClass.CREDENTIAL
                   || input.dataClass() == ActionDataClass.OTP;
@@ -164,14 +177,72 @@ public class AgentActionToolService {
           throw new ActionToolException("WAIT_TARGET_REQUIRED");
         }
       }
+      case EXECUTE_ACTIONS -> {
+        if (input.actions().isEmpty() || input.actions().size() > 20) {
+          throw new ActionToolException("BATCH_ACTION_COUNT_INVALID");
+        }
+        for (var action : input.actions()) {
+          validateBatchAction(action, state, policy);
+        }
+      }
       default -> throw new ActionToolException("ACTION_STEP_INVALID");
     }
+  }
+
+  private static void validateBatchAction(
+      ActionInput input,
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
+      AgentControlPolicyService.Policy policy) {
+    if (input.actionId() == null || !input.actionId().matches("^action_[1-9][0-9]?$")) {
+      throw new ActionToolException("BATCH_ACTION_ID_INVALID");
+    }
+    if (!Set.of(
+            ToolId.CLICK_TARGET,
+            ToolId.TYPE_TEXT,
+            ToolId.FILL,
+            ToolId.PASTE_AGENT_CLIPBOARD,
+            ToolId.SCROLL,
+            ToolId.WAIT_FOR)
+        .contains(input.toolId())) {
+      throw new ActionToolException("BATCH_ACTION_TOOL_FORBIDDEN");
+    }
+    var stepInput =
+        new StepInput(
+            input.targetRef(),
+            input.targetRevision(),
+            input.sealedPayload(),
+            input.payloadHash(),
+            input.payloadLength(),
+            input.dataClass(),
+            input.scrollDeltaY(),
+            input.waitCondition(),
+            input.timeoutMs(),
+            input.allowSensitiveTarget(),
+            input.maximumAttempts());
+    var step =
+        new PlanStep(
+            input.actionId(),
+            input.toolId(),
+            RiskClass.R1_LOW_RISK_CHANGE,
+            null,
+            stepInput,
+            "batch",
+            java.util.List.of(),
+            TrustLevel.TRUSTED,
+            java.util.List.of(),
+            false,
+            ExecutionStrategy.SEMANTIC_DOM,
+            "COMPLETE",
+            "BATCH",
+            "",
+            "");
+    validateInput(step, state, policy);
   }
 
   private static String dataScope(PlanStep step) {
     return switch (step.toolId()) {
       case CLICK_TARGET -> "TARGET_ACTION";
-      case TYPE_TEXT ->
+      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
           switch (step.input().dataClass()) {
             case PII -> "FORM_INPUT_PII";
             case CREDENTIAL -> "FORM_INPUT_CREDENTIAL";
@@ -180,6 +251,7 @@ public class AgentActionToolService {
           };
       case SCROLL -> "VIEWPORT_ACTION";
       case WAIT_FOR -> "STATE_OBSERVATION";
+      case EXECUTE_ACTIONS -> "BATCH_ACTIONS";
       default -> throw new ActionToolException("ACTION_STEP_INVALID");
     };
   }
@@ -194,6 +266,12 @@ public class AgentActionToolService {
     } catch (IllegalArgumentException exception) {
       throw new ActionToolException("STATE_URL_INVALID");
     }
+  }
+
+  private static boolean isTextInput(ToolId toolId) {
+    return toolId == ToolId.TYPE_TEXT
+        || toolId == ToolId.FILL
+        || toolId == ToolId.PASTE_AGENT_CLIPBOARD;
   }
 
   public record PendingAction(long baseStateVersion, String baseStateHash, Instant deadline) {}

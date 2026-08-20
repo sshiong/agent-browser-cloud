@@ -2,6 +2,9 @@ package io.browsercloud.api;
 
 import io.browsercloud.application.AgentApplicationService.AgentTaskNotFoundException;
 import io.browsercloud.application.AgentApplicationService.InvalidAgentTaskException;
+import io.browsercloud.application.AgentBrowserActionApplicationService.AgentBrowserActionRejectedException;
+import io.browsercloud.application.AgentBrowserPerceptionService.PerceptionException;
+import io.browsercloud.application.AgentClipboardApplicationService.AgentClipboardRejectedException;
 import io.browsercloud.application.AgentExecutionService.AgentExecutionRejectedException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerJobNotFoundException;
 import io.browsercloud.application.AgentExecutionWorkerApplicationService.AgentExecutionWorkerRejectedException;
@@ -64,6 +67,7 @@ import io.browsercloud.application.SessionEvidenceAccessNodeGateway.EvidenceAcce
 import io.browsercloud.application.SessionEvidenceAccessNodeGateway.EvidenceAccessNodeUnavailableException;
 import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceNotFoundException;
 import io.browsercloud.application.SessionEvidenceGovernanceService.EvidenceGovernanceRejectedException;
+import io.browsercloud.application.SessionIdentityApplicationService.SessionIdentityRejectedException;
 import io.browsercloud.application.SessionMigrationApplicationService.MigrationRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyActionRejectedException;
 import io.browsercloud.application.SessionResourceApplicationService.ResourcePolicyNotFoundException;
@@ -124,6 +128,51 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(SessionIdentityRejectedException.class)
+  ResponseEntity<ApiError> sessionIdentityRejected(
+      SessionIdentityRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "SESSION_IDENTITY_REJECTED",
+        "Session identity configuration is locked or cannot transition in its current state",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentClipboardRejectedException.class)
+  public ResponseEntity<ApiError> handleAgentClipboardRejected(
+      AgentClipboardRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_CLIPBOARD_REJECTED",
+        "The isolated Agent clipboard cannot perform this operation",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(AgentBrowserActionRejectedException.class)
+  ResponseEntity<ApiError> agentBrowserActionRejected(
+      AgentBrowserActionRejectedException exception, HttpServletRequest request) {
+    return response(
+        HttpStatus.CONFLICT,
+        "AGENT_BROWSER_ACTION_REJECTED",
+        "The ordered browser action request no longer matches authoritative state",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
+
+  @ExceptionHandler(PerceptionException.class)
+  ResponseEntity<ApiError> agentBrowserPerceptionRejected(
+      PerceptionException exception, HttpServletRequest request) {
+    var stale = "STATE_CURSOR_STALE".equals(exception.getMessage());
+    return response(
+        stale ? HttpStatus.CONFLICT : HttpStatus.UNPROCESSABLE_ENTITY,
+        "AGENT_BROWSER_PERCEPTION_REJECTED",
+        "Structured browser perception is unavailable for this request",
+        Map.of("reason", exception.getMessage()),
+        request);
+  }
 
   @ExceptionHandler(AgentInputSecretRejectedException.class)
   ResponseEntity<ApiError> agentInputSecretRejected(

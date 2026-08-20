@@ -29,6 +29,48 @@ pub struct RuntimeSpec {
     pub vnc_port: Option<u16>,
     pub extension_dirs: Vec<PathBuf>,
     pub resource_limits: RuntimeResourceLimits,
+    pub browser_identity: BrowserIdentitySpec,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BrowserIdentitySpec {
+    pub user_agent: String,
+    pub timezone: String,
+    pub locale: String,
+    pub languages: Vec<String>,
+    pub webrtc_policy: String,
+    pub dns_policy: String,
+    pub viewport_width: u32,
+    pub viewport_height: u32,
+    pub screen_width: u32,
+    pub screen_height: u32,
+    pub device_scale_factor: f64,
+    pub fingerprint_profile: String,
+    pub operating_system_profile: String,
+    pub version: u64,
+    pub spec_hash: String,
+}
+
+impl Default for BrowserIdentitySpec {
+    fn default() -> Self {
+        Self {
+            user_agent: String::new(),
+            timezone: String::new(),
+            locale: String::new(),
+            languages: Vec::new(),
+            webrtc_policy: "DEFAULT".to_owned(),
+            dns_policy: "SYSTEM".to_owned(),
+            viewport_width: 0,
+            viewport_height: 0,
+            screen_width: 0,
+            screen_height: 0,
+            device_scale_factor: 0.0,
+            fingerprint_profile: String::new(),
+            operating_system_profile: String::new(),
+            version: 0,
+            spec_hash: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -684,6 +726,88 @@ impl ChromiumRuntimeSupervisor {
                 .all(|character| character.is_ascii_alphanumeric() || character == '_');
         anyhow::ensure!(valid_session_id, "invalid session id");
         anyhow::ensure!(spec.cdp_port > 0, "cdp port must be assigned");
+        let identity = &spec.browser_identity;
+        anyhow::ensure!(identity.user_agent.len() <= 512, "user agent is too long");
+        anyhow::ensure!(identity.timezone.len() <= 128, "timezone is too long");
+        anyhow::ensure!(identity.locale.len() <= 64, "locale is too long");
+        anyhow::ensure!(identity.languages.len() <= 16, "too many languages");
+        anyhow::ensure!(
+            identity
+                .languages
+                .iter()
+                .all(|language| language.len() <= 64),
+            "language is too long"
+        );
+        anyhow::ensure!(
+            matches!(
+                identity.webrtc_policy.as_str(),
+                "DEFAULT" | "DISABLED" | "PROXY_ONLY"
+            ),
+            "WebRTC policy is invalid"
+        );
+        anyhow::ensure!(
+            matches!(identity.dns_policy.as_str(), "SYSTEM" | "PROXY"),
+            "DNS policy is invalid"
+        );
+        anyhow::ensure!(
+            (identity.viewport_width == 0) == (identity.viewport_height == 0),
+            "viewport dimensions are incomplete"
+        );
+        anyhow::ensure!(
+            (identity.screen_width == 0) == (identity.screen_height == 0),
+            "screen dimensions are incomplete"
+        );
+        if identity.viewport_width > 0 {
+            anyhow::ensure!(
+                (320..=7680).contains(&identity.viewport_width)
+                    && (240..=4320).contains(&identity.viewport_height),
+                "viewport dimensions are invalid"
+            );
+        }
+        if identity.screen_width > 0 {
+            anyhow::ensure!(
+                (320..=7680).contains(&identity.screen_width)
+                    && (240..=4320).contains(&identity.screen_height),
+                "screen dimensions are invalid"
+            );
+        }
+        anyhow::ensure!(
+            identity.viewport_width == 0
+                || identity.screen_width == 0
+                || (identity.viewport_width <= identity.screen_width
+                    && identity.viewport_height <= identity.screen_height),
+            "viewport does not fit inside screen"
+        );
+        anyhow::ensure!(
+            identity.device_scale_factor == 0.0
+                || (0.5..=4.0).contains(&identity.device_scale_factor),
+            "device scale factor is invalid"
+        );
+        anyhow::ensure!(
+            matches!(
+                identity.fingerprint_profile.as_str(),
+                "" | "chromium-standard-v1"
+            ),
+            "fingerprint profile is not installed on this Node"
+        );
+        anyhow::ensure!(
+            matches!(
+                identity.operating_system_profile.as_str(),
+                "" | "linux-desktop-v1"
+            ),
+            "operating system profile is not installed on this Node"
+        );
+        anyhow::ensure!(
+            (identity.version == 0 && identity.spec_hash.is_empty())
+                || (identity.version > 0
+                    && identity.spec_hash.len() == 64
+                    && identity
+                        .spec_hash
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit()
+                            && !character.is_ascii_uppercase())),
+            "identity projection fence is invalid"
+        );
         let limits = &spec.resource_limits;
         anyhow::ensure!(
             matches!(
@@ -775,14 +899,21 @@ impl ChromiumRuntimeSupervisor {
         let vnc_port = spec
             .vnc_port
             .ok_or_else(|| anyhow::anyhow!("VNC port is not assigned"))?;
+        let width = if spec.browser_identity.screen_width > 0 {
+            spec.browser_identity.screen_width
+        } else {
+            u32::from(config.width)
+        };
+        let height = if spec.browser_identity.screen_height > 0 {
+            spec.browser_identity.screen_height
+        } else {
+            u32::from(config.height)
+        };
         let mut xvfb = tokio::process::Command::new(&config.xvfb_binary)
             .arg(&spec.display)
             .arg("-screen")
             .arg("0")
-            .arg(format!(
-                "{}x{}x{}",
-                config.width, config.height, config.depth
-            ))
+            .arg(format!("{}x{}x{}", width, height, config.depth))
             .arg("-nolisten")
             .arg("tcp")
             .arg("-noreset")
@@ -1027,6 +1158,51 @@ impl RuntimeSupervisor for ChromiumRuntimeSupervisor {
             command
                 .arg(format!("--proxy-server={proxy_server}"))
                 .arg("--proxy-bypass-list=<-loopback>");
+        }
+
+        let identity = &spec.browser_identity;
+        if !identity.user_agent.is_empty() {
+            command.arg(format!("--user-agent={}", identity.user_agent));
+        }
+        if !identity.locale.is_empty() {
+            command.arg(format!("--lang={}", identity.locale)).env(
+                "LANG",
+                format!("{}.UTF-8", identity.locale.replace('-', "_")),
+            );
+        }
+        if !identity.languages.is_empty() {
+            command.env("LANGUAGE", identity.languages.join(":"));
+        }
+        if !identity.timezone.is_empty() {
+            command.env("TZ", &identity.timezone);
+        }
+        if identity.viewport_width > 0 {
+            command.arg(format!(
+                "--window-size={},{}",
+                identity.viewport_width, identity.viewport_height
+            ));
+        }
+        if identity.device_scale_factor > 0.0 {
+            command.arg(format!(
+                "--force-device-scale-factor={}",
+                identity.device_scale_factor
+            ));
+        }
+        match identity.webrtc_policy.as_str() {
+            "DISABLED" => {
+                command.arg("--disable-webrtc");
+            }
+            "PROXY_ONLY" => {
+                command.arg("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
+            }
+            _ => {}
+        }
+        if identity.dns_policy == "PROXY" {
+            anyhow::ensure!(
+                spec.proxy_server.is_some(),
+                "proxy DNS policy requires a committed proxy binding"
+            );
+            command.arg("--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost");
         }
 
         if spec.display.is_empty() {
@@ -1351,9 +1527,56 @@ mod tests {
                 vnc_port: None,
                 extension_dirs: Vec::new(),
                 resource_limits: RuntimeResourceLimits::local_test_default(),
+                browser_identity: BrowserIdentitySpec::default(),
             })
             .await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn validates_locked_browser_identity_cross_fields_and_installed_profiles() {
+        let mut spec = RuntimeSpec {
+            session_id: "ses_identity00000001".into(),
+            runtime_build_id: "runtime-1".into(),
+            profile_dir: PathBuf::from("/tmp/browsercloud-identity-profile"),
+            cache_dir: PathBuf::from("/tmp/browsercloud-identity-cache"),
+            proxy_server: Some("http://127.0.0.1:8080".into()),
+            display: String::new(),
+            cdp_port: 9222,
+            vnc_port: None,
+            extension_dirs: Vec::new(),
+            resource_limits: RuntimeResourceLimits::local_test_default(),
+            browser_identity: BrowserIdentitySpec {
+                user_agent: "BrowserCloud-Test-UA".into(),
+                timezone: "Asia/Shanghai".into(),
+                locale: "zh-CN".into(),
+                languages: vec!["zh-CN".into(), "en-US".into()],
+                webrtc_policy: "PROXY_ONLY".into(),
+                dns_policy: "PROXY".into(),
+                viewport_width: 1280,
+                viewport_height: 720,
+                screen_width: 1920,
+                screen_height: 1080,
+                device_scale_factor: 1.25,
+                fingerprint_profile: "chromium-standard-v1".into(),
+                operating_system_profile: "linux-desktop-v1".into(),
+                version: 2,
+                spec_hash: "a".repeat(64),
+            },
+        };
+
+        ChromiumRuntimeSupervisor::validate_spec(&spec).unwrap();
+        spec.browser_identity.viewport_width = 2560;
+        assert!(ChromiumRuntimeSupervisor::validate_spec(&spec)
+            .unwrap_err()
+            .to_string()
+            .contains("viewport does not fit"));
+        spec.browser_identity.viewport_width = 1280;
+        spec.browser_identity.fingerprint_profile = "unknown-profile".into();
+        assert!(ChromiumRuntimeSupervisor::validate_spec(&spec)
+            .unwrap_err()
+            .to_string()
+            .contains("not installed"));
     }
 
     #[test]
@@ -1433,6 +1656,7 @@ mod tests {
                 native_os_required: false,
                 isolation_required: false,
             },
+            browser_identity: BrowserIdentitySpec::default(),
         };
         let cgroup = RuntimeCgroup::prepare(&CgroupV2Config { root: root.clone() }, &spec).unwrap();
         assert_eq!(
@@ -1576,6 +1800,7 @@ mod tests {
                 vnc_port: None,
                 extension_dirs: Vec::new(),
                 resource_limits: RuntimeResourceLimits::local_test_default(),
+                browser_identity: BrowserIdentitySpec::default(),
             })
             .await
             .unwrap();

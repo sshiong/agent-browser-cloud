@@ -2,6 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserFindRequest } from '../models/AgentBrowserFindRequest.js';
+import type { AgentBrowserInspectRequest } from '../models/AgentBrowserInspectRequest.js';
+import type { AgentBrowserSnapshot } from '../models/AgentBrowserSnapshot.js';
+import type { AgentBrowserTargetList } from '../models/AgentBrowserTargetList.js';
+import type { AgentClipboard } from '../models/AgentClipboard.js';
 import type { AgentExecutionJob } from '../models/AgentExecutionJob.js';
 import type { AgentExecutionJobClaim } from '../models/AgentExecutionJobClaim.js';
 import type { AgentExecutionJobClaimRequest } from '../models/AgentExecutionJobClaimRequest.js';
@@ -17,12 +22,344 @@ import type { ClaimAgentReviewJobRequest } from '../models/ClaimAgentReviewJobRe
 import type { CompleteAgentReviewJobRequest } from '../models/CompleteAgentReviewJobRequest.js';
 import type { CreateAgentInputSecretRequest } from '../models/CreateAgentInputSecretRequest.js';
 import type { CreateAgentTaskRequest } from '../models/CreateAgentTaskRequest.js';
+import type { CreateSessionIdentityChangeRequest } from '../models/CreateSessionIdentityChangeRequest.js';
+import type { ExecuteAgentBrowserActionsRequest } from '../models/ExecuteAgentBrowserActionsRequest.js';
 import type { FailAgentExecutionJobRequest } from '../models/FailAgentExecutionJobRequest.js';
 import type { FailAgentReviewJobRequest } from '../models/FailAgentReviewJobRequest.js';
+import type { SessionIdentityChangeRequest } from '../models/SessionIdentityChangeRequest.js';
+import type { SessionIdentitySpec } from '../models/SessionIdentitySpec.js';
+import type { SessionIdentitySpecInput } from '../models/SessionIdentitySpecInput.js';
+import type { WriteAgentClipboardRequest } from '../models/WriteAgentClipboardRequest.js';
 import type { CancelablePromise } from '../core/CancelablePromise.js';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest.js';
 export class AgentService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
+    /**
+     * Get one PostgreSQL-authoritative structured page snapshot
+     * Returns DOM/accessibility-derived interactive state. Ordinary pages do not require OCR or screenshots.
+     * @returns AgentBrowserSnapshot Structured snapshot and cursor for subsequent inspect or action calls.
+     * @throws ApiError
+     */
+    public getAgentBrowserSnapshot({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserSnapshot> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/snapshot',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            errors: {
+                403: `Resource is outside the caller tenant scope.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Inspect structured elements without another Browser Node round trip
+     * @returns AgentBrowserTargetList Requested elements from the exact state cursor.
+     * @throws ApiError
+     */
+    public inspectAgentBrowserElements({
+        sessionId,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        requestBody: AgentBrowserInspectRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserTargetList> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/inspect',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Find structured elements by semantic name, role, type, stable ID, or visibility reason
+     * @returns AgentBrowserTargetList Bounded semantic matches from the authoritative current state.
+     * @throws ApiError
+     */
+    public findAgentBrowserElements({
+        sessionId,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        requestBody: AgentBrowserFindRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentBrowserTargetList> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/find',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Execute one ordered state-fenced Browser action batch
+     * Provides the browser.execute_actions fast path. The gateway validates one authoritative state cursor, persists one auditable Agent Task, executes primitives in order, checks state between actions, honors stopOnError, and yields to real VNC input without forcing takeover.
+     *
+     * @returns AgentTask Persisted task after immediate execution or durable enqueue.
+     * @throws ApiError
+     */
+    public executeAgentBrowserActions({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: ExecuteAgentBrowserActionsRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentTask> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/execute-actions',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+                422: `The bounded archive was received but failed semantic or integrity validation.`,
+            },
+        });
+    }
+    /**
+     * Read only the encrypted AgentClipboard
+     * Never reads or aliases the VNC/X11 UserClipboard.
+     * @returns AgentClipboard Current AgentClipboard; value is null when empty.
+     * @throws ApiError
+     */
+    public readAgentClipboard({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentClipboard> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/clipboard',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+        });
+    }
+    /**
+     * Replace the isolated AgentClipboard using optimistic concurrency
+     * @returns AgentClipboard Updated metadata; plaintext is not reflected by write.
+     * @throws ApiError
+     */
+    public writeAgentClipboard({
+        sessionId,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        requestBody: WriteAgentClipboardRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentClipboard> {
+        return this.httpRequest.request({
+            method: 'PUT',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/clipboard',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Clear the isolated AgentClipboard using optimistic concurrency
+     * @returns AgentClipboard Cleared AgentClipboard metadata.
+     * @throws ApiError
+     */
+    public clearAgentClipboard({
+        sessionId,
+        expectedVersion,
+        xTenantId,
+    }: {
+        sessionId: string,
+        expectedVersion: number,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<AgentClipboard> {
+        return this.httpRequest.request({
+            method: 'DELETE',
+            url: '/api/v1/sessions/{sessionId}/agent-browser/clipboard',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            query: {
+                'expectedVersion': expectedVersion,
+            },
+            errors: {
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Read the creation-time locked Browser identity specification
+     * @returns SessionIdentitySpec PostgreSQL-authoritative identity spec applied on every Runtime start.
+     * @throws ApiError
+     */
+    public getSessionIdentitySpec({
+        sessionId,
+        xTenantId,
+    }: {
+        sessionId: string,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<SessionIdentitySpec> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/v1/sessions/{sessionId}/identity-spec',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+        });
+    }
+    /**
+     * Explicitly reject direct post-creation identity mutation
+     * @returns void
+     * @throws ApiError
+     */
+    public rejectDirectSessionIdentityMutation({
+        sessionId,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        requestBody: SessionIdentitySpecInput,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<void> {
+        return this.httpRequest.request({
+            method: 'PUT',
+            url: '/api/v1/sessions/{sessionId}/identity-spec',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
+    /**
+     * Request an approval-backed identity change for a safe restart boundary
+     * @returns SessionIdentityChangeRequest Durable pending or idempotently replayed change request.
+     * @throws ApiError
+     */
+    public createSessionIdentityChangeRequest({
+        sessionId,
+        idempotencyKey,
+        requestBody,
+        xTenantId,
+    }: {
+        sessionId: string,
+        idempotencyKey: string,
+        requestBody: CreateSessionIdentityChangeRequest,
+        /**
+         * Local/Test identity adapter only. Ignored in Production, where tenant identity is derived from the authenticated JWT.
+         */
+        xTenantId?: string,
+    }): CancelablePromise<SessionIdentityChangeRequest> {
+        return this.httpRequest.request({
+            method: 'POST',
+            url: '/api/v1/sessions/{sessionId}/identity-change-requests',
+            path: {
+                'sessionId': sessionId,
+            },
+            headers: {
+                'X-Tenant-Id': xTenantId,
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                409: `State or idempotency conflict.`,
+            },
+        });
+    }
     /**
      * Validate and persist a bounded Agent plan
      * External context is data-only. Structured actions bind to the current Target Revision and sensitive target policy.

@@ -63,7 +63,57 @@ public record CreateSessionRequest(
     @Size(max = 32)
         List<@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_.-]{1,128}$") String> extensionIds,
     @Size(max = 32)
-        Map<@NotBlank @Size(max = 128) String, @NotNull @Size(max = 1024) String> metadata) {
+        Map<@NotBlank @Size(max = 128) String, @NotNull @Size(max = 1024) String> metadata,
+    @Valid SessionIdentityModels.SessionIdentitySpecRequest identitySpec) {
+
+  public CreateSessionRequest(
+      String tenantId,
+      String profileId,
+      String runtimeBuildId,
+      String applicationId,
+      String groupId,
+      List<String> tagIds,
+      String region,
+      String proxyBindingProfileId,
+      ResourcePolicyRequest resourcePolicy,
+      ResourceClass resourceClass,
+      int requestedTabs,
+      int agentActionsPerMinute,
+      boolean remoteDesktop,
+      Boolean humanTakeoverEnabled,
+      AgentPolicy agentPolicy,
+      boolean web3Workload,
+      boolean mediaWorkload,
+      int requestedMediaStreams,
+      int mediaBitrateKbps,
+      boolean videoRecording,
+      List<String> extensionIds,
+      Map<String, String> metadata) {
+    this(
+        tenantId,
+        profileId,
+        runtimeBuildId,
+        applicationId,
+        groupId,
+        tagIds,
+        region,
+        proxyBindingProfileId,
+        resourcePolicy,
+        resourceClass,
+        requestedTabs,
+        agentActionsPerMinute,
+        remoteDesktop,
+        humanTakeoverEnabled,
+        agentPolicy,
+        web3Workload,
+        mediaWorkload,
+        requestedMediaStreams,
+        mediaBitrateKbps,
+        videoRecording,
+        extensionIds,
+        metadata,
+        null);
+  }
 
   @AssertTrue(message = "extensionIds must contain unique values")
   public boolean hasUniqueExtensionIds() {

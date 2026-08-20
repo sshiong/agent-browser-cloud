@@ -103,7 +103,9 @@ public class ChallengeAutomationApplicationService {
         SELECT id, agent_control_mode, agent_sensitive_input_max_attempts,
                challenge_automation_enabled, challenge_automation_max_attempts,
                challenge_automation_min_confidence, challenge_automation_allow_multi_click,
-               challenge_automation_allow_slide, updated_at
+               challenge_automation_allow_slide, challenge_motion_min_steps,
+               challenge_motion_max_steps, challenge_motion_min_delay_ms,
+               challenge_motion_max_delay_ms, challenge_target_offset_ratio, updated_at
         FROM sessions WHERE id = ? AND tenant_id = ?
         """,
         (result, row) -> policy(result),
@@ -122,6 +124,10 @@ public class ChallengeAutomationApplicationService {
     if (request.enabled() && request.maximumAttempts() == 0) {
       throw new IllegalArgumentException("Enabled Challenge automation needs at least one attempt");
     }
+    if (request.motionMaximumSteps() < request.motionMinimumSteps()
+        || request.motionMaximumDelayMs() < request.motionMinimumDelayMs()) {
+      throw new IllegalArgumentException("Challenge motion bounds are invalid");
+    }
     var current = policy(sessionId, tenantId);
     var requestedControlMode =
         request.controlMode() == null ? current.controlMode() : request.controlMode();
@@ -135,7 +141,12 @@ public class ChallengeAutomationApplicationService {
         && current.maximumAttempts() == request.maximumAttempts()
         && current.minimumConfidence().compareTo(request.minimumConfidence()) == 0
         && current.allowMultiClick() == request.allowMultiClick()
-        && current.allowSlide() == request.allowSlide()) {
+        && current.allowSlide() == request.allowSlide()
+        && current.motionMinimumSteps() == request.motionMinimumSteps()
+        && current.motionMaximumSteps() == request.motionMaximumSteps()
+        && current.motionMinimumDelayMs() == request.motionMinimumDelayMs()
+        && current.motionMaximumDelayMs() == request.motionMaximumDelayMs()
+        && current.targetOffsetRatio().compareTo(request.targetOffsetRatio()) == 0) {
       return current;
     }
     jdbc.update(
@@ -145,6 +156,9 @@ public class ChallengeAutomationApplicationService {
             challenge_automation_enabled = ?, challenge_automation_max_attempts = ?,
             challenge_automation_min_confidence = ?,
             challenge_automation_allow_multi_click = ?, challenge_automation_allow_slide = ?,
+            challenge_motion_min_steps = ?, challenge_motion_max_steps = ?,
+            challenge_motion_min_delay_ms = ?, challenge_motion_max_delay_ms = ?,
+            challenge_target_offset_ratio = ?,
             updated_at = now()
         WHERE id = ? AND tenant_id = ?
         """,
@@ -155,6 +169,11 @@ public class ChallengeAutomationApplicationService {
         request.minimumConfidence(),
         request.allowMultiClick(),
         request.allowSlide(),
+        request.motionMinimumSteps(),
+        request.motionMaximumSteps(),
+        request.motionMinimumDelayMs(),
+        request.motionMaximumDelayMs(),
+        request.targetOffsetRatio(),
         sessionId,
         tenantId);
     audit.append(
@@ -168,13 +187,18 @@ public class ChallengeAutomationApplicationService {
             sessionId,
             "UPDATE",
             "COMMITTED",
-            Map.of(
-                "controlMode", requestedControlMode.name(),
-                "sensitiveInputMaximumAttempts", requestedSensitiveAttempts,
-                "enabled", request.enabled(),
-                "maximumAttempts", request.maximumAttempts(),
-                "allowMultiClick", request.allowMultiClick(),
-                "allowSlide", request.allowSlide()),
+            Map.ofEntries(
+                Map.entry("controlMode", requestedControlMode.name()),
+                Map.entry("sensitiveInputMaximumAttempts", requestedSensitiveAttempts),
+                Map.entry("enabled", request.enabled()),
+                Map.entry("maximumAttempts", request.maximumAttempts()),
+                Map.entry("allowMultiClick", request.allowMultiClick()),
+                Map.entry("allowSlide", request.allowSlide()),
+                Map.entry("motionMinimumSteps", request.motionMinimumSteps()),
+                Map.entry("motionMaximumSteps", request.motionMaximumSteps()),
+                Map.entry("motionMinimumDelayMs", request.motionMinimumDelayMs()),
+                Map.entry("motionMaximumDelayMs", request.motionMaximumDelayMs()),
+                Map.entry("targetOffsetRatio", request.targetOffsetRatio())),
             requestId));
     return policy(sessionId, tenantId);
   }
@@ -249,8 +273,9 @@ public class ChallengeAutomationApplicationService {
         INSERT INTO challenge_automation_runs(
             run_id, tenant_id, session_id, task_id, current_challenge_event_id, state,
             attempt_count, maximum_attempts, minimum_confidence, allow_multi_click,
-            allow_slide, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'CAPTURING', 0, ?, ?, ?, ?, ?, ?)
+            allow_slide, motion_min_steps, motion_max_steps, motion_min_delay_ms,
+            motion_max_delay_ms, target_offset_ratio, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'CAPTURING', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         runId,
         tenantId,
@@ -261,6 +286,11 @@ public class ChallengeAutomationApplicationService {
         policy.minimumConfidence(),
         policy.allowMultiClick(),
         policy.allowSlide(),
+        policy.motionMinimumSteps(),
+        policy.motionMaximumSteps(),
+        policy.motionMinimumDelayMs(),
+        policy.motionMaximumDelayMs(),
+        policy.targetOffsetRatio(),
         Timestamp.from(now),
         Timestamp.from(now));
     appendAudit(
@@ -448,7 +478,12 @@ public class ChallengeAutomationApplicationService {
             job.attemptNumber(),
             snapshot.state().stateVersion(),
             snapshot.state().stateHash(),
-            request.actions()));
+            request.actions(),
+            run.motionMinimumSteps(),
+            run.motionMaximumSteps(),
+            run.motionMinimumDelayMs(),
+            run.motionMaximumDelayMs(),
+            run.targetOffsetRatio()));
     return view(requireJob(jobId), requireRun(run.runId()));
   }
 
@@ -793,6 +828,11 @@ public class ChallengeAutomationApplicationService {
         result.getBigDecimal("challenge_automation_min_confidence"),
         result.getBoolean("challenge_automation_allow_multi_click"),
         result.getBoolean("challenge_automation_allow_slide"),
+        result.getInt("challenge_motion_min_steps"),
+        result.getInt("challenge_motion_max_steps"),
+        result.getInt("challenge_motion_min_delay_ms"),
+        result.getInt("challenge_motion_max_delay_ms"),
+        result.getBigDecimal("challenge_target_offset_ratio"),
         result.getTimestamp("updated_at").toInstant());
   }
 
@@ -809,6 +849,11 @@ public class ChallengeAutomationApplicationService {
         result.getBigDecimal("minimum_confidence"),
         result.getBoolean("allow_multi_click"),
         result.getBoolean("allow_slide"),
+        result.getInt("motion_min_steps"),
+        result.getInt("motion_max_steps"),
+        result.getInt("motion_min_delay_ms"),
+        result.getInt("motion_max_delay_ms"),
+        result.getBigDecimal("target_offset_ratio"),
         result.getString("last_action"),
         result.getString("last_error_code"),
         instant(result, "updated_at"),
@@ -961,6 +1006,11 @@ public class ChallengeAutomationApplicationService {
       BigDecimal minimumConfidence,
       boolean allowMultiClick,
       boolean allowSlide,
+      int motionMinimumSteps,
+      int motionMaximumSteps,
+      int motionMinimumDelayMs,
+      int motionMaximumDelayMs,
+      BigDecimal targetOffsetRatio,
       String lastAction,
       String lastErrorCode,
       Instant updatedAt,

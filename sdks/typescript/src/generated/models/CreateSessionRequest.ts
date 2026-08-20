@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { AgentPolicy } from './AgentPolicy.js';
 import type { ResourcePolicyRequest } from './ResourcePolicyRequest.js';
+import type { SessionIdentitySpecInput } from './SessionIdentitySpecInput.js';
 export type CreateSessionRequest = {
     /**
      * Backward-compatible request field. It must equal the authenticated tenant claim and cannot select a tenant.
@@ -54,4 +55,8 @@ export type CreateSessionRequest = {
     videoRecording?: boolean;
     extensionIds?: Array<string>;
     metadata?: Record<string, string>;
+    /**
+     * Creation-time Browser identity. It becomes locked immediately after Session creation.
+     */
+    identitySpec?: SessionIdentitySpecInput;
 };

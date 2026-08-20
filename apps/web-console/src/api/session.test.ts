@@ -1110,6 +1110,11 @@ describe('session API', () => {
       minimumConfidence: 0.85,
       allowMultiClick: true,
       allowSlide: true,
+      motionMinimumSteps: 8,
+      motionMaximumSteps: 18,
+      motionMinimumDelayMs: 12,
+      motionMaximumDelayMs: 45,
+      targetOffsetRatio: 0.15,
       updatedAt: new Date().toISOString(),
     };
     const fetchMock = vi
@@ -1140,6 +1145,11 @@ describe('session API', () => {
         minimumConfidence: 0.85,
         allowMultiClick: true,
         allowSlide: true,
+        motionMinimumSteps: 8,
+        motionMaximumSteps: 18,
+        motionMinimumDelayMs: 12,
+        motionMaximumDelayMs: 45,
+        targetOffsetRatio: 0.15,
       },
       'tenant-test',
       'operator-test'

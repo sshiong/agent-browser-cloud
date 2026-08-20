@@ -10,4 +10,9 @@ export type UpdateChallengeAutomationPolicyRequest = {
     minimumConfidence: number;
     allowMultiClick: boolean;
     allowSlide: boolean;
+    motionMinimumSteps?: number;
+    motionMaximumSteps?: number;
+    motionMinimumDelayMs?: number;
+    motionMaximumDelayMs?: number;
+    targetOffsetRatio?: number;
 };

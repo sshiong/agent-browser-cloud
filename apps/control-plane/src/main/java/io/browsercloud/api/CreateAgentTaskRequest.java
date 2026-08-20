@@ -39,5 +39,46 @@ public record CreateAgentTaskRequest(
       ActionDataClass dataClass,
       @Min(-2_000) @Max(2_000) Integer scrollDeltaY,
       WaitCondition waitCondition,
+      @Min(100) @Max(10_000) Integer timeoutMs,
+      @Valid @Size(max = 20) List<BatchActionRequest> actions,
+      Boolean stopOnError) {
+    public ActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          List.of(),
+          true);
+    }
+
+    public ActionRequest {
+      actions = actions == null ? List.of() : List.copyOf(actions);
+    }
+  }
+
+  public record BatchActionRequest(
+      @NotNull ToolId toolId,
+      @Size(max = 128) String targetRef,
+      @Min(1) Long targetRevision,
+      @Size(max = 2_000) String value,
+      @Pattern(regexp = "^ais_[A-Za-z0-9]{20,32}$") String secretId,
+      ActionDataClass dataClass,
+      @Min(-2_000) @Max(2_000) Integer scrollDeltaY,
+      WaitCondition waitCondition,
       @Min(100) @Max(10_000) Integer timeoutMs) {}
 }

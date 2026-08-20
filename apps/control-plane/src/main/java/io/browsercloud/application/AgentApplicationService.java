@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,9 +44,39 @@ public class AgentApplicationService {
   private final AgentActionPayloadService actionPayloadService;
   private final AgentControlPolicyService controlPolicyService;
   private final AgentInputSecretApplicationService inputSecrets;
+  private final AgentClipboardApplicationService agentClipboard;
   private final AuditApplicationService auditService;
   private final ObjectMapper objectMapper;
 
+  @Autowired
+  public AgentApplicationService(
+      AgentTaskJpaRepository repository,
+      SessionRepository sessionRepository,
+      BrowserStateRepository stateRepository,
+      IdempotencyService idempotencyService,
+      PromptSecurityService promptSecurityService,
+      AgentCapabilityTokenService capabilityTokenService,
+      AgentActionPayloadService actionPayloadService,
+      AgentControlPolicyService controlPolicyService,
+      AgentInputSecretApplicationService inputSecrets,
+      AgentClipboardApplicationService agentClipboard,
+      AuditApplicationService auditService,
+      ObjectMapper objectMapper) {
+    this.repository = repository;
+    this.sessionRepository = sessionRepository;
+    this.stateRepository = stateRepository;
+    this.idempotencyService = idempotencyService;
+    this.promptSecurityService = promptSecurityService;
+    this.capabilityTokenService = capabilityTokenService;
+    this.actionPayloadService = actionPayloadService;
+    this.controlPolicyService = controlPolicyService;
+    this.inputSecrets = inputSecrets;
+    this.agentClipboard = agentClipboard;
+    this.auditService = auditService;
+    this.objectMapper = objectMapper;
+  }
+
+  /** Source compatibility for isolated tests created before AgentClipboard existed. */
   public AgentApplicationService(
       AgentTaskJpaRepository repository,
       SessionRepository sessionRepository,
@@ -58,17 +89,19 @@ public class AgentApplicationService {
       AgentInputSecretApplicationService inputSecrets,
       AuditApplicationService auditService,
       ObjectMapper objectMapper) {
-    this.repository = repository;
-    this.sessionRepository = sessionRepository;
-    this.stateRepository = stateRepository;
-    this.idempotencyService = idempotencyService;
-    this.promptSecurityService = promptSecurityService;
-    this.capabilityTokenService = capabilityTokenService;
-    this.actionPayloadService = actionPayloadService;
-    this.controlPolicyService = controlPolicyService;
-    this.inputSecrets = inputSecrets;
-    this.auditService = auditService;
-    this.objectMapper = objectMapper;
+    this(
+        repository,
+        sessionRepository,
+        stateRepository,
+        idempotencyService,
+        promptSecurityService,
+        capabilityTokenService,
+        actionPayloadService,
+        controlPolicyService,
+        inputSecrets,
+        null,
+        auditService,
+        objectMapper);
   }
 
   @Transactional
@@ -275,7 +308,13 @@ public class AgentApplicationService {
     }
     var endsWithHandoff =
         !actions.isEmpty() && actions.getLast().toolId() == ToolId.REQUEST_HUMAN_TAKEOVER;
-    var neededActions = (targetDomain == null ? 3 : 4) + actions.size() - (endsWithHandoff ? 2 : 0);
+    var requestedActionCount =
+        actions.stream()
+            .mapToInt(
+                action -> action.toolId() == ToolId.EXECUTE_ACTIONS ? action.actions().size() : 1)
+            .sum();
+    var neededActions =
+        (targetDomain == null ? 3 : 4) + requestedActionCount - (endsWithHandoff ? 2 : 0);
     if (maxActions < neededActions) {
       return "MAX_ACTIONS_TOO_SMALL";
     }
@@ -316,7 +355,7 @@ public class AgentApplicationService {
     }
     for (var action : actions) {
       switch (action.toolId()) {
-        case CLICK_TARGET, TYPE_TEXT -> {
+        case CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> {
           if (action.targetRef() == null
               || action.targetRef().isBlank()
               || action.targetRevision() == null
@@ -325,20 +364,27 @@ public class AgentApplicationService {
           }
           var target =
               state.targets().stream()
-                  .filter(candidate -> candidate.targetRef().equals(action.targetRef()))
+                  .filter(
+                      candidate ->
+                          candidate.targetRef().equals(action.targetRef())
+                              || action.targetRef().equals(candidate.elementId()))
                   .findFirst()
                   .orElse(null);
           if (target == null || !target.visible() || !target.enabled() || target.bounds() == null) {
             return "TARGET_NOT_ACTIONABLE";
           }
-          if (action.toolId() == ToolId.TYPE_TEXT) {
+          if (isTextInput(action.toolId())) {
             var sensitiveData =
                 action.dataClass() == ActionDataClass.CREDENTIAL
                     || action.dataClass() == ActionDataClass.OTP;
-            if (action.value() != null && action.secretId() != null) {
+            if (isSecretInput(action.toolId())
+                && action.value() != null
+                && action.secretId() != null) {
               return "TYPE_TEXT_VALUE_SOURCE_AMBIGUOUS";
             }
-            if (action.secretId() != null && (!controlPolicy.autonomous() || !sensitiveData)) {
+            if (isSecretInput(action.toolId())
+                && action.secretId() != null
+                && (!controlPolicy.autonomous() || !sensitiveData)) {
               return "AUTONOMOUS_SENSITIVE_INPUT_REQUIRED";
             }
             if (target.sensitive()
@@ -348,12 +394,21 @@ public class AgentApplicationService {
             if (!java.util.Set.of("textbox", "combobox").contains(target.role())) {
               return "TYPE_TARGET_ROLE_INVALID";
             }
-            if ((action.value() == null || action.value().isBlank()) && action.secretId() == null) {
+            if (isSecretInput(action.toolId())
+                && (action.value() == null || action.value().isBlank())
+                && action.secretId() == null) {
               return "TYPE_TEXT_VALUE_REQUIRED";
             }
-            if (action.value() != null
+            if (isSecretInput(action.toolId())
+                && action.value() != null
                 && AgentDataMinimizer.containsCredentialLikeValue(action.value())) {
               return "CREDENTIAL_VALUE_FORBIDDEN";
+            }
+            if (action.toolId() == ToolId.PASTE_AGENT_CLIPBOARD
+                && (action.value() != null
+                    || action.secretId() != null
+                    || action.dataClass() != null)) {
+              return "AGENT_CLIPBOARD_PASTE_SOURCE_FORBIDDEN";
             }
           }
         }
@@ -374,6 +429,51 @@ public class AgentApplicationService {
           if (action.waitCondition() == WaitCondition.TARGET_PRESENT
               && (action.targetRef() == null || action.targetRef().isBlank())) {
             return "WAIT_TARGET_REQUIRED";
+          }
+        }
+        case EXECUTE_ACTIONS -> {
+          if (action.targetRef() != null
+              || action.targetRevision() != null
+              || action.value() != null
+              || action.secretId() != null
+              || action.dataClass() != null
+              || action.scrollDeltaY() != null
+              || action.waitCondition() != null
+              || action.timeoutMs() != null
+              || action.actions().isEmpty()) {
+            return "BATCH_ACTION_INPUT_INVALID";
+          }
+          var primitives =
+              action.actions().stream()
+                  .map(
+                      primitive ->
+                          new CreateAgentTaskRequest.ActionRequest(
+                              primitive.toolId(),
+                              primitive.targetRef(),
+                              primitive.targetRevision(),
+                              primitive.value(),
+                              primitive.secretId(),
+                              primitive.dataClass(),
+                              primitive.scrollDeltaY(),
+                              primitive.waitCondition(),
+                              primitive.timeoutMs()))
+                  .toList();
+          if (primitives.stream()
+              .anyMatch(
+                  primitive ->
+                      !java.util.Set.of(
+                              ToolId.CLICK_TARGET,
+                              ToolId.TYPE_TEXT,
+                              ToolId.FILL,
+                              ToolId.PASTE_AGENT_CLIPBOARD,
+                              ToolId.SCROLL,
+                              ToolId.WAIT_FOR)
+                          .contains(primitive.toolId()))) {
+            return "BATCH_ACTION_TOOL_FORBIDDEN";
+          }
+          var primitiveError = validateRequestedActions(primitives, state, controlPolicy);
+          if (!primitiveError.isBlank()) {
+            return primitiveError;
           }
         }
         case REQUEST_HUMAN_TAKEOVER -> {
@@ -550,44 +650,25 @@ public class AgentApplicationService {
       Instant expiresAt,
       AgentControlPolicyService.Policy controlPolicy) {
     var stepId = newId("step_");
-    var dataClass = request.dataClass() == null ? ActionDataClass.PUBLIC : request.dataClass();
-    var resolvedSecret =
-        request.secretId() == null
-            ? null
-            : inputSecrets.consume(request.secretId(), sessionId, tenantId, taskId, dataClass);
-    var plaintext = resolvedSecret == null ? request.value() : resolvedSecret.plaintext();
-    var sensitiveInput =
-        dataClass == ActionDataClass.CREDENTIAL || dataClass == ActionDataClass.OTP;
-    var sealedPayload =
-        request.toolId() == ToolId.TYPE_TEXT
-            ? actionPayloadService.seal(tenantId, taskId, stepId, plaintext)
-            : null;
     var input =
-        request.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER
-            ? null
-            : new StepInput(
-                request.targetRef(),
-                request.targetRevision(),
-                sealedPayload,
-                request.toolId() == ToolId.TYPE_TEXT
-                    ? PromptSecurityService.sha256(sensitiveInput ? sealedPayload : plaintext)
-                    : null,
-                request.toolId() == ToolId.TYPE_TEXT ? plaintext.length() : null,
-                request.toolId() == ToolId.TYPE_TEXT ? dataClass : null,
-                request.scrollDeltaY(),
-                request.waitCondition(),
-                request.timeoutMs(),
-                request.toolId() == ToolId.TYPE_TEXT
-                    && sensitiveInput
-                    && controlPolicy.autonomous(),
-                request.toolId() == ToolId.TYPE_TEXT && sensitiveInput
-                    ? controlPolicy.sensitiveInputMaximumAttempts()
-                    : 1);
+        request.toolId() == ToolId.EXECUTE_ACTIONS
+            ? batchInput(tenantId, sessionId, taskId, stepId, request, controlPolicy)
+            : singleActionInput(tenantId, sessionId, taskId, stepId, request, controlPolicy);
     var risk =
         switch (request.toolId()) {
-          case TYPE_TEXT -> RiskClass.R2_DATA_CHANGE;
+          case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> RiskClass.R2_DATA_CHANGE;
           case CLICK_TARGET, SCROLL -> RiskClass.R1_LOW_RISK_CHANGE;
           case WAIT_FOR, REQUEST_HUMAN_TAKEOVER -> RiskClass.R0_READ_ONLY;
+          case EXECUTE_ACTIONS ->
+              request.actions().stream()
+                  .map(
+                      action ->
+                          isTextInput(action.toolId())
+                              ? RiskClass.R2_DATA_CHANGE
+                              : action.toolId() == ToolId.WAIT_FOR
+                                  ? RiskClass.R0_READ_ONLY
+                                  : RiskClass.R1_LOW_RISK_CHANGE)
+                  .reduce(RiskClass.R0_READ_ONLY, AgentApplicationService::maxRisk);
           default -> RiskClass.R5_SECURITY;
         };
     var capability =
@@ -623,11 +704,113 @@ public class AgentApplicationService {
         capability.token());
   }
 
+  private StepInput singleActionInput(
+      String tenantId,
+      String sessionId,
+      String taskId,
+      String stepId,
+      CreateAgentTaskRequest.ActionRequest request,
+      AgentControlPolicyService.Policy controlPolicy) {
+    if (request.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER) return null;
+    var dataClass = request.dataClass() == null ? ActionDataClass.PUBLIC : request.dataClass();
+    var resolvedSecret =
+        request.secretId() == null
+            ? null
+            : inputSecrets.consume(request.secretId(), sessionId, tenantId, taskId, dataClass);
+    var plaintext =
+        request.toolId() == ToolId.PASTE_AGENT_CLIPBOARD
+            ? requireClipboard().materializeForPaste(sessionId, tenantId)
+            : resolvedSecret == null ? request.value() : resolvedSecret.plaintext();
+    var sensitiveInput =
+        dataClass == ActionDataClass.CREDENTIAL || dataClass == ActionDataClass.OTP;
+    var sealedPayload =
+        isTextInput(request.toolId())
+            ? actionPayloadService.seal(tenantId, taskId, stepId, plaintext)
+            : null;
+    return new StepInput(
+        request.targetRef(),
+        request.targetRevision(),
+        sealedPayload,
+        isTextInput(request.toolId())
+            ? PromptSecurityService.sha256(sensitiveInput ? sealedPayload : plaintext)
+            : null,
+        isTextInput(request.toolId()) ? plaintext.length() : null,
+        isTextInput(request.toolId()) ? dataClass : null,
+        request.scrollDeltaY(),
+        request.waitCondition(),
+        request.timeoutMs(),
+        isSecretInput(request.toolId()) && sensitiveInput && controlPolicy.autonomous(),
+        isSecretInput(request.toolId()) && sensitiveInput
+            ? controlPolicy.sensitiveInputMaximumAttempts()
+            : 1);
+  }
+
+  private StepInput batchInput(
+      String tenantId,
+      String sessionId,
+      String taskId,
+      String stepId,
+      CreateAgentTaskRequest.ActionRequest request,
+      AgentControlPolicyService.Policy controlPolicy) {
+    var actions = new ArrayList<ActionInput>();
+    for (int index = 0; index < request.actions().size(); index++) {
+      var action = request.actions().get(index);
+      var actionId = "action_" + (index + 1);
+      var dataClass = action.dataClass() == null ? ActionDataClass.PUBLIC : action.dataClass();
+      var secret =
+          action.secretId() == null
+              ? null
+              : inputSecrets.consume(action.secretId(), sessionId, tenantId, taskId, dataClass);
+      var plaintext =
+          action.toolId() == ToolId.PASTE_AGENT_CLIPBOARD
+              ? requireClipboard().materializeForPaste(sessionId, tenantId)
+              : secret == null ? action.value() : secret.plaintext();
+      var sensitive = dataClass == ActionDataClass.CREDENTIAL || dataClass == ActionDataClass.OTP;
+      var sealed =
+          isTextInput(action.toolId())
+              ? actionPayloadService.seal(tenantId, taskId, stepId + ":" + actionId, plaintext)
+              : null;
+      actions.add(
+          new ActionInput(
+              actionId,
+              action.toolId(),
+              action.targetRef(),
+              action.targetRevision(),
+              sealed,
+              isTextInput(action.toolId())
+                  ? PromptSecurityService.sha256(sensitive ? sealed : plaintext)
+                  : null,
+              isTextInput(action.toolId()) ? plaintext.length() : null,
+              isTextInput(action.toolId()) ? dataClass : null,
+              action.scrollDeltaY(),
+              action.waitCondition(),
+              action.timeoutMs(),
+              isSecretInput(action.toolId()) && sensitive && controlPolicy.autonomous(),
+              isSecretInput(action.toolId()) && sensitive
+                  ? controlPolicy.sensitiveInputMaximumAttempts()
+                  : 1));
+    }
+    return new StepInput(
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        1,
+        actions,
+        request.stopOnError() == null || request.stopOnError());
+  }
+
   private static String dataScope(ToolId toolId, StepInput input) {
     return switch (toolId) {
       case NAVIGATE -> "NAVIGATION";
       case CLICK_TARGET -> "TARGET_ACTION";
-      case TYPE_TEXT ->
+      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
           input == null
               ? "FORM_INPUT_PUBLIC"
               : switch (input.dataClass()) {
@@ -638,6 +821,7 @@ public class AgentApplicationService {
               };
       case SCROLL -> "VIEWPORT_ACTION";
       case WAIT_FOR -> "STATE_OBSERVATION";
+      case EXECUTE_ACTIONS -> "BATCH_ACTIONS";
       case REQUEST_HUMAN_TAKEOVER -> "HUMAN_HANDOFF";
       default -> "BROWSER_STATE_METADATA";
     };
@@ -647,8 +831,12 @@ public class AgentApplicationService {
     return switch (toolId) {
       case CLICK_TARGET -> "Click the exact user-authorized current-state target";
       case TYPE_TEXT -> "Type sealed purpose-bound text into the exact authorized target";
+      case FILL -> "Replace the exact authorized field with sealed purpose-bound text";
+      case PASTE_AGENT_CLIPBOARD ->
+          "Paste the isolated AgentClipboard into the exact authorized target";
       case SCROLL -> "Scroll the current page by a bounded amount";
       case WAIT_FOR -> "Wait for a bounded browser-state condition";
+      case EXECUTE_ACTIONS -> "Execute an ordered, state-fenced browser action batch";
       case REQUEST_HUMAN_TAKEOVER -> "Pause the Agent and request an explicit human takeover";
       default -> "Execute the authorized action";
     };
@@ -657,9 +845,11 @@ public class AgentApplicationService {
   private static String verification(ToolId toolId) {
     return switch (toolId) {
       case CLICK_TARGET -> "POST_ACTION_STATE_VERSION_ADVANCED";
-      case TYPE_TEXT -> "POST_ACTION_STATE_ADVANCED_AND_PAYLOAD_HASH_BOUND";
+      case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
+          "POST_ACTION_STATE_ADVANCED_AND_PAYLOAD_HASH_BOUND";
       case SCROLL -> "POST_SCROLL_STATE_COLLECTED";
       case WAIT_FOR -> "WAIT_CONDITION_SATISFIED";
+      case EXECUTE_ACTIONS -> "BATCH_ACTIONS_VERIFIED_WITH_FINAL_STATE";
       case REQUEST_HUMAN_TAKEOVER -> "HUMAN_HANDOFF_REQUEST_RECORDED";
       default -> "RESULT_VERIFIED";
     };
@@ -692,7 +882,25 @@ public class AgentApplicationService {
                                 step.input().waitCondition(),
                                 step.input().timeoutMs(),
                                 step.input().allowSensitiveTarget(),
-                                step.input().maximumAttempts()),
+                                step.input().maximumAttempts(),
+                                step.input().actions().stream()
+                                    .map(
+                                        action ->
+                                            new AgentTaskView.BatchActionInputView(
+                                                action.actionId(),
+                                                action.toolId(),
+                                                action.targetRef(),
+                                                action.targetRevision(),
+                                                action.payloadHash(),
+                                                action.payloadLength(),
+                                                action.dataClass(),
+                                                action.scrollDeltaY(),
+                                                action.waitCondition(),
+                                                action.timeoutMs(),
+                                                action.allowSensitiveTarget(),
+                                                action.maximumAttempts()))
+                                    .toList(),
+                                step.input().stopOnError()),
                         step.rationale(),
                         step.supportingSources(),
                         step.trustFloor(),
@@ -832,6 +1040,10 @@ public class AgentApplicationService {
       if (!policy.allows(action.toolId())) {
         return "AGENT_POLICY_TOOL_FORBIDDEN";
       }
+      if (action.toolId() == ToolId.EXECUTE_ACTIONS
+          && action.actions().stream().anyMatch(item -> !policy.allows(item.toolId()))) {
+        return "AGENT_POLICY_BATCH_TOOL_FORBIDDEN";
+      }
       if (action.toolId() == ToolId.REQUEST_HUMAN_TAKEOVER && !humanTakeoverEnabled) {
         return "HUMAN_TAKEOVER_DISABLED";
       }
@@ -848,9 +1060,19 @@ public class AgentApplicationService {
             : requestedActions) {
       var actionRisk =
           switch (action.toolId()) {
-            case TYPE_TEXT -> RiskClass.R2_DATA_CHANGE;
+            case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> RiskClass.R2_DATA_CHANGE;
             case CLICK_TARGET, SCROLL -> RiskClass.R1_LOW_RISK_CHANGE;
             case WAIT_FOR, REQUEST_HUMAN_TAKEOVER -> RiskClass.R0_READ_ONLY;
+            case EXECUTE_ACTIONS ->
+                action.actions().stream()
+                    .map(
+                        item ->
+                            isTextInput(item.toolId())
+                                ? RiskClass.R2_DATA_CHANGE
+                                : item.toolId() == ToolId.WAIT_FOR
+                                    ? RiskClass.R0_READ_ONLY
+                                    : RiskClass.R1_LOW_RISK_CHANGE)
+                    .reduce(RiskClass.R0_READ_ONLY, AgentApplicationService::maxRisk);
             default -> RiskClass.R5_SECURITY;
           };
       risk = maxRisk(risk, actionRisk);
@@ -918,6 +1140,21 @@ public class AgentApplicationService {
 
   private static RiskClass maxRisk(RiskClass left, RiskClass right) {
     return left.ordinal() >= right.ordinal() ? left : right;
+  }
+
+  private AgentClipboardApplicationService requireClipboard() {
+    if (agentClipboard == null) {
+      throw new InvalidAgentTaskException("AGENT_CLIPBOARD_UNAVAILABLE");
+    }
+    return agentClipboard;
+  }
+
+  private static boolean isTextInput(ToolId toolId) {
+    return isSecretInput(toolId) || toolId == ToolId.PASTE_AGENT_CLIPBOARD;
+  }
+
+  private static boolean isSecretInput(ToolId toolId) {
+    return toolId == ToolId.TYPE_TEXT || toolId == ToolId.FILL;
   }
 
   public static final class AgentTaskNotFoundException extends RuntimeException {}

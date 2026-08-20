@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **213 Operations / 287 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **226 Operations / 301 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -93,7 +93,7 @@ Rust Browser Node
 | `apps/agent-worker/` | Agent Executor 与 Reviewer Worker |
 | `packages/contracts/openapi/session-api.yaml` | 外部正式 API 权威契约 |
 | `packages/contracts/proto/` | Control Plane 与 Browser Node 的内部 Protobuf 契约 |
-| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V105 |
+| `database/migrations/` | Expand-only Flyway 迁移；当前最新迁移至少包含 V108 |
 | `sdks/` | 四语言生成 SDK 与生成 Manifest；禁止手工造成契约漂移 |
 | `deploy/kubernetes/` | Kubernetes 部署、策略、监控和 BrowserSession 资源 |
 | `deploy/terraform/` | Terraform Module 与 Go Provider |
@@ -158,6 +158,9 @@ Rust Browser Node
   顺序执行 CLICK/TYPE/FILL/AgentClipboard/SCROLL/WAIT，每步重读真实状态并支持 stop-on-error；
   Batch Primitive 已以 additive `element_id` 在每步后按最新 Target Revision 稳定重绑定，
   N−1/历史命令保持原围栏并 fail-closed，见 progress 150。
+- [已确认] 同一 Batch 已增加真实 CDP 双击、右键、悬停、清空、勾选和取消勾选；
+  Check/Uncheck 会在动作后重采并验证结构化 checked 状态，非文本动作不得夹带 Secret/Value，
+  见 progress 151。
 - [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
   每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
   PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
@@ -173,6 +176,11 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Agent Browser 扩展指针/表单动作切片本地 Control Plane 457 项、Rust Workspace、Web
+  115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
+  PostgreSQL/mTLS/Chromium Integration 已通过；GitHub `ci/desktop` 待提交推送后确认，
+  见 progress 151。
 
 - Agent Browser Batch 稳定重绑定切片实现提交 `54b28ea`；本地 Control Plane 456 项、Rust Workspace、Web
   115 项、Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与
@@ -220,7 +228,8 @@ Rust Browser Node
 
 - Snapshot/Inspect/Find、精确 State Cursor、稳定 Element ID、可见/可操作性判定和同源
   iframe/open Shadow DOM 已完成开发；
-- 统一 Batch/Fast Path 已支持 CLICK、TYPE、FILL、AgentClipboard Paste、SCROLL、WAIT，
+- 统一 Batch/Fast Path 已支持 CLICK、DOUBLE_CLICK、RIGHT_CLICK、HOVER、CLEAR、CHECK、
+  UNCHECK、TYPE、FILL、AgentClipboard Paste、SCROLL、WAIT，
   每步重验真实状态，VNC 真人输入优先后续行同一 Batch；
 - Challenge Human-like 轨迹、Session Identity 创建时锁定/Change Request/Runtime 应用、
   独立 AgentClipboard 和 OpenAPI/四 SDK 已完成开发；
@@ -228,9 +237,9 @@ Rust Browser Node
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
-- 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和其余高级 Action
-  Primitive，见 progress 149；稳定 Element ID 的逐 Primitive 重绑定已完成定向验证，
-  且完整本地及远端 Gate 已通过；实现提交 `54b28ea`、最终提交 `ec7b61f`，见 progress 150。
+- 当前继续收口 Dialog/Tab/File/局部 Screenshot/受治理 JS Evaluate 和 Select/Press/
+  Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见 progress 149、151；稳定 Element
+  ID 重绑定与扩展指针/表单动作已通过完整本地 Gate，后者 GitHub Workflow 待推送确认。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -282,8 +291,9 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
-6. Agent Browser Dialog/Tab/File、局部 Screenshot、受治理 JS Evaluate、完整高级键鼠
-   Action Primitive 和 AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
+6. Agent Browser Dialog/Tab/File、局部 Screenshot、受治理 JS Evaluate、Select/Press/
+   Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Action Primitive 和
+   AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
    已完成粗粒度 Agent Gateway 契约。
 
 ### P1/P2：目标环境与外部集成 Gate
@@ -363,7 +373,7 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 按 progress 149 的保留边界继续收口 Dialog/Tab/File/Screenshot/Evaluate 与高级
+1. 按 progress 149、151 的保留边界继续收口 Dialog/Tab/File/Screenshot/Evaluate 与高级
    Action Primitive；基础结构化感知/Batch/Identity/Clipboard 切片不得重做。
 2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。

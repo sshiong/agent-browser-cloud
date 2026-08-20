@@ -4098,6 +4098,68 @@ agent_task_summaries_other_tenant="$(curl -fsS \
   -H 'X-Tenant-Id: tenant-other')"
 printf '%s' "$agent_task_summaries_other_tenant" | python3 -c \
   'import json,sys; page=json.load(sys.stdin); assert page["total"] == 0; assert page["items"] == []; assert page["hasMore"] is False'
+extended_action_snapshot="$(curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER')"
+extended_action_request="$(python3 - "$extended_action_snapshot" <<'PY'
+import json
+import sys
+
+snapshot = json.loads(sys.argv[1])
+state = snapshot["state"]
+button = next(item for item in state["targets"] if item["role"] == "button")
+textbox = next(
+    item for item in state["targets"]
+    if item["role"] == "textbox" and not item["sensitive"]
+)
+checkbox = next(item for item in state["targets"] if item["role"] == "checkbox")
+actions = [
+    ("HOVER_TARGET", button),
+    ("DOUBLE_CLICK_TARGET", button),
+    ("RIGHT_CLICK_TARGET", button),
+    ("CLEAR_TARGET", textbox),
+    ("CHECK_TARGET", checkbox),
+    ("UNCHECK_TARGET", checkbox),
+]
+print(json.dumps({
+    "goal": "Exercise authorized low-risk page controls",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "actions": [{
+        "toolId": tool,
+        "targetRef": target["elementId"],
+        "targetRevision": state["targetRevision"],
+    } for tool, target in actions],
+    "stopOnError": True,
+}, separators=(",", ":")))
+PY
+)"
+extended_action_task="$(curl -fsS -X POST \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/execute-actions" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_OPERATOR' \
+  -H 'Idempotency-Key: smoke-agent-browser-extended-actions-001' \
+  -d "$extended_action_request")"
+extended_action_task_id="$(printf '%s' "$extended_action_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); assert task["state"] in ("RUNNING", "COMPLETED"); print(task["taskId"])')"
+for _ in $(seq 1 80); do
+  extended_action_task="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/agent-tasks/${extended_action_task_id}" \
+    -H 'X-Tenant-Id: tenant-integration')"
+  extended_action_state="$(printf '%s' "$extended_action_task" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["state"])')"
+  if [[ "$extended_action_state" = "COMPLETED" ]]; then break; fi
+  sleep 0.25
+done
+test "$extended_action_state" = "COMPLETED"
+printf '%s' "$extended_action_task" | python3 -c \
+  'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); assert batch["output"]["completedActions"] == 6; assert [item["actionId"] for item in batch["output"]["actions"]] == [f"action_{index}" for index in range(1, 7)]; assert all(item["status"] == "SUCCEEDED" and item["errorCode"] == "" for item in batch["output"]["actions"])'
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+  'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); checkbox=next(item for item in state["targets"] if item["role"] == "checkbox"); assert textbox["value"] == ""; assert checkbox["checked"] is False'
 read_agent_task="$(curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${session_one}/agent-tasks" \
   -H 'Content-Type: application/json' \
@@ -4918,9 +4980,9 @@ printf '%s' "$session_after_terminate" | python3 -c \
 
 committed_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and state='COMMITTED'")"
-# Worker execution uses reviewer_session, so the crash-recovery Session keeps its original,
-# independently asserted operation history.
-test "$committed_operations" = "13"
+# Worker execution uses reviewer_session. The coarse extended-action batch above contributes one
+# additional committed AGENT_TASK operation to this crash-recovery Session.
+test "$committed_operations" = "14"
 resource_policy_operations="$(docker exec "$postgres_name" psql -U browsercloud -d browsercloud -Atc \
   "select count(*) from exclusive_operations where session_id='${session_one}' and mode='RESOURCE_ADJUSTMENT' and state='COMMITTED'")"
 test "$resource_policy_operations" = "4"

@@ -381,6 +381,7 @@ struct RegisteredTarget {
 
 #[derive(Debug, Clone)]
 pub struct ResolvedTarget {
+    pub element_id: String,
     pub role: String,
     pub bounds: Bounds,
     pub enabled: bool,
@@ -388,6 +389,7 @@ pub struct ResolvedTarget {
     pub sensitive: bool,
     pub in_viewport: bool,
     pub occluded: bool,
+    pub checked: Option<bool>,
 }
 
 impl CdpStateCollector {
@@ -1744,6 +1746,7 @@ impl CdpStateCollector {
     fn registered_target(target_revision: u64, evaluated: EvaluatedTarget) -> RegisteredTarget {
         let target_ref = Self::target_ref(target_revision, &evaluated.path);
         let resolved = evaluated.bounds.clone().map(|bounds| ResolvedTarget {
+            element_id: Self::element_id(&evaluated.path),
             role: evaluated.role.clone(),
             bounds,
             enabled: evaluated.enabled,
@@ -1751,6 +1754,7 @@ impl CdpStateCollector {
             sensitive: evaluated.sensitive,
             in_viewport: evaluated.in_viewport,
             occluded: evaluated.occluded,
+            checked: evaluated.checked,
         });
         let interactive = InteractiveTarget {
             target_ref,

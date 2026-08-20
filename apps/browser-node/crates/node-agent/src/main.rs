@@ -2801,6 +2801,12 @@ impl NodeControlService {
                     && matches!(
                         action.tool_id.as_str(),
                         "CLICK_TARGET"
+                            | "DOUBLE_CLICK_TARGET"
+                            | "RIGHT_CLICK_TARGET"
+                            | "HOVER_TARGET"
+                            | "CLEAR_TARGET"
+                            | "CHECK_TARGET"
+                            | "UNCHECK_TARGET"
                             | "TYPE_TEXT"
                             | "FILL"
                             | "PASTE_AGENT_CLIPBOARD"
@@ -2889,8 +2895,18 @@ impl NodeControlService {
         &self,
         payload: &AgentActionCommand,
     ) -> anyhow::Result<CurrentState> {
+        let mut checked_verification: Option<(String, bool)> = None;
         match payload.tool_id.as_str() {
-            "CLICK_TARGET" | "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD" => {
+            "CLICK_TARGET"
+            | "DOUBLE_CLICK_TARGET"
+            | "RIGHT_CLICK_TARGET"
+            | "HOVER_TARGET"
+            | "CLEAR_TARGET"
+            | "CHECK_TARGET"
+            | "UNCHECK_TARGET"
+            | "TYPE_TEXT"
+            | "FILL"
+            | "PASTE_AGENT_CLIPBOARD" => {
                 let target = self
                     .state_collector
                     .resolve_target(
@@ -2927,9 +2943,35 @@ impl NodeControlService {
                 } else {
                     anyhow::ensure!(
                         payload.text.is_empty() && payload.sealed_text.is_empty(),
-                        "click target cannot carry text"
+                        "target action cannot carry text"
                     );
+                    if payload.tool_id == "CLEAR_TARGET" {
+                        anyhow::ensure!(
+                            matches!(target.role.as_str(), "textbox" | "combobox"),
+                            "clear target role is not supported"
+                        );
+                    }
+                    if payload.tool_id == "CHECK_TARGET" {
+                        anyhow::ensure!(
+                            matches!(target.role.as_str(), "checkbox" | "radio")
+                                && target.checked.is_some(),
+                            "check target role or state is not supported"
+                        );
+                    }
+                    if payload.tool_id == "UNCHECK_TARGET" {
+                        anyhow::ensure!(
+                            target.role == "checkbox" && target.checked.is_some(),
+                            "uncheck target role or state is not supported"
+                        );
+                    }
                 }
+                let expected_checked = match payload.tool_id.as_str() {
+                    "CHECK_TARGET" => Some(true),
+                    "UNCHECK_TARGET" => Some(false),
+                    _ => None,
+                };
+                checked_verification =
+                    expected_checked.map(|expected| (target.element_id.clone(), expected));
                 let center_x = target.bounds.x + target.bounds.width / 2.0;
                 let center_y = target.bounds.y + target.bounds.height / 2.0;
                 anyhow::ensure!(
@@ -2972,9 +3014,32 @@ impl NodeControlService {
                                 sequence(1)?,
                             )
                             .await?;
-                        input.mouse_down(0, sequence(2)?).await?;
-                        input.mouse_up(0, sequence(3)?).await?;
-                        if matches!(
+                        match payload.tool_id.as_str() {
+                            "HOVER_TARGET" => {}
+                            "DOUBLE_CLICK_TARGET" => {
+                                input.mouse_click(0, 2, sequence(2)?).await?;
+                            }
+                            "RIGHT_CLICK_TARGET" => {
+                                input.mouse_click(2, 1, sequence(2)?).await?;
+                            }
+                            "CHECK_TARGET" if target.checked == Some(true) => {}
+                            "UNCHECK_TARGET" if target.checked == Some(false) => {}
+                            _ => {
+                                input.mouse_click(0, 1, sequence(2)?).await?;
+                            }
+                        }
+                        if payload.tool_id == "CLEAR_TARGET" {
+                            input.key_down(InputKey::Control, sequence(3)?).await?;
+                            input
+                                .key_down(InputKey::Character("a".to_owned()), sequence(4)?)
+                                .await?;
+                            input
+                                .key_up(InputKey::Character("a".to_owned()), sequence(5)?)
+                                .await?;
+                            input.key_up(InputKey::Control, sequence(6)?).await?;
+                            input.key_down(InputKey::Backspace, sequence(7)?).await?;
+                            input.key_up(InputKey::Backspace, sequence(8)?).await?;
+                        } else if matches!(
                             payload.tool_id.as_str(),
                             "TYPE_TEXT" | "FILL" | "PASTE_AGENT_CLIPBOARD"
                         ) {
@@ -3073,6 +3138,17 @@ impl NodeControlService {
             .state_collector
             .collect_action_confirmation(&payload.session_id)
             .await?;
+        if let Some((target_element_id, expected_checked)) = checked_verification {
+            let actual = state
+                .targets
+                .iter()
+                .find(|target| target.element_id == target_element_id)
+                .and_then(|target| target.checked);
+            anyhow::ensure!(
+                actual == Some(expected_checked),
+                "post-action checked state did not match the requested state"
+            );
+        }
         anyhow::ensure!(
             state.state_version > payload.base_state_version,
             "post-action state version did not advance"
@@ -4831,6 +4907,12 @@ impl NodeControlService {
                         || !matches!(
                             payload.tool_id.as_str(),
                             "CLICK_TARGET"
+                                | "DOUBLE_CLICK_TARGET"
+                                | "RIGHT_CLICK_TARGET"
+                                | "HOVER_TARGET"
+                                | "CLEAR_TARGET"
+                                | "CHECK_TARGET"
+                                | "UNCHECK_TARGET"
                                 | "TYPE_TEXT"
                                 | "FILL"
                                 | "PASTE_AGENT_CLIPBOARD"

@@ -29,6 +29,12 @@ public class AgentActionToolService {
   private static final Set<ToolId> SUPPORTED =
       Set.of(
           ToolId.CLICK_TARGET,
+          ToolId.DOUBLE_CLICK_TARGET,
+          ToolId.RIGHT_CLICK_TARGET,
+          ToolId.HOVER_TARGET,
+          ToolId.CLEAR_TARGET,
+          ToolId.CHECK_TARGET,
+          ToolId.UNCHECK_TARGET,
           ToolId.TYPE_TEXT,
           ToolId.FILL,
           ToolId.PASTE_AGENT_CLIPBOARD,
@@ -107,7 +113,16 @@ public class AgentActionToolService {
       AgentControlPolicyService.Policy policy) {
     var input = step.input();
     switch (step.toolId()) {
-      case CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> {
+      case CLICK_TARGET,
+          DOUBLE_CLICK_TARGET,
+          RIGHT_CLICK_TARGET,
+          HOVER_TARGET,
+          CLEAR_TARGET,
+          CHECK_TARGET,
+          UNCHECK_TARGET,
+          TYPE_TEXT,
+          FILL,
+          PASTE_AGENT_CLIPBOARD -> {
         if (input.targetRef() == null
             || input.targetRef().isBlank()
             || input.targetRevision() == null
@@ -154,8 +169,17 @@ public class AgentActionToolService {
               || input.payloadLength() > 2_000) {
             throw new ActionToolException("TYPE_PAYLOAD_INVALID");
           }
-        } else if (input.sealedPayload() != null) {
-          throw new ActionToolException("CLICK_PAYLOAD_FORBIDDEN");
+        } else {
+          if (input.sealedPayload() != null
+              || input.dataClass() != null
+              || input.payloadHash() != null
+              || input.payloadLength() != null
+              || input.scrollDeltaY() != null
+              || input.waitCondition() != null
+              || input.timeoutMs() != null) {
+            throw new ActionToolException("TARGET_ACTION_PAYLOAD_FORBIDDEN");
+          }
+          validateTargetActionRole(step.toolId(), target);
         }
       }
       case SCROLL -> {
@@ -198,6 +222,12 @@ public class AgentActionToolService {
     }
     if (!Set.of(
             ToolId.CLICK_TARGET,
+            ToolId.DOUBLE_CLICK_TARGET,
+            ToolId.RIGHT_CLICK_TARGET,
+            ToolId.HOVER_TARGET,
+            ToolId.CLEAR_TARGET,
+            ToolId.CHECK_TARGET,
+            ToolId.UNCHECK_TARGET,
             ToolId.TYPE_TEXT,
             ToolId.FILL,
             ToolId.PASTE_AGENT_CLIPBOARD,
@@ -242,6 +272,13 @@ public class AgentActionToolService {
   private static String dataScope(PlanStep step) {
     return switch (step.toolId()) {
       case CLICK_TARGET -> "TARGET_ACTION";
+      case DOUBLE_CLICK_TARGET,
+              RIGHT_CLICK_TARGET,
+              HOVER_TARGET,
+              CLEAR_TARGET,
+              CHECK_TARGET,
+              UNCHECK_TARGET ->
+          "TARGET_ACTION";
       case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
           switch (step.input().dataClass()) {
             case PII -> "FORM_INPUT_PII";
@@ -272,6 +309,23 @@ public class AgentActionToolService {
     return toolId == ToolId.TYPE_TEXT
         || toolId == ToolId.FILL
         || toolId == ToolId.PASTE_AGENT_CLIPBOARD;
+  }
+
+  private static void validateTargetActionRole(
+      ToolId toolId, io.browsercloud.coordinator.NodeEvent.InteractiveTarget target) {
+    if (toolId == ToolId.CLEAR_TARGET && !Set.of("textbox", "combobox").contains(target.role())) {
+      throw new ActionToolException("CLEAR_TARGET_ROLE_INVALID");
+    }
+    if (toolId == ToolId.CHECK_TARGET && !Set.of("checkbox", "radio").contains(target.role())) {
+      throw new ActionToolException("CHECK_TARGET_ROLE_INVALID");
+    }
+    if (toolId == ToolId.UNCHECK_TARGET && !"checkbox".equals(target.role())) {
+      throw new ActionToolException("UNCHECK_TARGET_ROLE_INVALID");
+    }
+    if (Set.of(ToolId.CHECK_TARGET, ToolId.UNCHECK_TARGET).contains(toolId)
+        && target.checked() == null) {
+      throw new ActionToolException("TARGET_CHECKED_STATE_UNAVAILABLE");
+    }
   }
 
   public record PendingAction(long baseStateVersion, String baseStateHash, Instant deadline) {}

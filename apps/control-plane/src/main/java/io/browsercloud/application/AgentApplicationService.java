@@ -355,7 +355,16 @@ public class AgentApplicationService {
     }
     for (var action : actions) {
       switch (action.toolId()) {
-        case CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> {
+        case CLICK_TARGET,
+            DOUBLE_CLICK_TARGET,
+            RIGHT_CLICK_TARGET,
+            HOVER_TARGET,
+            CLEAR_TARGET,
+            CHECK_TARGET,
+            UNCHECK_TARGET,
+            TYPE_TEXT,
+            FILL,
+            PASTE_AGENT_CLIPBOARD -> {
           if (action.targetRef() == null
               || action.targetRef().isBlank()
               || action.targetRevision() == null
@@ -410,6 +419,17 @@ public class AgentApplicationService {
                     || action.dataClass() != null)) {
               return "AGENT_CLIPBOARD_PASTE_SOURCE_FORBIDDEN";
             }
+          } else {
+            if (action.value() != null
+                || action.secretId() != null
+                || action.dataClass() != null
+                || action.scrollDeltaY() != null
+                || action.waitCondition() != null
+                || action.timeoutMs() != null) {
+              return "TARGET_ACTION_INPUT_FORBIDDEN";
+            }
+            var roleError = validateTargetActionRole(action.toolId(), target);
+            if (!roleError.isBlank()) return roleError;
           }
         }
         case SCROLL -> {
@@ -463,6 +483,12 @@ public class AgentApplicationService {
                   primitive ->
                       !java.util.Set.of(
                               ToolId.CLICK_TARGET,
+                              ToolId.DOUBLE_CLICK_TARGET,
+                              ToolId.RIGHT_CLICK_TARGET,
+                              ToolId.HOVER_TARGET,
+                              ToolId.CLEAR_TARGET,
+                              ToolId.CHECK_TARGET,
+                              ToolId.UNCHECK_TARGET,
                               ToolId.TYPE_TEXT,
                               ToolId.FILL,
                               ToolId.PASTE_AGENT_CLIPBOARD,
@@ -656,14 +682,21 @@ public class AgentApplicationService {
             : singleActionInput(tenantId, sessionId, taskId, stepId, request, controlPolicy);
     var risk =
         switch (request.toolId()) {
-          case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> RiskClass.R2_DATA_CHANGE;
-          case CLICK_TARGET, SCROLL -> RiskClass.R1_LOW_RISK_CHANGE;
+          case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET -> RiskClass.R2_DATA_CHANGE;
+          case CLICK_TARGET,
+                  DOUBLE_CLICK_TARGET,
+                  RIGHT_CLICK_TARGET,
+                  HOVER_TARGET,
+                  CHECK_TARGET,
+                  UNCHECK_TARGET,
+                  SCROLL ->
+              RiskClass.R1_LOW_RISK_CHANGE;
           case WAIT_FOR, REQUEST_HUMAN_TAKEOVER -> RiskClass.R0_READ_ONLY;
           case EXECUTE_ACTIONS ->
               request.actions().stream()
                   .map(
                       action ->
-                          isTextInput(action.toolId())
+                          isTextInput(action.toolId()) || action.toolId() == ToolId.CLEAR_TARGET
                               ? RiskClass.R2_DATA_CHANGE
                               : action.toolId() == ToolId.WAIT_FOR
                                   ? RiskClass.R0_READ_ONLY
@@ -829,6 +862,13 @@ public class AgentApplicationService {
     return switch (toolId) {
       case NAVIGATE -> "NAVIGATION";
       case CLICK_TARGET -> "TARGET_ACTION";
+      case DOUBLE_CLICK_TARGET,
+              RIGHT_CLICK_TARGET,
+              HOVER_TARGET,
+              CLEAR_TARGET,
+              CHECK_TARGET,
+              UNCHECK_TARGET ->
+          "TARGET_ACTION";
       case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
           input == null
               ? "FORM_INPUT_PUBLIC"
@@ -849,6 +889,12 @@ public class AgentApplicationService {
   private static String rationale(ToolId toolId) {
     return switch (toolId) {
       case CLICK_TARGET -> "Click the exact user-authorized current-state target";
+      case DOUBLE_CLICK_TARGET -> "Double-click the exact current-state target";
+      case RIGHT_CLICK_TARGET -> "Open the context menu on the exact current-state target";
+      case HOVER_TARGET -> "Move the pointer over the exact current-state target";
+      case CLEAR_TARGET -> "Clear the exact current-state form control";
+      case CHECK_TARGET -> "Check the exact current-state checkbox or radio control";
+      case UNCHECK_TARGET -> "Uncheck the exact current-state checkbox control";
       case TYPE_TEXT -> "Type sealed purpose-bound text into the exact authorized target";
       case FILL -> "Replace the exact authorized field with sealed purpose-bound text";
       case PASTE_AGENT_CLIPBOARD ->
@@ -864,6 +910,10 @@ public class AgentApplicationService {
   private static String verification(ToolId toolId) {
     return switch (toolId) {
       case CLICK_TARGET -> "POST_ACTION_STATE_VERSION_ADVANCED";
+      case DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET ->
+          "POST_ACTION_STATE_VERSION_ADVANCED";
+      case CHECK_TARGET -> "POST_ACTION_TARGET_CHECKED";
+      case UNCHECK_TARGET -> "POST_ACTION_TARGET_UNCHECKED";
       case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD ->
           "POST_ACTION_STATE_ADVANCED_AND_PAYLOAD_HASH_BOUND";
       case SCROLL -> "POST_SCROLL_STATE_COLLECTED";
@@ -1080,14 +1130,21 @@ public class AgentApplicationService {
             : requestedActions) {
       var actionRisk =
           switch (action.toolId()) {
-            case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD -> RiskClass.R2_DATA_CHANGE;
-            case CLICK_TARGET, SCROLL -> RiskClass.R1_LOW_RISK_CHANGE;
+            case TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, CLEAR_TARGET -> RiskClass.R2_DATA_CHANGE;
+            case CLICK_TARGET,
+                    DOUBLE_CLICK_TARGET,
+                    RIGHT_CLICK_TARGET,
+                    HOVER_TARGET,
+                    CHECK_TARGET,
+                    UNCHECK_TARGET,
+                    SCROLL ->
+                RiskClass.R1_LOW_RISK_CHANGE;
             case WAIT_FOR, REQUEST_HUMAN_TAKEOVER -> RiskClass.R0_READ_ONLY;
             case EXECUTE_ACTIONS ->
                 action.actions().stream()
                     .map(
                         item ->
-                            isTextInput(item.toolId())
+                            isTextInput(item.toolId()) || item.toolId() == ToolId.CLEAR_TARGET
                                 ? RiskClass.R2_DATA_CHANGE
                                 : item.toolId() == ToolId.WAIT_FOR
                                     ? RiskClass.R0_READ_ONLY
@@ -1175,6 +1232,26 @@ public class AgentApplicationService {
 
   private static boolean isSecretInput(ToolId toolId) {
     return toolId == ToolId.TYPE_TEXT || toolId == ToolId.FILL;
+  }
+
+  private static String validateTargetActionRole(
+      ToolId toolId, io.browsercloud.coordinator.NodeEvent.InteractiveTarget target) {
+    if (toolId == ToolId.CLEAR_TARGET
+        && !java.util.Set.of("textbox", "combobox").contains(target.role())) {
+      return "CLEAR_TARGET_ROLE_INVALID";
+    }
+    if (toolId == ToolId.CHECK_TARGET
+        && !java.util.Set.of("checkbox", "radio").contains(target.role())) {
+      return "CHECK_TARGET_ROLE_INVALID";
+    }
+    if (toolId == ToolId.UNCHECK_TARGET && !"checkbox".equals(target.role())) {
+      return "UNCHECK_TARGET_ROLE_INVALID";
+    }
+    if (java.util.Set.of(ToolId.CHECK_TARGET, ToolId.UNCHECK_TARGET).contains(toolId)
+        && target.checked() == null) {
+      return "TARGET_CHECKED_STATE_UNAVAILABLE";
+    }
+    return "";
   }
 
   public static final class AgentTaskNotFoundException extends RuntimeException {}

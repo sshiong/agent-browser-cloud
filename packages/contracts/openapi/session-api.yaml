@@ -6119,6 +6119,12 @@ components:
           type: string
           enum:
             - CLICK_TARGET
+            - DOUBLE_CLICK_TARGET
+            - RIGHT_CLICK_TARGET
+            - HOVER_TARGET
+            - CLEAR_TARGET
+            - CHECK_TARGET
+            - UNCHECK_TARGET
             - TYPE_TEXT
             - FILL
             - PASTE_AGENT_CLIPBOARD
@@ -6171,7 +6177,7 @@ components:
       properties:
         toolId:
           type: string
-          enum: [CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
         targetRef:
           type: string
           maxLength: 128
@@ -7321,7 +7327,7 @@ components:
           type: string
         toolId:
           type: string
-          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         targetOrigin:
@@ -7682,6 +7688,12 @@ components:
             - NAVIGATE
             - GET_CURRENT_STATE
             - CLICK_TARGET
+            - DOUBLE_CLICK_TARGET
+            - RIGHT_CLICK_TARGET
+            - HOVER_TARGET
+            - CLEAR_TARGET
+            - CHECK_TARGET
+            - UNCHECK_TARGET
             - TYPE_TEXT
             - FILL
             - PASTE_AGENT_CLIPBOARD
@@ -7801,7 +7813,7 @@ components:
           pattern: "^action_[1-9][0-9]?$"
         toolId:
           type: string
-          enum: [CLICK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR]
         targetRef:
           type: [string, "null"]
         elementId:
@@ -7866,6 +7878,12 @@ components:
             - NAVIGATE
             - GET_CURRENT_STATE
             - CLICK_TARGET
+            - DOUBLE_CLICK_TARGET
+            - RIGHT_CLICK_TARGET
+            - HOVER_TARGET
+            - CLEAR_TARGET
+            - CHECK_TARGET
+            - UNCHECK_TARGET
             - TYPE_TEXT
             - FILL
             - PASTE_AGENT_CLIPBOARD

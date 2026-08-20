@@ -164,7 +164,7 @@ class CreateAgentTaskRequest(TypedDict, total=False):
     actions: list[AgentActionRequest]
 
 class AgentActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'REQUEST_HUMAN_TAKEOVER']
     targetRef: str
     targetRevision: int
     value: str
@@ -177,7 +177,7 @@ class AgentActionRequest(TypedDict, total=False):
     stopOnError: bool
 
 class AgentBatchActionRequest(TypedDict, total=False):
-    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
     targetRef: str
     targetRevision: int
     value: str
@@ -514,7 +514,7 @@ class FailAgentReviewJobRequest(TypedDict, total=False):
 
 class AgentReviewStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetOrigin: Any
     targetRefHash: Any
@@ -633,7 +633,7 @@ class AgentPlan(TypedDict, total=False):
 
 class AgentPlanStep(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     riskClass: AgentRiskClass
     targetUrl: Any
     input: AgentStepInput | None
@@ -663,7 +663,7 @@ class AgentStepInput(TypedDict, total=False):
 
 class AgentBatchActionInput(TypedDict, total=False):
     actionId: str
-    toolId: Literal['CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
+    toolId: Literal['CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR']
     targetRef: Any
     elementId: Any
     targetRevision: Any
@@ -682,7 +682,7 @@ AgentPolicy = Literal['DISABLED', 'RESTRICTED', 'BALANCED', 'INTERACTIVE']
 
 class AgentToolExecutionResult(TypedDict, total=False):
     stepId: str
-    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
+    toolId: Literal['NAVIGATE', 'GET_CURRENT_STATE', 'CLICK_TARGET', 'DOUBLE_CLICK_TARGET', 'RIGHT_CLICK_TARGET', 'HOVER_TARGET', 'CLEAR_TARGET', 'CHECK_TARGET', 'UNCHECK_TARGET', 'TYPE_TEXT', 'FILL', 'PASTE_AGENT_CLIPBOARD', 'SCROLL', 'WAIT_FOR', 'EXECUTE_ACTIONS', 'GET_URL', 'GET_PAGE_SUMMARY', 'REQUEST_HUMAN_TAKEOVER']
     status: Literal['VERIFIED', 'WAITING_FOR_HUMAN', 'ACCEPTED']
     resultHash: str
     output: dict[str, Any]

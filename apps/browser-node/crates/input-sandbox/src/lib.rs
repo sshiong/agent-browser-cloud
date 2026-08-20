@@ -154,6 +154,64 @@ impl CdpDesktopInput {
         }
     }
 
+    /// Dispatch one atomic Chromium mouse click with an explicit click count.
+    ///
+    /// Ordinary DesktopInput down/up calls retain clickCount=1 for VNC compatibility. Structured
+    /// Agent actions use this bounded helper for real double-click and right-click semantics while
+    /// guaranteeing that no pressed button remains in the ledger.
+    pub async fn mouse_click(
+        &self,
+        button: u8,
+        click_count: u8,
+        sequence: u64,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(matches!(click_count, 1 | 2), "click count must be 1 or 2");
+        let mut ledger = self.ledger.lock().await;
+        if !Self::validate_sequence(&ledger, sequence)? {
+            return Ok(());
+        }
+        let button_name = Self::button_name(button)?;
+        let button_mask = Self::button_mask(button)?;
+        let pressed_buttons = Self::pressed_button_mask(&ledger)? | button_mask;
+        let modifiers = Self::modifiers(&ledger);
+        self.send(
+            "Input.dispatchMouseEvent",
+            serde_json::json!({
+                "type": "mousePressed",
+                "x": ledger.pointer_x,
+                "y": ledger.pointer_y,
+                "button": button_name,
+                "buttons": pressed_buttons,
+                "clickCount": click_count,
+                "modifiers": modifiers
+            }),
+        )
+        .await?;
+        ledger.press_button(button);
+        ledger.active_drag = true;
+        let remaining_buttons = Self::pressed_button_mask(&ledger)? & !button_mask;
+        self.send(
+            "Input.dispatchMouseEvent",
+            serde_json::json!({
+                "type": "mouseReleased",
+                "x": ledger.pointer_x,
+                "y": ledger.pointer_y,
+                "button": button_name,
+                "buttons": remaining_buttons,
+                "clickCount": click_count,
+                "modifiers": modifiers
+            }),
+        )
+        .await?;
+        ledger.release_button(button);
+        if ledger.pressed_buttons.is_empty() {
+            ledger.active_drag = false;
+        }
+        ledger.last_sequence = sequence;
+        self.mark_activity().await;
+        Ok(())
+    }
+
     fn input_key_name(key: &InputKey) -> anyhow::Result<String> {
         match key {
             InputKey::Shift => Ok("Shift".into()),
@@ -615,6 +673,79 @@ mod tests {
         assert_eq!(insert_text["method"], "Input.insertText");
         assert_eq!(insert_text["params"]["text"], "public note");
         assert!(receiver.try_recv().is_err());
+
+        websocket_task.await.unwrap();
+        http_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dispatches_atomic_double_right_click_count_without_leaking_button_state() {
+        let websocket_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let websocket_address = websocket_listener.local_addr().unwrap();
+        let (sender, mut receiver) = mpsc::channel(4);
+        let websocket_task = tokio::spawn(async move {
+            for _ in 0..4 {
+                let (stream, _) = websocket_listener.accept().await.unwrap();
+                let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+                let Message::Text(request) = socket.next().await.unwrap().unwrap() else {
+                    panic!("expected CDP text command");
+                };
+                sender
+                    .send(serde_json::from_str::<serde_json::Value>(&request).unwrap())
+                    .await
+                    .unwrap();
+                socket
+                    .send(Message::Text(
+                        serde_json::json!({"id": 1, "result": {}}).to_string(),
+                    ))
+                    .await
+                    .unwrap();
+            }
+        });
+        let http_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let http_address = http_listener.local_addr().unwrap();
+        let http_task = tokio::spawn(async move {
+            let (mut stream, _) = http_listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let count = stream.read(&mut request).await.unwrap();
+            assert!(String::from_utf8_lossy(&request[..count]).starts_with("GET /json/list "));
+            let body = serde_json::json!([{
+                "type": "page",
+                "webSocketDebuggerUrl": format!("ws://{websocket_address}/devtools/page/1")
+            }])
+            .to_string();
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        });
+
+        let input = CdpDesktopInput::connect(&format!("http://{http_address}"))
+            .await
+            .unwrap();
+        input.mouse_click(0, 2, 1).await.unwrap();
+        input.mouse_click(2, 1, 2).await.unwrap();
+
+        let requests = [
+            receiver.recv().await.unwrap(),
+            receiver.recv().await.unwrap(),
+            receiver.recv().await.unwrap(),
+            receiver.recv().await.unwrap(),
+        ];
+        assert_eq!(requests[0]["params"]["button"], "left");
+        assert_eq!(requests[0]["params"]["clickCount"], 2);
+        assert_eq!(requests[1]["params"]["type"], "mouseReleased");
+        assert_eq!(requests[2]["params"]["button"], "right");
+        assert_eq!(requests[2]["params"]["clickCount"], 1);
+        assert_eq!(requests[3]["params"]["buttons"], 0);
+        assert!(!input.ledger_snapshot().await.has_any_input());
 
         websocket_task.await.unwrap();
         http_task.await.unwrap();

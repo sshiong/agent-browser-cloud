@@ -82,6 +82,13 @@ if (
 mutate_after = int(os.environ.get("FAKE_CHROMIUM_MUTATE_STATE_AFTER", "0"))
 evaluation_count = 0
 business_recovery_completed = False
+public_note_value = "coordinator failover note"
+checkbox_checked = False
+pointer_x = 0.0
+pointer_y = 0.0
+focused_control = None
+control_pressed = False
+select_all = False
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -125,6 +132,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_websocket(self):
         global evaluation_count, business_recovery_completed
+        global public_note_value, checkbox_checked, pointer_x, pointer_y
+        global focused_control, control_pressed, select_all
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
             hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
@@ -225,10 +234,13 @@ class Handler(BaseHTTPRequestHandler):
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(1)",
                             "role": "textbox",
                             "name": "Public note",
+                            "value": public_note_value,
+                            "controlType": "text",
                             "bounds": {"x": 20.0, "y": 84.0, "width": 240.0, "height": 36.0},
                             "enabled": True,
                             "visible": True,
                             "sensitive": False,
+                            "focused": focused_control == "public-note",
                         }, {
                             "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(2)",
                             "role": "textbox",
@@ -237,6 +249,17 @@ class Handler(BaseHTTPRequestHandler):
                             "enabled": True,
                             "visible": True,
                             "sensitive": True,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>input:nth-of-type(3)",
+                            "role": "checkbox",
+                            "name": "Remember integration",
+                            "controlType": "checkbox",
+                            "bounds": {"x": 20.0, "y": 240.0, "width": 24.0, "height": 24.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                            "checked": checkbox_checked,
+                            "focused": focused_control == "checkbox",
                         }],
                     }
                     if requested_root is not None:
@@ -335,6 +358,41 @@ class Handler(BaseHTTPRequestHandler):
                     }
             elif method == "Page.reload":
                 business_recovery_completed = True
+                response = {"id": command["id"], "result": {}}
+            elif method == "Input.dispatchMouseEvent":
+                params = command.get("params", {})
+                event_type = params.get("type")
+                pointer_x = float(params.get("x", pointer_x))
+                pointer_y = float(params.get("y", pointer_y))
+                if event_type == "mouseReleased" and params.get("button") == "left":
+                    if 20 <= pointer_x <= 260 and 84 <= pointer_y <= 120:
+                        focused_control = "public-note"
+                        select_all = False
+                    elif 20 <= pointer_x <= 44 and 240 <= pointer_y <= 264:
+                        focused_control = "checkbox"
+                        checkbox_checked = not checkbox_checked
+                    else:
+                        focused_control = None
+                        select_all = False
+                response = {"id": command["id"], "result": {}}
+            elif method == "Input.dispatchKeyEvent":
+                params = command.get("params", {})
+                event_type = params.get("type")
+                key_name = params.get("key")
+                if key_name == "Control":
+                    control_pressed = event_type == "keyDown"
+                elif event_type == "keyDown" and key_name == "a" and control_pressed:
+                    select_all = focused_control == "public-note"
+                elif event_type == "keyDown" and key_name in ("Backspace", "Delete"):
+                    if focused_control == "public-note" and select_all:
+                        public_note_value = ""
+                        select_all = False
+                response = {"id": command["id"], "result": {}}
+            elif method == "Input.insertText":
+                if focused_control == "public-note":
+                    text = command.get("params", {}).get("text", "")
+                    public_note_value = text if select_all else public_note_value + text
+                    select_all = False
                 response = {"id": command["id"], "result": {}}
             else:
                 response = {"id": command.get("id", 1), "result": {}}

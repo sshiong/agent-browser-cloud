@@ -263,6 +263,116 @@ class AgentApplicationServiceTest {
   }
 
   @Test
+  void plansExtendedPointerAndFormControlActionsInsideOneStateFencedBatch() {
+    when(stateRepository.find(anyString()))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    3,
+                    new NodeEvent.StateUpdated(
+                        "ses_1234567890abcdef",
+                        9,
+                        2,
+                        "https://example.com/current",
+                        "Example",
+                        "hash",
+                        "COMPLETE",
+                        List.of(
+                            new NodeEvent.InteractiveTarget(
+                                "target:2:0",
+                                "textbox",
+                                "Public note",
+                                new NodeEvent.Bounds(10, 20, 180, 32),
+                                true,
+                                true,
+                                false),
+                            new NodeEvent.InteractiveTarget(
+                                "target:2:1",
+                                "button",
+                                "Menu",
+                                new NodeEvent.Bounds(200, 20, 80, 32),
+                                true,
+                                true,
+                                false),
+                            new NodeEvent.InteractiveTarget(
+                                "target:2:2",
+                                "checkbox",
+                                "Remember",
+                                new NodeEvent.Bounds(10, 70, 20, 20),
+                                true,
+                                true,
+                                false,
+                                "remember-checkbox",
+                                null,
+                                "checkbox",
+                                false,
+                                false,
+                                null,
+                                true,
+                                "main",
+                                true,
+                                false,
+                                null))))));
+    var actions =
+        List.of(
+            targetAction(ToolId.HOVER_TARGET, "target:2:1"),
+            targetAction(ToolId.DOUBLE_CLICK_TARGET, "target:2:1"),
+            targetAction(ToolId.RIGHT_CLICK_TARGET, "target:2:1"),
+            targetAction(ToolId.CLEAR_TARGET, "target:2:0"),
+            targetAction(ToolId.CHECK_TARGET, "target:2:2"),
+            targetAction(ToolId.UNCHECK_TARGET, "target:2:2"));
+    var request =
+        new CreateAgentTaskRequest(
+            "操作当前页面控件",
+            null,
+            List.of("example.com"),
+            12,
+            0,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.EXECUTE_ACTIONS,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    actions,
+                    true)));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-extended");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var batch =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.EXECUTE_ACTIONS)
+            .findFirst()
+            .orElseThrow();
+    assertThat(batch.input().actions())
+        .extracting(action -> action.toolId())
+        .containsExactly(
+            ToolId.HOVER_TARGET,
+            ToolId.DOUBLE_CLICK_TARGET,
+            ToolId.RIGHT_CLICK_TARGET,
+            ToolId.CLEAR_TARGET,
+            ToolId.CHECK_TARGET,
+            ToolId.UNCHECK_TARGET);
+    assertThat(batch.input().actions())
+        .extracting(action -> action.elementId())
+        .containsExactly(
+            "target:2:1",
+            "target:2:1",
+            "target:2:1",
+            "target:2:0",
+            "remember-checkbox",
+            "remember-checkbox");
+  }
+
+  @Test
   void sealsIsolatedAgentClipboardIntoBatchWithoutReadingUserClipboard() {
     when(agentClipboard.materializeForPaste("ses_1234567890abcdef", "tenant-test"))
         .thenReturn("clipboard note");
@@ -477,6 +587,12 @@ class AgentApplicationServiceTest {
   private static CreateAgentTaskRequest request(String url, List<String> domains) {
     return new CreateAgentTaskRequest(
         "打开授权页面并总结内容", url, domains, null, null, List.of(), List.of());
+  }
+
+  private static CreateAgentTaskRequest.BatchActionRequest targetAction(
+      ToolId toolId, String targetRef) {
+    return new CreateAgentTaskRequest.BatchActionRequest(
+        toolId, targetRef, 2L, null, null, null, null, null, null);
   }
 
   private static SessionContext runningSession() {

@@ -42,6 +42,12 @@ public class AgentExecutionService {
   private static final Set<ToolId> ASYNC_ACTIONS =
       Set.of(
           ToolId.CLICK_TARGET,
+          ToolId.DOUBLE_CLICK_TARGET,
+          ToolId.RIGHT_CLICK_TARGET,
+          ToolId.HOVER_TARGET,
+          ToolId.CLEAR_TARGET,
+          ToolId.CHECK_TARGET,
+          ToolId.UNCHECK_TARGET,
           ToolId.TYPE_TEXT,
           ToolId.FILL,
           ToolId.PASTE_AGENT_CLIPBOARD,

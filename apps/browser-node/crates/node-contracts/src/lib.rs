@@ -5,6 +5,9 @@
 use serde::{Deserialize, Serialize};
 
 /// 由正式 Protobuf 契约生成的 Node RPC 类型。
+// Tonic's generated Rust 1.98 client methods return tonic::Status by value. The generated source
+// is outside this crate and cannot box that stable public error without forking the generator.
+#[allow(clippy::result_large_err)]
 pub mod proto {
     tonic::include_proto!("browsercloud.node.v1");
 }

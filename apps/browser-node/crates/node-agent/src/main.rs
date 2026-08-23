@@ -6698,6 +6698,9 @@ impl NodeControlService {
         Ok(())
     }
 
+    // The stable Tonic service contract returns tonic::Status by value. Rust 1.98 considers that
+    // generated error type large; changing it here would break the generated trait signature.
+    #[allow(clippy::result_large_err)]
     async fn dispatch_durable(
         &self,
         command: CommandEnvelope,
@@ -6794,6 +6797,7 @@ impl NodeControlService {
         result
     }
 
+    #[allow(clippy::result_large_err)]
     async fn execute_and_commit_dispatch(
         &self,
         command: CommandEnvelope,

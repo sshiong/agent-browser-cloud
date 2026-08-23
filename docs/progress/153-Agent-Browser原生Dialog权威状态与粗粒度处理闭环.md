@@ -1,7 +1,7 @@
 # Agent Browser 原生 Dialog 权威状态与粗粒度处理闭环
 
 > 日期：2026-08-23
-> 状态：仓库内实现与本地完整 Gate 已通过，GitHub Gate 待提交后验证
+> 状态：仓库内实现、本地完整 Gate 与 GitHub CI/Desktop Gate 均已通过
 
 ## 目标与边界
 
@@ -64,6 +64,11 @@
 - `make lint`、`make build`、Desktop Test/Lint/无签名 Build、OpenAPI、四 SDK 生成/验证、
   N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 均通过；完整 Integration
   还保持 `durable_workflows=19`、Profile 精确集合及既有恢复/安全断言。
+- 实现提交 `1d64a75`；GitHub Rust 1.98 冷机依次暴露既有 RFB `chunks_exact`、Tonic 自动
+  生成代码和固定 `tonic::Status` 返回的新 Clippy lint。等价 `as_chunks` 与生成/trait 边界
+  窄范围 allow 修复最终提交 `519f588`；其 `ci` run `32629343630` 已通过 Verify、供应链、
+  完整 Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E，
+  `desktop` run `32629343648` 的 Windows/macOS 均通过。
 
 ## 剩余边界
 

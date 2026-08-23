@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-23
 > 基准分支：`main`
-> 编写时基准提交：`5bdd2b8 docs: record authoritative tab workflow gates`
+> 编写时基准提交：`519f588 fix: scope rust 1.98 tonic status lint`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -189,7 +189,10 @@ Rust Browser Node
   Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与两轮完整
   PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 显式覆盖四种
   JavaScript Dialog、Prompt 回填、明文不回显、freshness 与权威关闭，输出
-  `native_dialog_lifecycle=true`。GitHub `ci/desktop` 待本切片提交推送后检查，见 progress 153。
+  `native_dialog_lifecycle=true`。实现提交 `1d64a75`，Rust 1.98 冷机 Clippy 兼容修复最终
+  提交 `519f588`；GitHub `ci` run `32629343630`（含供应链、完整 Integration、Object
+  Storage/Recording GameDay 与 Kubernetes Operator E2E）和 `desktop` run
+  `32629343648`（Windows/macOS）均通过，见 progress 153。
 
 - Agent Browser 权威多标签页切片本地 Control Plane 462 项、Rust/Web 定向测试、
   OpenAPI/四 SDK、N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；

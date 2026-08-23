@@ -1114,9 +1114,9 @@ impl RfbClientMessageParser {
                 );
             }
             if message_type == 2 {
-                let supports_raw = self.buffered[4..message_length]
-                    .chunks_exact(4)
-                    .any(|encoding| encoding == [0, 0, 0, 0]);
+                let (encodings, remainder) = self.buffered[4..message_length].as_chunks::<4>();
+                anyhow::ensure!(remainder.is_empty(), "RFB encoding list is not aligned");
+                let supports_raw = encodings.iter().any(|encoding| encoding == &[0, 0, 0, 0]);
                 anyhow::ensure!(
                     supports_raw,
                     "RFB client must advertise Raw encoding for shared fan-out"

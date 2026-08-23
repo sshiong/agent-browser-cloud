@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString;
 import io.browsercloud.coordinator.NodeEvent;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
+import io.browsercloud.proto.node.v1.BrowserNativeDialogState;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
@@ -672,6 +673,15 @@ class NodeEventMapperTest {
                     .setTitle("Example")
                     .setActive(true))
             .setActiveTabId("tab-main")
+            .addNativeDialogs(
+                BrowserNativeDialogState.newBuilder()
+                    .setDialogId("dlg_0123456789abcdef0123")
+                    .setTabId("tab-main")
+                    .setDialogType("PROMPT")
+                    .setMessage("Enter verification code")
+                    .setDefaultPrompt("")
+                    .setHasBrowserHandler(false))
+            .setNativeDialogEvidenceFresh(true)
             .addTargets(
                 InteractiveTargetState.newBuilder()
                     .setTargetRef("target:7:0")
@@ -710,6 +720,15 @@ class NodeEventMapperTest {
                   .singleElement()
                   .extracting(NodeEvent.BrowserTab::active)
                   .isEqualTo(true);
+              assertThat(state.nativeDialogEvidenceFresh()).isTrue();
+              assertThat(state.nativeDialogs())
+                  .singleElement()
+                  .satisfies(
+                      dialog -> {
+                        assertThat(dialog.dialogId()).isEqualTo("dlg_0123456789abcdef0123");
+                        assertThat(dialog.dialogType()).isEqualTo("PROMPT");
+                        assertThat(dialog.tabId()).isEqualTo("tab-main");
+                      });
               assertThat(state.targets()).hasSize(1);
               assertThat(state.targets().getFirst().role()).isEqualTo("button");
               assertThat(state.targets().getFirst().bounds().width()).isEqualTo(80);
@@ -745,6 +764,41 @@ class NodeEventMapperTest {
     assertThatThrownBy(() -> mapper.toCommand(envelope))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("active tab metadata");
+  }
+
+  @Test
+  void shouldRejectNativeDialogBoundToUnknownTab() {
+    var payload =
+        BrowserStateEvent.newBuilder()
+            .setSessionId("ses_test")
+            .setStateVersion(7)
+            .setTargetRevision(6)
+            .setUrl("https://example.test")
+            .setTitle("Example")
+            .setContentHash("hash-7")
+            .setStateQuality("COMPLETE")
+            .addTabs(BrowserTabState.newBuilder().setTabId("tab-main").setActive(true))
+            .setActiveTabId("tab-main")
+            .addNativeDialogs(
+                BrowserNativeDialogState.newBuilder()
+                    .setDialogId("dlg_0123456789abcdef0123")
+                    .setTabId("tab-other")
+                    .setDialogType("CONFIRM"))
+            .setNativeDialogEvidenceFresh(true)
+            .build();
+    var envelope =
+        EventEnvelope.newBuilder()
+            .setEventId("evt_state_invalid_dialog")
+            .setEventType(NodeEventMapper.BROWSER_STATE_UPDATED)
+            .setTenantId("tenant-test")
+            .setSessionId("ses_test")
+            .setSequence(2)
+            .setPayload(payload.toByteString())
+            .build();
+
+    assertThatThrownBy(() -> mapper.toCommand(envelope))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("native Dialog metadata");
   }
 
   @Test

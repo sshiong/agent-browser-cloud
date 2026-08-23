@@ -79,6 +79,8 @@ public final class AgentModels {
     OPEN_TAB,
     SWITCH_TAB,
     CLOSE_TAB,
+    ACCEPT_DIALOG,
+    DISMISS_DIALOG,
     EXECUTE_ACTIONS,
     GET_URL,
     GET_PAGE_SUMMARY,
@@ -125,7 +127,8 @@ public final class AgentModels {
       List<ActionInput> actions,
       boolean stopOnError,
       String tabId,
-      String tabUrl) {
+      String tabUrl,
+      String dialogId) {
     public StepInput(
         String targetRef,
         Long targetRevision,
@@ -153,6 +156,42 @@ public final class AgentModels {
           List.of(),
           true,
           null,
+          null,
+          null);
+    }
+
+    public StepInput(
+        String targetRef,
+        Long targetRevision,
+        String sealedPayload,
+        String payloadHash,
+        Integer payloadLength,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        boolean allowSensitiveTarget,
+        int maximumAttempts,
+        List<ActionInput> actions,
+        boolean stopOnError,
+        String tabId,
+        String tabUrl) {
+      this(
+          targetRef,
+          targetRevision,
+          sealedPayload,
+          payloadHash,
+          payloadLength,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          allowSensitiveTarget,
+          maximumAttempts,
+          actions,
+          stopOnError,
+          tabId,
+          tabUrl,
           null);
     }
 
@@ -185,6 +224,7 @@ public final class AgentModels {
           actions,
           stopOnError,
           null,
+          null,
           null);
     }
 
@@ -210,7 +250,8 @@ public final class AgentModels {
       boolean allowSensitiveTarget,
       int maximumAttempts,
       String tabId,
-      String tabUrl) {
+      String tabUrl,
+      String dialogId) {
     public ActionInput(
         String actionId,
         ToolId toolId,
@@ -242,6 +283,44 @@ public final class AgentModels {
           allowSensitiveTarget,
           maximumAttempts,
           null,
+          null,
+          null);
+    }
+
+    public ActionInput(
+        String actionId,
+        ToolId toolId,
+        String targetRef,
+        String elementId,
+        Long targetRevision,
+        String sealedPayload,
+        String payloadHash,
+        Integer payloadLength,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        boolean allowSensitiveTarget,
+        int maximumAttempts,
+        String tabId,
+        String tabUrl) {
+      this(
+          actionId,
+          toolId,
+          targetRef,
+          elementId,
+          targetRevision,
+          sealedPayload,
+          payloadHash,
+          payloadLength,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          allowSensitiveTarget,
+          maximumAttempts,
+          tabId,
+          tabUrl,
           null);
     }
   }

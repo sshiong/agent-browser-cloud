@@ -6133,6 +6133,8 @@ components:
             - OPEN_TAB
             - SWITCH_TAB
             - CLOSE_TAB
+            - ACCEPT_DIALOG
+            - DISMISS_DIALOG
             - EXECUTE_ACTIONS
             - REQUEST_HUMAN_TAKEOVER
         targetRef:
@@ -6170,6 +6172,9 @@ components:
         tabUrl:
           type: string
           maxLength: 8192
+        dialogId:
+          type: string
+          pattern: "^dlg_[0-9a-f]{20}$"
         actions:
           type: array
           minItems: 1
@@ -6186,7 +6191,7 @@ components:
       properties:
         toolId:
           type: string
-          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG]
         targetRef:
           type: string
           maxLength: 128
@@ -6221,6 +6226,9 @@ components:
         tabUrl:
           type: string
           maxLength: 8192
+        dialogId:
+          type: string
+          pattern: "^dlg_[0-9a-f]{20}$"
     AgentInstructionSource:
       type: object
       additionalProperties: false
@@ -7342,7 +7350,7 @@ components:
           type: string
         toolId:
           type: string
-          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
+          enum: [NAVIGATE, GET_CURRENT_STATE, CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG, EXECUTE_ACTIONS, GET_URL, GET_PAGE_SUMMARY, REQUEST_HUMAN_TAKEOVER]
         riskClass:
           $ref: "#/components/schemas/AgentRiskClass"
         targetOrigin:
@@ -7717,6 +7725,8 @@ components:
             - OPEN_TAB
             - SWITCH_TAB
             - CLOSE_TAB
+            - ACCEPT_DIALOG
+            - DISMISS_DIALOG
             - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
@@ -7778,6 +7788,7 @@ components:
         - stopOnError
         - tabId
         - tabUrl
+        - dialogId
       properties:
         targetRef:
           type: [string, "null"]
@@ -7816,6 +7827,9 @@ components:
         tabUrl:
           type: [string, "null"]
           maxLength: 8192
+        dialogId:
+          type: [string, "null"]
+          pattern: "^dlg_[0-9a-f]{20}$"
     AgentBatchActionInput:
       type: object
       additionalProperties: false
@@ -7835,13 +7849,14 @@ components:
         - maximumAttempts
         - tabId
         - tabUrl
+        - dialogId
       properties:
         actionId:
           type: string
           pattern: "^action_[1-9][0-9]?$"
         toolId:
           type: string
-          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB]
+          enum: [CLICK_TARGET, DOUBLE_CLICK_TARGET, RIGHT_CLICK_TARGET, HOVER_TARGET, CLEAR_TARGET, CHECK_TARGET, UNCHECK_TARGET, TYPE_TEXT, FILL, PASTE_AGENT_CLIPBOARD, SCROLL, WAIT_FOR, OPEN_TAB, SWITCH_TAB, CLOSE_TAB, ACCEPT_DIALOG, DISMISS_DIALOG]
         targetRef:
           type: [string, "null"]
         elementId:
@@ -7875,6 +7890,9 @@ components:
         tabUrl:
           type: [string, "null"]
           maxLength: 8192
+        dialogId:
+          type: [string, "null"]
+          pattern: "^dlg_[0-9a-f]{20}$"
     AgentRiskClass:
       type: string
       enum:
@@ -7926,6 +7944,8 @@ components:
             - OPEN_TAB
             - SWITCH_TAB
             - CLOSE_TAB
+            - ACCEPT_DIALOG
+            - DISMISS_DIALOG
             - EXECUTE_ACTIONS
             - GET_URL
             - GET_PAGE_SUMMARY
@@ -9319,6 +9339,8 @@ components:
         - targets
         - tabs
         - activeTabId
+        - nativeDialogs
+        - nativeDialogEvidenceFresh
       properties:
         sessionId:
           type: string
@@ -9374,10 +9396,19 @@ components:
           type: string
           maxLength: 128
           description: ID of the one active tab; empty only when tabs is empty during rolling compatibility.
+        nativeDialogs:
+          type: array
+          maxItems: 100
+          description: Browser-native alert/confirm/prompt/beforeunload lifecycle; never DOM role=dialog.
+          items:
+            $ref: "#/components/schemas/AgentBrowserNativeDialog"
+        nativeDialogEvidenceFresh:
+          type: boolean
+          description: False after an observer gap or from N-1 Nodes. Stale dialogs remain visible but cannot be acted on.
     AgentBrowserSnapshot:
       type: object
       additionalProperties: false
-      required: [stateCursor, state, visibleTextSummary, tabs, activeTab, focusedElementId, formControlElementIds, dialogElementIds, pageLoadingState, challengeState, visionRecommended]
+      required: [stateCursor, state, visibleTextSummary, tabs, activeTab, focusedElementId, formControlElementIds, dialogElementIds, nativeDialogs, nativeDialogEvidenceFresh, pageLoadingState, challengeState, visionRecommended]
       properties:
         stateCursor:
           type: string
@@ -9408,7 +9439,15 @@ components:
         dialogElementIds:
           type: array
           maxItems: 200
+          description: DOM/A11y dialog-like elements only; separate from browser-native JavaScript Dialog state.
           items: {type: string}
+        nativeDialogs:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AgentBrowserNativeDialog"
+        nativeDialogEvidenceFresh:
+          type: boolean
         pageLoadingState:
           type: string
           enum: [loading, interactive, complete, ""]
@@ -9428,6 +9467,28 @@ components:
         url: {type: string, maxLength: 8192}
         title: {type: string, maxLength: 2048}
         active: {type: boolean}
+    AgentBrowserNativeDialog:
+      type: object
+      additionalProperties: false
+      required: [dialogId, tabId, dialogType, message, defaultPrompt, hasBrowserHandler]
+      properties:
+        dialogId:
+          type: string
+          pattern: "^dlg_[0-9a-f]{20}$"
+        tabId:
+          type: string
+          maxLength: 128
+        dialogType:
+          type: string
+          enum: [ALERT, CONFIRM, PROMPT, BEFOREUNLOAD]
+        message:
+          type: string
+          maxLength: 4096
+        defaultPrompt:
+          type: string
+          maxLength: 4096
+        hasBrowserHandler:
+          type: boolean
     AgentBrowserInspectRequest:
       type: object
       additionalProperties: false

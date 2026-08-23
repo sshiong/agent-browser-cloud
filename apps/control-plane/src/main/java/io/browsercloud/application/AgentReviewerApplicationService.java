@@ -609,9 +609,17 @@ public class AgentReviewerApplicationService {
                         step.toolId(),
                         step.riskClass(),
                         targetOrigin(step.targetUrl()),
-                        step.input() == null || step.input().targetRef() == null
+                        step.input() == null
                             ? null
-                            : sha256(step.input().targetRef()),
+                            : java.util.stream.Stream.of(
+                                    step.input().targetRef(),
+                                    step.input().dialogId(),
+                                    step.input().tabId(),
+                                    step.input().tabUrl())
+                                .filter(java.util.Objects::nonNull)
+                                .findFirst()
+                                .map(AgentReviewerApplicationService::sha256)
+                                .orElse(null),
                         step.input() == null || step.input().dataClass() == null
                             ? null
                             : step.input().dataClass().name(),
@@ -633,6 +641,10 @@ public class AgentReviewerApplicationService {
                                                     action.targetRef() == null
                                                         ? ""
                                                         : sha256(action.targetRef()),
+                                                    "dialogIdHash",
+                                                    action.dialogId() == null
+                                                        ? ""
+                                                        : sha256(action.dialogId()),
                                                     "dataClass",
                                                     action.dataClass() == null
                                                         ? ""

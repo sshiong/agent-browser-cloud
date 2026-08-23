@@ -98,6 +98,8 @@ pages = {
     }
 }
 active_page_id = "page-1"
+native_dialog = None
+native_dialog_sequence = 0
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -147,6 +149,8 @@ class Handler(BaseHTTPRequestHandler):
         global public_note_value, checkbox_checked, pointer_x, pointer_y
         global focused_control, control_pressed, select_all
         global active_page_id
+        global native_dialog, native_dialog_sequence
+        reported_native_dialog_sequence = 0
         key = self.headers.get("Sec-WebSocket-Key", "")
         accept = base64.b64encode(
             hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
@@ -181,6 +185,32 @@ class Handler(BaseHTTPRequestHandler):
                         }
                 else:
                     expression = command.get("params", {}).get("expression", "")
+                    if expression == "void 0" and command.get("sessionId"):
+                        with pages_lock:
+                            dialog = None if native_dialog is None else native_dialog.copy()
+                        if dialog is not None:
+                            if reported_native_dialog_sequence != dialog["sequence"]:
+                                self.write_websocket_text(json.dumps({
+                                    "method": "Page.javascriptDialogOpening",
+                                    "sessionId": command["sessionId"],
+                                    "params": {
+                                        "url": dialog["url"],
+                                        "message": dialog["message"],
+                                        "type": dialog["type"],
+                                        "hasBrowserHandler": False,
+                                        "defaultPrompt": dialog.get("defaultPrompt", ""),
+                                    },
+                                }))
+                                reported_native_dialog_sequence = dialog["sequence"]
+                            # Runtime is blocked while a real JavaScript Dialog is open.
+                            continue
+                        response = {
+                            "id": command["id"],
+                            "sessionId": command["sessionId"],
+                            "result": {"result": {"type": "undefined"}},
+                        }
+                        self.write_websocket_text(json.dumps(response))
+                        continue
                     if expression == "document.visibilityState":
                         page_id = self.path.rsplit("/", 1)[-1]
                         response = {
@@ -291,6 +321,42 @@ class Handler(BaseHTTPRequestHandler):
                             "sensitive": False,
                             "checked": checkbox_checked,
                             "focused": focused_control == "checkbox",
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(2)",
+                            "role": "button",
+                            "name": "Open native alert",
+                            "controlType": "button",
+                            "bounds": {"x": 20.0, "y": 300.0, "width": 180.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(3)",
+                            "role": "button",
+                            "name": "Open native confirm",
+                            "controlType": "button",
+                            "bounds": {"x": 20.0, "y": 346.0, "width": 180.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(4)",
+                            "role": "button",
+                            "name": "Open native prompt",
+                            "controlType": "button",
+                            "bounds": {"x": 20.0, "y": 392.0, "width": 180.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
+                        }, {
+                            "path": "html:nth-of-type(1)>body:nth-of-type(1)>button:nth-of-type(5)",
+                            "role": "button",
+                            "name": "Open native beforeunload",
+                            "controlType": "button",
+                            "bounds": {"x": 20.0, "y": 438.0, "width": 210.0, "height": 36.0},
+                            "enabled": True,
+                            "visible": True,
+                            "sensitive": False,
                         }],
                     }
                     if requested_root is not None:
@@ -422,6 +488,28 @@ class Handler(BaseHTTPRequestHandler):
             elif method == "Page.reload":
                 business_recovery_completed = True
                 response = {"id": command["id"], "result": {}}
+            elif method == "Page.handleJavaScriptDialog":
+                page_id = self.path.rsplit("/", 1)[-1]
+                params = command.get("params", {})
+                with pages_lock:
+                    dialog = None if native_dialog is None else native_dialog.copy()
+                    valid = dialog is not None and dialog["tabId"] == page_id
+                    if valid:
+                        if (
+                            params.get("accept")
+                            and dialog["type"] == "prompt"
+                            and "promptText" in params
+                        ):
+                            public_note_value = params["promptText"]
+                        native_dialog = None
+                response = (
+                    {"id": command["id"], "result": {}}
+                    if valid
+                    else {
+                        "id": command["id"],
+                        "error": {"code": -32000, "message": "No dialog is showing"},
+                    }
+                )
             elif method == "Input.dispatchMouseEvent":
                 params = command.get("params", {})
                 event_type = params.get("type")
@@ -434,6 +522,43 @@ class Handler(BaseHTTPRequestHandler):
                     elif 20 <= pointer_x <= 44 and 240 <= pointer_y <= 264:
                         focused_control = "checkbox"
                         checkbox_checked = not checkbox_checked
+                    elif 20 <= pointer_x <= 200 and 300 <= pointer_y <= 336:
+                        native_dialog_sequence += 1
+                        native_dialog = {
+                            "sequence": native_dialog_sequence,
+                            "tabId": self.path.rsplit("/", 1)[-1],
+                            "url": "https://example.test/runtime",
+                            "type": "alert",
+                            "message": "Integration native alert",
+                        }
+                    elif 20 <= pointer_x <= 200 and 346 <= pointer_y <= 382:
+                        native_dialog_sequence += 1
+                        native_dialog = {
+                            "sequence": native_dialog_sequence,
+                            "tabId": self.path.rsplit("/", 1)[-1],
+                            "url": "https://example.test/runtime",
+                            "type": "confirm",
+                            "message": "Confirm integration action",
+                        }
+                    elif 20 <= pointer_x <= 200 and 392 <= pointer_y <= 428:
+                        native_dialog_sequence += 1
+                        native_dialog = {
+                            "sequence": native_dialog_sequence,
+                            "tabId": self.path.rsplit("/", 1)[-1],
+                            "url": "https://example.test/runtime",
+                            "type": "prompt",
+                            "message": "Enter integration value",
+                            "defaultPrompt": "",
+                        }
+                    elif 20 <= pointer_x <= 230 and 438 <= pointer_y <= 474:
+                        native_dialog_sequence += 1
+                        native_dialog = {
+                            "sequence": native_dialog_sequence,
+                            "tabId": self.path.rsplit("/", 1)[-1],
+                            "url": "https://example.test/runtime",
+                            "type": "beforeunload",
+                            "message": "Leave integration page?",
+                        }
                     else:
                         focused_control = None
                         select_all = False
@@ -465,7 +590,7 @@ class Handler(BaseHTTPRequestHandler):
                     "method": "Target.attachedToTarget",
                     "params": {
                         "sessionId": "fake-page-session",
-                        "targetInfo": {"targetId": "page-1", "type": "page"},
+                        "targetInfo": {"targetId": active_page_id, "type": "page"},
                         "waitingForDebugger": False,
                     },
                 }))

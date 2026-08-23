@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserNativeDialog } from './AgentBrowserNativeDialog.js';
 import type { AgentBrowserTab } from './AgentBrowserTab.js';
 import type { InteractiveTarget } from './InteractiveTarget.js';
 export type BrowserState = {
@@ -34,4 +35,12 @@ export type BrowserState = {
      * ID of the one active tab; empty only when tabs is empty during rolling compatibility.
      */
     activeTabId: string;
+    /**
+     * Browser-native alert/confirm/prompt/beforeunload lifecycle; never DOM role=dialog.
+     */
+    nativeDialogs: Array<AgentBrowserNativeDialog>;
+    /**
+     * False after an observer gap or from N-1 Nodes. Stale dialogs remain visible but cannot be acted on.
+     */
+    nativeDialogEvidenceFresh: boolean;
 };

@@ -100,7 +100,8 @@ public record AgentTaskView(
       List<BatchActionInputView> actions,
       boolean stopOnError,
       String tabId,
-      String tabUrl) {}
+      String tabUrl,
+      String dialogId) {}
 
   public record BatchActionInputView(
       String actionId,
@@ -117,7 +118,8 @@ public record AgentTaskView(
       boolean sensitiveTargetAuthorized,
       int maximumAttempts,
       String tabId,
-      String tabUrl) {}
+      String tabUrl,
+      String dialogId) {}
 
   public record SecurityEventView(
       String eventId,

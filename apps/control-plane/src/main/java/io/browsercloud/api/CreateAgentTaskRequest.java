@@ -43,7 +43,8 @@ public record CreateAgentTaskRequest(
       @Valid @Size(max = 20) List<BatchActionRequest> actions,
       Boolean stopOnError,
       @Size(max = 128) String tabId,
-      @Size(max = 8_192) String tabUrl) {
+      @Size(max = 8_192) String tabUrl,
+      @Pattern(regexp = "^dlg_[0-9a-f]{20}$") String dialogId) {
     public ActionRequest(
         ToolId toolId,
         String targetRef,
@@ -67,6 +68,38 @@ public record CreateAgentTaskRequest(
           List.of(),
           true,
           null,
+          null,
+          null);
+    }
+
+    public ActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        List<BatchActionRequest> actions,
+        Boolean stopOnError,
+        String tabId,
+        String tabUrl) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          actions,
+          stopOnError,
+          tabId,
+          tabUrl,
           null);
     }
 
@@ -95,6 +128,7 @@ public record CreateAgentTaskRequest(
           actions,
           stopOnError,
           null,
+          null,
           null);
     }
 
@@ -114,7 +148,8 @@ public record CreateAgentTaskRequest(
       WaitCondition waitCondition,
       @Min(100) @Max(10_000) Integer timeoutMs,
       @Size(max = 128) String tabId,
-      @Size(max = 8_192) String tabUrl) {
+      @Size(max = 8_192) String tabUrl,
+      @Pattern(regexp = "^dlg_[0-9a-f]{20}$") String dialogId) {
     public BatchActionRequest(
         ToolId toolId,
         String targetRef,
@@ -136,6 +171,34 @@ public record CreateAgentTaskRequest(
           waitCondition,
           timeoutMs,
           null,
+          null,
+          null);
+    }
+
+    public BatchActionRequest(
+        ToolId toolId,
+        String targetRef,
+        Long targetRevision,
+        String value,
+        String secretId,
+        ActionDataClass dataClass,
+        Integer scrollDeltaY,
+        WaitCondition waitCondition,
+        Integer timeoutMs,
+        String tabId,
+        String tabUrl) {
+      this(
+          toolId,
+          targetRef,
+          targetRevision,
+          value,
+          secretId,
+          dataClass,
+          scrollDeltaY,
+          waitCondition,
+          timeoutMs,
+          tabId,
+          tabUrl,
           null);
     }
   }

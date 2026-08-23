@@ -4286,6 +4286,143 @@ curl -fsS \
   -H 'X-Tenant-Id: tenant-integration' \
   -H 'X-Roles: TENANT_VIEWER' | python3 -c \
   'import json,sys; snapshot=json.load(sys.stdin); assert len(snapshot["tabs"]) == 1; assert snapshot["tabs"][0]["active"]; assert snapshot["activeTab"]["tabId"] == snapshot["state"]["activeTabId"]'
+
+run_native_dialog_batch() {
+  local request_body="$1"
+  local idempotency_key="$2"
+  local task_response task_id task_state
+  task_response="$(curl -fsS -X POST \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/execute-actions" \
+    -H 'Content-Type: application/json' \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_OPERATOR' \
+    -H "Idempotency-Key: ${idempotency_key}" \
+    -d "$request_body")"
+  task_id="$(printf '%s' "$task_response" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin)["taskId"])')"
+  for _ in $(seq 1 100); do
+    task_response="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/agent-tasks/${task_id}" \
+      -H 'X-Tenant-Id: tenant-integration')"
+    task_state="$(printf '%s' "$task_response" | python3 -c \
+      'import json,sys; print(json.load(sys.stdin)["state"])')"
+    if [[ "$task_state" = "COMPLETED" ]]; then break; fi
+    if [[ "$task_state" = "FAILED" || "$task_state" = "BLOCKED" ]]; then
+      echo "Native Dialog task terminated: $task_response" >&2
+      break
+    fi
+    sleep 0.2
+  done
+  test "$task_state" = "COMPLETED"
+  printf '%s' "$task_response"
+}
+
+native_dialog_initial=""
+for _ in $(seq 1 80); do
+  native_dialog_initial="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  if printf '%s' "$native_dialog_initial" | python3 -c \
+    'import json,sys; snapshot=json.load(sys.stdin); raise SystemExit(0 if snapshot["nativeDialogEvidenceFresh"] and snapshot["state"]["nativeDialogEvidenceFresh"] else 1)'; then
+    break
+  fi
+  sleep 0.25
+done
+printf '%s' "$native_dialog_initial" | python3 -c \
+  'import json,sys; snapshot=json.load(sys.stdin); assert snapshot["nativeDialogEvidenceFresh"]; assert snapshot["nativeDialogs"] == []; assert snapshot["state"]["nativeDialogs"] == []'
+
+dialog_index=0
+while IFS='|' read -r expected_type trigger_name handler_tool prompt_value; do
+  dialog_index=$((dialog_index + 1))
+  trigger_snapshot="$(curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER')"
+  trigger_request="$(python3 - "$trigger_snapshot" "$trigger_name" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+target = next(
+    item for item in snapshot["state"]["targets"]
+    if item.get("name") == sys.argv[2]
+)
+print(json.dumps({
+    "goal": "Exercise the authorized native JavaScript Dialog fixture",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "actions": [{
+        "toolId": "CLICK_TARGET",
+        "targetRef": target["elementId"],
+        "targetRevision": snapshot["state"]["targetRevision"],
+    }],
+    "stopOnError": True,
+}, separators=(",", ":")))
+PY
+)"
+  run_native_dialog_batch \
+    "$trigger_request" \
+    "smoke-agent-browser-native-dialog-trigger-${dialog_index}" >/dev/null
+
+  dialog_snapshot=""
+  for _ in $(seq 1 100); do
+    dialog_snapshot="$(curl -fsS \
+      "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+      -H 'X-Tenant-Id: tenant-integration' \
+      -H 'X-Roles: TENANT_VIEWER')"
+    if printf '%s' "$dialog_snapshot" | python3 -c \
+      'import json,sys; snapshot=json.load(sys.stdin); expected=sys.argv[1]; raise SystemExit(0 if snapshot["nativeDialogEvidenceFresh"] and len(snapshot["nativeDialogs"]) == 1 and snapshot["nativeDialogs"][0]["dialogType"] == expected else 1)' \
+      "$expected_type"; then
+      break
+    fi
+    sleep 0.2
+  done
+  printf '%s' "$dialog_snapshot" | python3 -c \
+    'import json,sys; snapshot=json.load(sys.stdin); expected=sys.argv[1]; dialog=snapshot["nativeDialogs"][0]; assert dialog["dialogType"] == expected; assert dialog["dialogId"].startswith("dlg_"); assert dialog["tabId"] == snapshot["activeTab"]["tabId"]; assert snapshot["state"]["nativeDialogs"] == snapshot["nativeDialogs"]; assert all(not item.startswith("dlg_") for item in snapshot["dialogElementIds"])' \
+    "$expected_type"
+
+  handler_request="$(python3 - "$dialog_snapshot" "$handler_tool" "$prompt_value" <<'PY'
+import json
+import sys
+snapshot = json.loads(sys.argv[1])
+action = {
+    "toolId": sys.argv[2],
+    "dialogId": snapshot["nativeDialogs"][0]["dialogId"],
+}
+if sys.argv[3]:
+    action["value"] = sys.argv[3]
+    action["dataClass"] = "PUBLIC"
+print(json.dumps({
+    "goal": "Handle the exact authorized native JavaScript Dialog fixture",
+    "expectedStateCursor": snapshot["stateCursor"],
+    "actions": [action],
+    "stopOnError": True,
+}, separators=(",", ":")))
+PY
+)"
+  handler_result="$(run_native_dialog_batch \
+    "$handler_request" \
+    "smoke-agent-browser-native-dialog-handle-${dialog_index}")"
+  printf '%s' "$handler_result" | python3 -c \
+    'import json,sys; task=json.load(sys.stdin); batch=next(item for item in task["executionResults"] if item["toolId"] == "EXECUTE_ACTIONS"); assert batch["output"]["completedActions"] == 1; assert batch["output"]["actions"][0]["status"] == "SUCCEEDED"; assert not sys.argv[1] or sys.argv[1] not in json.dumps(task)' \
+    "$prompt_value"
+  curl -fsS \
+    "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+    -H 'X-Tenant-Id: tenant-integration' \
+    -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+    'import json,sys; snapshot=json.load(sys.stdin); assert snapshot["nativeDialogEvidenceFresh"]; assert snapshot["nativeDialogs"] == []; assert snapshot["state"]["nativeDialogs"] == []'
+done <<'DIALOG_CASES'
+ALERT|Open native alert|ACCEPT_DIALOG|
+CONFIRM|Open native confirm|DISMISS_DIALOG|
+PROMPT|Open native prompt|ACCEPT_DIALOG|dialog-prompt-integration
+BEFOREUNLOAD|Open native beforeunload|DISMISS_DIALOG|
+DIALOG_CASES
+printf 'native_dialog_lifecycle=true\n'
+
+curl -fsS \
+  "http://localhost:${control_port}/api/v1/sessions/${tab_session}/agent-browser/snapshot" \
+  -H 'X-Tenant-Id: tenant-integration' \
+  -H 'X-Roles: TENANT_VIEWER' | python3 -c \
+  'import json,sys; state=json.load(sys.stdin)["state"]; textbox=next(item for item in state["targets"] if item["role"] == "textbox" and not item["sensitive"]); assert textbox["value"] == "dialog-prompt-integration"'
 curl -fsS -X POST \
   "http://localhost:${control_port}/api/v1/sessions/${tab_session}:terminate" \
   -H 'X-Tenant-Id: tenant-integration' >/dev/null

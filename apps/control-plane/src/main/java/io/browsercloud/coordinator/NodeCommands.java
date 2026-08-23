@@ -588,7 +588,8 @@ public final class NodeCommands {
             .setMaximumAttempts(input == null ? 1 : input.maximumAttempts())
             .setStopOnError(input == null || input.stopOnError())
             .setTabId(input == null || input.tabId() == null ? "" : input.tabId())
-            .setTabUrl(input == null || input.tabUrl() == null ? "" : input.tabUrl());
+            .setTabUrl(input == null || input.tabUrl() == null ? "" : input.tabUrl())
+            .setDialogId(input == null || input.dialogId() == null ? "" : input.dialogId());
     if (input != null && !input.actions().isEmpty()) {
       builder.addAllActions(
           input.actions().stream()
@@ -612,6 +613,7 @@ public final class NodeCommands {
                           .setMaximumAttempts(action.maximumAttempts())
                           .setTabId(action.tabId() == null ? "" : action.tabId())
                           .setTabUrl(action.tabUrl() == null ? "" : action.tabUrl())
+                          .setDialogId(action.dialogId() == null ? "" : action.dialogId())
                           .build())
               .toList());
     }

@@ -24,6 +24,8 @@ export type AgentToolId =
   | 'OPEN_TAB'
   | 'SWITCH_TAB'
   | 'CLOSE_TAB'
+  | 'ACCEPT_DIALOG'
+  | 'DISMISS_DIALOG'
   | 'EXECUTE_ACTIONS'
   | 'GET_URL'
   | 'GET_PAGE_SUMMARY'
@@ -56,7 +58,9 @@ export interface AgentBatchActionRequest {
     | 'WAIT_FOR'
     | 'OPEN_TAB'
     | 'SWITCH_TAB'
-    | 'CLOSE_TAB';
+    | 'CLOSE_TAB'
+    | 'ACCEPT_DIALOG'
+    | 'DISMISS_DIALOG';
   targetRef?: string;
   targetRevision?: number;
   value?: string;
@@ -67,6 +71,7 @@ export interface AgentBatchActionRequest {
   timeoutMs?: number;
   tabId?: string;
   tabUrl?: string;
+  dialogId?: string;
 }
 
 export interface CreateAgentActionRequest extends Omit<
@@ -102,6 +107,8 @@ export interface AgentBrowserSnapshot {
   focusedElementId?: string;
   formControlElementIds: string[];
   dialogElementIds: string[];
+  nativeDialogs: import('./session').BrowserNativeDialogView[];
+  nativeDialogEvidenceFresh: boolean;
   pageLoadingState: 'loading' | 'interactive' | 'complete' | '';
   challengeState: 'NOT_EVALUATED';
   visionRecommended: boolean;

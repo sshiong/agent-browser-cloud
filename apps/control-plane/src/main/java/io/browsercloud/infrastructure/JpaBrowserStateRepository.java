@@ -56,13 +56,18 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
             diff.tabs().isEmpty() ? previous.tabs() : diff.tabs(),
             diff.tabs().isEmpty() ? previous.activeTabId() : diff.activeTabId(),
             diff.stateHash(),
-            diff.stateQuality(),
+            !diff.nativeDialogEvidenceFresh() && !previous.nativeDialogs().isEmpty()
+                ? "DEGRADED"
+                : diff.stateQuality(),
             targets.values().stream().toList(),
             diff.documentReadyState(),
             diff.networkQuietMillis(),
             diff.networkEvidenceFresh(),
             diff.snapshotKind(),
-            diff.requestedRootRef());
+            diff.requestedRootRef(),
+            java.util.List.of(),
+            diff.nativeDialogEvidenceFresh() ? diff.nativeDialogs() : previous.nativeDialogs(),
+            diff.nativeDialogEvidenceFresh());
     entity.setStateVersion(diff.stateVersion());
     entity.setStateJson(write(updated));
     entity.setUpdatedAt(Instant.now());
@@ -96,7 +101,10 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.networkQuietMillis(),
                       false,
                       previous.snapshotKind(),
-                      previous.requestedRootRef());
+                      previous.requestedRootRef(),
+                      java.util.List.of(),
+                      previous.nativeDialogs(),
+                      false);
               entity.setStateVersion(invalid.stateVersion());
               entity.setStateJson(write(invalid));
               entity.setUpdatedAt(Instant.now());
@@ -129,7 +137,10 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                       previous.networkQuietMillis(),
                       false,
                       previous.snapshotKind(),
-                      previous.requestedRootRef());
+                      previous.requestedRootRef(),
+                      java.util.List.of(),
+                      previous.nativeDialogs(),
+                      false);
               entity.setStateJson(write(resyncing));
               entity.setUpdatedAt(Instant.now());
               repository.save(entity);
@@ -145,11 +156,38 @@ public class JpaBrowserStateRepository implements BrowserStateRepository {
                 && existing.getStateVersion() >= state.stateVersion()))) {
       return;
     }
+    var persistedState = state;
+    if (!state.nativeDialogEvidenceFresh()
+        && existing.getSessionId() != null
+        && existing.getTenantId().equals(tenantId)
+        && existing.getContextEpoch() == contextEpoch) {
+      var previous = read(existing.getStateJson());
+      persistedState =
+          new NodeEvent.StateUpdated(
+              state.sessionId(),
+              state.stateVersion(),
+              state.targetRevision(),
+              state.url(),
+              state.title(),
+              state.tabs(),
+              state.activeTabId(),
+              state.stateHash(),
+              previous.nativeDialogs().isEmpty() ? state.stateQuality() : "DEGRADED",
+              state.targets(),
+              state.documentReadyState(),
+              state.networkQuietMillis(),
+              state.networkEvidenceFresh(),
+              state.snapshotKind(),
+              state.requestedRootRef(),
+              state.actionOutcomes(),
+              previous.nativeDialogs(),
+              false);
+    }
     existing.setSessionId(state.sessionId());
     existing.setTenantId(tenantId);
     existing.setContextEpoch(contextEpoch);
     existing.setStateVersion(state.stateVersion());
-    existing.setStateJson(write(state));
+    existing.setStateJson(write(persistedState));
     existing.setUpdatedAt(Instant.now());
     repository.save(existing);
   }

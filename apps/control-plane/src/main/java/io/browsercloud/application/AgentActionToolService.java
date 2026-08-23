@@ -43,6 +43,8 @@ public class AgentActionToolService {
           ToolId.OPEN_TAB,
           ToolId.SWITCH_TAB,
           ToolId.CLOSE_TAB,
+          ToolId.ACCEPT_DIALOG,
+          ToolId.DISMISS_DIALOG,
           ToolId.EXECUTE_ACTIONS);
 
   private final BrowserStateRepository stateRepository;
@@ -82,7 +84,10 @@ public class AgentActionToolService {
             .filter(value -> value.contextEpoch() == session.contextEpoch())
             .orElseThrow(() -> new ActionToolException("STATE_CONTEXT_MISMATCH"));
     var state = snapshot.state();
-    if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())) {
+    if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())
+        && !(state.stateQuality().equals("DEGRADED")
+            && state.nativeDialogEvidenceFresh()
+            && containsDialogAction(step))) {
       throw new ActionToolException("STATE_QUALITY_NOT_EXECUTABLE");
     }
     validateInput(step, state, controlPolicies.require(session.sessionId(), tenantId));
@@ -128,6 +133,7 @@ public class AgentActionToolService {
           PASTE_AGENT_CLIPBOARD -> {
         if (input.tabId() != null
             || input.tabUrl() != null
+            || input.dialogId() != null
             || input.targetRef() == null
             || input.targetRef().isBlank()
             || input.targetRevision() == null
@@ -190,6 +196,7 @@ public class AgentActionToolService {
       case SCROLL -> {
         if (input.tabId() != null
             || input.tabUrl() != null
+            || input.dialogId() != null
             || input.scrollDeltaY() == null
             || Math.abs(input.scrollDeltaY()) < 100
             || Math.abs(input.scrollDeltaY()) > 2_000) {
@@ -199,6 +206,7 @@ public class AgentActionToolService {
       case WAIT_FOR -> {
         if (input.tabId() != null
             || input.tabUrl() != null
+            || input.dialogId() != null
             || input.waitCondition() == null
             || input.timeoutMs() == null
             || input.timeoutMs() < 100
@@ -211,7 +219,10 @@ public class AgentActionToolService {
         }
       }
       case OPEN_TAB -> {
-        if (input.tabId() != null || invalidTabUrl(input.tabUrl()) || hasNonTabPayload(input)) {
+        if (input.tabId() != null
+            || input.dialogId() != null
+            || invalidTabUrl(input.tabUrl())
+            || hasNonTabPayload(input)) {
           throw new ActionToolException("OPEN_TAB_INPUT_INVALID");
         }
       }
@@ -219,6 +230,7 @@ public class AgentActionToolService {
         if (input.tabId() == null
             || input.tabId().isBlank()
             || input.tabUrl() != null
+            || input.dialogId() != null
             || hasNonTabPayload(input)
             || state.tabs().stream().noneMatch(tab -> tab.tabId().equals(input.tabId()))) {
           throw new ActionToolException("TAB_BINDING_INVALID");
@@ -227,6 +239,8 @@ public class AgentActionToolService {
           throw new ActionToolException("LAST_TAB_CLOSE_FORBIDDEN");
         }
       }
+      case ACCEPT_DIALOG, DISMISS_DIALOG ->
+          validateDialogInput(step.toolId(), input, state, policy);
       case EXECUTE_ACTIONS -> {
         if (input.actions().isEmpty() || input.actions().size() > 20) {
           throw new ActionToolException("BATCH_ACTION_COUNT_INVALID");
@@ -261,7 +275,9 @@ public class AgentActionToolService {
             ToolId.WAIT_FOR,
             ToolId.OPEN_TAB,
             ToolId.SWITCH_TAB,
-            ToolId.CLOSE_TAB)
+            ToolId.CLOSE_TAB,
+            ToolId.ACCEPT_DIALOG,
+            ToolId.DISMISS_DIALOG)
         .contains(input.toolId())) {
       throw new ActionToolException("BATCH_ACTION_TOOL_FORBIDDEN");
     }
@@ -281,7 +297,8 @@ public class AgentActionToolService {
             java.util.List.of(),
             true,
             input.tabId(),
-            input.tabUrl());
+            input.tabUrl(),
+            input.dialogId());
     var step =
         new PlanStep(
             input.actionId(),
@@ -324,6 +341,13 @@ public class AgentActionToolService {
       case OPEN_TAB -> "TAB_OPEN:" + PromptSecurityService.sha256(step.input().tabUrl());
       case SWITCH_TAB, CLOSE_TAB ->
           "TAB_TARGET:" + PromptSecurityService.sha256(step.input().tabId());
+      case ACCEPT_DIALOG ->
+          "NATIVE_DIALOG_ACCEPT:"
+              + (step.input().dataClass() == null ? "NONE" : step.input().dataClass().name())
+              + ":"
+              + PromptSecurityService.sha256(step.input().dialogId());
+      case DISMISS_DIALOG ->
+          "NATIVE_DIALOG_DISMISS:" + PromptSecurityService.sha256(step.input().dialogId());
       case EXECUTE_ACTIONS -> "BATCH_ACTIONS";
       default -> throw new ActionToolException("ACTION_STEP_INVALID");
     };
@@ -352,7 +376,70 @@ public class AgentActionToolService {
         || input.scrollDeltaY() != null
         || input.waitCondition() != null
         || input.timeoutMs() != null
+        || input.dialogId() != null
         || !input.actions().isEmpty();
+  }
+
+  private static boolean containsDialogAction(PlanStep step) {
+    if (Set.of(ToolId.ACCEPT_DIALOG, ToolId.DISMISS_DIALOG).contains(step.toolId())) return true;
+    return step.toolId() == ToolId.EXECUTE_ACTIONS
+        && step.input().actions().stream()
+            .anyMatch(
+                action ->
+                    Set.of(ToolId.ACCEPT_DIALOG, ToolId.DISMISS_DIALOG).contains(action.toolId()));
+  }
+
+  private static void validateDialogInput(
+      ToolId toolId,
+      StepInput input,
+      io.browsercloud.coordinator.NodeEvent.StateUpdated state,
+      AgentControlPolicyService.Policy policy) {
+    if (input.dialogId() == null
+        || input.dialogId().isBlank()
+        || input.targetRef() != null
+        || input.targetRevision() != null
+        || input.tabId() != null
+        || input.tabUrl() != null
+        || input.scrollDeltaY() != null
+        || input.waitCondition() != null
+        || input.timeoutMs() != null
+        || !input.actions().isEmpty()
+        || !state.nativeDialogEvidenceFresh()) {
+      throw new ActionToolException("NATIVE_DIALOG_BINDING_INVALID");
+    }
+    var dialog =
+        state.nativeDialogs().stream()
+            .filter(candidate -> candidate.dialogId().equals(input.dialogId()))
+            .findFirst()
+            .orElseThrow(() -> new ActionToolException("NATIVE_DIALOG_NOT_FOUND"));
+    var carriesPrompt = input.sealedPayload() != null;
+    if (toolId == ToolId.DISMISS_DIALOG && carriesPrompt) {
+      throw new ActionToolException("DIALOG_DISMISS_PROMPT_FORBIDDEN");
+    }
+    if (carriesPrompt) {
+      if (!dialog.dialogType().equals("PROMPT")
+          || input.payloadHash() == null
+          || input.payloadLength() == null
+          || input.payloadLength() < 1
+          || input.payloadLength() > 2_000
+          || input.dataClass() == null) {
+        throw new ActionToolException("DIALOG_PROMPT_PAYLOAD_INVALID");
+      }
+      var sensitive =
+          input.dataClass() == ActionDataClass.CREDENTIAL
+              || input.dataClass() == ActionDataClass.OTP;
+      if (sensitive
+          && (!policy.autonomous()
+              || !input.allowSensitiveTarget()
+              || input.maximumAttempts() != 1)) {
+        throw new ActionToolException("AUTONOMOUS_DIALOG_PROMPT_POLICY_MISMATCH");
+      }
+    } else if (input.payloadHash() != null
+        || input.payloadLength() != null
+        || input.dataClass() != null
+        || input.allowSensitiveTarget()) {
+      throw new ActionToolException("DIALOG_PROMPT_PAYLOAD_INVALID");
+    }
   }
 
   private static String domainOf(String value) {

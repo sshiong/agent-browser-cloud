@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AgentBrowserNativeDialog } from './AgentBrowserNativeDialog.js';
 import type { AgentBrowserTab } from './AgentBrowserTab.js';
 import type { BrowserState } from './BrowserState.js';
 export type AgentBrowserSnapshot = {
@@ -21,7 +22,12 @@ export type AgentBrowserSnapshot = {
     activeTab: (AgentBrowserTab | null);
     focusedElementId: string | null;
     formControlElementIds: Array<string>;
+    /**
+     * DOM/A11y dialog-like elements only; separate from browser-native JavaScript Dialog state.
+     */
     dialogElementIds: Array<string>;
+    nativeDialogs: Array<AgentBrowserNativeDialog>;
+    nativeDialogEvidenceFresh: boolean;
     pageLoadingState: 'loading' | 'interactive' | 'complete' | '';
     /**
      * Challenge authority remains the dedicated Challenge API; the snapshot does not infer it from DOM text.

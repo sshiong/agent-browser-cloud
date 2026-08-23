@@ -21,4 +21,5 @@ export type AgentStepInput = {
     stopOnError: boolean;
     tabId: string | null;
     tabUrl: string | null;
+    dialogId: string | null;
 };

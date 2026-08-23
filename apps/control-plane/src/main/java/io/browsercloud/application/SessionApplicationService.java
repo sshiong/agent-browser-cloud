@@ -675,6 +675,18 @@ public class SessionApplicationService {
                               new BrowserStateView.BrowserTabView(
                                   tab.tabId(), tab.url(), tab.title(), tab.active()))
                       .toList();
+              var nativeDialogs =
+                  state.nativeDialogs().stream()
+                      .map(
+                          dialog ->
+                              new BrowserStateView.NativeDialogView(
+                                  dialog.dialogId(),
+                                  dialog.tabId(),
+                                  dialog.dialogType(),
+                                  dialog.message(),
+                                  dialog.defaultPrompt(),
+                                  dialog.hasBrowserHandler()))
+                      .toList();
               return new BrowserStateView(
                   state.sessionId(),
                   snapshot.contextEpoch(),
@@ -689,7 +701,9 @@ public class SessionApplicationService {
                   state.networkEvidenceFresh(),
                   targets,
                   tabs,
-                  state.activeTabId());
+                  state.activeTabId(),
+                  nativeDialogs,
+                  state.nativeDialogEvidenceFresh());
             });
   }
 

@@ -2,9 +2,11 @@
 //!
 //! 负责采集浏览器当前状态。
 
+mod dialog_monitor;
 mod safety_monitor;
 
 use async_trait::async_trait;
+pub use dialog_monitor::NativeDialog;
 use futures_util::{SinkExt, StreamExt};
 pub use safety_monitor::{BrowserSafetyObservation, BrowserTransactionPolicy};
 use serde::{Deserialize, Serialize};
@@ -103,6 +105,12 @@ pub struct CurrentState {
     /// Active Page Target ID. Empty only for an older serialized state.
     #[serde(default)]
     pub active_tab_id: String,
+    /// Browser-native JavaScript dialogs. DOM role=dialog remains in targets and is separate.
+    #[serde(default)]
+    pub native_dialogs: Vec<NativeDialog>,
+    /// True only when every current Page Target is continuously observed or safely probed.
+    #[serde(default)]
+    pub native_dialog_evidence_fresh: bool,
     /// 交互目标列表
     pub targets: Vec<InteractiveTarget>,
     /// 状态质量
@@ -132,6 +140,10 @@ pub struct StateDiff {
     pub tabs: Vec<BrowserTab>,
     #[serde(default)]
     pub active_tab_id: String,
+    #[serde(default)]
+    pub native_dialogs: Vec<NativeDialog>,
+    #[serde(default)]
+    pub native_dialog_evidence_fresh: bool,
     pub quality: StateQuality,
     pub content_hash: String,
     #[serde(default)]
@@ -205,6 +217,8 @@ pub fn diff_states(
         title: current.title.clone(),
         tabs: current.tabs.clone(),
         active_tab_id: current.active_tab_id.clone(),
+        native_dialogs: current.native_dialogs.clone(),
+        native_dialog_evidence_fresh: current.native_dialog_evidence_fresh,
         quality: current.quality.clone(),
         content_hash: current.content_hash.clone(),
         document_ready_state: current.document_ready_state.clone(),
@@ -385,6 +399,10 @@ pub struct CdpStateCollector {
     tab_policy_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
     safety_observations: Arc<RwLock<HashMap<String, BrowserSafetyObservation>>>,
     safety_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
+    native_dialog_observations:
+        Arc<RwLock<HashMap<String, dialog_monitor::NativeDialogObservation>>>,
+    native_dialog_monitors: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
+    last_states: Arc<RwLock<HashMap<String, CurrentState>>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -452,6 +470,33 @@ impl CdpStateCollector {
             .await
             .entry(session_id.to_owned())
             .or_insert_with(|| Arc::new(Mutex::new(())));
+        self.native_dialog_observations
+            .write()
+            .await
+            .insert(session_id.to_owned(), Default::default());
+        Ok(())
+    }
+
+    /// Starts the continuous Page.javascriptDialogOpening/Closed observer after the Runtime
+    /// endpoint has passed registration. Kept separate from register_runtime so registration
+    /// remains a side-effect-free boundary for isolated collector tests and staged startup.
+    pub async fn start_native_dialog_monitor(&self, session_id: &str) -> anyhow::Result<()> {
+        let endpoint = self.endpoint(session_id).await?;
+        if let Some(previous) = self.native_dialog_monitors.lock().await.remove(session_id) {
+            previous.abort();
+        }
+        self.native_dialog_observations
+            .write()
+            .await
+            .insert(session_id.to_owned(), Default::default());
+        self.native_dialog_monitors.lock().await.insert(
+            session_id.to_owned(),
+            dialog_monitor::spawn(
+                session_id.to_owned(),
+                endpoint,
+                Arc::clone(&self.native_dialog_observations),
+            ),
+        );
         Ok(())
     }
 
@@ -479,6 +524,14 @@ impl CdpStateCollector {
         if let Some(monitor) = self.safety_monitors.lock().await.remove(session_id) {
             monitor.abort();
         }
+        self.native_dialog_observations
+            .write()
+            .await
+            .remove(session_id);
+        if let Some(monitor) = self.native_dialog_monitors.lock().await.remove(session_id) {
+            monitor.abort();
+        }
+        self.last_states.write().await.remove(session_id);
     }
 
     /// 启动持续、只读的 CDP Browser/Network 活动观察器。
@@ -804,6 +857,100 @@ impl CdpStateCollector {
 
     pub async fn active_page_websocket(&self, session_id: &str) -> anyhow::Result<String> {
         Ok(self.tab_snapshot(session_id).await?.active_websocket_url)
+    }
+
+    async fn native_dialog_snapshot(
+        &self,
+        session_id: &str,
+        tabs: &[BrowserTab],
+    ) -> (Vec<NativeDialog>, bool) {
+        let tab_ids = tabs
+            .iter()
+            .map(|tab| tab.tab_id.as_str())
+            .collect::<HashSet<_>>();
+        let guard = self.native_dialog_observations.read().await;
+        let Some(observation) = guard.get(session_id) else {
+            return (Vec::new(), false);
+        };
+        let mut dialogs = observation
+            .dialogs
+            .values()
+            .filter(|dialog| tab_ids.contains(dialog.tab_id.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
+        dialogs.sort_by(|left, right| left.tab_id.cmp(&right.tab_id));
+        let fresh = !tab_ids.is_empty()
+            && tab_ids
+                .iter()
+                .all(|tab_id| observation.fresh_tab_ids.contains(*tab_id));
+        (dialogs, fresh)
+    }
+
+    pub async fn handle_native_dialog(
+        &self,
+        session_id: &str,
+        dialog_id: &str,
+        accept: bool,
+        prompt_text: Option<&str>,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            dialog_id.starts_with("dlg_")
+                && dialog_id.len() == 24
+                && dialog_id[4..]
+                    .bytes()
+                    .all(|value| value.is_ascii_hexdigit()),
+            "Native Dialog ID is invalid"
+        );
+        let dialog = {
+            let guard = self.native_dialog_observations.read().await;
+            let observation = guard
+                .get(session_id)
+                .ok_or_else(|| anyhow::anyhow!("Native Dialog observation is unavailable"))?;
+            let dialog = observation
+                .dialogs
+                .values()
+                .find(|dialog| dialog.dialog_id == dialog_id)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("Native Dialog is stale or unknown"))?;
+            anyhow::ensure!(
+                observation.fresh_tab_ids.contains(&dialog.tab_id),
+                "Native Dialog evidence is stale"
+            );
+            dialog
+        };
+        if let Some(value) = prompt_text {
+            anyhow::ensure!(
+                accept && dialog.dialog_type == "PROMPT" && !value.is_empty(),
+                "Native Dialog prompt text is forbidden"
+            );
+            anyhow::ensure!(
+                value.len() <= 2_000
+                    && !value.chars().any(|character| {
+                        character.is_control() && !matches!(character, '\n' | '\r' | '\t')
+                    }),
+                "Native Dialog prompt text is invalid"
+            );
+        }
+        let endpoint = self.endpoint(session_id).await?;
+        let websocket = Self::list_targets(&endpoint)
+            .await?
+            .into_iter()
+            .find(|target| target.target_type == "page" && target.id == dialog.tab_id)
+            .and_then(|target| target.web_socket_debugger_url)
+            .ok_or_else(|| anyhow::anyhow!("Native Dialog Page Target disappeared"))?;
+        let mut params = serde_json::json!({"accept": accept});
+        if let Some(value) = prompt_text {
+            params["promptText"] = serde_json::Value::String(value.to_owned());
+        }
+        Self::cdp_command_with_params(&websocket, "Page.handleJavaScriptDialog", 405, params)
+            .await?;
+        // The CDP acknowledgement is the write barrier. Update the shared observer immediately;
+        // the independent Closed event/probe will converge to the same state.
+        let mut guard = self.native_dialog_observations.write().await;
+        let observation = guard.entry(session_id.to_owned()).or_default();
+        observation.dialogs.remove(&dialog.tab_id);
+        observation.fresh_tab_ids.insert(dialog.tab_id);
+        Ok(())
     }
 
     pub async fn open_tab(&self, session_id: &str, url: &str) -> anyhow::Result<String> {
@@ -2091,17 +2238,21 @@ impl CdpStateCollector {
     fn state_hash(
         page: &EvaluatedPageState,
         tab_snapshot: &TabSnapshot,
+        native_dialogs: &[NativeDialog],
+        native_dialog_evidence_fresh: bool,
         truncated: bool,
         network_readiness_hash_bucket: u64,
     ) -> anyhow::Result<(String, String)> {
         let serialized_targets = serde_json::to_string(&page.targets)?;
         let content_hash = hex_sha256(
             format!(
-                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 page.url,
                 page.title,
                 serde_json::to_string(&tab_snapshot.tabs)?,
                 tab_snapshot.active_tab_id,
+                serde_json::to_string(native_dialogs)?,
+                native_dialog_evidence_fresh,
                 serialized_targets,
                 truncated,
                 page.document_ready_state,
@@ -2110,6 +2261,111 @@ impl CdpStateCollector {
             .as_bytes(),
         );
         Ok((serialized_targets, content_hash))
+    }
+
+    async fn collect_dialog_blocked_state(
+        &self,
+        session_id: &str,
+        tab_snapshot: TabSnapshot,
+        native_dialogs: Vec<NativeDialog>,
+        native_dialog_evidence_fresh: bool,
+        force_state_version: bool,
+        force_target_revision: bool,
+    ) -> anyhow::Result<CurrentState> {
+        let previous = self.last_states.read().await.get(session_id).cloned();
+        let network_observation = self.browser_safety_observation(session_id).await;
+        let active_tab = tab_snapshot
+            .tabs
+            .iter()
+            .find(|tab| tab.tab_id == tab_snapshot.active_tab_id)
+            .ok_or_else(|| anyhow::anyhow!("active Page Target disappeared"))?;
+        let url = previous
+            .as_ref()
+            .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
+            .map(|state| state.url.clone())
+            .unwrap_or_else(|| active_tab.url.clone());
+        let title = previous
+            .as_ref()
+            .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
+            .map(|state| state.title.clone())
+            .unwrap_or_else(|| active_tab.title.clone());
+        let targets = previous
+            .as_ref()
+            .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
+            .map(|state| state.targets.clone())
+            .unwrap_or_default();
+        let quality = previous
+            .as_ref()
+            .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
+            .map(|state| state.quality.clone())
+            .unwrap_or(StateQuality::Degraded);
+        let document_ready_state = previous
+            .as_ref()
+            .filter(|state| state.active_tab_id == tab_snapshot.active_tab_id)
+            .map(|state| state.document_ready_state.clone())
+            .unwrap_or_default();
+        let fallback_target_fingerprint = hex_sha256(serde_json::to_string(&targets)?.as_bytes());
+        let content_hash = hex_sha256(
+            format!(
+                "native-dialog-blocked-v1\n{url}\n{title}\n{}\n{}\n{}\n{}\n{fallback_target_fingerprint}",
+                serde_json::to_string(&tab_snapshot.tabs)?,
+                tab_snapshot.active_tab_id,
+                serde_json::to_string(&native_dialogs)?, native_dialog_evidence_fresh,
+            )
+            .as_bytes(),
+        );
+        let (state_version, target_revision) = {
+            let mut cursors = self.cursors.lock().await;
+            let cursor = cursors.entry(session_id.to_owned()).or_default();
+            if cursor.state_version == 0
+                || cursor.content_hash != content_hash
+                || force_state_version
+                || force_target_revision
+            {
+                cursor.state_version = cursor
+                    .state_version
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::anyhow!("State version overflow"))?;
+            }
+            if cursor.target_revision == 0
+                || cursor.active_tab_id != tab_snapshot.active_tab_id
+                || force_target_revision
+            {
+                cursor.target_revision = cursor
+                    .target_revision
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::anyhow!("Target revision overflow"))?;
+            }
+            cursor.url = url.clone();
+            cursor.active_tab_id = tab_snapshot.active_tab_id.clone();
+            if cursor.target_fingerprint.is_empty() {
+                cursor.target_fingerprint = fallback_target_fingerprint;
+            }
+            cursor.content_hash = content_hash.clone();
+            (cursor.state_version, cursor.target_revision)
+        };
+        let state = CurrentState {
+            session_id: session_id.to_owned(),
+            state_version,
+            target_revision,
+            url,
+            title,
+            tabs: tab_snapshot.tabs,
+            active_tab_id: tab_snapshot.active_tab_id,
+            native_dialogs,
+            native_dialog_evidence_fresh,
+            targets,
+            quality,
+            content_hash,
+            document_ready_state,
+            network_quiet_millis: network_observation.network_quiet_millis(),
+            network_evidence_fresh: network_observation.fresh,
+        };
+        self.last_states
+            .write()
+            .await
+            .insert(session_id.to_owned(), state.clone());
+        Ok(state)
     }
 
     async fn collect(
@@ -2121,9 +2377,56 @@ impl CdpStateCollector {
         let collection_lock = self.collection_lock(session_id).await?;
         let _collection_guard = collection_lock.lock().await;
         let mut tab_snapshot = self.tab_snapshot(session_id).await?;
-        let mut page = self
-            .evaluate_page(&tab_snapshot.active_websocket_url)
-            .await?;
+        let (native_dialogs, native_dialog_evidence_fresh) = self
+            .native_dialog_snapshot(session_id, &tab_snapshot.tabs)
+            .await;
+        if native_dialog_evidence_fresh
+            && native_dialogs
+                .iter()
+                .any(|dialog| dialog.tab_id == tab_snapshot.active_tab_id)
+        {
+            return self
+                .collect_dialog_blocked_state(
+                    session_id,
+                    tab_snapshot,
+                    native_dialogs,
+                    native_dialog_evidence_fresh,
+                    force_state_version,
+                    force_target_revision,
+                )
+                .await;
+        }
+        let mut page = match self.evaluate_page(&tab_snapshot.active_websocket_url).await {
+            Ok(page) => page,
+            Err(error) => {
+                let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+                loop {
+                    let (observed_dialogs, evidence_fresh) = self
+                        .native_dialog_snapshot(session_id, &tab_snapshot.tabs)
+                        .await;
+                    if evidence_fresh
+                        && observed_dialogs
+                            .iter()
+                            .any(|dialog| dialog.tab_id == tab_snapshot.active_tab_id)
+                    {
+                        return self
+                            .collect_dialog_blocked_state(
+                                session_id,
+                                tab_snapshot,
+                                observed_dialogs,
+                                true,
+                                force_state_version,
+                                force_target_revision,
+                            )
+                            .await;
+                    }
+                    if tokio::time::Instant::now() >= deadline {
+                        return Err(error);
+                    }
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                }
+            }
+        };
         if let Some(active) = tab_snapshot
             .tabs
             .iter_mut()
@@ -2141,6 +2444,8 @@ impl CdpStateCollector {
         let (serialized_targets, content_hash) = Self::state_hash(
             &page,
             &tab_snapshot,
+            &native_dialogs,
+            native_dialog_evidence_fresh,
             page.truncated,
             network_readiness_hash_bucket,
         )?;
@@ -2193,7 +2498,7 @@ impl CdpStateCollector {
             .await
             .insert(session_id.to_owned(), registry);
 
-        Ok(CurrentState {
+        let state = CurrentState {
             session_id: session_id.to_owned(),
             state_version,
             target_revision,
@@ -2201,6 +2506,8 @@ impl CdpStateCollector {
             title: page.title,
             tabs: tab_snapshot.tabs,
             active_tab_id: tab_snapshot.active_tab_id,
+            native_dialogs,
+            native_dialog_evidence_fresh,
             targets,
             quality: if page.truncated {
                 StateQuality::DepthLimited
@@ -2211,7 +2518,12 @@ impl CdpStateCollector {
             document_ready_state: page.document_ready_state,
             network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
-        })
+        };
+        self.last_states
+            .write()
+            .await
+            .insert(session_id.to_owned(), state.clone());
+        Ok(state)
     }
 
     async fn collect_region(
@@ -2281,6 +2593,9 @@ impl CdpStateCollector {
             root_ref.to_owned()
         };
         let mut tab_snapshot = self.tab_snapshot(session_id).await?;
+        let (native_dialogs, native_dialog_evidence_fresh) = self
+            .native_dialog_snapshot(session_id, &tab_snapshot.tabs)
+            .await;
         anyhow::ensure!(
             tab_snapshot.active_tab_id == baseline.active_tab_id,
             "Region active Page Target changed during collection"
@@ -2343,8 +2658,14 @@ impl CdpStateCollector {
         let readiness_bucket =
             network_readiness_hash_bucket(network_quiet_millis, network_observation.fresh);
         let truncated = page.truncated || matches!(baseline.quality, StateQuality::DepthLimited);
-        let (serialized_targets, content_hash) =
-            Self::state_hash(&page, &tab_snapshot, truncated, readiness_bucket)?;
+        let (serialized_targets, content_hash) = Self::state_hash(
+            &page,
+            &tab_snapshot,
+            &native_dialogs,
+            native_dialog_evidence_fresh,
+            truncated,
+            readiness_bucket,
+        )?;
         let state_version = baseline.state_version.saturating_add(1);
         anyhow::ensure!(
             state_version > baseline.state_version,
@@ -2371,7 +2692,7 @@ impl CdpStateCollector {
             .await
             .insert(session_id.to_owned(), registry);
 
-        Ok(CurrentState {
+        let state = CurrentState {
             session_id: session_id.to_owned(),
             state_version,
             target_revision: baseline.target_revision,
@@ -2379,6 +2700,8 @@ impl CdpStateCollector {
             title: page.title,
             tabs: tab_snapshot.tabs,
             active_tab_id: tab_snapshot.active_tab_id,
+            native_dialogs,
+            native_dialog_evidence_fresh,
             targets,
             quality: if truncated {
                 StateQuality::DepthLimited
@@ -2389,7 +2712,12 @@ impl CdpStateCollector {
             document_ready_state: page.document_ready_state,
             network_quiet_millis,
             network_evidence_fresh: network_observation.fresh,
-        })
+        };
+        self.last_states
+            .write()
+            .await
+            .insert(session_id.to_owned(), state.clone());
+        Ok(state)
     }
 }
 
@@ -3501,6 +3829,8 @@ mod tests {
                 active: true,
             }],
             active_tab_id: "tab-1".to_owned(),
+            native_dialogs: Vec::new(),
+            native_dialog_evidence_fresh: true,
             targets: vec![target("target:1:a", "A"), target("target:1:b", "B")],
             quality: StateQuality::Complete,
             content_hash: "old".to_owned(),

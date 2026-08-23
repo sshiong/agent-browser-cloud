@@ -113,6 +113,129 @@ class AgentNavigationCompletionServiceTest {
   }
 
   @Test
+  void shouldRequireFreshAuthoritativeNativeDialogClosure() {
+    var objectMapper = new ObjectMapper().findAndRegisterModules();
+    var service =
+        new AgentNavigationCompletionService(
+            mock(AgentTaskJpaRepository.class),
+            mock(SessionRepository.class),
+            mock(OperationRepository.class),
+            mock(NodeCommandGateway.class),
+            mock(AgentExecutionService.class),
+            mock(AgentControlPolicyService.class),
+            objectMapper);
+    var task =
+        new AgentTaskEntity(
+            "agt_1234567890abcdef",
+            "tenant-test",
+            "ses_1234567890abcdef",
+            "handle native prompt",
+            TaskState.PLANNED.name(),
+            RiskClass.R2_DATA_CHANGE.name(),
+            IntentDecision.ALLOWED.name(),
+            null,
+            AgentPolicy.BALANCED,
+            "[\"example.test\"]",
+            "{}",
+            "[]",
+            Instant.now());
+    var step =
+        new PlanStep(
+            "step_1234567890abcd",
+            ToolId.ACCEPT_DIALOG,
+            RiskClass.R2_DATA_CHANGE,
+            null,
+            new StepInput(
+                null,
+                null,
+                "sealed",
+                "a".repeat(64),
+                6,
+                ActionDataClass.OTP,
+                null,
+                null,
+                null,
+                true,
+                1,
+                List.of(),
+                true,
+                null,
+                null,
+                "dlg_0123456789abcdef0123"),
+            "accept prompt",
+            List.of("user_goal"),
+            TrustLevel.TRUSTED,
+            List.of(),
+            false,
+            ExecutionStrategy.DESKTOP_INPUT,
+            "COMPLETE",
+            "DIALOG_CLOSED",
+            "cap_test",
+            "signed-token");
+    task.startExecution(
+        "op_agent_dialog", "executor-test", Instant.now().plusSeconds(30), Instant.now());
+    task.markAsyncPending(
+        0,
+        step.stepId(),
+        step.toolId().name(),
+        3,
+        "base-hash",
+        Instant.now().plusSeconds(15),
+        "[]",
+        "executor-test",
+        Instant.now().plusSeconds(30),
+        Instant.now());
+    var tab = new NodeEvent.BrowserTab("tab-main", "https://example.test", "Example", true);
+    var dialog =
+        new NodeEvent.NativeDialog(
+            "dlg_0123456789abcdef0123", "tab-main", "PROMPT", "OTP", "", false);
+    var stale =
+        new NodeEvent.StateUpdated(
+            task.getSessionId(),
+            4,
+            7,
+            "https://example.test",
+            "Example",
+            List.of(tab),
+            "tab-main",
+            "hash-4",
+            "COMPLETE",
+            List.of(),
+            "complete",
+            0,
+            true,
+            "AGENT_ACCEPT_DIALOG",
+            "",
+            List.of(),
+            List.of(dialog),
+            false);
+    var closed =
+        new NodeEvent.StateUpdated(
+            task.getSessionId(),
+            5,
+            7,
+            "https://example.test",
+            "Example",
+            List.of(tab),
+            "tab-main",
+            "hash-5",
+            "COMPLETE",
+            List.of(),
+            "complete",
+            0,
+            true,
+            "AGENT_ACCEPT_DIALOG",
+            "",
+            List.of(),
+            List.of(),
+            true);
+
+    assertThat(service.verifyState(task, step, stale))
+        .isEqualTo("NATIVE_DIALOG_NOT_AUTHORITATIVELY_CLOSED");
+    assertThat(service.verifyState(task, step, closed)).isNull();
+  }
+
+  @Test
   void shouldBoundNavigationVerificationReplanAndAbortAfterBudgetIsExhausted() throws Exception {
     var taskRepository = mock(AgentTaskJpaRepository.class);
     var sessionRepository = mock(SessionRepository.class);

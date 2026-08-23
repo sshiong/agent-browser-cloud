@@ -16,12 +16,49 @@ public record BrowserStateView(
     boolean networkEvidenceFresh,
     List<InteractiveTargetView> targets,
     List<BrowserTabView> tabs,
-    String activeTabId) {
+    String activeTabId,
+    List<NativeDialogView> nativeDialogs,
+    boolean nativeDialogEvidenceFresh) {
 
   public BrowserStateView {
     targets = List.copyOf(targets);
     tabs = tabs == null ? List.of() : List.copyOf(tabs);
     activeTabId = activeTabId == null ? "" : activeTabId;
+    nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
+  }
+
+  public BrowserStateView(
+      String sessionId,
+      long contextEpoch,
+      long stateVersion,
+      long targetRevision,
+      String url,
+      String title,
+      String stateHash,
+      String stateQuality,
+      String documentReadyState,
+      long networkQuietMillis,
+      boolean networkEvidenceFresh,
+      List<InteractiveTargetView> targets,
+      List<BrowserTabView> tabs,
+      String activeTabId) {
+    this(
+        sessionId,
+        contextEpoch,
+        stateVersion,
+        targetRevision,
+        url,
+        title,
+        stateHash,
+        stateQuality,
+        documentReadyState,
+        networkQuietMillis,
+        networkEvidenceFresh,
+        targets,
+        tabs,
+        activeTabId,
+        List.of(),
+        false);
   }
 
   public BrowserStateView(
@@ -55,6 +92,14 @@ public record BrowserStateView(
   }
 
   public record BrowserTabView(String tabId, String url, String title, boolean active) {}
+
+  public record NativeDialogView(
+      String dialogId,
+      String tabId,
+      String dialogType,
+      String message,
+      String defaultPrompt,
+      boolean hasBrowserHandler) {}
 
   public record InteractiveTargetView(
       String targetRef,

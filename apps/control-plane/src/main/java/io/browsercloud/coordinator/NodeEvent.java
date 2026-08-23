@@ -232,13 +232,54 @@ public sealed interface NodeEvent
       boolean networkEvidenceFresh,
       String snapshotKind,
       String requestedRootRef,
-      List<AgentActionOutcome> actionOutcomes)
+      List<AgentActionOutcome> actionOutcomes,
+      List<NativeDialog> nativeDialogs,
+      boolean nativeDialogEvidenceFresh)
       implements NodeEvent {
     public StateUpdated {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
       activeTabId = activeTabId == null ? "" : activeTabId;
       targets = List.copyOf(targets);
       actionOutcomes = actionOutcomes == null ? List.of() : List.copyOf(actionOutcomes);
+      nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
+    }
+
+    public StateUpdated(
+        String sessionId,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        List<InteractiveTarget> targets,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        String snapshotKind,
+        String requestedRootRef,
+        List<AgentActionOutcome> actionOutcomes) {
+      this(
+          sessionId,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          targets,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          snapshotKind,
+          requestedRootRef,
+          actionOutcomes,
+          List.of(),
+          false);
     }
 
     public StateUpdated(
@@ -404,6 +445,14 @@ public sealed interface NodeEvent
 
   record BrowserTab(String tabId, String url, String title, boolean active) {}
 
+  record NativeDialog(
+      String dialogId,
+      String tabId,
+      String dialogType,
+      String message,
+      String defaultPrompt,
+      boolean hasBrowserHandler) {}
+
   record AgentActionOutcome(
       String actionId, String status, String errorCode, long stateVersion, long targetRevision) {}
 
@@ -482,13 +531,62 @@ public sealed interface NodeEvent
       String requestedRootRef,
       String resyncRequestId,
       long snapshotBytes,
-      Long collectionCpuMillis)
+      Long collectionCpuMillis,
+      List<NativeDialog> nativeDialogs,
+      boolean nativeDialogEvidenceFresh)
       implements NodeEvent {
     public StateDiff {
       tabs = tabs == null ? List.of() : List.copyOf(tabs);
       activeTabId = activeTabId == null ? "" : activeTabId;
       upsertedTargets = List.copyOf(upsertedTargets);
       removedTargetRefs = List.copyOf(removedTargetRefs);
+      nativeDialogs = nativeDialogs == null ? List.of() : List.copyOf(nativeDialogs);
+    }
+
+    public StateDiff(
+        String sessionId,
+        long baseStateVersion,
+        long stateVersion,
+        long targetRevision,
+        String url,
+        String title,
+        List<BrowserTab> tabs,
+        String activeTabId,
+        String stateHash,
+        String stateQuality,
+        String documentReadyState,
+        long networkQuietMillis,
+        boolean networkEvidenceFresh,
+        List<InteractiveTarget> upsertedTargets,
+        List<String> removedTargetRefs,
+        String snapshotKind,
+        String requestedRootRef,
+        String resyncRequestId,
+        long snapshotBytes,
+        Long collectionCpuMillis) {
+      this(
+          sessionId,
+          baseStateVersion,
+          stateVersion,
+          targetRevision,
+          url,
+          title,
+          tabs,
+          activeTabId,
+          stateHash,
+          stateQuality,
+          documentReadyState,
+          networkQuietMillis,
+          networkEvidenceFresh,
+          upsertedTargets,
+          removedTargetRefs,
+          snapshotKind,
+          requestedRootRef,
+          resyncRequestId,
+          snapshotBytes,
+          collectionCpuMillis,
+          List.of(),
+          false);
     }
 
     public StateDiff(

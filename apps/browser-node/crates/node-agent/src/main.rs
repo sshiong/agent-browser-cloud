@@ -12,8 +12,8 @@ use node_contracts::proto::node_event_service_client::NodeEventServiceClient;
 use node_contracts::proto::{
     AdjustRuntimeResourcesCommand, AgentActionCommand, AgentActionFailedEvent, AgentActionOutcome,
     AgentActionPrimitive, AgentNavigateCommand, AgentNavigationFailedEvent,
-    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserStateDiffEvent, BrowserStateEvent,
-    BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
+    BeginHumanTakeoverCommand, BrowserCrashEvent, BrowserNativeDialogState, BrowserStateDiffEvent,
+    BrowserStateEvent, BrowserStateSnapshotBeginEvent, BrowserStateSnapshotChunkEvent,
     BrowserStateSnapshotCommitEvent, BrowserTabState, BusinessRecoveryActionCommand,
     CaptureObserverScreenshotCommand, ChallengeAutomationActionCommand,
     ChallengeAutomationFailedEvent, ChallengeVisualAction, CommandAck, CommandEnvelope,
@@ -80,7 +80,17 @@ fn rebound_action_target(
 
 fn agent_action_error_code(tool_id: &str, error: &anyhow::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
-    if matches!(tool_id, "OPEN_TAB" | "SWITCH_TAB" | "CLOSE_TAB")
+    if matches!(tool_id, "ACCEPT_DIALOG" | "DISMISS_DIALOG")
+        && message.contains("evidence is stale")
+    {
+        "DIALOG_STATE_STALE"
+    } else if matches!(tool_id, "ACCEPT_DIALOG" | "DISMISS_DIALOG")
+        && (message.contains("stale or unknown") || message.contains("disappeared"))
+    {
+        "DIALOG_NOT_FOUND"
+    } else if tool_id == "ACCEPT_DIALOG" && message.contains("prompt text") {
+        "DIALOG_PROMPT_INVALID"
+    } else if matches!(tool_id, "OPEN_TAB" | "SWITCH_TAB" | "CLOSE_TAB")
         && (message.contains("stale or unknown") || message.contains("disappeared"))
     {
         "TAB_NOT_FOUND"
@@ -1646,6 +1656,19 @@ impl NodeControlService {
                 })
                 .collect(),
             active_tab_id: state.active_tab_id,
+            native_dialogs: state
+                .native_dialogs
+                .into_iter()
+                .map(|dialog| BrowserNativeDialogState {
+                    dialog_id: dialog.dialog_id,
+                    tab_id: dialog.tab_id,
+                    dialog_type: dialog.dialog_type,
+                    message: dialog.message,
+                    default_prompt: dialog.default_prompt,
+                    has_browser_handler: dialog.has_browser_handler,
+                })
+                .collect(),
+            native_dialog_evidence_fresh: state.native_dialog_evidence_fresh,
         }
     }
 
@@ -1720,6 +1743,19 @@ impl NodeControlService {
                 })
                 .collect(),
             active_tab_id: diff.active_tab_id,
+            native_dialogs: diff
+                .native_dialogs
+                .into_iter()
+                .map(|dialog| BrowserNativeDialogState {
+                    dialog_id: dialog.dialog_id,
+                    tab_id: dialog.tab_id,
+                    dialog_type: dialog.dialog_type,
+                    message: dialog.message,
+                    default_prompt: dialog.default_prompt,
+                    has_browser_handler: dialog.has_browser_handler,
+                })
+                .collect(),
+            native_dialog_evidence_fresh: diff.native_dialog_evidence_fresh,
         }
     }
 
@@ -2833,6 +2869,7 @@ impl NodeControlService {
                 && payload.sealed_text.is_empty()
                 && payload.tab_id.is_empty()
                 && payload.tab_url.is_empty()
+                && payload.dialog_id.is_empty()
                 && (1..=20).contains(&payload.actions.len()),
             "agent action batch payload is invalid"
         );
@@ -2863,6 +2900,8 @@ impl NodeControlService {
                             | "OPEN_TAB"
                             | "SWITCH_TAB"
                             | "CLOSE_TAB"
+                            | "ACCEPT_DIALOG"
+                            | "DISMISS_DIALOG"
                             | "TYPE_TEXT"
                             | "FILL"
                             | "PASTE_AGENT_CLIPBOARD"
@@ -2908,6 +2947,7 @@ impl NodeControlService {
                 stop_on_error: true,
                 tab_id: action.tab_id.clone(),
                 tab_url: action.tab_url.clone(),
+                dialog_id: action.dialog_id.clone(),
             };
             match Box::pin(self.execute_agent_action(&single)).await {
                 Ok(state) => {
@@ -2960,6 +3000,12 @@ impl NodeControlService {
             anyhow::ensure!(
                 payload.tab_id.is_empty() && payload.tab_url.is_empty(),
                 "non-tab action contains tab fields"
+            );
+        }
+        if !matches!(payload.tool_id.as_str(), "ACCEPT_DIALOG" | "DISMISS_DIALOG") {
+            anyhow::ensure!(
+                payload.dialog_id.is_empty(),
+                "non-dialog action contains dialog fields"
             );
         }
         let mut checked_verification: Option<(String, bool)> = None;
@@ -3195,6 +3241,30 @@ impl NodeControlService {
                 );
                 self.state_collector
                     .close_tab(&payload.session_id, &payload.tab_id)
+                    .await?;
+            }
+            "ACCEPT_DIALOG" | "DISMISS_DIALOG" => {
+                anyhow::ensure!(
+                    payload.target_ref.is_empty()
+                        && payload.target_revision == 0
+                        && payload.tab_id.is_empty()
+                        && payload.tab_url.is_empty()
+                        && payload.sealed_text.is_empty(),
+                    "Native Dialog action contains unsupported fields"
+                );
+                if payload.tool_id == "DISMISS_DIALOG" {
+                    anyhow::ensure!(
+                        payload.text.is_empty(),
+                        "Dismiss Native Dialog cannot carry prompt text"
+                    );
+                }
+                self.state_collector
+                    .handle_native_dialog(
+                        &payload.session_id,
+                        &payload.dialog_id,
+                        payload.tool_id == "ACCEPT_DIALOG",
+                        (!payload.text.is_empty()).then_some(payload.text.as_str()),
+                    )
                     .await?;
             }
             "WAIT_FOR" => {
@@ -3628,6 +3698,22 @@ impl NodeControlService {
                                         &command.session_id,
                                         state_collector_budget_percent,
                                     )
+                                    .await
+                                {
+                                    if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
+                                        gateway.unregister_session(&command.session_id);
+                                    }
+                                    self.state_collector
+                                        .unregister_runtime(&command.session_id)
+                                        .await;
+                                    let _ = self.runtime_supervisor.stop(&command.session_id).await;
+                                    self.release_start_resources(&command.session_id, &workspace)
+                                        .await;
+                                    return self.failed(command, error);
+                                }
+                                if let Err(error) = self
+                                    .state_collector
+                                    .start_native_dialog_monitor(&command.session_id)
                                     .await
                                 {
                                     if let Some(gateway) = self.remote_desktop_gateway.as_ref() {
@@ -5016,6 +5102,8 @@ impl NodeControlService {
                                 | "OPEN_TAB"
                                 | "SWITCH_TAB"
                                 | "CLOSE_TAB"
+                                | "ACCEPT_DIALOG"
+                                | "DISMISS_DIALOG"
                                 | "TYPE_TEXT"
                                 | "FILL"
                                 | "PASTE_AGENT_CLIPBOARD"
@@ -5567,6 +5655,7 @@ impl NodeControlService {
                             stop_on_error: true,
                             tab_id: String::new(),
                             tab_url: String::new(),
+                            dialog_id: String::new(),
                         };
                         let state = match self.execute_agent_action(&click).await {
                             Ok(state) => state,
@@ -8149,6 +8238,20 @@ mod tests {
             agent_action_error_code("CLICK_TARGET", &anyhow::anyhow!("CDP command timed out")),
             "ACTION_TIMEOUT"
         );
+        assert_eq!(
+            agent_action_error_code(
+                "ACCEPT_DIALOG",
+                &anyhow::anyhow!("Native Dialog evidence is stale")
+            ),
+            "DIALOG_STATE_STALE"
+        );
+        assert_eq!(
+            agent_action_error_code(
+                "DISMISS_DIALOG",
+                &anyhow::anyhow!("Native Dialog is stale or unknown")
+            ),
+            "DIALOG_NOT_FOUND"
+        );
     }
 
     #[test]
@@ -8166,6 +8269,8 @@ mod tests {
                 active: true,
             }],
             active_tab_id: "tab-1".to_owned(),
+            native_dialogs: Vec::new(),
+            native_dialog_evidence_fresh: true,
             targets: Vec::new(),
             quality: StateQuality::Complete,
             content_hash: format!("hash-{version}"),

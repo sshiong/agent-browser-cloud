@@ -56,6 +56,8 @@ public class AgentExecutionService {
           ToolId.OPEN_TAB,
           ToolId.SWITCH_TAB,
           ToolId.CLOSE_TAB,
+          ToolId.ACCEPT_DIALOG,
+          ToolId.DISMISS_DIALOG,
           ToolId.EXECUTE_ACTIONS);
 
   private final AgentTaskJpaRepository taskRepository;

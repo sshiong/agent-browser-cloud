@@ -351,6 +351,81 @@ class AgentApplicationServiceTest {
   }
 
   @Test
+  void plansExactNativePromptAcceptanceWithoutExposingPromptValue() {
+    when(stateRepository.find(anyString()))
+        .thenReturn(
+            Optional.of(
+                new BrowserStateRepository.Snapshot(
+                    "tenant-test",
+                    3,
+                    new NodeEvent.StateUpdated(
+                        "ses_1234567890abcdef",
+                        10,
+                        2,
+                        "https://example.com/current",
+                        "Example",
+                        List.of(
+                            new NodeEvent.BrowserTab(
+                                "tab-main", "https://example.com/current", "Example", true)),
+                        "tab-main",
+                        "dialog-hash",
+                        "COMPLETE",
+                        List.of(),
+                        "complete",
+                        500,
+                        true,
+                        "PERIODIC",
+                        "",
+                        List.of(),
+                        List.of(
+                            new NodeEvent.NativeDialog(
+                                "dlg_0123456789abcdef0123",
+                                "tab-main",
+                                "PROMPT",
+                                "Enter integration value",
+                                "",
+                                false)),
+                        true))));
+    var request =
+        new CreateAgentTaskRequest(
+            "Handle the authorized native prompt",
+            null,
+            List.of("example.com"),
+            8,
+            0,
+            List.of(),
+            List.of(
+                new CreateAgentTaskRequest.ActionRequest(
+                    ToolId.ACCEPT_DIALOG,
+                    null,
+                    null,
+                    "public-dialog-value",
+                    null,
+                    ActionDataClass.PUBLIC,
+                    null,
+                    null,
+                    null,
+                    List.of(),
+                    true,
+                    null,
+                    null,
+                    "dlg_0123456789abcdef0123")));
+
+    var view = service.create("ses_1234567890abcdef", "tenant-test", request, "idem-dialog");
+
+    assertThat(view.state()).isEqualTo(TaskState.PLANNED);
+    var action =
+        view.plan().steps().stream()
+            .filter(step -> step.toolId() == ToolId.ACCEPT_DIALOG)
+            .findFirst()
+            .orElseThrow();
+    assertThat(action.input().dialogId()).isEqualTo("dlg_0123456789abcdef0123");
+    assertThat(action.input().payloadHash()).matches("^[0-9a-f]{64}$");
+    assertThat(action.input().payloadLength()).isEqualTo(19);
+    assertThat(view.toString()).doesNotContain("public-dialog-value");
+  }
+
+  @Test
   void plansExtendedPointerAndFormControlActionsInsideOneStateFencedBatch() {
     when(stateRepository.find(anyString()))
         .thenReturn(

@@ -16,6 +16,7 @@ export type { AgentBatchActionInput } from './models/AgentBatchActionInput.js';
 export type { AgentBatchActionRequest } from './models/AgentBatchActionRequest.js';
 export type { AgentBrowserFindRequest } from './models/AgentBrowserFindRequest.js';
 export type { AgentBrowserInspectRequest } from './models/AgentBrowserInspectRequest.js';
+export type { AgentBrowserNativeDialog } from './models/AgentBrowserNativeDialog.js';
 export type { AgentBrowserSnapshot } from './models/AgentBrowserSnapshot.js';
 export type { AgentBrowserTab } from './models/AgentBrowserTab.js';
 export type { AgentBrowserTargetList } from './models/AgentBrowserTargetList.js';

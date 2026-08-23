@@ -1,8 +1,8 @@
 # Agent Browser Cloud 项目交接与开发约定
 
-> 更新日期：2026-08-20
+> 更新日期：2026-08-23
 > 基准分支：`main`
-> 编写时基准提交：`66d0fef feat: add authoritative browser tabs`
+> 编写时基准提交：`5bdd2b8 docs: record authoritative tab workflow gates`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -51,7 +51,7 @@
 | Worker/平台 | Python Application Adapter、Validation/GameDay/Agent/Reviewer/Vision Worker；Go Terraform Provider；Kubernetes Operator |
 | 交付与验证 | Docker/Compose、Kubernetes/Kind、GitHub Actions、Cosign、SPDX/SBOM、N/N-1 Gate |
 
-当前公开 OpenAPI 基线为 **226 Operations / 301 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
+当前公开 OpenAPI 基线为 **226 Operations / 302 Schemas**；修改正式 API 后必须同步契约、生成 SDK、Manifest 与相关测试。
 
 ## 4. 整体架构与主要模块
 
@@ -165,6 +165,10 @@ Rust Browser Node
   证据歧义时 fail-closed；Input Broker 随活动 Page 安全重绑定。统一 Batch 已支持
   OPEN/SWITCH/CLOSE Tab，并重验允许域、Capability、State/Target Revision、Tab Resource
   Policy 和最后 Tab 保护，见 progress 152。
+- [已确认] Browser Node 已通过持续 CDP 事件和安全 Runtime Probe 投影原生
+  alert/confirm/prompt/beforeunload；PostgreSQL 保存最后 Dialog 与 freshness，断线保留但
+  降级并拒绝旧动作。统一 Batch 已支持 ACCEPT/DISMISS/Prompt，且与 DOM Dialog、权限弹窗
+  分离，见 progress 153。
 - [已确认] V106—V108 分别增加有界 Human-like Motion Policy、创建时锁定且
   每次 Runtime 启动重放的 Session Identity Spec，以及与 VNC UserClipboard 完全隔离、
   PostgreSQL/AES-GCM 权威的 AgentClipboard。详细边界见 progress 149。
@@ -180,6 +184,12 @@ Rust Browser Node
 - [已确认] Recording 的像素采集、语义遮罩、create-only Segment/Marker/Manifest、Node Journal 收尾和 PostgreSQL Retention/Legal Hold 投影已实现。
 
 ### 最近验证状态
+
+- Agent Browser 原生 Dialog 切片本地 Control Plane 466 项、Rust Workspace、Web 115 项、
+  Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与两轮完整
+  PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；Integration 显式覆盖四种
+  JavaScript Dialog、Prompt 回填、明文不回显、freshness 与权威关闭，输出
+  `native_dialog_lifecycle=true`。GitHub `ci/desktop` 待本切片提交推送后检查，见 progress 153。
 
 - Agent Browser 权威多标签页切片本地 Control Plane 462 项、Rust/Web 定向测试、
   OpenAPI/四 SDK、N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium Integration 已通过；
@@ -250,9 +260,10 @@ Rust Browser Node
   Operator、50k Coordinator Capacity、N−1 和完整 PostgreSQL/mTLS/Chromium Integration
   已通过；提交 `a14e5f1` 的 GitHub `ci` run `32363001442` 与 `desktop` run
   `32363001455` 也均通过；
-- 当前继续收口原生 Dialog/File/局部 Screenshot/受治理 JS Evaluate 和 Select/Press/
-  Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见 progress 149、151、152；稳定
-  Element ID 重绑定、扩展指针/表单动作和权威 Tab 已通过完整本地 Gate。
+- 原生 Dialog 已由 progress 153 闭环；当前继续收口 File/局部 Screenshot/受治理 JS
+  Evaluate 和 Select/Press/Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Primitive，见
+  progress 149、151—153；稳定 Element ID 重绑定、扩展指针/表单动作、权威 Tab 与原生
+  Dialog 已通过完整本地 Gate。
 
 ### Agent SAFE/AUTONOMOUS 与敏感输入自动化（已闭环）
 
@@ -304,7 +315,7 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 3. 目标云 Secret 解引用/轮换/撤销、商业 Proxy Provider Adapter、高级 SLA/业务成功率路由、Challenge/黑名单与受约束探索。
 4. 无语义像素/OCR Validator、客户站点高级组合规则、大规模 Replay/Canary/回滚阈值。
 5. Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM、到期对象删除 Worker；OCR 级敏感信息分类。
-6. Agent Browser 原生 Dialog/File、局部 Screenshot、受治理 JS Evaluate、Select/Press/
+6. Agent Browser File、局部 Screenshot、受治理 JS Evaluate、Select/Press/
    Drag/Drop/Swipe/通用 Mouse/Keyboard/Touch Action Primitive 和
    AgentClipboard/UserClipboard 显式受控 Bridge；现有底层能力不等于
    已完成粗粒度 Agent Gateway 契约。
@@ -336,6 +347,9 @@ Hold、对象存储 Helper 和 Evidence Grant 边界，不得把 PostgreSQL 删�
 9. [已确认] **安全默认值**：OIDC/RBAC、mTLS、最小权限、fail-closed、用途绑定短期授权、签名与重放防护；公共 API 不返回 Secret URL、对象路径或敏感快照内容。
 10. [已确认] **迁移策略**：数据库迁移 expand-only；必须保持 N/N-1 滚动兼容，旧枚举/字段在兼容窗口结束前不物理删除。
 11. [已确认] **UI 方向**：Neo-Industrial Observatory，高信息密度、企业级、深浅主题、状态不只依赖颜色；Web 优先并与 Tauri 共用组件/API/权限逻辑。
+12. [已确认] **原生 Dialog**：只认持续 `Page.javascriptDialogOpening/Closed` 和安全 Probe；
+    DOM Dialog/权限弹窗独立。Prompt Secret 只在 Node 派发前解封；freshness 丢失时保留最后
+    PostgreSQL 投影但拒绝旧动作，禁止把 DOM role 或空列表冒充已关闭。
 
 ## 10. 重要约束和开发原则
 
@@ -386,8 +400,8 @@ make test-desktop
 
 ## 13. 下一步开发计划
 
-1. 按 progress 149、151、152 的保留边界继续收口原生 Dialog/File/Screenshot/Evaluate 与
-   高级 Action Primitive；基础结构化感知/Batch/Identity/Clipboard/Tab 切片不得重做。
+1. 按 progress 149、151—153 的保留边界继续收口 File/Screenshot/Evaluate 与高级 Action
+   Primitive；基础结构化感知/Batch/Identity/Clipboard/Tab/原生 Dialog 切片不得重做。
 2. 随后开始 Recording purpose-bound 一次性播放 Grant、目标 Bucket Object Lock/WORM 与
    到期删除 Worker；实施前复核对象存储和 Retention/Legal Hold 当前边界。
 3. Warm Tier 数据库感知 Adapter/Resume/跨 Region Restore、目标 Provider/Secret/Proxy 和 OCR/Replay 按第 12 节顺序推进。

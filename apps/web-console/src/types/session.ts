@@ -857,6 +857,8 @@ export interface BrowserStateView {
   targets: InteractiveTargetView[];
   tabs: BrowserTabView[];
   activeTabId: string;
+  nativeDialogs: BrowserNativeDialogView[];
+  nativeDialogEvidenceFresh: boolean;
 }
 
 export interface BrowserTabView {
@@ -864,6 +866,15 @@ export interface BrowserTabView {
   url: string;
   title: string;
   active: boolean;
+}
+
+export interface BrowserNativeDialogView {
+  dialogId: string;
+  tabId: string;
+  dialogType: 'ALERT' | 'CONFIRM' | 'PROMPT' | 'BEFOREUNLOAD';
+  message: string;
+  defaultPrompt: string;
+  hasBrowserHandler: boolean;
 }
 
 export interface StateResyncRequest {

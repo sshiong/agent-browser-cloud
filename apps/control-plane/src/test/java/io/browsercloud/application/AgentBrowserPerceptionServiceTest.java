@@ -33,6 +33,15 @@ class AgentBrowserPerceptionServiceTest {
     assertThat(snapshot.state().targets().getFirst().elementId()).isEqualTo("e12");
     assertThat(snapshot.tabs()).extracting(TabView::tabId).containsExactly("tab-login");
     assertThat(snapshot.activeTab().tabId()).isEqualTo("tab-login");
+    assertThat(snapshot.dialogElementIds()).isEmpty();
+    assertThat(snapshot.nativeDialogEvidenceFresh()).isTrue();
+    assertThat(snapshot.nativeDialogs())
+        .singleElement()
+        .satisfies(
+            dialog -> {
+              assertThat(dialog.dialogId()).isEqualTo("dlg_0123456789abcdef0123");
+              assertThat(dialog.dialogType()).isEqualTo("PROMPT");
+            });
 
     var inspected =
         service.inspect(
@@ -93,7 +102,11 @@ class AgentBrowserPerceptionServiceTest {
         List.of(
             new BrowserStateView.BrowserTabView(
                 "tab-login", "https://example.test/login", "Login", true)),
-        "tab-login");
+        "tab-login",
+        List.of(
+            new BrowserStateView.NativeDialogView(
+                "dlg_0123456789abcdef0123", "tab-login", "PROMPT", "Enter OTP", "", false)),
+        true);
   }
 
   private static BrowserStateView.InteractiveTargetView target(

@@ -119,6 +119,74 @@ class JpaBrowserStateRepositoryTest {
     assertThat(applied).isFalse();
   }
 
+  @Test
+  void shouldPreserveLastNativeDialogProjectionAcrossObserverGap() throws Exception {
+    var jpa = mock(BrowserStateJpaRepository.class);
+    var objectMapper = new ObjectMapper();
+    var tab = new NodeEvent.BrowserTab("tab-app", "https://example.test/app", "App", true);
+    var dialog =
+        new NodeEvent.NativeDialog(
+            "dlg_0123456789abcdef0123", "tab-app", "CONFIRM", "Continue?", "", false);
+    var previous =
+        new NodeEvent.StateUpdated(
+            "ses_test",
+            7,
+            3,
+            "https://example.test/app",
+            "App",
+            List.of(tab),
+            "tab-app",
+            "hash-7",
+            "COMPLETE",
+            List.of(),
+            "complete",
+            1_000,
+            true,
+            "PERIODIC",
+            "",
+            List.of(),
+            List.of(dialog),
+            true);
+    var entity = new BrowserStateEntity();
+    entity.setSessionId("ses_test");
+    entity.setTenantId("tenant-test");
+    entity.setContextEpoch(2);
+    entity.setStateVersion(7);
+    entity.setStateJson(objectMapper.writeValueAsString(previous));
+    when(jpa.findById("ses_test")).thenReturn(Optional.of(entity));
+    when(jpa.save(any(BrowserStateEntity.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    var repository = new JpaBrowserStateRepository(jpa, objectMapper);
+
+    repository.save(
+        "tenant-test",
+        2,
+        new NodeEvent.StateUpdated(
+            "ses_test",
+            8,
+            3,
+            "https://example.test/app",
+            "App",
+            List.of(tab),
+            "tab-app",
+            "hash-8",
+            "COMPLETE",
+            List.of(),
+            "complete",
+            1_500,
+            true,
+            "PERIODIC",
+            "",
+            List.of(),
+            List.of(),
+            false));
+
+    var persisted = objectMapper.readValue(entity.getStateJson(), NodeEvent.StateUpdated.class);
+    assertThat(persisted.nativeDialogs()).containsExactly(dialog);
+    assertThat(persisted.nativeDialogEvidenceFresh()).isFalse();
+    assertThat(persisted.stateQuality()).isEqualTo("DEGRADED");
+  }
+
   private static NodeEvent.InteractiveTarget target(String targetRef, String name) {
     return new NodeEvent.InteractiveTarget(targetRef, "button", name, null, true, true, false);
   }

@@ -617,6 +617,17 @@ message BrowserTabState {
   bool active = 4;
 }
 
+// Browser-native JavaScript Dialog. DOM/A11y role=dialog remains an InteractiveTarget and must
+// never be projected into this lifecycle.
+message BrowserNativeDialogState {
+  string dialog_id = 1;
+  string tab_id = 2;
+  string dialog_type = 3;
+  string message = 4;
+  string default_prompt = 5;
+  bool has_browser_handler = 6;
+}
+
 message BrowserStateEvent {
   string session_id = 1;
   uint64 state_version = 2;
@@ -640,6 +651,10 @@ message BrowserStateEvent {
   // Browser-level Page Target projection. N-1 Nodes leave both fields empty.
   repeated BrowserTabState tabs = 15;
   string active_tab_id = 16;
+  repeated BrowserNativeDialogState native_dialogs = 17;
+  // False means N-1 or an observer gap. Control Plane preserves the last projection but rejects
+  // dialog actions until a continuous event stream or a safe Runtime probe restores freshness.
+  bool native_dialog_evidence_fresh = 18;
 }
 
 // 显式 FULL Resync 的有界流式传输。Begin 声明不可变清单，Chunk 只承载状态
@@ -738,6 +753,7 @@ message AgentActionCommand {
   bool stop_on_error = 17;
   string tab_id = 18;
   string tab_url = 19;
+  string dialog_id = 20;
 }
 
 message AgentActionPrimitive {
@@ -758,6 +774,7 @@ message AgentActionPrimitive {
   string element_id = 12;
   string tab_id = 13;
   string tab_url = 14;
+  string dialog_id = 15;
 }
 
 message AgentActionOutcome {
@@ -909,6 +926,8 @@ message BrowserStateDiffEvent {
   optional uint64 collection_cpu_millis = 17;
   repeated BrowserTabState tabs = 18;
   string active_tab_id = 19;
+  repeated BrowserNativeDialogState native_dialogs = 20;
+  bool native_dialog_evidence_fresh = 21;
 }
 
 message DiffTruncatedEvent {

@@ -6,6 +6,7 @@ import io.browsercloud.coordinator.NodeEventReceived;
 import io.browsercloud.proto.node.v1.AgentActionFailedEvent;
 import io.browsercloud.proto.node.v1.AgentNavigationFailedEvent;
 import io.browsercloud.proto.node.v1.BrowserCrashEvent;
+import io.browsercloud.proto.node.v1.BrowserNativeDialogState;
 import io.browsercloud.proto.node.v1.BrowserStateDiffEvent;
 import io.browsercloud.proto.node.v1.BrowserStateEvent;
 import io.browsercloud.proto.node.v1.BrowserStateSnapshotBeginEvent;
@@ -455,6 +456,11 @@ public class NodeEventMapper {
           var upsertedTargets =
               payload.getUpsertedTargetsList().stream().map(this::target).toList();
           var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
+          var nativeDialogs = nativeDialogs(payload.getNativeDialogsList(), tabs);
+          if (payload.getNativeDialogEvidenceFresh() && tabs.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Fresh Native Dialog evidence requires Browser tabs");
+          }
           validateReadinessEvidence(
               payload.getDocumentReadyState(), payload.getNetworkQuietMillis());
           yield new NodeEvent.StateDiff(
@@ -477,7 +483,9 @@ public class NodeEventMapper {
               payload.getRequestedRootRef(),
               resyncRequestId,
               envelope.getPayload().size(),
-              collectionCpuMillis);
+              collectionCpuMillis,
+              nativeDialogs,
+              payload.getNativeDialogEvidenceFresh());
         }
         case DIFF_TRUNCATED -> {
           var payload = DiffTruncatedEvent.parseFrom(envelope.getPayload());
@@ -520,11 +528,22 @@ public class NodeEventMapper {
           requireText(payload.getErrorCode(), "error_code");
           if (!java.util.Set.of(
                   "CLICK_TARGET",
+                  "DOUBLE_CLICK_TARGET",
+                  "RIGHT_CLICK_TARGET",
+                  "HOVER_TARGET",
+                  "CLEAR_TARGET",
+                  "CHECK_TARGET",
+                  "UNCHECK_TARGET",
                   "TYPE_TEXT",
                   "FILL",
                   "PASTE_AGENT_CLIPBOARD",
                   "SCROLL",
                   "WAIT_FOR",
+                  "OPEN_TAB",
+                  "SWITCH_TAB",
+                  "CLOSE_TAB",
+                  "ACCEPT_DIALOG",
+                  "DISMISS_DIALOG",
                   "EXECUTE_ACTIONS")
               .contains(payload.getToolId())) {
             throw new IllegalArgumentException("unsupported Agent Action tool_id");
@@ -815,6 +834,10 @@ public class NodeEventMapper {
     }
     var targets = payload.getTargetsList().stream().map(this::target).toList();
     var tabs = tabs(payload.getTabsList(), payload.getActiveTabId());
+    var nativeDialogs = nativeDialogs(payload.getNativeDialogsList(), tabs);
+    if (payload.getNativeDialogEvidenceFresh() && tabs.isEmpty()) {
+      throw new IllegalArgumentException("Fresh Native Dialog evidence requires Browser tabs");
+    }
     if (payload.getActionOutcomesCount() > 20) {
       throw new IllegalArgumentException("Agent action outcome count exceeds 20");
     }
@@ -853,7 +876,59 @@ public class NodeEventMapper {
         payload.getNetworkEvidenceFresh(),
         payload.getSnapshotKind(),
         payload.getRequestedRootRef(),
-        actionOutcomes);
+        actionOutcomes,
+        nativeDialogs,
+        payload.getNativeDialogEvidenceFresh());
+  }
+
+  private List<NodeEvent.NativeDialog> nativeDialogs(
+      List<BrowserNativeDialogState> payloadDialogs, List<NodeEvent.BrowserTab> tabs) {
+    if (payloadDialogs.size() > 100) {
+      throw new IllegalArgumentException("Browser native Dialog count exceeds 100");
+    }
+    var tabIds =
+        tabs.stream().map(NodeEvent.BrowserTab::tabId).collect(java.util.stream.Collectors.toSet());
+    var dialogs =
+        payloadDialogs.stream()
+            .map(
+                dialog -> {
+                  if (!dialog.getDialogId().matches("^dlg_[0-9a-f]{20}$")
+                      || dialog.getTabId().isBlank()
+                      || dialog.getTabId().length() > 128
+                      || !tabIds.contains(dialog.getTabId())
+                      || !java.util.Set.of("ALERT", "CONFIRM", "PROMPT", "BEFOREUNLOAD")
+                          .contains(dialog.getDialogType())
+                      || invalidDialogText(dialog.getMessage())
+                      || invalidDialogText(dialog.getDefaultPrompt())) {
+                    throw new IllegalArgumentException("Browser native Dialog metadata is invalid");
+                  }
+                  return new NodeEvent.NativeDialog(
+                      dialog.getDialogId(),
+                      dialog.getTabId(),
+                      dialog.getDialogType(),
+                      dialog.getMessage(),
+                      dialog.getDefaultPrompt(),
+                      dialog.getHasBrowserHandler());
+                })
+            .toList();
+    if (dialogs.stream().map(NodeEvent.NativeDialog::dialogId).distinct().count() != dialogs.size()
+        || dialogs.stream().map(NodeEvent.NativeDialog::tabId).distinct().count()
+            != dialogs.size()) {
+      throw new IllegalArgumentException("Browser native Dialog identity is inconsistent");
+    }
+    return dialogs;
+  }
+
+  private boolean invalidDialogText(String value) {
+    return value.length() > 4_096
+        || value
+            .chars()
+            .anyMatch(
+                character ->
+                    Character.isISOControl(character)
+                        && character != '\n'
+                        && character != '\r'
+                        && character != '\t');
   }
 
   private List<NodeEvent.BrowserTab> tabs(List<BrowserTabState> payloadTabs, String activeTabId) {

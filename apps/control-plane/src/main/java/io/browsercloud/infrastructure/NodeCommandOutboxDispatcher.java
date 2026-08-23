@@ -340,6 +340,19 @@ public class NodeCommandOutboxDispatcher {
                     action.getSealedText());
             materialized.addActions(
                 action.toBuilder().clearSealedText().setText(plaintext).build());
+          } else if (action.getToolId().equals("ACCEPT_DIALOG")
+              && !action.getSealedText().isBlank()) {
+            if (!action.getText().isBlank()) {
+              throw new IllegalArgumentException("Agent Dialog prompt envelope is invalid");
+            }
+            var plaintext =
+                actionPayloadService.unseal(
+                    command.tenantId(),
+                    payload.getTaskId(),
+                    payload.getStepId() + ":" + action.getActionId(),
+                    action.getSealedText());
+            materialized.addActions(
+                action.toBuilder().clearSealedText().setText(plaintext).build());
           } else {
             if (!action.getSealedText().isBlank() || !action.getText().isBlank()) {
               throw new IllegalArgumentException("Agent batch non-text action carries text");
@@ -348,6 +361,18 @@ public class NodeCommandOutboxDispatcher {
           }
         }
         return materialized.build().toByteArray();
+      }
+      if (payload.getToolId().equals("ACCEPT_DIALOG") && !payload.getSealedText().isBlank()) {
+        if (!payload.getText().isBlank()) {
+          throw new IllegalArgumentException("Agent Dialog prompt payload envelope is invalid");
+        }
+        var plaintext =
+            actionPayloadService.unseal(
+                command.tenantId(),
+                payload.getTaskId(),
+                payload.getStepId(),
+                payload.getSealedText());
+        return payload.toBuilder().clearSealedText().setText(plaintext).build().toByteArray();
       }
       if (!isTextInput(payload.getToolId())) {
         return command.payload();

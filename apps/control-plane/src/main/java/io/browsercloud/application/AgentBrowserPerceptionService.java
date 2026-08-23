@@ -80,6 +80,18 @@ public class AgentBrowserPerceptionService {
         focused,
         formControls,
         dialogs,
+        state.nativeDialogs().stream()
+            .map(
+                dialog ->
+                    new NativeDialogView(
+                        dialog.dialogId(),
+                        dialog.tabId(),
+                        dialog.dialogType(),
+                        dialog.message(),
+                        dialog.defaultPrompt(),
+                        dialog.hasBrowserHandler()))
+            .toList(),
+        state.nativeDialogEvidenceFresh(),
         state.documentReadyState(),
         "NOT_EVALUATED",
         visionRecommended);
@@ -142,7 +154,10 @@ public class AgentBrowserPerceptionService {
   }
 
   private static void requireExecutable(BrowserStateView state) {
-    if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())) {
+    if (!Set.of("COMPLETE", "DEPTH_LIMITED").contains(state.stateQuality())
+        && !(state.stateQuality().equals("DEGRADED")
+            && state.nativeDialogEvidenceFresh()
+            && !state.nativeDialogs().isEmpty())) {
       throw new PerceptionException("BROWSER_STATE_NOT_EXECUTABLE");
     }
     if (state.tabs().isEmpty()) {
@@ -157,6 +172,17 @@ public class AgentBrowserPerceptionService {
         || state.tabs().stream()
             .noneMatch(tab -> tab.active() && tab.tabId().equals(state.activeTabId()))) {
       throw new PerceptionException("BROWSER_TAB_STATE_INVALID");
+    }
+    if (state.nativeDialogs().stream()
+                .map(BrowserStateView.NativeDialogView::dialogId)
+                .distinct()
+                .count()
+            != state.nativeDialogs().size()
+        || state.nativeDialogs().stream()
+            .anyMatch(
+                dialog ->
+                    state.tabs().stream().noneMatch(tab -> tab.tabId().equals(dialog.tabId())))) {
+      throw new PerceptionException("BROWSER_NATIVE_DIALOG_STATE_INVALID");
     }
   }
 

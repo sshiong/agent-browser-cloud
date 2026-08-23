@@ -99,7 +99,9 @@ public class AgentNavigationCompletionService {
     var nextIndex = task.getCurrentStep() + 1;
     if (nextIndex >= plan.steps().size()) return false;
     var next = plan.steps().get(nextIndex);
-    return (next.toolId() == ToolId.TYPE_TEXT || next.toolId() == ToolId.FILL)
+    return (next.toolId() == ToolId.TYPE_TEXT
+            || next.toolId() == ToolId.FILL
+            || next.toolId() == ToolId.ACCEPT_DIALOG)
         && next.input() != null
         && next.input().allowSensitiveTarget()
         && java.util.Set.of(ActionDataClass.CREDENTIAL, ActionDataClass.OTP)
@@ -178,6 +180,24 @@ public class AgentNavigationCompletionService {
         && state.tabs().stream().anyMatch(tab -> tab.tabId().equals(step.input().tabId()))) {
       return "CLOSE_TAB_NOT_AUTHORITATIVE";
     }
+    var handledDialogIds =
+        step.toolId() == ToolId.EXECUTE_ACTIONS
+            ? step.input().actions().stream()
+                .filter(
+                    action ->
+                        Set.of(ToolId.ACCEPT_DIALOG, ToolId.DISMISS_DIALOG)
+                            .contains(action.toolId()))
+                .map(ActionInput::dialogId)
+                .toList()
+            : Set.of(ToolId.ACCEPT_DIALOG, ToolId.DISMISS_DIALOG).contains(step.toolId())
+                ? java.util.List.of(step.input().dialogId())
+                : java.util.List.<String>of();
+    if (!handledDialogIds.isEmpty()
+        && (!state.nativeDialogEvidenceFresh()
+            || state.nativeDialogs().stream()
+                .anyMatch(dialog -> handledDialogIds.contains(dialog.dialogId())))) {
+      return "NATIVE_DIALOG_NOT_AUTHORITATIVELY_CLOSED";
+    }
     return null;
   }
 
@@ -213,6 +233,10 @@ public class AgentNavigationCompletionService {
       output.put("inputHash", step.input().payloadHash());
       output.put("inputLength", step.input().payloadLength());
       output.put("inputDataClass", step.input().dataClass().name());
+    }
+    if (Set.of(ToolId.ACCEPT_DIALOG, ToolId.DISMISS_DIALOG).contains(step.toolId())) {
+      output.put("handledDialogId", step.input().dialogId());
+      output.put("nativeDialogEvidenceFresh", state.nativeDialogEvidenceFresh());
     }
     if (step.toolId() == ToolId.EXECUTE_ACTIONS) {
       output.put(

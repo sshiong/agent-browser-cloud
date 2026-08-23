@@ -22,6 +22,8 @@ public final class AgentBrowserPerceptionModels {
       String focusedElementId,
       List<String> formControlElementIds,
       List<String> dialogElementIds,
+      List<NativeDialogView> nativeDialogs,
+      boolean nativeDialogEvidenceFresh,
       String pageLoadingState,
       String challengeState,
       boolean visionRecommended) {
@@ -41,6 +43,18 @@ public final class AgentBrowserPerceptionModels {
           null,
           List.of(),
           List.of(),
+          state.nativeDialogs().stream()
+              .map(
+                  dialog ->
+                      new NativeDialogView(
+                          dialog.dialogId(),
+                          dialog.tabId(),
+                          dialog.dialogType(),
+                          dialog.message(),
+                          dialog.defaultPrompt(),
+                          dialog.hasBrowserHandler()))
+              .toList(),
+          state.nativeDialogEvidenceFresh(),
           state.documentReadyState(),
           "NOT_EVALUATED",
           false);
@@ -48,6 +62,14 @@ public final class AgentBrowserPerceptionModels {
   }
 
   public record TabView(String tabId, String url, String title, boolean active) {}
+
+  public record NativeDialogView(
+      String dialogId,
+      String tabId,
+      String dialogType,
+      String message,
+      String defaultPrompt,
+      boolean hasBrowserHandler) {}
 
   public record InspectRequest(
       @NotBlank @Pattern(regexp = "^[0-9]+:[0-9]+:[a-f0-9]{64}$") String stateCursor,

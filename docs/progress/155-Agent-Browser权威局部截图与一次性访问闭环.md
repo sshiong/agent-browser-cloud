@@ -1,7 +1,7 @@
 # Agent Browser 权威局部截图与一次性访问闭环
 
 > 日期：2026-08-24
-> 状态：仓库内实现与本地完整 Gate 已通过；GitHub CI/Desktop 待首次推送验证
+> 状态：仓库内实现、本地完整 Gate 与 GitHub CI/Desktop Gate 均已通过
 
 ## 目标与边界
 
@@ -69,7 +69,10 @@ AUTONOMOUS 下的结构化感知、截图和有界失败重试保持静默。只
 
 ## 剩余边界
 
+实现提交 `703f974` 的 GitHub `ci` run `32715223974` 已通过 Verify、镜像、SBOM/扫描、完整
+Integration、Object Storage/Recording GameDay 和 Kubernetes Operator E2E；`desktop` run
+`32715224012` 的 Windows/macOS 安全边界测试与 unsigned build 均通过。
+
 受治理 JavaScript Evaluate、Select/Press/Drag/Drop/Swipe、通用 Mouse/Keyboard/Touch 和
 AgentClipboard/UserClipboard 显式受控 Bridge 仍未完成。截图只提供脱敏视觉证据，不等于授权
-任意页面脚本、读取浏览器下载内容或绕过支付/账号安全确认。GitHub `ci`/`desktop` 必须在本切片
-推送后通过，届时才能把远端 Gate 写成完成。
+任意页面脚本、读取浏览器下载内容或绕过支付/账号安全确认。

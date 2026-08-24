@@ -2,7 +2,7 @@
 
 > 更新日期：2026-08-24
 > 基准分支：`main`
-> 编写时基准提交：`7daa803 docs: record browser file release gates`
+> 编写时基准提交：`703f974 feat: add state-fenced agent screenshots`
 > 适用范围：本仓库全部目录。子目录若以后出现更具体的 `AGENTS.md`，以更深层文件为准。
 
 ## 1. 接手时必须先做
@@ -198,7 +198,9 @@ Rust Browser Node
   50k Coordinator Capacity、V110 N/N−1 与完整 PostgreSQL/Redis/MinIO/mTLS/Chromium
   Integration 已通过；Integration 输出 `agent_browser_screenshots=true`，显式覆盖 Region 捕获、
   自动 State Cursor 重试、租户/Actor/Purpose 隔离、SHA-256 和一次性兑换。OpenAPI 基线为
-  233 Operations / 310 Schemas；GitHub `ci`/`desktop` 尚待首次推送验证，见 progress 155。
+  233 Operations / 310 Schemas；实现提交 `703f974` 的 GitHub `ci` run `32715223974`（含
+  供应链、完整 Integration、Object Storage/Recording GameDay 与 Kubernetes Operator E2E）
+  和 `desktop` run `32715224012`（Windows/macOS）均通过，见 progress 155。
 
 - Agent Browser 文件切片本地 Rust 最终 Clippy/Workspace 测试、Control Plane/Web 117 项、
   Worker/Provider、完整 Test/Lint/Build、Desktop、OpenAPI/四 SDK、N/N−1 与最新完整
